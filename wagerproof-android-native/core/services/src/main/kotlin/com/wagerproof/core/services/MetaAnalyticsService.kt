@@ -55,7 +55,14 @@ object MetaAnalyticsService {
     private var logger: AppEventsLogger? = null
     private var applicationContext: Context? = null
 
-    /** Boot the Meta SDK when out-of-band production credentials are present. */
+    /**
+     * Boot the Meta SDK. Callers pass `BuildConfig.FACEBOOK_APP_ID` /
+     * `FACEBOOK_CLIENT_TOKEN`, which app/build.gradle.kts now defaults to the real
+     * shared-Meta-app values — the blank guard below is a backstop for a deliberate
+     * blank override, not the normal path. It used to be the normal path: nothing
+     * supplied the credentials, so this returned here on every launch and every method
+     * below no-oped on `initialized`, sending Meta nothing at all.
+     */
     @Synchronized
     fun initialize(context: Context, appId: String, clientToken: String) {
         if (initialized) return

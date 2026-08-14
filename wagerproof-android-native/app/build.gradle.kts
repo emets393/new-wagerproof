@@ -43,11 +43,25 @@ check(releaseSigningCredentials.values.none { it != null } || hasReleaseSigning)
 fun quotedBuildConfig(value: String): String =
     "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
-val facebookAppId = releaseCredential("FACEBOOK_APP_ID").orEmpty()
-val facebookClientToken = releaseCredential("FACEBOOK_CLIENT_TOKEN").orEmpty()
-check(facebookAppId.isBlank() == facebookClientToken.isBlank()) {
-    "FACEBOOK_APP_ID and FACEBOOK_CLIENT_TOKEN must either both be set or both be absent."
+// Meta attribution credentials for the shared WagerProof Meta app. Committed, not
+// injected: iOS hardcodes the identical pair in Wagerproof/Info.plist, every client
+// binary ships them anyway, and neither authorizes anything server-side.
+//
+// They are DEFAULTS rather than required overrides because the injected-only design
+// shipped dead. Nothing ever supplied them — the repo has no Actions secrets and the
+// hand-built AABs passed no -P flags — so BuildConfig.FACEBOOK_APP_ID compiled to "",
+// MetaAnalyticsService.initialize() returned at its blank check on every launch, and
+// every event call then no-oped behind `if (!initialized) return`. Meta received nothing
+// from Android, not even the auto-logged install, while every build said SUCCESSFUL.
+// A committed default is wrong loudly; an absent credential was wrong silently.
+val metaAppIdOverride = releaseCredential("FACEBOOK_APP_ID")
+val metaClientTokenOverride = releaseCredential("FACEBOOK_CLIENT_TOKEN")
+check((metaAppIdOverride == null) == (metaClientTokenOverride == null)) {
+    "Override FACEBOOK_APP_ID and FACEBOOK_CLIENT_TOKEN together — a client token from a " +
+        "different Meta app is rejected for every event."
 }
+val facebookAppId = metaAppIdOverride ?: "935005752525075"
+val facebookClientToken = metaClientTokenOverride ?: "bd008d0839f36a9941c0ed27d686b615"
 
 android {
     namespace = "com.wagerproof.app"

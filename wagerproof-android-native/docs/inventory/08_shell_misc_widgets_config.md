@@ -331,7 +331,7 @@ when neither Glance widget is installed.
 - **URL schemes** (`CFBundleURLTypes`, name `com.wagerproof.mobile`): `wagerproof`, `rc-ff2fe0e0af` (RevenueCat web-purchase redemption), `com.googleusercontent.apps.142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq` (Google OAuth callback).
 - `UIBackgroundModes = [remote-notification]`.
 - Usage strings: Tracking ("deliver more relevant content…"), Camera + Photo Library (agent profile photo), Microphone (WagerBot voice chat), Speech Recognition (transcribe WagerBot questions).
-- Facebook: `FacebookAppID = $(FACEBOOK_APP_ID)`, `FacebookClientToken = $(FACEBOOK_CLIENT_TOKEN)`, display name WagerProof, `LSApplicationQueriesSchemes` fbapi/fb-messenger-share-api/fbauth2/fbshareextension. **The two build settings are not defined anywhere in the repo** (not in xcconfigs/project.yml) — values are injected outside source control; obtain from the Meta dashboard for Android.
+- Facebook: display name WagerProof, `LSApplicationQueriesSchemes` fbapi/fb-messenger-share-api/fbauth2/fbshareextension. **Correction (2026-08-13): `FacebookAppID` / `FacebookClientToken` are literal values in `Info.plist`, not `$(...)` build settings.** This snapshot's claim that they were injected out-of-band is what drove Android's injected-credential design — which nothing ever injected, so Android shipped with attribution dead. Android now commits the same pair in `app/build.gradle.kts`.
 - `ITSAppUsesNonExemptEncryption = false`.
 
 ### 6.3 Entitlements
@@ -349,7 +349,7 @@ Debug: DEBUG conditions, -Onone, singlefile, testability, APS dev. Release: -O w
 | Supabase CFB | `https://jpxnjuwglavsjbgbasnl.supabase.co` + anon key `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5qdXdnbGF2c2piZ2Jhc25sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTc4NjEsImV4cCI6MjA2ODI3Mzg2MX0.BjOHMysQh3wST-_UR6bJxHngRThlAmOOx4FfSVKRzWo` | same file |
 | RevenueCat iOS | `appl_TFQYZRtHkCBrnaILkniTjsulyHK` (project suffix ff2fe0e0af per the `rc-` scheme) | `WagerproofServices/RevenueCatService.swift` (Android needs a `goog_` key) |
 | Google Sign-In iOS client | `142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq.apps.googleusercontent.com` | `WagerproofServices/GoogleSignInCoordinator.swift` (Android needs its own + the web/server client id for Supabase id-token flow) |
-| Facebook App ID / client token | `$(FACEBOOK_APP_ID)` / `$(FACEBOOK_CLIENT_TOKEN)` — **not committed** | Info.plist placeholders only |
+| Facebook App ID / client token | App id `935005752525075` + client token, committed literally on both platforms | iOS `Info.plist`; Android `app/build.gradle.kts` (defaults, overridable with `-P`) |
 | Mixpanel token | iOS snapshot had no bootstrap; Android ships the same write-only RN/web project token in `AnalyticsService.kt` and bootstraps it from `AppGraph` | Android source |
 | Discord | invite `https://discord.gg/gwy9y7XSDV`; link function `…supabase.co/functions/v1/discord-callback?user_id=` | SideMenuSheet / DiscordView |
 | Support email | `admin@wagerproof.bet` | SideMenuSheet / SettingsView |
@@ -368,7 +368,7 @@ Suite `group.com.wagerproof.mobile`; keys: `last_notification_route`, `theme_pre
 2. **`wagerproof://reset-password` has no consumer**: parsed into `DeepLinkRoute.resetPassword`, `MainTabStore.apply` punts to "auth router", but AuthRouter has no reset-password route/screen. The Supabase reset email deep-links into the app and… nothing happens. Android should implement the missing set-new-password screen (or replicate the gap knowingly).
 3. **Remote push registration is dead code**: no AppDelegate adaptor calls `NotificationService.setDeviceToken`, so `registerPushToken` always early-returns (`cachedDeviceToken == nil`). Local notifications work; server pushes can't target this build. On Android, FCM token retrieval is explicit — don't copy the gap.
 4. **The iOS snapshot never initializes Mixpanel. Android does**, and also enables the owner-approved Meta install/GAID + full checkout attribution funnel.
-5. **FACEBOOK_APP_ID / FACEBOOK_CLIENT_TOKEN build settings are undefined in the repo** — injected out-of-band.
+5. ~~FACEBOOK_APP_ID / FACEBOOK_CLIENT_TOKEN build settings are undefined in the repo — injected out-of-band.~~ **Wrong**: iOS carries both literally in `Info.plist`. Acting on this line cost Android every Meta event until 2026-08-13. See §6.2 and `.claude/docs/18_meta_attribution.md`.
 6. **Widget payload key mismatch**: SharedKit declares `widget_payload_v1` but the shipping key is the RN-era literal `widgetPayload` (must keep for installed-widget compatibility on iOS; Android is free to pick one key).
 7. Dark-mode forcing is two-layered: `ThemeStore.init` coerces to `.dark` AND `overrideUserInterfaceStyle` is pushed onto every window (sheets included) — yet the side menu still shows a working System/Light/Dark picker (session-only; reverts to dark on relaunch).
 8. **Both widget providers read `TopAgentsWidgetService.readPayload()`** — TopOutliersProvider too (outliers live in the same blob; `OutliersWidgetService.sync()` writes `topOutliers` into it).

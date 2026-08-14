@@ -141,7 +141,9 @@ class AppGraph(val application: Application) {
      * [WagerproofApplication.onCreate] ahead of `AppGraph(...)`, not here.
      */
     fun bootstrap() {
-        // Meta SDK stays inert when its out-of-band production credentials are absent.
+        // Credentials are committed defaults in app/build.gradle.kts (same pair as iOS's
+        // Info.plist) — they were injected-only until 2026-08, and since nothing injected
+        // them the SDK never booted and Android reported no Meta events at all.
         // Must run BEFORE the RevenueCat bootstrap below — RevenueCatService hands
         // Meta's anonymous install id to RC as `$fbAnonId`, and it can only read
         // that id once the FB SDK is up.

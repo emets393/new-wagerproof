@@ -223,9 +223,15 @@ wagerproof-ios-native/
 
 ### 10. Meta Attribution
 - Acquisition funnel reported to Meta Ads: install, CompleteRegistration, ViewContent
-  (paywall), InitiateCheckout, StartTrial/Subscribe — on iOS native and web
+  (paywall), InitiateCheckout, StartTrial/Subscribe — on iOS native, Android native, and web
 - iOS fires through `MetaAnalyticsService` + `PaywallConversionTracker` (never inline in a
-  paywall view — the tracker dedupes by order id and covers all 8 paywall surfaces)
+  paywall view — the tracker dedupes by order id and covers all 8 paywall surfaces);
+  Android mirrors both files
+- **Android sent Meta nothing from launch until 2026-08-13**: the SDK credentials were
+  build-time injected and nothing injected them, so the app id compiled to `""` and every
+  event no-oped. They are committed defaults now, and
+  `wagerproof-android-native/scripts/verify-meta-attribution.sh` fails any release
+  artifact missing the app id (both Android workflows + `/build-android` run it)
 - Web uses the browser pixel (`src/lib/metaPixel.ts`) for top-of-funnel only
 - **`Subscribe`/`StartTrial` are sent server-side by RevenueCat's Facebook integration.
   This repo sends NO purchase conversion to Meta from the webhook or the browser — a second

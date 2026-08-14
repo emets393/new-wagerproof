@@ -28,7 +28,7 @@ Run the same checks as CI with:
 - Release signing: provide `WAGERPROOF_RELEASE_STORE_FILE`, `WAGERPROOF_RELEASE_STORE_PASSWORD`, `WAGERPROOF_RELEASE_KEY_ALIAS`, and `WAGERPROOF_RELEASE_KEY_PASSWORD` as environment variables or Gradle properties. A local release build without them is unsigned and never falls back to the debug key.
 - Google Sign-In: the package name and release SHA fingerprints must be registered against the existing Google Cloud OAuth project. The client uses the existing web/server client ID as its ID-token audience.
 - RevenueCat: the native app uses the existing Android public SDK key and entitlement `WagerProof Pro`; offerings for the onboarding and generic placements must remain configured in the RevenueCat dashboard.
-- Meta attribution: provide `FACEBOOK_APP_ID` and `FACEBOOK_CLIENT_TOKEN` as environment variables or Gradle properties. They must be supplied together; with neither present the SDK stays disabled. In the Meta app dashboard, register the Android package, `com.wagerproof.app.MainActivity`, and release key hashes. Automatic events and advertiser-ID collection are disabled so only explicit registration/purchase/subscription events are emitted; the Meta anonymous ID is forwarded to RevenueCat for CAPI attribution joins.
+- Meta attribution: **nothing to configure** — `app/build.gradle.kts` carries the shared Meta app's id and client token as committed defaults, the same pair iOS hardcodes in `Info.plist`. `FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` remain accepted as env vars or Gradle properties to point a build at a different Meta app, and must be overridden together. They used to be injected-only, nothing injected them, and the SDK shipped inert — so `scripts/verify-meta-attribution.sh` now fails any release artifact missing the app id, and both workflows run it. In the Meta app dashboard, register the Android package `com.wagerproof.mobile`, class `com.wagerproof.app.MainActivity`, and release key hashes. Auto app-event logging and advertiser-ID collection are ON (the advertising id is Android's primary attribution join key); the Meta anonymous ID is forwarded to RevenueCat for CAPI attribution joins.
 
 CI release signing uses the equivalent secrets `WAGERPROOF_RELEASE_KEYSTORE_BASE64`, `WAGERPROOF_RELEASE_STORE_PASSWORD`, `WAGERPROOF_RELEASE_KEY_ALIAS`, and `WAGERPROOF_RELEASE_KEY_PASSWORD`. The workflow rejects partial secret sets and otherwise verifies an unsigned release bundle when no signing secrets are available.
 
@@ -64,7 +64,7 @@ publish until they are added:
 | `WAGERPROOF_RELEASE_KEY_ALIAS` | `wagerproof-key` |
 | `WAGERPROOF_RELEASE_KEY_PASSWORD` | keystore key password |
 | `PLAY_SERVICE_ACCOUNT_JSON` | Google Cloud service-account JSON, granted "Release to production" in Play Console → Users and permissions |
-| `FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` | Meta app dashboard (optional; attribution is disabled without them) |
+| `FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` | Not needed — committed defaults in `app/build.gradle.kts`. Set only to target a different Meta app |
 | `GOOGLE_SERVICES_JSON_BASE64` | Firebase console (optional; FCM push stays inactive without it) |
 
 The Play Developer API cannot create a package's first release — `com.wagerproof.mobile`
