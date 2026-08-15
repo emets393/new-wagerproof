@@ -294,6 +294,29 @@ def tt_history():
 def build_flags(g):
     flags = []
 
+    def bet_fields(market, side, line):
+        """Structured direction for the UI (parity with gen_cfb_dryrun_flags 2026-08-15):
+        bet_team -> logo, bet_direction over/under -> green arrow, bet_line signed for THAT
+        bet. Parsed from the side string, whose formats the emitters own:
+        spread/h1_spread 'KC -3' | total/h1_total 'UNDER 44.5' | team_total 'KC UNDER 21.5'
+        | moneyline 'KC ML'. Returns (team_full_name, direction, line)."""
+        tok = str(side).split()
+        if not tok:
+            return None, None, None
+        def num(x):
+            try: return float(x)
+            except (TypeError, ValueError): return None
+        if tok[0].upper() in ("OVER", "UNDER"):
+            return None, tok[0].lower(), num(tok[1]) if len(tok) > 1 else (float(line) if pd.notna(line) else None)
+        team = AB_NAME.get(tok[0])
+        if team is None:
+            return None, None, None
+        if len(tok) > 1 and tok[1].upper() in ("OVER", "UNDER"):
+            return team, tok[1].lower(), num(tok[2]) if len(tok) > 2 else (float(line) if pd.notna(line) else None)
+        if len(tok) > 1 and tok[1].upper() == "ML":
+            return team, None, None
+        return team, None, num(tok[1]) if len(tok) > 1 else None
+
     def add(r, source, rule, tier, market, side, line, price, edge, mammoth=False):
         if mammoth:
             conv = "mammoth"
@@ -303,7 +326,9 @@ def build_flags(g):
             conv = "high"
         else:
             conv = "med"
+        bt, bd, bl = bet_fields(market, side, line)
         flags.append(dict(
+            bet_team=bt, bet_direction=bd, bet_line=bl,
             game_id=r.game_id, season=SEASON, week=WEEK,
             game=f"{r.away_ab}@{r.home_ab}", source=source, rule=rule, tier=tier,
             market=market, side=side,

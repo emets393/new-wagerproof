@@ -1601,8 +1601,16 @@ function resolvePickSignals(
 function betTeamLogo(betTeam: string | null | undefined, away: TeamRef | null, home: TeamRef | null): string | null {
   const t = (betTeam || '').trim().toUpperCase();
   if (!t) return null;
-  if (home && home.name.toUpperCase() === t) return home.logoUrl;
-  if (away && away.name.toUpperCase() === t) return away.logoUrl;
+  // Exact name, abbrev, or containment either way — NFL flags store the full
+  // "Kansas City Chiefs" while the TeamRef name may be city or nickname.
+  const hit = (team: TeamRef | null): boolean => {
+    if (!team) return false;
+    const name = team.name.toUpperCase();
+    const ab = team.abbrev.toUpperCase();
+    return name === t || ab === t || t.includes(name) || name.includes(t);
+  };
+  if (hit(home)) return home!.logoUrl;
+  if (hit(away)) return away!.logoUrl;
   return null;
 }
 
