@@ -6,6 +6,11 @@ import type { AgentProfile } from '@/types/agent';
 import { createAgent } from '@/services/agentService';
 import { getPrimaryColor } from '@/utils/agentColors';
 import {
+  trackOnboardingCompleted,
+  trackOnboardingStarted,
+  trackOnboardingStepCompleted,
+} from '@/lib/mixpanel';
+import {
   AGENT_NAME_MAX_LENGTH,
   AGENT_PITCH_SLIDE_COUNT,
   BETTOR_TYPE_ACCENTS,
@@ -14,6 +19,7 @@ import {
   EMPTY_AGENT_DRAFT,
   EMPTY_SURVEY,
   ONBOARDING_STEPS,
+  analyticsStepNumber,
   buildOnboardingData,
   isCarouselStep,
   type AgentDraft,
@@ -95,8 +101,17 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [creationError, setCreationError] = useState<string | null>(null);
   const creationPromiseRef = useRef<Promise<AgentProfile | null> | null>(null);
   const completedRef = useRef(false);
+  const hasTrackedStartRef = useRef(false);
+  const highestCompletedStepRef = useRef(0);
+  const onboardingStartedAtRef = useRef(Date.now());
 
   const step = ONBOARDING_STEPS[stepIndex];
+
+  useEffect(() => {
+    if (hasTrackedStartRef.current) return;
+    hasTrackedStartRef.current = true;
+    trackOnboardingStarted();
+  }, []);
 
   useEffect(() => {
     async function fetchLaunchMode() {
@@ -169,25 +184,32 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     }
   }, [step, termsChecked, survey, hasSeenCostReveal, hasSeenReclaimReveal, draft.preferred_sports, hasChosenArchetype, trimmedName]);
 
+  const trackCompletedIfNeeded = useCallback((completed: OnboardingStepId) => {
+    const completedStepNumber = analyticsStepNumber(completed);
+    if (completedStepNumber == null || completedStepNumber <= highestCompletedStepRef.current) return;
+    highestCompletedStepRef.current = completedStepNumber;
+    trackOnboardingStepCompleted(completedStepNumber, completed);
+  }, []);
+
   const nextStep = useCallback(() => {
     setDirection(1);
-    setStepIndex((prev) => {
-      const current = ONBOARDING_STEPS[prev];
-      if (current === 'terms') {
-        // Stamp acceptance when the user actually taps "I agree — continue".
-        setSurvey((s) => ({
-          ...s,
-          termsAcceptedAt: s.termsAcceptedAt ?? new Date().toISOString(),
-          overEighteenAttested: true,
-        }));
-      }
-      if (current === 'agentValueIntro' && pitchSlide < AGENT_PITCH_SLIDE_COUNT - 1) {
-        setPitchSlide((slide) => slide + 1);
-        return prev;
-      }
-      return Math.min(prev + 1, ONBOARDING_STEPS.length - 1);
-    });
-  }, [pitchSlide]);
+    if (step === 'terms') {
+      // Stamp acceptance when the user actually taps "I agree — continue".
+      setSurvey((s) => ({
+        ...s,
+        termsAcceptedAt: s.termsAcceptedAt ?? new Date().toISOString(),
+        overEighteenAttested: true,
+      }));
+    }
+    if (step === 'agentValueIntro' && pitchSlide < AGENT_PITCH_SLIDE_COUNT - 1) {
+      setPitchSlide((slide) => slide + 1);
+      return;
+    }
+    const next = Math.min(stepIndex + 1, ONBOARDING_STEPS.length - 1);
+    if (next === stepIndex) return;
+    trackCompletedIfNeeded(step);
+    setStepIndex(next);
+  }, [pitchSlide, step, stepIndex, trackCompletedIfNeeded]);
 
   const prevStep = useCallback(() => {
     setDirection(-1);
@@ -254,6 +276,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     const payload = buildOnboardingData(survey, draft);
     debug.log('Marking onboarding complete for user:', user.id, payload);
 
+    trackCompletedIfNeeded(step);
+    trackOnboardingCompleted(Date.now() - onboardingStartedAtRef.current);
+
     // Fire-and-forget like iOS — never block the flow on the network.
     supabase
       .from('profiles')
@@ -263,7 +288,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         if (error) debug.error('Error updating profile with onboarding data:', error);
         else debug.log('Onboarding data saved');
       });
-  }, [user, survey, draft]);
+  }, [user, survey, draft, step, trackCompletedIfNeeded]);
 
   return (
     <OnboardingContext.Provider

@@ -120,6 +120,7 @@ struct OnboardingView: View {
             startGenesisIfNeeded(for: step)
         }
         .onAppear {
+            store.trackOnboardingStartedIfNeeded()
             // Harness/debug can land directly on a cinematic step.
             startGenesisIfNeeded(for: store.currentStep)
         }

@@ -98,6 +98,7 @@ fun OnboardingScreen(modifier: Modifier = Modifier) {
     var genesis by remember { mutableStateOf<OnboardingGenesisModel?>(null) }
     var didSeedBuilder by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) { onboarding.trackOnboardingStartedIfNeeded() }
     LaunchedEffect(Unit) { creation.loadArchetypesIfNeeded() }
     DisposableEffect(Unit) {
         onDispose {

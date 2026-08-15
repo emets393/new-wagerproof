@@ -35,7 +35,10 @@ export const CAROUSEL_STEPS = [
 
 export const CINEMATIC_STEPS = ['generation', 'reveal', 'timeSummary'] as const;
 
-export const ONBOARDING_STEPS = [...CAROUSEL_STEPS, ...CINEMATIC_STEPS, 'paywall'] as const;
+/** Mixpanel funnel shared with iOS/Android. Paywall is web-only and omitted. */
+export const ANALYTICS_ONBOARDING_STEPS = [...CAROUSEL_STEPS, ...CINEMATIC_STEPS] as const;
+
+export const ONBOARDING_STEPS = [...ANALYTICS_ONBOARDING_STEPS, 'paywall'] as const;
 
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number];
 export type CarouselStepId = (typeof CAROUSEL_STEPS)[number];
@@ -44,6 +47,12 @@ export const CAROUSEL_STEP_COUNT = CAROUSEL_STEPS.length;
 
 export function isCarouselStep(step: OnboardingStepId): step is CarouselStepId {
   return (CAROUSEL_STEPS as readonly string[]).includes(step);
+}
+
+/** 1-based funnel index, or null for platform-only steps (web paywall). */
+export function analyticsStepNumber(step: OnboardingStepId): number | null {
+  const index = (ANALYTICS_ONBOARDING_STEPS as readonly string[]).indexOf(step);
+  return index >= 0 ? index + 1 : null;
 }
 
 /** CTA title shown in the shared chrome for each carousel step. */
