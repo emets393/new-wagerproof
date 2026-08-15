@@ -66,15 +66,16 @@ struct NFLPropDetailView: View {
 
     var body: some View {
         GeometryReader { root in
-            let topInset = root.safeAreaInsets.top
+            let chrome = PropDetailChrome(safeTop: root.safeAreaInsets.top, safeBottom: root.safeAreaInsets.bottom)
             ScrollViewReader { proxy in
                 CollapsingWidgetScroll(
                     heroMaxHeight: heroMax,
                     heroMinHeight: heroMin,
-                    heroTopInset: topInset,
+                    heroTopInset: chrome.expandedTop,
                     usesLiquidGlass: false,
                     pinAccessoryHeight: hasPicker ? pickerBand : 0,
-                    heroBottom: $heroBottom
+                    heroBottom: $heroBottom,
+                    dockedTopInsetOverride: chrome.dockedTop
                 ) { progress in
                     TeamAuraBackground(awayColor: teamColor, homeColor: oppColor, progress: progress)
                 } hero: { progress in
@@ -86,7 +87,7 @@ struct NFLPropDetailView: View {
                     VStack(spacing: 0) {
                         ForEach(markets) { market in
                             marketWidget(market)
-                                .background(spyTracker(market: market.market, topInset: topInset))
+                                .background(spyTracker(market: market.market, topInset: chrome.expandedTop))
                         }
                         footnote
                     }
@@ -98,7 +99,7 @@ struct NFLPropDetailView: View {
                     if hasPicker {
                         marketPicker(proxy: proxy, viewportHeight: root.size.height)
                             .padding(.horizontal, 16)
-                            .padding(.top, max(topInset, heroBottom))
+                            .padding(.top, max(chrome.expandedTop, heroBottom))
                     }
                 }
             }

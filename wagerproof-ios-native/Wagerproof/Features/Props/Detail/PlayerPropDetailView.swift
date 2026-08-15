@@ -56,15 +56,16 @@ struct PlayerPropDetailView: View {
 
     var body: some View {
         GeometryReader { root in
-            let topInset = root.safeAreaInsets.top
+            let chrome = PropDetailChrome(safeTop: root.safeAreaInsets.top, safeBottom: root.safeAreaInsets.bottom)
             ScrollViewReader { proxy in
                 CollapsingWidgetScroll(
                     heroMaxHeight: heroMax,
                     heroMinHeight: heroMin,
-                    heroTopInset: topInset,
+                    heroTopInset: chrome.expandedTop,
                     usesLiquidGlass: false,
                     pinAccessoryHeight: hasPicker ? pickerBand : 0,
-                    heroBottom: $heroBottom
+                    heroBottom: $heroBottom,
+                    dockedTopInsetOverride: chrome.dockedTop
                 ) { progress in
                     TeamAuraBackground(awayColor: teamColor, homeColor: oppColor, progress: progress)
                 } hero: { progress in
@@ -74,7 +75,7 @@ struct PlayerPropDetailView: View {
                         ForEach(markets) { row in
                             marketWidget(row)
                                 .id(row.market)
-                                .background(spyTracker(market: row.market, topInset: topInset))
+                                .background(spyTracker(market: row.market, topInset: chrome.expandedTop))
                         }
                     }
                 }
@@ -82,10 +83,10 @@ struct PlayerPropDetailView: View {
                     if hasPicker {
                         marketPicker(proxy: proxy, viewportHeight: root.size.height)
                             .padding(.horizontal, 16)
-                            .padding(.top, max(topInset, heroBottom))
+                            .padding(.top, max(chrome.expandedTop, heroBottom))
                     }
                 }
-                .overlay(alignment: .bottom) { scrubber }
+                .overlay(alignment: .bottom) { scrubber(bottomInset: chrome.bottom) }
             }
         }
         .ignoresSafeArea()
@@ -245,7 +246,7 @@ struct PlayerPropDetailView: View {
     // MARK: - Floating scrubber (overlays the widgets)
 
     @ViewBuilder
-    private var scrubber: some View {
+    private func scrubber(bottomInset: CGFloat) -> some View {
         if let activeRow {
             // Spacers eat the overlay's full-width proposal so the pill hugs
             // its content instead of becoming a banner.
@@ -255,7 +256,7 @@ struct PlayerPropDetailView: View {
                     .id(activeMarket)
                 Spacer(minLength: 0)
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, bottomInset)
         }
     }
 
@@ -312,5 +313,24 @@ struct PlayerPropDetailView: View {
 
     private func lerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat {
         a + (b - a) * min(1, max(0, t))
+    }
+}
+
+/// Insets for a full-bleed prop detail page. `safeTop` from a GeometryReader
+/// that ignores the safe area is often just the status-bar band (~59pt) because
+/// the nav bar is transparent — we add the 44pt back-button row plus air so
+/// the header and picker don't jam into the Dynamic Island. The pill uses the
+/// home-indicator inset so it floats above the bezel without reserving a
+/// layout band.
+struct PropDetailChrome {
+    let expandedTop: CGFloat
+    let dockedTop: CGFloat
+    let bottom: CGFloat
+
+    init(safeTop: CGFloat, safeBottom: CGFloat) {
+        let status = min(max(safeTop, 54), 62)
+        self.expandedTop = status + 56
+        self.dockedTop = status + 12
+        self.bottom = max(safeBottom, 28)
     }
 }

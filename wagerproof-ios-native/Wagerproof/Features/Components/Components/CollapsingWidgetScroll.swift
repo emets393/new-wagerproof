@@ -49,6 +49,10 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
     /// Live bottom of the collapsing hero (content height + current top inset).
     /// Written on scroll so a pin-accessory overlay can track it.
     var heroBottom: Binding<CGFloat>? = nil
+    /// When set, the collapsed hero uses this top inset instead of
+    /// `0.35 * heroTopInset`. Prop pages pass a value that clears the
+    /// status bar so the docked title isn't jammed into the Dynamic Island.
+    var dockedTopInsetOverride: CGFloat? = nil
     /// Full-bleed background behind both the page and the hero (e.g. team-color
     /// auras). Receives `progress` so it can dim/shrink with scroll. Used as the
     /// hero's background too, so the hero stays opaque (masks scrolling content)
@@ -62,7 +66,7 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
 
     /// Compact matchup docks into the nav-bar row beside the back button.
     /// Keep a small pad so discs don't slide under the Dynamic Island.
-    private var dockedTopInset: CGFloat { max(8, heroTopInset * 0.35) }
+    private var dockedTopInset: CGFloat { dockedTopInsetOverride ?? max(8, heroTopInset * 0.35) }
     private var expandedChrome: CGFloat { heroMaxHeight + pinAccessoryHeight + heroTopInset }
     private var collapsedChrome: CGFloat { heroMinHeight + dockedTopInset }
     private var collapseDistance: CGFloat { max(1, expandedChrome - collapsedChrome) }
