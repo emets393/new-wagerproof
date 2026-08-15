@@ -3,18 +3,11 @@ import WagerproofModels
 import WagerproofDesign
 
 /// Full-page player-prop detail, styled like the MLB game detail
-/// (`MLBGameBottomSheet`): a `CollapsingWidgetScroll` whose hero docks into
-/// the toolbar on scroll over a `TeamAuraBackground` glow, with one collapsing
-/// `WidgetCollapsingSection` widget per posted market (same flat card fill as
-/// game-detail widgets).
-///
-/// Functionality preserved across the restyle:
-///   - A compact icon+abbr market picker pinned in the expanded hero. As the
-///     user scrolls, it highlights whichever market widget is in view; tapping
-///     a chip scrolls/jumps to that market's widget.
-///   - The bottom Liquid Glass `PropLineScrubber` and the hero hit-rate %
-///     track the market currently in view; each market keeps its own line.
-///   - Every line-driven number rolls via the numeric-text transition.
+/// (`MLBGameBottomSheet`): a `CollapsingWidgetScroll` whose identity row docks
+/// into the toolbar on scroll (36pt disc + name, same 44pt target as
+/// `MatchupGlassHero`), with the native market picker pinned under that
+/// toolbar row so it stays visible. Widgets use the same flat card fill as
+/// game-detail cards. The line scrubber floats over the scrolling content.
 struct PlayerPropDetailView: View {
     let selection: PlayerPropSelection
 
@@ -30,11 +23,11 @@ struct PlayerPropDetailView: View {
 
     private final class SpyStore { var tops: [String: CGFloat] = [:] }
 
-    /// Identity + optional market chips. The collapsing shell adds the nav-bar
-    /// inset separately so this height is content-only, matching game details.
-    private var heroMax: CGFloat { markets.count > 1 ? 134 : 88 }
-    /// Toolbar-height docked row — same compact target as game-detail heroes.
-    private let heroMin: CGFloat = 44
+    private var hasPicker: Bool { markets.count > 1 }
+    /// Identity-only content when expanded (top row + 50pt headshot + ring).
+    private var heroMax: CGFloat { hasPicker ? 124 : 84 }
+    /// 44pt toolbar title (game-detail dock) + gap + native segmented picker.
+    private var heroMin: CGFloat { hasPicker ? 88 : 44 }
 
     init(selection: PlayerPropSelection, initialLine: Double? = nil) {
         self.selection = selection
@@ -78,15 +71,13 @@ struct PlayerPropDetailView: View {
                         }
                     }
                 }
-                .safeAreaInset(edge: .bottom) { scrubber }
+                .overlay(alignment: .bottom) { scrubber }
             }
             .ignoresSafeArea(edges: .top)
         }
         .toolbarBackground(.hidden, for: .navigationBar)
-        // Name lives permanently in the hero — keep the nav title empty.
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        // The bottom scrubber replaces the tab bar on this page.
         .toolbar(.hidden, for: .tabBar)
     }
 
@@ -107,7 +98,7 @@ struct PlayerPropDetailView: View {
     // MARK: - Scroll-spy
 
     /// Global Y at which a market widget counts as "in view" — the docked
-    /// hero's bottom edge, matching `CollapsingWidgetScroll`'s pin line.
+    /// hero's bottom edge (title + pinned picker), matching the pin line.
     private func spyAnchor(topInset: CGFloat) -> CGFloat {
         heroMin + max(8, topInset * 0.35) + 8
     }
@@ -134,31 +125,30 @@ struct PlayerPropDetailView: View {
         }
     }
 
-    // MARK: - Collapsing hero (docks into the toolbar)
+    // MARK: - Collapsing hero (title docks; picker stays)
 
     @ViewBuilder
     private func heroView(progress p: CGFloat, proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
+        // Match `MatchupGlassHero`: 50→36 disc, last stretch slides right to
+        // clear the circular back button (~16 + 36 + 16 + gap = 80pt).
         let headSize = lerp(50, 36, p)
+        let ringPad = lerp(4, 0, p)
         let detail = Double(max(0, 1 - p * 1.9))
-        // Last stretch: slide the compact row right so the headshot clears
-        // the circular back button, same docking inset as `MatchupGlassHero`.
         let dock = min(1, max(0, (p - 0.45) / 0.55))
-        let leading = lerp(16, 72, dock)
+        let leading = lerp(16, 80, dock)
         let pct = activeComputed?.l10.pct
 
-        VStack(spacing: lerp(8, 0, p)) {
+        VStack(spacing: lerp(8, 6, p)) {
             heroTopRow
                 .opacity(detail)
                 .frame(height: lerp(18, 0, min(1, p * 1.6)))
                 .clipped()
-            HStack(alignment: .center, spacing: 12) {
-                // Team-tinted Liquid Glass ring around the headshot — the
-                // padding turns the disc into a ring outside the opaque
-                // headshot so the glass + team color actually read.
+
+            HStack(alignment: .center, spacing: lerp(12, 8, p)) {
                 PlayerHeadshot(playerId: selection.playerId, size: headSize)
-                    .padding(4)
+                    .padding(ringPad)
                     .teamGlassDisc(primary: teamColor, secondary: oppColor)
-                    .shadow(color: teamColor.opacity(0.35), radius: 8)
+                    .shadow(color: teamColor.opacity(lerp(0.35, 0.18, p)), radius: lerp(8, 3, p))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selection.playerName)
                         .font(.system(size: lerp(19, 15, p), weight: .heavy))
@@ -174,30 +164,23 @@ struct PlayerPropDetailView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                VStack(alignment: .trailing, spacing: 1) {
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text(pct.map(String.init) ?? "—")
-                            .font(.system(size: lerp(27, 18, p), weight: .heavy))
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text(pct.map(String.init) ?? "—")
+                        .font(.system(size: lerp(27, 17, p), weight: .heavy))
+                        .foregroundStyle(Color.appPrimary)
+                    if pct != nil {
+                        Text("%")
+                            .font(.system(size: lerp(16, 11, p), weight: .heavy))
                             .foregroundStyle(Color.appPrimary)
-                        if pct != nil {
-                            Text("%").font(.system(size: lerp(16, 11, p), weight: .heavy)).foregroundStyle(Color.appPrimary)
-                        }
-                    }
-                    .contentTransition(.numericText())
-                    .animation(.snappy(duration: 0.28), value: pct)
-                    if detail > 0.04, let c = activeComputed {
-                        Text("\(c.l10.over)/\(c.l10.games) L10")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.appTextSecondary)
-                            .opacity(detail)
-                            .contentTransition(.numericText())
-                            .animation(.snappy(duration: 0.28), value: c.l10.over)
                     }
                 }
+                .contentTransition(.numericText())
+                .animation(.snappy(duration: 0.28), value: pct)
             }
-            if markets.count > 1, detail > 0.04 {
+            .frame(height: lerp(58, 44, p), alignment: .center)
+
+            if hasPicker {
                 marketPicker(proxy: proxy, viewportHeight: viewportHeight)
-                    .opacity(detail)
             }
         }
         .padding(.leading, leading)
@@ -207,16 +190,13 @@ struct PlayerPropDetailView: View {
     }
 
     private func marketPicker(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
-        PropMarketPicker(
-            chips: markets.map {
-                .init(
-                    market: $0.market,
-                    icon: MLBPlayerProps.marketEmoji($0.market),
-                    abbr: MLBPlayerProps.marketAbbr($0.market)
-                )
-            },
-            selection: pickerBinding(proxy: proxy, viewportHeight: viewportHeight)
-        )
+        Picker("Market", selection: pickerBinding(proxy: proxy, viewportHeight: viewportHeight)) {
+            ForEach(markets) { row in
+                Text(MLBPlayerProps.marketAbbr(row.market)).tag(row.market)
+            }
+        }
+        .pickerStyle(.segmented)
+        .sensoryFeedback(.selection, trigger: activeMarket)
     }
 
     private func pickerBinding(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> Binding<String> {
@@ -225,8 +205,7 @@ struct PlayerPropDetailView: View {
             set: { market in
                 activeMarket = market
                 suppressSpy = true
-                // Land the widget just below the collapsed hero.
-                let anchorY = min(0.4, max(0.05, heroMin / max(viewportHeight, 1)))
+                let anchorY = min(0.45, max(0.08, heroMin / max(viewportHeight, 1)))
                 withAnimation(.snappy) { proxy.scrollTo(market, anchor: UnitPoint(x: 0.5, y: anchorY)) }
                 Task { @MainActor in
                     try? await Task.sleep(for: .seconds(0.45))
@@ -253,14 +232,14 @@ struct PlayerPropDetailView: View {
         }
     }
 
-    // MARK: - Bottom scrubber (tracks the in-view market)
+    // MARK: - Floating scrubber (overlays the widgets)
 
     @ViewBuilder
     private var scrubber: some View {
         if let activeRow {
             PropLineScrubber(lines: activeRow.lines, selectedLine: activeLineBinding)
                 .id(activeMarket)
-                .padding(.bottom, 4)
+                .padding(.bottom, 8)
         }
     }
 

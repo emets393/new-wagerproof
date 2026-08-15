@@ -5,14 +5,15 @@ import WagerproofDesign
 import WagerproofServices
 
 /// Full-page NFL player-prop detail, styled like the MLB prop detail
-/// (`PlayerPropDetailView`): a `CollapsingWidgetScroll` hero that docks into
-/// the toolbar on scroll, over a `TeamAuraBackground`, one collapsing
-/// `WidgetCollapsingSection` per market (same flat card fill as game details).
+/// (`PlayerPropDetailView`): a `CollapsingWidgetScroll` hero whose identity
+/// row docks into the toolbar (36pt disc, 44pt row) while the native market
+/// picker stays pinned under it. Widgets use the same flat card fill as
+/// game-detail cards.
 ///
 /// The dry-run contract carries a season game log + consensus close per
 /// market, so each market widget is a trend board: recent-games bar chart
 /// against the close line, season splits, defense matchup index, and the
-/// open→close line move. A compact icon+abbr picker jumps between markets.
+/// open→close line move.
 struct NFLPropDetailView: View {
     let selection: NFLPlayerPropSelection
 
@@ -40,9 +41,10 @@ struct NFLPropDetailView: View {
         return markets.first { !$0.flags.isEmpty } ?? markets.first
     }
 
-    private var heroMax: CGFloat { markets.count > 1 ? 134 : 88 }
-    /// Toolbar-height docked row — same compact target as game-detail heroes.
-    private let heroMin: CGFloat = 44
+    private var hasPicker: Bool { markets.count > 1 }
+    private var heroMax: CGFloat { hasPicker ? 124 : 84 }
+    /// 44pt toolbar title (game-detail dock) + gap + native segmented picker.
+    private var heroMin: CGFloat { hasPicker ? 88 : 44 }
 
     init(selection: NFLPlayerPropSelection) {
         self.selection = selection
@@ -116,20 +118,21 @@ struct NFLPropDetailView: View {
     @ViewBuilder
     private func heroView(progress p: CGFloat, proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
         let headSize = lerp(50, 36, p)
+        let ringPad = lerp(4, 0, p)
         let detail = Double(max(0, 1 - p * 1.9))
         let dock = min(1, max(0, (p - 0.45) / 0.55))
-        let leading = lerp(16, 72, dock)
+        let leading = lerp(16, 80, dock)
 
-        VStack(spacing: lerp(8, 0, p)) {
+        VStack(spacing: lerp(8, 6, p)) {
             heroTopRow
                 .opacity(detail)
                 .frame(height: lerp(18, 0, min(1, p * 1.6)))
                 .clipped()
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: lerp(12, 8, p)) {
                 NFLPlayerHeadshot(playerName: player.playerName, playerId: player.playerId, headshotUrl: player.headshotUrl, size: headSize)
-                    .padding(4)
+                    .padding(ringPad)
                     .teamGlassDisc(primary: teamColor, secondary: oppColor)
-                    .shadow(color: teamColor.opacity(0.35), radius: 8)
+                    .shadow(color: teamColor.opacity(lerp(0.35, 0.18, p)), radius: lerp(8, 3, p))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(player.playerName)
                         .font(.system(size: lerp(19, 15, p), weight: .heavy))
@@ -146,9 +149,9 @@ struct NFLPropDetailView: View {
                 }
                 Spacer(minLength: 0)
             }
-            if markets.count > 1, detail > 0.04 {
+            .frame(height: lerp(58, 44, p), alignment: .center)
+            if hasPicker {
                 marketPicker(proxy: proxy, viewportHeight: viewportHeight)
-                    .opacity(detail)
             }
         }
         .padding(.leading, leading)
@@ -158,16 +161,13 @@ struct NFLPropDetailView: View {
     }
 
     private func marketPicker(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
-        PropMarketPicker(
-            chips: markets.map {
-                .init(
-                    market: $0.market,
-                    icon: NFLPlayerProps.marketEmoji($0.market),
-                    abbr: NFLPlayerProps.marketAbbr($0.market)
-                )
-            },
-            selection: pickerBinding(proxy: proxy, viewportHeight: viewportHeight)
-        )
+        Picker("Market", selection: pickerBinding(proxy: proxy, viewportHeight: viewportHeight)) {
+            ForEach(markets) { market in
+                Text(NFLPlayerProps.marketAbbr(market.market)).tag(market.market)
+            }
+        }
+        .pickerStyle(.segmented)
+        .sensoryFeedback(.selection, trigger: activeMarket)
     }
 
     private func pickerBinding(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> Binding<String> {
