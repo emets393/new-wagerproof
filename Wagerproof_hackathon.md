@@ -143,24 +143,15 @@ since the card family shares patterns — fix the shared layout, not one sport's
 
 ---
 
-## Bug: team accent colors wrong across the app (added 2026-08-11)
+## ✅ RESOLVED: team accent colors wrong across the app (added 2026-08-11, closed 2026-08-15)
 
-Owner report: the faded team-color backgrounds behind logos are all wrong.
-
-**Data side: ✅ FIXED 2026-08-11.** Two bugs, both in `gen_cfb_teams.py`: colors were
-hard-coded `None`, and the team list came from `model_games.parquet` — which on Render's
-fresh disk holds only the current week's slate, so the table had shrunk to 94 rows (owner
-caught it; FBS alone is 138). Now: CFBD `/teams` FBS ∪ current frame ∪ historical frame =
-139 rows, ALL with logo + conference + real hex colors (verified: OSU #ba0c2f, Michigan
-#00274c/#ffcb05, Oregon #007030).
-
-**Remaining (client-side):**
-1. Verify render paths consume `color`/`alt_color` now that data exists: web `teamByName`
-   -> `TeamRef.colors` (`cfbGames.ts`), iOS `CFBTeamAssets.swift`/`CFBTeamsService.swift`,
-   Android equivalent. Kill any hash-of-name fallback.
-2. Sanity-pass known teams on all three surfaces; check dark mode (alt_color may be the
-   right pick there).
-3. NFL: check `nfl_teams`' equivalent columns for the same null-out before Week 1.
+Root cause was DATA, not render: `gen_cfb_teams.py` hard-coded colors to `None` (and the
+team list had shrunk to 94 rows on Render's fresh disk). Fixed 2026-08-11: full CFBD FBS
+registry, 139 rows with real hex colors. The clients already consumed `color`/`alt_color`
+(web maps them into `TeamRef.colors`; no hash-of-name fallback existed), so colors
+self-healed everywhere once the data landed — owner confirmed 2026-08-15.
+NFL checked: `nfl_teams` uses `team_color`/`team_color2` (nflverse schema), fully
+populated — no equivalent bug.
 
 ---
 
