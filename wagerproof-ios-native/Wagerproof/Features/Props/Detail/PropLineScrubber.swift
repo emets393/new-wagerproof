@@ -2,11 +2,11 @@ import SwiftUI
 import WagerproofModels
 import WagerproofDesign
 
-/// Permanent bottom line scrubber — a Liquid Glass bar that replaces the tab
-/// bar on the prop detail page. The ladder of alternate lines is a horizontal
-/// scroll "wheel": the tick under the centered caret is the selected line, and
-/// scrubbing left/right (momentum scroll) moves through the lines, updating
-/// everything upstream in real time.
+/// Bottom line scrubber — a Liquid Glass bar that replaces the tab bar on the
+/// prop detail page. Collapsed it is a single readout row so it stays out of
+/// the way; a tap expands the alternate-line wheel. The tick under the centered
+/// caret is the selected line, and scrubbing left/right updates everything
+/// upstream in real time.
 ///
 /// The readout (line + Over/Under odds) uses the numeric-text content
 /// transition so the digits roll as you scrub.
@@ -16,6 +16,8 @@ struct PropLineScrubber: View {
 
     /// The line currently centered under the caret (drives the scroll wheel).
     @State private var centered: Double?
+    /// Starts collapsed so the wheel is out of the way until the user wants it.
+    @State private var isExpanded = false
 
     private var activeEntry: MLBPlayerPropLineEntry? { lines.first { $0.line == selectedLine } }
 
@@ -23,13 +25,16 @@ struct PropLineScrubber: View {
     private let wheelHeight: CGFloat = 54
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: isExpanded ? 8 : 0) {
             readout
-            wheel
+            if isExpanded {
+                wheel
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
+        .padding(.top, isExpanded ? 12 : 10)
+        .padding(.bottom, isExpanded ? 10 : 10)
         .frame(maxWidth: .infinity)
         .liquidGlassBackground(in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(
@@ -46,29 +51,44 @@ struct PropLineScrubber: View {
             if centered != v { centered = v }
         }
         .sensoryFeedback(.selection, trigger: selectedLine)
+        .animation(.snappy(duration: 0.28), value: isExpanded)
     }
 
     // MARK: - Readout (line + odds)
 
     private var readout: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("LINE")
-                    .font(.system(size: 9, weight: .bold))
-                    .tracking(0.6)
+        Button {
+            withAnimation(.snappy(duration: 0.28)) { isExpanded.toggle() }
+        } label: {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("LINE")
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(0.6)
+                        .foregroundStyle(Color.appTextMuted)
+                    Text(MLBPlayerProps.formatLine(selectedLine))
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color.appTextPrimary)
+                        .contentTransition(.numericText())
+                        .animation(.snappy(duration: 0.28), value: selectedLine)
+                }
+                Spacer()
+                HStack(spacing: 6) {
+                    oddsChip(prefix: "O", odds: activeEntry?.over, tint: Color.appPrimary)
+                    oddsChip(prefix: "U", odds: activeEntry?.under, tint: Color.appTextSecondary)
+                }
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color.appTextMuted)
-                Text(MLBPlayerProps.formatLine(selectedLine))
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Color.appTextPrimary)
-                    .contentTransition(.numericText())
-                    .animation(.snappy(duration: 0.28), value: selectedLine)
+                    .frame(width: 18)
+                    .accessibilityHidden(true)
             }
-            Spacer()
-            HStack(spacing: 6) {
-                oddsChip(prefix: "O", odds: activeEntry?.over, tint: Color.appPrimary)
-                oddsChip(prefix: "U", odds: activeEntry?.under, tint: Color.appTextSecondary)
-            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Line \(MLBPlayerProps.formatLine(selectedLine))")
+        .accessibilityHint(isExpanded ? "Collapse line selector" : "Expand line selector")
+        .accessibilityAddTraits(.isButton)
     }
 
     private func oddsChip(prefix: String, odds: Int?, tint: Color) -> some View {

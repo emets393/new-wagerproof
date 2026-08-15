@@ -3,15 +3,15 @@ import WagerproofModels
 import WagerproofDesign
 
 /// Full-page player-prop detail, styled like the MLB game detail
-/// (`MLBGameBottomSheet`): a `CollapsingWidgetScroll` whose hero shrinks on
-/// scroll over a `TeamAuraBackground` glow, with one collapsing
-/// `WidgetCollapsingSection` widget per posted market (neutral, translucent
-/// iOS-style subheaders).
+/// (`MLBGameBottomSheet`): a `CollapsingWidgetScroll` whose hero docks into
+/// the toolbar on scroll over a `TeamAuraBackground` glow, with one collapsing
+/// `WidgetCollapsingSection` widget per posted market (same flat card fill as
+/// game-detail widgets).
 ///
 /// Functionality preserved across the restyle:
-///   - A native segmented market picker pinned in the hero. As the user
-///     scrolls, it highlights whichever market widget is in view; tapping a
-///     segment scrolls/jumps to that market's widget.
+///   - A compact icon+abbr market picker pinned in the expanded hero. As the
+///     user scrolls, it highlights whichever market widget is in view; tapping
+///     a chip scrolls/jumps to that market's widget.
 ///   - The bottom Liquid Glass `PropLineScrubber` and the hero hit-rate %
 ///     track the market currently in view; each market keeps its own line.
 ///   - Every line-driven number rolls via the numeric-text transition.
@@ -30,13 +30,11 @@ struct PlayerPropDetailView: View {
 
     private final class SpyStore { var tops: [String: CGFloat] = [:] }
 
-    // Sized to fit the hero content snugly (top row + identity + picker) so
-    // there's no dead space between the hero and the first widget.
-    private let heroMax: CGFloat = 134
-    private let heroMin: CGFloat = 116
-    /// Global Y at which a market widget counts as "in view" (≈ the collapsed
-    /// hero's bottom edge across modern iPhones).
-    private let spyAnchor: CGFloat = 178
+    /// Identity + optional market chips. The collapsing shell adds the nav-bar
+    /// inset separately so this height is content-only, matching game details.
+    private var heroMax: CGFloat { markets.count > 1 ? 134 : 88 }
+    /// Toolbar-height docked row — same compact target as game-detail heroes.
+    private let heroMin: CGFloat = 44
 
     init(selection: PlayerPropSelection, initialLine: Double? = nil) {
         self.selection = selection
@@ -60,8 +58,14 @@ struct PlayerPropDetailView: View {
 
     var body: some View {
         GeometryReader { root in
+            let topInset = root.safeAreaInsets.top
             ScrollViewReader { proxy in
-                CollapsingWidgetScroll(heroMaxHeight: heroMax, heroMinHeight: heroMin) { progress in
+                CollapsingWidgetScroll(
+                    heroMaxHeight: heroMax,
+                    heroMinHeight: heroMin,
+                    heroTopInset: topInset,
+                    usesLiquidGlass: false
+                ) { progress in
                     TeamAuraBackground(awayColor: teamColor, homeColor: oppColor, progress: progress)
                 } hero: { progress in
                     heroView(progress: progress, proxy: proxy, viewportHeight: root.size.height)
@@ -70,12 +74,13 @@ struct PlayerPropDetailView: View {
                         ForEach(markets) { row in
                             marketWidget(row)
                                 .id(row.market)
-                                .background(spyTracker(market: row.market))
+                                .background(spyTracker(market: row.market, topInset: topInset))
                         }
                     }
                 }
                 .safeAreaInset(edge: .bottom) { scrubber }
             }
+            .ignoresSafeArea(edges: .top)
         }
         .toolbarBackground(.hidden, for: .navigationBar)
         // Name lives permanently in the hero — keep the nav title empty.
@@ -101,21 +106,27 @@ struct PlayerPropDetailView: View {
 
     // MARK: - Scroll-spy
 
-    private func spyTracker(market: String) -> some View {
+    /// Global Y at which a market widget counts as "in view" — the docked
+    /// hero's bottom edge, matching `CollapsingWidgetScroll`'s pin line.
+    private func spyAnchor(topInset: CGFloat) -> CGFloat {
+        heroMin + max(8, topInset * 0.35) + 8
+    }
+
+    private func spyTracker(market: String, topInset: CGFloat) -> some View {
         GeometryReader { geo in
             Color.clear
                 .onChange(of: geo.frame(in: .global).minY, initial: true) { _, y in
-                    updateTop(market, y)
+                    updateTop(market, y, anchor: spyAnchor(topInset: topInset))
                 }
         }
     }
 
-    private func updateTop(_ market: String, _ y: CGFloat) {
+    private func updateTop(_ market: String, _ y: CGFloat, anchor: CGFloat) {
         spy.tops[market] = y
         guard !suppressSpy else { return }
         let passed = markets.compactMap { row -> (String, CGFloat)? in
             guard let v = spy.tops[row.market] else { return nil }
-            return v <= spyAnchor ? (row.market, v) : nil
+            return v <= anchor ? (row.market, v) : nil
         }
         let newActive = passed.max(by: { $0.1 < $1.1 })?.0 ?? markets.first?.market
         if let newActive, newActive != activeMarket {
@@ -123,16 +134,23 @@ struct PlayerPropDetailView: View {
         }
     }
 
-    // MARK: - Collapsing hero (with pinned segmented picker)
+    // MARK: - Collapsing hero (docks into the toolbar)
 
     @ViewBuilder
     private func heroView(progress p: CGFloat, proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
-        let headSize = lerp(50, 32, p)
+        let headSize = lerp(50, 36, p)
         let detail = Double(max(0, 1 - p * 1.9))
+        // Last stretch: slide the compact row right so the headshot clears
+        // the circular back button, same docking inset as `MatchupGlassHero`.
+        let dock = min(1, max(0, (p - 0.45) / 0.55))
+        let leading = lerp(16, 72, dock)
         let pct = activeComputed?.l10.pct
 
-        VStack(spacing: lerp(8, 6, p)) {
+        VStack(spacing: lerp(8, 0, p)) {
             heroTopRow
+                .opacity(detail)
+                .frame(height: lerp(18, 0, min(1, p * 1.6)))
+                .clipped()
             HStack(alignment: .center, spacing: 12) {
                 // Team-tinted Liquid Glass ring around the headshot — the
                 // padding turns the disc into a ring outside the opaque
@@ -143,7 +161,7 @@ struct PlayerPropDetailView: View {
                     .shadow(color: teamColor.opacity(0.35), radius: 8)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selection.playerName)
-                        .font(.system(size: lerp(19, 16, p), weight: .heavy))
+                        .font(.system(size: lerp(19, 15, p), weight: .heavy))
                         .foregroundStyle(Color.appTextPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
@@ -159,10 +177,10 @@ struct PlayerPropDetailView: View {
                 VStack(alignment: .trailing, spacing: 1) {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text(pct.map(String.init) ?? "—")
-                            .font(.system(size: lerp(27, 21, p), weight: .heavy))
+                            .font(.system(size: lerp(27, 18, p), weight: .heavy))
                             .foregroundStyle(Color.appPrimary)
                         if pct != nil {
-                            Text("%").font(.system(size: lerp(16, 13, p), weight: .heavy)).foregroundStyle(Color.appPrimary)
+                            Text("%").font(.system(size: lerp(16, 11, p), weight: .heavy)).foregroundStyle(Color.appPrimary)
                         }
                     }
                     .contentTransition(.numericText())
@@ -177,23 +195,28 @@ struct PlayerPropDetailView: View {
                     }
                 }
             }
-            if markets.count > 1 {
+            if markets.count > 1, detail > 0.04 {
                 marketPicker(proxy: proxy, viewportHeight: viewportHeight)
+                    .opacity(detail)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.leading, leading)
+        .padding(.trailing, 16)
+        .padding(.top, lerp(8, 0, p))
         .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private func marketPicker(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
-        Picker("Market", selection: pickerBinding(proxy: proxy, viewportHeight: viewportHeight)) {
-            ForEach(markets) { row in
-                Text(MLBPlayerProps.marketLabel(row.market)).tag(row.market)
-            }
-        }
-        .pickerStyle(.segmented)
-        .sensoryFeedback(.selection, trigger: activeMarket)
+        PropMarketPicker(
+            chips: markets.map {
+                .init(
+                    market: $0.market,
+                    icon: MLBPlayerProps.marketEmoji($0.market),
+                    abbr: MLBPlayerProps.marketAbbr($0.market)
+                )
+            },
+            selection: pickerBinding(proxy: proxy, viewportHeight: viewportHeight)
+        )
     }
 
     private func pickerBinding(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> Binding<String> {
@@ -268,13 +291,6 @@ struct PlayerPropDetailView: View {
                     Divider().background(Color.appBorder.opacity(0.5))
 
                     PropContextTiles(row: row, computed: c)
-
-                    if !row.isPitcher && c.contextualArchetype != nil {
-                        Text("Archetype split is based on the opposing starting pitcher only — relievers are not counted.")
-                            .font(.system(size: 10))
-                            .italic()
-                            .foregroundStyle(Color.appTextMuted)
-                    }
 
                     Text("\(MLBPlayerProps.marketLabel(row.market)) · O \(MLBPlayerProps.formatLine(l)) · \(MLBPlayerProps.formatOdds(c.overOdds)) / \(MLBPlayerProps.formatOdds(c.underOdds))")
                         .font(.system(size: 12))

@@ -5,13 +5,14 @@ import WagerproofDesign
 import WagerproofServices
 
 /// Full-page NFL player-prop detail, styled like the MLB prop detail
-/// (`PlayerPropDetailView`): a `CollapsingWidgetScroll` hero over a
-/// `TeamAuraBackground`, one collapsing `WidgetCollapsingSection` per market.
+/// (`PlayerPropDetailView`): a `CollapsingWidgetScroll` hero that docks into
+/// the toolbar on scroll, over a `TeamAuraBackground`, one collapsing
+/// `WidgetCollapsingSection` per market (same flat card fill as game details).
 ///
 /// The dry-run contract carries a season game log + consensus close per
 /// market, so each market widget is a trend board: recent-games bar chart
 /// against the close line, season splits, defense matchup index, and the
-/// open→close line move. Markets stack vertically — no hero picker.
+/// open→close line move. A compact icon+abbr picker jumps between markets.
 struct NFLPropDetailView: View {
     let selection: NFLPlayerPropSelection
 
@@ -19,7 +20,12 @@ struct NFLPropDetailView: View {
     @State private var metricHelp: NFLPropMetricHelp?
     @State private var propPerfByKey: [String: SignalPerformance] = [:]
     @State private var bookOddsByMarket: [String: SportsbookPropMarketOdds] = [:]
+    @State private var activeMarket: String
+    @State private var suppressSpy = false
+    @State private var spy = SpyStore()
     @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKeysRaw: String = ""
+
+    private final class SpyStore { var tops: [String: CGFloat] = [:] }
 
     private var player: NFLPropPlayer { selection.player }
     private var markets: [NFLPropMarket] { player.markets }
@@ -34,12 +40,17 @@ struct NFLPropDetailView: View {
         return markets.first { !$0.flags.isEmpty } ?? markets.first
     }
 
-    /// Hero without the market picker — identity row only.
-    private let heroMax: CGFloat = 88
-    private let heroMin: CGFloat = 72
+    private var heroMax: CGFloat { markets.count > 1 ? 134 : 88 }
+    /// Toolbar-height docked row — same compact target as game-detail heroes.
+    private let heroMin: CGFloat = 44
 
     init(selection: NFLPlayerPropSelection) {
         self.selection = selection
+        let preferred = selection.preferredMarket
+        let first = preferred.flatMap { m in selection.player.markets.first { $0.market == m } }
+            ?? selection.player.markets.first { !$0.flags.isEmpty }
+            ?? selection.player.markets.first
+        _activeMarket = State(initialValue: first?.market ?? "")
     }
 
     private var teamColor: Color {
@@ -51,8 +62,14 @@ struct NFLPropDetailView: View {
 
     var body: some View {
         GeometryReader { root in
+            let topInset = root.safeAreaInsets.top
             ScrollViewReader { proxy in
-                CollapsingWidgetScroll(heroMaxHeight: heroMax, heroMinHeight: heroMin) { progress in
+                CollapsingWidgetScroll(
+                    heroMaxHeight: heroMax,
+                    heroMinHeight: heroMin,
+                    heroTopInset: topInset,
+                    usesLiquidGlass: false
+                ) { progress in
                     TeamAuraBackground(awayColor: teamColor, homeColor: oppColor, progress: progress)
                 } hero: { progress in
                     heroView(progress: progress, proxy: proxy, viewportHeight: root.size.height)
@@ -63,6 +80,7 @@ struct NFLPropDetailView: View {
                     VStack(spacing: 0) {
                         ForEach(markets) { market in
                             marketWidget(market)
+                                .background(spyTracker(market: market.market, topInset: topInset))
                         }
                         footnote
                     }
@@ -71,6 +89,7 @@ struct NFLPropDetailView: View {
                     }
                 }
             }
+            .ignoresSafeArea(edges: .top)
         }
         .toolbarBackground(.hidden, for: .navigationBar)
         // Name lives permanently in the hero — keep the nav title empty.
@@ -96,11 +115,16 @@ struct NFLPropDetailView: View {
 
     @ViewBuilder
     private func heroView(progress p: CGFloat, proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
-        let headSize = lerp(50, 32, p)
+        let headSize = lerp(50, 36, p)
         let detail = Double(max(0, 1 - p * 1.9))
+        let dock = min(1, max(0, (p - 0.45) / 0.55))
+        let leading = lerp(16, 72, dock)
 
-        VStack(spacing: lerp(8, 6, p)) {
+        VStack(spacing: lerp(8, 0, p)) {
             heroTopRow
+                .opacity(detail)
+                .frame(height: lerp(18, 0, min(1, p * 1.6)))
+                .clipped()
             HStack(alignment: .center, spacing: 12) {
                 NFLPlayerHeadshot(playerName: player.playerName, playerId: player.playerId, headshotUrl: player.headshotUrl, size: headSize)
                     .padding(4)
@@ -108,7 +132,7 @@ struct NFLPropDetailView: View {
                     .shadow(color: teamColor.opacity(0.35), radius: 8)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(player.playerName)
-                        .font(.system(size: lerp(19, 16, p), weight: .heavy))
+                        .font(.system(size: lerp(19, 15, p), weight: .heavy))
                         .foregroundStyle(Color.appTextPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
@@ -122,10 +146,69 @@ struct NFLPropDetailView: View {
                 }
                 Spacer(minLength: 0)
             }
+            if markets.count > 1, detail > 0.04 {
+                marketPicker(proxy: proxy, viewportHeight: viewportHeight)
+                    .opacity(detail)
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.leading, leading)
+        .padding(.trailing, 16)
+        .padding(.top, lerp(8, 0, p))
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    private func marketPicker(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
+        PropMarketPicker(
+            chips: markets.map {
+                .init(
+                    market: $0.market,
+                    icon: NFLPlayerProps.marketEmoji($0.market),
+                    abbr: NFLPlayerProps.marketAbbr($0.market)
+                )
+            },
+            selection: pickerBinding(proxy: proxy, viewportHeight: viewportHeight)
+        )
+    }
+
+    private func pickerBinding(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> Binding<String> {
+        Binding(
+            get: { activeMarket },
+            set: { market in
+                activeMarket = market
+                suppressSpy = true
+                scrollToMarket(market, proxy: proxy, viewportHeight: viewportHeight, animated: true)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.45))
+                    suppressSpy = false
+                }
+            }
+        )
+    }
+
+    private func spyAnchor(topInset: CGFloat) -> CGFloat {
+        heroMin + max(8, topInset * 0.35) + 8
+    }
+
+    private func spyTracker(market: String, topInset: CGFloat) -> some View {
+        GeometryReader { geo in
+            Color.clear
+                .onChange(of: geo.frame(in: .global).minY, initial: true) { _, y in
+                    updateTop(market, y, anchor: spyAnchor(topInset: topInset))
+                }
+        }
+    }
+
+    private func updateTop(_ market: String, _ y: CGFloat, anchor: CGFloat) {
+        spy.tops[market] = y
+        guard !suppressSpy else { return }
+        let passed = markets.compactMap { row -> (String, CGFloat)? in
+            guard let v = spy.tops[row.market] else { return nil }
+            return v <= anchor ? (row.market, v) : nil
+        }
+        let newActive = passed.max(by: { $0.1 < $1.1 })?.0 ?? markets.first?.market
+        if let newActive, newActive != activeMarket {
+            activeMarket = newActive
+        }
     }
 
     private var heroTopRow: some View {
