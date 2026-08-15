@@ -234,9 +234,17 @@ def build_games():
                        ((g.ph <= 0.5 - CONF) & (g.reg_edge <= -REG_EDGE))).astype(int)
 
     def spread_pick(r):
-        if pd.isna(r.ph) or abs(r.ph - 0.5) < CONF or pd.isna(r.open_spread):
+        # SAME source of truth as the pick card (margin model, reg_edge sign; tie -> HOME).
+        # Pre-2026-08-15 this used the classifier (ph) while the card used reg_edge — when
+        # the two models split, header and card CONTRADICTED (the CFB Oklahoma failure).
+        # NEUTRAL when the classifier disagrees with the margin side (the card shows
+        # conv=none there) or the classifier is inside its confidence band.
+        if pd.isna(r.reg_edge) or pd.isna(r.ph) or pd.isna(r.open_spread) or abs(r.ph - 0.5) < CONF:
             return "NEUTRAL"
-        return (f"{r.home_ab} {r.open_spread:+g}" if r.ph >= 0.5
+        margin_home = r.reg_edge >= 0
+        if margin_home != (r.ph >= 0.5):
+            return "NEUTRAL"
+        return (f"{r.home_ab} {r.open_spread:+g}" if margin_home
                 else f"{r.away_ab} {-r.open_spread:+g}")
     g["fg_spread_pick"] = g.apply(spread_pick, axis=1)
     g["fg_home_win_prob"] = g.pred_margin.map(lambda x: round(win_prob(x), 4) if pd.notna(x) else None)
@@ -901,6 +909,23 @@ def main():
     # idempotent reload: children first (FK), then games.
     # Props have their own loader (dryrun_wk12_props.py) — don't delete them here
     # or a games-only reload leaves the Props tab empty until props are re-run.
+    # SIGN GUARD (parity with gen_cfb_picks 2026-08-15): a non-NEUTRAL games-table header
+    # must name the SAME team as the spread card's pick. Refuse the whole write on mismatch
+    # — a contradicting card shipped to the app is worse than a failed run.
+    _hdr = {str(r.game_id): str(r.fg_spread_pick).split()[0]
+            for _, r in games.iterrows() if str(r.fg_spread_pick) not in ("NEUTRAL", "None", "nan")}
+    _bad = []
+    for _, p_ in picks[picks.card_group == "spread"].iterrows():
+        h = _hdr.get(str(p_.game_id))
+        if h is None or pd.isna(p_.pick_team):
+            continue
+        pick_ab = next((ab for ab, nm in AB_NAME.items() if nm == p_.pick_team), p_.pick_team)
+        if pick_ab != h:
+            _bad.append((p_.game_id, h, pick_ab))
+    if _bad:
+        raise SystemExit(f"[SIGN GUARD] {len(_bad)} spread pick(s) contradict the games header — REFUSING TO WRITE: {_bad}")
+    print(f"  sign guard: {len(_hdr)} non-neutral spread headers agree with pick cards")
+
     for t in ("nfl_dryrun_picks", "nfl_dryrun_flags", "nfl_dryrun_games"):
         resp = requests.delete(f"{BASE_URL}/{t}?season=eq.{SEASON}&week=eq.{WEEK}",
                                headers=hdr, timeout=60)

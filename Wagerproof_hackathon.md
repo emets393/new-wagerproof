@@ -115,7 +115,19 @@ generator emits them for every market incl. team totals; UI render is the remain
 signal cards/sheets on web + iOS + Android show logo-or-arrow + bet_line instead of (or
 above) the generic Direction copy. NO text parsing — read the three fields.
 
-**NFL: ⛔ NOT DONE — must ship before NFL Week 1 (Sept 10).**
+**NFL: ✅ SHIPPED 2026-08-15 (26 days before Week 1).** What the port found and fixed:
+1. bet_team/bet_direction/bet_line now emitted on every NFL flag (bet_fields() parses the
+   explicit side strings; wk1 regenerated 15/15 populated). betTeamLogo hardened for NFL
+   name formats. Counter-signal rendering needed NO port — NFL picks embed sig_objs
+   stances and both web + iOS already group Supports/Contradicts.
+2. Signal-text audit (56 defs): spread_dog_cover_fade_home's copy was INVERTED (said
+   fade home; the rule has always BET home) — corrected; its away sibling had NO def
+   row — added. 57 defs loaded.
+3. Tie-break/consistency audit: the games-table header (fg_spread_pick) used the
+   CLASSIFIER while the pick card used the MARGIN model — a live header-vs-card
+   contradiction whenever the models split (rendered on iOS+Android). Header now derives
+   from the same margin model (NEUTRAL when models disagree), and an NFL SIGN GUARD
+   refuses the whole write on any header/card mismatch (CFB parity). Wk1: 16/16 agree.
 1. Port `_bet_text()` AND `_bet_fields()` (bet_team/bet_direction/bet_line — columns already
    exist on nfl_slate_flags) to the NFL flag generator (`dryrun_wk12_games.py` spot/flag
    emit) — same append-last pattern so no emitter changes.

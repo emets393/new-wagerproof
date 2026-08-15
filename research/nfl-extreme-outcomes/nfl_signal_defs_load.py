@@ -63,12 +63,23 @@ DEFS = [
      "A soft home ML signals the market does not actually trust the home favorite; the "
      "spread is the side to oppose.",
      "Away / fade home", "62% / +18% ROI", "high"),
-    ("spread_dog_cover_fade_home", "Spread Dog-Cover Fade Home", "spread",
-     "Fade home when the dog-cover profile lines up.",
-     "Home-favorite spots whose dog-cover regression profile flags the home number as "
-     "inflated.",
-     "Identifies home favorites the market has padded past their true cover rate.",
-     "Away / fade home", "~60%", "med"),
+    ("spread_dog_cover_fade_home", "Dog-Cover Regression: Buy the Home Favorite", "spread",
+     "Back a cold home favorite against a hot away dog.",
+     "In a home-favorite game where the away underdog has been running hot against the "
+     "spread all season (covering by 3+ points per game) while the home favorite has "
+     "been running cold (missing by 3+), we BET THE HOME FAVORITE at the opener.",
+     "ATS momentum mean-reverts: the dog's cover streak is baked into an inflated line, "
+     "and the favorite's cold streak deflates its number — the regression trade is the "
+     "home side. (Def copy was INVERTED pre-2026-08-15 — said fade home; the rule has "
+     "always bet home. Audit catch.)",
+     "Bet the HOME favorite.", "~60%", "med"),
+    ("spread_dog_cover_fade_away", "Dog-Cover Regression: Buy the Away Favorite", "spread",
+     "Back a cold away favorite against a hot home dog.",
+     "Mirror spot: the home underdog has been covering by 3+ per game while the away "
+     "favorite has been missing by 3+ — we BET THE AWAY FAVORITE at the opener.",
+     "Same mean-reversion mechanism as the home variant, road-favorite version "
+     "(validated separately, 63-70% on a small early sample).",
+     "Bet the AWAY favorite.", "~63-70% (small n)", "med"),
     ("top_vs_top_pt_home", "Top-vs-Top Points Home", "spread",
      "Back the home side when two strong teams meet.",
      "Both teams rate near the top of the slate by points model; take the indicated "
