@@ -1,4 +1,12 @@
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { CollegeTeamMark } from './shared';
 import type { TeamRef } from '../../../types';
 
@@ -42,6 +50,30 @@ export type FootballTeamTrend = {
   last5Su?: string[];
   last5Ats?: string[];
   last5Ou?: string[];
+  gameLog?: FootballTrendGameLog[];
+};
+
+type FootballTrendGameLog = {
+  week?: number | null;
+  date?: string | null;
+  opp?: string | null;
+  is_home?: boolean | null;
+  spread?: number | null;
+  total?: number | null;
+  tt_line?: number | null;
+  h1_spread?: number | null;
+  h1_total?: number | null;
+  su?: string | null;
+  ats?: string | null;
+  ou?: string | null;
+  tt?: string | null;
+  h1_ats?: string | null;
+  h1_ou?: string | null;
+  cover_margin?: number | null;
+  ou_margin?: number | null;
+  tt_margin?: number | null;
+  h1_cover_margin?: number | null;
+  h1_ou_margin?: number | null;
 };
 
 const NFL_TREND_COLUMNS =
@@ -54,6 +86,11 @@ function asStringList(value: unknown): string[] {
   if (!value) return [];
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
   return [];
+}
+
+function asGameLog(value: unknown): FootballTrendGameLog[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((row): row is FootballTrendGameLog => row != null && typeof row === 'object');
 }
 
 function mapNflTrend(row: Record<string, unknown>): FootballTeamTrend {
@@ -86,6 +123,7 @@ function mapNflTrend(row: Record<string, unknown>): FootballTeamTrend {
     last5Su: asStringList(row.last5_su),
     last5Ats: asStringList(row.last5_ats),
     last5Ou: asStringList(row.last5_ou),
+    gameLog: asGameLog(row.game_log),
     games:
       Number(row.ats_w || 0) +
       Number(row.ats_l || 0) +
@@ -123,6 +161,7 @@ function mapCfbTrend(row: Record<string, unknown>): FootballTeamTrend {
     last5Su: asStringList(row.last5_su),
     last5Ats: asStringList(row.last5_ats),
     last5Ou: asStringList(row.last5_ou),
+    gameLog: asGameLog(row.game_log),
   };
 }
 
@@ -306,15 +345,21 @@ function TrendTeamCard({
   team,
   kind,
   trend,
+  onOpen,
 }: {
   team: TeamRef;
   kind: TeamTrendKind;
   trend: FootballTeamTrend | undefined;
+  onOpen: () => void;
 }) {
   const metric = metricForKind(kind, trend);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-xl bg-black/[0.03] p-2.5 dark:bg-white/[0.04]">
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-xl bg-black/[0.03] p-2.5 text-left transition-colors hover:bg-black/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+    >
       <div className="flex items-center gap-1.5">
         <CollegeTeamMark team={team} size={20} />
         <div className="min-w-0">
@@ -359,7 +404,10 @@ function TrendTeamCard({
           </span>
         )}
       </div>
-    </div>
+      <span className="text-[8px] font-bold text-muted-foreground/70">
+        Tap for game log
+      </span>
+    </button>
   );
 }
 
@@ -384,6 +432,7 @@ export function TeamTrendsStrip({
   pickTeams?: Array<string | null | undefined>;
 }) {
   const kind = trendKindForCardGroup(cardGroup);
+  const [selectedTeam, setSelectedTeam] = useState<TeamRef | null>(null);
   if (!kind) return null;
 
   const resolve = (team: TeamRef): FootballTeamTrend | undefined => {
@@ -435,11 +484,120 @@ export function TeamTrendsStrip({
       </div>
       <div className="flex gap-2">
         {teams.map((team) => (
-          <TrendTeamCard key={team.abbrev + team.name} team={team} kind={kind} trend={resolve(team)} />
+          <TrendTeamCard
+            key={team.abbrev + team.name}
+            team={team}
+            kind={kind}
+            trend={resolve(team)}
+            onOpen={() => setSelectedTeam(team)}
+          />
         ))}
       </div>
+      <TrendDetailDialog
+        team={selectedTeam}
+        kind={kind}
+        trend={selectedTeam ? resolve(selectedTeam) : undefined}
+        onOpenChange={(open) => !open && setSelectedTeam(null)}
+      />
     </div>
   );
+}
+
+function TrendDetailDialog({
+  team,
+  kind,
+  trend,
+  onOpenChange,
+}: {
+  team: TeamRef | null;
+  kind: TeamTrendKind;
+  trend: FootballTeamTrend | undefined;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const rows = (trend?.gameLog || [])
+    .map((game) => {
+      const detail = trendResultForKind(game, kind);
+      return detail.result ? { game, ...detail } : null;
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+  const label = metricForKind(kind, trend).label;
+
+  return (
+    <Dialog open={team !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[min(44rem,88vh)] max-w-2xl overflow-y-auto p-4 sm:p-6">
+        <DialogHeader>
+          <DialogTitle>{team?.abbrev} {label} trend</DialogTitle>
+          <DialogDescription>Season game log · newest first</DialogDescription>
+        </DialogHeader>
+        {rows.length === 0 ? (
+          <p className="py-10 text-center text-sm font-medium text-muted-foreground">
+            No games have been played this season yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-black/5 dark:border-white/10">
+            <table className="w-full min-w-[33rem] text-left text-xs">
+              <thead className="bg-muted/50 text-[10px] uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Date</th>
+                  <th className="px-3 py-2">Opp</th>
+                  <th className="px-3 py-2">{trendLineHeader(kind)}</th>
+                  <th className="px-3 py-2">Result</th>
+                  <th className="px-3 py-2 text-right">Margin</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5 dark:divide-white/10">
+                {rows.map(({ game, line, result, margin }, index) => (
+                  <tr key={`${game.date || 'date'}-${game.opp || 'opp'}-${index}`}>
+                    <td className="px-3 py-2 font-mono text-muted-foreground">{trendDate(game.date)}</td>
+                    <td className="px-3 py-2 font-semibold">
+                      {game.is_home === false ? '@ ' : ''}{game.opp || '—'}
+                    </td>
+                    <td className="px-3 py-2 font-mono">{trendNumber(line)}</td>
+                    <td className={cn(
+                      'px-3 py-2 font-black',
+                      ['W', 'O', 'C'].includes(result.toUpperCase()) && 'text-emerald-600',
+                      ['L', 'U'].includes(result.toUpperCase()) && 'text-red-600',
+                    )}>{result}</td>
+                    <td className="px-3 py-2 text-right font-mono">{trendNumber(margin, true)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function trendResultForKind(game: FootballTrendGameLog, kind: TeamTrendKind) {
+  switch (kind) {
+    case 'ats': return { line: game.spread, result: game.ats, margin: game.cover_margin };
+    case 'ou': return { line: game.total, result: game.ou, margin: game.ou_margin };
+    case 'tt': return { line: game.tt_line, result: game.tt, margin: game.tt_margin };
+    case 'su': return { line: null, result: game.su, margin: null };
+    case 'h1_ats': return { line: game.h1_spread, result: game.h1_ats, margin: game.h1_cover_margin };
+    case 'h1_ou': return { line: game.h1_total, result: game.h1_ou, margin: game.h1_ou_margin };
+  }
+}
+
+function trendLineHeader(kind: TeamTrendKind) {
+  if (kind === 'ats') return 'Spread';
+  if (kind === 'ou') return 'Total';
+  if (kind === 'tt') return 'TT';
+  if (kind === 'h1_ats') return '1H Spread';
+  if (kind === 'h1_ou') return '1H Total';
+  return 'Line';
+}
+
+function trendDate(value?: string | null) {
+  return value && value.length >= 10 ? value.slice(5, 10).replace('-', '/') : '—';
+}
+
+function trendNumber(value?: number | null, signed = false) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
+  const number = Number(value);
+  return `${signed && number > 0 ? '+' : ''}${number % 1 === 0 ? number : number.toFixed(1)}`;
 }
 
 /** Resolve a sportsbook logo URL with DuckDuckGo favicon fallback (native parity). */
