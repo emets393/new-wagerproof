@@ -236,7 +236,10 @@ private fun NflHero(selection: NFLPlayerPropSelection, progress: Float, teamColo
     val detail = (1f - progress * 1.9f).coerceIn(0f, 1f)
 
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(start = lerp(20f, 16f, progress).dp, end = 16.dp)
+            .padding(top = lerp(8f, 0f, progress).dp, bottom = lerp(0f, 10f, progress).dp),
         verticalArrangement = Arrangement.spacedBy(lerp(8f, 6f, progress).dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -254,7 +257,7 @@ private fun NflHero(selection: NFLPlayerPropSelection, progress: Float, teamColo
             Box(Modifier.size(headSize + 8.dp).teamGlassDisc(teamColor, oppColor), contentAlignment = Alignment.Center) {
                 NFLPlayerHeadshot(player.playerName, player.playerId, player.headshotUrl, headSize)
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(lerp(16f, 12f, progress).dp))
             Column(Modifier.weight(1f)) {
                 Text(player.playerName, color = AppColors.appTextPrimary, fontSize = lerp(19f, 16f, progress).sp, fontWeight = FontWeight.Black, maxLines = 1)
                 if (detail > 0.04f) {
@@ -619,7 +622,7 @@ fun NFLPropTrendChart(games: List<NFLPropRecentGame>, line: Double, isYesNo: Boo
                 }
             }
         }
-        Text("Season game log · oldest left → most recent right", color = AppColors.appTextMuted, fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        // Chart caption removed — iOS dropped the "oldest left" subtext.
     }
 }
 

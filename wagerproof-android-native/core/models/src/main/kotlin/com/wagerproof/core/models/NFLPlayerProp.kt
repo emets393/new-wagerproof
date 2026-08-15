@@ -268,6 +268,25 @@ object NFLPlayerProps {
         "player_tackles_assists" to "Tackles + Ast",
     )
 
+    internal val marketAbbrs: Map<String, String> = mapOf(
+        "player_pass_yds" to "PYD",
+        "player_pass_tds" to "PTD",
+        "player_pass_attempts" to "ATT",
+        "player_pass_completions" to "CMP",
+        "player_pass_interceptions" to "INT",
+        "player_rush_yds" to "RYD",
+        "player_rush_attempts" to "CAR",
+        "player_rush_tds" to "RTD",
+        "player_reception_yds" to "REY",
+        "player_receptions" to "REC",
+        "player_reception_tds" to "RETD",
+        "player_anytime_td" to "ATD",
+        "player_kicking_points" to "KP",
+        "player_field_goals" to "FG",
+        "player_sacks" to "SK",
+        "player_tackles_assists" to "T+A",
+    )
+
     fun marketLabel(market: String): String {
         marketLabels[market]?.let { return it }
         // "player_some_stat" → "Some Stat"
@@ -277,6 +296,8 @@ object NFLPlayerProps {
             .filter { it.isNotEmpty() }
             .joinToString(" ") { it.take(1).uppercase() + it.drop(1) }
     }
+
+    fun marketAbbr(market: String): String = marketAbbrs[market] ?: marketLabel(market)
 
     fun marketSortIndex(market: String): Int =
         marketOrder.indexOf(market).takeIf { it >= 0 } ?: 999

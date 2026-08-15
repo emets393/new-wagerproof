@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,7 +30,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import kotlin.math.abs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -63,6 +66,7 @@ fun PropsCollapsingScaffold(
     heroMax: Dp,
     heroMin: Dp,
     listState: LazyListState = rememberLazyListState(),
+    onUserScroll: () -> Unit = {},
     aura: @Composable (progress: Float) -> Unit,
     hero: @Composable (progress: Float) -> Unit,
     modifier: Modifier = Modifier,
@@ -80,10 +84,12 @@ fun PropsCollapsingScaffold(
     val maxPx = with(density) { heroMax.toPx() }
     val minPx = with(density) { heroMin.toPx() }
     var heroPx by remember { mutableFloatStateOf(maxPx) }
+    val scrollCb = rememberUpdatedState(onUserScroll)
 
     val connection = remember(maxPx, minPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (abs(available.y) > 8f) scrollCb.value()
                 val dy = available.y
                 if (dy < 0f && heroPx > minPx) {
                     val newHero = (heroPx + dy).coerceIn(minPx, maxPx)
@@ -159,6 +165,7 @@ fun WidgetCollapsingSection(
     title: String,
     systemImage: String,
     modifier: Modifier = Modifier,
+    headline: String? = null,
     content: @Composable () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(true) }
@@ -188,7 +195,21 @@ fun WidgetCollapsingSection(
             )
         }
         AnimatedVisibility(visible = expanded) {
-            Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) {
+            Column(
+                Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(
+                    if (headline.isNullOrBlank()) 0.dp else 14.dp,
+                ),
+            ) {
+                headline?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        it,
+                        color = AppColors.appTextPrimary,
+                        fontSize = 17.sp,
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
                 content()
             }
         }

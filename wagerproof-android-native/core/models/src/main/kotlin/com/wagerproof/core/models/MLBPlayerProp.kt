@@ -303,7 +303,24 @@ object MLBPlayerProps {
         "pitcher_strikeouts", "pitcher_hits_allowed", "pitcher_walks", "pitcher_outs",
     )
 
+    /** Compact picker labels — full names truncate in a segmented control. */
+    internal val marketAbbrs: Map<String, String> = mapOf(
+        "batter_home_runs" to "HR",
+        "batter_hits" to "H",
+        "batter_total_bases" to "TB",
+        "batter_rbis" to "RBI",
+        "batter_hits_runs_rbis" to "HRR",
+        "batter_walks" to "BB",
+        "batter_strikeouts" to "K",
+        "pitcher_strikeouts" to "K",
+        "pitcher_hits_allowed" to "HA",
+        "pitcher_walks" to "BB",
+        "pitcher_outs" to "OUT",
+    )
+
     fun marketLabel(market: String): String = marketLabels[market] ?: market
+
+    fun marketAbbr(market: String): String = marketAbbrs[market] ?: marketLabel(market)
 
     fun marketEmoji(market: String): String = marketEmojis[market] ?: "🎲"
 
@@ -449,11 +466,6 @@ object MLBPlayerProps {
         if (dn != null && dn.games >= 5) {
             val label = if (row.gameIsDay) "day" else "night"
             parts.add("${dn.over}/${dn.games} in $label games")
-        }
-        val arch = computed.contextualArchetype
-        val archName = row.oppArchetypeToday
-        if (arch != null && arch.games >= 3 && archName != null) {
-            parts.add("${arch.over}/${arch.games} vs $archName starters")
         }
         val emoji = if (l10.over >= 7) "🔥 " else if (l10.over >= 5) "📈 " else ""
         return emoji + parts.joinToString(" — ") + "."
