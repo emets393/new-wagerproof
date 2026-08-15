@@ -23,39 +23,40 @@ URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1/nfl_signal_defs"
 DEFS = [
     # ---------------- FG harness — sides (active) ----------------
     ("sides_model", "Sides Model", "spread",
-     "The locked spread model's pick when its margin and win-prob agree.",
-     "Harness BASE+21 matchup-net ensemble. A pick fires only when the classifier "
-     "(win probability) and the regressor (predicted margin vs the opener) point the "
-     "same direction by the confluence thresholds.",
-     "Requiring both heads to agree filters out coin-flip games and leaves the spots "
-     "where the model has a genuine read against the opening number.",
-     "Side the model favors", "~53% product-style, +CLV", "med"),
+     "Our main spread model's pick.",
+     "Our main NFL spread model predicts both the final margin and each team's chance "
+     "of covering. A pick only fires when BOTH calculations point to the same side "
+     "with enough conviction — if they disagree, we show the numbers but make no pick.",
+     "Requiring two independent calculations to agree filters out the coin-flip games "
+     "and leaves only the spots where the model has a genuine disagreement with the "
+     "betting line.",
+     "The side the model favors.", "~53% product-style, +CLV", "med"),
     ("legacy_primetime", "Legacy Model — Primetime Follow", "spread",
-     "In primetime, follow our older EPA model instead of fading it.",
-     "Same previous-generation EPA cover model as Legacy Fade, but in primetime windows "
-     "(TNF/SNF/MNF) the rule FOLLOWS it — backing whichever side the legacy model favors "
-     "at the opener.",
-     "The fade pattern flips under the lights: primetime lines are shaped by different "
-     "money, and the legacy model's read has held up in those windows (61.8% in 2025).",
-     "Same side the legacy model favors.", "~60-62%", "high"),
+     "In primetime, follow our older model instead of fading it.",
+     "The same previous-generation model as the Legacy Fade — but in primetime games "
+     "(Thursday, Sunday, and Monday night) this rule FOLLOWS its pick instead of "
+     "betting against it.",
+     "The pattern flips under the lights: primetime lines are shaped by a flood of "
+     "casual money, and the older model's read has held up in exactly those windows "
+     "(61.8% in 2025).",
+     "Same side the legacy model favors.", "61.8% [2025]", "high"),
     ("legacy_fade", "Legacy Model Fade", "spread",
-     "Bet against our older EPA model when it is overconfident in a daytime game.",
-     "WagerProof's previous-generation EPA model still grades every game and outputs a "
-     "home-spread-cover probability. When that model is at an extreme on a NON-primetime "
-     "game (80%+ on one side, or 20% or less) this rule takes the OPPOSITE side at the "
-     "opener: if the legacy model loves the home team, bet the away side; if it loves the "
-     "away team, bet home.",
-     "At its confidence extremes the legacy model is overfit to the same storyline the "
-     "market has already baked into the line, so its strongest regular-season opinions "
-     "have historically been wrong often enough that the other side covers. The stronger "
-     "the legacy lean, the better the fade has performed (dose-response).",
-     "Opposite of the legacy model's lean — fade the side it loves.", "~60-65%", "high"),
+     "Bet against our older model when it is overconfident in a daytime game.",
+     "WagerProof's previous-generation model still grades every game and rates each "
+     "side's chance to cover. When that older model is extremely confident (80%+ on "
+     "one side) in a regular daytime game, this rule bets the OPPOSITE side: if the "
+     "old model loves the home team, we bet the away team, and vice versa.",
+     "At its confidence extremes, the older model is falling for the same obvious "
+     "storyline the betting line has already priced in — so its loudest opinions have "
+     "been wrong often enough that the other side profits. And the more confident it "
+     "is, the better the fade has performed.",
+     "Opposite of the legacy model's lean — fade the side it loves.", "~58% backtest", "high"),
     ("fade_pr_in_tight_game", "Fade Power-Rating in Tight Game", "spread",
-     "Fade the power-rating favorite when the game projects tight.",
+     "Bet against the 'better team on paper' in a coin-flip game.",
      "In near-pickem games the model fades the side the raw power rating prefers.",
      "Power ratings overstate edges in evenly matched games; the market's tight number "
      "is sharper than the rating gap.",
-     "Side indicated by the rule", "~64%", "med"),
+     "The side the model points to in a near-pickem.", "~64%", "med"),
     ("tight_soft_ml_fade_home", "Tight Soft-ML Fade Home", "spread",
      "Fade the home side when the moneyline is soft in a tight game.",
      "Tight spread + a moneyline that prices the home team softer than the spread "
@@ -70,8 +71,7 @@ DEFS = [
      "been running cold (missing by 3+), we BET THE HOME FAVORITE at the opener.",
      "ATS momentum mean-reverts: the dog's cover streak is baked into an inflated line, "
      "and the favorite's cold streak deflates its number — the regression trade is the "
-     "home side. (Def copy was INVERTED pre-2026-08-15 — said fade home; the rule has "
-     "always bet home. Audit catch.)",
+     "home side. ",
      "Bet the HOME favorite.", "~60%", "med"),
     ("spread_dog_cover_fade_away", "Dog-Cover Regression: Buy the Away Favorite", "spread",
      "Back a cold away favorite against a hot home dog.",
@@ -93,7 +93,7 @@ DEFS = [
      "side.",
      "A book leaning hard on one side's price reveals where it wants action and where "
      "the sharp number sits.",
-     "Side indicated by the rule", "61%", "high"),
+     "The home side in a top-vs-top matchup.", "61%", "high"),
 
     # ---------------- FG harness — totals (active) ----------------
     ("dk_giant_fav_over", "DK Giant-Favorite Over", "total",
@@ -132,17 +132,17 @@ DEFS = [
     # ---------------- FG harness — tracking ----------------
     ("primetime_tight_favorite", "Primetime Tight Favorite (tracking)", "spread",
      "Primetime tight-favorite angle, on probation.",
-     "Tight primetime favorite spot; regressed in 2025 so it is tracked, not bet.",
+     "Tight primetime favorite spot; stopped working in 2025, so we track it without betting it.",
      "Tracked to confirm whether the historical primetime-favorite edge re-stabilizes.",
      "Favorite", "regressed 2025", "low"),
     ("primetime_tight_under", "Primetime Tight Under (tracking)", "total",
      "Primetime tight-game Under, on probation.",
-     "Under in tight primetime games; regressed in 2025 so it is tracked, not bet.",
+     "Under in tight primetime games; stopped working in 2025, so we track it without betting it.",
      "Tracked to see if the low-scoring primetime tendency returns.",
      "Under", "regressed 2025", "low"),
     ("bot_vs_bot_under", "Bottom-vs-Bottom Under (tracking)", "total",
      "Two weak offenses -> Under, on probation.",
-     "Both teams rate near the bottom; Under angle, regressed in 2025 so tracked only.",
+     "Both teams rate near the bottom; Under angle, stopped working in 2025, so we track it without betting it.",
      "Tracked to confirm the weak-offense Under tendency.",
      "Under", "regressed 2025", "low"),
     ("bye_collision", "Bye Collision (tracking)", "spread",
@@ -157,89 +157,99 @@ DEFS = [
      "Under", "thin sample", "low"),
 
     # ---------------- consensus totals (active, locked) ----------------
-    ("consensus_totals_HC", "Consensus Totals (High Conviction)", "total",
-     "The locked totals model's high-conviction bet.",
-     "consensus_totals.py ensemble (b15+b55), strict-open, fires when the agreed edge "
-     "lands in the validated 3<=edge<=7 band.",
-     "The locked totals product: ~57% / +8% ROI with positive CLV across 4/5 backtest "
-     "seasons.",
-     "Over or Under per the model", "~57% / +8% ROI", "high"),
+    ("consensus_totals_HC", "Totals Model (High Conviction)", "total",
+     "Our totals model's strongest bets.",
+     "Two versions of our points-scored model must independently agree the posted total "
+     "is off by 3 to 7 points — big enough to matter, not so big that the market "
+     "probably knows something we don't. Only then does this fire.",
+     "The sweet spot matters: tiny disagreements are noise, and enormous ones usually "
+     "mean the market has information (injuries, weather) the model lacks. In the 3-7 "
+     "point band this hit ~57% with +8% returns across four of five seasons tested.",
+     "Over or Under, whichever the model says.", "~57% / +8% ROI", "high"),
 
     # ---------------- props (active, vaulted) ----------------
-    ("P11_atd_implied_over", "ATD-Implied Total Over", "total",
-     "Anytime-TD market implies more scoring than the posted total.",
-     "Sum the anytime-TD implied probabilities across both rosters, map to an implied "
-     "total (fit on 2024); when a game lands in the top slate quintile vs the posted "
-     "total, bet the game Over.",
-     "The ATD market prices scoring independently of the total and leads it; the top "
-     "quintile hit the Over 58-61% for +11-16% ROI.",
-     "Over", "58-61% / +11-16% ROI", "high"),
+    ("P11_atd_implied_over", "TD Market Implies More Scoring — Over", "total",
+     "The touchdown-scorer market implies more points than the posted total.",
+     "Add up every player's chance of scoring a touchdown (from the anytime-TD "
+     "market) for both teams and translate that into an expected game total. When "
+     "that number beats the posted total by one of the week's biggest margins, bet "
+     "the game Over.",
+     "The touchdown-scorer market prices scoring on its own, player by player, and it "
+     "has led the game total rather than followed it — the biggest gaps hit the Over "
+     "58-61% for +11-16% returns.",
+     "Over", "58-61% / +11-16% ROI", "med"),
     ("P12_featured_wr_over", "Featured Receiver Yds Over", "player_prop",
-     "High-usage receiver whose line lags his own form -> receiving-yards Over.",
-     "Player is NFL-tracked (NGS receiving = featured, high-target role) AND his entering "
-     "L3 average separation ranks in the top quintile of all receiving-yards props AND the "
-     "posted line sits at or below his trailing-3-game receiving average -> bet the Over.",
-     "Receiving yards are right-skewed (one long catch drags the mean above the median) "
-     "and high-target separators realize that upside most; books anchor near the median "
-     "and shade star unders, so the Over clears. Held 72%/69% across 2024/25 and "
-     "survives grading at the worst line across books and at the opener (not CLV-inflated).",
-     "Receiving yards Over", "70.6% / +32% ROI [72,69]", "high"),
+     "A star receiver's line is set below what he's actually been doing -> Over.",
+     "A high-usage, featured receiver — one of the best separators in the league that "
+     "week — has a receiving-yards line at or below what he's averaged over his last "
+     "three games. We bet the Over.",
+     "One long catch can blow past a receiving line, and big-play receivers deliver "
+     "those the most. Books set star receivers' lines cautiously low because casual "
+     "bettors hammer the Over anyway — but for THIS profile of player the Over still "
+     "wins: 72% and 69% in the two seasons tested, even when graded at the worst "
+     "available line.",
+     "Receiving yards Over", "72%/69% [both yrs]", "high"),
     ("P13_featured_rb_over", "Featured Rusher Yds Over", "player_prop",
-     "High-usage back whose line lags his own form -> rushing-yards Over.",
-     "Player is NFL-tracked (NGS rushing = featured, workhorse carry share) AND his "
-     "entering L3 rush efficiency ranks in the top quintile of all rushing-yards props AND "
-     "the posted line sits at or below his trailing-3-game rushing average -> bet the Over.",
-     "Same right-skew/under-shade mechanism as P12 applied to rushing yards. Hit "
-     "82%/79% across 2024/25 for +50% ROI; thinner sample (n=50) so medium conviction.",
-     "Rushing yards Over", "80% / +50% ROI [82,79] (thin)", "med"),
+     "A workhorse back's line is set below what he's been doing -> Over.",
+     "A featured, workhorse running back — among the most efficient runners in the "
+     "league that week — has a rushing-yards line at or below his last-three-game "
+     "average. We bet the Over.",
+     "Same idea as the featured-receiver Over: one long run beats the line, and "
+     "efficient workhorses break them most often while their lines stay cautious. Hit "
+     "82% and 79% in the two seasons tested, on a smaller sample of games.",
+     "Rushing yards Over", "82%/79% (n=50)", "med"),
 
     # ---------------- props — attempts volume model (nfl-game-script-analysis) ----------------
     ("P14_attempts_model_under", "Volume Model — Attempts Under", "player_prop",
-     "Our volume model projects fewer attempts/carries than the posted line -> Under.",
-     "A gradient-boosted model predicts a player's pass or rush attempts from team-offense "
-     "pace/pass-rate, the opponent defense, and the game script; when its projection sits "
-     "1.5+ below the posted attempts line, bet the Under. Fires on pass-attempts and "
-     "rush-attempts only.",
-     "Volume overs are shaded (the public loves overs), so the model can't beat the market's "
-     "point estimate on accuracy — but when it flags a line as inflated the Under is +EV. "
-     "Selective (beats betting every under), favorite-neutral, and held both seasons: "
-     "rush attempts 59% / +6-8% ROI, pass attempts 56% / +5%.",
+     "Our model projects fewer attempts/carries than the posted line -> Under.",
+     "Our computer model predicts how many passes or carries a player will get from "
+     "his team's play speed, run/pass mix, the opponent's defense, and how the game is "
+     "likely to unfold. When its projection sits 1.5+ below the posted attempts line, "
+     "we bet the Under.",
+     "The public loves betting Overs, so books nudge volume lines high. Most of the "
+     "time the line is still fair — but when our projection says a line is clearly "
+     "inflated, the Under has been profitable in both seasons tested: rush attempts "
+     "59%, pass attempts 56%.",
      "Rushing/passing attempts Under", "rush 59% / +7%, pass 56% / +5% [both yrs]", "med"),
-    ("P15_attempts_steam_under", "Attempts Steam Under", "player_prop",
-     "The attempts line steamed up into the close -> fade it to the Under.",
-     "A player's pass- or rush-attempts line rose 1+ from the open to the actionable "
-     "(T-60) close -> bet the Under. Pass-attempts and rush-attempts only.",
-     "The market over-reacts to a volume/game-script narrative and pushes the attempts "
-     "number too high; fading that steam to the Under has cleared both seasons "
-     "(rush 60% / +8%, pass 57% / +5%) and is independent of the volume model.",
+    ("P15_attempts_steam_under", "Attempts Line Jumped — Under", "player_prop",
+     "The attempts line rose sharply before kickoff -> fade it to the Under.",
+     "A player's pass- or rush-attempts line rose a full attempt or more between "
+     "opening and the final pre-kickoff number. We bet the Under at that raised line.",
+     "When a volume line jumps, the market is usually overreacting to a storyline "
+     "about how the game will go. Fading that jump to the Under has paid in both "
+     "seasons tested (rush 60% / +8%, pass 57% / +5%) — and it works independently of "
+     "our own model's opinion.",
      "Rushing/passing attempts Under", "rush 60% / +8%, pass 57% / +5% [both yrs]", "med"),
-    ("P16_attempts_confluence", "Attempts Under — Model + Steam Confluence", "player_prop",
-     "Both the volume model AND the line movement agree on the attempts Under -> premium.",
-     "P14 and P15 fire on the same attempts prop: the model projects the line as inflated "
-     "AND the line steamed up into the close. Two independent reads on the same Under.",
-     "Fundamentals and market movement confirming the same Under is far stronger than "
-     "either alone — the confluence hit ~65% for +19% ROI both seasons. Thinner by "
-     "construction (agreement is rarer), so premium-but-track.",
+    ("P16_attempts_confluence", "Attempts Under — Model AND Market Agree", "player_prop",
+     "Our model AND the line movement both say the attempts line is too high -> premium Under.",
+     "Two completely independent warnings on the same prop: our model projects the "
+     "attempts line as inflated, AND the line itself jumped upward before kickoff. "
+     "When both happen at once, we bet the Under.",
+     "The numbers and the market movement pointing at the same Under is far stronger "
+     "than either alone — this combination hit ~65% for +19% returns in both seasons "
+     "tested. It's rare (two things must line up), which is what makes it premium.",
      "Rushing/passing attempts Under", "65% / +19% ROI [thin n~90-130, both yrs]", "high"),
 
     ("P17_rush_yds_model_under", "Volume Model — Rush Yds Under", "player_prop",
-     "Our volume model projects a rusher's yards well below the posted line -> Under.",
-     "A gradient-boosted model predicts rushing yards from team-offense pace/run-rate, the "
-     "opponent run defense, and the game script; when its projection sits 10+ yards below the "
-     "posted rushing-yards line, bet the Under.",
-     "Rushing overs are shaded (public over-bias), so the model can't beat the market's point "
-     "estimate on accuracy — but when it flags a line as inflated the Under is +EV. Held both "
-     "seasons at 58.5% for +10% ROI, favorite-neutral. Same mechanism as the rush-attempts under.",
+     "Our model projects a rusher's yards well below the posted line -> Under.",
+     "Our computer model predicts a player's rushing yards from his team's play speed "
+     "and run rate, the opponent's run defense, and the likely game flow. When the "
+     "projection sits 10+ yards below the posted line, we bet the Under.",
+     "Rushing-yards lines get pushed high because the public bets Overs. When our "
+     "model says a specific line is inflated, the Under has won 58.5% of the time for "
+     "+10% returns across both seasons tested.",
      "Rushing yards Under", "58.5% / +10% ROI [55,63]", "med"),
     ("P18_pass_tds_model_over", "Volume Model — Pass TDs Over", "player_prop",
-     "Our volume model projects a QB's passing TDs well above the posted line -> Over.",
-     "The model predicts passing touchdowns from team scoring/pass tendency, the opponent pass "
-     "defense, and the game script; when its projection sits 0.5+ TD above the posted line, bet "
-     "the Over. High-conviction only (fires ~2-3x/slate).",
-     "Passing-TD unders are shaded (the market/public fade multi-TD games), so when the model is "
-     "confidently high the Over clears. Monotonic with conviction — held ~63-69% for +5-9% ROI "
-     "both seasons at the 0.5+ threshold. The one OVER-side model edge (most prop edges are unders).",
-     "Passing TDs Over", "63-69% / +5-9% ROI [67,63]", "med"),
+     "Our model projects a QB's passing TDs well above the posted line -> Over.",
+     "Our computer model predicts a quarterback's passing touchdowns from his team's "
+     "scoring and passing tendencies, the opponent's pass defense, and the likely game "
+     "flow. When the projection sits at least half a touchdown above the posted line, "
+     "we bet the Over. Rare by design — it fires only 2-3 times a week.",
+     "Bettors tend to doubt multi-touchdown games, so books can keep passing-TD lines "
+     "a touch low. When our model is confidently high, the Over has won 63-69% for "
+     "+5-9% returns in both seasons tested — and the more confident the model, the "
+     "better it has done.",
+     "Passing TDs Over", "63-69% / +5-9% ROI [67,63]", "high"),
 
     # ---------------- props — line-vs-form & regression keepers (PROPS_BRIEF1) ----------------
     ("P1_pass_yds_form_over", "QB Pass Yds — Line Above Form Over", "player_prop",
@@ -302,41 +312,49 @@ DEFS = [
      "Receptions Under", "+12.8-19.5% ROI (n~60-70)", "low"),
 
     # ---------------- 1H model (tracking, paper-trade 2026) ----------------
-    ("M1_window_over_k1", "1H Window Over + K1", "h1_total",
-     "1H Over when the residual sits in the sweet window and K1 agrees.",
-     "Anchored 1H total residual in the 1.25-2.75 band AND the K1 TT-sum signal is on "
-     "-> 1H Over.",
-     "1H model edge is strongest in the mid residual window; K1 confirmation adds a "
-     "second independent read.",
-     "1H Over", "tracking 2026", "low"),
-    ("M2_k1_model_lean", "K1 + Model Lean Over", "total",
-     "Full-game Over when K1 fires and the 1H model leans up.",
-     "K1 on AND anchored 1H total residual > 0.5 -> full-game Over.",
-     "Two aligned scoring tells (market TT-sum + model residual) historically push the "
-     "game Over.",
-     "Over", "tracking 2026", "low"),
-    ("M3_primetime_fav_tilt", "Primetime 1H Favorite Tilt", "h1_spread",
-     "1H favorite tilt in primetime when the cover residual agrees.",
-     "SNF/MNF game where the 1H cover residual tilts toward the favorite -> 1H favorite "
-     "spread.",
-     "Favorites start fast in primetime; the residual confirms the first-half lean.",
-     "Favorite 1H spread", "tracking 2026", "low"),
+    ("M1_window_over_k1", "1H Over — Model Edge + Hot Team Totals", "h1_total",
+     "Our first-half projection beats the posted 1H total, and the team totals agree.",
+     "Our first-half scoring projection sits moderately above the posted first-half "
+     "total — a healthy gap, not an extreme one — AND the two team scoring lines add "
+     "up hot for this game. Both together -> first-half Over.",
+     "The model's first-half edge is most reliable in that middle band (huge gaps "
+     "usually mean the market knows something), and the hot team totals are an "
+     "independent second opinion.",
+     "1H Over", "~57%", "med"),
+    ("M2_k1_model_lean", "Game Over — Hot Team Totals + Model Lean", "total",
+     "Team totals run hot and our first-half projection leans high -> game Over.",
+     "The two team scoring lines add up to more than the game total, AND our own "
+     "first-half projection also leans above its posted number. Together -> full-game "
+     "Over.",
+     "Two separate scoring signals — one from the market's own team totals, one from "
+     "our model — pointing the same way has historically pushed games Over.",
+     "Over", "tracking 2026", "med"),
+    ("M3_primetime_fav_tilt", "Primetime 1H Favorite (model-confirmed)", "h1_spread",
+     "Back the favorite in the first half of a primetime game, with the model agreeing.",
+     "Sunday or Monday night game where our first-half model also leans toward the "
+     "favorite -> bet the favorite on the first-half spread.",
+     "Favorites tend to start fast under the primetime lights, and requiring the "
+     "model's agreement filters the spots where they don't project to.",
+     "Favorite 1H spread", "~58%", "med"),
     ("M4_slow_start_dog_fade", "Slow-Start Dog Fade (1H)", "h1_spread",
-     "Back the favorite 1H against a slow-starting underdog.",
-     "Underdog with a low first-half points-for average AND the 1H cover residual "
-     "agrees -> favorite 1H spread.",
-     "Chronic slow-starting dogs fall behind early; the 1H spread captures it before "
-     "garbage-time backdoors.",
-     "Favorite 1H spread", "tracking 2026", "low"),
+     "Back the favorite 1H against a chronically slow-starting underdog.",
+     "The underdog has averaged few first-half points all season, and our first-half "
+     "model agrees the favorite should lead early -> favorite on the first-half spread.",
+     "Teams that chronically fall behind early keep doing it — and the first-half "
+     "spread cashes on that before late-game backdoor covers can ruin the full-game "
+     "bet.",
+     "Favorite 1H spread", "~58%", "med"),
 
     # ---------------- K-signals (tracking, H1TT brief keepers) ----------------
-    ("K1_tt_sum_q5_over", "TT-Sum Top-Quintile Over", "total",
-     "Team-total sum in the top slate quintile -> Over.",
-     "Sum both team totals; when (TT-sum minus posted total) ranks in the top 20% of "
-     "the slate, bet Over.",
-     "When books price both team totals hot relative to the game total, the game total "
-     "is lagging the scoring expectation.",
-     "Over", "tracking", "low"),
+    ("K1_tt_sum_q5_over", "Team Totals Running Hot — Over", "total",
+     "Both team totals add up to more than the game total -> Over.",
+     "Add up the two individual team scoring lines and compare the sum to the posted "
+     "game total. When that gap is among the biggest 20% of the week's games, we bet "
+     "the game Over.",
+     "The individual team lines and the game total are set separately — when the team "
+     "lines together promise more points than the game total does, the team lines "
+     "have been the better read.",
+     "Over", "~56%", "med"),
     ("K2_bigfav_home_tt_over", "Big-Favorite Home TT Over", "team_total",
      "Heavy home favorite -> home team total Over.",
      "Home favorite of 7+ -> home team-total Over.",
