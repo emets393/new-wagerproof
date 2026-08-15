@@ -107,6 +107,12 @@ verify_jwt = false  # Admin function, auth via x-internal-secret header
 [functions.send-agent-pick-ready-notification]
 verify_jwt = false  # Internal function, auth via service role key
 
+[functions.process-push-broadcast]
+verify_jwt = false  # Internal worker, auth via x-internal-secret or service role key
+
+[functions.admin-push-broadcast]
+verify_jwt = true  # Admin gateway, JWT + has_role check
+
 [functions.revenuecat-webhook]
 verify_jwt = false  # External webhook from RevenueCat, auth via custom Authorization header
 

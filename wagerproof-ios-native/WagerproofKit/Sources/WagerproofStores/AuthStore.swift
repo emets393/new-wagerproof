@@ -109,6 +109,9 @@ public final class AuthStore {
     }
 
     public func signOut() async {
+        if case .authenticated(let userId) = phase {
+            await NotificationService.shared.deactivatePushTokens(userId: userId)
+        }
         do {
             let client = await MainSupabase.shared.client
             try await client.auth.signOut()

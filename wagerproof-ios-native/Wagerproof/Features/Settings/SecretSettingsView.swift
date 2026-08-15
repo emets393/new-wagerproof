@@ -410,8 +410,14 @@ struct SecretSettingsView: View {
         lines.append("Device model: \(deviceModel())")
         let status = await NotificationService.shared.permissionStatus()
         lines.append("Permission: \(status.rawValue)")
-        let token = NotificationService.shared.currentDeviceToken() ?? "<none>"
-        lines.append("APNs token: \(token.prefix(30))…")
+        if let token = NotificationService.shared.currentDeviceToken() {
+            lines.append("APNs token: \(token)")
+        } else {
+            lines.append("APNs token: <none>")
+        }
+        if let failure = NotificationService.shared.lastAPNsRegistrationFailure() {
+            lines.append("APNs register failure: \(failure)")
+        }
         if case let .authenticated(userId) = auth.phase {
             lines.append("User ID: \(userId.uuidString)")
         } else {
@@ -437,7 +443,7 @@ struct SecretSettingsView: View {
             }
         }
         await NotificationService.shared.initialize()
-        await NotificationService.shared.registerPushToken(userId: userId)
+        await NotificationService.shared.refreshRegistrationIfPermitted(userId: userId)
         await scheduleLocalTestNotification()
         diagnosticsMessage = DiagMessage(
             title: "Test Scheduled",

@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock, Cable, Medal, Eye } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock, Cable, Medal, Eye, Bell } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import NotFound from "./pages/NotFound";
@@ -262,6 +262,11 @@ export const navItems: NavItem[] = [
         title: "Announcements",
         to: "/admin/announcements",
         icon: <Megaphone className="h-4 w-4" />,
+      },
+      {
+        title: "Push Notifications",
+        to: "/admin/push-notifications",
+        icon: <Bell className="h-4 w-4" />,
       },
       {
         title: "User Wins",

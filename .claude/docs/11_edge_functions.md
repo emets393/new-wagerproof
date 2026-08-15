@@ -69,6 +69,8 @@ See [02_chat_wagerbot.md](02_chat_wagerbot.md) for full architecture.
 |----------|---------|---------|
 | `send-discord-notification` | Send alerts to Discord channel | Various |
 | `send-agent-pick-ready-notification` | Push when agent picks are ready — fans out to Expo / APNs / FCM v1 by token shape (see `agents/11_PUSH_NOTIFICATIONS.md`) | After generation (V2 worker only) |
+| `admin-push-broadcast` | Admin gateway: test-send / send-now / schedule / cancel a blast | `/admin/push-notifications` |
+| `process-push-broadcast` | Broadcast worker — claims recipient batches, fans out via `shared/pushTransport.ts` | Cron + send-now kickoff |
 | `send-reactivation-events` | Reactivation emails for inactive users | Cron |
 
 ### AI Agents (Avatar System)

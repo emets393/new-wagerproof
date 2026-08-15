@@ -101,6 +101,7 @@
 		40BEDACD7616E3FA82D753E2 /* Step5CustomInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85D725A2DB40987276E71C1F /* Step5CustomInsightsView.swift */; };
 		415F103F70D72752BEEF6F5A /* ScoreboardFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F8743FE6234353DDA63EDB5 /* ScoreboardFixtures.swift */; };
 		4251BB9F52E2FA9FD75957B9 /* LiveScoreCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F5320C291B70A330154E6C3 /* LiveScoreCard.swift */; };
+		428E30C850053A118A7C7118 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEE604F67AD1059A0FF92ACC /* AppDelegate.swift */; };
 		4548BDA9B8C9C98D0B1F505C /* BattingRegressionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF4A80E01CCD48E6B224790C /* BattingRegressionCard.swift */; };
 		45D981F9993FA5D810C70598 /* AgentMonitorWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E222A3485376890FBD893D98 /* AgentMonitorWidgetView.swift */; };
 		471ABCF1EB5BB6D07A56AB9B /* OnboardingCarouselContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC8072C7424A9C42D9392294 /* OnboardingCarouselContainer.swift */; };
@@ -696,6 +697,7 @@
 		EC6B36877E50042AB9F3B925 /* avatar_3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = avatar_3.png; sourceTree = "<group>"; };
 		ED40AF29E0D31B5667368FE4 /* AgentCreationGenerationIntroView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCreationGenerationIntroView.swift; sourceTree = "<group>"; };
 		EE532E700BAFC69A1470F92E /* LiveScoreDetailModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveScoreDetailModal.swift; sourceTree = "<group>"; };
+		EEE604F67AD1059A0FF92ACC /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		EEE7596BC05581DE535A4591 /* WagerBotChatBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WagerBotChatBubble.swift; sourceTree = "<group>"; };
 		EF617E5C083AE65537BE2E51 /* avatar_5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = avatar_5.png; sourceTree = "<group>"; };
 		EF853BEA3D4656EE099A4256 /* PropsFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropsFixtures.swift; sourceTree = "<group>"; };
@@ -1432,6 +1434,7 @@
 		B84AF2E3BA56E69848D220B5 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				EEE604F67AD1059A0FF92ACC /* AppDelegate.swift */,
 				280EC592678E30077CF2B5AD /* RootView.swift */,
 				0B01F1166984FCBA9CF20132 /* ScaffoldPlaceholder.swift */,
 				18C0659AA10A25366B515DEB /* ScreenshotHarness.swift */,
@@ -1924,6 +1927,7 @@
 				A8CA07ACF44DCAB2993FC862 /* AgentsRouter.swift in Sources */,
 				779BE9A3EDDA8DB42BDD3E10 /* AgentsView+TopPicks.swift in Sources */,
 				2582CF98ABDB836D594C9F5D /* AgentsView.swift in Sources */,
+				428E30C850053A118A7C7118 /* AppDelegate.swift in Sources */,
 				C192BA514705BB3339196C6A /* ArchetypeCard.swift in Sources */,
 				7640694E36A7F811331C1336 /* AuthButtons.swift in Sources */,
 				21F5C70639E731FE8C6CC0D9 /* AuthGateBackground.swift in Sources */,
@@ -2304,7 +2308,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Wagerproof/Wagerproof.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Wagerproof/Wagerproof.Debug.entitlements;
 				CODE_SIGN_IDENTITY = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
