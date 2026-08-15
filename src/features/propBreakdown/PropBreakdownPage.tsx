@@ -13,6 +13,13 @@ import { Last10Strip } from './components/Last10Strip';
 import { HighlightRibbons } from './components/HighlightRibbons';
 import { SituationsDrawer } from './components/SituationsDrawer';
 import { PropBreakdownSkeleton } from './components/PropBreakdownSkeleton';
+import {
+  BestBookChip,
+  fetchNflPropSportsbookOdds,
+  formatSignedLine,
+  useSportsbookPreference,
+  type SportsbookMarketQuotes,
+} from '@/features/games/detail/sportsbooks';
 
 /**
  * /nfl/player/:playerId — Player Prop Breakdown.
@@ -43,6 +50,29 @@ export default function PropBreakdownPage() {
   const marketKey = selectedKey ?? markets[0]?.key ?? '';
   const selectedMarket = markets.find((m) => m.key === marketKey);
   const colors = getNFLTeamColors(page?.team ?? '');
+  const { selectedKeys } = useSportsbookPreference();
+  const [propBoard, setPropBoard] = React.useState<{
+    over: SportsbookMarketQuotes;
+    under: SportsbookMarketQuotes;
+  } | null>(null);
+
+  React.useEffect(() => {
+    if (!playerId || !marketKey) {
+      setPropBoard(null);
+      return;
+    }
+    let cancelled = false;
+    fetchNflPropSportsbookOdds(playerId, marketKey)
+      .then((odds) => {
+        if (!cancelled) setPropBoard(odds);
+      })
+      .catch(() => {
+        if (!cancelled) setPropBoard(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [playerId, marketKey]);
 
   const marketHighlights = React.useMemo(() => {
     const all = Array.isArray(page?.highlights) ? page.highlights : [];
@@ -97,6 +127,28 @@ export default function PropBreakdownPage() {
               setHighlightsExpanded(false);
             }}
           />
+          {propBoard && (propBoard.over.quotes.length > 0 || propBoard.under.quotes.length > 0) && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {propBoard.over.quotes.length > 0 && (
+                <BestBookChip
+                  quotes={propBoard.over}
+                  selectedBookKeys={selectedKeys}
+                  marketTitle={selectedMarket?.label ?? marketKey}
+                  selectionTitle={`Over ${selectedMarket?.label ?? marketKey}`}
+                  formatLine={formatSignedLine}
+                />
+              )}
+              {propBoard.under.quotes.length > 0 && (
+                <BestBookChip
+                  quotes={propBoard.under}
+                  selectedBookKeys={selectedKeys}
+                  marketTitle={selectedMarket?.label ?? marketKey}
+                  selectionTitle={`Under ${selectedMarket?.label ?? marketKey}`}
+                  formatLine={formatSignedLine}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <div key={marketKey} className="space-y-3 animate-in fade-in duration-150">

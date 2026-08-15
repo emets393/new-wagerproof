@@ -225,9 +225,16 @@ enum GamesFixtures {
             overLineDiff: -2.8,
             fgSpreadClose: -2.5,
             fgTotalClose: 51.5,
+            fgMlHomeClose: -125,
+            fgMlAwayClose: 105,
+            // Derived from the projected score above (31.1 − 27.4), so the
+            // spread bar, the total rail and the hero all tell one story.
+            fgPredMargin: 3.7,
+            fgPredSpread: -3.7,
             fgSpreadPick: "HOME",
             fgPredTotal: 48.7,
-            fgTotalPick: "UNDER"
+            fgTotalPick: "UNDER",
+            fgHomeWinProb: 0.56
         ),
         CFBPrediction(
             id: "cfb-fixture-2",

@@ -79,6 +79,7 @@ struct NBAGameBottomSheet: View {
             AgentConsensusSection(sport: .nba, gameId: GameConsensusKey.nba(game), gameDate: game.gameDate)
             marketOddsSection
             spreadAnalysis
+            moneylineAnalysis
             ouAnalysis
             injurySection
             recentTrendsSection
@@ -409,34 +410,61 @@ struct NBAGameBottomSheet: View {
         return nil
     }
 
+    /// The cover bar and its headline, or nil when the model has no fair spread
+    /// for this game. The probability-only fallback in `spreadPrediction`
+    /// reuses the VEGAS number as `predictedSpread`, which would draw a bar with
+    /// a dead-zero cushion — so that branch deliberately keeps the metric boxes.
+    private var spreadCover: SpreadCoverOutcome? {
+        guard let prediction = spreadPrediction,
+              prediction.probability == nil,
+              let line = prediction.vegasSpread,
+              let modelSpread = prediction.predictedSpread,
+              line.isFinite, modelSpread.isFinite else { return nil }
+        // `predictedSpread` is the pick team's fair SPREAD; the bar works in
+        // margin, so it is negated exactly once, here.
+        return SpreadCoverOutcome(line: line, modelMargin: -modelSpread)
+    }
+
     @ViewBuilder
     private var spreadAnalysis: some View {
         if let prediction = spreadPrediction {
+            let cover = spreadCover
             WidgetCollapsingSection(
                 title: "Spread Prediction",
                 systemImage: "target",
                 iconTint: Color.appPrimary,
                 accessory: .tapHint(expanded: spreadExpanded),
                 onHeaderTap: { spreadExpanded.toggle() },
-                headline: GameWidgetHeadlines.spread(
-                    team: prediction.isHome ? game.homeAbbr : game.awayAbbr,
-                    modelSpread: prediction.predictedSpread,
-                    marketSpread: prediction.vegasSpread,
-                    edge: prediction.edge,
-                    probability: prediction.probability
-                )
+                headline: cover?.headline(team: prediction.isHome ? game.homeAbbr : game.awayAbbr)
+                    ?? GameWidgetHeadlines.spread(
+                        team: prediction.isHome ? game.homeAbbr : game.awayAbbr,
+                        modelSpread: prediction.predictedSpread,
+                        marketSpread: prediction.vegasSpread,
+                        edge: prediction.edge,
+                        probability: prediction.probability
+                    )
             ) {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        comparisonBox(label: "Vegas", value: GameCardFormatting.formatSpread(game.homeSpread), color: Color.appTextPrimary)
-                        Image(systemName: "arrow.right")
-                            .foregroundStyle(Color.appTextMuted)
-                        comparisonBox(
-                            label: "Our Model",
-                            value: GameCardFormatting.formatSpread(prediction.predictedSpread),
-                            color: Color.appPrimary,
-                            isHighlight: true
+                    if let cover {
+                        SpreadCoverBar(
+                            line: cover.line,
+                            modelMargin: cover.modelMargin,
+                            scale: .nba,
+                            pickAbbrev: prediction.isHome ? game.homeAbbr : game.awayAbbr,
+                            opponentAbbrev: prediction.isHome ? game.awayAbbr : game.homeAbbr
                         )
+                    } else {
+                        HStack {
+                            comparisonBox(label: "Vegas", value: GameCardFormatting.formatSpread(game.homeSpread), color: Color.appTextPrimary)
+                            Image(systemName: "arrow.right")
+                                .foregroundStyle(Color.appTextMuted)
+                            comparisonBox(
+                                label: "Our Model",
+                                value: GameCardFormatting.formatSpread(prediction.predictedSpread),
+                                color: Color.appPrimary,
+                                isHighlight: true
+                            )
+                        }
                     }
                     HStack(spacing: 12) {
                         GameCardTeamAvatar(teamName: prediction.predictedTeam, sport: "nba", size: 40)
@@ -492,16 +520,21 @@ struct NBAGameBottomSheet: View {
                 )
             ) {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        comparisonBox(label: "Vegas O/U", value: GameCardFormatting.roundToNearestHalf(prediction.line), color: Color.appTextPrimary)
-                        Image(systemName: "arrow.right")
-                            .foregroundStyle(Color.appTextMuted)
-                        comparisonBox(
-                            label: "Our Model",
-                            value: GameCardFormatting.roundToNearestHalf(prediction.modelTotal),
-                            color: color,
-                            isHighlight: true
-                        )
+                    if let market = prediction.line, let model = prediction.modelTotal,
+                       market.isFinite, model.isFinite {
+                        ModelEdgeRail(market: market, model: model, scale: .nba)
+                    } else {
+                        HStack {
+                            comparisonBox(label: "Vegas O/U", value: GameCardFormatting.roundToNearestHalf(prediction.line), color: Color.appTextPrimary)
+                            Image(systemName: "arrow.right")
+                                .foregroundStyle(Color.appTextMuted)
+                            comparisonBox(
+                                label: "Our Model",
+                                value: GameCardFormatting.roundToNearestHalf(prediction.modelTotal),
+                                color: color,
+                                isHighlight: true
+                            )
+                        }
                     }
                     HStack(spacing: 12) {
                         Image(systemName: prediction.isOver ? "chevron.up" : "chevron.down")
@@ -518,6 +551,56 @@ struct NBAGameBottomSheet: View {
                     }
                     if ouExpanded {
                         explanation(text: ouExplanation(prediction))
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Moneyline
+
+    /// Price-vs-model-probability for the side the model favors. `home_win_prob`
+    /// is stored home-side, so the away read is its complement and the away
+    /// price comes from the same row (derived from the home price when the book
+    /// only posts one — see `GamesStore.calculateAwayML`).
+    private var moneylineOutcome: (outcome: MoneylineOutcome, abbrev: String, team: String)? {
+        guard let homeProb = game.homeAwayMlProb, homeProb.isFinite, homeProb > 0, homeProb < 1 else { return nil }
+        let isHome = homeProb >= 0.5
+        let probability = isHome ? homeProb : 1 - homeProb
+        guard let price = isHome ? game.homeMl : game.awayMl, abs(price) >= 100 else { return nil }
+        return (
+            MoneylineOutcome(price: price, modelProbability: probability, scale: .nba),
+            isHome ? game.homeAbbr : game.awayAbbr,
+            isHome ? game.homeTeam : game.awayTeam
+        )
+    }
+
+    @ViewBuilder
+    private var moneylineAnalysis: some View {
+        if let resolved = moneylineOutcome {
+            WidgetCollapsingSection(
+                title: "Moneyline Prediction",
+                systemImage: "dollarsign.circle.fill",
+                iconTint: Color.appPrimary,
+                headline: resolved.outcome.headline(team: resolved.team)
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    MoneylineEdgeBar(
+                        price: resolved.outcome.price,
+                        modelProbability: resolved.outcome.modelProbability,
+                        scale: .nba,
+                        teamAbbrev: resolved.abbrev
+                    )
+                    HStack(spacing: 12) {
+                        GameCardTeamAvatar(teamName: resolved.team, sport: "nba", size: 40)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Edge to \(resolved.abbrev)")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.appTextPrimary)
+                            Text("\(String(format: "%+.1f", resolved.outcome.edge)) pts of win rate")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(resolved.outcome.isPositiveValue ? Color.appPrimary : Color.appAccentRed)
+                        }
                     }
                 }
             }

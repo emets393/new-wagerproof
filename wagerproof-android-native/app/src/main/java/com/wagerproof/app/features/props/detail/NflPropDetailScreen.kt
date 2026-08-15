@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.features.gamecards.BestBookChip
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.props.NFLPlayerPropSelection
 import com.wagerproof.app.features.props.PropsFormatting
@@ -69,6 +70,7 @@ import com.wagerproof.app.features.shared.InitialsDisc
 import com.wagerproof.app.features.shared.RemoteImage
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.core.models.SportsbookMarketQuotes
 import com.wagerproof.core.models.NFLPlayerProps
 import com.wagerproof.core.models.NFLPropBestQuote
 import com.wagerproof.core.models.NFLPropMarket
@@ -78,6 +80,9 @@ import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.models.SignalPerformance
 import com.wagerproof.core.services.SignalPerformanceService
 import com.wagerproof.core.services.SignalSport
+import com.wagerproof.core.services.SportsbookPropMarketOdds
+import com.wagerproof.core.services.SportsbookPropOddsService
+import com.wagerproof.core.stores.SportsbookPreferenceStore
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -106,6 +111,17 @@ fun NflPropDetailScreen(
     var selectedSignal by remember { mutableStateOf<SelectedSignal?>(null) }
     var metricHelp by remember { mutableStateOf<NFLPropMetricHelp?>(null) }
     var propPerfByKey by remember { mutableStateOf<Map<String, SignalPerformance>>(emptyMap()) }
+    var bookOddsByMarket by remember(selection.id) { mutableStateOf<Map<String, SportsbookPropMarketOdds>>(emptyMap()) }
+
+    LaunchedEffect(selection.id) {
+        val playerId = player.playerId?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        val loaded = buildMap {
+            for (market in markets) {
+                SportsbookPropOddsService.odds(playerId, market.market)?.let { put(market.market, it) }
+            }
+        }
+        bookOddsByMarket = loaded
+    }
 
     val headlineMarket = remember(selection.id) {
         selection.preferredMarket?.let { m -> markets.firstOrNull { it.market == m } }
@@ -142,6 +158,7 @@ fun NflPropDetailScreen(
                 MarketTrendBoard(
                     market = markets[i],
                     opponent = player.opponent,
+                    liveOdds = bookOddsByMarket[markets[i].market],
                     onSignalTap = { selectedSignal = SelectedSignal(it, markets[i]) },
                     onMetricHelp = { metricHelp = it },
                 )
@@ -266,6 +283,7 @@ private fun subtitle(selection: NFLPlayerPropSelection): String {
 private fun MarketTrendBoard(
     market: NFLPropMarket,
     opponent: String?,
+    liveOdds: SportsbookPropMarketOdds?,
     onSignalTap: (NFLPropSignalDefinition) -> Unit,
     onMetricHelp: (NFLPropMetricHelp) -> Unit,
 ) {
@@ -281,9 +299,9 @@ private fun MarketTrendBoard(
             PropSectionBlock("Game Log", "game_log", showsDivider = true, onMetricHelp) {
                 NFLPropTrendChart(market.recentGames, market.clearThreshold, market.isYesNo)
             }
-            if (market.hasBestBooks) {
+            if (liveOdds != null || market.hasBestBooks) {
                 PropSectionBlock("Best Lines", "book_odds", showsDivider = true, onMetricHelp) {
-                    BestBooksSection(market)
+                    BestBooksSection(market, liveOdds)
                 }
             }
             PropSectionBlock("Season Stats", "season_stats", showsDivider = true, onMetricHelp) {
@@ -332,7 +350,18 @@ private fun lineSummary(market: NFLPropMarket): String = if (market.isYesNo) {
 }
 
 @Composable
-private fun BestBooksSection(market: NFLPropMarket) {
+private fun BestBooksSection(market: NFLPropMarket, liveOdds: SportsbookPropMarketOdds?) {
+    if (liveOdds != null) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (market.isYesNo) {
+                LiveBookRow("Yes", liveOdds.over, market)
+            } else {
+                LiveBookRow("Over", liveOdds.over, market)
+                LiveBookRow("Under", liveOdds.under, market)
+            }
+        }
+        return
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (market.isYesNo) {
             if (!market.bestOver.isEmpty) BestBookRow("Yes", market.bestOver, showLine = false)
@@ -340,6 +369,32 @@ private fun BestBooksSection(market: NFLPropMarket) {
             if (!market.bestOver.isEmpty) BestBookRow("Over", market.bestOver, showLine = true)
             if (!market.bestUnder.isEmpty) BestBookRow("Under", market.bestUnder, showLine = true)
         }
+    }
+}
+
+@Composable
+private fun LiveBookRow(sideLabel: String, quotes: SportsbookMarketQuotes, market: NFLPropMarket) {
+    if (quotes.best == null) return
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(AppColors.appSurfaceMuted.copy(alpha = 0.35f))
+            .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.45f), shape)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(sideLabel, color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.weight(1f))
+        BestBookChip(
+            quotes = quotes,
+            selectedBookKeys = SportsbookPreferenceStore.selectedKeys,
+            marketTitle = market.label,
+            selectionTitle = "$sideLabel ${market.label}",
+            formatLine = { NFLPlayerProps.formatLine(it) },
+        )
     }
 }
 

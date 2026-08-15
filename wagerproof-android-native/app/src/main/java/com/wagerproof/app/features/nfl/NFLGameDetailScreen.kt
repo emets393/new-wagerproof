@@ -46,6 +46,7 @@ import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
 import com.wagerproof.app.features.components.polymarket.PolymarketWidget
 import com.wagerproof.app.features.cfb.NFLLineMovementSection
+import com.wagerproof.app.features.gamecards.BestBookChip
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
 import com.wagerproof.app.features.gamecards.HeroStat
@@ -57,17 +58,26 @@ import com.wagerproof.app.features.gamecards.sheets.H2HHistoryContent
 import com.wagerproof.app.features.games.GameConsensusKey
 import com.wagerproof.app.features.gamewidgets.AgentConsensusSection
 import com.wagerproof.app.features.gamewidgets.GameWidgetHeadlines
-import com.wagerproof.app.features.gamewidgets.SignalPerformanceStatsSection
 import com.wagerproof.app.features.parlaygod.MatchupParlaysWidget
 import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
 import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
 import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.shared.hexColor
+import com.wagerproof.core.design.components.EdgeScale
+import com.wagerproof.core.design.components.ModelEdgeRail
+import com.wagerproof.core.design.components.PickSignalPillModel
+import com.wagerproof.core.design.components.PickSignalsSection
+import com.wagerproof.core.design.components.SignalBacktestChart
+import com.wagerproof.core.design.components.MoneylineEdgeBar
+import com.wagerproof.core.design.components.SpreadCoverBar
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.NFLPrediction
+import com.wagerproof.core.models.SportsbookGameOdds
+import com.wagerproof.core.models.SportsbookMarketQuotes
+import com.wagerproof.core.models.footballSportsbookMarket
 import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.models.ParlayTicket
 import com.wagerproof.core.models.SignalPerformance
@@ -76,7 +86,9 @@ import com.wagerproof.core.services.ParlayGodEngine
 import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.services.SignalPerformanceService
 import com.wagerproof.core.services.SignalSport
+import com.wagerproof.core.services.SportsbookOddsService
 import com.wagerproof.core.stores.GamesStore
+import com.wagerproof.core.stores.SportsbookPreferenceStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -125,6 +137,16 @@ fun NFLGameDetailPage(
     // Polymarket derives its own prose read once the price history lands; until
     // then the widget shows the generic market-odds sentence.
     var marketOddsHeadline by remember(game.gameId) { mutableStateOf<String?>(null) }
+    var bookOdds by remember(game.gameId) { mutableStateOf<SportsbookGameOdds?>(null) }
+
+    LaunchedEffect(game.gameId, game.awayTeam, game.homeTeam, game.kickoff) {
+        bookOdds = SportsbookOddsService.odds(
+            gameId = game.gameId,
+            awayTeam = game.awayTeam,
+            homeTeam = game.homeTeam,
+            kickoff = game.kickoff,
+        )
+    }
 
     LaunchedEffect(game.gameId) {
         // iOS gates ALL detail data on the dry-run pipeline; legacy rows show
@@ -275,6 +297,7 @@ fun NFLGameDetailPage(
                                     awayAbbr = awayAbbr,
                                     homeAbbr = homeAbbr,
                                     signalsByKey = signalsByKey,
+                                    bookOdds = bookOdds,
                                     onSignalTap = { selectedSignal = it },
                                 )
                             }
@@ -618,6 +641,7 @@ private fun PickRow(
     awayAbbr: String,
     homeAbbr: String,
     signalsByKey: Map<String, NFLSignalDefinition>,
+    bookOdds: SportsbookGameOdds?,
     onSignalTap: (NFLSignalDefinition) -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
@@ -669,9 +693,18 @@ private fun PickRow(
             }
         }
 
-        MetricGrid(pick)
+        PickEdgeVisual(game, pick, awayAbbr, homeAbbr)
 
-        if (hasBestBook(pick)) {
+        val board = sportsbookBoard(bookOdds, pick)
+        if (board != null) {
+            BestBookChip(
+                quotes = board,
+                selectedBookKeys = SportsbookPreferenceStore.selectedKeys,
+                marketTitle = group.title,
+                selectionTitle = pick.pickLabel ?: group.title,
+                formatLine = { GameCardFormatting.formatSpread(it) },
+            )
+        } else if (hasBestBook(pick)) {
             BestBookRow(pick)
         }
 
@@ -727,6 +760,69 @@ private fun RecommendationBadge(pick: NFLDryrunPickRow) {
             .padding(horizontal = 8.dp, vertical = 4.dp),
         color = tint, fontSize = 10.sp, fontWeight = FontWeight.Black,
     )
+}
+
+/**
+ * Spread/total/moneyline groups get the threshold-vs-model edge charts
+ * (`SpreadCoverBar` / `ModelEdgeRail` / `MoneylineEdgeBar`); team_total has no
+ * chart spec, and any group missing a raw number degrades to the old
+ * two-box [MetricGrid] rather than rendering an empty chart.
+ */
+@Composable
+private fun PickEdgeVisual(game: NFLPrediction, pick: NFLDryrunPickRow, awayAbbr: String, homeAbbr: String) {
+    val pickAbbrev = when (pick.pickTeam) {
+        game.awayTeam -> awayAbbr
+        game.homeTeam -> homeAbbr
+        else -> null
+    }
+    val opponentAbbrev = when (pick.pickTeam) {
+        game.awayTeam -> homeAbbr
+        game.homeTeam -> awayAbbr
+        else -> null
+    }
+    when (pick.cardGroup) {
+        "spread", "h1_spread" -> {
+            val line = pick.bestLine ?: pick.vegasLine
+            // model_line is the pick team's fair SPREAD, not a margin — negate
+            // it the same way SpreadCoverOutcome expects (see its doc).
+            val modelSpread = pick.modelLine ?: pick.modelNumber
+            if (line != null && modelSpread != null) {
+                SpreadCoverBar(
+                    line = line,
+                    modelMargin = -modelSpread,
+                    scale = EdgeScale.nfl,
+                    pickAbbrev = pickAbbrev,
+                    opponentAbbrev = opponentAbbrev,
+                )
+            } else {
+                MetricGrid(pick)
+            }
+        }
+        "total", "h1_total" -> {
+            val market = pick.bestLine ?: pick.vegasLine
+            val model = pick.modelNumber
+            if (market != null && model != null) {
+                ModelEdgeRail(market = market, model = model, scale = EdgeScale.nfl)
+            } else {
+                MetricGrid(pick)
+            }
+        }
+        "moneyline", "h1_ml" -> {
+            val price = pick.vegasPrice ?: pick.bestOdds
+            val probability = pick.modelNumber
+            if (price != null && probability != null) {
+                MoneylineEdgeBar(
+                    price = price.roundToInt(),
+                    modelProbability = probability,
+                    scale = EdgeScale.nfl,
+                    teamAbbrev = pickAbbrev,
+                )
+            } else {
+                MetricGrid(pick)
+            }
+        }
+        else -> MetricGrid(pick)
+    }
 }
 
 /**
@@ -786,6 +882,12 @@ private fun MetricBox(label: String, value: String, tint: Color, highlighted: Bo
     }
 }
 
+private fun sportsbookBoard(odds: SportsbookGameOdds?, pick: NFLDryrunPickRow): SportsbookMarketQuotes? {
+    val market = footballSportsbookMarket(pick.cardGroup, pick.pickSide, "nfl") ?: return null
+    val board = odds?.quotes(market) ?: return null
+    return board.takeIf { it.quotes.isNotEmpty() }
+}
+
 @Composable
 private fun BestBookRow(pick: NFLDryrunPickRow) {
     val shape = RoundedCornerShape(12.dp)
@@ -831,67 +933,23 @@ private fun SignalGroups(
 ) {
     val resolved = signalDisplays(game, pick, awayAbbr, homeAbbr, signalsByKey)
     if (resolved.isEmpty()) return
-    val supporting = resolved.filter { it.stance != "counter" }
-    val contradicting = resolved.filter { it.stance == "counter" }
-    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        if (supporting.isNotEmpty()) {
-            SignalGroup("Supports this pick", supporting, muted = false, onSignalTap)
-        }
-        if (contradicting.isNotEmpty()) {
-            SignalGroup("Contradicts this pick", contradicting, muted = true, onSignalTap)
-        }
-    }
-}
-
-@Composable
-private fun SignalGroup(title: String, signals: List<NFLSignalDisplay>, muted: Boolean, onTap: (NFLSignalDefinition) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Text(title, color = if (muted) AppColors.appAccentAmber else AppColors.appTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
-        // iOS uses an adaptive LazyVGrid (min 118pt) — approximated with 2-up rows.
-        signals.chunked(2).forEach { rowSignals ->
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                rowSignals.forEach { signal ->
-                    SignalButton(signal, muted, Modifier.weight(1f), onTap)
-                }
-                if (rowSignals.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun SignalButton(signal: NFLSignalDisplay, muted: Boolean, modifier: Modifier = Modifier, onTap: (NFLSignalDefinition) -> Unit) {
-    val color = if (muted) AppColors.appAccentAmber else AppColors.appAccentBlue
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        modifier
-            .clip(shape)
-            .background(color.copy(alpha = if (muted) 0.12f else 0.18f))
-            .border(1.1.dp, color.copy(alpha = if (muted) 0.55f else 0.46f), shape)
-            .clickable { onTap(signalContextDefinition(signal)) }
-            .padding(start = 10.dp, end = 7.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        AppIcon.fromSystemName("info.circle.fill")?.let {
-            Icon(it.imageVector, null, tint = color, modifier = Modifier.size(12.dp))
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(signal.displayName, color = color, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
-            Text(
-                signal.action ?: signal.team ?: "Tap for details",
-                color = color.copy(alpha = 0.72f), fontSize = 8.sp, fontWeight = FontWeight.Black, maxLines = 1,
+    // Supporting first, then counters, so the amber pills group at the end.
+    val ordered = resolved.filter { it.stance != "counter" } + resolved.filter { it.stance == "counter" }
+    PickSignalsSection(
+        signals = ordered.map { display ->
+            PickSignalPillModel(
+                id = display.id,
+                title = display.displayName,
+                contradicts = display.stance == "counter",
             )
-        }
-        Box(Modifier.size(18.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
-            AppIcon.fromSystemName("chevron.up.forward")?.let {
-                Icon(it.imageVector, null, tint = AppColors.appSurface, modifier = Modifier.size(9.dp))
-            }
-        }
-    }
+        },
+        onSelect = { selected ->
+            ordered.firstOrNull { it.id == selected.id }
+                ?.let { onSignalTap(signalContextDefinition(it)) }
+        },
+    )
 }
 
-/** Merge tap context (action/team) into the definition shown by the sheet. */
 private fun signalContextDefinition(signal: NFLSignalDisplay): NFLSignalDefinition {
     val definition = signal.definition
     return NFLSignalDefinition(
@@ -1078,13 +1136,21 @@ private fun SignalDefinitionSheet(signal: NFLSignalDefinition, perfByKey: Map<St
         signal.oneLiner?.let {
             Text(it, color = AppColors.appPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
+        // Chart first, then prose — the reader asks "does this actually win?"
+        // before "what is it?".
+        perfByKey[signal.signalKey].let { perf ->
+            SignalBacktestChart(
+                backtestRaw = signal.typicalHit,
+                seasonN = perf?.n ?: 0,
+                seasonWins = perf?.wins ?: 0,
+                seasonLosses = perf?.losses ?: 0,
+                seasonPushes = perf?.pushes ?: 0,
+                seasonHitRate = perf?.hitRate ?: 0.0,
+            )
+        }
         SignalBlock("Definition", signal.definition)
         SignalBlock("Why It Works", signal.whyItWorks)
         SignalBlock("Bet Direction", signal.betDirection)
-        SignalPerformanceStatsSection(
-            backtestHit = signal.typicalHit,
-            seasonPerformance = perfByKey[signal.signalKey],
-        )
         Spacer(Modifier.size(12.dp))
     }
 }

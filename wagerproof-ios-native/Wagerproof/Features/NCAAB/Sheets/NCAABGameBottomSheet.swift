@@ -84,6 +84,7 @@ struct NCAABGameBottomSheet: View {
             AgentConsensusSection(sport: .ncaab, gameId: GameConsensusKey.ncaab(game), gameDate: game.gameDate)
             marketOddsSection
             spreadAnalysis
+            moneylineAnalysis
             ouAnalysis
             bettingTrendsSection
             modelAccuracySection
@@ -354,40 +355,69 @@ struct NCAABGameBottomSheet: View {
         }
     }
 
+    private var homeLabel: String { game.homeTeamAbbrev?.nonEmpty ?? game.homeTeam }
+    private var awayLabel: String { game.awayTeamAbbrev?.nonEmpty ?? game.awayTeam }
+
+    /// The cover bar and its headline, or nil when the model publishes neither a
+    /// fair spread nor a predicted margin. The cover-probability fallback in
+    /// `spreadPrediction` reuses the VEGAS number as `predictedSpread`, which
+    /// would draw a bar with a dead-zero cushion — that branch keeps the boxes.
+    private var spreadCover: SpreadCoverOutcome? {
+        guard let prediction = spreadPrediction,
+              prediction.probability == nil,
+              let line = prediction.vegasSpread,
+              let modelSpread = prediction.predictedSpread,
+              line.isFinite, modelSpread.isFinite else { return nil }
+        // `predictedSpread` is the pick team's fair SPREAD; the bar works in
+        // margin, so it is negated exactly once, here.
+        return SpreadCoverOutcome(line: line, modelMargin: -modelSpread)
+    }
+
     @ViewBuilder
     private var spreadAnalysis: some View {
         if let prediction = spreadPrediction {
+            let cover = spreadCover
+            let pickLabel = prediction.isHome ? homeLabel : awayLabel
             WidgetCollapsingSection(
                 title: "Spread Prediction",
                 systemImage: "target",
                 iconTint: Color.appPrimary,
                 accessory: .tapHint(expanded: spreadExpanded),
                 onHeaderTap: { spreadExpanded.toggle() },
-                headline: GameWidgetHeadlines.spread(
-                    team: prediction.isHome
-                        ? (game.homeTeamAbbrev?.nonEmpty ?? prediction.predictedTeam)
-                        : (game.awayTeamAbbrev?.nonEmpty ?? prediction.predictedTeam),
-                    modelSpread: prediction.predictedSpread,
-                    marketSpread: prediction.vegasSpread,
-                    edge: prediction.edge,
-                    probability: prediction.probability
-                )
+                headline: cover?.headline(team: pickLabel)
+                    ?? GameWidgetHeadlines.spread(
+                        team: pickLabel,
+                        modelSpread: prediction.predictedSpread,
+                        marketSpread: prediction.vegasSpread,
+                        edge: prediction.edge,
+                        probability: prediction.probability
+                    )
             ) {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        comparisonBox(
-                            label: "Vegas",
-                            value: GameCardFormatting.formatSpread(game.homeSpread),
-                            color: Color.appTextPrimary
+                    if let cover {
+                        SpreadCoverBar(
+                            line: cover.line,
+                            modelMargin: cover.modelMargin,
+                            scale: .ncaab,
+                            pickAbbrev: pickLabel,
+                            opponentAbbrev: prediction.isHome ? awayLabel : homeLabel
                         )
-                        Image(systemName: "arrow.right")
-                            .foregroundStyle(Color.appTextMuted)
-                        comparisonBox(
-                            label: "Our Model",
-                            value: GameCardFormatting.formatSpread(prediction.predictedSpread),
-                            color: Color.appPrimary,
-                            isHighlight: true
-                        )
+                    } else {
+                        HStack {
+                            comparisonBox(
+                                label: "Vegas",
+                                value: GameCardFormatting.formatSpread(game.homeSpread),
+                                color: Color.appTextPrimary
+                            )
+                            Image(systemName: "arrow.right")
+                                .foregroundStyle(Color.appTextMuted)
+                            comparisonBox(
+                                label: "Our Model",
+                                value: GameCardFormatting.formatSpread(prediction.predictedSpread),
+                                color: Color.appPrimary,
+                                isHighlight: true
+                            )
+                        }
                     }
                     HStack(spacing: 12) {
                         GameCardTeamAvatar(teamName: prediction.predictedTeam, sport: "ncaab", size: 40,
@@ -440,20 +470,25 @@ struct NCAABGameBottomSheet: View {
                 )
             ) {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        comparisonBox(
-                            label: "Vegas O/U",
-                            value: GameCardFormatting.roundToNearestHalf(prediction.line),
-                            color: Color.appTextPrimary
-                        )
-                        Image(systemName: "arrow.right")
-                            .foregroundStyle(Color.appTextMuted)
-                        comparisonBox(
-                            label: "Our Model",
-                            value: GameCardFormatting.roundToNearestHalf(prediction.modelTotal),
-                            color: color,
-                            isHighlight: true
-                        )
+                    if let market = prediction.line, let model = prediction.modelTotal,
+                       market.isFinite, model.isFinite {
+                        ModelEdgeRail(market: market, model: model, scale: .ncaab)
+                    } else {
+                        HStack {
+                            comparisonBox(
+                                label: "Vegas O/U",
+                                value: GameCardFormatting.roundToNearestHalf(prediction.line),
+                                color: Color.appTextPrimary
+                            )
+                            Image(systemName: "arrow.right")
+                                .foregroundStyle(Color.appTextMuted)
+                            comparisonBox(
+                                label: "Our Model",
+                                value: GameCardFormatting.roundToNearestHalf(prediction.modelTotal),
+                                color: color,
+                                isHighlight: true
+                            )
+                        }
                     }
                     HStack(spacing: 12) {
                         Image(systemName: prediction.isOver ? "chevron.up" : "chevron.down")
@@ -477,6 +512,65 @@ struct NCAABGameBottomSheet: View {
                     }
                     if ouExpanded {
                         explanation(text: ouExplanation(prediction))
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Moneyline
+
+    /// Price-vs-model-probability for the side the model favors. `home_win_prob`
+    /// is stored home-side, so the away read is its complement.
+    private var moneylineOutcome: (outcome: MoneylineOutcome, abbrev: String, team: String)? {
+        guard let homeProb = game.homeAwayMlProb, homeProb.isFinite, homeProb > 0, homeProb < 1 else { return nil }
+        let isHome = homeProb >= 0.5
+        let probability = isHome ? homeProb : 1 - homeProb
+        guard let price = isHome ? game.homeMl : game.awayMl, abs(price) >= 100 else { return nil }
+        return (
+            MoneylineOutcome(price: price, modelProbability: probability, scale: .ncaab),
+            isHome ? homeLabel : awayLabel,
+            isHome ? game.homeTeam : game.awayTeam
+        )
+    }
+
+    @ViewBuilder
+    private var moneylineAnalysis: some View {
+        if let resolved = moneylineOutcome {
+            WidgetCollapsingSection(
+                title: "Moneyline Prediction",
+                systemImage: "dollarsign.circle.fill",
+                iconTint: Color.appPrimary,
+                headline: resolved.outcome.headline(team: resolved.team)
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    // `ncaab_predictions.vegas_*_moneyline` are perfectly
+                    // symmetric pairs (200/200 sampled rows had |home| == |away|),
+                    // i.e. de-vigged fair prices you cannot actually bet. Calling
+                    // that a break-even bar would state something false, so the
+                    // chart reframes as model-vs-market disagreement.
+                    MoneylineEdgeBar(
+                        price: resolved.outcome.price,
+                        modelProbability: resolved.outcome.modelProbability,
+                        scale: .ncaab,
+                        teamAbbrev: resolved.abbrev,
+                        priceKind: .fairNoVig
+                    )
+                    HStack(spacing: 12) {
+                        GameCardTeamAvatar(
+                            teamName: resolved.team,
+                            sport: "ncaab",
+                            size: 40,
+                            colors: resolved.team == game.homeTeam ? homeColors : awayColors
+                        )
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Edge to \(resolved.abbrev)")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.appTextPrimary)
+                            Text("\(String(format: "%+.1f", resolved.outcome.edge)) pts of win rate")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(resolved.outcome.isPositiveValue ? Color.appPrimary : Color.appAccentRed)
+                        }
                     }
                 }
             }

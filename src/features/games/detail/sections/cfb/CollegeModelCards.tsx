@@ -1,11 +1,9 @@
 import { ArrowDown, ArrowUp, Sigma, Target, TrendingUp } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
-import { formatHalfNoSign, getEdgeExplanation, roundToHalf } from '../../edgeExplanations';
+import { formatHalfNoSign, roundToHalf } from '../../edgeExplanations';
+import { CFB_EDGE_SCALE, ModelEdgeRail, SpreadCoverBar, type EdgeScale } from '../../charts';
 import {
-  CollegeTeamMark,
-  EdgeStrengthMeter,
   EmptyNote,
-  ModelVsVegas,
   PickSideRow,
   Recommendation,
   STACK,
@@ -37,6 +35,13 @@ export interface CollegeModelInput {
   /** Model total minus the book's; > 0 leans Over. */
   overLineDiff: number | null;
   vegasTotal: number | null;
+  /**
+   * Per-sport chart thresholds. CFB and NCAAB share these cards but not their
+   * scales — a college-football spread window on a basketball margin makes every
+   * marker pin. Defaults to CFB so an omission fails visibly on the wrong sport
+   * rather than silently mislabelling both.
+   */
+  scale?: EdgeScale;
 }
 
 export function hasSpreadData(input: CollegeModelInput): boolean {
@@ -65,7 +70,7 @@ export function hasCollegeModelOutput(input: CollegeModelInput): boolean {
  * side by side.
  */
 export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
-  const { away, home, predSpread, homeSpreadDiff, vegasHomeSpread } = input;
+  const { away, home, predSpread, homeSpreadDiff, vegasHomeSpread, scale = CFB_EDGE_SCALE } = input;
 
   if (!hasSpreadData(input)) return null;
 
@@ -105,10 +110,16 @@ export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
   const vegasHome = modelHome !== null ? modelHome + homeSpreadDiff : null;
 
   // Flip to the edge team's perspective; from there the model's line is always
-  // the friendlier one, by exactly |homeSpreadDiff| points.
-  const modelDisplay = modelHome !== null ? modelHome * sign : null;
-  const vegasDisplay = vegasHome !== null ? vegasHome * sign : null;
-  const absEdge = Math.abs(homeSpreadDiff);
+  // the friendlier one, by exactly |homeSpreadDiff| points. Rounded to the half
+  // point the card PRINTS, and the edge is then derived from those two rounded
+  // figures — otherwise the bar's cushion (a full-precision subtraction) and the
+  // recommendation's edge (roundToHalf) disagree by up to a quarter point.
+  const modelDisplay = modelHome !== null ? roundToHalf(modelHome * sign) : null;
+  const vegasDisplay = vegasHome !== null ? roundToHalf(vegasHome * sign) : null;
+  const absEdge =
+    modelDisplay !== null && vegasDisplay !== null
+      ? Math.abs(vegasDisplay - modelDisplay)
+      : Math.abs(homeSpreadDiff);
 
   const pickLabel = vegasDisplay !== null
     ? `${pickTeam.abbrev} ${formatSignedHalf(vegasDisplay)}`
@@ -135,25 +146,16 @@ export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
           edge={`+${roundToHalf(absEdge)}`}
         />
 
-        <EdgeStrengthMeter points={homeSpreadDiff} />
-
-        {modelDisplay !== null && (
-          <ModelVsVegas
-            model={modelDisplay}
-            gap={-absEdge}
-            gapDisplay={String(roundToHalf(absEdge))}
-            unit="pts better"
-            tone="primary"
-            format={(v) => formatSignedHalf(v)}
-            leftAccessory={<CollegeTeamMark team={pickTeam} size={24} />}
-            lean={
-              <>
-                Model makes{' '}
-                <span className="font-bold text-foreground">{pickTeam.abbrev}</span>{' '}
-                <span className="font-bold text-foreground">{roundToHalf(absEdge)} points</span>{' '}
-                stronger than the market price
-              </>
-            }
+        {/* `modelDisplay` is the pick team's fair SPREAD; the bar plots MARGIN, so
+            it is negated exactly once, here. Its cushion is vegasDisplay −
+            modelDisplay — the same subtraction that produced `absEdge`. */}
+        {modelDisplay !== null && vegasDisplay !== null && (
+          <SpreadCoverBar
+            line={vegasDisplay}
+            modelMargin={-modelDisplay}
+            scale={scale}
+            pickAbbrev={pickTeam.abbrev}
+            opponentAbbrev={(pickIsHome ? away : home).abbrev}
           />
         )}
 
@@ -173,7 +175,7 @@ export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
 
 /** Total: which way the model leans and by how many points. */
 export function CollegeTotalSection({ input }: { input: CollegeModelInput }) {
-  const { predOverLine, overLineDiff, vegasTotal } = input;
+  const { predOverLine, overLineDiff, vegasTotal, scale = CFB_EDGE_SCALE } = input;
 
   if (!hasTotalData(input)) return null;
 
@@ -203,11 +205,15 @@ export function CollegeTotalSection({ input }: { input: CollegeModelInput }) {
   }
 
   const isOver = overLineDiff > 0;
-  const absEdge = Math.abs(overLineDiff);
   // Same reconciliation rule as the spread card: derive whichever number is
-  // missing from the edge so model − Vegas equals the edge exactly.
-  const model = predOverLine ?? (vegasTotal !== null ? vegasTotal + overLineDiff : null);
-  const vegas = model !== null ? model - overLineDiff : null;
+  // missing from the edge, round both to the half point the card prints, then
+  // take the edge from those two figures so the rail and the recommendation
+  // report one subtraction.
+  const rawModel = predOverLine ?? (vegasTotal !== null ? vegasTotal + overLineDiff : null);
+  const model = rawModel !== null ? roundToHalf(rawModel) : null;
+  const vegas = rawModel !== null ? roundToHalf(rawModel - overLineDiff) : null;
+  const absEdge =
+    model !== null && vegas !== null ? Math.abs(model - vegas) : Math.abs(overLineDiff);
   const direction = isOver ? 'OVER' : 'UNDER';
 
   return (
@@ -226,33 +232,14 @@ export function CollegeTotalSection({ input }: { input: CollegeModelInput }) {
           edge={`+${roundToHalf(absEdge)}`}
         />
 
-        <EdgeStrengthMeter points={overLineDiff} />
-
-        {model !== null && (
-          <ModelVsVegas
+        {/* Vegas is derived from the model figure, so sign(model − vegas) always
+            equals `isOver` and the rail's zone label can't contradict the pick. */}
+        {model !== null && vegas !== null && (
+          <ModelEdgeRail
+            market={vegas}
             model={model}
-            gap={overLineDiff}
-            unit="points"
-            tone={isOver ? 'over' : 'under'}
+            scale={scale}
             format={(v) => roundToHalf(v).toString()}
-            lean={
-              <>
-                Model projects{' '}
-                <span className="font-bold text-foreground">
-                  {roundToHalf(absEdge)} points {isOver ? 'more' : 'fewer'}
-                </span>{' '}
-                than Vegas &rarr; leans{' '}
-                <span
-                  className={
-                    isOver
-                      ? 'font-bold text-emerald-600 dark:text-emerald-300'
-                      : 'font-bold text-blue-600 dark:text-blue-300'
-                  }
-                >
-                  {direction}
-                </span>
-              </>
-            }
           />
         )}
       </div>

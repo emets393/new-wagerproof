@@ -5,7 +5,6 @@ import {
   ArrowDown,
   ArrowUp,
   Calendar,
-  ArrowRight,
   Check,
   ChevronRight,
   CloudSun,
@@ -19,6 +18,20 @@ import { cn } from '@/lib/utils';
 import { espnMlb500LogoUrlFromAbbrev } from '@/utils/mlbTeamLogos';
 import type { MLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import type { ModelBreakdownRow } from '@/hooks/useMLBModelBreakdownAccuracy';
+import {
+  MLB_EDGE_SCALE,
+  ModelEdgeRail,
+  ModelVsMarketRow,
+  MoneylineEdgeBar,
+  moneylineOutcome,
+} from '../../charts';
+import {
+  BestBookChip,
+  preferredQuote,
+  quotesForMarket,
+  type SportsbookGameOdds,
+  type SportsbookMarket,
+} from '../../sportsbooks';
 import { isF5MlStrongSignal, type MLBPredictionRow } from '../../../api/mlbGames';
 
 /**
@@ -188,82 +201,73 @@ export function TrendStatHeader() {
 }
 
 /**
- * Model probability beside the de-vigged Vegas number for the picked side, with
- * the resulting lean spelled out. The edge percentage alone never said what it
- * was an edge *over* — this shows both inputs and the direction they imply.
+ * The picked side's moneyline, resolved once so the panel, the card headline and
+ * the bar all read the same object.
+ *
+ * TWO EDGES LIVE HERE ON PURPOSE:
+ * - `storedEdge` is `*_ml_edge_pct` off the row. It is the key the historical
+ *   bucket tables were built on (`ML_BUCKETS`, and the Python grader behind
+ *   them), so accuracy lookups MUST keep using it.
+ * - `displayEdge` is what the card prints: model% − the price's raw break-even.
+ *   It is derived from the two figures `MoneylineEdgeBar` draws, so nothing on
+ *   screen can disagree with the bar (WIDGET_DESIGN.md rule 10). With no book
+ *   price on the row it falls back to `storedEdge`, which is the F5 case.
  */
-export function ModelVsVegas({
-  pickAbbrev,
-  pickVisuals,
-  modelProb,
-  edgePts,
-}: {
-  pickAbbrev: string;
+export interface FullMlDerivation {
+  pickIsHome: boolean;
+  pickTeam: string;
   pickVisuals: TeamVisuals;
-  /** 0-1. */
-  modelProb: number | null;
-  /** The model's edge in percentage points; Vegas is derived as model - edge. */
-  edgePts: number | null;
-}) {
-  if (modelProb === null || edgePts === null) return null;
-  const modelPct = modelProb * 100;
-  // Derived, not de-vigged from raw odds: this keeps model - vegas exactly equal
-  // to the edge shown in the recommendation above. F5 has no book moneyline on
-  // the row at all, so deriving is also the only option that covers both panels.
-  const vegasPct = modelPct - edgePts;
-  const diff = edgePts;
-  const modelHigher = diff >= 0;
+  /** 0-1 model win probability for the picked side. */
+  prob: number | null;
+  /** American price for the picked side, when the row carries one. */
+  price: number | null;
+  storedEdge: number | null;
+  /** The other side's edge on the SAME basis as `displayEdge`, so "no value on
+   *  either side" compares like with like. */
+  otherDisplayEdge: number | null;
+  /** Break-even-derived edge when there is a price, else the stored column. */
+  displayEdge: number | null;
+  /** The percentage the model has to beat: the price's raw implied probability. */
+  breakEvenPct: number | null;
+}
 
-  return (
-    <div className="rounded-xl bg-muted/40 px-3 py-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col items-start gap-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Our model
-          </span>
-          <span className="flex items-center gap-1.5">
-            <TeamMark visuals={pickVisuals} abbrev={pickAbbrev} size={24} />
-            <span className="text-xl font-bold tabular-nums text-foreground">
-              {modelPct.toFixed(1)}%
-            </span>
-          </span>
-        </div>
+export function deriveFullMl(
+  raw: MLBPredictionRow,
+  awayAbbrev: string,
+  homeAbbrev: string,
+  away: TeamVisuals,
+  home: TeamVisuals,
+): FullMlDerivation {
+  const homeEdge = toNum(raw.home_ml_edge_pct);
+  const awayEdge = toNum(raw.away_ml_edge_pct);
+  // Pick the team with the higher stored edge (where the model sees value).
+  // Unchanged from the shipped rule — it is the same comparison the grading SQL
+  // and the feed card make.
+  const pickIsHome = (homeEdge ?? -999) >= (awayEdge ?? -999);
+  const prob = pickIsHome ? toNum(raw.ml_home_win_prob) : toNum(raw.ml_away_win_prob);
+  const price = pickIsHome ? toNum(raw.home_ml) : toNum(raw.away_ml);
+  const storedEdge = pickIsHome ? homeEdge : awayEdge;
 
-        <div className="flex shrink-0 flex-col items-center">
-          <span
-            className={cn(
-              'font-mono text-[13px] font-bold tabular-nums',
-              modelHigher ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300',
-            )}
-          >
-            {modelHigher ? '+' : ''}
-            {diff.toFixed(1)}%
-          </span>
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            {modelHigher ? 'value' : 'no value'}
-          </span>
-        </div>
+  const otherProb = pickIsHome ? toNum(raw.ml_away_win_prob) : toNum(raw.ml_home_win_prob);
+  const otherPrice = pickIsHome ? toNum(raw.away_ml) : toNum(raw.home_ml);
+  const otherStoredEdge = pickIsHome ? awayEdge : homeEdge;
 
-        <div className="flex min-w-0 flex-col items-end gap-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Vegas
-          </span>
-          <span className="text-xl font-bold tabular-nums text-muted-foreground">
-            {vegasPct.toFixed(1)}%
-          </span>
-        </div>
-      </div>
+  const edgeAt = (p: number | null, q: number | null) =>
+    p !== null && p !== 0 && q !== null ? moneylineOutcome(p, q, MLB_EDGE_SCALE) : null;
+  const outcome = edgeAt(price, prob);
+  const otherOutcome = edgeAt(otherPrice, otherProb);
 
-      <div className="mt-2 flex items-center gap-1.5 border-t border-black/5 pt-2 text-[11px] dark:border-white/10">
-        <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-        <span className="text-muted-foreground">
-          Model rates{' '}
-          <span className="font-bold text-foreground">{pickAbbrev}</span>{' '}
-          {Math.abs(diff).toFixed(1)} pts {modelHigher ? 'higher' : 'lower'} than Vegas
-        </span>
-      </div>
-    </div>
-  );
+  return {
+    pickIsHome,
+    pickTeam: pickIsHome ? homeAbbrev : awayAbbrev,
+    pickVisuals: pickIsHome ? home : away,
+    prob,
+    price: outcome ? price : null,
+    storedEdge,
+    otherDisplayEdge: otherOutcome ? otherOutcome.edge : otherStoredEdge,
+    displayEdge: outcome ? outcome.edge : storedEdge,
+    breakEvenPct: outcome ? outcome.breakEvenPercent : null,
+  };
 }
 
 /**
@@ -544,12 +548,18 @@ export function WinProbBar({
 }
 
 /**
- * Fair vs market total as two facing figures with the gap called out between
- * them. The whole point of a total pick is the disagreement, so the difference
- * gets its own slot rather than being left for the reader to subtract out of
- * "Fair Total: 8.17 | Market Total: 8.5".
+ * Fair total against the market total on the centred edge rail, with the model's
+ * lean called out by the zone it lands in.
+ *
+ * Runs, not points: the rail gets `MLB_EDGE_SCALE`, whose bands (0.5 / 1.0 / 2.0)
+ * are `OU_BUCKETS`. The football scale here would read STRONG OVER on every game.
+ *
+ * `ou_direction` is the authority on the lean, but `total_line` can move after
+ * the model snapshot is written, so sign(fair − market) can disagree with it.
+ * When it does the rail would print "Over Lean" under an UNDER recommendation,
+ * so the card falls back to the plain comparison row and says so.
  */
-export function TotalCompare({
+export function TotalEdge({
   fair,
   market,
   direction,
@@ -561,52 +571,34 @@ export function TotalCompare({
   if (fair === null || market === null) return null;
   const gap = fair - market;
   const leansOver = direction.toUpperCase().includes('OVER');
+  const agrees = gap === 0 || gap > 0 === leansOver;
+
+  if (agrees) {
+    return (
+      <ModelEdgeRail
+        market={market}
+        model={fair}
+        scale={MLB_EDGE_SCALE}
+        // Two decimals throughout: 0.33 runs and 0.5 runs are different verdicts
+        // and the card's own headline quotes them at this precision.
+        format={(v) => v.toFixed(2)}
+        formatGap={(m) => m.toFixed(2)}
+      />
+    );
+  }
 
   return (
-    <div className="rounded-xl bg-muted/40 px-3 py-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col items-start gap-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Our model
-          </span>
-          <span className="text-xl font-bold tabular-nums text-foreground">{fair.toFixed(2)}</span>
-        </div>
-
-        <div className="flex shrink-0 flex-col items-center">
-          <span
-            className={cn(
-              'flex items-center gap-0.5 font-mono text-[13px] font-bold tabular-nums',
-              leansOver ? 'text-emerald-600 dark:text-emerald-300' : 'text-blue-600 dark:text-blue-300',
-            )}
-          >
-            {leansOver ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
-            {gap > 0 ? '+' : ''}
-            {gap.toFixed(2)}
-          </span>
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            runs
-          </span>
-        </div>
-
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Vegas
-          </span>
-          <span className="text-xl font-bold tabular-nums text-muted-foreground">
-            {market.toFixed(1)}
-          </span>
-        </div>
-      </div>
-
-      {/* Spell the lean out: a signed gap alone doesn't say which way to bet. */}
-      <div className="mt-2 flex items-center gap-1.5 border-t border-black/5 pt-2 text-[11px] dark:border-white/10">
-        <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-        <span className="text-muted-foreground">
-          Model projects{' '}
-          <span className="font-bold text-foreground">
-            {Math.abs(gap).toFixed(2)} runs {leansOver ? 'more' : 'fewer'}
-          </span>{' '}
-          than Vegas &rarr; leans{' '}
+    <ModelVsMarketRow
+      model={fair.toFixed(2)}
+      market={market.toFixed(1)}
+      gapDisplay={`${gap > 0 ? '+' : ''}${gap.toFixed(2)}`}
+      gapUnit="runs"
+      tone={leansOver ? 'over' : 'under'}
+      lean={
+        <>
+          The posted total has moved since the model ran, so its{' '}
+          <span className="font-bold text-foreground">{fair.toFixed(2)}</span> now sits the other
+          side of {market.toFixed(1)} — the model&apos;s own call is still{' '}
           <span
             className={cn(
               'font-bold',
@@ -615,9 +607,9 @@ export function TotalCompare({
           >
             {leansOver ? 'OVER' : 'UNDER'}
           </span>
-        </span>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }
 
@@ -792,51 +784,129 @@ export interface SplitPanelProps {
   /** Logo + colors so the panels can show WHICH side the edge is on, not just its size. */
   away: TeamVisuals;
   home: TeamVisuals;
+  bookOdds?: SportsbookGameOdds | null;
+  selectedBookKeys?: Set<string>;
 }
 
-export function FullMlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, away, home }: SplitPanelProps) {
-  const homeMlEdge = toNum(raw.home_ml_edge_pct);
-  const awayMlEdge = toNum(raw.away_ml_edge_pct);
-  // Pick the team with the higher edge (where the model sees value)
-  const mlPickIsHome = (homeMlEdge ?? -999) >= (awayMlEdge ?? -999);
-  const mlPickTeam = mlPickIsHome ? homeAbbrev : awayAbbrev;
-  const mlPickEdge = mlPickIsHome ? homeMlEdge : awayMlEdge;
-  const mlIsStrong = mlPickIsHome ? raw.home_ml_strong_signal : raw.away_ml_strong_signal;
+function selectedBookQuote(
+  odds: SportsbookGameOdds | null | undefined,
+  selectedBookKeys: Set<string> | undefined,
+  market: SportsbookMarket,
+) {
+  if (!odds) return null;
+  const board = quotesForMarket(odds, market);
+  if (board.quotes.length === 0) return null;
+  return preferredQuote(board, selectedBookKeys ?? new Set()) ?? null;
+}
+
+function MlbBookChip({
+  odds,
+  selectedBookKeys,
+  market,
+  title,
+  selection,
+}: {
+  odds?: SportsbookGameOdds | null;
+  selectedBookKeys?: Set<string>;
+  market: SportsbookMarket;
+  title: string;
+  selection: string;
+}) {
+  if (!odds) return null;
+  const board = quotesForMarket(odds, market);
+  if (board.quotes.length === 0) return null;
+  return (
+    <BestBookChip
+      quotes={board}
+      selectedBookKeys={selectedBookKeys ?? new Set()}
+      marketTitle={title}
+      selectionTitle={selection}
+      formatLine={(line) => {
+        const body = Number.isInteger(line) ? String(line) : line.toFixed(1);
+        return line > 0 ? `+${body}` : body;
+      }}
+    />
+  );
+}
+
+export function FullMlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, away, home, bookOdds, selectedBookKeys }: SplitPanelProps) {
+  const ml = deriveFullMl(raw, awayAbbrev, homeAbbrev, away, home);
+  const mlMarket: SportsbookMarket = { kind: 'moneyline', isHome: ml.pickIsHome };
+  const bookPrice = selectedBookQuote(bookOdds, selectedBookKeys, mlMarket)?.price ?? null;
+  const barPrice = bookPrice ?? ml.price;
+  const barOutcome =
+    barPrice !== null && ml.prob !== null && ml.prob > 0 && ml.prob < 1
+      ? moneylineOutcome(barPrice, ml.prob, MLB_EDGE_SCALE)
+      : null;
+  const displayEdge = barOutcome ? barOutcome.edge : ml.displayEdge;
+  const mlIsStrong = ml.pickIsHome ? raw.home_ml_strong_signal : raw.away_ml_strong_signal;
   const mlConfidenceLabel = mlIsStrong ? 'Strong' : 'Weak';
 
-  const mlSide = mlPickIsHome ? 'home' : 'away';
-  const mlLine = mlPickIsHome ? toNum(raw.home_ml) : toNum(raw.away_ml);
+  const mlSide = ml.pickIsHome ? 'home' : 'away';
+  const mlLine = ml.pickIsHome ? toNum(raw.home_ml) : toNum(raw.away_ml);
   const mlFavDog = mlLine !== null ? (mlLine < 0 ? 'favorite' : 'underdog') as 'favorite' | 'underdog' : undefined;
-  const mlAcc = mlPickEdge !== null
-    ? lookupBucketAccuracy(modelAccuracy, 'full_ml', mlPickEdge, mlSide as 'home' | 'away', mlFavDog)
+  // Bucket lookups key off the STORED edge — those tables were built from that
+  // column by the grading script, so a derived figure would land in the wrong cell.
+  const mlAcc = ml.storedEdge !== null
+    ? lookupBucketAccuracy(modelAccuracy, 'full_ml', ml.storedEdge, mlSide as 'home' | 'away', mlFavDog)
     : null;
 
   const gameDowLabel = dayLabelFromDate(raw.official_date);
   const fullMlDowRow = findBreakdownRow(breakdownRows, 'full_ml', 'dow', gameDowLabel);
-  const fullMlTeamRow = findBreakdownRow(breakdownRows, 'full_ml', 'team', toBreakdownTeamAbbr(mlPickTeam));
+  const fullMlTeamRow = findBreakdownRow(breakdownRows, 'full_ml', 'team', toBreakdownTeamAbbr(ml.pickTeam));
   const fullMlDowDetails = trendDetails(fullMlDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable');
-  const fullMlTeamDetails = trendDetails(fullMlTeamRow, `${mlPickTeam} unavailable`);
+  const fullMlTeamDetails = trendDetails(fullMlTeamRow, `${ml.pickTeam} unavailable`);
 
   return (
     <div className={INNER_PANEL}>
       <Recommendation
         market="Moneyline"
-        pick={mlPickTeam}
-        pickVisuals={mlPickIsHome ? home : away}
+        pick={ml.pickTeam}
+        pickVisuals={ml.pickVisuals}
         edgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
-        edge={mlPickEdge !== null ? `${mlPickEdge > 0 ? '+' : ''}${mlPickEdge.toFixed(1)}%` : '—'}
+        edge={displayEdge !== null ? `${displayEdge > 0 ? '+' : ''}${displayEdge.toFixed(1)}%` : '—'}
+      />
+      <MlbBookChip
+        odds={bookOdds}
+        selectedBookKeys={selectedBookKeys}
+        market={mlMarket}
+        title="Moneyline"
+        selection={`${ml.pickTeam} moneyline`}
       />
       {mlAcc ? (
         <HitRateMeter info={mlAcc} />
       ) : (
         <ConfidenceChip label={mlConfidenceLabel as 'Strong' | 'Weak'} />
       )}
-      <ModelVsVegas
-        pickAbbrev={mlPickTeam}
-        pickVisuals={mlPickIsHome ? home : away}
-        modelProb={mlPickIsHome ? toNum(raw.ml_home_win_prob) : toNum(raw.ml_away_win_prob)}
-        edgePts={mlPickEdge}
-      />
+      {/* A price IS a required win rate, so the moneyline gets the same
+          threshold-vs-model shape as a spread. Falls back to the plain row when
+          the row carries no book price to derive a break-even from. */}
+      {barPrice !== null && ml.prob !== null ? (
+        <MoneylineEdgeBar
+          price={barPrice}
+          modelProbability={ml.prob}
+          scale={MLB_EDGE_SCALE}
+          teamAbbrev={ml.pickTeam}
+        />
+      ) : (
+        ml.prob !== null && displayEdge !== null && (
+          <ModelVsMarketRow
+            model={`${(ml.prob * 100).toFixed(1)}%`}
+            modelAccessory={<TeamMark visuals={ml.pickVisuals} abbrev={ml.pickTeam} size={24} />}
+            market={`${(ml.prob * 100 - displayEdge).toFixed(1)}%`}
+            gapDisplay={`${displayEdge > 0 ? '+' : ''}${displayEdge.toFixed(1)}%`}
+            gapUnit={displayEdge >= 0 ? 'value' : 'no value'}
+            tone={displayEdge >= 0 ? 'win' : 'loss'}
+            lean={
+              <>
+                Model rates <span className="font-bold text-foreground">{ml.pickTeam}</span>{' '}
+                {Math.abs(displayEdge).toFixed(1)} pts{' '}
+                {displayEdge >= 0 ? 'higher' : 'lower'} than Vegas
+              </>
+            }
+          />
+        )
+      )}
       <WinProbBar
         awayAbbrev={awayAbbrev}
         homeAbbrev={homeAbbrev}
@@ -844,14 +914,14 @@ export function FullMlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakd
         homeProb={toNum(raw.ml_home_win_prob)}
         away={away}
         home={home}
-        pickIsHome={mlPickIsHome}
+        pickIsHome={ml.pickIsHome}
       />
       <ModelHistory label="full-game moneyline" rows={[fullMlDowDetails, fullMlTeamDetails]} />
     </div>
   );
 }
 
-export function F5MlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, away, home }: SplitPanelProps) {
+export function F5MlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, away, home, bookOdds, selectedBookKeys }: SplitPanelProps) {
   const f5HomeMlEdge = toNum(raw.f5_home_ml_edge_pct);
   const f5AwayMlEdge = toNum(raw.f5_away_ml_edge_pct);
   // Pick F5 based on highest edge (where model sees value)
@@ -864,8 +934,16 @@ export function F5MlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdow
     : isF5MlStrongSignal(rSig.f5_away_ml_strong_signal);
   const f5HomeProb = toNum(raw.f5_home_win_prob);
   const f5AwayProb = toNum(raw.f5_away_win_prob);
+  const f5PickProb = f5PickIsHome ? f5HomeProb : f5AwayProb;
 
   const f5Side = f5PickIsHome ? 'home' : 'away';
+  const f5Market: SportsbookMarket = { kind: 'firstFiveMoneyline', isHome: f5PickIsHome };
+  const bookPrice = selectedBookQuote(bookOdds, selectedBookKeys, f5Market)?.price ?? null;
+  const barOutcome =
+    bookPrice !== null && f5PickProb !== null && f5PickProb > 0 && f5PickProb < 1
+      ? moneylineOutcome(bookPrice, f5PickProb, MLB_EDGE_SCALE)
+      : null;
+  const displayEdge = barOutcome ? barOutcome.edge : f5PickEdge;
   const f5Acc = f5PickEdge !== null
     ? lookupBucketAccuracy(modelAccuracy, 'f5_ml', f5PickEdge, f5Side as 'home' | 'away')
     : null;
@@ -883,15 +961,43 @@ export function F5MlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdow
         pick={f5PickTeam}
         pickVisuals={f5PickIsHome ? home : away}
         edgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
-        edge={f5PickEdge !== null ? `${f5PickEdge > 0 ? '+' : ''}${f5PickEdge.toFixed(1)}%` : '—'}
+        edge={displayEdge !== null ? `${displayEdge > 0 ? '+' : ''}${displayEdge.toFixed(1)}%` : '—'}
+      />
+      <MlbBookChip
+        odds={bookOdds}
+        selectedBookKeys={selectedBookKeys}
+        market={f5Market}
+        title="1st 5 Moneyline"
+        selection={`${f5PickTeam} moneyline`}
       />
       {f5Acc ? <HitRateMeter info={f5Acc} /> : f5PickMlStrong ? <ConfidenceChip label="Strong" /> : null}
-      <ModelVsVegas
-        pickAbbrev={f5PickTeam}
-        pickVisuals={f5PickIsHome ? home : away}
-        modelProb={f5PickIsHome ? f5HomeProb : f5AwayProb}
-        edgePts={f5PickEdge}
-      />
+      {barOutcome && bookPrice !== null && f5PickProb !== null ? (
+        <MoneylineEdgeBar
+          price={bookPrice}
+          modelProbability={f5PickProb}
+          scale={MLB_EDGE_SCALE}
+          teamAbbrev={f5PickTeam}
+        />
+      ) : (
+        f5PickProb !== null && displayEdge !== null && (
+          <ModelVsMarketRow
+            model={`${(f5PickProb * 100).toFixed(1)}%`}
+            modelAccessory={
+              <TeamMark visuals={f5PickIsHome ? home : away} abbrev={f5PickTeam} size={24} />
+            }
+            market={`${(f5PickProb * 100 - displayEdge).toFixed(1)}%`}
+            gapDisplay={`${displayEdge > 0 ? '+' : ''}${displayEdge.toFixed(1)}%`}
+            gapUnit={displayEdge >= 0 ? 'value' : 'no value'}
+            tone={displayEdge >= 0 ? 'win' : 'loss'}
+            lean={
+              <>
+                Model rates <span className="font-bold text-foreground">{f5PickTeam}</span>{' '}
+                {Math.abs(displayEdge).toFixed(1)} pts {displayEdge >= 0 ? 'higher' : 'lower'} than Vegas
+              </>
+            }
+          />
+        )
+      )}
       <WinProbBar
         awayAbbrev={awayAbbrev}
         homeAbbrev={homeAbbrev}
@@ -906,9 +1012,17 @@ export function F5MlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdow
   );
 }
 
-export function FullTotalPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows }: SplitPanelProps) {
-  const ouEdge = Math.abs(raw.ou_edge || 0);
+export function FullTotalPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, bookOdds, selectedBookKeys }: SplitPanelProps) {
+  const ouFair = toNum(raw.ou_fair_total);
   const ouDirection = raw.ou_direction || 'N/A';
+  const isOver = ouDirection.toUpperCase().includes('OVER');
+  const bookLine = selectedBookQuote(bookOdds, selectedBookKeys, { kind: 'total', isOver })?.line ?? null;
+  const ouMarket = bookLine ?? toNum(raw.total_line);
+  // Prefer the subtraction TotalEdge draws, so the chip and the rail can't print
+  // two different sizes for one gap when `total_line` has moved since the
+  // snapshot; `ou_edge` only fills in when a total is missing.
+  const ouEdge =
+    ouFair !== null && ouMarket !== null ? Math.abs(ouFair - ouMarket) : Math.abs(raw.ou_edge || 0);
   const totalConfidenceLabel = raw.ou_strong_signal
     ? 'Strong'
     : raw.ou_moderate_signal
@@ -944,16 +1058,19 @@ export function FullTotalPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, bre
         }
         edge={`+${ouEdge.toFixed(2)}`}
       />
+      <MlbBookChip
+        odds={bookOdds}
+        selectedBookKeys={selectedBookKeys}
+        market={{ kind: 'total', isOver: ouDirection.toUpperCase().includes('OVER') }}
+        title="Total"
+        selection={`${ouDirection} ${ouMarket ?? ''}`}
+      />
       {ouAcc ? (
         <HitRateMeter info={ouAcc} />
       ) : (
         <ConfidenceChip label={totalConfidenceLabel as 'Strong' | 'Moderate' | 'Weak'} />
       )}
-      <TotalCompare
-        fair={toNum(raw.ou_fair_total)}
-        market={toNum(raw.total_line)}
-        direction={ouDirection}
-      />
+      <TotalEdge fair={ouFair} market={ouMarket} direction={ouDirection} />
       <ModelHistory
         label="full-game total"
         rows={[fullOuDowDetails, fullOuAwayDetails, fullOuHomeDetails]}
@@ -962,9 +1079,19 @@ export function FullTotalPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, bre
   );
 }
 
-export function F5TotalPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows }: SplitPanelProps) {
-  const f5TotalEdge = Math.abs(toNum(raw.f5_ou_edge) ?? 0);
+export function F5TotalPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, bookOdds, selectedBookKeys }: SplitPanelProps) {
+  const f5Fair = toNum(raw.f5_fair_total);
   const f5Direction = (toNum(raw.f5_ou_edge) ?? 0) >= 0 ? 'OVER' : 'UNDER';
+  const bookLine = selectedBookQuote(
+    bookOdds,
+    selectedBookKeys,
+    { kind: 'firstFiveTotal', isOver: f5Direction === 'OVER' },
+  )?.line ?? null;
+  const f5Market = bookLine ?? toNum(raw.f5_total_line);
+  const f5TotalEdge =
+    f5Fair !== null && f5Market !== null
+      ? Math.abs(f5Fair - f5Market)
+      : Math.abs(toNum(raw.f5_ou_edge) ?? 0);
   const f5OuAcc = lookupBucketAccuracy(
     modelAccuracy,
     'f5_ou',
@@ -995,12 +1122,15 @@ export function F5TotalPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, break
         }
         edge={`+${f5TotalEdge.toFixed(2)}`}
       />
-      {f5OuAcc ? <HitRateMeter info={f5OuAcc} /> : null}
-      <TotalCompare
-        fair={toNum(raw.f5_fair_total)}
-        market={toNum(raw.f5_total_line)}
-        direction={f5Direction}
+      <MlbBookChip
+        odds={bookOdds}
+        selectedBookKeys={selectedBookKeys}
+        market={{ kind: 'firstFiveTotal', isOver: f5Direction === 'OVER' }}
+        title="1st 5 Total"
+        selection={`${f5Direction} ${f5Market ?? ''}`}
       />
+      {f5OuAcc ? <HitRateMeter info={f5OuAcc} /> : null}
+      <TotalEdge fair={f5Fair} market={f5Market} direction={f5Direction} />
       <ModelHistory
         label="1st-5 total"
         rows={[f5OuDowDetails, f5OuAwayDetails, f5OuHomeDetails]}

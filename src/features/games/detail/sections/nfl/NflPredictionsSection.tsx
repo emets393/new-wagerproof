@@ -8,13 +8,12 @@ import {
   nflSpreadHeadline,
   nflTotalHeadline,
 } from '../../headlines/nfl';
+import { ModelEdgeRail, ModelVsMarketRow, NFL_EDGE_SCALE, SpreadCoverBar } from '../../charts';
 import {
-  CompareRow,
   ConfidenceMeter,
   EdgeValue,
   FadeAlertChip,
   Recommendation,
-  TeamMark,
 } from './shared';
 
 interface NflPredictionSectionProps {
@@ -82,31 +81,16 @@ export function NflSpreadSection({ game }: NflPredictionSectionProps) {
         accessory={confidencePct >= FADE_ALERT_PCT ? <FadeAlertChip /> : undefined}
       />
 
-      {modelLine !== null && pickEdge !== null && (
-        <CompareRow
-          model={formatLine(modelLine)}
-          modelMark={<TeamMark team={team} size={24} />}
-          vegas={formatLine(vegasLine)}
-          gap={pickEdge}
-          gapUnit="pts"
-          footer={
-            <>
-              Model makes {team.abbrev}{' '}
-              <span className="font-bold text-foreground">
-                {Math.abs(pickEdge).toFixed(1)} pts {pickEdge >= 0 ? 'stronger' : 'weaker'}
-              </span>{' '}
-              than Vegas &rarr;{' '}
-              <span
-                className={
-                  pickEdge >= 0
-                    ? 'font-bold text-emerald-600 dark:text-emerald-300'
-                    : 'font-bold text-red-600 dark:text-red-300'
-                }
-              >
-                {pickEdge >= 0 ? 'line value' : 'no line value'}
-              </span>
-            </>
-          }
+      {/* `modelLine` is the pick team's fair SPREAD; the bar plots MARGIN, so it
+          is negated exactly once, here. Its cushion is vegasLine − modelLine,
+          which is `pickEdge` by construction (rule 10). */}
+      {modelLine !== null && pickEdge !== null && vegasLine !== null && vegasLine !== undefined && (
+        <SpreadCoverBar
+          line={Number(vegasLine)}
+          modelMargin={-modelLine}
+          scale={NFL_EDGE_SCALE}
+          pickAbbrev={team.abbrev}
+          opponentAbbrev={(isHome ? game.awayTeam : game.homeTeam).abbrev}
         />
       )}
     </WidgetCard>
@@ -168,6 +152,12 @@ export function NflTotalSection({ game }: NflPredictionSectionProps) {
       : vegasTotal !== null && vegasTotal !== undefined && totalDiff !== null
         ? Number(vegasTotal) + totalDiff
         : null;
+  const railGap =
+    modelTotal !== null && vegasTotal !== null && vegasTotal !== undefined
+      ? modelTotal - Number(vegasTotal)
+      : null;
+  // A flat gap has no direction to contradict, so it still gets the rail.
+  const railAgreesWithPick = railGap === null || railGap === 0 || railGap > 0 === isOver;
 
   return (
     <WidgetCard
@@ -205,33 +195,41 @@ export function NflTotalSection({ game }: NflPredictionSectionProps) {
         />
       )}
 
-      {modelTotal !== null && pickEdge !== null && (
-        <CompareRow
-          model={modelTotal.toFixed(1)}
-          vegas={Number(vegasTotal).toFixed(1)}
-          gap={pickEdge}
-          gapUnit="pts"
-          footer={
-            <>
-              Model projects{' '}
-              <span className="font-bold text-foreground">
-                {Math.abs(totalDiff ?? 0).toFixed(1)} points{' '}
-                {(totalDiff ?? 0) >= 0 ? 'more' : 'fewer'}
-              </span>{' '}
-              than Vegas &rarr; {pickEdge >= 0 ? 'backs the' : 'argues against the'}{' '}
-              <span
-                className={
-                  isOver
-                    ? 'font-bold text-emerald-600 dark:text-emerald-300'
-                    : 'font-bold text-blue-600 dark:text-blue-300'
-                }
-              >
-                {isOver ? 'OVER' : 'UNDER'}
-              </span>
-            </>
-          }
-        />
-      )}
+      {/* The rail names the lean from sign(model − market). `isOver` can come from
+          the `ou_result_prob` CLASSIFIER instead, which is independent of the
+          two totals, so when they disagree the plain row states both rather than
+          printing "Under Lean" beneath an OVER recommendation. */}
+      {modelTotal !== null && pickEdge !== null && vegasTotal !== null && vegasTotal !== undefined &&
+        (railAgreesWithPick ? (
+          <ModelEdgeRail market={Number(vegasTotal)} model={modelTotal} scale={NFL_EDGE_SCALE} />
+        ) : (
+          <ModelVsMarketRow
+            model={modelTotal.toFixed(1)}
+            market={Number(vegasTotal).toFixed(1)}
+            gapDisplay={`${(totalDiff ?? 0) > 0 ? '+' : ''}${(totalDiff ?? 0).toFixed(1)}`}
+            gapUnit="pts"
+            tone={isOver ? 'over' : 'under'}
+            lean={
+              <>
+                Model projects{' '}
+                <span className="font-bold text-foreground">
+                  {Math.abs(totalDiff ?? 0).toFixed(1)} points{' '}
+                  {(totalDiff ?? 0) >= 0 ? 'more' : 'fewer'}
+                </span>{' '}
+                than Vegas, but its cover model still backs the{' '}
+                <span
+                  className={
+                    isOver
+                      ? 'font-bold text-emerald-600 dark:text-emerald-300'
+                      : 'font-bold text-blue-600 dark:text-blue-300'
+                  }
+                >
+                  {isOver ? 'OVER' : 'UNDER'}
+                </span>
+              </>
+            }
+          />
+        ))}
     </WidgetCard>
   );
 }

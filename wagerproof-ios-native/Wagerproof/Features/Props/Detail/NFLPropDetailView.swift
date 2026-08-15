@@ -18,6 +18,8 @@ struct NFLPropDetailView: View {
     @State private var selectedSignal: SelectedSignal?
     @State private var metricHelp: NFLPropMetricHelp?
     @State private var propPerfByKey: [String: SignalPerformance] = [:]
+    @State private var bookOddsByMarket: [String: SportsbookPropMarketOdds] = [:]
+    @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKeysRaw: String = ""
 
     private var player: NFLPropPlayer { selection.player }
     private var markets: [NFLPropMarket] { player.markets }
@@ -75,7 +77,9 @@ struct NFLPropDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: selection.id) {
-            await loadPropSignalPerformance()
+            async let performance: () = loadPropSignalPerformance()
+            async let books: () = loadSportsbookOdds()
+            _ = await (performance, books)
         }
         .sheet(item: $selectedSignal) { selection in
             NFLPropSignalDetailSheet(
@@ -214,7 +218,7 @@ struct NFLPropDetailView: View {
                     propSectionBlock("Game Log", helpKey: "game_log") {
                         NFLPropTrendChart(games: market.recentGames, line: market.clearThreshold, isYesNo: market.isYesNo)
                     }
-                    if market.hasBestBooks {
+                    if market.hasBestBooks || bookOddsByMarket[market.market] != nil {
                         propSectionBlock("Best Lines", helpKey: "book_odds") {
                             bestBooksSection(market)
                         }
@@ -249,7 +253,14 @@ struct NFLPropDetailView: View {
 
     private func bestBooksSection(_ market: NFLPropMarket) -> some View {
         VStack(spacing: 8) {
-            if market.isYesNo {
+            if let live = bookOddsByMarket[market.market] {
+                if market.isYesNo {
+                    liveBookRow(sideLabel: "Yes", quotes: live.over, market: market)
+                } else {
+                    liveBookRow(sideLabel: "Over", quotes: live.over, market: market)
+                    liveBookRow(sideLabel: "Under", quotes: live.under, market: market)
+                }
+            } else if market.isYesNo {
                 if !market.bestOver.isEmpty {
                     bestBookRow(
                         sideLabel: "Yes",
@@ -274,6 +285,61 @@ struct NFLPropDetailView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func liveBookRow(
+        sideLabel: String,
+        quotes: SportsbookMarketQuotes,
+        market: NFLPropMarket
+    ) -> some View {
+        if quotes.best != nil {
+            HStack(spacing: 10) {
+                Text(sideLabel)
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(Color.appTextPrimary)
+                Spacer(minLength: 8)
+                BestBookChip(
+                    quotes: quotes,
+                    selectedBookKeys: SportsbookPreference.decode(preferredBookKeysRaw),
+                    marketTitle: market.label,
+                    selectionTitle: "\(sideLabel) \(market.label)",
+                    formatLine: { NFLPlayerProps.formatLine($0) }
+                )
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.appSurfaceMuted.opacity(0.35), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.appBorder.opacity(0.45), lineWidth: 0.5)
+            )
+        }
+    }
+
+    private func loadSportsbookOdds() async {
+        guard let playerId = player.playerId, !playerId.isEmpty else {
+            bookOddsByMarket = [:]
+            return
+        }
+
+        let requested = markets.map(\.market)
+        var loaded: [String: SportsbookPropMarketOdds] = [:]
+        await withTaskGroup(of: (String, SportsbookPropMarketOdds?).self) { group in
+            for market in requested {
+                group.addTask {
+                    let odds = await SportsbookPropOddsService.shared.odds(
+                        playerId: playerId,
+                        market: market
+                    )
+                    return (market, odds)
+                }
+            }
+            for await (market, odds) in group {
+                if let odds { loaded[market] = odds }
+            }
+        }
+        bookOddsByMarket = loaded
     }
 
     private func bestBookRow(sideLabel: String, quote: NFLPropBestQuote, showLine: Bool) -> some View {

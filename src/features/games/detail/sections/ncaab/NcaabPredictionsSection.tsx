@@ -5,6 +5,7 @@ import {
   type CollegeModelInput,
 } from '../cfb/CollegeModelCards';
 import { toNum } from '../cfb/shared';
+import { NCAAB_EDGE_SCALE } from '../../charts';
 import type { NCAABPrediction } from '../../../api/ncaabGames';
 import type { GameFeedItem } from '../../../types';
 
@@ -33,6 +34,9 @@ export function NcaabPredictionsSection({ game }: NcaabPredictionsSectionProps) 
     predOverLine: toNum(raw.pred_over_line),
     overLineDiff: raw.over_line_diff ?? null,
     vegasTotal: toNum(raw.api_over_line) ?? raw.over_line ?? game.lines.total ?? null,
+    // Basketball margins and totals are nothing like football's — the shared
+    // cards need the basketball bands or every game reads STRONG.
+    scale: NCAAB_EDGE_SCALE,
   };
 
   if (!hasCollegeModelOutput(input)) return null;

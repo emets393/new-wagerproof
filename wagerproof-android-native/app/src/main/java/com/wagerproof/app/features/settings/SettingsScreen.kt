@@ -57,7 +57,9 @@ import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
 import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.services.NotificationService
+import com.wagerproof.core.models.SportsbookPreference
 import com.wagerproof.core.stores.AuthStore
+import com.wagerproof.core.stores.SportsbookPreferenceStore
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -70,6 +72,7 @@ private const val TERMS_URL = "https://wagerproof.bet/terms-and-conditions"
 private enum class SettingsModal {
     Discord,
     Widget,
+    Sportsbooks,
     DeleteAccount,
     Developer,
     Paywall,
@@ -234,6 +237,14 @@ fun SettingsScreen(
                 accessory = RowAccessory.Chevron,
                 onClick = { modal = SettingsModal.Widget },
             )
+            RowDivider()
+            ProfileRow(
+                icon = AppIcon.BUILDING_2_FILL.imageVector,
+                title = "My Sportsbooks",
+                subtitle = SportsbookPreference.summary(SportsbookPreferenceStore.selectedKeys),
+                accessory = RowAccessory.Chevron,
+                onClick = { modal = SettingsModal.Sportsbooks },
+            )
 
             // --- Support ---
             ProfileSectionHeader("Support")
@@ -376,6 +387,9 @@ fun SettingsScreen(
         }
         SettingsModal.Widget -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             WidgetHelpScreen(onDismiss = { modal = null })
+        }
+        SettingsModal.Sportsbooks -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
+            SportsbooksSettingsScreen(onDismiss = { modal = null })
         }
         SettingsModal.DeleteAccount -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             DeleteAccountScreen(onDismiss = { modal = null })

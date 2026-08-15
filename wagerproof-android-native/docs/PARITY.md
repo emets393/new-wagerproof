@@ -54,6 +54,7 @@ not counted in `docs/inventory/`, which is a snapshot of the iOS tree at port ti
 | Agent Consensus on game cards | `core/models/GameAgentConsensus.kt`, `core/services/AgentConsensusService.kt`, `core/stores/AgentConsensusStore.kt`, `app/features/gamecards/AgentConsensusStrip.kt`, `app/features/games/GameConsensusKey.kt` | [18_agent_consensus.md](../../.claude/docs/18_agent_consensus.md) | ✅ three tiers, both card layouts, all 5 sports |
 | Parlay God | `core/models/ParlayGod.kt`, `core/services/ParlayGod*.kt`, `core/stores/ParlayGodStore.kt`, `app/features/parlaygod/*` | — | ✅ engine + shared store + Outliers, Props Cheats, Search, MLB/NFL matchup surfaces, paywall/detail states, widget market |
 | Play In-App Review | `core/stores/ReviewPromptCoordinator.kt`, `app/features/settings/PlayStoreReview.kt`, `app/nav/RootHost.kt` | 08 | ✅ six value triggers + threshold/cooldown/version/manual guards; real prompt requires Play-distributed testing |
+| Preferred sportsbooks | `core/models/SportsbookQuote.kt`, `core/services/SportsbookOddsService.kt`, `core/stores/SportsbookPreferenceStore.kt`, `app/features/gamecards/BestBookChip.kt`, Settings "My Sportsbooks" | 07 / WIDGET_DESIGN §13 | ✅ NFL/CFB/MLB game detail + NFL props; empty preference = best number anywhere; never hide a better line |
 
 Notes on the consensus port:
 
@@ -94,6 +95,13 @@ Notes on the consensus port:
   schools missing upstream brand metadata.
 - When a backend table returns no rows, the associated section is intentionally omitted or shows
   the iOS-equivalent unavailable state. This is data absence, not a UI placeholder.
+- The three iOS "threshold vs model, gap highlighted" edge charts (`SpreadCoverBar`,
+  `ModelEdgeRail`, `MoneylineEdgeBar`, all per-sport-scaled via `EdgeScale`) are ported to
+  `core/design/components/`. NFL and CFB wire all three group families (spread, total, moneyline —
+  CFB's moneyline row stays display-only, no chart); NBA/NCAAB wire spread + total, gated on the
+  model-fair-value fields so the classifier-probability fallback (which echoes the market number
+  back as "the model") never draws a chart; MLB wires moneyline + total. Every call site degrades to
+  the old two-box comparison when a raw market or model number is missing.
 
 ## Historical Trends notes
 

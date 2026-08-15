@@ -179,7 +179,14 @@ data class NFLSignalDisplay(
     val stance: String,
     val tier: String?,
     val definition: NFLSignalDefinition?,
-)
+) {
+    /**
+     * Stable identity for the pick-signal pills. Matches iOS's computed `id` —
+     * `key` alone is NOT unique, because the same signal can appear once
+     * supporting a pick and once countering it.
+     */
+    val id: String get() = "$key-$stance-${team ?: ""}"
+}
 
 /** One card-group section (spread / total / …) with its ordered pick rows. */
 data class NFLPickGroup(val cardGroup: String, val picks: List<NFLDryrunPickRow>) {

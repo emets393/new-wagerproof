@@ -304,11 +304,33 @@ Conventions used below:
      mammoth/high orange, med appPrimary, low/lean appAccentBlue, none appTextSecondary);
      **pickHeaderLabel** — team picks: 28pt avatar + "Nickname −3.5" 20pt black rounded (1H prefix);
      totals: up/down circle icon (UNDER red / OVER appPrimary) + label; "Display Only" mini-badge;
-     **metricGrid** — ML cards: single "Best Odds" box; others: `Vegas/Best Line box → arrow →
-     Model box` (labels: spread "Model Line", ML "Win Prob", team_total "Proj Pts"); boxes = label
+     **edgeVisual** — `total` / `h1_total` cards render `ModelEdgeRail` (WagerproofDesign):
+     one centred rail, market pinned at the midpoint, model marker offset by `model − market`,
+     only the span between the two markers coloured (green OVER / blue UNDER), zone labels
+     Strong Under · Under Lean · No Edge · Over Lean · Strong Over at 3/7-pt thresholds.
+     `spread` / `h1_spread` render `SpreadCoverBar` (margin axis anchored at a tie, half-point
+     vs whole-point push handling); `moneyline` / `h1_ml` render `MoneylineEdgeBar` (0–100% axis
+     anchored at the coin-flip, break-even from raw un-de-vigged implied probability).
+     **PORTED TO ANDROID** — `core/design/components/{EdgeScale,SpreadCoverBar,ModelEdgeRail,
+     MoneylineEdgeBar}.kt`, wired into `PickEdgeVisual()` in `NFLGameDetailScreen.kt` (same
+     group→chart mapping) and into CFB's `MarketVsModel()` (spread/total groups only — CFB's
+     moneyline row is display-only, no chart). NBA/NCAAB wire `SpreadCoverBar` + `ModelEdgeRail`
+     into their Spread/O-U sections (gated on the model-fair-value fields, not the classifier
+     probability fallback); MLB wires `MoneylineEdgeBar` + `ModelEdgeRail` into its Moneyline/Total
+     sections. Every path degrades to the old two-box comparison when a raw number is missing
+     (team_total everywhere, and CFB rows with no loaded `cfb_dryrun_picks` row, have no chart spec
+     and always use the box fallback).
+     Every other group falls through to **metricGrid** — ML cards: single "Best Odds" box;
+     others: `Vegas/Best Line box → arrow → Model box` (labels: spread "Model Line",
+     ML "Win Prob", team_total "Proj Pts"); boxes = label
      9pt black + value 20pt black rounded, highlighted box tinted 14%;
-     **bestBookRow** — `SportsbookLogoView(.regular)` + "Best Book"/name + line+odds mono 15pt,
-     appPrimary 8% fill; **signalGroups** — "Supports this pick" / "Contradicts this pick"
+     **bestBookRow** — when `SportsbookOddsService` has a board for the pick's
+     market, `BestBookChip` (`gamecards/BestBookChip.kt`) leads with the user's
+     preferred books (`SportsbookPreferenceStore`, key `sportsbook.preferred`)
+     and opens the full board; otherwise the legacy `SportsbookLogoView(.regular)`
+     + "Best Book"/name + line+odds mono 15pt, appPrimary 8% fill. Never hide a
+     better number than the user's books. NFL/CFB charts stay on close;
+     **signalGroups** — "Supports this pick" / "Contradicts this pick"
      (contradicting amber/muted) adaptive LazyVGrid (min 118) of **signalButton**s: info.circle +
      display name 11pt black + action/team subtitle + chevron.up.forward in filled circle; blue
      (support) / amber (counter) tinted capsule-rect. Row bg: mammoth orange-12%, hasPlay
@@ -410,10 +432,17 @@ Conventions used below:
   mammoth orange) → **marketRecommendationRow** — comparison boxes (Vegas → Model, 20pt black
   rounded; hidden for ML rows) + pick line: pickIcon (direction arrow circle 42 | team avatar 42 |
   market icon) + optional "Rare 5u mammoth spot" flame line + pickLabel 13pt heavy mono +
-  bestBookRow (`SportsbookLogoView(.compact)` + "BookName 47.5 −110"); card bg tint-12% gradient
-  (mammoth: orange 28%→gold 13%→surface, 1.4pt orange stroke, glow shadow) → signal buckets
-  ("Supports/Contradicts this pick" LazyVGrid of signal buttons colored by conviction tier:
-  mammoth/T1-high orange/gold 0xFACC15, T2 silver 0x94A3B8, T3 bronze 0xCD7F32, track gray) →
+  bestBookRow (`SportsbookLogoView(.compact)` + "BookName 47.5 −110"). **No card background on
+  iOS** — the row is flat inside `WidgetCollapsingSection`, matching `NFLGameBottomSheet.pickRow`
+  (WIDGET_DESIGN rule 3); mammoth reads from the gradient MAMMOTH badge and the "Rare 5u mammoth
+  spot" flame line instead of a tinted box. Android still boxes it, in step with its own
+  `NFLGameDetailScreen` → **Pick Signals** (`core/design/components/PickSignalPills.kt`,
+  shared with `NFLGameDetailScreen`): one "PICK SIGNALS (tap for details)" header over a
+  `FlowRow` of Liquid Glass capsules, supporting first then contradicting. Stance rides the
+  icon — amber `exclamationmark.triangle.fill` argues against the pick, neutral
+  `exclamationmark.circle.fill` backs it — with a worded legend so colour isn't load
+  bearing. Replaced the two headed "Supports/Contradicts this pick" groups on all three
+  platforms (iOS `PickSignalPills.swift`, web `signals/PickSignalsSection.tsx`) →
   **teamTrendStrip**: "Team Trends" header + sample label ("12 games · thru W7") + per-team tappable
   cards (avatar 20, abbr 10pt black, metric label ATS/O-U/TT Over/1H ATS/1H O-U/SU, "Season" value
   mono tinted ≥55% green / ≤45% red, L5 chips 17pt, "Tap to expand ↗").
@@ -734,7 +763,16 @@ Conventions used below:
 - **`InsightWidgetSkeleton`**: verdict block + N rows (two blocks + capsule) + footer block, shimmering.
 - **`SignalPerformanceStatsSection`**: "HISTORICAL BACKTEST" (typical_hit) + divider + "THIS SEASON"
   (`SignalSeasonRecordDisplay` — tone empty/neutral/positive(green)/negative(red), small-sample
-  dimming). Used by NFL + CFB signal sheets. (Keep backtest vs season-to-date SEPARATE — memory rule.)
+  dimming). **No longer used by the NFL/CFB signal sheets** — still live on the NFL prop player
+  card only. (Keep backtest vs season-to-date SEPARATE — memory rule.)
+- **`SignalBacktestChart`** (`core/design/components/`): replaced it in both signal sheets. Backtest
+  and season each get a `SignalHitRateMeter` — a red→green zone track with the 52.4% break-even
+  marked and a marker where the rate lands — plus a `SignalRecordBar` (W/P/L divided bar). Chart
+  first, prose after. Parses `typical_hit` via `SignalHitRate.fraction`, which anchors ONLY on `%`:
+  a naive scrape read `~61% ... (2024-25, n=83)` as the range 61–1 and drew a 61% signal as 31%.
+  Ported 1:1 to iOS (`WagerproofModels/SignalHitRate.swift` + `GameWidgets/SignalBacktestChart.swift`)
+  and web (`signals/hitRate.ts` + `signals/SignalBacktestChart.tsx`), with the same parser cases
+  tested on all three.
 
 ---
 
@@ -892,6 +930,8 @@ Package root: `com.wagerproof.app.features.*`
 - [ ] `SportTeamColors.swift` → `gamecards/SportTeamColors.kt` (NBATeams/CFBTeamColors/FallbackTeamColor)
 - [ ] `SportsbookButtons.swift` → `gamecards/SportsbookButtons.kt`
 - [ ] `SportsbookLogoView.swift` → `gamecards/SportsbookLogo.kt` (+ `SportsbookDomainResolver.kt`)
+- [ ] `BestBookChip.swift` → `gamecards/BestBookChip.kt` (+ `core/models/SportsbookQuote.kt`,
+      `core/services/SportsbookOddsService.kt`, `core/stores/SportsbookPreferenceStore.kt`)
 - [ ] `WeatherDisplay.swift` → `gamecards/WeatherDisplay.kt`
 - [ ] `BettingSplitsCard.swift` → `gamecards/BettingSplitsCard.kt`
 - [ ] `Sheets/H2HModal.swift` → `gamecards/sheets/H2HModal.kt`

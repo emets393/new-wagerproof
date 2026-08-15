@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Chip, Tooltip } from '@heroui/react';
-import { ArrowRight, ChevronRight, Zap } from 'lucide-react';
+import { ChevronRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TeamRef } from '../../../types';
 
@@ -258,76 +258,6 @@ export function FadeAlertChip() {
         </Chip>
       </span>
     </Tooltip>
-  );
-}
-
-/**
- * Model number beside the Vegas number with the gap called out between them.
- * The whole point of a pick is the disagreement, so the difference gets its own
- * slot instead of being left for the reader to subtract out of two labels.
- */
-export function CompareRow({
-  model,
-  vegas,
-  modelMark,
-  gap,
-  gapUnit,
-  footer,
-}: {
-  model: string;
-  vegas: string;
-  modelMark?: React.ReactNode;
-  /** Signed from the picked side's perspective: positive = the model likes it. */
-  gap: number;
-  gapUnit: string;
-  footer: React.ReactNode;
-}) {
-  const positive = gap >= 0;
-
-  return (
-    <div className="rounded-xl bg-muted/40 px-3 py-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col items-start gap-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Our model
-          </span>
-          <span className="flex items-center gap-1.5">
-            {modelMark}
-            <span className="text-xl font-bold tabular-nums text-foreground">{model}</span>
-          </span>
-        </div>
-
-        <div className="flex shrink-0 flex-col items-center">
-          <span
-            className={cn(
-              'font-mono text-[13px] font-bold tabular-nums',
-              positive
-                ? 'text-emerald-600 dark:text-emerald-300'
-                : 'text-red-600 dark:text-red-300',
-            )}
-          >
-            {positive ? '+' : ''}
-            {gap.toFixed(1)}
-          </span>
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            {gapUnit}
-          </span>
-        </div>
-
-        <div className="flex min-w-0 flex-col items-end gap-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Vegas
-          </span>
-          <span className="text-xl font-bold tabular-nums text-muted-foreground">{vegas}</span>
-        </div>
-      </div>
-
-      {/* Spell the lean out: a signed gap alone doesn't say which way to bet. */}
-      <div className="mt-2 flex items-center gap-1.5 border-t border-black/5 pt-2 text-[11px] dark:border-white/10">
-        <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 text-muted-foreground">{footer}</span>
-      </div>
-    </div>
   );
 }
 

@@ -21,6 +21,8 @@ struct CFBGameBottomSheet: View {
     @State private var teamTrendsByTeam: [String: CFBTeamTrendRow] = [:]
     @State private var selectedTrendDetail: TrendDetailSelection?
     @State private var marketOddsHeadline: String?
+    @State private var bookOdds: SportsbookGameOdds?
+    @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKeysRaw: String = ""
 
     private var awayColors: TeamColorPair { CFBTeamColors.colorPair(for: game.awayTeam) }
     private var homeColors: TeamColorPair { CFBTeamColors.colorPair(for: game.homeTeam) }
@@ -63,11 +65,12 @@ struct CFBGameBottomSheet: View {
         .task(id: game.gameId) {
             async let picks: () = loadDryRunPicks()
             async let trends: () = loadTeamTrends()
+            async let books: () = loadSportsbookOdds()
             async let performance = SignalPerformanceService.shared.performances(
                 for: .cfb,
                 season: game.season ?? 2025
             )
-            _ = await (picks, trends)
+            _ = await (picks, trends, books)
             signalPerformanceByKey = await performance
         }
         .sheet(item: $selectedSignal) { flag in
@@ -357,7 +360,7 @@ struct CFBGameBottomSheet: View {
             iconTint: row.tint,
             icon: sectionHeaderIcon(for: row),
             showsHeader: false,
-            headline: row.pickSubtitle
+            headline: chartHeadline(for: row) ?? row.pickSubtitle
         ) {
             ProContentSection(title: row.sectionTitle, minHeight: signalBuckets(for: row).isEmpty ? 132 : 210) {
                 marketRow(row)
@@ -405,15 +408,9 @@ struct CFBGameBottomSheet: View {
                     .minimumScaleFactor(0.72)
             }
             marketRecommendationRow(row)
-            if !buckets.isEmpty {
-                VStack(alignment: .leading, spacing: 9) {
-                    if !buckets.supporting.isEmpty {
-                        signalGroup(title: "Supports this pick", signals: buckets.supporting, muted: false)
-                    }
-                    if !buckets.contradicting.isEmpty {
-                        signalGroup(title: "Contradicts this pick", signals: buckets.contradicting, muted: true)
-                    }
-                }
+            PickSignalsSection(signals: signalPills(buckets)) { selected in
+                selectedSignal = (buckets.supporting + buckets.contradicting)
+                    .first { $0.id == selected.id }
             }
             teamTrendStrip(for: row)
         }
@@ -452,9 +449,9 @@ struct CFBGameBottomSheet: View {
                     }
                 }
             }
-            .padding(10)
-            .background(Color.appSurfaceElevated.opacity(0.42), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.appBorder.opacity(0.28), lineWidth: 0.7))
+            // No wrapper box: the per-team cards below are already a surface, and
+            // boxing them again made this three deep. NFL's `teamTrendStrip` is a
+            // bare label + row of cards for the same reason.
         }
     }
 
@@ -959,13 +956,24 @@ struct CFBGameBottomSheet: View {
     private func marketRecommendationRow(_ row: MarketRow) -> some View {
         let pick = dryRunPick(for: row)
         let comparisonPick = comparisonPick(for: row)
+        let board = sportsbookQuotes(for: row, pick: comparisonPick)
+        let selectedKeys = SportsbookPreference.decode(preferredBookKeysRaw)
+        let resolvedLine = board?.preferred(selectedKeys)?.line
         let mammoth = isMammothPick(pick)
         let displayDirection = pickDirection(pick?.pickSide) ?? pickDirection(pick?.pickLabel) ?? pickDirection(row.pick)
         let cardTint = mammoth ? mammothTint : tint(forDirection: displayDirection, fallback: row.tint)
         return VStack(alignment: .leading, spacing: 14) {
-            if shouldShowComparison(for: row) {
+            if let chart = marketChart(for: row, pick: comparisonPick) {
+                marketChartView(chart)
+            } else if shouldShowComparison(for: row) {
                 HStack(spacing: 10) {
-                    comparisonBox(label: row.vegasLabel, value: comparisonPick.map { formatMarketLine($0.bestLine ?? $0.vegasLine, row: row) } ?? row.vegas, tint: Color.appTextPrimary)
+                    comparisonBox(
+                        label: resolvedLine == nil ? row.vegasLabel : "Sportsbook line",
+                        value: resolvedLine.map { formatMarketLine($0, row: row) }
+                            ?? comparisonPick.map { formatMarketLine($0.bestLine ?? $0.vegasLine, row: row) }
+                            ?? row.vegas,
+                        tint: Color.appTextPrimary
+                    )
                     Image(systemName: "arrow.right")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Color.appTextMuted)
@@ -995,16 +1003,12 @@ struct CFBGameBottomSheet: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(12)
-        .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(recommendationBackground(tint: cardTint, mammoth: mammoth))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(mammoth ? mammothTint.opacity(0.72) : row.tint.opacity(0.20), lineWidth: mammoth ? 1.4 : 0.8)
-        }
-        .shadow(color: mammoth ? mammothTint.opacity(0.30) : Color.clear, radius: 14, x: 0, y: 6)
+        // Flat, like `NFLGameBottomSheet.pickRow`. `WidgetCollapsingSection` is
+        // already the card surface, so a filled+stroked box here made every CFB
+        // market read as a panel inside a panel — WIDGET_DESIGN.md rule 3. The
+        // mammoth call-out survives as the flame line and the section badge,
+        // which is where NFL carries conviction too.
+        .padding(.vertical, 2)
     }
 
     @ViewBuilder
@@ -1088,27 +1092,163 @@ struct CFBGameBottomSheet: View {
         }
     }
 
-    private func recommendationBackground(tint: Color, mammoth: Bool) -> LinearGradient {
-        if mammoth {
-            return LinearGradient(
-                colors: [
-                    Color(hex: 0xF97316).opacity(0.28),
-                    Color(hex: 0xFACC15).opacity(0.13),
-                    Color.appSurfaceElevated.opacity(0.72)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-        return LinearGradient(
-            colors: [tint.opacity(0.12), tint.opacity(0.12)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-
     private func shouldShowComparison(for row: MarketRow) -> Bool {
         row.id != "moneyline" && row.id != "h1-ml"
+    }
+
+    // MARK: - Edge charts
+    //
+    // All seven market rows share `marketRecommendationRow`, so the chart is
+    // resolved once here and every row picks up whichever visual its numbers
+    // support. Anything missing a market OR a model number keeps the old
+    // two-box comparison rather than drawing an empty chart.
+
+    private enum MarketChart {
+        case spread(line: Double, modelMargin: Double, pickAbbrev: String?, opponentAbbrev: String?)
+        case total(market: Double, model: Double, marketCaption: String, modelCaption: String)
+        case moneyline(price: Int, probability: Double, teamAbbrev: String?, teamName: String)
+    }
+
+    /// The pick-team side for a row, as HOME/AWAY. Prefers the dryrun pick row
+    /// (which is already stored pick-side) and falls back to the game row's own
+    /// pick column.
+    private func chartSide(for row: MarketRow, pick: CFBDryRunPickRow?) -> String? {
+        if let side = pick?.pickSide?.uppercased(), side.contains("HOME") || side.contains("AWAY") {
+            return side.contains("HOME") ? "HOME" : "AWAY"
+        }
+        if let team = pick?.pickTeam {
+            if team == game.homeTeam { return "HOME" }
+            if team == game.awayTeam { return "AWAY" }
+        }
+        let fallback = (row.id == "h1-spread" ? game.h1SpreadPick : game.fgSpreadPick)?.uppercased()
+        if let fallback, fallback.contains("HOME") { return "HOME" }
+        if let fallback, fallback.contains("AWAY") { return "AWAY" }
+        return nil
+    }
+
+    private func chartAbbrevs(side: String) -> (pick: String, opponent: String) {
+        let home = CFBTeamAssets.abbr(for: game.homeTeam)
+        let away = CFBTeamAssets.abbr(for: game.awayTeam)
+        return side == "HOME" ? (home, away) : (away, home)
+    }
+
+    private func chartTeamName(side: String) -> String {
+        side == "HOME" ? game.homeTeam : game.awayTeam
+    }
+
+    private func marketChart(for row: MarketRow, pick: CFBDryRunPickRow?) -> MarketChart? {
+        switch row.id {
+        case "spread", "h1-spread":
+            guard let side = chartSide(for: row, pick: pick) else { return nil }
+            let abbrevs = chartAbbrevs(side: side)
+            // Two shapes feed the same bar. A dryrun pick row stores the line and
+            // the fair spread ALREADY pick-side, so the fair spread is negated
+            // once to become a margin. The game row stores everything
+            // home-side, so it's flipped for an away pick and — for 1H — is
+            // already a margin (`h1_pred_margin`), needing no negation at all.
+            if row.id == "spread",
+               let line = pick?.bestLine ?? pick?.vegasLine,
+               let modelLine = pick?.modelLine,
+               line.isFinite, modelLine.isFinite {
+                return .spread(line: line, modelMargin: -modelLine,
+                               pickAbbrev: abbrevs.pick, opponentAbbrev: abbrevs.opponent)
+            }
+            let close = row.id == "spread" ? game.fgSpreadClose : game.h1SpreadClose
+            let homeMargin = row.id == "spread" ? game.fgPredMargin : game.h1PredMargin
+            guard let close, let homeMargin, close.isFinite, homeMargin.isFinite else { return nil }
+            let line = side == "HOME" ? close : -close
+            let margin = side == "HOME" ? homeMargin : -homeMargin
+            return .spread(line: line, modelMargin: margin,
+                           pickAbbrev: abbrevs.pick, opponentAbbrev: abbrevs.opponent)
+
+        case "total", "h1-total":
+            let close = row.id == "total" ? game.fgTotalClose : game.h1TotalClose
+            let projection = row.id == "total" ? game.fgPredTotal : game.h1PredTotal
+            let market = (pick?.bestLine ?? pick?.vegasLine) ?? close
+            let model = pick?.modelLine ?? projection
+            guard let market, let model, market.isFinite, model.isFinite else { return nil }
+            return .total(market: market, model: model, marketCaption: "Market", modelCaption: "Model")
+
+        case "tt-home", "tt-away":
+            let isHome = row.id == "tt-home"
+            let team = isHome ? game.homeTeam : game.awayTeam
+            let market = bestTeamTotalLine(
+                pick: isHome ? game.ttHomePick : game.ttAwayPick,
+                close: isHome ? game.ttHomeClose : game.ttAwayClose,
+                over: isHome ? game.ttHomeBestOver : game.ttAwayBestOver,
+                under: isHome ? game.ttHomeBestUnder : game.ttAwayBestUnder
+            )
+            let model = teamTotalProjection(team: team, storedPred: isHome ? game.ttHomePred : game.ttAwayPred)
+            guard let market, let model, market.isFinite, model.isFinite else { return nil }
+            return .total(market: market, model: model, marketCaption: "Market TT", modelCaption: "Proj Pts")
+
+        case "moneyline", "h1-ml":
+            guard let side = chartSide(for: row, pick: pick) ?? moneylinePickSide else { return nil }
+            let homeClose = row.id == "moneyline" ? game.fgMlHomeClose : game.h1MlHomeClose
+            let awayClose = row.id == "moneyline" ? game.fgMlAwayClose : game.h1MlAwayClose
+            let fallbackPrice = side == "HOME" ? (homeClose ?? game.homeMl) : (awayClose ?? game.awayMl)
+            let rawPrice = (pick?.vegasPrice ?? pick?.bestOdds).map { Int($0.rounded()) } ?? fallbackPrice
+            guard let price = rawPrice, abs(price) >= 100 else { return nil }
+            // Full-game win prob is stored home-side; complement it for an away pick.
+            let modelProbability: Double? = pick?.modelLine ?? game.fgHomeWinProb.map { side == "HOME" ? $0 : 1 - $0 }
+            guard let probability = modelProbability,
+                  probability.isFinite, probability > 0, probability < 1 else { return nil }
+            let abbrevs = chartAbbrevs(side: side)
+            return .moneyline(price: price, probability: probability,
+                              teamAbbrev: abbrevs.pick, teamName: chartTeamName(side: side))
+
+        default:
+            return nil
+        }
+    }
+
+    @ViewBuilder
+    private func marketChartView(_ chart: MarketChart) -> some View {
+        switch chart {
+        case let .spread(line, modelMargin, pickAbbrev, opponentAbbrev):
+            SpreadCoverBar(
+                line: line,
+                modelMargin: modelMargin,
+                scale: .cfb,
+                pickAbbrev: pickAbbrev,
+                opponentAbbrev: opponentAbbrev
+            )
+        case let .total(market, model, marketCaption, modelCaption):
+            ModelEdgeRail(
+                market: market,
+                model: model,
+                marketCaption: marketCaption,
+                modelCaption: modelCaption,
+                scale: .cfb
+            )
+        case let .moneyline(price, probability, teamAbbrev, _):
+            MoneylineEdgeBar(
+                price: price,
+                modelProbability: probability,
+                scale: .cfb,
+                teamAbbrev: teamAbbrev
+            )
+        }
+    }
+
+    /// Section headline for rows whose chart carries its own generated copy, so
+    /// the sentence and the graphic are computed from one set of numbers.
+    /// Totals keep `pickSubtitle`, which already quotes the projection the rail
+    /// draws.
+    private func chartHeadline(for row: MarketRow) -> String? {
+        guard let chart = marketChart(for: row, pick: dryRunPick(for: row)) else { return nil }
+        switch chart {
+        case let .spread(line, modelMargin, pickAbbrev, _):
+            let sentence = SpreadCoverOutcome(line: line, modelMargin: modelMargin)
+                .headline(team: pickAbbrev ?? "The pick")
+            return row.id == "h1-spread" ? "First half — \(sentence)" : sentence
+        case let .moneyline(price, probability, _, teamName):
+            let sentence = MoneylineOutcome(price: price, modelProbability: probability, scale: .cfb)
+                .headline(team: teamName)
+            return row.id == "h1-ml" ? "First half — \(sentence)" : sentence
+        case .total:
+            return nil
+        }
     }
 
     private func comparisonBox(label: String, value: String, tint: Color, highlighted: Bool = false) -> some View {
@@ -1129,7 +1269,15 @@ struct CFBGameBottomSheet: View {
 
     @ViewBuilder
     private func bestBookRow(pick: CFBDryRunPickRow?, row: MarketRow) -> some View {
-        if let pick {
+        if let board = sportsbookQuotes(for: row, pick: pick), board.best != nil {
+            BestBookChip(
+                quotes: board,
+                selectedBookKeys: SportsbookPreference.decode(preferredBookKeysRaw),
+                marketTitle: row.market,
+                selectionTitle: pick?.pickLabel ?? row.pickTitle,
+                formatLine: { formatMarketLine($0, row: row) }
+            )
+        } else if let pick {
             HStack(spacing: 7) {
                 SportsbookLogoView(
                     logoURL: pick.bestBookLogo,
@@ -1156,15 +1304,25 @@ struct CFBGameBottomSheet: View {
         }
     }
 
-    private func signalGroup(title: String, signals: [CFBDryRunFlag], muted: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title)
-                .font(.system(size: 9, weight: .black))
-                .foregroundStyle(muted ? Color.appAccentAmber : Color.appTextMuted)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 7)], alignment: .leading, spacing: 7) {
-                ForEach(signals) { signalButton($0, muted: muted) }
-            }
-        }
+    /// Supporting first, then contradicting — a reader scans for what backs the
+    /// pick before what argues with it, and the amber pills group naturally at
+    /// the end of the flow.
+    private func signalPills(_ buckets: SignalBuckets) -> [PickSignalPillModel] {
+        buckets.supporting.map { signalPill($0, contradicts: false) }
+            + buckets.contradicting.map { signalPill($0, contradicts: true) }
+    }
+
+    private func signalPill(_ flag: CFBDryRunFlag, contradicts: Bool) -> PickSignalPillModel {
+        let definition = flag.signalDefinition ?? CFBSignalDefinitionsService.definition(
+            for: flag.source,
+            in: signalDefinitionsBySource
+        )
+        return PickSignalPillModel(
+            id: flag.id,
+            title: definition?.displayName ?? flag.source,
+            contradicts: contradicts,
+            tint: signalColor(flag)
+        )
     }
 
     @ViewBuilder
@@ -1187,79 +1345,72 @@ struct CFBGameBottomSheet: View {
         }
     }
 
-    private func signalButton(_ flag: CFBDryRunFlag, muted: Bool) -> some View {
-        let resolvedDefinition = flag.signalDefinition ?? CFBSignalDefinitionsService.definition(for: flag.source, in: signalDefinitionsBySource)
-        let color = muted ? Color.appAccentAmber : signalColor(flag)
-        return Button {
-            selectedSignal = flag
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle.fill")
-                    .font(.system(size: 12, weight: .black))
-                    .foregroundStyle(color)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(resolvedDefinition?.displayName ?? flag.source)
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundStyle(color)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                    Text("Tap for details")
-                        .font(.system(size: 8, weight: .heavy))
-                        .foregroundStyle(color.opacity(0.72))
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.up.forward")
-                    .font(.system(size: 9, weight: .black))
-                    .foregroundStyle(Color.appSurface)
-                    .frame(width: 18, height: 18)
-                    .background(color, in: Circle())
-            }
-            .padding(.leading, 10)
-            .padding(.trailing, 7)
-            .padding(.vertical, 8)
-            .background(color.opacity(muted ? 0.12 : 0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(color.opacity(muted ? 0.55 : 0.46), lineWidth: 1.1))
-            .shadow(color: color.opacity(0.16), radius: 6, x: 0, y: 3)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    /// The team a signal is betting, when it names a side. Totals signals
+    /// (OVER/UNDER) name no team, so the caller falls back to the bolt glyph.
+    private func signalTeam(_ flag: CFBDryRunFlag) -> String? {
+        switch flag.side.uppercased() {
+        case let s where s.contains("HOME"): return game.homeTeam
+        case let s where s.contains("AWAY"): return game.awayTeam
+        default:
+            // Team-total flags carry the club name in `side` directly.
+            if flag.side == game.homeTeam { return game.homeTeam }
+            if flag.side == game.awayTeam { return game.awayTeam }
+            return nil
         }
-        .buttonStyle(.plain)
     }
 
     @ViewBuilder
     private func signalDefinitionSheet(_ flag: CFBDryRunFlag) -> some View {
         let resolvedDefinition = flag.signalDefinition ?? CFBSignalDefinitionsService.definition(for: flag.source, in: signalDefinitionsBySource)
+        let team = signalTeam(flag)
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 16, weight: .black))
-                            .foregroundStyle(signalColor(flag))
-                            .frame(width: 36, height: 36)
-                            .background(signalColor(flag).opacity(0.14), in: Circle())
+                // Chart first, then the numbers, then the prose — the reader
+                // asks "does this actually win?" before "what is it?".
+                VStack(alignment: .leading, spacing: 22) {
+                    HStack(spacing: 11) {
+                        if let team {
+                            GameCardTeamAvatar(
+                                teamName: team,
+                                sport: "cfb",
+                                size: 42,
+                                colors: CFBTeamColors.colorPair(for: team)
+                            )
+                        } else {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 16, weight: .black))
+                                .foregroundStyle(signalColor(flag))
+                                .frame(width: 42, height: 42)
+                                .background(signalColor(flag).opacity(0.14), in: Circle())
+                        }
                         VStack(alignment: .leading, spacing: 4) {
                             Text(resolvedDefinition?.displayName ?? flag.source)
                                 .font(.system(size: 20, weight: .black))
                                 .foregroundStyle(Color.appTextPrimary)
-                            Text(resolvedDefinition?.oneLiner ?? "\(marketLabel(flag.market)) · \(flag.side) \(lineText(flag.line))")
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("\(marketLabel(flag.market)) · \(flag.side) \(lineText(flag.line))")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(Color.appTextSecondary)
                         }
                     }
+
+                    if let oneLiner = resolvedDefinition?.oneLiner, !oneLiner.isEmpty {
+                        Text(oneLiner)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.appTextPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    SignalBacktestChart(
+                        backtestRaw: resolvedDefinition?.typicalHit,
+                        performance: signalPerformance(for: flag)
+                    )
 
                     if let def = resolvedDefinition {
                         VStack(alignment: .leading, spacing: 14) {
                             if let definition = def.definition { definitionLine("What it means", definition) }
                             if let why = def.whyItWorks { definitionLine("Why it works", why) }
                             if let direction = def.betDirection { definitionLine("Bet direction", direction) }
-                            SignalPerformanceStatsSection(
-                                backtestHit: def.typicalHit,
-                                seasonDisplay: SignalSeasonRecordDisplay(
-                                    performance: signalPerformance(for: flag)
-                                )
-                            )
                         }
                     } else {
                         Text("Signal definition unavailable.")
@@ -1302,14 +1453,18 @@ struct CFBGameBottomSheet: View {
         return signalPerformanceByKey[flag.source]
     }
 
+    /// Prose block in the signal sheet. Sized for reading, not for a card — 8pt
+    /// over 11pt was card chrome that got reused in a full-height sheet.
     private func definitionLine(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(label.uppercased())
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 10, weight: .black))
+                .tracking(0.6)
                 .foregroundStyle(Color.appTextMuted)
             Text(value)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Color.appTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -2050,6 +2205,38 @@ struct CFBGameBottomSheet: View {
         dryRunPick(for: row)
     }
 
+    private func sportsbookQuotes(
+        for row: MarketRow,
+        pick: CFBDryRunPickRow?
+    ) -> SportsbookMarketQuotes? {
+        guard let bookOdds, let market = sportsbookMarket(for: row, pick: pick) else { return nil }
+        let quotes = bookOdds.quotes(for: market)
+        return quotes.quotes.isEmpty ? nil : quotes
+    }
+
+    private func sportsbookMarket(
+        for row: MarketRow,
+        pick: CFBDryRunPickRow?
+    ) -> SportsbookMarket? {
+        let side = (pick?.pickSide ?? "").uppercased()
+        switch row.id {
+        case "spread":
+            let isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam
+            return .spread(isHome: isHome)
+        case "total":
+            let direction = pickDirection(pick?.pickSide)
+                ?? pickDirection(pick?.pickLabel)
+                ?? pickDirection(row.pick)
+            return .total(isOver: direction != "UNDER")
+        case "moneyline":
+            let isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam
+            return .moneyline(isHome: isHome)
+        default:
+            // The full-game archive has no 1H or team-total columns.
+            return nil
+        }
+    }
+
     private func projectionPick(forTeamTotal team: String) -> CFBDryRunPickRow? {
         dryRunPicks.first { pick in
             normalizeCardGroup(pick.cardGroup) == "team_total" && pick.pickTeam == team
@@ -2084,6 +2271,22 @@ struct CFBGameBottomSheet: View {
             return
         }
         dryRunPicks = rows
+    }
+
+    private func loadSportsbookOdds() async {
+        let kickoff = game.kickoff.flatMap { raw -> Date? in
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let plain = ISO8601DateFormatter()
+            plain.formatOptions = [.withInternetDateTime]
+            return fractional.date(from: raw) ?? plain.date(from: raw)
+        }
+        bookOdds = await SportsbookOddsService.shared.cfbOdds(
+            gameId: game.gameId,
+            awayTeam: game.awayTeam,
+            homeTeam: game.homeTeam,
+            kickoff: kickoff
+        )
     }
 
     private func loadTeamTrends() async {

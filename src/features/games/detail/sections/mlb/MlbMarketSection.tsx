@@ -5,7 +5,16 @@ import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBModelBreakdownAccuracy } from '@/hooks/useMLBModelBreakdownAccuracy';
 import { type MLBPredictionRow } from '../../../api/mlbGames';
 import { mlbMoneylineHeadline, mlbTotalHeadline } from '../../headlines/mlb';
+import { MLB_EDGE_SCALE, moneylineOutcome } from '../../charts';
 import {
+  fetchMlbSportsbookOdds,
+  preferredQuote,
+  quotesForMarket,
+  useSportsbookPreference,
+  type SportsbookGameOdds,
+} from '../../sportsbooks';
+import {
+  deriveFullMl,
   F5MlPanel,
   F5TotalPanel,
   FullMlPanel,
@@ -54,33 +63,57 @@ function MarketSection({
   hasF5: boolean;
 }) {
   const [segment, setSegment] = React.useState<Segment>('full');
+  const [bookOdds, setBookOdds] = React.useState<SportsbookGameOdds | null>(null);
+  const { selectedKeys } = useSportsbookPreference();
   const { data: modelAccuracy } = useMLBBucketAccuracy();
   const { data: breakdownRows = [] } = useMLBModelBreakdownAccuracy();
 
-  const panelProps = { raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, away, home };
+  React.useEffect(() => {
+    let cancelled = false;
+    fetchMlbSportsbookOdds(raw.game_pk)
+      .then((odds) => {
+        if (!cancelled) setBookOdds(odds);
+      })
+      .catch(() => {
+        if (!cancelled) setBookOdds(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [raw.game_pk]);
+
+  const panelProps = { raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, away, home, bookOdds, selectedBookKeys: selectedKeys };
   // A row with no F5 model data shouldn't offer a dead toggle.
   const active = hasF5 ? segment : 'full';
-  const homeEdge = toNum(raw.home_ml_edge_pct);
-  const awayEdge = toNum(raw.away_ml_edge_pct);
-  const pickIsHome = (homeEdge ?? -999) >= (awayEdge ?? -999);
-  const pickEdge = pickIsHome ? homeEdge : awayEdge;
-  const otherEdge = pickIsHome ? awayEdge : homeEdge;
-  const pickTeam = pickIsHome ? homeAbbrev : awayAbbrev;
-  const pickProb = pickIsHome ? toNum(raw.ml_home_win_prob) : toNum(raw.ml_away_win_prob);
-  const pickLine = pickIsHome ? toNum(raw.home_ml) : toNum(raw.away_ml);
-  const pickSide = pickIsHome ? 'home' : 'away';
-  const mlAcc = pickEdge === null
+  // One derivation shared with FullMlPanel, so the headline quotes the exact
+  // numbers the bar under it draws (headlines/README rule 1).
+  const ml = deriveFullMl(raw, awayAbbrev, homeAbbrev, away, home);
+  const bookMlPrice = bookOdds
+    ? preferredQuote(quotesForMarket(bookOdds, { kind: 'moneyline', isHome: ml.pickIsHome }), selectedKeys)?.price ?? null
+    : null;
+  const barPrice = bookMlPrice ?? ml.price;
+  const barOutcome =
+    barPrice !== null && ml.prob !== null && ml.prob > 0 && ml.prob < 1
+      ? moneylineOutcome(barPrice, ml.prob, MLB_EDGE_SCALE)
+      : null;
+  const displayEdge = barOutcome ? barOutcome.edge : ml.displayEdge;
+  const pickLine = barPrice ?? (ml.pickIsHome ? toNum(raw.home_ml) : toNum(raw.away_ml));
+  const mlAcc = ml.storedEdge === null
     ? null
     : lookupBucketAccuracy(
         modelAccuracy,
         'full_ml',
-        pickEdge,
-        pickSide,
+        ml.storedEdge,
+        ml.pickIsHome ? 'home' : 'away',
         pickLine === null ? undefined : pickLine < 0 ? 'favorite' : 'underdog',
       );
   const totalEdge = toNum(raw.ou_edge);
   const totalDirection =
     raw.ou_direction === 'OVER' || raw.ou_direction === 'UNDER' ? raw.ou_direction : null;
+  const bookTotalLine = bookOdds && totalDirection
+    ? preferredQuote(quotesForMarket(bookOdds, { kind: 'total', isOver: totalDirection === 'OVER' }), selectedKeys)?.line ?? null
+    : null;
+  const marketTotal = bookTotalLine ?? toNum(raw.total_line);
   const totalAcc = totalEdge === null || totalDirection === null
     ? null
     : lookupBucketAccuracy(
@@ -93,11 +126,15 @@ function MarketSection({
       );
   const deterministicHeadline = title === 'Moneyline'
     ? mlbMoneylineHeadline({
-        pickTeam,
-        pickEdge,
-        otherEdge,
-        pickProbPct: pickProb === null ? null : pickProb * 100,
-        vegasPct: pickProb === null || pickEdge === null ? null : pickProb * 100 - pickEdge,
+        pickTeam: ml.pickTeam,
+        pickEdge: displayEdge,
+        otherEdge: ml.otherDisplayEdge,
+        pickProbPct: ml.prob === null ? null : ml.prob * 100,
+        // The bar's threshold when there is a price, else model − edge, which is
+        // what the fallback row prints. Either way it is the number on screen.
+        vegasPct:
+          barOutcome?.breakEvenPercent ??
+          (ml.prob === null || displayEdge === null ? null : ml.prob * 100 - displayEdge),
         line: pickLine,
         favDog: pickLine === null ? undefined : pickLine < 0 ? 'favorite' : 'underdog',
         acc: mlAcc,
@@ -106,7 +143,7 @@ function MarketSection({
         direction: totalDirection,
         edge: totalEdge,
         fairTotal: toNum(raw.ou_fair_total),
-        marketTotal: toNum(raw.total_line),
+        marketTotal,
         acc: totalAcc,
         strength: raw.ou_strong_signal
           ? 'Strong'
