@@ -130,44 +130,58 @@ struct AgentConsensusSection: View {
     @ViewBuilder
     private func sideRow(_ c: GameAgentConsensus) -> some View {
         let dir = Self.sideDirection(c.side)
-        HStack(alignment: .top, spacing: 12) {
-            // Overflow counts against the WINNING side, not the whole game —
-            // the stack is claiming "these agents are on this side".
-            avatarStack(c, overflow: c.sideAgents - min(c.avatars.count, Self.maxVisible))
+        VStack(alignment: .leading, spacing: 6) {
+            // Full-width row of its own. Inside the avatar/side column this
+            // label had roughly half the card to work with, so market names
+            // longer than a word ("Most-backed F5 run line") wrapped mid-phrase
+            // and read as if concatenated with the selection under it.
+            eyebrow(c.mostBackedLabel)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            VStack(alignment: .leading, spacing: 2) {
-                eyebrow(c.mostBackedLabel)
-                HStack(alignment: .top, spacing: 4) {
-                    if let dir {
-                        Image(systemName: dir == .over ? "arrow.up" : "arrow.down")
-                            .font(.system(size: 15, weight: .bold))
-                            .padding(.top, 4)
-                    }
-                    // Verbatim `pick_selection`, which can be long ("Kansas City
-                    // Royals +160"). It is the card's primary fact, so let it
-                    // wrap while the fixed-size percentage keeps its own column.
-                    Text(c.side)
-                        .fixedSize(horizontal: false, vertical: true)
+            // The selection gets the FULL card width, on a row of its own. Shared
+            // with the avatar stack and the percentage column it had barely half,
+            // so a normal team name plus price ("Kansas City Royals +160") broke
+            // across two lines and ran into the labels around it.
+            HStack(alignment: .top, spacing: 4) {
+                if let dir {
+                    Image(systemName: dir == .over ? "arrow.up" : "arrow.down")
+                        .font(.system(size: 15, weight: .bold))
+                        .padding(.top, 4)
                 }
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(Self.sideTint(dir))
+                // Verbatim `pick_selection` — the card's primary fact. Still
+                // allowed to wrap, but now only if it genuinely exceeds the card.
+                Text(c.side)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .font(.system(size: 20, weight: .bold))
+            .foregroundStyle(Self.sideTint(dir))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .layoutPriority(1)
 
-            // Suppressed on `.tooFew`: "50%" off a 2-agent market is theatre,
-            // and the headline already says how few bet it.
-            if c.verdict != .tooFew {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(c.agreementPercent)%")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(Color.appTextPrimary)
-                    // "agree" alone never said agree with WHOM, or over which
-                    // population — the denominator is the agents who bet this
-                    // market, not everyone who bet the game.
-                    eyebrow(c.sharePopulationLabel)
+            // Who is on it, and how strongly — the supporting row under the pick.
+            HStack(alignment: .center, spacing: 12) {
+                // Overflow counts against the WINNING side, not the whole game —
+                // the stack is claiming "these agents are on this side".
+                avatarStack(c, overflow: c.sideAgents - min(c.avatars.count, Self.maxVisible))
+
+                Spacer(minLength: 8)
+
+                // Suppressed on `.tooFew`: "50%" off a 2-agent market is theatre,
+                // and the headline already says how few bet it.
+                if c.verdict != .tooFew {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(c.agreementPercent)%")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(Color.appTextPrimary)
+                        // "agree" alone never said agree with WHOM, or over which
+                        // population — the denominator is the agents who bet this
+                        // market, not everyone who bet the game.
+                        eyebrow(c.sharePopulationLabel)
+                            .lineLimit(1)
+                    }
+                    .fixedSize()
                 }
-                .fixedSize()
             }
         }
     }

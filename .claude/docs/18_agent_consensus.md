@@ -85,6 +85,11 @@ and odds-suffixed selections share one market).
 The percentage is suppressed entirely on `Too few`: "50%" off a 2-agent market
 is theatre.
 
+Copy is shared; the arrangement is not. iOS gives the eyebrow and the selection
+a full-width row each (eyebrow → selection → avatar stack + percentage), because
+`pick_selection` plus a price does not fit a half-width column on a 6.1" phone
+and wrapped into the labels around it. Web keeps the three-column row.
+
 **Two signals, not one.** Direction (which side, how lopsided) is the signal.
 Field size is **not** a bullish indicator — "≥1 agent" fires on 96% of a slate —
 it is the *sample size that makes the percentage trustworthy*. So it lives in the
