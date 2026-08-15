@@ -52,9 +52,19 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
 
     @State private var scrollY: CGFloat = 0
 
-    private var collapseDistance: CGFloat { max(1, heroMaxHeight - heroMinHeight) }
+    /// Compact matchup docks into the nav-bar row beside the back button.
+    /// Keep a small pad so discs don't slide under the Dynamic Island.
+    private var dockedTopInset: CGFloat { max(8, heroTopInset * 0.35) }
+    private var expandedChrome: CGFloat { heroMaxHeight + heroTopInset }
+    private var collapsedChrome: CGFloat { heroMinHeight + dockedTopInset }
+    private var collapseDistance: CGFloat { max(1, expandedChrome - collapsedChrome) }
     private var progress: CGFloat { min(1, max(0, scrollY / collapseDistance)) }
-    private var heroHeight: CGFloat { heroMaxHeight - collapseDistance * progress }
+    private var heroHeight: CGFloat {
+        heroMaxHeight - (heroMaxHeight - heroMinHeight) * progress
+    }
+    private var effectiveTopInset: CGFloat {
+        heroTopInset - (heroTopInset - dockedTopInset) * progress
+    }
 
     var body: some View {
         ScrollView {
@@ -73,7 +83,7 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
             // scroll), so the card can't peek above the hero's masking edge if
             // the scroll-driven hero height lags layout by a frame. The gap
             // closes naturally right as the card reaches the pin line.
-            .padding(.top, heroMaxHeight + heroTopInset + WidgetCard.gap)
+            .padding(.top, expandedChrome + WidgetCard.gap)
         }
         // The hero used to hide scrolling content with its own opaque copy of
         // the matchup aura. In a paging carousel those copies travel with their
@@ -84,7 +94,7 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
             VStack(spacing: 0) {
                 if transparentPage {
                     Color.clear
-                        .frame(height: heroHeight + heroTopInset)
+                        .frame(height: heroHeight + effectiveTopInset)
                 }
                 Rectangle()
                     .fill(Color.white)
@@ -111,8 +121,8 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
         }
         // Named space lets each card read its live viewport position.
         .coordinateSpace(name: kCollapsingScrollSpace)
-        // Cards pin just under the compact hero (which sits `heroTopInset` lower).
-        .environment(\.widgetPinLine, heroMinHeight + heroTopInset)
+        // Cards pin just under the compact hero (which docks into the toolbar).
+        .environment(\.widgetPinLine, heroMinHeight + effectiveTopInset)
         .environment(\.widgetUsesLiquidGlass, usesLiquidGlass)
         .background(alignment: .top) {
             // In carousel mode the page is transparent — the shared base + glow
@@ -130,8 +140,8 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
                 // Push the hero CONTENT below the (transparent) nav/status bar so
                 // the date row doesn't clip behind the back button, while the
                 // background below still bleeds all the way up.
-                .padding(.top, heroTopInset)
-                .frame(height: heroHeight + heroTopInset, alignment: .top)
+                .padding(.top, effectiveTopInset)
+                .frame(height: heroHeight + effectiveTopInset, alignment: .top)
                 // Standalone pages still use their aura as the hero's opaque
                 // content mask. Carousel pages intentionally omit this copy:
                 // the ScrollView alpha mask above handles clipping, while the

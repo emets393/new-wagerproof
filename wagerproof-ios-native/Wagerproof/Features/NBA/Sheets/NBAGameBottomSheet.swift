@@ -56,7 +56,7 @@ struct NBAGameBottomSheet: View {
         // collapse under their header → fade out → hand off to the next.
         CollapsingWidgetScroll(
             heroMaxHeight: 196,
-            heroMinHeight: 124,
+            heroMinHeight: 80,
             transparentPage: !showAura,
             heroTopInset: heroTopInset,
             contentBottomInset: contentBottomInset,
@@ -261,8 +261,11 @@ struct NBAGameBottomSheet: View {
         let detail = Double(max(0, 1 - p * 1.9))
         let mlReveal = Double(min(1, max(0, (p - 0.35) / 0.4)))
 
-        VStack(spacing: heroLerp(12, 6, p)) {
+        VStack(spacing: heroLerp(12, 0, p)) {
             topRow
+                .opacity(detail)
+                .frame(height: heroLerp(28, 0, min(1, p * 1.6)))
+                .clipped()
             HStack(alignment: .center, spacing: heroLerp(14, 10, p)) {
                 heroTeamColumn(team: game.awayTeam, colors: awayColors, size: logoSize,
                                nameOpacity: detail, ml: game.awayMl, mlReveal: mlReveal)
@@ -271,8 +274,8 @@ struct NBAGameBottomSheet: View {
                                nameOpacity: detail, ml: game.homeMl, mlReveal: mlReveal)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.horizontal, heroLerp(16, 8, p))
+        .padding(.top, heroLerp(8, 0, p))
         .frame(maxWidth: .infinity, alignment: .top)
     }
 

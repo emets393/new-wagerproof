@@ -22,13 +22,47 @@ struct CFBGameBottomSheet: View {
     @State private var selectedTrendDetail: TrendDetailSelection?
     @State private var marketOddsHeadline: String?
 
+    /// Hero text that depends only on the game, not on scroll progress.
+    ///
+    /// `CollapsingWidgetScroll` re-invokes the hero builder on every scroll
+    /// frame, so building these inline re-parsed the kickoff date/time and
+    /// re-interpolated the stat values 120 times a second.
+    private struct HeroText {
+        let dateLabel: String
+        let timeLabel: String
+        let expandedStats: [MatchupGlassHero.Stat]
+        let collapsedStats: [MatchupGlassHero.Stat]
+
+        init(_ game: CFBPrediction) {
+            dateLabel = GameCardFormatting.formatCompactDate(game.kickoff ?? game.gameDate)
+            timeLabel = GameCardFormatting.convertTimeToEST(game.kickoff ?? game.gameTime)
+            let ml = "\(GameCardFormatting.formatMoneyline(game.awayMl)) / \(GameCardFormatting.formatMoneyline(game.homeMl))"
+            let spread = "\(GameCardFormatting.formatSpread(game.awaySpread)) / \(GameCardFormatting.formatSpread(game.homeSpread))"
+            let ou = GameCardFormatting.roundToNearestHalf(game.overLine)
+            expandedStats = [
+                .init(label: "ML", value: ml),
+                .init(label: "Spread", value: spread),
+                .init(label: "O/U", value: ou)
+            ]
+            collapsedStats = [
+                .init(label: "Spread", value: spread),
+                .init(label: "O/U", value: ou)
+            ]
+        }
+    }
+
+    @State private var heroTextCache: HeroText?
+    /// Falls back to computing inline on the very first frame (before `.task`
+    /// seeds the cache) so the hero never renders blank.
+    private var heroText: HeroText { heroTextCache ?? HeroText(game) }
+
     private var awayColors: TeamColorPair { CFBTeamColors.colorPair(for: game.awayTeam) }
     private var homeColors: TeamColorPair { CFBTeamColors.colorPair(for: game.homeTeam) }
 
     var body: some View {
         CollapsingWidgetScroll(
-            heroMaxHeight: 238,
-            heroMinHeight: 124,
+            heroMaxHeight: hasWeather ? 246 : 206,
+            heroMinHeight: 44,
             transparentPage: !showAura,
             heroTopInset: heroTopInset,
             contentBottomInset: contentBottomInset,
@@ -62,6 +96,9 @@ struct CFBGameBottomSheet: View {
         .presentationBackgroundInteraction(.disabled)
         .onDisappear { auditStore.clear() }
         .task(id: game.gameId) {
+            // Seed the hero text cache so subsequent scroll frames reuse it
+            // instead of re-parsing the kickoff and re-building the stat rows.
+            heroTextCache = HeroText(game)
             async let picks: () = loadDryRunPicks()
             async let trends: () = loadTeamTrends()
             async let performance = SignalPerformanceService.shared.performances(
@@ -83,27 +120,52 @@ struct CFBGameBottomSheet: View {
 
     // MARK: - Hero
 
+    /// Matchup hero — same format as `NFLGameBottomSheet.heroView`: date/time
+    /// row on top of a `MatchupGlassHero` (fused liquid-glass team discs that
+    /// flow apart as the hero collapses). Expanded shows full ML / Spread /
+    /// O/U stacked under the discs; collapsed keeps Spread + O/U centered
+    /// while each team's abbreviation + ML moves under its disc. Rank badges
+    /// stay on the discs while expanded. The weather row (when the game has
+    /// weather data) fades in below the discs while expanded.
     @ViewBuilder
     private func heroView(progress p: CGFloat) -> some View {
-        let logoSize = heroLerp(58, 30, p)
         let detail = Double(max(0, 1 - p * 1.9))
-        let mlReveal = Double(min(1, max(0, (p - 0.35) / 0.4)))
-
-        VStack(spacing: heroLerp(12, 6, p)) {
-            topRow
-            HStack(alignment: .center, spacing: heroLerp(14, 10, p)) {
-                heroTeamColumn(team: game.awayTeam, rank: game.awayRank, colors: awayColors, size: logoSize, nameOpacity: detail, ml: game.awayMl, mlReveal: mlReveal)
-                heroLinesColumn(detail: detail, p: p)
-                heroTeamColumn(team: game.homeTeam, rank: game.homeRank, colors: homeColors, size: logoSize, nameOpacity: detail, ml: game.homeMl, mlReveal: mlReveal)
-            }
-            if detail > 0.18 {
+        let text = heroText
+        VStack(spacing: heroLerp(12, 0, p)) {
+            topRow(text)
+                .opacity(detail)
+                .frame(height: heroLerp(28, 0, min(1, p * 1.6)))
+                .clipped()
+            MatchupGlassHero(
+                away: heroSide(team: game.awayTeam, ml: game.awayMl, rank: game.awayRank),
+                home: heroSide(team: game.homeTeam, ml: game.homeMl, rank: game.homeRank),
+                expandedStats: text.expandedStats,
+                collapsedStats: text.collapsedStats,
+                progress: p
+            )
+            if detail > 0.08, hasWeather {
                 heroWeatherRow
                     .opacity(detail)
+                    .padding(.top, 2)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.horizontal, heroLerp(16, 0, p))
+        .padding(.top, heroLerp(8, 0, p))
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    /// Build a `MatchupGlassHero.Side` from a CFB team string — logo + abbr
+    /// from the `cfb_teams` reference table, colors from the static map.
+    private func heroSide(team: String, ml: Int?, rank: Int?) -> MatchupGlassHero.Side {
+        let pair = CFBTeamColors.colorPair(for: team)
+        return MatchupGlassHero.Side(
+            logoURL: CFBTeamAssets.logo(for: team),
+            abbr: CFBTeamAssets.abbr(for: team),
+            primary: pair.primary,
+            secondary: pair.secondary,
+            ml: ml,
+            rank: rank
+        )
     }
 
     private func heroLerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat {
@@ -111,124 +173,19 @@ struct CFBGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func heroTeamColumn(team: String, rank: Int?, colors: TeamColorPair, size: CGFloat, nameOpacity: Double, ml: Int?, mlReveal: Double) -> some View {
-        VStack(spacing: 4) {
-            ZStack(alignment: .bottomTrailing) {
-                GameCardTeamAvatar(teamName: team, sport: "cfb", size: size, colors: colors)
-                if let rank, nameOpacity > 0.08 {
-                    Text("#\(rank)")
-                        .font(.system(size: 9, weight: .black))
-                        .foregroundStyle(Color.appSurface)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Color(hex: 0x22C55E), in: Capsule())
-                        .overlay(Capsule().stroke(Color.appSurface.opacity(0.55), lineWidth: 0.6))
-                        .offset(x: 8, y: 2)
-                        .opacity(nameOpacity)
-                }
-            }
-            .frame(width: max(size, 64), height: size)
-            ZStack {
-                Text(heroTeamName(team))
-                    .font(.system(size: heroTeamNameFontSize(for: team), weight: .heavy))
-                    .foregroundStyle(Color.appTextPrimary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .lineSpacing(0)
-                    .minimumScaleFactor(0.74)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .opacity(nameOpacity)
-                Text(GameCardFormatting.formatMoneyline(ml))
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color.appTextPrimary)
-                    .opacity(mlReveal)
-            }
-            .frame(height: 34)
-        }
-        .frame(width: 108, alignment: .center)
-    }
-
-    private func heroTeamName(_ team: String) -> String {
-        let words = team.split(separator: " ").map(String.init)
-        guard words.count > 1 else { return team }
-
-        let splitIndex = balancedTeamNameSplitIndex(words)
-        return words[..<splitIndex].joined(separator: " ") + "\n" + words[splitIndex...].joined(separator: " ")
-    }
-
-    private func balancedTeamNameSplitIndex(_ words: [String]) -> Int {
-        guard words.count > 2 else { return 1 }
-        let totalCharacters = words.reduce(0) { $0 + $1.count }
-        var runningCharacters = 0
-        var bestIndex = 1
-        var bestDelta = Int.max
-        for index in 1..<words.count {
-            runningCharacters += words[index - 1].count
-            let remainingCharacters = totalCharacters - runningCharacters
-            let delta = abs(runningCharacters - remainingCharacters)
-            if delta < bestDelta {
-                bestDelta = delta
-                bestIndex = index
-            }
-        }
-        return bestIndex
-    }
-
-    private func heroTeamNameFontSize(for team: String) -> CGFloat {
-        switch team.count {
-        case 0...11: return 14
-        case 12...17: return 13
-        case 18...24: return 12
-        default: return 11
-        }
-    }
-
-    @ViewBuilder
-    private func heroLinesColumn(detail: Double, p: CGFloat) -> some View {
-        VStack(spacing: heroLerp(6, 2, p)) {
-            if detail > 0.04 {
-                heroLineRow(label: "ML", value: "\(GameCardFormatting.formatMoneyline(game.awayMl)) / \(GameCardFormatting.formatMoneyline(game.homeMl))")
-                    .opacity(detail)
-            }
-            heroLineRow(label: "Spread", value: "\(GameCardFormatting.formatSpread(game.awaySpread)) / \(GameCardFormatting.formatSpread(game.homeSpread))")
-            heroLineRow(label: "O/U", value: GameCardFormatting.roundToNearestHalf(game.overLine))
-            if let score = game.predictedScore {
-                heroLineRow(label: "Model", value: "\(CFBTeamAssets.abbr(for: game.awayTeam)) \(scoreText(score.away)) · \(CFBTeamAssets.abbr(for: game.homeTeam)) \(scoreText(score.home))")
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var topRow: some View {
-        HStack {
+    private func topRow(_ text: HeroText) -> some View {
+        HStack(spacing: 8) {
             Spacer(minLength: 0)
-            HStack(spacing: 8) {
-                Text(GameCardFormatting.formatCompactDate(game.kickoff ?? game.gameDate))
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.appTextPrimary)
-                Text(GameCardFormatting.convertTimeToEST(game.kickoff ?? game.gameTime))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .liquidGlassBackground(in: Capsule())
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-    }
-
-    private func heroLineRow(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold))
-                .tracking(0.5)
-                .foregroundStyle(Color.appTextSecondary)
-            Text(value)
-                .font(.system(size: 12, weight: .semibold))
+            Text(text.dateLabel)
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color.appTextPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
+            Text(text.timeLabel)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.appTextSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .liquidGlassBackground(in: Capsule())
+            Spacer(minLength: 0)
         }
     }
 
@@ -238,7 +195,6 @@ struct CFBGameBottomSheet: View {
             HStack(spacing: 5) {
                 weatherChip(systemImage: "building.2.fill", text: "Indoor / Dome", tint: Color(hex: 0xA78BFA))
             }
-            .padding(.top, 1)
             .frame(maxWidth: .infinity, alignment: .center)
         } else if hasOutdoorWeather {
             HStack(spacing: 8) {
@@ -252,9 +208,12 @@ struct CFBGameBottomSheet: View {
                     weatherChip(systemImage: "wind", text: "\(Int(wind.rounded())) mph", tint: Color(hex: 0x60A5FA))
                 }
             }
-            .padding(.top, 2)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+    }
+
+    private var hasWeather: Bool {
+        game.wxIndoors == true || hasOutdoorWeather
     }
 
     private var hasOutdoorWeather: Bool {

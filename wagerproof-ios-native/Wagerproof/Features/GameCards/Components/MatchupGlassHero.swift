@@ -16,8 +16,10 @@ import WagerproofDesign
 ///   - discs: big+overlapping+fused  →  small+edges+separated
 ///   - `expandedStats` (below the fused discs): full, fades out on collapse
 ///   - `collapsedStats` (in the gap between split discs): fades in on collapse
-///   - per-team abbr + ML (under each disc): hidden when fused, revealed split
+///   - per-team abbr + ML: under each disc when split, then beside it when docked
 ///   - centered "AWAY @ HOME" title: shown only when fused
+///   - optional rank badges on the disc rims: shown while expanded (CFB)
+///   - docked (progress → 1): single toolbar-height row that sits in the nav bar
 ///
 /// The host owns everything outside the disc/stat block (date row, pitchers,
 /// etc.); this view is just the morphing matchup centerpiece.
@@ -29,6 +31,8 @@ struct MatchupGlassHero: View {
         var primary: Color
         var secondary: Color
         var ml: Int?
+        /// Optional poll/AP rank (CFB). Shown on the disc while expanded.
+        var rank: Int? = nil
     }
 
     struct Stat: Identifiable {
@@ -51,7 +55,9 @@ struct MatchupGlassHero: View {
     let progress: CGFloat
 
     var bigSize: CGFloat = 80
-    var smallSize: CGFloat = 40
+    /// Compact disc size when the hero docks into the nav-bar row.
+    /// Matches the iOS 26 circular back-button control (~36pt).
+    var smallSize: CGFloat = 36
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -67,11 +73,14 @@ struct MatchupGlassHero: View {
         // Discs start fused and pull apart over the back half of the collapse,
         // so the big fused blob reads clearly before it splits.
         let split = clamp((p - 0.18) / 0.6)
+        // Last stretch: labels slide beside the discs and the row shrinks to
+        // a single toolbar-height line (clears the back chevron).
+        let dock = clamp((p - 0.45) / 0.55)
         // Expanded extras (stacked lines below) fade over the first ~half.
         let detail = clamp(1 - p * 1.9)
 
-        VStack(spacing: lerp(10, 5, p).rounded()) {
-            discRow(size: size, split: split, p: p)
+        VStack(spacing: lerp(10, 0, p).rounded()) {
+            discRow(size: size, split: split, dock: dock, p: p, detail: detail)
             if detail > 0.02 {
                 expandedStatsRow
                     .opacity(detail)
@@ -82,10 +91,12 @@ struct MatchupGlassHero: View {
     // MARK: - Disc row (the morph)
 
     @ViewBuilder
-    private func discRow(size: CGFloat, split: Double, p: CGFloat) -> some View {
-        let labelH: CGFloat = 20
+    private func discRow(size: CGFloat, split: Double, dock: CGFloat, p: CGFloat, detail: CGFloat) -> some View {
+        let labelH = lerp(20, 0, dock).rounded()
         let rowH = size + 2 + labelH
-        let edgeMargin: CGFloat = 8
+        // Inset further as we dock so the left disc clears the circular
+        // back button (leading ~16 + 36pt control + 16pt gap).
+        let edgeMargin = lerp(8, 80, dock).rounded()
         GeometryReader { geo in
             let w = geo.size.width
             // The discs separate via real HStack LAYOUT spacing — not .offset or
@@ -102,7 +113,12 @@ struct MatchupGlassHero: View {
             let awayCX = w / 2 - (size + gap) / 2
             let homeCX = w / 2 + (size + gap) / 2
             let discCY = size / 2
-            let labelCY = size + 2 + labelH / 2
+            let belowCY = size + 2 + max(labelH, 20) / 2
+            // Docked: abbr + ML sit inward of each disc, vertically centered
+            // in the toolbar row instead of stacked underneath.
+            let awayLabelX = lerp(awayCX, awayCX + size / 2 + 22, dock)
+            let homeLabelX = lerp(homeCX, homeCX - size / 2 - 22, dock)
+            let labelCY = lerp(belowCY, discCY, dock)
 
             ZStack(alignment: .topLeading) {
                 // Compact stats fill the gap that opens between the split discs.
@@ -122,32 +138,56 @@ struct MatchupGlassHero: View {
                 .frame(width: w, height: size)
                 .position(x: w / 2, y: discCY)
 
-                // Per-team abbr + ML track each disc's center; shown when split.
-                sideLabel(away)
+                // Per-team abbr + ML track each disc; slide beside it when docked.
+                sideLabel(away, compact: dock > 0.5)
                     .opacity(split)
-                    .position(x: awayCX, y: labelCY)
-                sideLabel(home)
+                    .position(x: awayLabelX, y: labelCY)
+                sideLabel(home, compact: dock > 0.5)
                     .opacity(split)
-                    .position(x: homeCX, y: labelCY)
+                    .position(x: homeLabelX, y: labelCY)
 
                 // Centered "AWAY @ HOME" — only while the discs are fused.
                 fusedTitle
                     .opacity(1 - split)
-                    .position(x: w / 2, y: labelCY)
+                    .position(x: w / 2, y: belowCY)
+
+                // Rank badges sit on the outer rim so they stay readable while
+                // the discs are fused. They fade with the expanded extras.
+                if let rank = away.rank {
+                    rankBadge(rank)
+                        .opacity(detail)
+                        .position(x: awayCX - size / 2 + 10, y: size - 2)
+                }
+                if let rank = home.rank {
+                    rankBadge(rank)
+                        .opacity(detail)
+                        .position(x: homeCX + size / 2 - 10, y: size - 2)
+                }
             }
             .frame(width: w, height: rowH)
         }
         .frame(height: rowH)
     }
 
+    private func rankBadge(_ rank: Int) -> some View {
+        Text("#\(rank)")
+            .font(.system(size: 9, weight: .black))
+            .foregroundStyle(Color.appSurface)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Color(hex: 0x22C55E), in: Capsule())
+            .overlay(Capsule().stroke(Color.appSurface.opacity(0.55), lineWidth: 0.6))
+    }
+
     /// Per-team abbreviation + moneyline shown under a disc once it splits out.
-    private func sideLabel(_ side: Side) -> some View {
-        VStack(spacing: 0) {
+    /// Compact (docked) stacks them tighter so they fit a 44pt toolbar row.
+    private func sideLabel(_ side: Side, compact: Bool = false) -> some View {
+        VStack(spacing: compact ? -1 : 0) {
             Text(side.abbr)
-                .font(.system(size: 14, weight: .heavy))
+                .font(.system(size: compact ? 13 : 14, weight: .heavy))
                 .foregroundStyle(Color.appTextPrimary)
             Text(moneyline(side.ml))
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .font(.system(size: compact ? 10 : 11, weight: .bold, design: .monospaced))
                 .foregroundStyle(Color.appTextSecondary)
         }
         .fixedSize()
