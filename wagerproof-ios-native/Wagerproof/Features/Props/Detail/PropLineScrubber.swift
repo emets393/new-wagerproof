@@ -4,8 +4,8 @@ import WagerproofDesign
 
 /// Floating line scrubber. Collapsed it is a tiny glass pill that sits over
 /// the scrolling widgets; a tap expands the same pill to hold the readout and
-/// the alternate-line wheel. Content scrolls underneath — this view is an
-/// overlay, not a layout inset.
+/// the alternate-line wheel. The wheel is always laid out inside the pill and
+/// revealed by growing the clip — it never inserts from outside the container.
 ///
 /// The tick under the centered caret is the selected line, and scrubbing
 /// left/right updates everything upstream in real time. Digits roll via the
@@ -27,16 +27,20 @@ struct PropLineScrubber: View {
     var body: some View {
         VStack(spacing: isExpanded ? 8 : 0) {
             header
-            if isExpanded {
-                wheel
-                    .transition(.opacity)
-            }
+            // Always in the tree so expand is a clip/height reveal, not a
+            // transition that slides the wheel in from outside the pill.
+            wheel
+                .frame(height: isExpanded ? wheelHeight : 0, alignment: .top)
+                .opacity(isExpanded ? 1 : 0)
+                .clipped()
+                .allowsHitTesting(isExpanded)
         }
         .padding(.horizontal, isExpanded ? 16 : 14)
         .padding(.vertical, isExpanded ? 12 : 8)
         .frame(maxWidth: isExpanded ? .infinity : nil)
-        .liquidGlassBackground(in: pillShape)
+        .background { Color.clear.liquidGlassBackground(in: pillShape) }
         .overlay(pillShape.strokeBorder(Color.appBorder.opacity(0.5), lineWidth: 0.5))
+        .clipShape(pillShape)
         .shadow(color: .black.opacity(0.18), radius: isExpanded ? 16 : 10, x: 0, y: 4)
         .padding(.horizontal, isExpanded ? 12 : 0)
         .onAppear { centered = selectedLine }
@@ -107,7 +111,7 @@ struct PropLineScrubber: View {
                     .contentTransition(.numericText())
                     .animation(.snappy(duration: 0.28), value: selectedLine)
             }
-            Spacer()
+            Spacer(minLength: 8)
             HStack(spacing: 6) {
                 oddsChip(prefix: "O", odds: activeEntry?.over, tint: Color.appPrimary)
                 oddsChip(prefix: "U", odds: activeEntry?.under, tint: Color.appTextSecondary)

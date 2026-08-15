@@ -279,7 +279,7 @@ public enum MLBPlayerProps {
         "batter_hits": "H",
         "batter_total_bases": "TB",
         "batter_rbis": "RBI",
-        "batter_hits_runs_rbis": "H+R+RBI",
+        "batter_hits_runs_rbis": "HRR",
         "batter_walks": "BB",
         "batter_strikeouts": "K",
         "pitcher_strikeouts": "K",

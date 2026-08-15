@@ -139,52 +139,55 @@ struct PlayerPropDetailView: View {
         let pct = activeComputed?.l10.pct
 
         VStack(spacing: lerp(8, 6, p)) {
-            heroTopRow
-                .opacity(detail)
-                .frame(height: lerp(18, 0, min(1, p * 1.6)))
-                .clipped()
+            VStack(spacing: lerp(8, 6, p)) {
+                heroTopRow
+                    .opacity(detail)
+                    .frame(height: lerp(18, 0, min(1, p * 1.6)))
+                    .clipped()
 
-            HStack(alignment: .center, spacing: lerp(12, 8, p)) {
-                PlayerHeadshot(playerId: selection.playerId, size: headSize)
-                    .padding(ringPad)
-                    .teamGlassDisc(primary: teamColor, secondary: oppColor)
-                    .shadow(color: teamColor.opacity(lerp(0.35, 0.18, p)), radius: lerp(8, 3, p))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(selection.playerName)
-                        .font(.system(size: lerp(19, 15, p), weight: .heavy))
-                        .foregroundStyle(Color.appTextPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    if detail > 0.04 {
-                        Text(subtitle)
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.appTextSecondary)
+                HStack(alignment: .center, spacing: lerp(12, 8, p)) {
+                    PlayerHeadshot(playerId: selection.playerId, size: headSize)
+                        .padding(ringPad)
+                        .teamGlassDisc(primary: teamColor, secondary: oppColor)
+                        .shadow(color: teamColor.opacity(lerp(0.35, 0.18, p)), radius: lerp(8, 3, p))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(selection.playerName)
+                            .font(.system(size: lerp(19, 15, p), weight: .heavy))
+                            .foregroundStyle(Color.appTextPrimary)
                             .lineLimit(1)
-                            .opacity(detail)
+                            .minimumScaleFactor(0.7)
+                        if detail > 0.04 {
+                            Text(subtitle)
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.appTextSecondary)
+                                .lineLimit(1)
+                                .opacity(detail)
+                        }
                     }
-                }
-                Spacer(minLength: 0)
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text(pct.map(String.init) ?? "—")
-                        .font(.system(size: lerp(27, 17, p), weight: .heavy))
-                        .foregroundStyle(Color.appPrimary)
-                    if pct != nil {
-                        Text("%")
-                            .font(.system(size: lerp(16, 11, p), weight: .heavy))
+                    Spacer(minLength: 0)
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        Text(pct.map(String.init) ?? "—")
+                            .font(.system(size: lerp(27, 17, p), weight: .heavy))
                             .foregroundStyle(Color.appPrimary)
+                        if pct != nil {
+                            Text("%")
+                                .font(.system(size: lerp(16, 11, p), weight: .heavy))
+                                .foregroundStyle(Color.appPrimary)
+                        }
                     }
+                    .contentTransition(.numericText())
+                    .animation(.snappy(duration: 0.28), value: pct)
                 }
-                .contentTransition(.numericText())
-                .animation(.snappy(duration: 0.28), value: pct)
+                .frame(height: lerp(58, 44, p), alignment: .center)
             }
-            .frame(height: lerp(58, 44, p), alignment: .center)
+            .padding(.leading, leading)
+            .padding(.trailing, 16)
 
             if hasPicker {
                 marketPicker(proxy: proxy, viewportHeight: viewportHeight)
+                    .padding(.horizontal, 16)
             }
         }
-        .padding(.leading, leading)
-        .padding(.trailing, 16)
         .padding(.top, lerp(8, 0, p))
         .frame(maxWidth: .infinity, alignment: .top)
     }
