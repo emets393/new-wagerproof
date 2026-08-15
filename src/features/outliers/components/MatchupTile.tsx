@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { PixelSpriteAvatar } from '@/components/agents/split/PixelSpriteAvatar';
 import { agentSpriteIndex } from '@/utils/agentSprites';
 import { avatarBackground } from '@/features/games/components/AgentConsensusStrip';
+import { consensusLeaderLine } from '@/features/games/consensusCopy';
 import type { GameAgentConsensus } from '@/services/agentConsensusService';
 
 export interface MatchupTileData {
@@ -33,11 +34,17 @@ export interface MatchupTileData {
   gameDate: string;
 }
 
-/** Pixel-person stack + agreement, shown only when agents actually bet the game. */
+/**
+ * Pixel-person stack + what the agents took, shown only when agents actually
+ * bet the game. This used to render a bare "83% agree" naming NO side and no
+ * denominator — a percentage about an unstated selection.
+ */
 function ConsensusRow({ consensus }: { consensus: GameAgentConsensus }) {
-  const { sideAgents, agents, agreement, flagged, avatars } = consensus;
+  const { sideAgents, flagged, avatars } = consensus;
   const shown = avatars.slice(0, 3);
-  const overflow = (flagged ? sideAgents : agents) - shown.length;
+  // Winning-side count in BOTH states: the faces are winning-side agents, so
+  // counting the whole game beside them mislabels the stack.
+  const overflow = sideAgents - shown.length;
 
   return (
     <div className="relative flex w-full items-center justify-center gap-1.5">
@@ -67,7 +74,7 @@ function ConsensusRow({ consensus }: { consensus: GameAgentConsensus }) {
 
       {flagged ? (
         <span className="flex shrink-0 items-center gap-0.5 rounded bg-emerald-500 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-white">
-          Bet
+          Consensus
         </span>
       ) : null}
 
@@ -77,7 +84,7 @@ function ConsensusRow({ consensus }: { consensus: GameAgentConsensus }) {
           flagged ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'
         )}
       >
-        {Math.round(agreement * 100)}% agree
+        {consensusLeaderLine(consensus)}
       </span>
     </div>
   );

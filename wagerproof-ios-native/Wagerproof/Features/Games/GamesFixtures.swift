@@ -34,9 +34,11 @@ enum GamesFixtures {
         ),
     ]
 
-    /// Both consensus tiers are represented so simulator QA proves the
-    /// football adapters render the same feature MLB does: a flagged BET row
-    /// and a quieter participation-only row.
+    /// Both consensus treatments are represented so simulator QA proves the
+    /// football adapters render the same feature MLB does: a flagged CONSENSUS
+    /// row and a quieter split one. Every fixture carries `marketAgents` /
+    /// `marketLabel` / runner-up / slate rank, because those drive the copy and
+    /// a fixture without them only ever exercises the legacy fallback.
     static let nflConsensus: [String: GameAgentConsensus] = [
         "nfl-fixture-1": GameAgentConsensus(
             gameId: "nfl-fixture-1",
@@ -44,9 +46,15 @@ enum GamesFixtures {
             agents: 18,
             side: "Philadelphia -3.5",
             sideAgents: 13,
-            agreement: 13.0 / 18.0,
+            marketAgents: 15,
+            marketLabel: "spread",
+            agreement: 13.0 / 15.0,
             threshold: 8,
             flagged: true,
+            runnerUpSide: "Dallas +3.5",
+            runnerUpAgents: 2,
+            slateRank: 1,
+            slateGames: 6,
             avatars: consensusAvatars
         ),
         "nfl-fixture-2": GameAgentConsensus(
@@ -55,9 +63,15 @@ enum GamesFixtures {
             agents: 11,
             side: "Under 53",
             sideAgents: 5,
+            marketAgents: 11,
+            marketLabel: "total",
             agreement: 5.0 / 11.0,
             threshold: 8,
             flagged: false,
+            runnerUpSide: "Over 53",
+            runnerUpAgents: 4,
+            slateRank: 4,
+            slateGames: 6,
             avatars: consensusAvatars
         ),
     ]
@@ -69,9 +83,15 @@ enum GamesFixtures {
             agents: 21,
             side: "Under 51.5",
             sideAgents: 15,
-            agreement: 15.0 / 21.0,
+            marketAgents: 17,
+            marketLabel: "total",
+            agreement: 15.0 / 17.0,
             threshold: 8,
             flagged: true,
+            runnerUpSide: "Over 51.5",
+            runnerUpAgents: 2,
+            slateRank: 1,
+            slateGames: 5,
             avatars: consensusAvatars
         ),
         "cfb-fixture-2": GameAgentConsensus(
@@ -80,9 +100,15 @@ enum GamesFixtures {
             agents: 9,
             side: "Georgia -1.5",
             sideAgents: 4,
+            marketAgents: 9,
+            marketLabel: "spread",
             agreement: 4.0 / 9.0,
             threshold: 8,
             flagged: false,
+            runnerUpSide: "Clemson +1.5",
+            runnerUpAgents: 3,
+            slateRank: 3,
+            slateGames: 5,
             avatars: consensusAvatars
         ),
     ]

@@ -78,6 +78,33 @@ describe('mapConsensusRow', () => {
     expect(m.marketAgents).toBe(28);
     expect(m.marketLabel).toBe('');
   });
+
+  it('maps the runner-up and slate rank', () => {
+    const mapped = mapConsensusRow({
+      ...baseRow,
+      runner_up_side: 'Under 8.5',
+      runner_up_agents: 10,
+      slate_rank: 3,
+      slate_games: 14,
+    });
+    expect(mapped.runnerUpSide).toBe('Under 8.5');
+    expect(mapped.runnerUpAgents).toBe(10);
+    expect(mapped.slateRank).toBe(3);
+    expect(mapped.slateGames).toBe(14);
+  });
+
+  /**
+   * Absent on a client deployed ahead of the runner-up/rank migration. They MUST
+   * stay null, not 0 — `Number(null)` is 0, which would render "#0 of 0 today"
+   * and a bogus "0 other" bar segment.
+   */
+  it('keeps the runner-up and rank null when the columns are absent', () => {
+    const mapped = mapConsensusRow(baseRow);
+    expect(mapped.runnerUpSide).toBeNull();
+    expect(mapped.runnerUpAgents).toBeNull();
+    expect(mapped.slateRank).toBeNull();
+    expect(mapped.slateGames).toBeNull();
+  });
 });
 
 describe('avatarBackground', () => {

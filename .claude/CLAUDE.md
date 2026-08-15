@@ -193,10 +193,18 @@ wagerproof-ios-native/
 
 ### 9. Agent Consensus on game cards
 - A row on each `/games` feed card showing what the public AI agents bet, plus a
-  green **BET** flag on the rare games where they strongly agree
+  green **CONSENSUS** chip on the rare games where they strongly agree
 - The flag keys off AGREEMENT, not participation: "any agent bet this" fires on
   96% of a slate because agents bet nearly everything. The calibrated rule
   (`≥max(8, 8% of the day) on one side AND ≥55% agreement`) fires on ~21%
+- **The cards state a VERDICT and hide the mechanism** (Consensus / Lean / Split /
+  Too few). They used to print "flag needs 13" — one of the two gates — so a card
+  could show 18 ≥ 13 and still not flag, contradicting itself. Never render
+  `threshold`. The detail bar is three segments (leader · runner-up · other) with
+  a slate rank, not a fill with a threshold tick
+- **Prod drifts from the migration history**: on 2026-08-15 the deployed RPC was
+  still the 20260726 original (no `market_agents` / `market_label`). Call the RPC
+  before assuming a column exists
 - Served by the `get_game_agent_consensus` RPC — **SECURITY DEFINER**, because
   `avatar_picks` is RLS-gated and the anon key sees ZERO rows. Picks live in MAIN
   and the feed in CFB, so there is no SQL join: clients merge by `game_id` lookup,

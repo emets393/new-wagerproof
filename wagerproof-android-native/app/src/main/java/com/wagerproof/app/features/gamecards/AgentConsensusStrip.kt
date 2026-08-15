@@ -74,7 +74,13 @@ fun AgentConsensusStrip(consensus: GameAgentConsensus, modifier: Modifier = Modi
     }
 }
 
-/** Tier 1: participation only. Count is stated, no side is claimed. */
+/**
+ * Not flagged: the same line as the flagged strip, muted and without the chip.
+ *
+ * This used to render a bare participation count ("45 agents") beside
+ * winning-SIDE faces — a number that says how many agents ran that day, not what
+ * they think, next to a stack making a claim it never stated.
+ */
 @Composable
 private fun UnflaggedRow(
     consensus: GameAgentConsensus,
@@ -82,18 +88,23 @@ private fun UnflaggedRow(
     visibleCount: Int,
     modifier: Modifier = Modifier,
 ) {
-    val label = if (consensus.agents == 1) "1 agent" else "${consensus.agents} agents"
+    val claim = buildAnnotatedString {
+        append("${consensus.sideAgents} of ${consensus.marketAgents} on ")
+        withStyle(SpanStyle(fontWeight = FontWeight.Black)) { append(consensus.side.uppercase()) }
+    }
     Row(
         modifier
             .fillMaxWidth()
             .padding(top = 6.dp)
-            .semantics { contentDescription = "$label with a pick on this game" },
+            .semantics { contentDescription = "${consensus.leaderLine}. No strong agreement" },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         AgentAvatarStack(
             chips = chips,
-            overflow = consensus.agents - visibleCount,
+            // The WINNING side in both treatments — the faces are winning-side
+            // agents, so a whole-game count beside them mislabels the stack.
+            overflow = consensus.sideAgents - visibleCount,
             diameter = 18.dp,
             spacing = (-6).dp,
             // Ring in the card surface so the discs read as cut into the card.
@@ -102,7 +113,7 @@ private fun UnflaggedRow(
             overflowTextSize = 7.sp,
         )
         Text(
-            label,
+            claim,
             color = AppColors.appTextMuted,
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
@@ -112,7 +123,7 @@ private fun UnflaggedRow(
     }
 }
 
-/** Tier 2: the rare strong-agreement game — the only tier that gets colour. */
+/** The rare strong-agreement game — the only treatment that gets colour. */
 @Composable
 private fun FlaggedStrip(
     consensus: GameAgentConsensus,
@@ -121,11 +132,10 @@ private fun FlaggedStrip(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(12.dp)
-    val agentsWord = if (consensus.sideAgents == 1) "agent" else "agents"
     val side = consensus.side.uppercase()
 
     val claim = buildAnnotatedString {
-        append("${consensus.sideAgents} $agentsWord on ")
+        append("${consensus.sideAgents} of ${consensus.marketAgents} on ")
         withStyle(SpanStyle(fontWeight = FontWeight.Black)) { append(side) }
     }
 
@@ -138,8 +148,7 @@ private fun FlaggedStrip(
             .border(1.dp, AppColors.appConsensusEmerald.copy(alpha = 0.30f), shape)
             .padding(horizontal = 8.dp, vertical = 6.dp)
             .semantics {
-                contentDescription =
-                    "${consensus.sideAgents} $agentsWord on $side, ${consensus.agreementPercent} percent agree. Bet flag"
+                contentDescription = "${consensus.leaderLine}. Agent consensus"
             },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -155,41 +164,24 @@ private fun FlaggedStrip(
             ringWidth = 1.5.dp,
             overflowTextSize = 7.sp,
         )
-        // Two Texts, not one AnnotatedString: the side is a verbatim
-        // `pick_selection` and can run long ("PITTSBURGH PIRATES F5 -0.5"), and
-        // in a single line-limited string the ellipsis eats the agreement
-        // percentage — the one number the green strip exists to justify. The
-        // percentage carries no weight so the Row measures it at its intrinsic
-        // width first; the claim then truncates into whatever is left.
-        Row(
-            Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Text(
-                claim,
-                color = AppColors.appConsensusEmeraldText,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            Text(
-                "${consensus.agreementPercent}% agree",
-                color = AppColors.appConsensusEmeraldText.copy(alpha = 0.7f),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                softWrap = false,
-            )
-        }
-        BetBadge()
+        // The side is a verbatim `pick_selection` and can run long ("PITTSBURGH
+        // PIRATES F5 -0.5"), so it truncates rather than pushing the chip off
+        // the card. The counts sit ahead of it and are never the part elided.
+        Text(
+            claim,
+            color = AppColors.appConsensusEmeraldText,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        ConsensusBadge()
     }
 }
 
 @Composable
-private fun BetBadge() {
+private fun ConsensusBadge() {
     Row(
         Modifier
             .clip(RoundedCornerShape(6.dp))
@@ -199,8 +191,10 @@ private fun BetBadge() {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Box(Modifier.size(5.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.9f)))
+        // Not "BET": that reads as an instruction from the app, and it sat one
+        // row away from the model-signal badges, which are a different claim.
         Text(
-            "BET",
+            "CONSENSUS",
             color = Color.White,
             fontSize = 9.sp,
             fontWeight = FontWeight.Black,

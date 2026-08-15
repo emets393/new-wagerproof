@@ -1,19 +1,102 @@
-# Agent Consensus — "N agents on <side>" + the green Bet flag
+# Agent Consensus — what the public agents bet, and whether it means anything
 
 One row on each `/games` feed card showing what the public AI agents actually bet,
-and a green **BET** flag on the rare games where they strongly agree.
+plus a detail widget that reaches a verdict on it.
 
 ## What renders
 
-Three tiers, decided server-side:
+One shape on the feed card, two treatments, decided server-side:
 
-| Tier | Condition | Treatment |
-|---|---|---|
-| 2 | `flagged = true` | emerald strip: avatar stack · "39 agents on OVER 7.5" · "100% agree" · **BET** |
-| 1 | has agents, not flagged | muted inline avatar stack + bare count ("45 agents") |
-| 0 | no agents | nothing |
+| Condition | Treatment |
+|---|---|
+| `flagged = true` | emerald strip: avatar stack · "31 of 35 on OVER 7.5" · **CONSENSUS** |
+| has agents, not flagged | the same line, muted, no chip |
+| no agents | nothing |
 
-Tier 1 states a count and makes no claim. Only Tier 2 is coloured.
+Both name the side and carry the denominator; colour alone separates "worth
+pointing at" from "here's what they did".
+
+The unflagged tier used to render a bare participation count ("45 agents") next
+to winning-SIDE faces — a number that says how many agents ran that day, not what
+they think, beside a stack making a claim it never stated. That was a deliberate
+"state a count, make no claim" design; it was replaced because the claim it
+avoided making was the only useful thing on the row.
+
+## The copy spec
+
+The failure this replaced: the detail card recited a statistic and left the
+judging to the reader — *"The most-backed side is TCU -6.5: 18 of 35 agents, 51%
+agreement"* — while a footer read **"flag needs 13"**. `flagged` needs that
+agent-count gate **AND** ≥55% agreement, and only the first was ever printed. So
+a card could show 18 ≥ 13, draw its fill visibly past the tick at 13/35 = 37%,
+and still not flag, with nothing on screen explaining why. It contradicted
+itself.
+
+`flag`, `threshold`, and `agreement` are internal vocabulary, which
+`src/features/games/detail/WIDGET_DESIGN.md` §4 bans outright. The card now
+states a verdict and quotes no gate.
+
+### Verdict
+
+| State | Condition | Chip | Tone |
+|---|---|---|---|
+| Consensus | `flagged` | `CONSENSUS` | emerald-500 `#10B981` |
+| Lean | `!flagged && agreement >= 0.55` | `LEAN` | amber-500 `#F59E0B` |
+| Split | `!flagged && agreement < 0.55` | `SPLIT` | grey |
+| Too few | `marketAgents < 3` (wins over the rest) | `TOO FEW` | grey |
+
+The chip is **always present** — its colour, not its existence, is what makes a
+consensus game pop. A chip on only the ~21% that flag leaves the other 79%
+looking unlabelled rather than deliberately quiet.
+
+`flagged` is always the server's decision and is never recomputed. The 0.55
+constant is duplicated client-side **only** to tell Lean from Split; if
+`p_min_share` moves in SQL, move all three copies with it.
+
+**"BET" is retired.** It read as an instruction from the app, and it sat one row
+away from the model-signal badges (MAMMOTH PLAY / High Conviction), which are a
+different claim entirely.
+
+### Sentences
+
+`S` = side, `N` = sideAgents, `T` = marketAgents, `M` = marketLabel.
+
+| State | Headline |
+|---|---|
+| Consensus | `Agents are on {S} — {N} of the {T} betting the {M}.` |
+| Lean | `Agents lean {S}, but only {T} bet the {M}.` |
+| Split | `Agents are split on the {M} — {S} leads with {N} of {T}.` |
+| Too few | `Only {T} agents bet the {M} on this game.` (singular at 1) |
+
+With no `M` every sentence drops its market clause — it must **never** fall back
+to the word "side", which implies a two-way market that may not exist (alt lines
+and odds-suffixed selections share one market).
+
+| Element | Copy |
+|---|---|
+| subtitle | `Independent picks from the public AI agents on this game.` |
+| eyebrow | `MOST-BACKED {M}` / fallback `MOST BACKED` |
+| big number | `51%` over `OF {M} BETS` / fallback `OF AGENT BETS` — a bare "agree" never said agree with *whom*, or over which population |
+| bar | three segments: leader · runner-up · other. No threshold tick. |
+| bar legend | `18 TCU -6.5 · 15 Baylor +6.5 · 2 other`; `31 Over 7.5 · unanimous` when the leader takes the market |
+| bar footer right | `#3 of 14 today` — the slate rank, which is what makes 51% mean anything |
+| avatar stack | unchanged: up to 4 winning-side faces + `+N` |
+
+The percentage is suppressed entirely on `Too few`: "50%" off a 2-agent market
+is theatre.
+
+**Two signals, not one.** Direction (which side, how lopsided) is the signal.
+Field size is **not** a bullish indicator — "≥1 agent" fires on 96% of a slate —
+it is the *sample size that makes the percentage trustworthy*. So it lives in the
+bar legend and the rank line, never in a gate readout.
+
+Implementations, all reading one spec:
+
+| Platform | Where the copy lives |
+|---|---|
+| Web | `src/features/games/consensusCopy.ts` (+ `consensusCopy.test.ts`) |
+| iOS | `GameAgentConsensus.swift`, `// MARK: - Copy` (+ `GameAgentConsensusTests.swift`) |
+| Android | `GameAgentConsensus.kt` (+ `AgentConsensusSectionTest.kt`) |
 
 ## Why the flag keys off AGREEMENT, not participation
 
@@ -64,7 +147,8 @@ without a migration.
 ## Backend
 
 `supabase/migrations/20260726140000_game_agent_consensus.sql`, market-scoped by
-`supabase/migrations/20260729140000_agent_consensus_market_scoped.sql`
+`20260729140000_agent_consensus_market_scoped.sql`, runner-up + rank by
+`20260815120000_agent_consensus_runner_up_and_rank.sql`
 
 ```sql
 get_game_agent_consensus(
@@ -76,12 +160,73 @@ get_game_agent_consensus(
 ) RETURNS TABLE (
   game_id text, game_date date, agents int, side text, side_agents int,
   market_agents int, market_label text, agreement numeric, threshold int,
-  flagged bool, avatars jsonb
+  flagged bool, runner_up_side text, runner_up_agents int,
+  slate_rank int, slate_games int, avatars jsonb
 )
 ```
 
 `market_label` names the population `agreement` is over ("F5 run line",
 "moneyline", "total"), so a card can say *which* bet the agents agreed on.
+
+`runner_up_side` / `runner_up_agents` are the second-most-backed selection **in
+the winner's own market** — ranked inside `(bet_type, period)` so the three bar
+segments sum to `market_agents`. It is *not* "the other side": `pick_selection`
+is unnormalized, so a market can hold more than two distinct strings and the
+remainder is genuinely "everything else in this market".
+
+`slate_rank` / `slate_games` place the game on its own date, ordered
+`(flagged DESC, agreement DESC, side_agents DESC, game_id)` — flagged games
+first, so "#1 today" always names a game the product is pointing at, and
+`game_id` last so the rank can't shuffle between identical rows on refetch.
+
+**Only markets with `market_agents >= 3` are ranked**; the rest get NULL for both
+columns and the clients drop the line. Agreement alone is a bad sort key across
+sample sizes — a 1-agent market scores 100% for free. Caught on the live
+2026-08-15 MLB slate, where "Boston Red Sox -1.5, 1 of 1" ranked **#10 of 15**,
+above an 11-agent coin flip, and a card would have printed "TOO FEW" and
+"#6 of 15 today" together — the same self-contradiction as the old
+"flag needs 13". The cutoff is deliberately the same one `verdict` uses for
+`tooFew`, so the chip and the rank can never disagree.
+
+Residual limitation, accepted: among ranked games a thin market can still outrank
+a fat one (8 of 8 = 100% sorts above 15 of 24 = 63% when neither is flagged). The
+`LEAN` chip is what tells the user the field was thin.
+
+Changing the return shape needs **`DROP FUNCTION` + `CREATE`**, not `CREATE OR
+REPLACE`, and dropping a function drops its grants — re-issue `GRANT EXECUTE …
+TO anon, authenticated` or the strip silently dies for signed-out users.
+
+### Prod drifts from the migration history — check before you trust a column
+
+Verified 2026-08-15 by calling the live RPC with the anon key: prod was still
+running the **20260726 original**, returning neither `market_agents` nor
+`market_label`. Every client fell back to the whole-game denominator and the
+widget rendered "MOST-BACKED SIDE" instead of naming the market. The
+market-scoping fix had been in the repo since July and was never applied.
+
+`supabase_migrations.schema_migrations` does not record 20260726140000 or
+20260729140000 even though the first was demonstrably live, so **the history
+table cannot be trusted for this function**. These migrations are applied with
+`supabase db query --linked -f <file>`, not `db push`. Always check the live
+shape first:
+
+```sql
+SELECT * FROM get_game_agent_consensus('mlb', ARRAY[CURRENT_DATE]) LIMIT 1;
+```
+
+**Applied 2026-08-15**: `20260815120000_agent_consensus_runner_up_and_rank.sql`,
+which is self-contained and carried the market-scoping math forward, so it
+landed 20260729's fix at the same time. Verified after apply: EXECUTE granted to
+`anon` + `authenticated`, and a live anon call returns all 15 columns with the
+bar segments summing to `market_agents`.
+
+The effect of the scoping fix on a real slate (MLB, 2026-08-15): `Under 9` went
+from 15/36 = 42% unflagged to 15/24 = 63% **flagged**, and the day went from 0
+flags to 2 of 15 — the metric had been measuring market fragmentation, exactly
+as `20260729140000`'s header predicted.
+
+Rollback is re-running `20260726140000_game_agent_consensus.sql`, which is
+verbatim what was live before.
 
 `avatars` is up to 4 `{avatarId, name, emoji, color}` objects drawn from the
 **winning side only**, so the faces match the claim. `color` is a hex string or
@@ -132,8 +277,12 @@ different tables with different row sets. Re-validate at NFL go-live.
 | Surface | Web | iOS | Android |
 |---|---|---|---|
 | Games feed card strip | ✅ | ✅ | ✅ |
-| Game-detail widget | ✅ `features/games/detail/sections/AgentConsensusSection.tsx` | ✅ `Features/GameWidgets/AgentConsensusSection.swift` | ❌ |
+| Game-detail widget | ✅ `features/games/detail/sections/AgentConsensusSection.tsx` | ✅ `Features/GameWidgets/AgentConsensusSection.swift` | ✅ `app/features/gamewidgets/AgentConsensusSection.kt` |
 | Outliers matchup tile | ✅ `features/outliers/components/MatchupTile.tsx` | ❌ | ❌ |
+
+The Outliers tile previously rendered a bare `83% agree` naming **no side and no
+denominator** — a percentage about an unstated selection. It now shows the same
+`18 of 35 on TCU -6.5` line as the feed strip.
 
 The detail widget is deliberately **sport-agnostic and first** in the detail
 content on both web and iOS — it answers "what does the crowd think of this
@@ -183,11 +332,13 @@ whole slate's volume, so it cannot be derived inside a per-sport adapter.
   (`containsAll`) before skipping its own fetch, so a widening MLB slate still
   requests tomorrow.
 
-**Who maps `market_agents` / `market_label`:** web and Android
-(`GameAgentConsensus.marketAgents` falls back to `agents` for pre-migration
-rows). iOS decodes neither, so its detail widget's bar still divides by
-`agents` and disagrees with the percentage the server sent — fix when that
-widget is next touched.
+**All three platforms** map `market_agents` / `market_label` (falling back to
+`agents` / `""` on pre-migration rows) and all three decode the runner-up and
+rank columns as OPTIONAL. That optionality is load-bearing: a client shipped
+ahead of the migration must render the card minus its second bar segment and
+rank line, not fail the whole slate fetch. The counting fields stay strict on
+purpose — see `AgentConsensusService`'s KDoc for why a defaulted count is worse
+than a throw.
 
 TTL is 90s (vs the feed's 5min): counts move through the day as agents
 generate — roughly 1 new pick/minute on a busy MLB slate — while the slate does not.
@@ -196,20 +347,23 @@ so the next tick retries instead of showing nothing for 90s.
 
 Failure is non-fatal everywhere: no strip, feed renders normally.
 
-### Don't merge BET into the model badge row
+### Don't merge CONSENSUS into the model badge row
 
 On native, `convictionBadges` / `ConvictionBadges` already carries MAMMOTH PLAY /
-High Conviction / N Signals. MAMMOTH is a **model** signal; BET is a **crowd**
-signal. Putting them in one wrap group makes the card imply the model and the
-agents agree when they may not. The consensus strip gets its own row. (On
-Android there is also a documented height-blowup risk around
+High Conviction / N Signals. MAMMOTH is a **model** signal; CONSENSUS is a
+**crowd** signal. Putting them in one wrap group makes the card imply the model
+and the agents agree when they may not. The consensus strip gets its own row.
+(On Android there is also a documented height-blowup risk around
 `GameRowCard.kt:443` if that bottom row is flattened.)
+
+That collision is also why the badge is no longer worded "BET" — an
+instruction-shaped word one row from the model's own verdicts.
 
 For the same reason both native apps use Tailwind emerald-500 (`#10B981`) for
 the strip and not `appPrimary` (green-500) — that green already means MODEL
-signal on the card (O/U lean, positive edge). On Android the three shades are
-tokens (`appConsensusEmerald` / `…Text` / `…Deep` in `AppColors`), never inline
-hex.
+signal on the card (O/U lean, positive edge). On Android the shades are tokens
+(`appConsensusEmerald` / `…Text` / `…Deep`, plus `appConsensusAmber` for the LEAN
+chip, in `AppColors`), never inline hex.
 
 ## Known limitations
 
