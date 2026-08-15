@@ -53,6 +53,9 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
     /// `0.35 * heroTopInset`. Prop pages pass a value that clears the
     /// status bar so the docked title isn't jammed into the Dynamic Island.
     var dockedTopInsetOverride: CGFloat? = nil
+    /// Fires when the user actually scrolls (not 1–2pt layout jitter).
+    /// Prop detail uses this to ease the expanded line pill closed.
+    var onUserScroll: (() -> Void)? = nil
     /// Full-bleed background behind both the page and the hero (e.g. team-color
     /// auras). Receives `progress` so it can dim/shrink with scroll. Used as the
     /// hero's background too, so the hero stays opaque (masks scrolling content)
@@ -136,7 +139,7 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
         // top to 0 and it grows as you scroll down.
         .onScrollGeometryChange(for: CGFloat.self) { geo in
             geo.contentOffset.y + geo.contentInsets.top
-        } action: { _, newValue in
+        } action: { oldValue, newValue in
             // Clamp + quantize BEFORE writing @State. `progress` is the only
             // consumer and it saturates at both ends, so every offset outside
             // [0, collapseDistance] renders identically — yet a raw write re-ran
@@ -146,6 +149,11 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
             let clamped = min(max(0, newValue), collapseDistance)
             if abs(scrollY - clamped) > 0.5 { scrollY = clamped }
             reportHeroBottom()
+            // Unclamped delta — the hero offset saturates, but the user can
+            // still be scrolling the widget list after the title has docked.
+            if abs(newValue - oldValue) > 8 {
+                onUserScroll?()
+            }
         }
         .onAppear { reportHeroBottom() }
         // Named space lets each card read its live viewport position.

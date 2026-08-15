@@ -20,6 +20,9 @@ struct PlayerPropDetailView: View {
     /// Live bottom of the collapsing identity hero — the picker parks here,
     /// clamped below the nav bar so it never slides under the back button.
     @State private var heroBottom: CGFloat = 0
+    /// Line-pill expand state lives here so a market change cannot remount
+    /// the scrubber and snap it shut. Scroll eases it closed.
+    @State private var lineExpanded = false
     /// Section top offsets in a reference type so high-frequency scroll updates
     /// don't re-render the charts — only an `activeMarket` change does.
     @State private var spy = SpyStore()
@@ -65,7 +68,8 @@ struct PlayerPropDetailView: View {
                     usesLiquidGlass: false,
                     pinAccessoryHeight: hasPicker ? pickerBand : 0,
                     heroBottom: $heroBottom,
-                    dockedTopInsetOverride: chrome.dockedTop
+                    dockedTopInsetOverride: chrome.dockedTop,
+                    onUserScroll: collapseLineIfExpanded
                 ) { progress in
                     TeamAuraBackground(awayColor: teamColor, homeColor: oppColor, progress: progress)
                 } hero: { progress in
@@ -145,12 +149,12 @@ struct PlayerPropDetailView: View {
     @ViewBuilder
     private func heroView(progress p: CGFloat) -> some View {
         // Match `MatchupGlassHero`: 50→36 disc, last stretch slides right to
-        // clear the circular back button (~16 + 36 + 16 + gap = 80pt).
+        // clear the circular back button (~16 + 44 control + 16 gap + air).
         let headSize = lerp(50, 36, p)
         let ringPad = lerp(4, 0, p)
         let detail = Double(max(0, 1 - p * 1.9))
         let dock = min(1, max(0, (p - 0.45) / 0.55))
-        let leading = lerp(16, 80, dock)
+        let leading = lerp(20, 90, dock)
         let pct = activeComputed?.l10.pct
 
         VStack(spacing: lerp(8, 6, p)) {
@@ -159,7 +163,7 @@ struct PlayerPropDetailView: View {
                 .frame(height: lerp(18, 0, min(1, p * 1.6)))
                 .clipped()
 
-            HStack(alignment: .center, spacing: lerp(12, 8, p)) {
+            HStack(alignment: .center, spacing: lerp(16, 12, p)) {
                 PlayerHeadshot(playerId: selection.playerId, size: headSize)
                     .padding(ringPad)
                     .teamGlassDisc(primary: teamColor, secondary: oppColor)
@@ -252,12 +256,20 @@ struct PlayerPropDetailView: View {
             // its content instead of becoming a banner.
             HStack {
                 Spacer(minLength: 0)
-                PropLineScrubber(lines: activeRow.lines, selectedLine: activeLineBinding)
-                    .id(activeMarket)
+                PropLineScrubber(
+                    lines: activeRow.lines,
+                    selectedLine: activeLineBinding,
+                    isExpanded: $lineExpanded
+                )
                 Spacer(minLength: 0)
             }
             .padding(.bottom, bottomInset)
         }
+    }
+
+    private func collapseLineIfExpanded() {
+        guard lineExpanded else { return }
+        lineExpanded = false
     }
 
     private var activeLineBinding: Binding<Double> {

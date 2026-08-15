@@ -133,14 +133,14 @@ struct NFLPropDetailView: View {
         let ringPad = lerp(4, 0, p)
         let detail = Double(max(0, 1 - p * 1.9))
         let dock = min(1, max(0, (p - 0.45) / 0.55))
-        let leading = lerp(16, 80, dock)
+        let leading = lerp(20, 90, dock)
 
         VStack(spacing: lerp(8, 6, p)) {
             heroTopRow
                 .opacity(detail)
                 .frame(height: lerp(18, 0, min(1, p * 1.6)))
                 .clipped()
-            HStack(alignment: .center, spacing: lerp(12, 8, p)) {
+            HStack(alignment: .center, spacing: lerp(16, 12, p)) {
                 NFLPlayerHeadshot(playerName: player.playerName, playerId: player.playerId, headshotUrl: player.headshotUrl, size: headSize)
                     .padding(ringPad)
                     .teamGlassDisc(primary: teamColor, secondary: oppColor)

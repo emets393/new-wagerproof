@@ -14,10 +14,12 @@ struct PropLineScrubber: View {
     let lines: [MLBPlayerPropLineEntry]
     @Binding var selectedLine: Double
 
+    /// Owned by the detail page so a market change (scroll-spy) cannot
+    /// remount this view and snap the pill shut. The page also eases it
+    /// closed when the user starts scrolling.
+    @Binding var isExpanded: Bool
     /// The line currently centered under the caret (drives the scroll wheel).
     @State private var centered: Double?
-    /// Starts collapsed so the wheel is out of the way until the user wants it.
-    @State private var isExpanded = false
 
     private var activeEntry: MLBPlayerPropLineEntry? { lines.first { $0.line == selectedLine } }
 
@@ -53,7 +55,7 @@ struct PropLineScrubber: View {
             if centered != v { centered = v }
         }
         .sensoryFeedback(.selection, trigger: selectedLine)
-        .animation(.snappy(duration: 0.28), value: isExpanded)
+        .animation(.smooth(duration: 0.38), value: isExpanded)
     }
 
     private var pillShape: RoundedRectangle {
@@ -64,13 +66,15 @@ struct PropLineScrubber: View {
 
     private var header: some View {
         Button {
-            withAnimation(.snappy(duration: 0.28)) { isExpanded.toggle() }
+            isExpanded.toggle()
         } label: {
             Group {
                 if isExpanded {
                     expandedReadout
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 } else {
                     compactReadout
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 }
             }
             .contentShape(Rectangle())
