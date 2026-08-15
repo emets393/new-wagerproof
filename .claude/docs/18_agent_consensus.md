@@ -179,6 +179,19 @@ remainder is genuinely "everything else in this market".
 first, so "#1 today" always names a game the product is pointing at, and
 `game_id` last so the rank can't shuffle between identical rows on refetch.
 
+**Only markets with `market_agents >= 3` are ranked**; the rest get NULL for both
+columns and the clients drop the line. Agreement alone is a bad sort key across
+sample sizes — a 1-agent market scores 100% for free. Caught on the live
+2026-08-15 MLB slate, where "Boston Red Sox -1.5, 1 of 1" ranked **#10 of 15**,
+above an 11-agent coin flip, and a card would have printed "TOO FEW" and
+"#6 of 15 today" together — the same self-contradiction as the old
+"flag needs 13". The cutoff is deliberately the same one `verdict` uses for
+`tooFew`, so the chip and the rank can never disagree.
+
+Residual limitation, accepted: among ranked games a thin market can still outrank
+a fat one (8 of 8 = 100% sorts above 15 of 24 = 63% when neither is flagged). The
+`LEAN` chip is what tells the user the field was thin.
+
 Changing the return shape needs **`DROP FUNCTION` + `CREATE`**, not `CREATE OR
 REPLACE`, and dropping a function drops its grants — re-issue `GRANT EXECUTE …
 TO anon, authenticated` or the strip silently dies for signed-out users.

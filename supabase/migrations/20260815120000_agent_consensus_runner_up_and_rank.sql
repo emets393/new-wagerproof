@@ -248,11 +248,22 @@ AS $$
     -- product is actually pointing at; agreement then side_agents rank the rest,
     -- and game_id is the deterministic tiebreak so the rank can't shuffle
     -- between two identical rows on refetch.
-    row_number() OVER (
-      PARTITION BY game_date
-      ORDER BY flagged DESC, agreement DESC NULLS LAST, side_agents DESC, game_id
-    )::int AS slate_rank,
-    count(*) OVER (PARTITION BY game_date)::int AS slate_games,
+    --
+    -- ONLY markets with a real field are ranked. A 1-agent market scores 100%
+    -- agreement for free, so ranking on agreement alone put "Boston Red Sox
+    -- -1.5, 1 of 1" at #10 of 15 — above an 11-agent coin flip — and let a card
+    -- print "TOO FEW" and "#6 of 15 today" together. Below the cutoff both the
+    -- rank and its denominator are NULL and the clients drop the line, which is
+    -- the same bar `verdict` uses for TOO_FEW, so the two can never disagree.
+    CASE WHEN market_agents >= 3 THEN
+      row_number() OVER (
+        PARTITION BY game_date, (market_agents >= 3)
+        ORDER BY flagged DESC, agreement DESC NULLS LAST, side_agents DESC, game_id
+      )::int
+    END AS slate_rank,
+    CASE WHEN market_agents >= 3 THEN
+      count(*) FILTER (WHERE market_agents >= 3) OVER (PARTITION BY game_date)::int
+    END AS slate_games,
     avatars
   FROM scored
   ORDER BY game_date, side_agents DESC;
