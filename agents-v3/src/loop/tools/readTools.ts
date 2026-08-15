@@ -151,9 +151,13 @@ function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadTool
 
     // Register bettable props (signal-backed) so submit can gate prop bets.
     let bettable = ctx.bettableProps.get(id);
+    let meta = ctx.propMeta.get(id);
     for (const p of bettableProps) {
       if (!bettable) { bettable = new Set<string>(); ctx.bettableProps.set(id, bettable); }
-      bettable.add(propKey(p.player_name, p.market, p.line));
+      if (!meta) { meta = new Map(); ctx.propMeta.set(id, meta); }
+      const pk = propKey(p.player_name, p.market, p.line);
+      bettable.add(pk);
+      meta.set(pk, { team: String((p as Record<string, unknown>).team ?? ""), position: String(p.position ?? "") });
     }
     // grounds:"all" — a deep prop fetch grounds the game for any bet type.
     for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);

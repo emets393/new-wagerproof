@@ -23,6 +23,8 @@ import { propKey } from "./readTools";
 // / our own model treats them as independent. Rule: a volume-market leg must be the ONLY leg for
 // its game in a parlay — it can't share a game with any other prop, side, total, or 1H leg.
 // See .claude/docs/agents/16_PARLAY_AGENTS.md.
+const PASSING_MARKETS = new Set(["player_pass_yds", "player_pass_tds", "player_pass_attempts", "player_pass_completions"]);
+const RECEIVING_MARKETS = new Set(["player_receptions", "player_reception_yds", "player_anytime_td"]);
 const VOLUME_MARKETS = new Set([
   "player_pass_attempts", "player_rush_attempts", "player_pass_completions",
 ]);
@@ -124,6 +126,8 @@ export async function submitParlay(
     const volumeGames = new Set<string>();           // games that carry a volume-market leg
     let decimalProduct = 1;
     let legFailure: string | null = null;
+    const seenPropPlayers = new Set<string>();
+    const passStackSides = new Map<string, "pass" | "catch">();
 
     for (const rawLeg of rawLegs) {
       const leg = rawLeg as Record<string, unknown>;
@@ -144,6 +148,31 @@ export async function submitParlay(
         // prop_line omitted for player_anytime_td; propKey coerces undefined → "".
         const pk = propKey(pPlayer, pMarket, leg?.prop_line);
         if (!ctx.bettableProps.get(gameId)?.has(pk)) { legFailure = `leg ${gameId}: prop_not_bettable`; break; }
+        // ── Sportsbook correlation rules (researched 2026-08-15, owner request) ──
+        // 1) ONE prop leg per PLAYER per ticket: same-player multi-market legs are the
+        //    heaviest correlation there is; books reprice or refuse, and our naive odds
+        //    product would quote a payout no book honors.
+        const playerKey = `${gameId}::${String(pPlayer).toLowerCase()}`;
+        if (seenPropPlayers.has(playerKey)) {
+          legFailure = `leg ${gameId}: one_prop_per_player — ${String(pPlayer)} already has a prop leg in this ticket (books reprice/refuse same-player stacks; our combined odds would be wrong)`; break;
+        }
+        seenPropPlayers.add(playerKey);
+        // 2) QB passing-stack: a QB passing-market leg + a SAME-TEAM pass-catcher leg
+        //    (receptions / rec yds / anytime TD) are 1-to-1 correlated — the QB throws
+        //    the catches. Books only sell this repriced inside their SGP engine; at our
+        //    independently-multiplied odds the ticket overstates payout, so reject.
+        const legMeta = ctx.propMeta.get(gameId)?.get(pk);
+        const mkt = String(pMarket);
+        const isPassingMkt = PASSING_MARKETS.has(mkt);
+        const isCatchMkt = RECEIVING_MARKETS.has(mkt);
+        if (legMeta?.team && (isPassingMkt || isCatchMkt)) {
+          const stackKey = `${gameId}::${legMeta.team}`;
+          const prior = passStackSides.get(stackKey);
+          if (prior && prior !== (isPassingMkt ? "pass" : "catch")) {
+            legFailure = `leg ${gameId}: qb_receiver_stack_not_allowed — a ${legMeta.team} passing prop and a ${legMeta.team} receiving/ATD prop are directly correlated (the QB throws the catches); books only offer this repriced in their own SGP engine, so this ticket's combined odds would be unbettable`; break;
+          }
+          if (!prior) passStackSides.set(stackKey, isPassingMkt ? "pass" : "catch");
+        }
         // Key on player+market so two distinct props in one game coexist in one
         // ticket (they all share bet_type 'prop').
         legKey = `${gameId}::prop::${String(pPlayer).toLowerCase()}::${pMarket}`;

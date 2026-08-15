@@ -54,9 +54,28 @@ def rank(df, names):
     out = out.drop_duplicates("player", keep="first").reset_index(drop=True)
     return out
 
+def injury_exclusions(season, week):
+    """player_ids to EXCLUDE from the shortlist: latest report this week says Out or
+    Doubtful, or final practice status was DNP. Books usually pull these lines, but a
+    late scratch can leave a stale line up — agents must never see it (owner 2026-08-15).
+    Questionable stays IN (plays ~75% of the time; the agent sees the tag, not a hole)."""
+    import os
+    if not os.path.exists("data/injuries_raw.parquet"):
+        return set()
+    inj = pd.read_parquet("data/injuries_raw.parquet")
+    inj = inj[(inj.season == season) & (inj.week == week)]
+    if inj.empty:
+        return set()
+    latest = inj.sort_values("date_modified").drop_duplicates("player_id", keep="last")
+    out = latest[latest.report_status.isin(["Out", "Doubtful"])]
+    return set(out.player_id)
+
 if __name__ == "__main__":
     p = pd.read_parquet("data/nfl_prop_edge_preds.parquet")
     p = p[(p.season == SEASON) & (p.week == WEEK)]
+    excl = injury_exclusions(SEASON, WEEK)
+    n0 = len(p); p = p[~p.player_id.isin(excl)]
+    print(f"injury exclusions: {n0 - len(p)} prop rows dropped ({len(excl)} Out/Doubtful players)")
     prof = pd.read_parquet("data/nfl_player_profiles.parquet") if __import__("os").path.exists("data/nfl_player_profiles.parquet") else None
     if prof is not None and "player_id" in prof.columns:
         nm = dict(zip(prof.player_id, prof.player_name + " (" + prof.team.fillna("?") + ")"))

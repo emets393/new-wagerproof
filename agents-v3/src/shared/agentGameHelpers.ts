@@ -1464,6 +1464,7 @@ function formatNFLProp(row: Record<string, unknown>): Record<string, unknown> {
   return {
     player_name: row.player_name,
     position: row.position,
+    team: row.team,
     market: row.market,
     line: row.close_line,
     over_price: row.over_price,

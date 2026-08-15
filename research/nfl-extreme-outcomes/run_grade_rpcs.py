@@ -52,6 +52,8 @@ def main():
             # analysis-base warehouse refreshes.
             for label, sql in ((f"grade_nfl_props {season}",
                                 "; ".join(f"SELECT grade_nfl_props({season}, {w})" for w in range(1, 23))),
+                               (f"grade_nfl_props_dnp_void {season}",
+                                "; ".join(f"SELECT grade_nfl_props_dnp_void({season}, {w})" for w in range(1, 23))),
                                (f"refresh_all_signal_performance {season}",
                                 f"SELECT refresh_all_signal_performance({season})"),
                                (f"refresh_nfl_analysis_base {season}",
@@ -91,6 +93,13 @@ def main():
             "from generate_series(1,22) gs(w);", (season,))
         graded = [(w, g) for w, g in cur.fetchall() if g]
         print(f"    graded weeks: {graded if graded else '(none ungraded)'}")
+
+        print(f">>> grade_nfl_props_dnp_void weeks 1-22 (season {season})")
+        cur.execute(
+            "select gs.w as week, grade_nfl_props_dnp_void(%s, gs.w) as voided "
+            "from generate_series(1,22) gs(w);", (season,))
+        voided = [(w, v) for w, v in cur.fetchall() if v]
+        print(f"    voided (DNP) weeks: {voided if voided else '(none)'}")
 
         print(f">>> refresh_all_signal_performance(season {season})")
         cur.execute("select * from refresh_all_signal_performance(%s);", (season,))

@@ -570,15 +570,19 @@ async function fetchFootballGameResults(
 async function fetchPropGradingData(
   cfbClient: SupabaseClient,
   propPicks: AvatarPick[],
-): Promise<{ bridge: Map<string, string>; stats: Map<string, Record<string, unknown>> }> {
+): Promise<{ bridge: Map<string, string>; stats: Map<string, Record<string, unknown>>; voids: Set<string> }> {
   const bridge = new Map<string, string>();
   const stats = new Map<string, Record<string, unknown>>();
-  if (propPicks.length === 0) return { bridge, stats };
+  // player_id::season::week — props VOIDED by grade_nfl_props_dnp_void (late scratch /
+  // DNP: the game's logs are ingested but the player has no row). gradeProp turns these
+  // into a PUSH — a sportsbook refunds a DNP prop, it never grades it (owner 2026-08-15).
+  const voids = new Set<string>();
+  if (propPicks.length === 0) return { bridge, stats, voids };
 
   try {
     // Distinct game_ids across the pending prop picks.
     const gameIds = [...new Set(propPicks.map(p => p.game_id).filter(Boolean))];
-    if (gameIds.length === 0) return { bridge, stats };
+    if (gameIds.length === 0) return { bridge, stats, voids };
 
     // 1. Bridge: nfl_dryrun_props → player_id, keyed by (game_id, player, market).
     const { data: bridgeRows, error: bridgeErr } = await cfbClient
@@ -588,7 +592,7 @@ async function fetchPropGradingData(
 
     if (bridgeErr) {
       console.error('[grade-avatar-picks] Error fetching nfl_dryrun_props (prop bridge):', bridgeErr);
-      return { bridge, stats };
+      return { bridge, stats, voids };
     }
 
     for (const row of bridgeRows || []) {
@@ -619,7 +623,7 @@ async function fetchPropGradingData(
 
       if (statErr) {
         console.error('[grade-avatar-picks] Error fetching nfl_player_game_logs (prop stats):', statErr);
-        return { bridge, stats };
+        return { bridge, stats, voids };
       }
 
       for (const row of statRows || []) {
@@ -628,11 +632,27 @@ async function fetchPropGradingData(
       }
     }
 
-    console.log(`[grade-avatar-picks] Prop grading data: ${bridge.size} bridge rows, ${stats.size} stat rows for ${gameIds.length} game_ids`);
-    return { bridge, stats };
+    if (seasons.size > 0 && weeks.size > 0) {
+      const { data: voidRows, error: voidErr } = await cfbClient
+        .from('nfl_player_props')
+        .select('player_id, season, week')
+        .eq('result', 'void')
+        .in('season', [...seasons])
+        .in('week', [...weeks]);
+      if (voidErr) {
+        console.error('[grade-avatar-picks] Error fetching DNP voids (non-fatal):', voidErr);
+      } else {
+        for (const row of voidRows || []) {
+          voids.add(`${String(row.player_id)}::${Number(row.season)}::${Number(row.week)}`);
+        }
+      }
+    }
+
+    console.log(`[grade-avatar-picks] Prop grading data: ${bridge.size} bridge rows, ${stats.size} stat rows, ${voids.size} DNP voids for ${gameIds.length} game_ids`);
+    return { bridge, stats, voids };
   } catch (error) {
     console.error('[grade-avatar-picks] Unexpected error fetching prop grading data:', error);
-    return { bridge, stats };
+    return { bridge, stats, voids };
   }
 }
 
@@ -653,6 +673,7 @@ function gradeProp(
   pick: AvatarPick,
   bridge: Map<string, string>,
   stats: Map<string, Record<string, unknown>>,
+  voids?: Set<string>,
 ): { result: 'won' | 'lost' | 'push'; actual_result: string } | null {
   const parts = pick.game_id.split('_');
   const season = Number(parts[0]);
@@ -672,6 +693,12 @@ function gradeProp(
   // Stats row for (player_id, season, week). Miss → stays pending.
   const row = stats.get(`${playerId}::${season}::${week}`);
   if (!row) {
+    // Late scratch: the DNP-void pass confirmed the game's logs are ingested and this
+    // player has none — a sportsbook VOIDS that ticket. Push, never a loss.
+    if (voids?.has(`${playerId}::${season}::${week}`)) {
+      console.log(`[grade-avatar-picks][prop] pick=${pick.id} player_id=${playerId} DNP-voided — grading PUSH`);
+      return { result: 'push', actual_result: `${player} did not play — prop voided (push)` };
+    }
     console.log(`[grade-avatar-picks][prop] no stats row for pick=${pick.id} player_id=${playerId} season=${season} week=${week} — staying pending`);
     return null;
   }
@@ -1259,7 +1286,7 @@ async function gradeParlays(
             actual_result: null,
             graded_at: null,
           };
-          const propGrading = propData ? gradeProp(propAsPick, propData.bridge, propData.stats) : null;
+          const propGrading = propData ? gradeProp(propAsPick, propData.bridge, propData.stats, propData.voids) : null;
           if (!propGrading) continue;                        // missing bridge/stats → stays pending
 
           leg.leg_result = propGrading.result;
@@ -1564,7 +1591,7 @@ serve(async (req) => {
         //    result (missing bridge/stats row) keeps the pick pending —
         //    identical downstream handling to a straight not-final skip. ──
         if (pick.bet_type === 'prop') {
-          const grading = propData ? gradeProp(pick, propData.bridge, propData.stats) : null;
+          const grading = propData ? gradeProp(pick, propData.bridge, propData.stats, propData.voids) : null;
           if (!grading) {
             console.log(`[grade-avatar-picks] Skipping prop pick ${pick.id} — bridge/stats row missing (stays pending)`);
             summary.skipped++;

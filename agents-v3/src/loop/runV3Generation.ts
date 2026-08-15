@@ -347,7 +347,7 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
       dryRun: payload.dryRun === true,
       window, weekKey, weeklyTicketsSubmitted: 0, submittedParlaySignatures: new Set(),
       main, cfb,
-      games: new Map(), slateGameIds: new Set(), deepFetched: new Map(), fetchedFacts: new Map(), bettableProps: new Map(),
+      games: new Map(), slateGameIds: new Set(), deepFetched: new Map(), fetchedFacts: new Map(), bettableProps: new Map(), propMeta: new Map(),
       acceptedPicks: [], dropReports: [], toolTrace: [], reasoningTrace: "", lastSubmitReport: null,
       gov,
       onProgress: hooks.onProgress,
