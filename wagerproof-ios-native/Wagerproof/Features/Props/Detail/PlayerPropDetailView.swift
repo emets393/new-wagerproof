@@ -24,8 +24,9 @@ struct PlayerPropDetailView: View {
     private final class SpyStore { var tops: [String: CGFloat] = [:] }
 
     private var hasPicker: Bool { markets.count > 1 }
-    /// Identity-only content when expanded (top row + 50pt headshot + ring).
-    private var heroMax: CGFloat { hasPicker ? 124 : 84 }
+    /// Top row + identity + native picker. Must clear the segmented control's
+    /// bottom edge — a short max clips it against the first scrolling widget.
+    private var heroMax: CGFloat { hasPicker ? 148 : 96 }
     /// 44pt toolbar title (game-detail dock) + gap + native segmented picker.
     private var heroMin: CGFloat { hasPicker ? 88 : 44 }
 
@@ -73,8 +74,8 @@ struct PlayerPropDetailView: View {
                 }
                 .overlay(alignment: .bottom) { scrubber }
             }
-            .ignoresSafeArea(edges: .top)
         }
+        .ignoresSafeArea()
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)

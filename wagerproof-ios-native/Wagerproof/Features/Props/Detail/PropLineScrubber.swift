@@ -37,12 +37,12 @@ struct PropLineScrubber: View {
         }
         .padding(.horizontal, isExpanded ? 16 : 14)
         .padding(.vertical, isExpanded ? 12 : 8)
-        .frame(maxWidth: isExpanded ? .infinity : nil)
+        // Hug when collapsed; grow to a compact centered pill — never full-bleed.
+        .frame(width: isExpanded ? 300 : nil)
         .background { Color.clear.liquidGlassBackground(in: pillShape) }
         .overlay(pillShape.strokeBorder(Color.appBorder.opacity(0.5), lineWidth: 0.5))
         .clipShape(pillShape)
         .shadow(color: .black.opacity(0.18), radius: isExpanded ? 16 : 10, x: 0, y: 4)
-        .padding(.horizontal, isExpanded ? 12 : 0)
         .onAppear { centered = selectedLine }
         .onChange(of: centered) { _, v in
             if let v, v != selectedLine { selectedLine = v }

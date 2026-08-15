@@ -42,7 +42,9 @@ struct NFLPropDetailView: View {
     }
 
     private var hasPicker: Bool { markets.count > 1 }
-    private var heroMax: CGFloat { hasPicker ? 124 : 84 }
+    /// Top row + identity + native picker. Must clear the segmented control's
+    /// bottom edge — a short max clips it against the first scrolling widget.
+    private var heroMax: CGFloat { hasPicker ? 148 : 96 }
     /// 44pt toolbar title (game-detail dock) + gap + native segmented picker.
     private var heroMin: CGFloat { hasPicker ? 88 : 44 }
 
@@ -91,8 +93,8 @@ struct NFLPropDetailView: View {
                     }
                 }
             }
-            .ignoresSafeArea(edges: .top)
         }
+        .ignoresSafeArea()
         .toolbarBackground(.hidden, for: .navigationBar)
         // Name lives permanently in the hero — keep the nav title empty.
         .navigationTitle("")
