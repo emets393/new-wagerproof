@@ -54,6 +54,7 @@ struct CFBGameBottomSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
         }
+        .weatherPrecipitation(weatherPrecipitationKind)
         .background(showAura ? Color.appSurface : Color.clear)
         .toolbarBackground(.hidden, for: .navigationBar)
         .presentationDetents([.fraction(0.85), .large])
@@ -258,6 +259,14 @@ struct CFBGameBottomSheet: View {
 
     private var hasOutdoorWeather: Bool {
         weatherConditionDisplay != nil || game.wxTempF != nil || game.temperature != nil || game.wxWindMph != nil || game.windSpeed != nil
+    }
+
+    private var weatherPrecipitationKind: WeatherPrecipitationKind? {
+        WeatherPrecipitationKind.from(
+            icon: game.wxIcon ?? game.icon,
+            summary: game.wxSummary,
+            isIndoor: game.wxIndoors == true
+        )
     }
 
     private var weatherConditionDisplay: (systemImage: String, text: String, tint: Color)? {

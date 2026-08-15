@@ -102,6 +102,7 @@ struct NFLGameBottomSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
         }
+        .weatherPrecipitation(weatherPrecipitationKind)
         .background(showAura ? Color.appSurface : Color.clear)
         .toolbarBackground(.hidden, for: .navigationBar)
         .presentationDetents([.fraction(0.85), .large])
@@ -256,6 +257,14 @@ struct NFLGameBottomSheet: View {
 
     private var hasWeather: Bool {
         game.wxIndoors == true || game.wxSummary != nil || game.wxTempF != nil || game.wxWindMph != nil
+    }
+
+    private var weatherPrecipitationKind: WeatherPrecipitationKind? {
+        WeatherPrecipitationKind.from(
+            icon: game.wxIcon,
+            summary: game.wxSummary,
+            isIndoor: game.wxIndoors == true
+        )
     }
 
     private var weatherConditionDisplay: (icon: String, title: String, tint: Color)? {
