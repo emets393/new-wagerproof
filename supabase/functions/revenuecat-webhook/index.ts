@@ -37,6 +37,44 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+interface EntitlementProbe {
+  appUserId: string;
+  isActive: boolean;
+  entitlement: any | null;
+}
+
+// Fetch one RC identity's entitlement state. Returns null on 404 (identity
+// doesn't exist in RC — caller tries the next candidate); throws on any other
+// failure so the webhook 500s and RC retries instead of writing a wrong state.
+async function probeIdentity(appUserId: string, secretKey: string): Promise<EntitlementProbe | null> {
+  const res = await fetch(
+    `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(appUserId)}`,
+    { headers: { 'Authorization': `Bearer ${secretKey}` } }
+  );
+
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`RevenueCat API error for ${appUserId}: ${res.status} ${await res.text()}`);
+  }
+
+  const data = await res.json();
+  const entitlement = data?.subscriber?.entitlements?.[ENTITLEMENT_IDENTIFIER] ?? null;
+
+  let isActive = false;
+  if (entitlement) {
+    if ('is_active' in entitlement) {
+      isActive = entitlement.is_active === true;
+    } else if (entitlement.expires_date) {
+      isActive = new Date(entitlement.expires_date) > new Date();
+    } else {
+      // No expiration = lifetime
+      isActive = true;
+    }
+  }
+
+  return { appUserId, isActive, entitlement };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200 });
@@ -78,46 +116,94 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     }
 
-    // For subscription and revocation events, fetch fresh subscriber data from
-    // RevenueCat API to get the authoritative entitlement state. The webhook
-    // payload alone doesn't always include the full picture (e.g., user could
-    // have multiple subscriptions, grace periods, etc.).
     const revenueCatSecretKey = Deno.env.get('REVENUECAT_SECRET_API_KEY');
     if (!revenueCatSecretKey) {
       console.error('REVENUECAT_SECRET_API_KEY not configured');
       return new Response('Server configuration error', { status: 500 });
     }
 
-    const subscriberRes = await fetch(
-      `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(appUserId)}`,
-      {
-        headers: { 'Authorization': `Bearer ${revenueCatSecretKey}` },
-      }
-    );
+    // Update Supabase with service role (bypasses RLS)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
-    if (!subscriberRes.ok) {
-      const errText = await subscriberRes.text();
-      console.error(`RevenueCat API error fetching subscriber: ${subscriberRes.status} ${errText}`);
-      // Return 500 so RevenueCat retries
-      return new Response('Failed to fetch subscriber', { status: 500 });
+    // Resolve the profile FIRST so we know every RC identity this user can
+    // hold before deciding they lost access.
+    let resolvedUserId: string | null = null;
+    let storedRcId: string | null = null;
+
+    if (isUuid(appUserId)) {
+      const { data: profileByUserId, error: profileByUserIdError } = await supabase
+        .from('profiles')
+        .select('user_id, revenuecat_customer_id')
+        .eq('user_id', appUserId)
+        .maybeSingle();
+
+      if (profileByUserIdError) {
+        console.error('Failed to resolve profile by user_id:', profileByUserIdError.message);
+        return new Response('Database lookup failed', { status: 500 });
+      }
+
+      resolvedUserId = profileByUserId?.user_id ?? null;
+      storedRcId = profileByUserId?.revenuecat_customer_id ?? null;
     }
 
-    const subscriberData = await subscriberRes.json();
-    const subscriber = subscriberData.subscriber;
-    const entitlement = subscriber?.entitlements?.[ENTITLEMENT_IDENTIFIER];
+    if (!resolvedUserId) {
+      const { data: profileByRevenueCatId, error: profileByRevenueCatIdError } = await supabase
+        .from('profiles')
+        .select('user_id, revenuecat_customer_id')
+        .eq('revenuecat_customer_id', appUserId)
+        .maybeSingle();
 
-    // Determine active status
-    let isActive = false;
-    if (entitlement) {
-      if ('is_active' in entitlement) {
-        isActive = entitlement.is_active === true;
-      } else if (entitlement.expires_date) {
-        isActive = new Date(entitlement.expires_date) > new Date();
-      } else {
-        // No expiration = lifetime
-        isActive = true;
+      if (profileByRevenueCatIdError) {
+        console.error('Failed to resolve profile by revenuecat_customer_id:', profileByRevenueCatIdError.message);
+        return new Response('Database lookup failed', { status: 500 });
       }
+
+      resolvedUserId = profileByRevenueCatId?.user_id ?? null;
+      storedRcId = profileByRevenueCatId?.revenuecat_customer_id ?? null;
     }
+
+    if (!resolvedUserId) {
+      console.error(`No profile found for app_user_id=${appUserId}. Returning 500 so RevenueCat retries.`);
+      return new Response('Profile not found', { status: 500 });
+    }
+
+    // A user's subscription can live under several RC identities (canonical
+    // lowercase uuid, an $RCAnonymousID mirror, or the UPPERCASE uuid twin
+    // from the iOS <=3.5.6 case incident — see 03_payments_billing.md).
+    // The event identity alone is NOT authoritative: on 2026-08-15 a wave of
+    // EXPIRATION events for uppercase twins (lapsed bridge grants) marked 88
+    // users with live lowercase subscriptions as unsubscribed. Probe every
+    // identity and take the first ACTIVE one before ever writing false.
+    const candidates = [...new Set([
+      appUserId,
+      resolvedUserId,
+      resolvedUserId.toUpperCase(),
+      ...(storedRcId ? [storedRcId] : []),
+    ])];
+
+    let winner: EntitlementProbe | null = null;
+    let firstResolved: EntitlementProbe | null = null;
+
+    for (const candidateId of candidates) {
+      const probe = await probeIdentity(candidateId, revenueCatSecretKey);
+      if (!probe) continue; // 404 — identity unknown to RC
+      if (probe.isActive) {
+        winner = probe;
+        break;
+      }
+      firstResolved = firstResolved ?? probe;
+    }
+
+    // No identity is active; fall back to the first identity RC knows about
+    // (usually the event's own) so status/expiry reflect the real lapsed state.
+    if (!winner) winner = firstResolved;
+
+    const isActive = winner?.isActive === true;
+    const entitlement = winner?.entitlement ?? null;
 
     // Determine subscription type
     let subscriptionStatus: string | null = null;
@@ -137,49 +223,11 @@ serve(async (req) => {
       expiresAt = entitlement.expires_date || null;
     }
 
-    // Update Supabase with service role (bypasses RLS)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
-    let resolvedUserId: string | null = null;
-
-    if (isUuid(appUserId)) {
-      const { data: profileByUserId, error: profileByUserIdError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('user_id', appUserId)
-        .maybeSingle();
-
-      if (profileByUserIdError) {
-        console.error('Failed to resolve profile by user_id:', profileByUserIdError.message);
-        return new Response('Database lookup failed', { status: 500 });
-      }
-
-      resolvedUserId = profileByUserId?.user_id ?? null;
-    }
-
-    if (!resolvedUserId) {
-      const { data: profileByRevenueCatId, error: profileByRevenueCatIdError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('revenuecat_customer_id', appUserId)
-        .maybeSingle();
-
-      if (profileByRevenueCatIdError) {
-        console.error('Failed to resolve profile by revenuecat_customer_id:', profileByRevenueCatIdError.message);
-        return new Response('Database lookup failed', { status: 500 });
-      }
-
-      resolvedUserId = profileByRevenueCatId?.user_id ?? null;
-    }
-
-    if (!resolvedUserId) {
-      console.error(`No profile found for app_user_id=${appUserId}. Returning 500 so RevenueCat retries.`);
-      return new Response('Profile not found', { status: 500 });
-    }
+    // Mirror the RC identity that actually carries the entitlement when one is
+    // active; otherwise preserve the event identity — for stranded users whose
+    // alias merge didn't propagate, only the anonymous id resolves in RC's API,
+    // and erasing it breaks future event resolution AND server-side lookups.
+    const mirrorRcId = isActive && winner ? winner.appUserId : appUserId;
 
     const { data: updatedProfiles, error: updateError } = await supabase
       .from('profiles')
@@ -187,13 +235,7 @@ serve(async (req) => {
         subscription_active: isActive,
         subscription_status: subscriptionStatus ?? (isActive ? 'active' : 'inactive'),
         subscription_expires_at: expiresAt,
-        // Preserve the real RC identity (the app_user_id RC sent us) rather
-        // than normalizing to the Supabase user_id. For stranded users whose
-        // alias merge didn't propagate, only the anonymous id resolves in
-        // RC's API — erasing it here breaks future event resolution AND
-        // breaks server-side RC lookups. Mobile writes originalAppUserId
-        // for the same reason; both writers converge on the real identity.
-        revenuecat_customer_id: appUserId,
+        revenuecat_customer_id: mirrorRcId,
       })
       .eq('user_id', resolvedUserId)
       .select('user_id');
@@ -209,7 +251,8 @@ serve(async (req) => {
       return new Response('No profile rows updated', { status: 500 });
     }
 
-    console.log(`Updated subscription_active=${isActive} for user ${resolvedUserId} (event: ${eventType})`);
+    const via = winner && winner.appUserId !== appUserId ? ` (resolved via ${winner.appUserId})` : '';
+    console.log(`Updated subscription_active=${isActive} for user ${resolvedUserId} (event: ${eventType})${via}`);
 
     return new Response(
       JSON.stringify({ ok: true, subscription_active: isActive }),

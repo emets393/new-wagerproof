@@ -120,4 +120,10 @@ verify_jwt = true  # Client-facing, authenticated via JWT
 verify_jwt = true  # Client-facing (multi-provider chat), authenticated via JWT
 
 [functions.bridge-uppercase-entitlements]
-verify_jwt = false  # Internal-only via x-internal-secret / service key; one-off 2026-07 RC case-incident bridge
+verify_jwt = false  # Internal-only via x-internal-secret / service key; one-off 2026-07 RC case-incident bridge — cron 56 unscheduled 2026-08-15, do NOT re-arm (grants expiring en masse caused the 8/15 webhook clobber)
+
+[functions.repair-uppercase-expiration]
+verify_jwt = true  # One-off 2026-08-15 repair of the bridge-expiry webhook clobber; gated by in-code token. Delete once incident is closed.
+
+[functions.scheduled-discord-backfill]
+verify_jwt = false  # Called by pg_cron job 53 with the anon key every 4h; syncs Member role to profiles.subscription_active

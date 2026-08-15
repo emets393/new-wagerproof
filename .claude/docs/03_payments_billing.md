@@ -38,6 +38,8 @@ WagerProof uses RevenueCat for subscription management across both web and mobil
 
 **Server-side resolver probes all three identities** (`shared/entitlements.ts getVerifiedEntitlementState`): stored mirror id → lowercase uuid → UPPERCASE twin, taking the first ACTIVE one. The uppercase probe exists because store purchases made on iOS ≤3.5.6 attached to the uppercase customer, so the server otherwise classified those paying users as free (403s on agent creation, autopilot force-disabled). Safe to drop the uppercase candidate once iOS 3.5.7 is fully adopted and receipts have re-synced to lowercase.
 
+**`revenuecat-webhook` also multi-probes before writing false (since 2026-08-15).** The interim bridge's promotional grants on the uppercase twins all hard-expired at 2026-08-15T00:00 UTC; RC fired ~88 EXPIRATION events for the UPPERCASE ids and the webhook — which then trusted the event identity alone — marked 88 profiles of active subscribers `subscription_active=false` (and the 4-hourly Discord role sync stripped 31 Member roles). The webhook now resolves the profile first, probes event id → lowercase uuid → uppercase twin → stored mirror id, and only writes false when NO identity is active; transient RC errors 500 for retry instead of writing a wrong state. Repair one-off: `repair-uppercase-expiration` (fingerprints `revenuecat_customer_id = upper(user_id)` + inactive, restores from the lowercase identity; restored 78, left 10 genuinely lapsed). The bridge cron (job 56) was unscheduled the same day — do NOT re-arm it; old-build iOS clients that still log in uppercase lost on-device Pro when the grants lapsed and simply need to update.
+
 ---
 
 ## Web Implementation
