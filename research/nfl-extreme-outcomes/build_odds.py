@@ -78,10 +78,19 @@ def main():
         rec["close_spread"] = _half(cl["spread_home"].median())
         rec["open_total"] = _half(op["total_point"].median())
         rec["close_total"] = _half(cl["total_point"].median())
-        rec["open_ml_home"] = op["ml_home"].median()
-        rec["close_ml_home"] = cl["ml_home"].median()
-        rec["open_ml_away"] = op["ml_away"].median()
-        rec["close_ml_away"] = cl["ml_away"].median()
+        # ML consensus = an ACTUAL posted price (nearest the median), never an average of
+        # an even book count (-100000/-20000 -> "-60000", a price no book offers — USC
+        # wk1-2026 catch on the CFB side). <2 posting books or |price|>10000 -> None.
+        def _mlc(v):
+            v = v.dropna()
+            if len(v) < 2:
+                return None
+            snapped = v.iloc[(v - v.median()).abs().argmin()]
+            return None if abs(snapped) > 10000 else float(snapped)
+        rec["open_ml_home"] = _mlc(op["ml_home"])
+        rec["close_ml_home"] = _mlc(cl["ml_home"])
+        rec["open_ml_away"] = _mlc(op["ml_away"])
+        rec["close_ml_away"] = _mlc(cl["ml_away"])
         rows.append(rec)
     od = pd.DataFrame(rows)
     od["spread_move"] = od["close_spread"] - od["open_spread"]      # >0 = home line rose (toward dog)

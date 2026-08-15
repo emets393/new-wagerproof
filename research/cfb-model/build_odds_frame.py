@@ -39,9 +39,21 @@ od["home_c"] = od.home_team.map(to_cfbd); od["away_c"] = od.away_team.map(to_cfb
 od = od.dropna(subset=["home_c", "away_c"])
 
 # per (game_id, snapshot) consensus across books
+def _ml_consensus(v):
+    """Consensus ML = an ACTUAL posted price, or nothing. A plain median of an even book
+    count averages (-100000, -20000) into -60000 — a price no book offers (USC wk1-2026,
+    owner catch). Rules: <2 posting books -> NaN; else the posted price nearest the
+    median; |price|>10000 -> NaN (blowout MLs most books decline to hang aren't a market)."""
+    v = v.dropna()
+    if len(v) < 2:
+        return np.nan
+    med = v.median()
+    snapped = v.iloc[(v - med).abs().argmin()]
+    return np.nan if abs(snapped) > 10000 else float(snapped)
+
 g = od.groupby(["season", "game_id", "snapshot", "home_c", "away_c", "commence_time"]).agg(
     spread=("spread_home", "median"), total=("total", "median"),
-    home_ml=("home_ml", "median"), away_ml=("away_ml", "median"),
+    home_ml=("home_ml", _ml_consensus), away_ml=("away_ml", _ml_consensus),
     sp_h_price=("spread_home_price", "median"), sp_a_price=("spread_away_price", "median"),
     hrs=("hrs_to_kick", "max"), nbooks=("book", "nunique")).reset_index()
 # Snap spread/total to the half-point grid: an even book count straddling -50/-50.5
