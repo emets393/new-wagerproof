@@ -52,6 +52,7 @@ const DEEP_TOOLS: Record<string, DeepToolDef> = {
   // ctx.bettableProps, but it lives in DEEP_TOOLS so it's advertised + sport-gated
   // + budgeted like the other deep fetches. grounds:"all" → bettable props ground.
   get_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form." },
+  get_top_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "The week's RANKED prop shortlist across the slate (or given games): tier A = a validated model cell fired (bet these first), tier B = big model edge, context only. Pass no game_ids for the whole slate." },
 
   // ── NFL/CFB-specific tools (our dryrun model output + validated signals) ──
   get_signals: { groups: ["signals"], sports: ["nfl", "cfb"], grounds: "all", desc: "Validated betting signals firing on this game — each with its stance (the side/market it triggers) + tier. These are our proven high-ROI SPOT triggers, not just model output; a firing signal makes the game bettable on its side. Each signal carries TWO distinct records (do not conflate): all_time = the validated backtest record (validated_hit + one_liner/why_it_works/bet_direction), and season_to_date = this season's live record so far (sample/record/hit_rate/roi, may be null early in the season). IMPORTANT: signals with tier 'tracking' / conviction 'track' (marked ⚠ TRACKING ONLY) are paper-traded to build a live record and are NOT validated for betting — treat them as informational context only, never as a reason to place a bet." },
@@ -90,6 +91,7 @@ export async function runReadTool(
 ): Promise<ReadToolResult> {
   if (name === "get_editor_picks") return runEditorPicks(args, ctx);
   if (name === "get_props") return runProps(args, ctx);
+  if (name === "get_top_props") return runTopProps(args, ctx);
   if (name === "get_prop_player_page") return runPropPlayerPage(args, ctx);
 
   const def = DEEP_TOOLS[name];
@@ -123,11 +125,60 @@ export function propKey(playerName: unknown, market: unknown, line: unknown): st
   return `${String(playerName ?? "").toLowerCase()}::${String(market ?? "")}::${String(line ?? "")}`;
 }
 
-/** get_props — project each game's `props` array and register every bettable
- *  prop (is_bettable === true) in ctx.bettableProps so the submit tool can gate
- *  prop bets. Mirrors the generic deep-tool loop (slate/sport checks, grounding,
- *  recordFacts) since get_props can't go through projectGroups + the ledger pop
- *  in one pass. NFL-only (DEEP_TOOLS.get_props.sports). */
+/** The week's ranked prop shortlist. Slate-wide by default (no game_ids -> every loaded
+ *  NFL game); ranked rows only, ordered by rank_pos (tier A block first). Registers the
+ *  returned props as bettable + fills propMeta exactly like get_props, so an agent can go
+ *  straight from shortlist to submit. */
+function runTopProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadToolResult {
+  const requested = Array.isArray(args.game_ids) && args.game_ids.length > 0
+    ? args.game_ids.map(String)
+    : [...ctx.games.keys()];
+  const market = args.market != null ? String(args.market) : null;
+  const limit = Math.min(Math.max(Number(args.limit) || 15, 1), 40);
+
+  const rows: Record<string, unknown>[] = [];
+  for (const id of requested) {
+    const loaded = ctx.games.get(id);
+    if (!loaded || loaded.sport !== "nfl") continue;
+    const props = Array.isArray(loaded.fg.props) ? (loaded.fg.props as Record<string, unknown>[]) : [];
+    for (const p of props) {
+      if (p.rank_tier == null || p.rank_pos == null) continue;
+      if (market && String(p.market) !== market) continue;
+      rows.push({ game_id: id, matchup: loaded.fg.matchup, ...p });
+    }
+  }
+  rows.sort((a, b) => Number(a.rank_pos) - Number(b.rank_pos));
+  const top = rows.slice(0, limit);
+
+  // Register bettable + propMeta so shortlist -> submit works without a get_props hop.
+  for (const p of top) {
+    const id = String(p.game_id);
+    if (p.is_bettable !== true) continue;
+    let bettable = ctx.bettableProps.get(id);
+    let meta = ctx.propMeta.get(id);
+    if (!bettable) { bettable = new Set<string>(); ctx.bettableProps.set(id, bettable); }
+    if (!meta) { meta = new Map(); ctx.propMeta.set(id, meta); }
+    const pk = propKey(p.player_name, p.market, p.line);
+    bettable.add(pk);
+    meta.set(pk, { team: String(p.team ?? ""), position: String(p.position ?? "") });
+    for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);
+  }
+
+  const nA = top.filter((p) => p.rank_tier === "A-validated").length;
+  return {
+    content: compactDeepFetch("get_top_props", {
+      tool: "get_top_props",
+      discipline: "Tier A props carry a validated, backtested cell — prefer them over a bigger raw edge in tier B. Tier B is context, not a bet signal.",
+      n_returned: top.length, n_tier_a: nA, props: top,
+    }),
+    ok: true,
+    summary: `get_top_props: ${top.length} ranked (${nA} validated)`,
+  };
+}
+
+/** get_props — project each game's `props` array and register every bettable prop
+ *  (is_bettable === true) in ctx.bettableProps so the submit tool can gate prop bets.
+ *  NFL-only (DEEP_TOOLS.get_props.sports). */
 function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadToolResult {
   const def = DEEP_TOOLS.get_props;
   const gameIds = Array.isArray(args.game_ids) ? args.game_ids.map(String) : [];

@@ -512,6 +512,34 @@ def main():
                            headers=hdr, timeout=60)
     if resp.status_code not in (200, 204):
         sys.exit(f"delete: {resp.status_code} {resp.text[:300]}")
+    # ── SHORTLIST RANK (get_top_props wiring 2026-08-15): persist the model pred +
+    # a deterministic tier/rank so agents choose from a curated list. Tier A = a
+    # validated model cell fired (P14/P17/P18 in flags); Tier B = top-decile scale-free
+    # model edge in its market ("context only"); NULL = unranked. Out/Doubtful players
+    # are NEVER ranked (late-scratch guard) even if a stale line is still up.
+    if "model_pred" not in df.columns:
+        df["model_pred"] = np.nan
+    df["model_edge"] = df.model_pred - df.close_line
+    ez = df.groupby("market").model_edge.transform(
+        lambda x: (x - x.mean()) / x.std() if x.notna().sum() > 2 and x.std() > 0 else np.nan)
+    a_mask = df.flags.map(lambda f: bool(set(f or []) & {"P14", "P17", "P18"}))
+    inj_ok = ~df.report_status.isin(["Out", "Doubtful"]) if "report_status" in df.columns else True
+    df["rank_tier"] = np.where(a_mask & inj_ok, "A-validated",
+                       np.where(ez.abs().ge(1.28) & inj_ok, "B-context", None))
+    df["rank_pos"] = np.nan
+    ranked = df[df.rank_tier.notna()].copy()
+    if len(ranked):
+        ranked["_t"] = (ranked.rank_tier != "A-validated").astype(int)
+        ranked = ranked.sort_values(["_t", "model_edge"],
+                                    key=lambda c: c.abs() if c.name == "model_edge" else c,
+                                    ascending=[True, False])
+        # one ranked prop per player (the NBA one-line-per-player law)
+        ranked = ranked.drop_duplicates("player_id", keep="first")
+        df.loc[ranked.index, "rank_pos"] = range(1, len(ranked) + 1)
+        df.loc[~df.index.isin(ranked.index), "rank_tier"] = None
+    n_a = int((df.rank_tier == "A-validated").sum()); n_b = int((df.rank_tier == "B-context").sum())
+    print(f"shortlist rank: {n_a} A-validated + {n_b} B-context of {len(df)} props")
+
     recs = json.loads(df.to_json(orient="records"))
     probe = requests.get(
         f"{BASE_URL}/nfl_dryrun_props?select=best_over_book&limit=1",

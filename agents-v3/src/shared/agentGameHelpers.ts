@@ -1425,7 +1425,7 @@ async function fetchNFLPropsByGameId(
   try {
     const { data, error } = await cfbClient
       .from('nfl_dryrun_props')
-      .select('game_id, player_name, position, team, opponent, is_home, market, close_line, over_price, under_price, l3_avg, l5_avg, l10_avg, szn_avg, over_rate_l5, over_rate_l10, def_matchup_idx, report_status, flags')
+      .select('game_id, player_name, position, team, opponent, is_home, market, close_line, over_price, under_price, l3_avg, l5_avg, l10_avg, szn_avg, over_rate_l5, over_rate_l10, def_matchup_idx, report_status, flags, model_pred, model_edge, rank_tier, rank_pos')
       .in('game_id', gameIds);
 
     if (error || !data) {
@@ -1475,6 +1475,14 @@ function formatNFLProp(row: Record<string, unknown>): Record<string, unknown> {
     over_rate_l5: row.over_rate_l5,
     over_rate_l10: row.over_rate_l10,
     def_matchup_idx: row.def_matchup_idx,
+    // Shortlist fields (get_top_props): model number, edge vs the line, and the
+    // deterministic tier — 'A-validated' (P14/P17/P18 cell fired, backtested) vs
+    // 'B-context' (big model edge, NOT a validated bet). Injury-excluded props
+    // carry no tier.
+    model_pred: row.model_pred,
+    model_edge: row.model_edge,
+    rank_tier: row.rank_tier,
+    rank_pos: row.rank_pos,
     flags,
     is_bettable: Array.isArray(flags) && flags.length > 0 && GRADEABLE_PROP_MARKETS.has(String(row.market)),
   };
