@@ -31,6 +31,7 @@ struct SecretSettingsView: View {
     @State private var isPaywallPresented = false
     @State private var isCustomPaywallPresented = false
     @State private var isVoicePresented = false
+    @State private var isWeatherPreviewPresented = false
     #if DEBUG
     @State private var isGenerationPreviewPresented = false
     #endif
@@ -63,9 +64,7 @@ struct SecretSettingsView: View {
         NavigationStack {
             Form {
                 testingTogglesSection
-                #if DEBUG
                 uiPreviewsSection
-                #endif
                 analyticsSection
                 agentV3Section
                 diagnosticsSection
@@ -119,6 +118,9 @@ struct SecretSettingsView: View {
             .fullScreenCover(isPresented: $isVoicePresented) {
                 WagerBotVoiceView()
             }
+            .fullScreenCover(isPresented: $isWeatherPreviewPresented) {
+                WeatherPrecipitationPreviewView()
+            }
             #if DEBUG
             .fullScreenCover(isPresented: $isGenerationPreviewPresented) {
                 GenerationPreviewView()
@@ -167,12 +169,24 @@ struct SecretSettingsView: View {
 
     // MARK: - Sections
 
-    #if DEBUG
-    /// DEBUG-only entry points to standalone UI harnesses so animations can be
-    /// reviewed without the real data/network path that drives them.
+    /// Standalone UI harnesses so animations can be reviewed without the
+    /// live game / network path that will eventually drive them.
     @ViewBuilder
     private var uiPreviewsSection: some View {
         Section {
+            Button {
+                isWeatherPreviewPresented = true
+            } label: {
+                row(
+                    icon: "cloud.rain.fill",
+                    iconColor: Color(hex: 0x38BDF8),
+                    iconBackground: Color(hex: 0xE0F2FE),
+                    title: "Weather Overlay Preview",
+                    subtitle: "Toggle full-screen rain and snow on a detail backdrop"
+                )
+            }
+            .buttonStyle(.plain)
+            #if DEBUG
             Button {
                 isGenerationPreviewPresented = true
             } label: {
@@ -185,11 +199,11 @@ struct SecretSettingsView: View {
                 )
             }
             .buttonStyle(.plain)
+            #endif
         } header: {
             Text("UI Previews")
         }
     }
-    #endif
 
     @ViewBuilder
     private var testingTogglesSection: some View {

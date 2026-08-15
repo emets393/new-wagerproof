@@ -183,6 +183,7 @@ struct MLBGameBottomSheet: View {
                 }
             }
         }
+        .weatherPrecipitation(weatherPrecipitationKind)
         // Standalone: opaque page surface. Carousel: transparent so the
         // carousel's full-bleed base + shared glow show through the safe-area
         // bands (a per-page opaque surface gets inset by the paging TabView and
@@ -423,6 +424,10 @@ struct MLBGameBottomSheet: View {
     /// weather; they've always shown it free in the hero like this.)
     private var hasWeather: Bool {
         game.temperatureF != nil || game.sky != nil || game.windSpeedMph != nil
+    }
+
+    private var weatherPrecipitationKind: WeatherPrecipitationKind? {
+        WeatherPrecipitationKind.from(sky: game.sky)
     }
 
     @ViewBuilder
