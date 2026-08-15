@@ -43,6 +43,7 @@ import com.wagerproof.app.features.components.CollapsingWidgetScroll
 import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
 import com.wagerproof.app.features.components.polymarket.PolymarketWidget
+import com.wagerproof.app.features.gamecards.BestBookChip
 import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
@@ -51,20 +52,30 @@ import com.wagerproof.app.features.gamecards.SportsbookLogoView
 import com.wagerproof.app.features.games.GameConsensusKey
 import com.wagerproof.app.features.gamewidgets.AgentConsensusSection
 import com.wagerproof.app.features.gamewidgets.GameWidgetHeadlines
-import com.wagerproof.app.features.gamewidgets.SignalPerformanceStatsSection
 import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.agents.components.AgentPickRationaleWidget
+import com.wagerproof.core.design.components.EdgeScale
+import com.wagerproof.core.design.components.ModelEdgeRail
+import com.wagerproof.core.design.components.PickSignalPillModel
+import com.wagerproof.core.design.components.PickSignalsSection
+import com.wagerproof.core.design.components.SignalBacktestChart
+import com.wagerproof.core.design.components.SpreadCoverBar
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.CFBDryRunFlag
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBSignalDefinition
 import com.wagerproof.core.models.CFBTeamAssets
+import com.wagerproof.core.models.SportsbookGameOdds
+import com.wagerproof.core.models.SportsbookMarket
+import com.wagerproof.core.models.SportsbookMarketQuotes
 import com.wagerproof.core.services.CFBSignalDefinitionsService
 import com.wagerproof.core.services.SignalPerformanceService
 import com.wagerproof.core.services.SignalSport
+import com.wagerproof.core.services.SportsbookOddsService
 import com.wagerproof.core.models.SignalPerformance
 import com.wagerproof.core.stores.GamesStore
+import com.wagerproof.core.stores.SportsbookPreferenceStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.util.Locale
@@ -100,6 +111,16 @@ fun CFBGameDetailPage(
     // Polymarket pushes its own prose read up once price history lands.
     var marketOddsHeadline by remember(game.gameId) { mutableStateOf<String?>(null) }
     var selectedTrend by remember { mutableStateOf<TrendDetailSelection?>(null) }
+    var bookOdds by remember(game.gameId) { mutableStateOf<SportsbookGameOdds?>(null) }
+
+    LaunchedEffect(game.gameId, game.awayTeam, game.homeTeam, game.kickoff) {
+        bookOdds = SportsbookOddsService.cfbOdds(
+            gameId = game.gameId,
+            awayTeam = game.awayTeam,
+            homeTeam = game.homeTeam,
+            kickoff = game.kickoff,
+        )
+    }
 
     LaunchedEffect(game.gameId) {
         coroutineScope {
@@ -194,6 +215,7 @@ fun CFBGameDetailPage(
                         pick = pick,
                         buckets = buckets,
                         trendsByTeam = trendsByTeam,
+                        bookOdds = bookOdds,
                         onSignalTap = { selectedSignal = it },
                         onTrendTap = { team, trend -> selectedTrend = TrendDetailSelection(team, row.id, trend) },
                     )
@@ -400,6 +422,7 @@ private fun MarketRowBody(
     pick: CFBDryrunPickRow?,
     buckets: SignalBuckets,
     trendsByTeam: Map<String, CFBTeamTrendRow>,
+    bookOdds: SportsbookGameOdds?,
     onSignalTap: (CFBDryRunFlag) -> Unit,
     onTrendTap: (String, CFBTeamTrendRow) -> Unit,
 ) {
@@ -439,19 +462,21 @@ private fun MarketRowBody(
         }
 
         // Recommendation card (comparison boxes + pick line).
-        RecommendationCard(game, row, pick, mammoth, cardTint, direction)
+        RecommendationCard(game, row, pick, mammoth, cardTint, direction, bookOdds)
 
-        // Signal buckets.
-        if (!buckets.isEmpty) {
-            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                if (buckets.supporting.isNotEmpty()) {
-                    SignalGroup("Supports this pick", buckets.supporting, muted = false, onSignalTap)
-                }
-                if (buckets.contradicting.isNotEmpty()) {
-                    SignalGroup("Contradicts this pick", buckets.contradicting, muted = true, onSignalTap)
-                }
-            }
-        }
+        // Pick signals. Supporting first, then contradicting, so the amber
+        // pills group at the end of the flow.
+        val orderedSignals = buckets.supporting + buckets.contradicting
+        PickSignalsSection(
+            signals = orderedSignals.map { flag ->
+                PickSignalPillModel(
+                    id = flag.id,
+                    title = flag.signalDefinition?.displayName ?: flag.source,
+                    contradicts = buckets.contradicting.any { it.id == flag.id },
+                )
+            },
+            onSelect = { selected -> orderedSignals.firstOrNull { it.id == selected.id }?.let(onSignalTap) },
+        )
 
         // Team trends strip.
         TeamTrendStrip(game, row, trendsByTeam, onTrendTap)
@@ -466,6 +491,7 @@ private fun RecommendationCard(
     mammoth: Boolean,
     cardTint: Color,
     direction: String?,
+    bookOdds: SportsbookGameOdds?,
 ) {
     val bg = if (mammoth) {
         Brush.linearGradient(listOf(MammothTint.copy(alpha = 0.28f), MammothGold.copy(alpha = 0.13f), AppColors.appSurfaceElevated.copy(alpha = 0.72f)))
@@ -482,25 +508,7 @@ private fun RecommendationCard(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (row.showComparison) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ComparisonBox(
-                    row.vegasLabel,
-                    pick?.let { formatMarketLine(it.bestLine ?: it.vegasLine, row) } ?: row.vegas,
-                    AppColors.appTextPrimary,
-                    false,
-                    Modifier.weight(1f),
-                )
-                AppIcon.fromSystemName("arrow.right")?.let {
-                    Icon(it.imageVector, null, tint = AppColors.appTextMuted, modifier = Modifier.size(14.dp))
-                }
-                ComparisonBox(
-                    row.modelLabel,
-                    pick?.let { formatMarketLine(it.resolvedModelLine, row) } ?: row.model,
-                    cardTint,
-                    true,
-                    Modifier.weight(1f),
-                )
-            }
+            MarketVsModel(row, pick, game, cardTint)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             PickIcon(game, row, pick?.pickTeam, direction, cardTint)
@@ -514,14 +522,30 @@ private fun RecommendationCard(
                     }
                 }
                 Text(pick?.pickLabel ?: row.pickTitle, color = cardTint, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, maxLines = 1)
-                BestBookRow(pick, row)
+                BestBookRow(pick, row, game, bookOdds)
             }
         }
     }
 }
 
 @Composable
-private fun BestBookRow(pick: CFBDryrunPickRow?, row: CFBMarketRow) {
+private fun BestBookRow(
+    pick: CFBDryrunPickRow?,
+    row: CFBMarketRow,
+    game: CFBPrediction,
+    bookOdds: SportsbookGameOdds?,
+) {
+    val board = sportsbookQuotes(bookOdds, row, pick, game)
+    if (board != null) {
+        BestBookChip(
+            quotes = board,
+            selectedBookKeys = SportsbookPreferenceStore.selectedKeys,
+            marketTitle = row.sectionTitle,
+            selectionTitle = pick?.pickLabel ?: row.pickTitle,
+            formatLine = { formatMarketLine(it, row) },
+        )
+        return
+    }
     if (pick == null) {
         Text(
             row.pickSubtitle,
@@ -552,6 +576,42 @@ private fun BestBookRow(pick: CFBDryrunPickRow?, row: CFBMarketRow) {
     }
 }
 
+private fun sportsbookQuotes(
+    odds: SportsbookGameOdds?,
+    row: CFBMarketRow,
+    pick: CFBDryrunPickRow?,
+    game: CFBPrediction,
+): SportsbookMarketQuotes? {
+    val market = sportsbookMarket(row, pick, game) ?: return null
+    val board = odds?.quotes(market) ?: return null
+    return board.takeIf { it.quotes.isNotEmpty() }
+}
+
+private fun sportsbookMarket(
+    row: CFBMarketRow,
+    pick: CFBDryrunPickRow?,
+    game: CFBPrediction,
+): SportsbookMarket? {
+    val side = (pick?.pickSide ?: "").uppercase(Locale.US)
+    return when (row.id) {
+        "spread" -> {
+            val isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam
+            SportsbookMarket.Spread(isHome)
+        }
+        "total" -> {
+            val direction = pickDirection(pick?.pickSide)
+                ?: pickDirection(pick?.pickLabel)
+                ?: pickDirection(row.pick)
+            SportsbookMarket.Total(isOver = direction != "UNDER")
+        }
+        "moneyline" -> {
+            val isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam
+            SportsbookMarket.Moneyline(isHome)
+        }
+        else -> null
+    }
+}
+
 private fun isMammothPick(pick: CFBDryrunPickRow?): Boolean =
     pick?.isMammoth == true ||
         pick?.conviction.equals("mammoth", ignoreCase = true) ||
@@ -570,6 +630,71 @@ private fun formatOdds(value: Double?): String {
     value ?: return ""
     val rounded = value.roundToInt()
     return if (rounded > 0) "+$rounded" else rounded.toString()
+}
+
+/**
+ * Spread and total rows get the threshold-vs-model edge charts; a dryrun
+ * `pick` row is required because that's where the raw (unformatted) market
+ * and model numbers live — the game-level fallback strings are pre-formatted
+ * text with no reliable doubles behind them, so that case (and moneyline /
+ * team_total, which have no chart spec) keeps the old two-box comparison.
+ */
+@Composable
+private fun MarketVsModel(row: CFBMarketRow, pick: CFBDryrunPickRow?, game: CFBPrediction, cardTint: Color) {
+    if (pick != null) {
+        val marketLine = pick.bestLine ?: pick.vegasLine
+        val modelLine = pick.resolvedModelLine
+        if (marketLine != null && modelLine != null) {
+            when (row.id) {
+                "spread", "h1-spread" -> {
+                    val pickAbbrev = pick.pickTeam?.let { CFBTeamAssets.abbr(it) }
+                    val opponentAbbrev = when (pick.pickTeam) {
+                        game.awayTeam -> CFBTeamAssets.abbr(game.homeTeam)
+                        game.homeTeam -> CFBTeamAssets.abbr(game.awayTeam)
+                        else -> null
+                    }
+                    // model_line is the pick team's fair SPREAD, not a margin —
+                    // negate it per SpreadCoverOutcome's doc.
+                    SpreadCoverBar(
+                        line = marketLine,
+                        modelMargin = -modelLine,
+                        scale = EdgeScale.cfb,
+                        pickAbbrev = pickAbbrev,
+                        opponentAbbrev = opponentAbbrev,
+                    )
+                    return
+                }
+                "total", "h1-total" -> {
+                    ModelEdgeRail(market = marketLine, model = modelLine, scale = EdgeScale.cfb)
+                    return
+                }
+            }
+        }
+    }
+    ComparisonRowFallback(row, pick, cardTint)
+}
+
+@Composable
+private fun ComparisonRowFallback(row: CFBMarketRow, pick: CFBDryrunPickRow?, cardTint: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        ComparisonBox(
+            row.vegasLabel,
+            pick?.let { formatMarketLine(it.bestLine ?: it.vegasLine, row) } ?: row.vegas,
+            AppColors.appTextPrimary,
+            false,
+            Modifier.weight(1f),
+        )
+        AppIcon.fromSystemName("arrow.right")?.let {
+            Icon(it.imageVector, null, tint = AppColors.appTextMuted, modifier = Modifier.size(14.dp))
+        }
+        ComparisonBox(
+            row.modelLabel,
+            pick?.let { formatMarketLine(it.resolvedModelLine, row) } ?: row.model,
+            cardTint,
+            true,
+            Modifier.weight(1f),
+        )
+    }
 }
 
 @Composable
@@ -624,40 +749,6 @@ private fun MammothBadge() {
     }
 }
 
-@Composable
-private fun SignalGroup(title: String, signals: List<CFBDryRunFlag>, muted: Boolean, onTap: (CFBDryRunFlag) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Text(title, color = if (muted) AppColors.appAccentAmber else AppColors.appTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
-        signals.forEach { SignalButton(it, muted, onTap) }
-    }
-}
-
-@Composable
-private fun SignalButton(flag: CFBDryRunFlag, muted: Boolean, onTap: (CFBDryRunFlag) -> Unit) {
-    val color = if (muted) AppColors.appAccentAmber else tierColor(flag.convictionTier)
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(color.copy(alpha = if (muted) 0.12f else 0.18f))
-            .border(1.1.dp, color.copy(alpha = if (muted) 0.55f else 0.46f), shape)
-            .clickable { onTap(flag) }
-            .padding(start = 10.dp, end = 7.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        AppIcon.fromSystemName("info.circle.fill")?.let { Icon(it.imageVector, null, tint = color, modifier = Modifier.size(12.dp)) }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(flag.signalDefinition?.displayName ?: flag.source, color = color, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
-            Text("Tap for details", color = color.copy(alpha = 0.72f), fontSize = 8.sp, fontWeight = FontWeight.Black, maxLines = 1)
-        }
-        Box(Modifier.size(18.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
-            AppIcon.fromSystemName("chevron.up.forward")?.let { Icon(it.imageVector, null, tint = AppColors.appSurface, modifier = Modifier.size(9.dp)) }
-        }
-    }
-}
-
 // MARK: - Team trend strip
 
 @Composable
@@ -675,14 +766,10 @@ private fun TeamTrendStrip(
         else -> away != null || home != null
     }
     if (!show) return
-    val shape = RoundedCornerShape(14.dp)
-    Column(
-        Modifier
-            .background(AppColors.appSurfaceElevated.copy(alpha = 0.42f), shape)
-            .border(0.7.dp, AppColors.appBorder.copy(alpha = 0.28f), shape)
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    // No wrapper box: the TrendCards below are already a surface, so boxing them
+    // again made this three deep. Mirrors NFLGameDetailScreen's trend strip,
+    // which is a bare label + row of cards.
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             AppIcon.fromSystemName("chart.bar.xaxis")?.let { Icon(it.imageVector, null, tint = AppColors.appTextSecondary, modifier = Modifier.size(9.dp)) }
             Text("Team Trends", color = AppColors.appTextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Black)
@@ -803,13 +890,21 @@ private fun SignalDefinitionSheet(
             }
         }
         if (def != null) {
+            // Chart first, then prose — the reader asks "does this actually
+            // win?" before "what is it?".
+            signalPerformanceFor(flag, signalDefs, perfByKey).let { perf ->
+                SignalBacktestChart(
+                    backtestRaw = def.typicalHit,
+                    seasonN = perf?.n ?: 0,
+                    seasonWins = perf?.wins ?: 0,
+                    seasonLosses = perf?.losses ?: 0,
+                    seasonPushes = perf?.pushes ?: 0,
+                    seasonHitRate = perf?.hitRate ?: 0.0,
+                )
+            }
             def.definition?.let { DefinitionLine("What it means", it) }
             def.whyItWorks?.let { DefinitionLine("Why it works", it) }
             def.betDirection?.let { DefinitionLine("Bet direction", it) }
-            SignalPerformanceStatsSection(
-                backtestHit = def.typicalHit,
-                seasonPerformance = signalPerformanceFor(flag, signalDefs, perfByKey),
-            )
         } else {
             Text("Signal definition unavailable.", color = AppColors.appTextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         }

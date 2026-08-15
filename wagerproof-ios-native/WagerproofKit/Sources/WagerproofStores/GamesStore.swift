@@ -1863,7 +1863,11 @@ public final class GamesStore {
         // Step 2: latest predictions run.
         let allPreds: [NCAABPredictionRow] = (try? await cfb
             .from("ncaab_predictions")
-            .select("game_id, run_id, as_of_ts_utc, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, home_score_pred, away_score_pred, model_fair_home_spread, vegas_home_spread, vegas_total")
+            // `home_away_ml_prob` / `home_away_spread_cover_prob` /
+            // `ou_result_prob` are NOT columns on `ncaab_predictions`. Naming
+            // them made PostgREST 42703 the whole query, so `allPreds` was
+            // always empty and every NCAAB game rendered with nil predictions.
+            .select("game_id, run_id, as_of_ts_utc, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, home_score_pred, away_score_pred, model_fair_home_spread, vegas_home_spread, vegas_total")
             .execute()
             .value) ?? []
         // RN: sort run_ids desc by as_of_ts_utc, take first. Without ts we
@@ -1932,7 +1936,10 @@ public final class GamesStore {
                 awayRanking: row.awayRanking,
                 conferenceGame: row.conferenceGame,
                 neutralSite: row.neutralSite,
-                homeAwayMlProb: pred?.homeAwayMlProb,
+                // `home_win_prob` is the only win probability the table
+                // publishes; the `home_away_*` names below are legacy and
+                // decode to nil on every row.
+                homeAwayMlProb: pred?.homeAwayMlProb ?? pred?.homeWinProb,
                 homeAwaySpreadCoverProb: pred?.homeAwaySpreadCoverProb,
                 ouResultProb: pred?.ouResultProb,
                 predHomeMargin: pred?.predHomeMargin,

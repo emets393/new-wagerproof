@@ -25,9 +25,17 @@ struct NFLGameBottomSheet: View {
     @State private var signalPerformanceByKey: [String: SignalPerformance] = [:]
     @State private var teamTrendsByAbbr: [String: NFLTeamTrendRow] = [:]
     @State private var matchupHistory: [NFLMatchupHistoryRow] = []
-    @State private var selectedSignal: NFLSignalDefinition?
+    /// Holds the DISPLAY, not the definition: the sheet needs `team` to show a
+    /// logo, and only the display row carries which side the signal is on.
+    @State private var selectedSignal: NFLSignalDisplay?
     @State private var selectedTrendDetail: NFLTrendDetailSelection?
     @State private var marketOddsHeadline: String?
+    /// Every book's number on this game, one snapshot. Nil until loaded, and
+    /// stays nil when the capture has no rows — cards fall back to the pick
+    /// row's own `best_book` rather than showing an empty board.
+    @State private var bookOdds: SportsbookGameOdds?
+    /// Empty string = "best available"; `@AppStorage` can't hold a nil String.
+    @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKey: String = ""
 
     /// Hero text that depends only on the game, not on scroll progress.
     ///
@@ -410,19 +418,40 @@ struct NFLGameBottomSheet: View {
 
     @ViewBuilder
     private func pickRow(_ pick: NFLDryrunPickRow) -> some View {
+        let board = quotes(for: pick)
+
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
-                pickHeaderLabel(pick)
+                VStack(alignment: .leading, spacing: 4) {
+                    pickHeaderLabel(pick)
+                    // Conviction moves inline rather than being deleted: the
+                    // book chip takes the corner, but "No Bet" is the model
+                    // declining to play and a card without it reads as a
+                    // recommendation.
+                    convictionLine(pick)
+                }
                 Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 5) {
-                    recommendationBadge(pick)
-                    if pick.displayOnly == true { displayOnlyBadge }
+                if let board, board.best != nil {
+                    BestBookChip(
+                        quotes: board,
+                        selectedBookKeys: SportsbookPreference.decode(preferredBookKey),
+                        marketTitle: marketTitle(for: pick),
+                        selectionTitle: displayPickLabel(pick),
+                        formatLine: { formatPickLine($0, pick: pick) }
+                    )
+                } else {
+                    VStack(alignment: .trailing, spacing: 5) {
+                        recommendationBadge(pick)
+                        if pick.displayOnly == true { displayOnlyBadge }
+                    }
                 }
             }
 
-            metricGrid(pick)
+            edgeVisual(pick)
 
-            if hasBestBook(pick) {
+            // Only when there's no board to open — otherwise the chip above and
+            // this row would name two different books on the same number.
+            if board == nil, hasBestBook(pick) {
                 bestBookRow(pick)
             }
 
@@ -443,13 +472,17 @@ struct NFLGameBottomSheet: View {
 
         switch group.cardGroup {
         case "spread", "h1_spread":
+            // States the winning CONDITION, not two spread numbers. "model makes
+            // NE -2.1 versus +4.5" left the reader to reconcile a line against a
+            // margin — they look like they straddle zero and don't.
             if let team = pick.pickTeam,
                let modelLine,
                let marketLine,
                modelLine.isFinite,
                marketLine.isFinite {
-                let scope = group.cardGroup == "h1_spread" ? "First half" : "Full game"
-                return "\(scope): model makes \(teamNickname(for: team)) \(formatPickLine(modelLine, pick: pick)) versus \(formatPickLine(marketLine, pick: pick)) at the market, backing \(selection)."
+                let sentence = SpreadCoverOutcome(line: marketLine, modelMargin: -modelLine)
+                    .headline(team: teamNickname(for: team))
+                return group.cardGroup == "h1_spread" ? "First half — \(sentence)" : sentence
             }
             return "The model backs \(selection)."
 
@@ -462,9 +495,11 @@ struct NFLGameBottomSheet: View {
             return "\(scope): model leans \(direction)."
 
         case "team_total":
+            // Reads `teamTotalMarket` rather than the pick row's own (always
+            // null) line, so the sentence quotes the number the rail centres on.
             if let team = pick.pickTeam, let direction {
                 let model = modelLine.map { rounded($0) } ?? "—"
-                let market = marketLine.map { rounded($0) } ?? "—"
+                let market = teamTotalMarket(for: pick).map { rounded($0) } ?? "—"
                 return "The model projects \(teamNickname(for: team)) for \(model) points versus \(market) at the market, leaning \(direction)."
             }
             return "The model backs \(selection)."
@@ -474,6 +509,13 @@ struct NFLGameBottomSheet: View {
                let probability = pick.modelNumber,
                probability.isFinite {
                 let scope = group.cardGroup == "h1_ml" ? "First half" : "Full game"
+                // With a price the card can state the bar the bet has to clear;
+                // the generator owns that copy so it matches `MoneylineEdgeBar`.
+                if let price = moneylinePrice(for: pick), probability > 0, probability < 1 {
+                    let sentence = MoneylineOutcome(price: price, modelProbability: probability, scale: .nfl)
+                        .headline(team: teamNickname(for: team))
+                    return "\(scope): \(sentence)"
+                }
                 return "\(scope): model backs \(teamNickname(for: team)) to win at \(Int((probability * 100).rounded()))%."
             }
             return "The model backs \(selection)."
@@ -593,6 +635,168 @@ struct NFLGameBottomSheet: View {
             .background(Color.appSurfaceMuted.opacity(0.55), in: Capsule())
     }
 
+    /// Totals and team totals get the centred edge rail, spreads get the cover
+    /// bar, moneylines get the price-vs-probability bar. Anything without both
+    /// numbers falls back to the two metric boxes rather than drawing an empty
+    /// chart.
+    ///
+    /// Every number here comes from the same fields the card's headline reads,
+    /// so the sentence at the top and the graphic below it can't disagree.
+    @ViewBuilder
+    private func edgeVisual(_ pick: NFLDryrunPickRow) -> some View {
+        if isTotalHeader(for: pick),
+           let market = pick.bestLine ?? pick.vegasLine,
+           let model = pick.modelLine ?? pick.modelNumber,
+           market.isFinite, model.isFinite {
+            ModelEdgeRail(market: market, model: model, scale: .nfl)
+        } else if isTeamTotalCard(pick),
+                  let market = teamTotalMarket(for: pick),
+                  let model = pick.modelLine ?? pick.modelNumber,
+                  market.isFinite, model.isFinite {
+            // Team-total pick rows carry no line of their own — the market
+            // number lives on the game row (`tt_*_close` / `tt_*_best_*`).
+            ModelEdgeRail(
+                market: market,
+                model: model,
+                marketCaption: "Market TT",
+                modelCaption: "Proj Pts",
+                scale: .nfl
+            )
+        } else if isSpreadCard(pick),
+                  let line = pick.bestLine ?? pick.vegasLine,
+                  let modelLine = pick.modelLine ?? pick.modelNumber,
+                  line.isFinite, modelLine.isFinite {
+            // `model_line` is the pick team's fair SPREAD; the bar works in
+            // margin, so it's negated exactly once, here.
+            SpreadCoverBar(
+                line: line,
+                modelMargin: -modelLine,
+                scale: .nfl,
+                pickAbbrev: pickAbbrev(for: pick),
+                opponentAbbrev: opponentAbbrev(for: pick)
+            )
+        } else if isMoneylineCard(pick),
+                  let price = moneylinePrice(for: pick),
+                  let probability = pick.modelNumber,
+                  probability.isFinite, probability > 0, probability < 1 {
+            MoneylineEdgeBar(
+                price: price,
+                modelProbability: probability,
+                scale: .nfl,
+                teamAbbrev: pickAbbrev(for: pick)
+            )
+        } else {
+            metricGrid(pick)
+        }
+    }
+
+    private func isSpreadCard(_ pick: NFLDryrunPickRow) -> Bool {
+        pick.cardGroup == "spread" || pick.cardGroup == "h1_spread"
+    }
+
+    private func isTeamTotalCard(_ pick: NFLDryrunPickRow) -> Bool {
+        pick.cardGroup == "team_total"
+    }
+
+    private func isMoneylineCard(_ pick: NFLDryrunPickRow) -> Bool {
+        pick.cardGroup == "moneyline" || pick.cardGroup == "h1_ml"
+    }
+
+    /// American price for a moneyline pick. `vegas_price` is the closing number
+    /// the model was measured against; `best_odds` is what a bettor could get.
+    /// Same precedence as `metricGrid`, so swapping in the bar can't change
+    /// which price the card is talking about.
+    private func moneylinePrice(for pick: NFLDryrunPickRow) -> Int? {
+        guard let raw = pick.vegasPrice ?? pick.bestOdds, raw.isFinite else { return nil }
+        let price = Int(raw.rounded())
+        // ±100 is the smallest real American price; 0 means "no market".
+        return abs(price) >= 100 ? price : nil
+    }
+
+    /// Team-total market number, which the pick row never carries — `vegas_line`
+    /// and `best_line` are both null on `team_total` rows for every game in the
+    /// dryrun capture. Falls back through the game row's best over/under for the
+    /// side actually being bet, then the close.
+    private func teamTotalMarket(for pick: NFLDryrunPickRow) -> Double? {
+        if let line = pick.bestLine ?? pick.vegasLine, line.isFinite { return line }
+        guard let team = pick.pickTeam else { return nil }
+        let isHome = team == game.homeTeam || NFLTeamAssets.abbr(for: team) == homeAbbr
+        let close = isHome ? game.ttHomeClose : game.ttAwayClose
+        let bestOver = isHome ? game.ttHomeBestOver : game.ttAwayBestOver
+        let bestUnder = isHome ? game.ttHomeBestUnder : game.ttAwayBestUnder
+        let directed: Double? = {
+            switch overUnderDirection(for: pick) {
+            case "OVER": return bestOver
+            case "UNDER": return bestUnder
+            default: return nil
+            }
+        }()
+        guard let value = directed ?? close, value.isFinite else { return nil }
+        return value
+    }
+
+    /// Conviction as a line under the pick instead of a corner pill, so the
+    /// glass book chip can own the corner without the model's verdict being lost.
+    @ViewBuilder
+    private func convictionLine(_ pick: NFLDryrunPickRow) -> some View {
+        let plays = pick.hasPlay == true
+        let tint = plays ? convictionColor(pick.conviction) : Color.appTextSecondary
+        HStack(spacing: 5) {
+            Image(systemName: plays ? "checkmark.seal.fill" : "minus.circle")
+                .font(.system(size: 10, weight: .black))
+            Text((pick.recommendation ?? "No Bet").uppercased())
+                .font(.system(size: 10, weight: .black))
+                .tracking(0.4)
+            if pick.displayOnly == true {
+                Text("· DISPLAY ONLY")
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundStyle(Color.appTextMuted)
+            }
+        }
+        .foregroundStyle(tint)
+    }
+
+    /// The per-book board for this pick's market, or nil when the capture has no
+    /// rows for the game (out of season, or a fixture it never covered).
+    private func quotes(for pick: NFLDryrunPickRow) -> SportsbookMarketQuotes? {
+        guard let odds = bookOdds, let market = market(for: pick) else { return nil }
+        let board = odds.quotes(for: market)
+        return board.quotes.isEmpty ? nil : board
+    }
+
+    /// Maps a card group + picked side onto the market the odds table stores.
+    /// `pick_side` is AWAY/HOME on sides and OVER/UNDER on totals.
+    private func market(for pick: NFLDryrunPickRow) -> SportsbookMarket? {
+        let side = (pick.pickSide ?? "").uppercased()
+        let isHome = side == "HOME"
+        switch pick.cardGroup {
+        case "spread": return .spread(isHome: isHome)
+        case "h1_spread": return .firstHalfSpread(isHome: isHome)
+        case "total": return .total(isOver: side != "UNDER")
+        case "h1_total": return .firstHalfTotal(isOver: side != "UNDER")
+        case "moneyline": return .moneyline(isHome: isHome)
+        // Team totals aren't in the capture's column set yet.
+        default: return nil
+        }
+    }
+
+    private func marketTitle(for pick: NFLDryrunPickRow) -> String {
+        NFLPickGroup(cardGroup: pick.cardGroup ?? "", picks: []).title
+    }
+
+    /// The bar's axis runs "opponent wins by ← tie → pick team wins by", so it
+    /// needs both ends named. `pick_team` is a full club name; the abbreviations
+    /// come off the game so they match the hero and the feed card.
+    private func pickAbbrev(for pick: NFLDryrunPickRow) -> String? {
+        guard let team = pick.pickTeam else { return nil }
+        return NFLTeamAssets.abbr(for: team)
+    }
+
+    private func opponentAbbrev(for pick: NFLDryrunPickRow) -> String? {
+        guard let picked = pickAbbrev(for: pick) else { return nil }
+        return picked == homeAbbr ? awayAbbr : homeAbbr
+    }
+
     @ViewBuilder
     private func metricGrid(_ pick: NFLDryrunPickRow) -> some View {
         if pick.cardGroup == "moneyline" || pick.cardGroup == "h1_ml" {
@@ -673,60 +877,38 @@ struct NFLGameBottomSheet: View {
     @ViewBuilder
     private func signalGroups(keys: [String], pick: NFLDryrunPickRow) -> some View {
         let resolved = signalDisplays(keys: keys, pick: pick)
-        if !resolved.isEmpty {
-            let supporting = resolved.filter { $0.stance != "counter" }
-            let contradicting = resolved.filter { $0.stance == "counter" }
-            VStack(alignment: .leading, spacing: 9) {
-                if !supporting.isEmpty {
-                    signalGroup(title: "Supports this pick", signals: supporting, muted: false)
-                }
-                if !contradicting.isEmpty {
-                    signalGroup(title: "Contradicts this pick", signals: contradicting, muted: true)
-                }
+        // Supporting first, then counters, so the amber pills group at the end.
+        let ordered = resolved.filter { $0.stance != "counter" }
+            + resolved.filter { $0.stance == "counter" }
+        PickSignalsSection(
+            signals: ordered.map { display in
+                PickSignalPillModel(
+                    id: display.id,
+                    title: display.displayName,
+                    contradicts: display.stance == "counter",
+                    tint: Color.appAccentBlue
+                )
             }
+        ) { selected in
+            selectedSignal = ordered.first { $0.id == selected.id }
         }
     }
 
-    private func signalGroup(title: String, signals: [NFLSignalDisplay], muted: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title)
-                .font(.system(size: 9, weight: .black))
-                .foregroundStyle(muted ? Color.appAccentAmber : Color.appTextMuted)
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(signals) { signalButton($0, muted: muted) }
-            }
+    /// The signal's team as one of THIS game's sides, or nil. `signals.team`
+    /// arrives as either an abbreviation or a club name depending on the row, and
+    /// an unmatched value must not render an avatar — a hashed fallback disc for
+    /// a team that isn't playing is worse than no logo.
+    private func signalTeamAbbr(_ signal: NFLSignalDisplay) -> String? {
+        guard let raw = signal.team?.trimmingCharacters(in: .whitespaces), !raw.isEmpty else {
+            return nil
         }
-    }
-
-    private func signalButton(_ signal: NFLSignalDisplay, muted: Bool) -> some View {
-        let color = muted ? Color.appAccentAmber : Color.appAccentBlue
-        return Button {
-            selectedSignal = signalContextDefinition(signal)
-        } label: {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "info.circle.fill")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(color)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(signal.displayName)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.appTextPrimary)
-                        .multilineTextAlignment(.leading)
-                    Text(signal.action ?? signal.team ?? "Tap for details")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.appTextSecondary)
-                        .multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.up.forward")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(color)
-            }
-            .padding(.vertical, 3)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        let upper = raw.uppercased()
+        if upper == homeAbbr.uppercased() || raw == game.homeTeam { return homeAbbr }
+        if upper == awayAbbr.uppercased() || raw == game.awayTeam { return awayAbbr }
+        let mapped = NFLTeamAssets.abbr(for: raw)
+        if mapped == homeAbbr { return homeAbbr }
+        if mapped == awayAbbr { return awayAbbr }
+        return nil
     }
 
     private func signalContextDefinition(_ signal: NFLSignalDisplay) -> NFLSignalDefinition {
@@ -1056,6 +1238,20 @@ struct NFLGameBottomSheet: View {
         await NFLTeamsService.shared.ensureLoaded()
         let cfb = await CFBSupabase.shared.client
 
+        // Independent of the dryrun tables — a miss just means the cards keep
+        // the pick row's own best-book row, so it's fired and forgotten.
+        Task {
+            let odds = await SportsbookOddsService.shared.odds(
+                gameId: game.gameId,
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                kickoff: game.kickoff.flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                }
+            )
+            await MainActor.run { bookOdds = odds }
+        }
+
         async let picksTask: [NFLDryrunPickRow] = ((try? await cfb
             .from("nfl_dryrun_picks")
             .select()
@@ -1128,27 +1324,54 @@ struct NFLGameBottomSheet: View {
     // MARK: - Signal Definition
 
     @ViewBuilder
-    private func signalDefinitionSheet(_ signal: NFLSignalDefinition) -> some View {
+    private func signalDefinitionSheet(_ display: NFLSignalDisplay) -> some View {
+        let signal = signalContextDefinition(display)
+        let performance = signalPerformanceByKey[signal.signalKey]
+        let abbr = signalTeamAbbr(display)
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(signal.displayName ?? signal.signalKey)
-                        .font(.system(size: 22, weight: .heavy))
-                        .foregroundStyle(Color.appTextPrimary)
-                    if let one = signal.oneLiner {
-                        Text(one)
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Color.appPrimary)
+                // Chart, then numbers, then prose — same order as CFB's sheet.
+                VStack(alignment: .leading, spacing: 22) {
+                    HStack(spacing: 11) {
+                        if let abbr {
+                            GameCardTeamAvatar(
+                                teamName: abbr,
+                                sport: "nfl",
+                                size: 42,
+                                colors: NFLTeamColors.colorPair(for: abbr)
+                            )
+                        } else {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 16, weight: .black))
+                                .foregroundStyle(Color.appAccentBlue)
+                                .frame(width: 42, height: 42)
+                                .background(Color.appAccentBlue.opacity(0.14), in: Circle())
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(signal.displayName ?? signal.signalKey)
+                                .font(.system(size: 20, weight: .black))
+                                .foregroundStyle(Color.appTextPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let action = display.action ?? display.label {
+                                Text(action)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(Color.appTextSecondary)
+                            }
+                        }
                     }
+
+                    if let one = signal.oneLiner, !one.isEmpty {
+                        Text(one)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.appTextPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    SignalBacktestChart(backtestRaw: signal.typicalHit, performance: performance)
+
                     signalBlock("Definition", signal.definition)
                     signalBlock("Why It Works", signal.whyItWorks)
                     signalBlock("Bet Direction", signal.betDirection)
-                    SignalPerformanceStatsSection(
-                        backtestHit: signal.typicalHit,
-                        seasonDisplay: SignalSeasonRecordDisplay(
-                            performance: signalPerformanceByKey[signal.signalKey]
-                        )
-                    )
                 }
                 .padding(18)
             }
@@ -1159,6 +1382,8 @@ struct NFLGameBottomSheet: View {
                 }
             }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     @ViewBuilder

@@ -221,6 +221,9 @@ struct ScreenshotHarnessView: View {
         .environment(admin)
         .environment(ProAccessStore(revenueCat: rc, adminMode: admin))
         .environment(AgentPickAuditStore())
+        // Non-optional `@Environment` on the sheet — without it the target
+        // traps at launch ("No Observable object of type ParlayGodStore").
+        .environment(ParlayGodStore())
     }
 
     /// SearchView pre-seeded with "Yankees" (override via `-searchQuery <q>`,

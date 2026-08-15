@@ -60,6 +60,9 @@ import com.wagerproof.app.features.outliers.NBATrendsMatrixAdapter
 import com.wagerproof.app.features.outliers.TrendsGuide
 import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.shared.hexColor
+import com.wagerproof.core.design.components.EdgeScale
+import com.wagerproof.core.design.components.ModelEdgeRail
+import com.wagerproof.core.design.components.SpreadCoverBar
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
@@ -186,13 +189,27 @@ fun NBAGameDetailPage(
                     ),
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ComparisonRow(
-                            leftLabel = "Vegas",
-                            leftValue = GameCardFormatting.formatSpread(game.homeSpread),
-                            rightLabel = "Our Model",
-                            rightValue = GameCardFormatting.formatSpread(pred.predictedSpread),
-                            rightColor = AppColors.appPrimary,
-                        )
+                        // modelFairSpread (not predictedSpread) gates the chart: on the
+                        // classifier fallback predictedSpread just echoes the market
+                        // number, which would draw the model marker on top of the
+                        // break-even marker — degrade to the old boxes instead.
+                        if (pred.vegasSpread != null && pred.modelFairSpread != null) {
+                            SpreadCoverBar(
+                                line = pred.vegasSpread,
+                                modelMargin = -pred.modelFairSpread,
+                                scale = EdgeScale.nba,
+                                pickAbbrev = if (pred.isHome) game.homeAbbr else game.awayAbbr,
+                                opponentAbbrev = if (pred.isHome) game.awayAbbr else game.homeAbbr,
+                            )
+                        } else {
+                            ComparisonRow(
+                                leftLabel = "Vegas",
+                                leftValue = GameCardFormatting.formatSpread(game.homeSpread),
+                                rightLabel = "Our Model",
+                                rightValue = GameCardFormatting.formatSpread(pred.predictedSpread),
+                                rightColor = AppColors.appPrimary,
+                            )
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             GameCardTeamAvatar(
                                 sport = "nba",
@@ -232,13 +249,17 @@ fun NBAGameDetailPage(
                     ),
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ComparisonRow(
-                            leftLabel = "Vegas O/U",
-                            leftValue = fmtHalf(pred.line),
-                            rightLabel = "Our Model",
-                            rightValue = fmtHalf(pred.modelTotal),
-                            rightColor = color,
-                        )
+                        if (pred.line != null && pred.modelTotal != null) {
+                            ModelEdgeRail(market = pred.line, model = pred.modelTotal, scale = EdgeScale.nba)
+                        } else {
+                            ComparisonRow(
+                                leftLabel = "Vegas O/U",
+                                leftValue = fmtHalf(pred.line),
+                                rightLabel = "Our Model",
+                                rightValue = fmtHalf(pred.modelTotal),
+                                rightColor = color,
+                            )
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             val chevron = AppIcon.fromSystemName(if (pred.isOver) "chevron.up" else "chevron.down")
                                 ?: AppIcon.fromSystemName(if (pred.isOver) "arrow.up" else "arrow.down")

@@ -16,8 +16,15 @@ import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useRevenueCatWeb } from '@/hooks/useRevenueCatWeb';
 import { PAYWALL_ROUTE } from '@/lib/routes';
 import {
+  SPORTSBOOK_SELECTABLE,
+  preferredBooksSummary,
+  sportsbookName,
+  useSportsbookPreference,
+} from '@/features/games/detail/sportsbooks';
+import {
   Bell,
   Bot,
+  Building2,
   Check,
   ChevronRight,
   Copy,
@@ -54,6 +61,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordExpanded, setPasswordExpanded] = useState(false);
+  const [sportsbooksExpanded, setSportsbooksExpanded] = useState(false);
+  const { selectedKeys, toggleBook, clearBooks } = useSportsbookPreference();
   const [didCopyUserId, setDidCopyUserId] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -198,6 +207,36 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               trailing={<ExternalLink className="h-3.5 w-3.5" />}
               onClick={() => window.open('https://wagerproof.bet/mobile-app', '_blank', 'noopener,noreferrer')}
             />
+            <SettingsRow
+              icon={<Building2 />}
+              title="My Sportsbooks"
+              subtitle={preferredBooksSummary(selectedKeys)}
+              trailing={<span className="text-[13px] font-semibold text-black/45 dark:text-white/40">{selectedKeys.size === 0 ? 'All' : selectedKeys.size === 1 ? sportsbookName([...selectedKeys][0]) : `${selectedKeys.size} books`}</span>}
+              onClick={() => setSportsbooksExpanded((value) => !value)}
+            />
+            {sportsbooksExpanded && (
+              <div className="space-y-1 border-t border-black/[0.07] px-6 py-3 dark:border-white/[0.07]">
+                <button
+                  type="button"
+                  onClick={clearBooks}
+                  className="flex w-full items-center justify-between rounded-lg px-1 py-2 text-left text-[14px] text-black/80 hover:bg-black/[0.03] dark:text-white/80 dark:hover:bg-white/[0.03]"
+                >
+                  All books
+                  {selectedKeys.size === 0 && <Check className="h-4 w-4 text-emerald-400" />}
+                </button>
+                {SPORTSBOOK_SELECTABLE.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleBook(key)}
+                    className="flex w-full items-center justify-between rounded-lg px-1 py-2 text-left text-[14px] text-black/80 hover:bg-black/[0.03] dark:text-white/80 dark:hover:bg-white/[0.03]"
+                  >
+                    {sportsbookName(key)}
+                    {selectedKeys.has(key) && <Check className="h-4 w-4 text-emerald-400" />}
+                  </button>
+                ))}
+              </div>
+            )}
             {canEnableAdminMode && (
               <SettingsRow
                 icon={<Shield />}

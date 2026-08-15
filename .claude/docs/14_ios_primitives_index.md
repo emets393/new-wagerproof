@@ -65,6 +65,22 @@ Shared across sports:
 |---|---|---|---|
 | **PolymarketWidget** | `Components/Polymarket/PolymarketWidget.swift:13` | market odds + sparklines | all 5 (needs league + team names) |
 | Spread / O/U / ML Prediction Cards | inline in each sport's BottomSheet | Vegas vs model edge | all 5 |
+| **SpreadCoverBar** | `WagerproofKit/Sources/WagerproofDesign/Components/SpreadCoverBar.swift:179` | spread pick on a score-margin axis anchored at a tie (lose / push / cover zones + cushion bracket) | all 5 — NFL/CFB spread + 1H spread, NBA/NCAAB spread. Not MLB (see below) |
+| **ModelEdgeRail** | `.../Components/ModelEdgeRail.swift:34` | market-vs-model gap on a 5-zone rail (Strong Under → Strong Over) | all 5 — totals, 1H totals, team totals |
+| **MoneylineEdgeBar** | `.../Components/MoneylineEdgeBar.swift:89` | a price's break-even win rate vs the model's, on a 0–100% axis | all 5 |
+| **BestBookChip** / `SportsbookLinesSheet` | `GameCards/Components/BestBookChip.swift` | per-book board for the pick's market; leads with the user's preferred book(s), never hides a better number | NFL, CFB, MLB game sheets + NFL prop detail. Preference: Settings "My Sportsbooks" (`sportsbook.preferred`). Web: `src/features/games/detail/sportsbooks/`. Android: `gamecards/BestBookChip.kt` + `SportsbookOddsService`. NBA/NCAAB/Outliers are not wired — those captures have no per-book board. |
+
+The three charts above take a market number and a model number and **must be passed their
+sport's `EdgeScale`** (`.nfl .cfb .nba .ncaab .mlb`) — the thresholds are in that sport's units,
+so an NFL scale on MLB runs reads `STRONG OVER` on every game. Headline copy comes from
+`SpreadCoverOutcome.headline(team:)` / `MoneylineOutcome.headline(team:)` so the sentence above a
+card and the graphic below it read the same fields. Every mount site guards on both numbers being
+present and finite and falls back to the card's old two-box metric grid otherwise.
+
+**MLB has no run-line cover bar.** `mlb_predictions_current` publishes no full-game fair run line
+or projected margin (`MLBGame.fullGameRuns.margin` is a Pythagorean *derivation* from win prob +
+fair total, not a model output), and there is no run-line card in the sheet to hang one on. F5 is
+the only segment with a published margin (`f5_pred_margin` + `f5_home_spread`).
 | FadeAlertTooltip | `Components/Components/FadeAlertTooltip.swift:14` | fade suggestion at extreme edge | all 5 (inside prediction cards) |
 | WeatherDisplay | `GameCards/Components/WeatherDisplay.swift:9` | temp/wind/precip chips | NFL, CFB (MLB has its own pro-gated card) |
 | **BettingTrendsInsightWidget** | `Outliers/Components/BettingTrendsInsightWidget.swift:11` — mounted at `MLB/Sheets/MLBGameBottomSheet.swift:725`, `NBA/Sheets/NBAGameBottomSheet.swift:204`, `NCAAB/Sheets/NCAABGameBottomSheet.swift:474` | situational-trends digest (verdict + top-3 signal tug bars; expands to `BettingTrendsDetailSheet`) — insight-widget pattern, §7b | MLB, NBA, NCAAB (hidden when the game has no trends row; MLB store hoisted to MainTabView, NBA/NCAAB sheet-local) |

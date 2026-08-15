@@ -236,6 +236,12 @@ export type CfbDryRunPickHeadlineInput = {
    * construction, so its sign identifies nothing.
    */
   leadGap: number | null;
+  /**
+   * What `leadGap` is measured in. Moneyline cards compare a PRICE to a
+   * PROBABILITY, so their gap is percentage points of win rate — calling that
+   * "points clear of the market close" would read as points of line.
+   */
+  leadGapKind?: 'line' | 'winRate';
   /** Weeks 1-3: the display model is a preseason blend — its gaps are NOT bettable. */
   earlyWeek?: boolean;
 };
@@ -292,6 +298,14 @@ export function cfbDryRunPickHeadline(v: CfbDryRunPickHeadlineInput): string | n
     return `${head}; no market close posted to price it against.`;
   }
   const gap = Math.abs(round1(v.leadGap));
+  if (v.leadGapKind === 'winRate') {
+    // The bar under this sentence draws model% against the price's break-even
+    // rate, so the sentence has to be in the same units.
+    if (gap === 0) {
+      return `${head}, with its win rate exactly on the price's break-even.`;
+    }
+    return `${head}, with its win rate ${formatPoints(gap)} ${pointWord(gap)} clear of the price's break-even.`;
+  }
   if (gap === 0) {
     return `${head}, with its fair line right on the market close.`;
   }

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronRight, Info, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronRight, Info, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TeamRef } from '../../../types';
 
@@ -137,70 +137,6 @@ export function Recommendation({
         {edgeIcon}
         {edge}
       </span>
-    </div>
-  );
-}
-
-/**
- * Model number beside the market number with the gap between them, then the
- * lean spelled out. A signed difference on its own never said which way to bet.
- */
-export function ModelVsMarket({
-  model,
-  market,
-  gap,
-  unit,
-  tone,
-  lean,
-}: {
-  model: string;
-  market: string;
-  /** Already derived from the two displayed values, so the three always agree. */
-  gap: number;
-  /** What the gap is measured in, e.g. "pts". */
-  unit: string;
-  tone: PickTone;
-  lean: React.ReactNode;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col items-start gap-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Our model
-          </span>
-          <span className="text-xl font-bold tabular-nums text-foreground">{model}</span>
-        </div>
-
-        <div className="flex shrink-0 flex-col items-center">
-          <span
-            className={cn('flex items-center gap-0.5 font-mono text-[13px] font-bold tabular-nums', toneClass(tone))}
-          >
-            {tone === 'over' ? (
-              <ArrowUp className="h-3.5 w-3.5" />
-            ) : tone === 'under' ? (
-              <ArrowDown className="h-3.5 w-3.5" />
-            ) : null}
-            {gap > 0 ? '+' : ''}
-            {gap.toFixed(1)}
-          </span>
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            {unit}
-          </span>
-        </div>
-
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Vegas
-          </span>
-          <span className="text-xl font-bold tabular-nums text-muted-foreground">{market}</span>
-        </div>
-      </div>
-
-      <div className="mt-2 flex items-center gap-1.5 border-t border-black/5 pt-2 text-[11px] dark:border-white/10">
-        <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-        <span className="text-muted-foreground">{lean}</span>
-      </div>
     </div>
   );
 }

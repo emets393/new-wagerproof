@@ -28,6 +28,7 @@
 		0EDD90413FBDA618BA10EDB7 /* NFLGameBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5022171A4B0061D23B716C9A /* NFLGameBottomSheet.swift */; };
 		0F259632E3C800938CEDA5B6 /* AgentOverlapFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3667BAD8F8D481ABFA628D /* AgentOverlapFooter.swift */; };
 		0F353C20DF49F263D1893FED /* HistoricalAnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20277CE02877AF69AC01F45A /* HistoricalAnalysisView.swift */; };
+		0F43AC930A115D446DED26B3 /* SignalBacktestChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = A69C7ECBE228E3E886E88FB6 /* SignalBacktestChart.swift */; };
 		0FAE1D56058BAAB1CB17ECB6 /* WagerBotAppComponentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 453EC9C82266D0DF4AD15EF6 /* WagerBotAppComponentsView.swift */; };
 		0FF028A1AE95D517D3F3119E /* PicksExpiryPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = B89FEDEF4641A699453FA04C /* PicksExpiryPill.swift */; };
 		1134606F97B0C852102B1052 /* PixelEmojiInline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72C3DD16424DA1D0BA0FFE66 /* PixelEmojiInline.swift */; };
@@ -258,10 +259,12 @@
 		BD5904765B5ECEDB23954FE0 /* FeatureRequestsFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF11EBA9424B6C27C5C8582 /* FeatureRequestsFixtures.swift */; };
 		BE29E260AAD1AD71FCEE3303 /* OutlierSectionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21406CE341E7F2ED58CDF478 /* OutlierSectionListView.swift */; };
 		BEBFD351029C913ED269548E /* OutlierSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7B86B318D01E5B0CE458EE /* OutlierSections.swift */; };
+		BF1540BA987608E98BD2CFC5 /* BestBookChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD9CD4444D1358DD58E852D /* BestBookChip.swift */; };
 		C0B1270A1C2B9E600D54D0AA /* MainTabToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFAA67B9686F3C7DC883203 /* MainTabToolbar.swift */; };
 		C19105B48887F1B51200D7D5 /* ReviewRequestModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8809586D12A5FE97C9927E /* ReviewRequestModal.swift */; };
 		C192BA514705BB3339196C6A /* ArchetypeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B1A60D61C9C2DE128CA5134 /* ArchetypeCard.swift */; };
 		C2392ECA0411B7F60EBDCF52 /* ToggleInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = B225665B5320C290CC3810DE /* ToggleInput.swift */; };
+		C27026A52AF4E3A60E08F1DE /* PickSignalPills.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B3AE536DB18E0CDA95D7E7F /* PickSignalPills.swift */; };
 		C3FAB5994E3EC8D042022021 /* AgentIdCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A270F72EC633F56565A8F7F9 /* AgentIdCard.swift */; };
 		C48756FD962656C8D085B697 /* WagerBotConversationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C923A986E5B85293A3DD8EF /* WagerBotConversationsSheet.swift */; };
 		C48A89F668D8FB0D4BBCDC26 /* NFLPropPlayerCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3852E235DD8FBA8C146E52A6 /* NFLPropPlayerCard.swift */; };
@@ -326,6 +329,7 @@
 		ECBC98D267FA2CDDAA862EE3 /* TimezonePickerModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A8E0D68C6B066DED690905 /* TimezonePickerModal.swift */; };
 		ED276E30EE8FC02AEF84BD3D /* SearchMatchupCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758C75E787FBB4C33AEDF2CD /* SearchMatchupCard.swift */; };
 		ED5CCC51E57A86898A3DEE28 /* AgentRowCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6D564B5FC7F2303782C3F99 /* AgentRowCard.swift */; };
+		EDB9C9EDF652200C92C05F71 /* SportsbookLogoCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 275718A7B7429A4EB2FB32C2 /* SportsbookLogoCache.swift */; };
 		EDE22ED7F73A3D953823918D /* MLBRegressionPicksSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E32080C115C670F116DE1F9B /* MLBRegressionPicksSection.swift */; };
 		EE8B17F7DC6ED61138433D92 /* RoastMicButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2550F7CB3FF677922D29D92 /* RoastMicButtonView.swift */; };
 		F02C3AA0C862A5B50EFFE5BB /* NCAABModelAccuracyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1F24C2B21984E1E7AAED01 /* NCAABModelAccuracyView.swift */; };
@@ -422,6 +426,7 @@
 		2575A306D7D3CFFFAD318868 /* NCAABModelAccuracyMatchupCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NCAABModelAccuracyMatchupCard.swift; sourceTree = "<group>"; };
 		25954E2B822FA568D10C421E /* IosWidgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosWidgetView.swift; sourceTree = "<group>"; };
 		2696880C431EDBF6FCF401C5 /* F5SplitsInsightWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = F5SplitsInsightWidget.swift; sourceTree = "<group>"; };
+		275718A7B7429A4EB2FB32C2 /* SportsbookLogoCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsbookLogoCache.swift; sourceTree = "<group>"; };
 		276F8D11A86930A5F4EAF8B3 /* RegressionRecapSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegressionRecapSection.swift; sourceTree = "<group>"; };
 		27963929FA5CE1B1BAF35AAC /* OnboardingGenerationCinematic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGenerationCinematic.swift; sourceTree = "<group>"; };
 		27A53B844B0367D3E42C0F37 /* CustomPaywallFeaturePages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPaywallFeaturePages.swift; sourceTree = "<group>"; };
@@ -514,6 +519,7 @@
 		6872050AEA0E79DAB8FF199A /* WeatherDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherDisplay.swift; sourceTree = "<group>"; };
 		6AD90887046E4D993D349DF8 /* SaveSystemSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveSystemSheet.swift; sourceTree = "<group>"; };
 		6B1A60D61C9C2DE128CA5134 /* ArchetypeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchetypeCard.swift; sourceTree = "<group>"; };
+		6B3AE536DB18E0CDA95D7E7F /* PickSignalPills.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickSignalPills.swift; sourceTree = "<group>"; };
 		6BCC730FC3CE6791DB7E32CE /* PinnedWidgetScroll.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedWidgetScroll.swift; sourceTree = "<group>"; };
 		6C23DB09C8FCE87C51650980 /* NCAABTrendsMatrixAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NCAABTrendsMatrixAdapter.swift; sourceTree = "<group>"; };
 		6C756E137373DD95637CF1E4 /* FeatureRequestRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureRequestRow.swift; sourceTree = "<group>"; };
@@ -599,6 +605,7 @@
 		A3E26F083E13EE54A9A75FF6 /* H2HModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H2HModal.swift; sourceTree = "<group>"; };
 		A49C1F3D572106A5C607A22E /* WeatherParkFlagCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherParkFlagCard.swift; sourceTree = "<group>"; };
 		A55851357DCB927E14A79DF2 /* NBAGameBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NBAGameBottomSheet.swift; sourceTree = "<group>"; };
+		A69C7ECBE228E3E886E88FB6 /* SignalBacktestChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalBacktestChart.swift; sourceTree = "<group>"; };
 		AB3257BA84D24E3322106E29 /* WagerProofWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WagerProofWidgetBundle.swift; sourceTree = "<group>"; };
 		AB7CC096C4412892B46264E8 /* Step6ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Step6ReviewView.swift; sourceTree = "<group>"; };
 		ABDD3C3A0C9DEA83EBF3B905 /* PropLineScrubber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropLineScrubber.swift; sourceTree = "<group>"; };
@@ -720,6 +727,7 @@
 		F97F6C7CA35B3146FD2727E1 /* avatar_7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = avatar_7.png; sourceTree = "<group>"; };
 		F97FCEF2CA85EB039AB98CD7 /* OnboardingBuilderPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingBuilderPages.swift; sourceTree = "<group>"; };
 		F9C3F68E01DE931002FE6E2B /* PlayerPropFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPropFeed.swift; sourceTree = "<group>"; };
+		FAD9CD4444D1358DD58E852D /* BestBookChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BestBookChip.swift; sourceTree = "<group>"; };
 		FB18C1D3CF81A83D245308A0 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		FB3711A99604CFD1CCC28A68 /* F5GameCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = F5GameCardView.swift; sourceTree = "<group>"; };
 		FE23128F02BBC5020D3B75A8 /* AgentBornCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentBornCelebrationView.swift; sourceTree = "<group>"; };
@@ -959,6 +967,8 @@
 				B8FCBAA22BBC73EEED580343 /* AgentConsensusSection.swift */,
 				C97C785DD9CFC0411D277522 /* GameWidgetHeadlines.swift */,
 				4AB5DDCBFC5642DE251C996E /* InsightWidgetPrimitives.swift */,
+				6B3AE536DB18E0CDA95D7E7F /* PickSignalPills.swift */,
+				A69C7ECBE228E3E886E88FB6 /* SignalBacktestChart.swift */,
 			);
 			path = GameWidgets;
 			sourceTree = "<group>";
@@ -1557,6 +1567,7 @@
 			isa = PBXGroup;
 			children = (
 				0C97F68C8FA04BB587F98D18 /* AgentConsensusStrip.swift */,
+				FAD9CD4444D1358DD58E852D /* BestBookChip.swift */,
 				3BF627D54560B05CBFEA511F /* BettingSplitsCard.swift */,
 				40223FC117305E85C3A74077 /* GameCardFormatting.swift */,
 				06063DA3891C5CA3E7ED6B22 /* GameCardShimmer.swift */,
@@ -1566,6 +1577,7 @@
 				BEC09E7AC7904877588142A6 /* MatchupGlassHero.swift */,
 				E853F2E6DAF54359DB2EAFAB /* ModelAccuracyWidget.swift */,
 				F6E6B563F7DB67C3446527A8 /* SportsbookButtons.swift */,
+				275718A7B7429A4EB2FB32C2 /* SportsbookLogoCache.swift */,
 				44C2ED82B4B164ACB2BCA726 /* SportsbookLogoView.swift */,
 				CC95998D490BF3E25989D082 /* SportTeamColors.swift */,
 				6872050AEA0E79DAB8FF199A /* WeatherDisplay.swift */,
@@ -1936,6 +1948,7 @@
 				21F5C70639E731FE8C6CC0D9 /* AuthGateBackground.swift in Sources */,
 				F104C0B2FEDDA102937A210D /* AuthRouter.swift in Sources */,
 				4548BDA9B8C9C98D0B1F505C /* BattingRegressionCard.swift in Sources */,
+				BF1540BA987608E98BD2CFC5 /* BestBookChip.swift in Sources */,
 				5640C44BA057511E7D0F1261 /* BettingSplitsCard.swift in Sources */,
 				7ABDCEE989AF581CE711EBAA /* BettingTrendsDetailSheet.swift in Sources */,
 				FDCB30F78E8F08469D63DCFD /* BettingTrendsInsightWidget.swift in Sources */,
@@ -2091,6 +2104,7 @@
 				1A5517B846120E8CA4AFA7E4 /* ParlayGodCard.swift in Sources */,
 				637A089E7688756737532D32 /* PerfectStormPickCard.swift in Sources */,
 				666B9EDBD441C4CC07B72155 /* PickHistoryFolder.swift in Sources */,
+				C27026A52AF4E3A60E08F1DE /* PickSignalPills.swift in Sources */,
 				0FF028A1AE95D517D3F3119E /* PicksExpiryPill.swift in Sources */,
 				53008971617C2799A1B4680C /* PinnedWidgetScroll.swift in Sources */,
 				E16F80FBC6AF7350145DB89D /* PitcherRegressionCard.swift in Sources */,
@@ -2145,6 +2159,7 @@
 				70AC13C10383B70E44CE30B8 /* SettingsFixtures.swift in Sources */,
 				83CA4C98132F93E311DAF332 /* SettingsView.swift in Sources */,
 				82C1E51722CA6E98792023E3 /* SideMenuSheet.swift in Sources */,
+				0F43AC930A115D446DED26B3 /* SignalBacktestChart.swift in Sources */,
 				1925E4F57181E2E0E74757EB /* SignupView.swift in Sources */,
 				5EACB93606C90957BD791E22 /* Slide1_Create247Agent.swift in Sources */,
 				3E185981E8ED9BCE615B9043 /* Slide1_GameCards.swift in Sources */,
@@ -2158,6 +2173,7 @@
 				1503E514421980B674A957B6 /* SportTeamColors.swift in Sources */,
 				68F70889D0A491E5F1FCF185 /* SportTool.swift in Sources */,
 				B7F3A6424702061BB156A273 /* SportsbookButtons.swift in Sources */,
+				EDB9C9EDF652200C92C05F71 /* SportsbookLogoCache.swift in Sources */,
 				A531D29A3053335B64E6AE1D /* SportsbookLogoView.swift in Sources */,
 				E9C4C10FF119E9714710F00C /* Step1SportArchetypeView.swift in Sources */,
 				136CD28E8B297585303839B2 /* Step2IdentityView.swift in Sources */,

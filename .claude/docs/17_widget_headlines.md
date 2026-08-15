@@ -90,19 +90,28 @@ Two guards worth copying when you add one:
 | `mlbWeatherHeadline` | `mlb.ts:477` | `mlb/MlbWeatherSection.tsx:35` |
 | `mlbBettingTrendsHeadline` | `mlb.ts:524` | `mlb/MlbBettingTrendsSection.tsx:226` |
 | `mlbPropsCheatsHeadline` | `mlb.ts:582` | `mlb/MlbPropsCheatsSection.tsx:163` |
-| `nbaSpreadHeadline` | `nba.ts:55` | `nba/NbaPredictionsSection.tsx:69` |
-| `nbaTotalHeadline` | `nba.ts:110` | `nba/NbaPredictionsSection.tsx:140` |
+| `nbaSpreadHeadline` | `nba.ts:55` | `nba/NbaPredictionsSection.tsx:63` |
+| `nbaTotalHeadline` | `nba.ts:110` | `nba/NbaPredictionsSection.tsx:132` |
 | `nbaBettingTrendsHeadline` | `nba.ts:184` | `nba/NbaBettingTrendsSection.tsx:85` |
 | `nbaTeamStatsHeadline` | `nba.ts:284` | `nba/NbaTeamStatsSection.tsx:89` |
 | `nbaInjuriesHeadline` | `nba.ts:375` | `nba/NbaInjuriesSection.tsx:247` |
 | `nflBettingSplitsHeadline` | `nfl.ts:203` | `nfl/NflBettingSplitsSection.tsx:221` |
-| `nflSpreadHeadline` | `nfl.ts:56` | `nfl/NflPredictionsSection.tsx:60` |
-| `nflTotalHeadline` | `nfl.ts:118` | `nfl/NflPredictionsSection.tsx:147` |
+| `nflSpreadHeadline` | `nfl.ts:56` | `nfl/NflPredictionsSection.tsx:57` |
+| `nflTotalHeadline` | `nfl.ts:118` | `nfl/NflPredictionsSection.tsx:167` |
 | `nflH2HHeadline` | `nfl.ts:266` | `nfl/NflH2HSection.tsx:126` |
 | `nflLineMovementHeadline` | `nfl.ts:329` | `nfl/NflLineMovementSection.tsx:158` |
 | `cfbWeatherHeadline` | `cfb.ts:64` | `cfb/CfbWeatherSection.tsx:124` |
-| `cfbDryRunSummaryHeadline` | `cfb.ts:152` | `cfb/CfbDryRunSections.tsx:229` |
-| `cfbDryRunPickHeadline` | `cfb.ts:254` | `cfb/CfbDryRunSections.tsx:528` |
+| `cfbDryRunSummaryHeadline` | `cfb.ts:152` | `cfb/CfbDryRunSections.tsx:908` |
+| `cfbDryRunPickHeadline` | `cfb.ts:262` | `cfb/CfbDryRunSections.tsx:1435` |
+
+### Units have to match the chart under the sentence
+
+`cfbDryRunPickHeadline` takes `leadGapKind`. Moneyline cards compare a PRICE to a
+PROBABILITY, so their gap is percentage points of win rate, and the sentence says
+"its win rate N points clear of the price's break-even" rather than borrowing the
+spread card's "fair line ... clear of the market close". The `MoneylineEdgeBar`
+drawn under it plots exactly that comparison — see
+`src/features/games/detail/charts/README.md`.
 
 `matchSimulatorHeadline` is the only formatter nothing renders. It is not dead
 code by intent — it was written ahead of the section that will use it.

@@ -349,6 +349,23 @@ describe('deterministic game-detail headlines', () => {
     );
   });
 
+  it('measures a moneyline gap in win rate, not in points of line', () => {
+    // The bar under this sentence plots model% against the price's break-even,
+    // so "points clear of the market close" would name the wrong quantity.
+    expect(cfbDryRunPickHeadline({
+      marketLabel: 'Moneyline',
+      rowCount: 1,
+      playCount: 1,
+      allDisplayOnly: false,
+      leadPickLabel: 'PITT ML',
+      leadConvictionLabel: null,
+      leadGap: 6.2,
+      leadGapKind: 'winRate',
+    })).toBe(
+      "Moneyline: model backs PITT ML, with its win rate 6.2 points clear of the price's break-even.",
+    );
+  });
+
   it('does not word a projection-only CFB card as a play', () => {
     expect(cfbDryRunPickHeadline({
       marketLabel: '1H Total',

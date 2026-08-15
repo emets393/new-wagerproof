@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofModels
+import WagerproofServices
 import WagerproofStores
 
 /// Full MLB game detail sheet. Mirrors RN
@@ -51,6 +52,8 @@ struct MLBGameBottomSheet: View {
     @State private var mlExpanded: Bool = false
     @State private var ouExpanded: Bool = false
     @State private var marketOddsHeadline: String?
+    @State private var bookOdds: SportsbookGameOdds?
+    @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKeysRaw: String = ""
     /// Fallback zoom namespace for standalone use (no carousel parent).
     @Namespace private var fallbackPropNS
     /// Slate-wide trends store injected by the carousel — one fetch serves
@@ -212,7 +215,8 @@ struct MLBGameBottomSheet: View {
             async let f: () = resolvedF5Store.refreshIfStale()
             async let p: () = propsStore.refreshMLB()
             async let g: () = parlayGodStore.refreshIfNeeded()
-            _ = await (t, f, p, g)
+            async let b: () = loadSportsbookOdds()
+            _ = await (t, f, p, g, b)
         }
         // Expanded insight surfaces — full trends matrix / props list / F5
         // breakdown — share one sheet slot.
@@ -720,6 +724,12 @@ struct MLBGameBottomSheet: View {
     @ViewBuilder
     private var moneylineCard: some View {
         let pickSide = mlPickSide
+        let mlBoard = sportsbookQuotes(
+            for: projView == .full
+                ? .moneyline(isHome: pickSide == "home")
+                : .firstFiveMoneyline(isHome: pickSide == "home")
+        )
+        let selectedMLQuote = mlBoard?.preferred(SportsbookPreference.decode(preferredBookKeysRaw))
         let hp = projView == .full ? game.mlHomeWinProb : game.f5HomeWinProb
         let ap = projView == .full ? game.mlAwayWinProb : game.f5AwayWinProb
         let he = projView == .full ? game.homeMlEdgePct : game.f5HomeMlEdgePct
@@ -729,6 +739,7 @@ struct MLBGameBottomSheet: View {
 
         // implied prob: prefer DB column for full; derive via identity for F5.
         let pickImplied: Double? = {
+            if let price = selectedMLQuote?.price { return impliedProbability(price) }
             if pickSide == "home" {
                 if projView == .full, let p = game.homeImpliedProb { return p }
                 if let p = hp, let e = he { return p - e / 100 }
@@ -748,6 +759,29 @@ struct MLBGameBottomSheet: View {
             }
         }()
         let pickAbbr = pickSide == "home" ? game.homeAbbr : game.awayAbbr
+        let pickTeamName = (pickSide == "home" ? game.homeTeamName : game.awayTeamName) ?? pickAbbr
+
+        // American price for the side being bet. Prefers the book the user
+        // picked, then the segment's own closing price. `MoneylineEdgeBar`
+        // derives the break-even rate from THIS number, so the DB's
+        // `*_implied_prob` / `*_ml_edge_pct` columns are re-derived below from
+        // the same price rather than read separately — a stored edge that
+        // disagrees with the bar under it is worse than a consistent one.
+        let pickPrice: Int? = {
+            if let price = selectedMLQuote?.price { return price }
+            let close: Int? = pickSide == "home"
+                ? (projView == .full ? game.homeMl : game.f5HomeMl)
+                : (projView == .full ? game.awayMl : game.f5AwayMl)
+            guard let close, abs(close) >= 100 else { return nil }
+            return close
+        }()
+        let outcome: MoneylineOutcome? = {
+            guard let pickPrice, let pickProb, pickProb.isFinite, pickProb > 0, pickProb < 1 else { return nil }
+            return MoneylineOutcome(price: pickPrice, modelProbability: pickProb, scale: .mlb)
+        }()
+        // Fall back to the stored columns only when there is no price to derive from.
+        let displayImplied = outcome.map { $0.breakEvenPercent / 100 } ?? pickImplied
+        let displayEdge = outcome.map(\.edge) ?? pickEdge
 
         if let pickSide, let pickProb {
             WidgetCollapsingSection(
@@ -756,24 +790,36 @@ struct MLBGameBottomSheet: View {
                 iconTint: Color.appPrimary,
                 accessory: .chevron(expanded: mlExpanded),
                 onHeaderTap: { mlExpanded.toggle() },
-                headline: GameWidgetHeadlines.moneyline(
+                headline: outcome.map {
+                    let scope = projView == .f5 ? "Through five" : "Full game"
+                    return "\(scope): \($0.headline(team: pickTeamName))"
+                } ?? GameWidgetHeadlines.moneyline(
                     segment: projView == .f5 ? "f5" : "full",
                     pickAbbr: pickAbbr,
                     pickProbability: pickProb,
-                    impliedProbability: pickImplied,
-                    pickEdgePct: pickEdge
+                    impliedProbability: displayImplied,
+                    pickEdgePct: displayEdge
                 )
             ) {
                     VStack(alignment: .leading, spacing: 14) {
-                        comparisonRow(
-                            leftLabel: "Vegas",
-                            leftValue: pickImplied.map { String(format: "%.1f%%", $0 * 100) } ?? "-",
-                            leftColor: Color.appTextPrimary,
-                            rightLabel: "Our Model",
-                            rightValue: String(format: "%.1f%%", pickProb * 100),
-                            rightColor: strong ? Color.appPrimary : Color(hex: 0xEAB308),
-                            rightHighlight: true
-                        )
+                        if let outcome {
+                            MoneylineEdgeBar(
+                                price: outcome.price,
+                                modelProbability: outcome.modelProbability,
+                                scale: .mlb,
+                                teamAbbrev: pickAbbr
+                            )
+                        } else {
+                            comparisonRow(
+                                leftLabel: "Vegas",
+                                leftValue: displayImplied.map { String(format: "%.1f%%", $0 * 100) } ?? "-",
+                                leftColor: Color.appTextPrimary,
+                                rightLabel: "Our Model",
+                                rightValue: String(format: "%.1f%%", pickProb * 100),
+                                rightColor: strong ? Color.appPrimary : Color(hex: 0xEAB308),
+                                rightHighlight: true
+                            )
+                        }
                         HStack(spacing: 12) {
                             MLBTeamLogo(
                                 logoUrl: pickSide == "home" ? game.homeLogoUrl : game.awayLogoUrl,
@@ -785,13 +831,25 @@ struct MLBGameBottomSheet: View {
                                 Text("Edge to \(pickAbbr)")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundStyle(Color.appTextPrimary)
-                                if let pickEdge {
-                                    Text("\(pickEdge >= 0 ? "+" : "")\(String(format: "%.1f", pickEdge))% delta")
+                                if let displayEdge {
+                                    Text("\(displayEdge >= 0 ? "+" : "")\(String(format: "%.1f", displayEdge))% delta")
                                         .font(.system(size: 13, weight: .bold))
-                                        .foregroundStyle(pickEdge >= 0 ? (strong ? Color.appPrimary : Color(hex: 0xEAB308)) : Color.appAccentRed)
+                                        .foregroundStyle(displayEdge >= 0 ? (strong ? Color.appPrimary : Color(hex: 0xEAB308)) : Color.appAccentRed)
                                 }
                             }
                             Spacer()
+                            if let mlBoard, mlBoard.best != nil {
+                                BestBookChip(
+                                    quotes: mlBoard,
+                                    selectedBookKeys: SportsbookPreference.decode(preferredBookKeysRaw),
+                                    marketTitle: projView == .full ? "Moneyline" : "1st 5 Moneyline",
+                                    selectionTitle: "\(pickAbbr) moneyline",
+                                    formatLine: { MLBFormatting.line($0) }
+                                )
+                            }
+                            // Stays on the STORED edge: the historical buckets in
+                            // `mlb_bucket_accuracy` were fit against that column,
+                            // so a re-derived edge would land in the wrong bucket.
                             accuracyBadge(for: pickEdge, betType: projView == .full ? "full_ml" : "f5_ml", side: pickSide)
                         }
                         if !moneylineTrendSignals.isEmpty {
@@ -808,7 +866,7 @@ struct MLBGameBottomSheet: View {
                         }
                         if mlExpanded {
                             Divider().overlay(Color.appBorder.opacity(0.3))
-                            Text(mlExplanation(pickSide: pickSide, pickProb: pickProb, implied: pickImplied, edge: pickEdge, abbr: pickAbbr))
+                            Text(mlExplanation(pickSide: pickSide, pickProb: pickProb, implied: displayImplied, edge: displayEdge, abbr: pickAbbr))
                                 .font(.system(size: 13))
                                 .lineSpacing(4)
                                 .foregroundStyle(Color.appTextSecondary)
@@ -835,7 +893,6 @@ struct MLBGameBottomSheet: View {
     @ViewBuilder
     private var overUnderCard: some View {
         let fairTotal = projView == .full ? game.ouFairTotal : game.f5FairTotal
-        let line = projView == .full ? game.totalLine : game.f5TotalLine
         let edgeRaw = projView == .full ? game.ouEdge : game.f5OuEdge
         let direction: String? = projView == .full
             ? game.ouDirection
@@ -843,6 +900,15 @@ struct MLBGameBottomSheet: View {
 
         if let direction {
             let isOver = direction == "OVER"
+            let totalBoard = sportsbookQuotes(
+                for: projView == .full
+                    ? .total(isOver: isOver)
+                    : .firstFiveTotal(isOver: isOver)
+            )
+            let line = totalBoard?
+                .preferred(SportsbookPreference.decode(preferredBookKeysRaw))?
+                .line
+                ?? (projView == .full ? game.totalLine : game.f5TotalLine)
             let delta: String? = (fairTotal != nil && line != nil)
                 ? String(format: "%.1f", abs(fairTotal! - line!))
                 : nil
@@ -861,15 +927,21 @@ struct MLBGameBottomSheet: View {
                 )
             ) {
                     VStack(alignment: .leading, spacing: 14) {
-                        comparisonRow(
-                            leftLabel: "Vegas O/U",
-                            leftValue: MLBFormatting.line(line),
-                            leftColor: Color.appTextPrimary,
-                            rightLabel: "Our Model",
-                            rightValue: fairTotal.map { String(format: "%.1f", $0) } ?? "-",
-                            rightColor: isOver ? Color.appPrimary : Color.appAccentRed,
-                            rightHighlight: true
-                        )
+                        // RUNS, not points — `.mlb` is an order of magnitude
+                        // tighter than every other sport's total scale.
+                        if let line, let fairTotal, line.isFinite, fairTotal.isFinite {
+                            ModelEdgeRail(market: line, model: fairTotal, scale: projView == .f5 ? .mlbFirstFive : .mlb)
+                        } else {
+                            comparisonRow(
+                                leftLabel: "Vegas O/U",
+                                leftValue: MLBFormatting.line(line),
+                                leftColor: Color.appTextPrimary,
+                                rightLabel: "Our Model",
+                                rightValue: fairTotal.map { String(format: "%.1f", $0) } ?? "-",
+                                rightColor: isOver ? Color.appPrimary : Color.appAccentRed,
+                                rightHighlight: true
+                            )
+                        }
                         HStack(spacing: 12) {
                             Image(systemName: isOver ? "chevron.up" : "chevron.down")
                                 .font(.system(size: 32, weight: .bold))
@@ -885,6 +957,15 @@ struct MLBGameBottomSheet: View {
                                 }
                             }
                             Spacer()
+                            if let totalBoard, totalBoard.best != nil {
+                                BestBookChip(
+                                    quotes: totalBoard,
+                                    selectedBookKeys: SportsbookPreference.decode(preferredBookKeysRaw),
+                                    marketTitle: projView == .full ? "Total" : "1st 5 Total",
+                                    selectionTitle: "\(isOver ? "Over" : "Under") \(MLBFormatting.line(line))",
+                                    formatLine: { MLBFormatting.line($0) }
+                                )
+                            }
                             accuracyBadge(for: edgeRaw, betType: projView == .full ? "full_ou" : "f5_ou", direction: direction)
                         }
                         if !totalTrendSignals.isEmpty {
@@ -909,6 +990,24 @@ struct MLBGameBottomSheet: View {
                     }
             }
         }
+    }
+
+    private func sportsbookQuotes(for market: SportsbookMarket) -> SportsbookMarketQuotes? {
+        guard let bookOdds else { return nil }
+        let quotes = bookOdds.quotes(for: market)
+        return quotes.quotes.isEmpty ? nil : quotes
+    }
+
+    private func impliedProbability(_ americanOdds: Int) -> Double {
+        if americanOdds < 0 {
+            let magnitude = Double(-americanOdds)
+            return magnitude / (magnitude + 100)
+        }
+        return 100 / (Double(americanOdds) + 100)
+    }
+
+    private func loadSportsbookOdds() async {
+        bookOdds = await SportsbookOddsService.shared.mlbOdds(gamePk: game.gamePk)
     }
 
     // MARK: - Regression report picks

@@ -47,6 +47,7 @@ import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
 import com.wagerproof.app.features.components.WidgetHeaderAccessory
 import com.wagerproof.app.features.components.polymarket.PolymarketWidget
+import com.wagerproof.app.features.gamecards.BestBookChip
 import com.wagerproof.app.features.gamecards.HeroStat
 import com.wagerproof.app.features.gamecards.MatchupGlassHero
 import com.wagerproof.app.features.gamecards.MatchupHeroSide
@@ -70,6 +71,10 @@ import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.props.PlayerPropSelection
 import com.wagerproof.app.features.shared.hexColor
+import com.wagerproof.core.design.components.EdgeScale
+import com.wagerproof.core.design.components.ModelEdgeRail
+import com.wagerproof.core.design.components.MoneylineEdgeBar
+import com.wagerproof.core.design.components.MoneylineOutcome
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
@@ -81,9 +86,13 @@ import com.wagerproof.core.models.MLBPropMatchup
 import com.wagerproof.core.models.MLBSignalItem
 import com.wagerproof.core.models.MLBTrendsInsight
 import com.wagerproof.core.models.ParlayTicket
+import com.wagerproof.core.models.SportsbookGameOdds
+import com.wagerproof.core.models.SportsbookMarket
 import com.wagerproof.core.models.TrendsSignal
 import com.wagerproof.core.services.RevenueCatService
+import com.wagerproof.core.services.SportsbookOddsService
 import com.wagerproof.core.stores.GamesStore
+import com.wagerproof.core.stores.SportsbookPreferenceStore
 import com.wagerproof.core.stores.MLBBettingTrendsStore
 import com.wagerproof.core.stores.MLBBucketAccuracyStore
 import com.wagerproof.core.stores.MLBBucketHelper
@@ -136,6 +145,11 @@ fun MLBGameDetailPage(
     var showParlayPaywall by remember(game.id) { mutableStateOf(false) }
     // Polymarket pushes its own prose read up once price history lands.
     var marketOddsHeadline by remember(game.id) { mutableStateOf<String?>(null) }
+    var bookOdds by remember(game.gamePk) { mutableStateOf<SportsbookGameOdds?>(null) }
+
+    LaunchedEffect(game.gamePk) {
+        bookOdds = SportsbookOddsService.mlbOdds(game.gamePk)
+    }
 
     val awayName = game.awayTeamName ?: game.awayTeam ?: "Away"
     val homeName = game.homeTeamName ?: game.homeTeam ?: "Home"
@@ -214,6 +228,7 @@ fun MLBGameDetailPage(
                     expanded = mlExpanded,
                     accuracyStore = accuracyStore,
                     trends = mlTrendSignals,
+                    bookOdds = bookOdds,
                     onToggle = { mlExpanded = !mlExpanded },
                 )
             }
@@ -227,6 +242,7 @@ fun MLBGameDetailPage(
                     expanded = ouExpanded,
                     accuracyStore = accuracyStore,
                     trends = totalTrendSignals,
+                    bookOdds = bookOdds,
                     onToggle = { ouExpanded = !ouExpanded },
                 )
             }
@@ -610,6 +626,8 @@ private data class MoneylinePick(
     val implied: Double?,
     val edge: Double?,
     val strong: Boolean,
+    /** Raw American odds for the picked side — feeds `MoneylineEdgeBar`'s no-de-vig break-even math. */
+    val price: Int?,
 )
 
 private fun moneylineProjection(game: MLBGame, projection: ProjectionView): MoneylinePick? {
@@ -629,6 +647,11 @@ private fun moneylineProjection(game: MLBGame, projection: ProjectionView): Mone
     } else if (prob != null && edge != null) {
         prob - edge / 100.0
     } else null
+    val price = if (projection == ProjectionView.FULL) {
+        if (side == "home") game.homeMl else game.awayMl
+    } else {
+        if (side == "home") game.f5HomeMl else game.f5AwayMl
+    }
     return MoneylinePick(
         side = side,
         abbr = if (side == "home") game.homeAbbr else game.awayAbbr,
@@ -643,6 +666,7 @@ private fun moneylineProjection(game: MLBGame, projection: ProjectionView): Mone
             side == "home" -> game.f5HomeMlStrongSignal == true
             else -> game.f5AwayMlStrongSignal == true
         },
+        price = price,
     )
 }
 
@@ -654,8 +678,23 @@ private fun MoneylineSection(
     expanded: Boolean,
     accuracyStore: MLBBucketAccuracyStore,
     trends: List<TrendsSignal>,
+    bookOdds: SportsbookGameOdds?,
     onToggle: () -> Unit,
 ) {
+    val selectedKeys = SportsbookPreferenceStore.selectedKeys
+    val market = if (projection == ProjectionView.FULL) {
+        SportsbookMarket.Moneyline(pick.side == "home")
+    } else {
+        SportsbookMarket.FirstFiveMoneyline(pick.side == "home")
+    }
+    val board = bookOdds?.quotes(market)?.takeIf { it.quotes.isNotEmpty() }
+    val bookPrice = board?.preferred(selectedKeys)?.price
+    val price = bookPrice ?: pick.price
+    val outcome = if (price != null && pick.probability > 0.0 && pick.probability < 1.0) {
+        MoneylineOutcome(price, pick.probability, EdgeScale.mlb)
+    } else null
+    val displayImplied = outcome?.let { it.breakEvenPercent / 100.0 } ?: pick.implied
+    val displayEdge = outcome?.edge ?: pick.edge
     val tint = if (pick.strong) AppColors.appPrimary else hexColor(0xEAB308L)
     WidgetCollapsingSection(
         title = if (projection == ProjectionView.FULL) "Moneyline Projection" else "1st 5 Moneyline",
@@ -667,19 +706,37 @@ private fun MoneylineSection(
             segment = if (projection == ProjectionView.F5) "f5" else "full",
             pickAbbr = pick.abbr,
             pickProbability = pick.probability,
-            impliedProbability = pick.implied,
-            pickEdgePct = pick.edge,
+            impliedProbability = displayImplied,
+            pickEdgePct = displayEdge,
         ),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            ComparisonRow("Vegas", pick.implied?.let(::fmtPct) ?: "–", "Our Model", fmtPct(pick.probability), tint)
+            if (price != null) {
+                MoneylineEdgeBar(
+                    price = price,
+                    modelProbability = pick.probability,
+                    scale = EdgeScale.mlb,
+                    teamAbbrev = pick.abbr,
+                )
+            } else {
+                ComparisonRow("Vegas", displayImplied?.let(::fmtPct) ?: "–", "Our Model", fmtPct(pick.probability), tint)
+            }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MLBTeamLogo(pick.logo, pick.abbr, pick.teamName, 36.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Edge to ${pick.abbr}", color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    pick.edge?.let {
+                    displayEdge?.let {
                         Text("${if (it >= 0) "+" else ""}${fmt1(it)}% delta", color = if (it >= 0) tint else AppColors.appAccentRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
+                }
+                if (board != null) {
+                    BestBookChip(
+                        quotes = board,
+                        selectedBookKeys = selectedKeys,
+                        marketTitle = if (projection == ProjectionView.FULL) "Moneyline" else "1st 5 Moneyline",
+                        selectionTitle = "${pick.abbr} moneyline",
+                        formatLine = { MLBFormatting.line(it) },
+                    )
                 }
                 AccuracyBadge(
                     lookup = pick.edge?.let {
@@ -694,8 +751,8 @@ private fun MoneylineSection(
                     buildString {
                         append("The model gives ${pick.abbr} a ${fmtPct(pick.probability)} chance to win")
                         if (projection == ProjectionView.F5) append(" through 5 innings")
-                        pick.implied?.let { append(" vs Vegas implied ${fmtPct(it)}") }
-                        pick.edge?.let { append(", a ${if (it >= 0) "+" else ""}${fmt1(it)}% edge.") } ?: append(".")
+                        displayImplied?.let { append(" vs Vegas implied ${fmtPct(it)}") }
+                        displayEdge?.let { append(", a ${if (it >= 0) "+" else ""}${fmt1(it)}% edge.") } ?: append(".")
                     },
                     color = AppColors.appTextSecondary,
                     fontSize = 13.sp,
@@ -723,9 +780,18 @@ private fun TotalSection(
     expanded: Boolean,
     accuracyStore: MLBBucketAccuracyStore,
     trends: List<TrendsSignal>,
+    bookOdds: SportsbookGameOdds?,
     onToggle: () -> Unit,
 ) {
     val over = pick.direction == "OVER"
+    val selectedKeys = SportsbookPreferenceStore.selectedKeys
+    val market = if (projection == ProjectionView.FULL) {
+        SportsbookMarket.Total(isOver = over)
+    } else {
+        SportsbookMarket.FirstFiveTotal(isOver = over)
+    }
+    val board = bookOdds?.quotes(market)?.takeIf { it.quotes.isNotEmpty() }
+    val line = board?.preferred(selectedKeys)?.line ?: pick.line
     val tint = if (over) AppColors.appPrimary else AppColors.appAccentRed
     WidgetCollapsingSection(
         title = if (projection == ProjectionView.FULL) "Total Projection" else "1st 5 Total",
@@ -737,18 +803,31 @@ private fun TotalSection(
             segment = if (projection == ProjectionView.F5) "f5" else "full",
             direction = pick.direction,
             modelTotal = pick.fairTotal,
-            marketTotal = pick.line,
+            marketTotal = line,
         ),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            ComparisonRow("Vegas O/U", MLBFormatting.line(pick.line), "Our Model", pick.fairTotal?.let(::fmt1) ?: "–", tint)
+            if (line != null && pick.fairTotal != null) {
+                ModelEdgeRail(market = line, model = pick.fairTotal, scale = EdgeScale.mlb)
+            } else {
+                ComparisonRow("Vegas O/U", MLBFormatting.line(line), "Our Model", pick.fairTotal?.let(::fmt1) ?: "–", tint)
+            }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(if (over) AppIcon.CHEVRON_UP_FORWARD.imageVector else AppIcon.CHEVRON_DOWN.imageVector, null, tint = tint, modifier = Modifier.size(32.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Edge to ${if (over) "Over" else "Under"}", color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    if (pick.fairTotal != null && pick.line != null) {
-                        Text("${fmt1(abs(pick.fairTotal - pick.line))} pts delta", color = tint, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    if (pick.fairTotal != null && line != null) {
+                        Text("${fmt1(abs(pick.fairTotal - line))} pts delta", color = tint, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
+                }
+                if (board != null) {
+                    BestBookChip(
+                        quotes = board,
+                        selectedBookKeys = selectedKeys,
+                        marketTitle = if (projection == ProjectionView.FULL) "Total" else "1st 5 Total",
+                        selectionTitle = "${pick.direction} ${MLBFormatting.line(line)}",
+                        formatLine = { MLBFormatting.line(it) },
+                    )
                 }
                 AccuracyBadge(
                     lookup = pick.edge?.let {
@@ -760,7 +839,7 @@ private fun TotalSection(
             if (expanded) {
                 DividerLine()
                 Text(
-                    "The model projects a fair${if (projection == ProjectionView.F5) " F5" else ""} total of ${pick.fairTotal?.let(::fmt1) ?: "N/A"} vs the market line of ${MLBFormatting.line(pick.line)}, suggesting the ${if (over) "Over" else "Under"}.",
+                    "The model projects a fair${if (projection == ProjectionView.F5) " F5" else ""} total of ${pick.fairTotal?.let(::fmt1) ?: "N/A"} vs the market line of ${MLBFormatting.line(line)}, suggesting the ${if (over) "Over" else "Under"}.",
                     color = AppColors.appTextSecondary,
                     fontSize = 13.sp,
                     lineHeight = 18.sp,

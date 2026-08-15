@@ -23,11 +23,7 @@ import {
   displaySignalKeysFromPick,
   isBlanketSignalKey,
 } from '../../../api/footballSlate';
-import {
-  formatSignalSeasonRecord,
-  signalSeasonRecordClassName,
-  type SignalPerformanceRow,
-} from '@/utils/signalPerformance';
+import { type SignalPerformanceRow } from '@/utils/signalPerformance';
 import {
   CollegeTeamMark,
   EmptyNote,
@@ -36,6 +32,26 @@ import {
   STACK,
   toNum,
 } from './shared';
+import {
+  CFB_EDGE_SCALE,
+  ModelEdgeRail,
+  MoneylineEdgeBar,
+  NFL_EDGE_SCALE,
+  SpreadCoverBar,
+  breakEvenPercent,
+  type EdgeScale,
+} from '../../charts';
+import { PickSignalsSection, SignalBacktestChart } from '../../signals';
+import {
+  BestBookChip,
+  fetchCfbSportsbookOdds,
+  fetchNflSportsbookOdds,
+  formatSignedLine,
+  marketFromFootballPick,
+  quotesForMarket,
+  useSportsbookPreference,
+  type SportsbookGameOdds,
+} from '../../sportsbooks';
 import {
   fetchFootballTeamTrends,
   sportsbookFallbackUrl,
@@ -78,9 +94,12 @@ type FootballDryRunPick = {
   pick_label?: string | null;
   pick_team?: string | null;
   pick_side?: string | null;
+  /** Moneyline rows put the model's WIN PROBABILITY (0-1) here, not a line. */
   model_number?: number | string | null;
   model_line?: number | string | null;
   vegas_line?: number | string | null;
+  /** American price at the close. Moneyline rows only — `vegas_line` is a line. */
+  vegas_price?: number | string | null;
   edge?: number | string | null;
   best_book?: string | null;
   best_book_logo?: string | null;
@@ -290,6 +309,15 @@ const CARD_SUBTITLES: Record<string, string> = {
 };
 
 const CARD_ORDER = ['spread', 'total', 'team_total', 'moneyline', 'h1_spread', 'h1_total', 'h1_ml'];
+
+/**
+ * College spreads blow out further than pro ones, so the two sports sharing this
+ * file do NOT share a spread window. Totals band identically.
+ */
+const EDGE_SCALE_BY_SPORT: Record<FootballSport, EdgeScale> = {
+  nfl: NFL_EDGE_SCALE,
+  cfb: CFB_EDGE_SCALE,
+};
 
 const normalizeCardGroup = (group?: string | null): string => {
   const key = (group || 'other').toLowerCase();
@@ -663,9 +691,11 @@ function synthesizeFgMarketPicks(
   const predHome = toNum(raw.pred_home_score);
   const predAway = toNum(raw.pred_away_score);
   if (homeMl !== null || awayMl !== null) {
+    const fgHomeWinProb = toNum(raw.fg_home_win_prob);
     const homeWins =
-      predHome !== null && predAway !== null ? predHome >= predAway : (toNum(raw.fg_home_win_prob) ?? 0.5) >= 0.5;
+      predHome !== null && predAway !== null ? predHome >= predAway : (fgHomeWinProb ?? 0.5) >= 0.5;
     const team = homeWins ? game.homeTeam : game.awayTeam;
+    const price = homeWins ? homeMl : awayMl;
     picks.push({
       game_id: String(raw.game_id ?? ''),
       card_group: 'moneyline',
@@ -673,7 +703,11 @@ function synthesizeFgMarketPicks(
       pick_label: `${team.abbrev} ML`,
       pick_team: team.name,
       pick_side: homeWins ? 'HOME' : 'AWAY',
-      vegas_line: homeWins ? homeMl : awayMl,
+      vegas_line: price,
+      // Same shape a real picks row uses: probability in model_number, American
+      // price in vegas_price, so the synthesized card gets the same edge bar.
+      model_number: fgHomeWinProb === null ? null : homeWins ? fgHomeWinProb : 1 - fgHomeWinProb,
+      vegas_price: price,
       has_play: false,
       display_only: true,
     });
@@ -754,12 +788,38 @@ function resolveRowGap(row: FootballDryRunPick | undefined): number | null {
   if (!row) return null;
   const model = toNum(row.model_line) ?? toNum(row.model_number);
   const vegas = toNum(row.vegas_line);
-  // Moneyline rows store win-prob in model_number and price elsewhere — don't
-  // subtract a probability from an American-odds vegas_line if one sneaks in.
+  // Moneyline rows store win-prob in model_number and the price in vegas_price —
+  // never subtract a probability from an American-odds vegas_line.
   const group = normalizeCardGroup(row.card_group);
-  if (group === 'moneyline' || group === 'h1_ml') return toNum(row.edge);
+  if (group === 'moneyline' || group === 'h1_ml') {
+    const ml = moneylineRowOutcome(row);
+    // Percentage POINTS of win probability, not points of line. The card that
+    // reads this must say so — see `leadGapKind` on cfbDryRunPickHeadline.
+    return ml ? ml.edge : toNum(row.edge);
+  }
   if (model !== null && vegas !== null) return model - vegas;
   return toNum(row.edge);
+}
+
+/**
+ * The moneyline row as a price-vs-probability comparison, or null when the row
+ * carries no usable price (Weeks 1-3 synthesis without a win probability, or a
+ * market the pipeline priced without publishing the close).
+ *
+ * `vegas_price` is preferred over `best_odds` for the same reason the spread bar
+ * plots `vegas_line`: the card's headline is written against the CLOSE, and a
+ * best-shopped price would make the bar and the sentence quote different edges.
+ */
+function moneylineRowOutcome(row: FootballDryRunPick) {
+  const price = toNum(row.vegas_price) ?? toNum(row.best_odds);
+  const probability = toNum(row.model_number);
+  if (price === null || price === 0) return null;
+  if (probability === null || probability <= 0 || probability >= 1) return null;
+  return {
+    price,
+    probability,
+    edge: probability * 100 - breakEvenPercent(price),
+  };
 }
 
 function convictionKey(conviction?: string | null, isMammoth?: boolean | null): string | null {
@@ -800,12 +860,13 @@ function ConvictionChip({
  */
 export function FootballDryRunSummarySection({
   game,
-  sport: _sport,
+  sport,
 }: {
   game: GameFeedItem<FootballDryRunRaw>;
   sport: FootballSport;
 }) {
   const prediction = game.raw;
+  const scale = EDGE_SCALE_BY_SPORT[sport];
   const convictionSummary = normalizeConvictionSummary(prediction.conviction_summary);
 
   const isMammothCard = Boolean(
@@ -845,6 +906,13 @@ export function FootballDryRunSummarySection({
   const spreadGap =
     modelHomeSpread !== null && vegasHomeSpread !== null ? modelHomeSpread - vegasHomeSpread : null;
   const totalGap = modelTotal !== null && vegasTotal !== null ? modelTotal - vegasTotal : null;
+
+  // A chart needs BOTH sides of the comparison; a lone number falls back to the
+  // compact table row so the book's figure is still on the card.
+  const spreadCharted = modelHomeSpread !== null && vegasHomeSpread !== null;
+  const totalCharted = modelTotal !== null && vegasTotal !== null;
+  const spreadRowNeeded = !spreadCharted && (modelHomeSpread !== null || vegasHomeSpread !== null);
+  const totalRowNeeded = !totalCharted && (modelTotal !== null || vegasTotal !== null);
 
   return (
     <WidgetCard
@@ -916,15 +984,54 @@ export function FootballDryRunSummarySection({
           />
         )}
 
-        {(modelHomeSpread !== null || modelTotal !== null) && (
+        {/* Both charts are drawn from the HOME team's perspective, the same frame
+            the projected score above them uses. The spread bar plots MARGIN, so
+            the home spread is negated exactly once: a -6.5 home line is the home
+            team needing to win by 7. Its cushion is vegas − model, which is
+            −spreadGap — the magnitude the headline quotes. */}
+        {spreadCharted && (
+          <div className="flex flex-col gap-2 border-t border-black/5 pt-2.5 dark:border-white/10">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+              Spread — {game.homeTeam.abbrev} to cover
+            </span>
+            <SpreadCoverBar
+              line={vegasHomeSpread as number}
+              modelMargin={-(modelHomeSpread as number)}
+              scale={scale}
+              pickAbbrev={game.homeTeam.abbrev}
+              opponentAbbrev={game.awayTeam.abbrev}
+            />
+          </div>
+        )}
+
+        {totalCharted && (
+          <div className="flex flex-col gap-2 border-t border-black/5 pt-2.5 dark:border-white/10">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+              Total
+            </span>
+            <ModelEdgeRail
+              market={vegasTotal as number}
+              model={modelTotal as number}
+              scale={scale}
+            />
+          </div>
+        )}
+
+        {/* One number posted without its counterpart can't be plotted against
+            anything, so it falls back to the compact table row. */}
+        {(spreadRowNeeded || totalRowNeeded) && (
           <div className="border-t border-black/5 pt-2 dark:border-white/10">
             <MarketGapHeader />
-            <MarketGapRow
-              label={`Spread (${game.homeTeam.abbrev})`}
-              model={modelHomeSpread}
-              vegas={vegasHomeSpread}
-            />
-            <MarketGapRow label="Total" model={modelTotal} vegas={vegasTotal} />
+            {spreadRowNeeded && (
+              <MarketGapRow
+                label={`Spread (${game.homeTeam.abbrev})`}
+                model={modelHomeSpread}
+                vegas={vegasHomeSpread}
+              />
+            )}
+            {totalRowNeeded && (
+              <MarketGapRow label="Total" model={modelTotal} vegas={vegasTotal} />
+            )}
           </div>
         )}
 
@@ -1024,6 +1131,40 @@ export function FootballDryRunPicksSection({
   const [teamTrends, setTeamTrends] = useState<Record<string, FootballTeamTrend>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bookOdds, setBookOdds] = useState<SportsbookGameOdds | null>(null);
+  const { selectedKeys } = useSportsbookPreference();
+
+  useEffect(() => {
+    if (!gameId) return;
+    let cancelled = false;
+    const kickoff = String(
+      (prediction as { kickoff?: string | null } | undefined)?.kickoff || game.timeSortKey || '',
+    );
+    const fetchOdds =
+      sport === 'nfl'
+        ? fetchNflSportsbookOdds({
+            gameId,
+            awayTeam: game.awayTeam.name,
+            homeTeam: game.homeTeam.name,
+            kickoff,
+          })
+        : fetchCfbSportsbookOdds({
+            gameId,
+            awayTeam: game.awayTeam.name,
+            homeTeam: game.homeTeam.name,
+            kickoff,
+          });
+    fetchOdds
+      .then((odds) => {
+        if (!cancelled) setBookOdds(odds);
+      })
+      .catch(() => {
+        if (!cancelled) setBookOdds(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId, sport, game.awayTeam.name, game.homeTeam.name, game.timeSortKey, prediction]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -1275,6 +1416,8 @@ export function FootballDryRunPicksSection({
             home={game.homeTeam}
             trendsByKey={teamTrends}
             sport={sport}
+            bookOdds={bookOdds}
+            selectedBookKeys={selectedKeys}
           />
         );
       })}
@@ -1303,6 +1446,8 @@ function PredictionGroupCard({
   home,
   trendsByKey,
   sport,
+  bookOdds,
+  selectedBookKeys,
 }: {
   group: string;
   rows: FootballDryRunPick[];
@@ -1319,6 +1464,8 @@ function PredictionGroupCard({
   home: TeamRef;
   trendsByKey: Record<string, FootballTeamTrend>;
   sport: FootballSport;
+  bookOdds: SportsbookGameOdds | null;
+  selectedBookKeys: Set<string>;
 }) {
   const Icon = group.includes('spread') ? Target
     : group.includes('total') ? BarChart3
@@ -1350,6 +1497,8 @@ function PredictionGroupCard({
           leadPickLabel: lead?.pick_label ?? null,
           leadConvictionLabel: leadConvictionKey ? CONVICTION_LABEL[leadConvictionKey] : null,
           leadGap,
+          // Moneyline gaps are percentage points of win rate, not points of line.
+          leadGapKind: group === 'moneyline' || group === 'h1_ml' ? 'winRate' : 'line',
           earlyWeek,
         }) ?? undefined
       }
@@ -1375,6 +1524,8 @@ function PredictionGroupCard({
             lookupFlags={lookupFlags}
             away={away}
             home={home}
+            bookOdds={bookOdds}
+            selectedBookKeys={selectedBookKeys}
           />
         ))}
       </div>
@@ -1399,6 +1550,8 @@ function PickRow({
   lookupFlags,
   away,
   home,
+  bookOdds,
+  selectedBookKeys,
 }: {
   row: FootballDryRunPick;
   sport: FootballSport;
@@ -1409,6 +1562,8 @@ function PickRow({
   lookupFlags?: DryRunFlag[];
   away: TeamRef;
   home: TeamRef;
+  bookOdds: SportsbookGameOdds | null;
+  selectedBookKeys: Set<string>;
 }) {
   // Prefer picks.signal_keys (joined to defs). When empty — common on
   // projection-only NFL cards — fall back to matching game-level flags so
@@ -1425,11 +1580,28 @@ function PickRow({
   const vegas = toNum(row.vegas_line);
   const gap = resolveRowGap(row);
   const group = normalizeCardGroup(row.card_group);
-  // Native sheets hide model-vs-Vegas for moneylines (odds ≠ a line).
-  const showGapRow = group !== 'moneyline' && group !== 'h1_ml';
+  const scale = EDGE_SCALE_BY_SPORT[sport];
+
+  // Which visual this market gets. All three plot the CLOSE (`vegas_line` /
+  // `vegas_price`), never `best_line`: the card's headline is written against
+  // the close, and shopping gain would make the chart and the sentence quote two
+  // different edges on one card. The best-shopped number keeps its own slot in
+  // the book chip, labelled as a price rather than as the market.
+  const isSpreadChart = group === 'spread' || group === 'h1_spread';
+  const isTotalChart = group === 'total' || group === 'h1_total';
+  const isMoneyline = group === 'moneyline' || group === 'h1_ml';
+  const moneyline = isMoneyline ? moneylineRowOutcome(row) : null;
+  const chartRendered =
+    ((isSpreadChart || isTotalChart) && model !== null && vegas !== null) || moneyline !== null;
+  // Team totals sit around 24 points where a game total sits at 45, and nothing
+  // upstream calibrates them, so they keep the compact table row rather than
+  // borrowing the game-total bands and calling every 3-point gap a lean. A
+  // spread/total row missing one of its two numbers lands here too.
+  const showGapRow = !isMoneyline && !chartRendered;
   // Team totals are two O/U rows — logo + abbrev make home vs away obvious
   // (native NFL/CFB sheet parity via CollegeTeamMark / game feed TeamRef logos).
   const pickTeam = group === 'team_total' ? resolvePickTeam(row, away, home) : null;
+  const spreadTeam = isSpreadChart ? resolvePickTeam(row, away, home) : null;
   const pickLabel =
     pickTeam != null
       ? teamTotalDisplayLabel(row, pickTeam)
@@ -1457,32 +1629,83 @@ function PickRow({
           {!row.display_only && (
             <ConvictionChip conviction={row.conviction} isMammoth={row.is_mammoth} />
           )}
-          {(row.best_book_logo || row.best_book_name || row.best_book) && (
-            <Tooltip
-              content={`Best available price: ${row.best_book_name || row.best_book || 'book'}`}
-              size="sm"
-              delay={200}
-            >
-              <span className="flex items-center gap-1.5">
-                <SportsbookMark
-                  logo={row.best_book_logo}
-                  bookKey={row.best_book}
-                  bookName={row.best_book_name}
+          {(() => {
+            const market = marketFromFootballPick(row.card_group, row.pick_side, sport);
+            const board = market && bookOdds ? quotesForMarket(bookOdds, market) : null;
+            if (board && board.quotes.length > 0) {
+              return (
+                <BestBookChip
+                  quotes={board}
+                  selectedBookKeys={selectedBookKeys}
+                  marketTitle={CARD_LABELS[group] || group}
+                  selectionTitle={pickLabel}
+                  formatLine={(line) =>
+                    isSpreadChart ? formatSignedLine(line) : formatNumber(line)
+                  }
                 />
-                <span className="text-[12px] font-bold tabular-nums text-foreground">
-                  {formatNumber(row.best_line)}
-                  {row.best_odds ? ` (${row.best_odds})` : ''}
-                </span>
-              </span>
-            </Tooltip>
-          )}
+              );
+            }
+            if (row.best_book_logo || row.best_book_name || row.best_book) {
+              return (
+                <Tooltip
+                  content={`Best available price: ${row.best_book_name || row.best_book || 'book'}`}
+                  size="sm"
+                  delay={200}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <SportsbookMark
+                      logo={row.best_book_logo}
+                      bookKey={row.best_book}
+                      bookName={row.best_book_name}
+                    />
+                    <span className="text-[12px] font-bold tabular-nums text-foreground">
+                      {formatNumber(row.best_line)}
+                      {row.best_odds ? ` (${row.best_odds})` : ''}
+                    </span>
+                  </span>
+                </Tooltip>
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
 
+      {/* `model_line` is the pick team's fair SPREAD, so it is negated exactly
+          once, here, to become the margin the bar plots. */}
+      {isSpreadChart && model !== null && vegas !== null && (
+        <SpreadCoverBar
+          line={vegas}
+          modelMargin={-model}
+          scale={scale}
+          pickAbbrev={spreadTeam?.abbrev}
+          opponentAbbrev={spreadTeam ? (spreadTeam === home ? away : home).abbrev : undefined}
+        />
+      )}
+
+      {isTotalChart && model !== null && vegas !== null && (
+        <ModelEdgeRail market={vegas} model={model} scale={scale} />
+      )}
+
+      {/* A price IS a required win rate, so the moneyline card can ask the same
+          question as the spread card. `model_number` is a 0-1 probability on
+          these rows, never a line. */}
+      {moneyline && (
+        <MoneylineEdgeBar
+          price={moneyline.price}
+          modelProbability={moneyline.probability}
+          scale={scale}
+          teamAbbrev={resolvePickTeam(row, away, home)?.abbrev}
+        />
+      )}
+
+      {/* Whatever is left — team totals, and any market whose chart inputs are
+          incomplete — keeps the compact table row. Captions repeat per pick so a
+          row is never three unlabelled numbers mid-card. Moneylines are excluded
+          outright: `vegas_line` is a line and `model_number` a probability, so
+          subtracting them would print a meaningless gap. */}
       {showGapRow && (model !== null || vegas !== null) && (
         <div>
-          {/* Captions repeat per pick rather than once per card so a row is never
-              three unlabelled numbers when you scroll into the middle of a card. */}
           <MarketGapHeader />
           <MarketGapRow label={gapLabel} model={model} vegas={vegas} gap={gap} format={formatNumber} />
         </div>
@@ -1741,26 +1964,21 @@ function ResolvedSignalGroups({
 
   if (resolved.length === 0) return null;
 
+  // Supporting first, then contradicting — a reader scans for what backs the
+  // pick before what argues with it, and the amber pills group at the end.
+  const ordered = [...supporting, ...contradicting];
+
   return (
     <div className="flex flex-col gap-2.5 border-t border-black/5 pt-2 dark:border-white/10">
-      {supporting.length > 0 && (
-        <SignalChipGroup
-          title="Supports this pick"
-          signals={supporting}
-          muted={false}
-          selectedKey={selectedKey}
-          onSelect={(key) => setSelectedKey((prev) => (prev === key ? null : key))}
-        />
-      )}
-      {contradicting.length > 0 && (
-        <SignalChipGroup
-          title="Contradicts this pick"
-          signals={contradicting}
-          muted
-          selectedKey={selectedKey}
-          onSelect={(key) => setSelectedKey((prev) => (prev === key ? null : key))}
-        />
-      )}
+      <PickSignalsSection
+        signals={ordered.map((signal) => ({
+          key: signal.key,
+          title: signal.displayName,
+          contradicts: signal.stance === 'counter',
+        }))}
+        selectedKey={selectedKey}
+        onSelect={(key) => setSelectedKey((prev) => (prev === key ? null : key))}
+      />
       {selected && (
         <SignalDetail
           signalKey={selected.key}
@@ -1830,10 +2048,14 @@ function GameLevelSignalList({
 
   return (
     <div className="flex flex-col gap-2.5">
-      <SignalChipGroup
+      <PickSignalsSection
         title="Signals on this game"
-        signals={resolved}
-        muted={false}
+        signals={resolved.map((signal) => ({
+          key: signal.key,
+          title: signal.displayName,
+          // No pick to argue with at game level, so nothing is a counter.
+          contradicts: false,
+        }))}
         selectedKey={selectedKey}
         onSelect={(key) => setSelectedKey((prev) => (prev === key ? null : key))}
       />
@@ -1849,72 +2071,6 @@ function GameLevelSignalList({
           betOU={selected.betOU}
         />
       )}
-    </div>
-  );
-}
-
-function SignalChipGroup({
-  title,
-  signals,
-  muted,
-  selectedKey,
-  onSelect,
-}: {
-  title: string;
-  signals: ResolvedSignal[];
-  muted: boolean;
-  selectedKey: string | null;
-  onSelect: (key: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span
-        className={cn(
-          'text-[9px] font-black uppercase tracking-wide',
-          muted ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
-        )}
-      >
-        {title}
-      </span>
-      <div className="flex flex-wrap gap-1.5">
-        {signals.map((signal) => {
-          const active = selectedKey === signal.key;
-          return (
-            <button
-              key={signal.key}
-              type="button"
-              onClick={() => onSelect(signal.key)}
-              aria-expanded={active}
-              className={cn(
-                'flex max-w-full items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-left transition-colors',
-                muted
-                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200'
-                  : 'border-blue-500/40 bg-blue-500/10 text-blue-800 dark:text-blue-200',
-                active && (muted ? 'ring-1 ring-amber-500/60' : 'ring-1 ring-blue-500/60'),
-              )}
-            >
-              <Info className="h-3 w-3 shrink-0 opacity-80" aria-hidden />
-              <span className="min-w-0">
-                <span className="block truncate text-[11px] font-black leading-tight">
-                  {signal.displayName}
-                </span>
-                {signal.action && (
-                  <span className="block truncate text-[8px] font-bold leading-tight opacity-70">
-                    {signal.action}
-                  </span>
-                )}
-              </span>
-              <ChevronRight
-                className={cn(
-                  'ml-0.5 h-3 w-3 shrink-0 opacity-60 transition-transform',
-                  active && 'rotate-90',
-                )}
-                aria-hidden
-              />
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -1941,7 +2097,6 @@ function SignalDetail({
   betLogo?: string | null;
   betOU?: 'over' | 'under';
 }) {
-  const seasonRecord = formatSignalSeasonRecord(performance);
   const directionText =
     direction?.trim() ||
     (signal?.bet_direction && !isGenericBetDirection(signal.bet_direction)
@@ -1983,32 +2138,13 @@ function SignalDetail({
         </p>
       )}
 
-      {/* Two records, two columns — the backtest and the live season are
-          different claims and reading them stacked invited conflating them. */}
-      <div className="mt-2 grid grid-cols-2 gap-3">
-        <div>
-          <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Backtest
-          </div>
-          <div className="text-sm font-bold tabular-nums text-foreground">
-            {signal?.typical_hit || '—'}
-          </div>
-          <div className="text-[10px] leading-snug text-muted-foreground/80">Multi-season</div>
-        </div>
-        <div>
-          <div className="text-[9px] font-bold uppercase tracking-wider text-primary">This season</div>
-          <div
-            className={cn(
-              'text-sm font-bold tabular-nums',
-              signalSeasonRecordClassName(seasonRecord.tone),
-              seasonRecord.isSmallSample && 'opacity-90',
-            )}
-          >
-            {seasonRecord.detail}
-          </div>
-          <div className="text-[10px] leading-snug text-muted-foreground/80">Live graded</div>
-        </div>
-      </div>
+      {/* Both records as rates against the break-even they have to clear. The
+          two text columns left the reader to decide whether 53% was good. */}
+      <SignalBacktestChart
+        className="mt-3"
+        backtestRaw={signal?.typical_hit}
+        performance={performance}
+      />
     </div>
   );
 }

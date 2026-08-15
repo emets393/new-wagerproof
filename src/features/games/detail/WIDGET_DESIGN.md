@@ -56,6 +56,14 @@ looking at and why it matters. Avoid internal vocabulary — "Tier", not "bucket
 - A rate that has a threshold → **a meter with the threshold marked**
   (`HitRateMeter` ticks break-even at 52.4%; below it a "winning" record still
   loses money).
+- Model vs market on a spread, total or moneyline → **an edge chart from
+  `charts/`** (`SpreadCoverBar`, `ModelEdgeRail`, `MoneylineEdgeBar`). One
+  grammar across all five sports: the threshold you have to beat, where the model
+  lands, the gap highlighted. Pass the sport's `EdgeScale` — MLB runs and NBA
+  points do not band the same way. See `charts/README.md`.
+- A signal's hit rate → **`signals/SignalBacktestChart`**, the same
+  threshold-and-marker grammar against the 52.4% break-even. Never print a
+  record as a bullet-joined line (`12-8 • 60.0% • +3.2u`).
 - Signed values across rows → **diverging bars from a center zero line**
   (`TrendStatRow`), so red/green reads before any number does.
 - Never emit a bullet-joined sentence of stats
@@ -125,3 +133,14 @@ Tailwind 3. Its plugin does *not* redefine `primary`/`secondary`/`foreground`/
   last span child — a trailing `<span>` badge steals truncation from the title.
 - Typecheck with `npx tsc --noEmit -p tsconfig.app.json`. The root `tsconfig.json`
   has `"files": []` and checks **nothing**, always exiting 0.
+
+## 13. Preferred sportsbook, not a hidden line
+
+Game-detail cards shop a live per-book board (`nfl_historical_odds` /
+`ncaaf_odds_history` / `mlb_odds_snapshots` / `nfl_player_props`) and lead with
+the user's books from Settings → My Sportsbooks (`sportsbook.preferred`). Empty
+preference = best number anywhere. A better number at a book the user does not
+hold still appears on the board, flagged BEST — never suppress it. NFL/CFB
+charts stay on the close (`vegas_line`); only MLB feeds the preferred book's
+price/line into the bar so the chip and the chart cannot disagree. Fallback is
+the pick row's own `best_book` when the capture has no rows.

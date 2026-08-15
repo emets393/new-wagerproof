@@ -1,12 +1,11 @@
 import { ArrowDown, ArrowUp, CircleDollarSign, Sigma, TrendingUp } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
-import { cn } from '@/lib/utils';
-import { getEdgeExplanation, getEdgeInfo } from '../../edgeExplanations';
+import { getEdgeInfo } from '../../edgeExplanations';
+import { ModelEdgeRail, ModelVsMarketRow, NBA_EDGE_SCALE, SpreadCoverBar } from '../../charts';
 import {
   CARD_STACK,
   fmt1,
   fmtSigned1,
-  ModelVsMarket,
   OverUnderPickRow,
   Recommendation,
   round1,
@@ -86,21 +85,17 @@ export function NbaSpreadSection({ game }: NbaPredictionsSectionProps) {
           pickIsHome={pickIsHome}
         />
 
+        {/* Margin, not lines: `modelLine` is the pick team's fair SPREAD, so it is
+            negated exactly once, here, to become the margin the bar plots. The
+            bar's cushion is marketLine − modelLine, the same subtraction that
+            produced `edgePts` above (rule 10). */}
         {modelLine !== null && marketLine !== null && (
-          <ModelVsMarket
-            model={fmtSigned1(modelLine)}
-            market={fmtSigned1(marketLine)}
-            gap={edgePts}
-            unit="pts"
-            tone="primary"
-            lean={
-              <>
-                Model makes{' '}
-                <span className="font-bold text-foreground">{pickTeam.abbrev}</span>{' '}
-                <span className="font-bold text-foreground">{edgePts.toFixed(1)} points</span>{' '}
-                stronger than the book does
-              </>
-            }
+          <SpreadCoverBar
+            line={marketLine}
+            modelMargin={-modelLine}
+            scale={NBA_EDGE_SCALE}
+            pickAbbrev={pickTeam.abbrev}
+            opponentAbbrev={(pickIsHome ? game.awayTeam : game.homeTeam).abbrev}
           />
         )}
       </div>
@@ -127,6 +122,8 @@ export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
   const isOver = overLineDiff > 0;
   const gap = derivedGap ?? round1(overLineDiff);
   const magnitude = Math.abs(gap);
+  // A 0.0 gap has no direction to contradict, so it still gets the rail.
+  const railAgreesWithPick = gap === 0 || gap > 0 === isOver;
 
   return (
     <WidgetCard
@@ -148,34 +145,37 @@ export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
 
         <OverUnderPickRow isOver={isOver} />
 
-        {modelTotal !== null && marketTotal !== null && (
-          <ModelVsMarket
-            model={fmt1(modelTotal)}
-            market={fmt1(marketTotal)}
-            gap={gap}
-            unit="pts"
-            tone={isOver ? 'over' : 'under'}
-            lean={
-              <>
-                Model projects{' '}
-                <span className="font-bold text-foreground">
-                  {magnitude.toFixed(1)} points {isOver ? 'more' : 'fewer'}
-                </span>{' '}
-                than Vegas &rarr; leans{' '}
-                <span
-                  className={cn(
-                    'font-bold',
-                    isOver
-                      ? 'text-emerald-600 dark:text-emerald-300'
-                      : 'text-blue-600 dark:text-blue-300',
-                  )}
-                >
+        {/* The rail names the lean from sign(model − market). `isOver` comes from
+            the raw delta instead, so a stale `over_line` can make them disagree —
+            in that case fall back to the plain row rather than print "Over Lean"
+            under an UNDER recommendation. */}
+        {modelTotal !== null && marketTotal !== null &&
+          (railAgreesWithPick ? (
+            <ModelEdgeRail
+              market={marketTotal}
+              model={modelTotal}
+              scale={NBA_EDGE_SCALE}
+              format={(v) => fmt1(v)}
+            />
+          ) : (
+            <ModelVsMarketRow
+              model={fmt1(modelTotal)}
+              market={fmt1(marketTotal)}
+              gapDisplay={`${gap > 0 ? '+' : ''}${gap.toFixed(1)}`}
+              gapUnit="pts"
+              tone={isOver ? 'over' : 'under'}
+              lean={
+                <>
+                  Model projects{' '}
+                  <span className="font-bold text-foreground">
+                    {magnitude.toFixed(1)} points {isOver ? 'more' : 'fewer'}
+                  </span>{' '}
+                  than the posted total, but the model&apos;s own direction column says{' '}
                   {isOver ? 'OVER' : 'UNDER'}
-                </span>
-              </>
-            }
-          />
-        )}
+                </>
+              }
+            />
+          ))}
       </div>
     </WidgetCard>
   );

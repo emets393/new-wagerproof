@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import WagerproofDesign
+import WagerproofModels
 import WagerproofServices
 import WagerproofStores
 
@@ -30,6 +31,11 @@ import WagerproofStores
 ///   relies on the system back button to pop. It hides the tab bar while open
 ///   so it reads as a dedicated page rather than a tab-level surface.
 struct SettingsView: View {
+    /// Empty string = "best available"; `@AppStorage` can't hold a nil String.
+    @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKey: String = ""
+    /// Prefetched circle-cropped book logos for the preferred-sportsbook menu.
+    private var logoCache = SportsbookLogoCache.shared
+
     @Environment(AuthStore.self) private var auth
     @Environment(SettingsStore.self) private var settings
     @Environment(RevenueCatStore.self) private var revenueCat
@@ -248,6 +254,8 @@ struct SettingsView: View {
             // See ThemeStore (default `.dark`).
             pushNotificationsRow
             rowDivider
+            preferredSportsbookRow
+            rowDivider
             ProfileRow(
                 icon: "square.grid.2x2",
                 title: "iOS Home Screen Widget",
@@ -255,6 +263,103 @@ struct SettingsView: View {
                 action: { modal = .iosWidget }
             )
         }
+    }
+
+    /// Pins one book across every card that quotes a price. Bespoke rather than
+    /// a `ProfileRow` because it carries an inline `Menu` instead of a tap
+    /// action.
+    ///
+    /// The pinned book is what cards LEAD with — it never suppresses a better
+    /// number, which still shows in the book board flagged BEST. Hiding a better
+    /// line would quietly cost the user money.
+    @ViewBuilder
+    private var preferredSportsbookRow: some View {
+        HStack(spacing: Spacing.lg) {
+            Image(systemName: "building.columns")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundStyle(Color.appTextSecondary)
+                .frame(width: Self.iconColumnWidth)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("My Sportsbooks")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(Color.appTextPrimary)
+                Text(preferredBookKey.isEmpty
+                     ? "Showing whichever book has the best number"
+                     : "\(SportsbookCatalog.name(for: preferredBookKey)) shown first on every card")
+                    .font(AppFont.caption)
+                    .foregroundStyle(Color.appTextMuted)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: Spacing.sm)
+            Menu {
+                Button {
+                    preferredBookKey = ""
+                } label: {
+                    Label("All books", systemImage: selectedBooks.isEmpty ? "checkmark" : "")
+                }
+                Divider()
+                ForEach(SportsbookCatalog.selectable, id: \.self) { key in
+                    Button {
+                        toggleBook(key)
+                    } label: {
+                        // `Label(_:image:)` with a prefetched UIImage — a menu
+                        // is a UIMenu under the hood and resolves its icon once,
+                        // so SportsbookLogoView's async load never lands here.
+                        if let logo = logoCache.image(for: key) {
+                            Label {
+                                Text(bookMenuTitle(key))
+                            } icon: {
+                                Image(uiImage: logo).renderingMode(.original)
+                            }
+                        } else {
+                            Label(
+                                bookMenuTitle(key),
+                                systemImage: selectedBooks.contains(key) ? "checkmark" : ""
+                            )
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(menuButtonLabel)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.appTextSecondary)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.appTextMuted)
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, 14)
+        .task { logoCache.prefetch(SportsbookCatalog.selectable) }
+    }
+
+    private var selectedBooks: Set<String> { SportsbookPreference.decode(preferredBookKey) }
+
+    private var menuButtonLabel: String {
+        switch selectedBooks.count {
+        case 0: return "All"
+        case 1: return SportsbookCatalog.name(for: selectedBooks.first!)
+        default: return "\(selectedBooks.count) books"
+        }
+    }
+
+    /// A SwiftUI `Menu` closes on every tap, so multi-select is one book per
+    /// open. Acceptable for a set-once preference, and it keeps the row compact
+    /// — a dedicated picker screen for ten checkboxes would be heavier than the
+    /// setting deserves.
+    private func toggleBook(_ key: String) {
+        var next = selectedBooks
+        if next.contains(key) { next.remove(key) } else { next.insert(key) }
+        preferredBookKey = SportsbookPreference.encode(next)
+    }
+
+    /// The tick can't be a separate icon once the row carries a logo — a menu
+    /// item gets ONE image — so selection is marked in the title.
+    private func bookMenuTitle(_ key: String) -> String {
+        let name = SportsbookCatalog.name(for: key)
+        return selectedBooks.contains(key) ? "\(name)  ✓" : name
     }
 
     // MARK: - WagerProof AI connector
