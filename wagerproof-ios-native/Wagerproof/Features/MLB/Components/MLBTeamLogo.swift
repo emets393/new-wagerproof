@@ -2,7 +2,7 @@ import SwiftUI
 import WagerproofDesign
 import WagerproofModels
 
-/// Team logo with an image-or-fallback gradient circle + initials. Mirrors
+/// Team logo on a team-tinted disc, with an abbreviation fallback. Mirrors
 /// RN `TeamLogo` in MLBGameCard.tsx. Used by the MLB bottom sheet, the
 /// betting trends sheet, and the trends situation section — extracted out
 /// of `MLBGameCard.swift` when the home feed switched to the shared
@@ -18,21 +18,17 @@ struct MLBTeamLogo: View {
     var body: some View {
         let pair = MLBTeams.colors(for: name.isEmpty ? abbrev : name)
         let primary = Color(hex: Int(pair.primary))
-        let secondary = Color(hex: Int(pair.secondary))
-        // Same faint contrast lift as the game-list avatars: logos are usually
-        // the team primary, so a same-color logo blends into the team-color
-        // disc. When it would, drop a very faint opposite-luminance wash behind
-        // the logo — just enough to separate it, keeping the team color visible.
+        // Disc is a neutral surface washed with the team's PRIMARY only. A
+        // primary→secondary gradient filled half the disc with the team's
+        // secondary (STL navy behind a red logo), which reads as another
+        // team's background sitting behind the logo.
         let plate = logoContrastPlate(for: primary)
 
         ZStack {
-            LinearGradient(
-                colors: [primary, secondary],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .clipShape(Circle())
-            .overlay(Circle().strokeBorder(primary, lineWidth: 2))
+            Circle()
+                .fill(Color.appSurfaceElevated)
+                .overlay(Circle().fill(primary).opacity(colorScheme == .dark ? 0.30 : 0.22))
+                .overlay(Circle().strokeBorder(primary, lineWidth: 2))
 
             if let urlString = logoUrl, let url = URL(string: urlString) {
                 CachedAsyncImage(url: url) { phase in
@@ -47,7 +43,7 @@ struct MLBTeamLogo: View {
                     default:
                         Text(abbrev)
                             .font(.system(size: size * 0.32, weight: .bold))
-                            .foregroundStyle(contrastingText(primary: pair.primary))
+                            .foregroundStyle(Color.appTextPrimary)
                     }
                 }
                 .frame(width: size, height: size)
@@ -55,31 +51,19 @@ struct MLBTeamLogo: View {
             } else {
                 Text(abbrev)
                     .font(.system(size: size * 0.32, weight: .bold))
-                    .foregroundStyle(contrastingText(primary: pair.primary))
+                    .foregroundStyle(Color.appTextPrimary)
             }
         }
         .frame(width: size, height: size)
     }
 
-    /// Faint plate to separate a same-color logo from the team-color disc.
-    /// Matches `GameRowCard`'s avatar treatment (shares `Color.relativeLuminance`).
+    /// Plate to separate a same-color logo from the disc. Only needed in light
+    /// mode: a light team primary on the light surface washes the logo out. In
+    /// dark mode the disc is already dark, and a lightening plate there is what
+    /// produced the muddy off-team blob behind the logo.
     private func logoContrastPlate(for primary: Color) -> Color? {
-        let lum = primary.relativeLuminance
-        switch colorScheme {
-        case .dark:
-            return lum < 0.45 ? Color(white: 0.78).opacity(0.15) : nil
-        default:
-            return lum > 0.6 ? Color.black.opacity(0.55) : nil
-        }
-    }
-
-    /// Mirrors RN `getContrastingTextColor` — luminance threshold of 0.5.
-    private func contrastingText(primary: UInt32) -> Color {
-        let r = Double((primary >> 16) & 0xFF) / 255
-        let g = Double((primary >> 8) & 0xFF) / 255
-        let b = Double(primary & 0xFF) / 255
-        let lum = 0.299 * r + 0.587 * g + 0.114 * b
-        return lum > 0.5 ? .black : .white
+        guard colorScheme != .dark else { return nil }
+        return primary.relativeLuminance > 0.6 ? Color.black.opacity(0.55) : nil
     }
 }
 

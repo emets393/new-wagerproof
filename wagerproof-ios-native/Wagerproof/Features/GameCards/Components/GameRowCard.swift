@@ -181,15 +181,37 @@ struct GameRowCard: View {
     /// center → pixel-concentric with the rounded corner.
     @ViewBuilder
     private var diagonalLogos: some View {
-        LiquidGlassMergeContainer(spacing: BD.glassMerge) {
-            ZStack {
-                avatar(for: model.away, isLeading: true, size: BD.logoSize)
-                    .offset(x: -BD.logoXOff / 2, y: -BD.rowPitch / 2)
-                avatar(for: model.home, isLeading: false, size: BD.logoSize)
-                    .offset(x: BD.logoXOff / 2, y: BD.rowPitch / 2)
+        // Emit the ML-predicted side LAST so it sits on top. Draw order (not
+        // just `zIndex`) matters here: inside a glass merge container the two
+        // discs composite together, and the pick has to win that overlap.
+        //
+        // NOT inside a glass merge container: merging unions both discs into a
+        // single glass layer, so the opponent's tint washes through the disc on
+        // top no matter the draw order — it reads as the other team's badge
+        // sitting behind the pick.
+        let awayIsPick = isPickSide(model.away)
+        ZStack {
+            if awayIsPick {
+                diagonalHomeAvatar
+                diagonalAwayAvatar
+            } else {
+                diagonalAwayAvatar
+                diagonalHomeAvatar
             }
         }
         .frame(width: BD.logoColW, height: BD.logoSize + BD.rowPitch)
+    }
+
+    @ViewBuilder
+    private var diagonalAwayAvatar: some View {
+        avatar(for: model.away, isLeading: true, size: BD.logoSize)
+            .offset(x: -BD.logoXOff / 2, y: -BD.rowPitch / 2)
+    }
+
+    @ViewBuilder
+    private var diagonalHomeAvatar: some View {
+        avatar(for: model.home, isLeading: false, size: BD.logoSize)
+            .offset(x: BD.logoXOff / 2, y: BD.rowPitch / 2)
     }
 
     @ViewBuilder
@@ -243,10 +265,31 @@ struct GameRowCard: View {
         // Liquid Glass disc behind the logo (iOS 26), tinted with the team
         // color; gradient-disc fallback on older OSes.
         .teamGlassDisc(primary: primary, secondary: secondary, tint: BD.glassTint)
+        // Opaque plate under the glass. Without it the disc on top is see-
+        // through, so the neighbour's team color bleeds into it (the pick's
+        // disc was showing the opponent's tint behind the logo).
+        .background(Circle().fill(Color.appSurfaceElevated))
         // One soft team-colored halo for depth. Kept light so it doesn't muddy
         // the glass or the merge seam between the two discs.
         .shadow(color: primary.opacity(0.22), radius: 5, x: 0, y: 1)
-        .zIndex(isLeading ? 0 : 1)
+        .zIndex(logoStackZIndex(for: side, isLeading: isLeading))
+    }
+
+    /// True when this side is the one the ML edge favors.
+    private func isPickSide(_ side: TeamSide) -> Bool {
+        guard let pickAbbr = model.mlEdge?.abbr else { return false }
+        return side.abbr.caseInsensitiveCompare(pickAbbr) == .orderedSame
+    }
+
+    /// Put the ML-predicted team's logo on top of the overlap. Without a
+    /// prediction, keep the historical default (home / trailing on top).
+    /// Otherwise the top logo often reads as the opponent while the ML pill
+    /// correctly shows the pick's abbr (especially noticeable on MLB).
+    private func logoStackZIndex(for side: TeamSide, isLeading: Bool) -> Double {
+        if model.mlEdge?.abbr != nil {
+            return isPickSide(side) ? 1 : 0
+        }
+        return isLeading ? 0 : 1
     }
 
     /// A contrasting plate to drop behind a same-color logo. Logos are usually
