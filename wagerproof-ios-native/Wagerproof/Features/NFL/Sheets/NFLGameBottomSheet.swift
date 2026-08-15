@@ -71,7 +71,7 @@ struct NFLGameBottomSheet: View {
     var body: some View {
         CollapsingWidgetScroll(
             heroMaxHeight: hasWeather ? 246 : 206,
-            heroMinHeight: 122,
+            heroMinHeight: 44,
             transparentPage: !showAura,
             heroTopInset: heroTopInset,
             contentBottomInset: contentBottomInset,
@@ -141,8 +141,11 @@ struct NFLGameBottomSheet: View {
     private func heroView(progress p: CGFloat) -> some View {
         let detail = Double(max(0, 1 - p * 1.9))
         let text = heroText
-        VStack(spacing: heroLerp(12, 6, p)) {
+        VStack(spacing: heroLerp(12, 0, p)) {
             topRow(text)
+                .opacity(detail)
+                .frame(height: heroLerp(28, 0, min(1, p * 1.6)))
+                .clipped()
             MatchupGlassHero(
                 away: heroSide(team: game.awayTeam, ml: game.awayMl),
                 home: heroSide(team: game.homeTeam, ml: game.homeMl),
@@ -156,8 +159,8 @@ struct NFLGameBottomSheet: View {
                     .padding(.top, 2)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.horizontal, heroLerp(16, 0, p))
+        .padding(.top, heroLerp(8, 0, p))
         .frame(maxWidth: .infinity, alignment: .top)
     }
 

@@ -144,7 +144,7 @@ struct MLBGameBottomSheet: View {
                 // that pin → collapse under their header → fade out → hand off.
                 CollapsingWidgetScroll(
                     heroMaxHeight: hasWeather ? 272 : 236,
-                    heroMinHeight: 122,
+                    heroMinHeight: 44,
                     transparentPage: !showAura,
                     heroTopInset: heroTopInset,
                     contentBottomInset: contentBottomInset,
@@ -256,8 +256,11 @@ struct MLBGameBottomSheet: View {
         let detail = Double(max(0, 1 - p * 1.9))
         let text = heroText
 
-        VStack(spacing: heroLerp(12, 6, p)) {
+        VStack(spacing: heroLerp(12, 0, p)) {
             topRow(text)
+                .opacity(detail)
+                .frame(height: heroLerp(28, 0, min(1, p * 1.6)))
+                .clipped()
             MatchupGlassHero(
                 away: heroSide(name: game.awayTeamName ?? game.awayTeam ?? "Away",
                                abbr: game.awayAbbr, logoUrl: game.awayLogoUrl, ml: game.awayMl),
@@ -277,8 +280,8 @@ struct MLBGameBottomSheet: View {
                     .padding(.top, 2)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.horizontal, heroLerp(16, 0, p))
+        .padding(.top, heroLerp(8, 0, p))
         .frame(maxWidth: .infinity, alignment: .top)
     }
 
