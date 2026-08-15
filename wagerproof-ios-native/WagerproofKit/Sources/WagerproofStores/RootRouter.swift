@@ -138,4 +138,36 @@ public enum DeepLinkRoute: Equatable, Sendable {
         default: self = .feed   // matches RN's default
         }
     }
+
+    /// Push payloads send `route` as a custom APNs key (`feed` | `agents` |
+    /// `outliers`). Never maps to `reset-password` or `picks-hold` — those
+    /// are not notification targets.
+    public init?(pushRoute: String) {
+        let host = pushRoute
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .lowercased()
+        switch host {
+        case "reset-password", "picks-hold":
+            return nil
+        case "agents":
+            self = .agents
+        case "outliers":
+            self = .outliers
+        case "feed":
+            self = .feed
+        default:
+            self = .feed
+        }
+    }
+
+    public var url: URL {
+        let host: String = switch self {
+        case .agents: "agents"
+        case .outliers: "outliers"
+        case .feed: "feed"
+        case .picksHold: "picks-hold"
+        case .resetPassword: "reset-password"
+        }
+        return URL(string: "wagerproof://\(host)")!
+    }
 }

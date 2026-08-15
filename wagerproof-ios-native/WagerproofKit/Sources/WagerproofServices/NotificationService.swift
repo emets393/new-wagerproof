@@ -13,19 +13,19 @@ import UIKit
 ///
 /// Backend contract — byte-identical to the RN file:
 /// - Upsert into `user_push_tokens` (cols: user_id, expo_push_token,
-///   platform, device_name, is_active, last_used_at, updated_at) on
-///   conflict (user_id, expo_push_token).
+///   platform, device_name, is_active, last_used_at, updated_at, apns_env)
+///   on conflict (user_id, expo_push_token).
 /// - Ensure a row exists in `user_notification_preferences` (user_id,
 ///   auto_pick_ready=true) — onConflict user_id, ignoreDuplicates.
 /// - Update `is_active=false` on all of a user's tokens on sign-out.
 ///
 /// Wire format: RN stores `expo_push_token`. The native iOS port stores the
-/// hex-encoded APNs device token in the same column for now. Either format is
-/// accepted by the Supabase row (column is text). The auto-pick-ready edge
-/// function (`send-agent-pick-ready-notification`) branches on token shape —
-/// `ExponentPushToken[…]` → Expo, 64-hex → APNs HTTP/2, else FCM v1. That
-/// branching landed 2026-07-31; until the function is redeployed with the
-/// APNS_* secrets set, no native device receives this push.
+/// hex-encoded APNs device token in the same column. Either format is
+/// accepted by the Supabase row (column is text). Transport
+/// (`send-agent-pick-ready-notification` / `process-push-broadcast`) branches
+/// on token shape — `ExponentPushToken[…]` → Expo, 64-hex → APNs HTTP/2,
+/// else FCM v1. iOS also writes `apns_env` (`sandbox` in DEBUG, `production`
+/// in Release) so the sender hits the matching APNs host per token.
 // FIDELITY-WAIVER #051: Push token stored as raw APNs hex string; RN uses
 // expo-tokens. Long-term migration plan in tickets/051-*.md.
 public final class NotificationService: @unchecked Sendable {
@@ -45,8 +45,9 @@ public final class NotificationService: @unchecked Sendable {
     }
 
     private var initialized = false
-    // Set by AppDelegate / SceneDelegate after didRegisterForRemoteNotificationsWithDeviceToken.
+    // Set by AppDelegate after didRegisterForRemoteNotificationsWithDeviceToken.
     private var cachedDeviceToken: String?
+    private var lastRegistrationFailureMessage: String?
 
     private init() {}
 
@@ -54,6 +55,18 @@ public final class NotificationService: @unchecked Sendable {
     /// `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`.
     public func setDeviceToken(_ token: String?) {
         cachedDeviceToken = token
+        if token != nil { lastRegistrationFailureMessage = nil }
+    }
+
+    /// Last `didFailToRegisterForRemoteNotifications` message. Simulator
+    /// always fails; a real device failure is the pass/fail signal in Secret
+    /// Settings.
+    public func recordRegistrationFailure(_ message: String) {
+        lastRegistrationFailureMessage = message
+    }
+
+    public func lastAPNsRegistrationFailure() -> String? {
+        lastRegistrationFailureMessage
     }
 
     /// Initialize the notification center delegate + foreground presentation
@@ -108,15 +121,36 @@ public final class NotificationService: @unchecked Sendable {
     /// Register the device's APNs token with Supabase. Mirrors the RN
     /// `registerPushToken(userId)` upsert byte-for-byte. The push-token write
     /// is best-effort: if the token isn't ready yet (registerForRemote in
-    /// flight) we silently skip — the next call will pick it up.
+    /// flight) we ask APNs again and skip the upsert — `didRegister` will
+    /// retry once the hex token lands.
     public func registerPushToken(userId: UUID) async {
-        guard let token = cachedDeviceToken else { return }
+        guard let token = cachedDeviceToken else {
+            await requestRemoteNotificationRegistrationIfPermitted()
+            return
+        }
         await PushTokenRegistrar.register(
             userId: userId,
             token: token,
             platform: .ios,
             deviceName: PushTokenRegistrar.deviceModelName()
         )
+    }
+
+    /// Re-ask APNs (token rotation) and upsert if a token is already cached.
+    /// Called on sign-in and every foreground `.active`.
+    public func refreshRegistrationIfPermitted(userId: UUID) async {
+        await requestRemoteNotificationRegistrationIfPermitted()
+        await registerPushToken(userId: userId)
+    }
+
+    private func requestRemoteNotificationRegistrationIfPermitted() async {
+        let status = await permissionStatus()
+        guard status == .granted || status == .provisional || status == .ephemeral else { return }
+        #if canImport(UIKit)
+        await MainActor.run {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
+        #endif
     }
 
     /// Deactivate all push tokens for a user. Called on sign-out per RN.
@@ -210,6 +244,7 @@ private enum PushTokenRegistrar {
         let is_active: Bool
         let last_used_at: String
         let updated_at: String
+        let apns_env: String
     }
 
     struct PreferenceInsert: Encodable {
@@ -231,7 +266,8 @@ private enum PushTokenRegistrar {
             device_name: deviceName,
             is_active: true,
             last_used_at: now,
-            updated_at: now
+            updated_at: now,
+            apns_env: apnsEnv
         )
         do {
             let client = await MainSupabase.shared.client
@@ -273,6 +309,16 @@ private enum PushTokenRegistrar {
         } catch {
             // Non-fatal — RN's deactivatePushTokens swallows the error too.
         }
+    }
+
+    /// DEBUG builds ship the `development` entitlement (sandbox host);
+    /// Release / TestFlight / App Store ship `production`.
+    private static var apnsEnv: String {
+        #if DEBUG
+        return "sandbox"
+        #else
+        return "production"
+        #endif
     }
 
     static func deviceModelName() -> String {

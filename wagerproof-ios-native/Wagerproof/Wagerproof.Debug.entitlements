@@ -7,7 +7,7 @@
         <string>group.com.wagerproof.mobile</string>
     </array>
     <key>aps-environment</key>
-    <string>production</string>
+    <string>development</string>
     <key>com.apple.developer.applesignin</key>
     <array>
         <string>Default</string>

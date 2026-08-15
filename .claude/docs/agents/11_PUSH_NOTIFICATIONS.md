@@ -2,9 +2,9 @@
 
 ## Overview
 
-When a user's AI agent auto-generates picks via the V2 queue worker, a push notification is sent to the user's registered devices. The payload carries a `route` for the agents screen, but **neither native app routes on a background tap today** — the tap just opens the app where it was. See [Deep-Link Route](#deep-link-route) for what each platform actually does.
+When a user's AI agent auto-generates picks via the V2 queue worker, a push notification is sent to the user's registered devices. The payload carries a `route` for the agents screen. iOS now routes on tap via `AppDelegate` → `DeepLinkRoute(pushRoute:)` → `RootRouter`. Android still only routes foreground taps (Play-services-rendered banners open the app without extras). See [Deep-Link Route](#deep-link-route).
 
-**Architecture**: direct Supabase client writes for token registration (RLS-based, no Edge Function needed), and a single Edge Function for the send path that fans out to **three transports** — Expo, APNs, and FCM v1 — chosen per token shape.
+**Architecture**: direct Supabase client writes for token registration (RLS-based, no Edge Function needed). Transport lives in `supabase/functions/shared/pushTransport.ts` and fans out to **three transports** — Expo, APNs, and FCM v1 — chosen per token shape. Callers: `send-agent-pick-ready-notification` (per auto-run) and `process-push-broadcast` (admin blasts).
 
 **Only the V2 worker calls the send function.** The canonical V3 engine (`agents-v3/`, and the `process-agent-generation-job-v3` mirror) does not, so auto-runs that go through V3 currently produce no push. That gap is separate from the transport work below.
 
@@ -35,8 +35,9 @@ Before 2026-07-31 the function posted **every** row to Expo, which rejects bare 
 
 ### `user_notification_preferences`
 - Single row per user (lazy-created on first token registration)
-- `auto_pick_ready` defaults to `true` — opt-out model
-- Send function treats "no row" as `true`
+- `auto_pick_ready` defaults to `true` — opt-out model for agent pick alerts
+- `broadcast` defaults to `true` — separate opt-out for admin announcements
+- Send paths treat "no row" as opted in (`COALESCE(..., true)`)
 - RLS: owner read/write
 
 ### `sent_push_notifications`
@@ -157,12 +158,9 @@ created. The native app only ever creates `wagerproof_updates` (at process launc
 
 ### Deep-Link Route
 - RN: `/(drawer)/(tabs)/agents/{agent_id}`
-- Native apps: `wagerproof://agents` (no per-agent deep link yet). On Android a tap on a
-  Play-services-rendered banner opens the app without the deep link; foreground taps route.
-- **iOS ignores `route` entirely** — there is no `UNUserNotificationCenterDelegate`, so
-  `didReceive:` never runs and an APNs tap just opens the app wherever it was. Closing the
-  gap means changes on BOTH platforms (Android: read the FCM extras in
-  `MainActivity.handleDeepLink`; iOS: register the delegate), so the two ports don't drift.
+- Native apps: `wagerproof://agents` (no per-agent deep link yet).
+- **iOS**: `AppDelegate.userNotificationCenter(_:didReceive:)` reads `userInfo["route"]`, maps it through `DeepLinkRoute.init?(pushRoute:)` (`feed` | `agents` | `outliers` only — never `reset-password`), and delivers `wagerproof://<route>` to `RootRouter` via a pending-URL box on `AppDelegate`. Cold-start taps are buffered until `WagerproofApp` attaches the handler. Do **not** `UIApplication.open` the URL — Meta / GoogleSignIn claim `.onOpenURL` first.
+- **Android**: a tap on a Play-services-rendered banner opens the app without the deep link; foreground taps route.
 
 ## Permission Prompt Entry Points
 
@@ -174,7 +172,15 @@ The permission prompt is always non-blocking — auto-gen toggle proceeds regard
 
 ## App Integration Points
 
-### `_layout.tsx` — `NotificationHandler` component
+### iOS native — `AppDelegate` + `NotificationService`
+- `Wagerproof/App/AppDelegate.swift` is the `UIApplicationDelegate` / `UNUserNotificationCenterDelegate`. `WagerproofApp` installs it with `@UIApplicationDelegateAdaptor`. `didFinishLaunching` must not touch stores (the adaptor is created before `WagerproofApp.init()`).
+- `didRegisterForRemoteNotificationsWithDeviceToken` hex-encodes the token, caches it on `NotificationService`, and upserts if a session exists. `didFailToRegister` is expected on Simulator; Secret Settings surfaces the error.
+- Token upsert writes `apns_env` (`sandbox` in DEBUG, `production` in Release) so `pushTransport.ts` hits the matching APNs host per token.
+- Entitlements are split: Debug `Wagerproof.Debug.entitlements` (`aps-environment=development`), Release `Wagerproof.entitlements` (`production`). TestFlight archives Release.
+- Re-register on `.authenticated` and every foreground `.active`. `AuthStore.signOut()` deactivates tokens before `auth.signOut()`.
+- Permission prompt is still Settings-toggle / Secret Settings only — no onboarding prompt in this pass.
+
+### `_layout.tsx` — `NotificationHandler` component (deprecated RN)
 - Initializes notifications on mount
 - Silent token sync on user auth
 - Push token rotation listener
@@ -202,17 +208,38 @@ The permission prompt is always non-blocking — auto-gen toggle proceeds regard
 | Multiple devices | All active tokens receive notification, across mixed platforms |
 | Run generated by V3 | **No notification at all** — V3 never calls this function |
 
+## Admin Broadcasts
+
+Admins compose and send (or schedule) a notification to all registered devices from `/admin/push-notifications`.
+
+### Tables
+- `push_broadcasts` — campaign (title/body, deep link `feed|agents|outliers`, platform + subscription filters, status)
+- `push_broadcast_recipients` — one row per user; leased work queue (`FOR UPDATE SKIP LOCKED`)
+- Do **not** reuse `sent_push_notifications` (its `run_id` is NOT NULL and unique-on-NULL would not dedupe)
+
+### RPCs
+`count_push_broadcast_audience`, `send_push_broadcast_now`, `schedule_push_broadcast`, `cancel_push_broadcast`, `claim_push_broadcast_recipients`, `tick_push_broadcasts`, `finalize_push_broadcasts`. `send_now` is a single conditional `UPDATE ... WHERE status IN ('draft','scheduled')`; a second click raises `55000` (HTTP 409).
+
+### Edge functions
+- `admin-push-broadcast` (`verify_jwt = true` + `has_role`) — `test_send` / `send_now` / `schedule` / `cancel`
+- `process-push-broadcast` (`verify_jwt = false`, dual auth) — claims batches of ≤500, 50s budget, self-reinvokes; cron is the safety net
+
+Payload `data.type` is `admin_broadcast` (or `admin_broadcast_test` for test sends). Collapse id is the campaign uuid.
+
+### Kill a blast in flight
+```sql
+SELECT public.cancel_push_broadcast('<broadcast-uuid>');
+```
+
 ## Deployment
 
-**Not yet deployed.** The three-transport dispatcher landed in the repo on 2026-07-31; until
-step 2 runs with the secrets in place, native devices still get nothing.
+Secrets are set on project `gnjrklxotmbvnxbnnqgq`. APNs key id `68QT5AQCJX`, team `88DXY6L653`, bundle `com.wagerproof.mobile`, `APNS_ENV=production`. FCM uses `FCM_SERVICE_ACCOUNT_JSON` from Firebase project `wagerproof-aa5a1`.
 
-1. Apply migration: `supabase db push`
-2. Set secrets: `supabase secrets set FCM_SERVICE_ACCOUNT_JSON=… APNS_KEY_ID=… APNS_TEAM_ID=… APNS_PRIVATE_KEY=… APNS_BUNDLE_ID=…`
-3. Deploy send function: `supabase functions deploy send-agent-pick-ready-notification`
-4. Deploy the worker that calls it: `supabase functions deploy process-agent-generation-job-v2`
-5. Smoke test per platform: register a token from each app, force an auto run, then read
-   `sent_push_notifications.expo_response -> outcomes` for the per-token result
+1. Apply migration: `supabase db push` (`20260815120000_push_broadcasts.sql`)
+2. Deploy: `supabase functions deploy send-agent-pick-ready-notification process-push-broadcast admin-push-broadcast`
+3. Android local: `wagerproof-android-native/app/google-services.json` (gitignored). CI: `GOOGLE_SERVICES_JSON_BASE64`
+4. iOS: Debug builds register sandbox tokens; TestFlight/App Store register production. Secret Settings → Push Diagnostics should show a 64-char hex APNs token on a physical device (Simulator always shows `<none>`).
+5. First real blast should be staged (`platform=ios` + `subscription=pro`)
 
 RN-only legacy steps (`npx expo install expo-notifications`, an EAS dev build, `eas credentials`)
 apply to `wagerproof-mobile/` only and are irrelevant to the native apps — iOS carries its own

@@ -61,6 +61,7 @@ targets:
         excludes:
           - Configuration/**
           - Wagerproof.entitlements
+          - Wagerproof.Debug.entitlements
           - Info.plist
     configFiles:
       Debug: Wagerproof/Configuration/Debug.xcconfig
@@ -75,12 +76,16 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Wagerproof/Info.plist
         CODE_SIGN_STYLE: Automatic
-        CODE_SIGN_ENTITLEMENTS: Wagerproof/Wagerproof.entitlements
         # Simulator builds keep the App Group entitlement used by the widgets,
         # but strip device-only/team-prefixed capabilities that iOS 26's
         # simulator rejects with NSPOSIXErrorDomain 163.
         "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "Apple Development"
         CODE_SIGN_IDENTITY: ""
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: Wagerproof/Wagerproof.Debug.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: Wagerproof/Wagerproof.entitlements
     dependencies:
       - package: WagerproofKit
         product: WagerproofModels

@@ -9,6 +9,7 @@ import GoogleSignIn
 
 @main
 struct WagerproofApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var authStore = AuthStore()
     @State private var rootRouter = RootRouter()
@@ -95,7 +96,10 @@ struct WagerproofApp: App {
         // between the cron-driven backend refreshes and the next cold launch.
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active, case .authenticated(let userId) = authStore.phase else { return }
-            Task { await WidgetSyncCoordinator.syncAll(userId: userId.uuidString) }
+            Task {
+                await WidgetSyncCoordinator.syncAll(userId: userId.uuidString)
+                await NotificationService.shared.refreshRegistrationIfPermitted(userId: userId)
+            }
         }
     }
 
@@ -128,6 +132,7 @@ struct WagerproofApp: App {
                 applyInterfaceStyle(mode)
             }
             .task {
+                attachPushURLHandler()
                 authStore.start()
                 // Bootstrap RevenueCat immediately so the SDK can resolve
                 // entitlements before the first Pro-gated screen renders.
@@ -206,11 +211,28 @@ struct WagerproofApp: App {
             await revenueCatStore.attachUser(userId)
             await adminModeStore.checkRole(for: userId)
             await WidgetSyncCoordinator.syncAll(userId: userId.uuidString)
+            await NotificationService.shared.refreshRegistrationIfPermitted(userId: userId)
         case .unauthenticated:
             await revenueCatStore.detachUser()
             adminModeStore.reset()
         case .launching:
             break
+        }
+    }
+
+    /// Drain a cold-start notification tap (buffered on AppDelegate before
+    /// the scene existed) and attach a live handler for warm-start taps.
+    /// Must not go through `UIApplication.open` — `.onOpenURL` gives Meta
+    /// and GoogleSignIn first look.
+    private func attachPushURLHandler() {
+        AppDelegate.onPushURL = { url in
+            Task { @MainActor in
+                rootRouter.handle(deepLink: url)
+            }
+        }
+        if let pending = AppDelegate.pendingPushURL {
+            AppDelegate.pendingPushURL = nil
+            rootRouter.handle(deepLink: pending)
         }
     }
 }

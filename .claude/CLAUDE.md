@@ -256,6 +256,13 @@ wagerproof-ios-native/
   plans-unavailable escape and soft-mode builds until that metadata is flipped
 - **Documentation**: `.claude/docs/19_picks_expiry_hold.md`
 
+### 12. Admin Push Broadcasts (`/admin/push-notifications`)
+- Admins compose a title/body, pick a deep link (`feed` / `agents` / `outliers`), filter by platform and Pro/free, test-send to their own devices, then blast or schedule
+- Backend: `push_broadcasts` + `push_broadcast_recipients` (leased, resumable). Transport is `supabase/functions/shared/pushTransport.ts`
+- iOS captures the APNs device token in `Wagerproof/App/AppDelegate.swift` and writes `apns_env` on upsert. Debug = sandbox, Release/TestFlight = production.
+- Kill switch: `SELECT public.cancel_push_broadcast('<id>')`
+- **Documentation**: `.claude/docs/agents/11_PUSH_NOTIFICATIONS.md`
+
 ### Disabled / flagged-off surfaces
 These exist in code but are switched off. Do not describe them as features:
 - **Bet Slip Grader** (`/bet-slip-grader`) — `ENABLE_BET_SLIP_GRADER = false` (`src/App.tsx:78`), renders `<AccessDenied />`
