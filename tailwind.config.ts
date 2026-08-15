@@ -124,6 +124,10 @@ export default {
 				'collapsible-up': {
 					from: { height: 'var(--radix-collapsible-content-height)', opacity: '1' },
 					to: { height: '0', opacity: '0' }
+				},
+				'option-card-drift': {
+					from: { transform: 'translateX(0)' },
+					to: { transform: 'translateX(-55%)' }
 				}
 			},
 			animation: {
@@ -131,7 +135,8 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
 				'collapsible-down': 'collapsible-down 0.22s cubic-bezier(0.32,0.72,0,1)',
-				'collapsible-up': 'collapsible-up 0.18s cubic-bezier(0.32,0.72,0,1)'
+				'collapsible-up': 'collapsible-up 0.18s cubic-bezier(0.32,0.72,0,1)',
+				'option-card-drift': 'option-card-drift 18s linear infinite'
 			},
 			backgroundImage: {
 				'gradient-emerald': 'linear-gradient(135deg, #10b981, #059669)',

@@ -176,6 +176,7 @@ struct PublicAgentDetailView: View {
             performanceSection
             recentActivitySection
             pickHistorySlot
+            feedbackCard
             disclaimer
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
@@ -436,6 +437,27 @@ struct PublicAgentDetailView: View {
         )
         .padding(.horizontal, WidgetCard.hInset)
         .padding(.bottom, sectionGap)
+    }
+
+    /// Same "How did we do?" card as the owner detail page.
+    @ViewBuilder
+    private var feedbackCard: some View {
+        if let agent {
+            AgentPickFeedbackCard { description in
+                guard let userId = currentUserId else { throw AgentPickFeedbackError.notSignedIn }
+                let items = store.todaysBetItems.isEmpty
+                    ? Array(store.fullBetHistory.prefix(20))
+                    : store.todaysBetItems
+                try await AgentPickFeedbackService.submit(
+                    userId: userId,
+                    agent: agent,
+                    items: items,
+                    userDescription: description
+                )
+            }
+            .padding(.horizontal, WidgetCard.hInset)
+            .padding(.bottom, sectionGap)
+        }
     }
 
     private var isHistoryLoading: Bool {

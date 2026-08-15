@@ -67,6 +67,7 @@ import com.wagerproof.app.features.agents.components.AgentPixelWaveBackground
 import com.wagerproof.app.features.agents.components.AgentPerformanceChartSkeleton
 import com.wagerproof.app.features.agents.components.AgentPerformanceCharts
 import com.wagerproof.app.features.agents.components.AgentPickFocusView
+import com.wagerproof.app.features.agents.components.AgentPickFeedbackCard
 import com.wagerproof.app.features.agents.components.AgentPickFolderCard
 import com.wagerproof.app.features.agents.components.AgentPickPayloadAuditWidget
 import com.wagerproof.app.features.agents.components.AgentTimeline
@@ -374,6 +375,12 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
                 locked = !canSeePicks,
                 agentColor = agentTint,
                 onTap = { showHistorySheet = true },
+                modifier = Modifier.padding(horizontal = HInset).padding(bottom = SectionGap),
+            )
+            AgentPickFeedbackCard(
+                userId = currentUserId,
+                agent = agent,
+                items = store.activeBetItems.ifEmpty { store.fullBetHistory.take(20) },
                 modifier = Modifier.padding(horizontal = HInset).padding(bottom = SectionGap),
             )
             }

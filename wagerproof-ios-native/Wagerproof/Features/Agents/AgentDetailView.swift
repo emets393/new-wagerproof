@@ -25,6 +25,7 @@ import UIKit
 ///   - Performance (inline — Apple Charts, Pro-gated)
 ///   - Recent Activity (inline — `AgentTimeline`, self-hides when empty)
 ///   - Pick History (manila folder — opens the full rolodex sheet)
+///   - How did we do? (Honeydew report card — pick-quality feedback)
 ///
 /// Settings is a toolbar push (gear); the audit modal is a `.sheet`. Chat is no
 /// longer surfaced here (the RN detail page has none).
@@ -92,6 +93,7 @@ struct AgentDetailView: View {
             performanceSection
             recentActivitySection
             pickHistorySlot
+            feedbackCard
         }
         // Commit the page to the always-dark pixelwave aesthetic of the auth
         // gate so the glass cards + text read correctly over the near-black
@@ -454,6 +456,28 @@ struct AgentDetailView: View {
         )
         .padding(.horizontal, WidgetCard.hInset)
         .padding(.bottom, sectionGap)
+    }
+
+    /// Honeydew `ReportRecipeIssueCard` port — same coral option card and
+    /// Report → Submit → Thanks alerts. Writes to `agent_pick_feedback`.
+    @ViewBuilder
+    private var feedbackCard: some View {
+        if let agent {
+            AgentPickFeedbackCard { description in
+                guard let userId = currentUserId else { throw AgentPickFeedbackError.notSignedIn }
+                let items = store.activeBetItems.isEmpty
+                    ? Array(store.fullBetHistory.prefix(20))
+                    : store.activeBetItems
+                try await AgentPickFeedbackService.submit(
+                    userId: userId,
+                    agent: agent,
+                    items: items,
+                    userDescription: description
+                )
+            }
+            .padding(.horizontal, WidgetCard.hInset)
+            .padding(.bottom, sectionGap)
+        }
     }
 
     private var isHistoryLoading: Bool {

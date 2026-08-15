@@ -6,6 +6,7 @@ import { GlassCard, SkeletonBlock, SkeletonCircle, TeamAura, WidgetCard } from '
 import { AgentGenerationTerminal, AgentPerformanceCharts, AgentRecentActivity } from '@/components/agents';
 import { AgentDetailHero } from './AgentDetailHero';
 import { AgentPicksSection, AgentTodaysPicksSection, type AgentHistoryItem } from './AgentPicksSection';
+import { AgentPickFeedbackCard } from '@/components/agents/AgentPickFeedbackCard';
 import { useAgent } from '@/hooks/useAgents';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgentFollow } from '@/hooks/useAgentFollow';
@@ -178,6 +179,8 @@ export function AgentDetailPane({
             selectedTicketId={selectedTicketId}
             onSelectTicket={(item) => onSelectTicket(item, primary)}
           />
+
+          <AgentPickFeedbackCard agent={agent} />
         </div>
       </motion.div>
 

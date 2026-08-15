@@ -43,6 +43,7 @@ import com.wagerproof.app.features.agents.components.AgentLockedPicksRail
 import com.wagerproof.app.features.agents.components.AgentPerformanceChartSkeleton
 import com.wagerproof.app.features.agents.components.AgentPerformanceCharts
 import com.wagerproof.app.features.agents.components.AgentPickFocusView
+import com.wagerproof.app.features.agents.components.AgentPickFeedbackCard
 import com.wagerproof.app.features.agents.components.AgentPickFolderCard
 import com.wagerproof.app.features.agents.components.AgentTimeline
 import com.wagerproof.app.features.agents.components.AgentTodaysPicksRail
@@ -247,6 +248,12 @@ fun PublicAgentDetailScreen(agentId: String, modifier: Modifier = Modifier) {
                     locked = !canSeePicks,
                     agentColor = agentTint,
                     onTap = { showHistorySheet = true },
+                    modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 28.dp),
+                )
+                AgentPickFeedbackCard(
+                    userId = currentUserId,
+                    agent = agent,
+                    items = store.todaysBetItems.ifEmpty { store.fullBetHistory.take(20) },
                     modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 28.dp),
                 )
                 Disclaimer(Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
