@@ -57,9 +57,6 @@ struct AgentPickFocusView: View {
     /// Opacity of the high-intensity pixel-wave cover that washes over everything
     /// as the print UI opens (the generation-complete transition).
     @State private var waveOpacity: Double = 0
-    /// Set when the share button renders the current card to an image; drives the
-    /// share sheet.
-    @State private var shareItem: ShareableTicketImage? = nil
     /// CoreMotion transforms pause while the user scrolls the ticket. Rotating
     /// the scroll container at 60 Hz while its content offset changes produces
     /// visible vertical jitter even though each system is smooth in isolation.
@@ -146,13 +143,6 @@ struct AgentPickFocusView: View {
         .opacity(appeared ? 1 : 0)
         .onAppear { present() }
         .onDisappear { motion.stop() }
-        .sheet(item: $shareItem) { item in
-            ShareSheet(items: [item.image]) { completed in
-                if completed {
-                    ReviewPromptCoordinator.shared.recordContentShared()
-                }
-            }
-        }
     }
 
     // MARK: Backdrop
@@ -455,6 +445,11 @@ struct AgentPickFocusView: View {
     /// Render JUST the current card (its own cardstock; transparent everywhere
     /// else — no darkened backdrop) to an image and open the share sheet, so
     /// the user shares the card alone. Works for picks AND parlay tickets.
+    ///
+    /// Present via UIKit on the topmost VC — not a SwiftUI `.sheet`. This focus
+    /// UI lives inside a `.fullScreenCover`; nesting a sheet that wraps
+    /// `UIActivityViewController` dismisses the cover (share "makes the page
+    /// disappear").
     @MainActor private func shareCurrentCard() {
         guard items.indices.contains(index) else { return }
         let card = ticketView(items[index], width: 340, measure: false)
@@ -462,36 +457,56 @@ struct AgentPickFocusView: View {
         let renderer = ImageRenderer(content: card)
         renderer.scale = 3
         renderer.isOpaque = false      // keep the area outside the card transparent
-        if let image = renderer.uiImage {
-            shareItem = ShareableTicketImage(image: image)
+        guard let image = renderer.uiImage else { return }
+        presentActivityShare(items: [image]) { completed in
+            if completed {
+                ReviewPromptCoordinator.shared.recordContentShared()
+            }
         }
     }
 }
 
 // MARK: - Share helpers
 
-/// Identifiable wrapper so a freshly rendered card image can drive `.sheet(item:)`.
-private struct ShareableTicketImage: Identifiable {
-    let id = UUID()
-    let image: UIImage
-}
-
-/// Minimal UIKit share-sheet bridge for exporting the rendered pick card image.
-private struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    let onComplete: @MainActor (Bool) -> Void
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        controller.completionWithItemsHandler = { _, completed, _, _ in
-            Task { @MainActor in
-                onComplete(completed)
-            }
+/// Present `UIActivityViewController` from the topmost UIKit VC so it works
+/// inside a SwiftUI `.fullScreenCover` without tearing that cover down.
+@MainActor
+private func presentActivityShare(items: [Any], onComplete: @escaping @MainActor (Bool) -> Void) {
+    let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+    controller.completionWithItemsHandler = { _, completed, _, _ in
+        Task { @MainActor in
+            onComplete(completed)
         }
-        return controller
     }
 
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+    guard let presenter = topMostViewController() else { return }
+    if let popover = controller.popoverPresentationController {
+        popover.sourceView = presenter.view
+        popover.sourceRect = CGRect(
+            x: presenter.view.bounds.midX,
+            y: presenter.view.bounds.midY,
+            width: 0,
+            height: 0
+        )
+        popover.permittedArrowDirections = []
+    }
+    presenter.present(controller, animated: true)
+}
+
+@MainActor
+private func topMostViewController() -> UIViewController? {
+    let scenes = UIApplication.shared.connectedScenes
+    let windowScene = scenes.first { $0.activationState == .foregroundActive } as? UIWindowScene
+        ?? scenes.first as? UIWindowScene
+    guard let window = windowScene?.windows.first(where: \.isKeyWindow)
+            ?? windowScene?.windows.first,
+          var top = window.rootViewController else {
+        return nil
+    }
+    while let presented = top.presentedViewController {
+        top = presented
+    }
+    return top
 }
 
 // =====================================================================

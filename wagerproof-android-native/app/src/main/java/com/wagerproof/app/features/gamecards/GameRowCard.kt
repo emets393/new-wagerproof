@@ -303,16 +303,25 @@ private fun BreakdownScanRegion(model: GameRowCardModel, bd: GameRowCardModel.Od
 
 @Composable
 private fun DiagonalLogos(model: GameRowCardModel) {
+    // Draw the ML-predicted side last so it sits on top of the overlap.
+    // Matches iOS GameRowCard.logoStackZIndex — otherwise home always wins
+    // and often reads as the opponent when the pick is away.
+    val pickAbbr = model.mlEdge?.abbr
+    val awayOnTop = pickAbbr != null &&
+        model.away.abbr.equals(pickAbbr, ignoreCase = true)
     Box(Modifier.width(BreakdownMetrics.logoColW).height(BreakdownMetrics.logoBlockH)) {
-        GlassAvatar(model.away, BreakdownMetrics.logoSize, Modifier.align(Alignment.TopStart))
-        GlassAvatar(
-            model.home,
-            BreakdownMetrics.logoSize,
-            Modifier.align(Alignment.TopStart).offset(
-                x = BreakdownMetrics.logoXOffset,
-                y = BreakdownMetrics.rowPitch,
-            ),
+        val awayMod = Modifier.align(Alignment.TopStart)
+        val homeMod = Modifier.align(Alignment.TopStart).offset(
+            x = BreakdownMetrics.logoXOffset,
+            y = BreakdownMetrics.rowPitch,
         )
+        if (awayOnTop) {
+            GlassAvatar(model.home, BreakdownMetrics.logoSize, homeMod)
+            GlassAvatar(model.away, BreakdownMetrics.logoSize, awayMod)
+        } else {
+            GlassAvatar(model.away, BreakdownMetrics.logoSize, awayMod)
+            GlassAvatar(model.home, BreakdownMetrics.logoSize, homeMod)
+        }
     }
 }
 

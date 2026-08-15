@@ -246,7 +246,18 @@ struct GameRowCard: View {
         // One soft team-colored halo for depth. Kept light so it doesn't muddy
         // the glass or the merge seam between the two discs.
         .shadow(color: primary.opacity(0.22), radius: 5, x: 0, y: 1)
-        .zIndex(isLeading ? 0 : 1)
+        .zIndex(logoStackZIndex(for: side, isLeading: isLeading))
+    }
+
+    /// Put the ML-predicted team's logo on top of the overlap. Without a
+    /// prediction, keep the historical default (home / trailing on top).
+    /// Otherwise the top logo often reads as the opponent while the ML pill
+    /// correctly shows the pick's abbr (especially noticeable on MLB).
+    private func logoStackZIndex(for side: TeamSide, isLeading: Bool) -> Double {
+        if let pickAbbr = model.mlEdge?.abbr {
+            return side.abbr.caseInsensitiveCompare(pickAbbr) == .orderedSame ? 1 : 0
+        }
+        return isLeading ? 0 : 1
     }
 
     /// A contrasting plate to drop behind a same-color logo. Logos are usually
