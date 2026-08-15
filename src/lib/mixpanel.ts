@@ -6,6 +6,7 @@
  */
 
 import debug from '@/utils/debug';
+import { ANALYTICS_ONBOARDING_STEPS } from '@/components/onboarding/flow';
 
 // Extend Window interface to include Mixpanel
 declare global {
@@ -381,7 +382,7 @@ export const trackOnboardingStarted = (): void => {
 export const trackOnboardingStepViewed = (
   stepNumber: number,
   stepName: string,
-  totalSteps: number = 16
+  totalSteps: number = ANALYTICS_ONBOARDING_STEPS.length
 ): void => {
   trackEvent('Onboarding Step Viewed', {
     step_number: stepNumber,
@@ -399,11 +400,13 @@ export const trackOnboardingStepCompleted = (
   timeOnStep?: number,
   additionalData?: Record<string, any>
 ): void => {
+  const totalSteps = ANALYTICS_ONBOARDING_STEPS.length;
   trackEvent('Onboarding Step Completed', {
     step_number: stepNumber,
     step_name: stepName,
-    total_steps: 16,
-    time_on_step: timeOnStep,
+    total_steps: totalSteps,
+    progress_percentage: Math.round((stepNumber / totalSteps) * 100),
+    ...(timeOnStep != null ? { time_on_step: timeOnStep } : {}),
     ...additionalData,
   });
 };
@@ -415,7 +418,7 @@ export const trackOnboardingCompleted = (totalDuration: number): void => {
   trackEvent('Onboarding Completed', {
     completion_time: new Date().toISOString(),
     total_duration: totalDuration,
-    steps_completed: 16,
+    steps_completed: ANALYTICS_ONBOARDING_STEPS.length,
   });
 
   // Set user property
@@ -566,4 +569,3 @@ export const trackLearnSectionClicked = (
     section_id: sectionId,
   });
 };
-

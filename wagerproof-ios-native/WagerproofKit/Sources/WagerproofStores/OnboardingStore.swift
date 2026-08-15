@@ -78,6 +78,22 @@ public final class OnboardingStore {
         /// carousel to a wrong page.
         public var carouselIndex: Int? { isCinematic ? nil : rawValue - 1 }
 
+        /// Mixpanel funnel shared with Android and web (24 steps, `timeSummary` = 24).
+        /// iOS-only ATT priming is omitted so `step_number` / `step_name` match.
+        public var analyticsStepNumber: Int? {
+            switch self {
+            case .attPriming: return nil
+            default:
+                return rawValue > Step.attPriming.rawValue ? rawValue - 1 : rawValue
+            }
+        }
+
+        public var analyticsName: String { String(describing: self) }
+
+        public static var analyticsTotalSteps: Int {
+            allCases.compactMap(\.analyticsStepNumber).count
+        }
+
         public static let carouselPageCount = 22
 
         /// Progress-bar fraction. nil for cinematic steps (no chrome there).
@@ -230,6 +246,8 @@ public final class OnboardingStore {
     /// completion checks return `false` until a user attaches.
     private var attachedUserId: String?
     private var validationTask: Task<Void, Never>?
+    private var hasTrackedOnboardingStart = false
+    private var highestCompletedStep = 0
 
     public init() {}
 
@@ -241,6 +259,8 @@ public final class OnboardingStore {
     /// userId is a no-op.
     public func attachUser(userId: String) {
         if attachedUserId == userId { return }
+        hasTrackedOnboardingStart = false
+        highestCompletedStep = 0
         attachedUserId = userId
 
         // Step 1: instant cache read. Local cache is authoritative on offline
@@ -304,12 +324,24 @@ public final class OnboardingStore {
 
     // MARK: - Step navigation
 
+    /// Called by the flow container when onboarding first appears. Kept on the
+    /// store so SwiftUI re-renders/reappearances cannot duplicate the event.
+    public func trackOnboardingStartedIfNeeded() {
+        guard !hasTrackedOnboardingStart else { return }
+        hasTrackedOnboardingStart = true
+        AnalyticsService.shared.track("Onboarding Started", properties: [
+            "start_time": ISO8601DateFormatter().string(from: Date()),
+        ])
+    }
+
     public func advance() {
         guard !isTransitioning else { return }
         guard let next = Step(rawValue: currentStep.rawValue + 1) else { return }
+        let completedStep = currentStep
         isTransitioning = true
         currentStep = next
         advanceCount &+= 1
+        trackStepCompletedIfNeeded(completedStep)
         // 350ms lock — prevents double-taps from skipping steps and matches
         // the carousel's page-slide duration.
         Task { [weak self] in
@@ -342,6 +374,23 @@ public final class OnboardingStore {
         agentPitchSlide = 0
         hasSeenCostReveal = false
         hasSeenReclaimReveal = false
+        hasTrackedOnboardingStart = false
+        highestCompletedStep = 0
+    }
+
+    private func trackStepCompletedIfNeeded(_ step: Step) {
+        guard let stepNumber = step.analyticsStepNumber else { return }
+        guard stepNumber > highestCompletedStep else { return }
+        highestCompletedStep = stepNumber
+        let totalSteps = Step.analyticsTotalSteps
+        AnalyticsService.shared.track("Onboarding Step Completed", properties: [
+            "step_number": stepNumber,
+            "step_name": step.analyticsName,
+            "total_steps": totalSteps,
+            "progress_percentage": Int(
+                (Double(stepNumber) / Double(totalSteps) * 100).rounded()
+            ),
+        ])
     }
 
     // MARK: - CTA gating
@@ -513,8 +562,10 @@ public final class OnboardingStore {
         MetaAnalyticsService.shared.trackCompleteRegistration(
             method: AuthStore.lastAuthProvider
         )
+        trackStepCompletedIfNeeded(currentStep)
         AnalyticsService.shared.track("Onboarding Completed", properties: [
             "auth_method": AuthStore.lastAuthProvider,
+            "steps_completed": Step.analyticsTotalSteps,
         ])
 
         // Snapshot data for the background sync. Pass copies so the

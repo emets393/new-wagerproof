@@ -21,6 +21,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -119,6 +120,19 @@ class OnboardingStore {
 
         /** Progress-bar fraction. null for cinematic steps (no chrome there). */
         val progress: Double? get() = if (isCinematic) null else raw.toDouble() / carouselPageCount
+
+        /**
+         * Mixpanel `step_name` matching web/iOS (e.g. `agentHQ`, not `agentHq`).
+         * Android's 24-step enum IS the shared funnel — no ATT priming, no paywall.
+         */
+        val analyticsName: String
+            get() = if (this == AGENT_HQ) {
+                "agentHQ"
+            } else {
+                name.lowercase(Locale.US).split('_').mapIndexed { index, part ->
+                    if (index == 0) part else part.replaceFirstChar { it.titlecase(Locale.US) }
+                }.joinToString("")
+            }
 
         companion object {
             const val carouselPageCount: Int = 21
@@ -230,6 +244,8 @@ class OnboardingStore {
     private var attachedUserId: String? = null
     private var validationJob: Job? = null
     private var transitionJob: Job? = null
+    private var hasTrackedOnboardingStart = false
+    private var highestCompletedStep = 0
 
     fun close() = scope.cancel()
 
@@ -244,6 +260,8 @@ class OnboardingStore {
      */
     fun attachUser(userId: String) {
         if (attachedUserId == userId) return
+        hasTrackedOnboardingStart = false
+        highestCompletedStep = 0
         attachedUserId = userId
 
         // Step 1: instant local resolution. Native state is authoritative when
@@ -305,12 +323,24 @@ class OnboardingStore {
 
     // MARK: - Step navigation
 
+    /** Record the first appearance once per onboarding run. */
+    fun trackOnboardingStartedIfNeeded() {
+        if (hasTrackedOnboardingStart) return
+        hasTrackedOnboardingStart = true
+        AnalyticsService.track(
+            "Onboarding Started",
+            mapOf("start_time" to isoNow()),
+        )
+    }
+
     fun advance() {
         if (isTransitioning) return
         val next = Step.fromRaw(currentStep.raw + 1) ?: return
+        val completedStep = currentStep
         isTransitioning = true
         currentStep = next
         advanceCount += 1
+        trackStepCompletedIfNeeded(completedStep)
         startTransitionLock()
     }
 
@@ -345,6 +375,23 @@ class OnboardingStore {
         _agentPitchSlide = 0
         hasSeenCostReveal = false
         hasSeenReclaimReveal = false
+        hasTrackedOnboardingStart = false
+        highestCompletedStep = 0
+    }
+
+    private fun trackStepCompletedIfNeeded(step: Step) {
+        if (step.raw <= highestCompletedStep) return
+        highestCompletedStep = step.raw
+        val totalSteps = Step.entries.size
+        AnalyticsService.track(
+            "Onboarding Step Completed",
+            mapOf(
+                "step_number" to step.raw,
+                "step_name" to step.analyticsName,
+                "total_steps" to totalSteps,
+                "progress_percentage" to ((step.raw.toDouble() / totalSteps) * 100).roundToInt(),
+            ),
+        )
     }
 
     // MARK: - CTA gating
@@ -520,9 +567,13 @@ class OnboardingStore {
         // once per install, so Developer Settings → Reset Onboarding can't
         // inflate Meta's registration count.
         MetaAnalyticsService.trackCompleteRegistration(method = AuthStore.lastAuthProvider)
+        trackStepCompletedIfNeeded(currentStep)
         AnalyticsService.track(
             "Onboarding Completed",
-            mapOf("auth_method" to AuthStore.lastAuthProvider),
+            mapOf(
+                "auth_method" to AuthStore.lastAuthProvider,
+                "steps_completed" to Step.entries.size,
+            ),
         )
 
         // Snapshot data so the mutators can't race with the network task.
