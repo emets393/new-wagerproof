@@ -83,6 +83,11 @@ All surfaces are Pro-gated via `ProContentSection` (blur + tap-to-unlock).
 Tapping a card opens `ParlayGodDetailSheet` (expanded legs with evidence +
 responsible-gambling note).
 
+`ParlayGodRail` pages one ticket per swipe via `.snappingCardCarousel(inset:)`
+(`WagerproofDesign/Modifiers/`), so a card always settles on the host's gutter
+(`bleedInset`) with a haptic tick — one behavior for all three rails. The
+`MatchupParlaysWidget` scroller inside the game sheets is still free-scrolling.
+
 ## Files
 
 - Models: `WagerproofKit/Sources/WagerproofModels/ParlayGod.swift`

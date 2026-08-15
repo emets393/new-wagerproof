@@ -249,8 +249,10 @@ only), or run live via `-uiScreenshotMode mainTabs -tab props -propsSport nfl`
 > with "+N") next to a "More ›" CTA — or just a "View breakdown ›" CTA when nothing is hidden. Tapping the card presents
 > **`OutliersTrendDetailSheet`** (`Outliers/Components/OutliersTrendDetailSheet.swift`),
 > which renders the same card `.expanded` (every betting line + trend row) — so the card never grows vertically in the
-> rail. The Search "Outliers" rail reuses the identical card → same sheet. The rails/cards below are the prior
-> (2026-06-11) design and are no longer mounted by `OutliersView`.
+> rail. The Search "Outliers" rail reuses the identical card → same sheet. The market carousels and the Parlay
+> God rail page **one card per swipe** via `.snappingCardCarousel(inset:)` (§10) — each card settles on the
+> `Spacing.lg` gutter with a haptic tick; the filter-pill rows are deliberately left free-scrolling. The
+> rails/cards below are the prior (2026-06-11) design and are no longer mounted by `OutliersView`.
 
 The hub branch is **three primitive-typed rails** (2026-06-11 redesign): Betting Trends,
 First-5, and Player Props — each a horizontal rail of the strongest cards across the slate,
@@ -471,6 +473,13 @@ build any new primitive:
   SkeletonCapsule — every list skeleton is built from these to mirror its parent card.
 - **StaggeredAppear** (`Modifiers/StaggeredAppear.swift`): `.staggeredAppear(index:)` cascade-in
   for any list.
+- **SnappingCardCarousel** (`Modifiers/SnappingCardCarousel.swift`): `.snappingCardCarousel(inset:)`
+  turns a horizontal card rail into one that pages a card per swipe, rests every card on the page
+  gutter (next card peeking, never sliced by the screen edge), and ticks a light impact per card.
+  The inner stack must carry `.scrollTargetLayout()`. Pass the gutter to the modifier instead of
+  padding the stack — it applies `safeAreaPadding`, which is what puts the snap target on the
+  gutter. Mounted on the Outliers market carousels and every `ParlayGodRail`
+  (Outliers / Props Cheats / Search).
 - **Motion vocabulary** (`Animations.swift`): appQuick / appStandard / appBouncy / appCarousel /
   appSlow / appLinear / appShimmer + standard transitions.
 - **CachedAsyncImage** (`Components/CachedAsyncImage.swift`): drop-in for

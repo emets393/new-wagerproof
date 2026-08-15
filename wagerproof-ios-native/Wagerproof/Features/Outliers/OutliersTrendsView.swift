@@ -511,7 +511,9 @@ struct OutliersTrendsView: View {
         }
     }
 
-    /// Bleeds past the page padding so cards scroll edge-to-edge while headers stay inset.
+    /// Bleeds past the page padding so cards scroll edge-to-edge while headers stay inset,
+    /// then snaps each card back onto that same gutter — the inset lives in
+    /// `snappingCardCarousel`, not in padding on the stack.
     private func carousel(
         _ section: OutliersTrendsMarketSection,
         gamesByID: [String: OutliersTrendsGame]
@@ -528,9 +530,10 @@ struct OutliersTrendsView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, Spacing.lg)
+            .scrollTargetLayout()
             .padding(.vertical, 2)
         }
+        .snappingCardCarousel(inset: Spacing.lg)
         .padding(.horizontal, -Spacing.lg)
     }
 
@@ -596,9 +599,11 @@ struct OutliersTrendsView: View {
                         .frame(width: cardWidth)
                 }
             }
-            .padding(.horizontal, Spacing.lg)
             .padding(.vertical, 2)
         }
+        // safeAreaPadding (not stack padding) so the placeholder sits on the exact gutter
+        // the snapping carousel rests at — otherwise cards jump sideways when data lands.
+        .safeAreaPadding(.horizontal, Spacing.lg)
         .padding(.horizontal, -Spacing.lg)
         .scrollDisabled(true)
     }

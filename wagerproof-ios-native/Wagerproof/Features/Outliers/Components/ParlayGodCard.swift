@@ -597,9 +597,12 @@ struct ParlayGodRail: View {
                     }
                 }
             }
-            .padding(.horizontal, bleedInset ?? 0)
+            .scrollTargetLayout()
             .padding(.vertical, 2)
         }
+        // Tickets snap onto the host's gutter instead of stopping mid-card. Search passes
+        // bleedInset nil, where inset 0 means "align to the List row's own margin".
+        .snappingCardCarousel(inset: bleedInset ?? 0)
         .padding(.horizontal, -(bleedInset ?? 0))
         .scrollDisabled(isLoading && tickets.isEmpty)
     }
