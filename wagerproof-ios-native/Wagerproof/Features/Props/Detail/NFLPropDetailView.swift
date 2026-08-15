@@ -45,8 +45,9 @@ struct NFLPropDetailView: View {
     private var hasPicker: Bool { markets.count > 1 }
     private let pickerBand: CGFloat = 40
     /// Identity only — the picker is a pin-accessory, not part of the hero.
+    /// Collapsed height is the 44pt nav-row plus air above the picker.
     private let heroMax: CGFloat = 96
-    private let heroMin: CGFloat = 44
+    private let heroMin: CGFloat = 54
 
     init(selection: NFLPlayerPropSelection) {
         self.selection = selection
@@ -166,6 +167,7 @@ struct NFLPropDetailView: View {
         .padding(.leading, leading)
         .padding(.trailing, 16)
         .padding(.top, lerp(8, 0, p))
+        .padding(.bottom, lerp(0, 10, p))
         .frame(maxWidth: .infinity, alignment: .top)
     }
 
