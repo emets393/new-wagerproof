@@ -41,6 +41,14 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
     /// resident at once, with two pages visible mid-swipe. Other surfaces that
     /// reuse this shell retain their existing glass treatment by default.
     var usesLiquidGlass: Bool = true
+    /// Extra chrome pinned under the collapsing hero (a market picker, etc.).
+    /// Included in content top-padding and the widget pin line. The caller
+    /// overlays the accessory and parks it at `max(heroTopInset, heroBottom)`
+    /// so it never slides under the nav-bar back button.
+    var pinAccessoryHeight: CGFloat = 0
+    /// Live bottom of the collapsing hero (content height + current top inset).
+    /// Written on scroll so a pin-accessory overlay can track it.
+    var heroBottom: Binding<CGFloat>? = nil
     /// Full-bleed background behind both the page and the hero (e.g. team-color
     /// auras). Receives `progress` so it can dim/shrink with scroll. Used as the
     /// hero's background too, so the hero stays opaque (masks scrolling content)
@@ -55,7 +63,7 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
     /// Compact matchup docks into the nav-bar row beside the back button.
     /// Keep a small pad so discs don't slide under the Dynamic Island.
     private var dockedTopInset: CGFloat { max(8, heroTopInset * 0.35) }
-    private var expandedChrome: CGFloat { heroMaxHeight + heroTopInset }
+    private var expandedChrome: CGFloat { heroMaxHeight + pinAccessoryHeight + heroTopInset }
     private var collapsedChrome: CGFloat { heroMinHeight + dockedTopInset }
     private var collapseDistance: CGFloat { max(1, expandedChrome - collapsedChrome) }
     private var progress: CGFloat { min(1, max(0, scrollY / collapseDistance)) }
@@ -64,6 +72,21 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
     }
     private var effectiveTopInset: CGFloat {
         heroTopInset - (heroTopInset - dockedTopInset) * progress
+    }
+    private var liveHeroBottom: CGFloat { heroHeight + effectiveTopInset }
+    /// Accessory parks under the nav bar (`heroTopInset`) once the shrinking
+    /// hero would otherwise drag it into the back-button row.
+    private var pinLine: CGFloat {
+        guard pinAccessoryHeight > 0 else { return heroMinHeight + effectiveTopInset }
+        return max(heroTopInset, liveHeroBottom) + pinAccessoryHeight
+    }
+
+    private func reportHeroBottom() {
+        guard let heroBottom else { return }
+        let bottom = liveHeroBottom
+        if abs(heroBottom.wrappedValue - bottom) > 0.5 {
+            heroBottom.wrappedValue = bottom
+        }
     }
 
     var body: some View {
@@ -118,11 +141,14 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
             // banding at the top, costs nothing at all.
             let clamped = min(max(0, newValue), collapseDistance)
             if abs(scrollY - clamped) > 0.5 { scrollY = clamped }
+            reportHeroBottom()
         }
+        .onAppear { reportHeroBottom() }
         // Named space lets each card read its live viewport position.
         .coordinateSpace(name: kCollapsingScrollSpace)
-        // Cards pin just under the compact hero (which docks into the toolbar).
-        .environment(\.widgetPinLine, heroMinHeight + effectiveTopInset)
+        // Cards pin just under the compact hero (which docks into the toolbar),
+        // or under the pin-accessory when one is present.
+        .environment(\.widgetPinLine, pinLine)
         .environment(\.widgetUsesLiquidGlass, usesLiquidGlass)
         .background(alignment: .top) {
             // In carousel mode the page is transparent — the shared base + glow

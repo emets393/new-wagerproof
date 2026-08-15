@@ -37,8 +37,10 @@ struct PropLineScrubber: View {
         }
         .padding(.horizontal, isExpanded ? 16 : 14)
         .padding(.vertical, isExpanded ? 12 : 8)
-        // Hug when collapsed; grow to a compact centered pill — never full-bleed.
-        .frame(width: isExpanded ? 300 : nil)
+        // Hug when collapsed; a compact capsule when expanded — never the
+        // overlay's full-width proposal.
+        .fixedSize(horizontal: !isExpanded, vertical: false)
+        .frame(width: isExpanded ? 268 : nil)
         .background { Color.clear.liquidGlassBackground(in: pillShape) }
         .overlay(pillShape.strokeBorder(Color.appBorder.opacity(0.5), lineWidth: 0.5))
         .clipShape(pillShape)

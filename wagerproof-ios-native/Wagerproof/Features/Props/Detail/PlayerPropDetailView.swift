@@ -17,6 +17,9 @@ struct PlayerPropDetailView: View {
     @State private var activeMarket: String
     /// Briefly ignore scroll-spy right after a picker-driven jump.
     @State private var suppressSpy = false
+    /// Live bottom of the collapsing identity hero — the picker parks here,
+    /// clamped below the nav bar so it never slides under the back button.
+    @State private var heroBottom: CGFloat = 0
     /// Section top offsets in a reference type so high-frequency scroll updates
     /// don't re-render the charts — only an `activeMarket` change does.
     @State private var spy = SpyStore()
@@ -24,11 +27,12 @@ struct PlayerPropDetailView: View {
     private final class SpyStore { var tops: [String: CGFloat] = [:] }
 
     private var hasPicker: Bool { markets.count > 1 }
-    /// Top row + identity + native picker. Must clear the segmented control's
-    /// bottom edge — a short max clips it against the first scrolling widget.
-    private var heroMax: CGFloat { hasPicker ? 148 : 96 }
-    /// 44pt toolbar title (game-detail dock) + gap + native segmented picker.
-    private var heroMin: CGFloat { hasPicker ? 88 : 44 }
+    /// Native segmented control + a little air so the first widget can't
+    /// clip its bottom curve.
+    private let pickerBand: CGFloat = 40
+    /// Identity only — the picker is a pin-accessory, not part of the hero.
+    private let heroMax: CGFloat = 96
+    private let heroMin: CGFloat = 44
 
     init(selection: PlayerPropSelection, initialLine: Double? = nil) {
         self.selection = selection
@@ -58,11 +62,13 @@ struct PlayerPropDetailView: View {
                     heroMaxHeight: heroMax,
                     heroMinHeight: heroMin,
                     heroTopInset: topInset,
-                    usesLiquidGlass: false
+                    usesLiquidGlass: false,
+                    pinAccessoryHeight: hasPicker ? pickerBand : 0,
+                    heroBottom: $heroBottom
                 ) { progress in
                     TeamAuraBackground(awayColor: teamColor, homeColor: oppColor, progress: progress)
                 } hero: { progress in
-                    heroView(progress: progress, proxy: proxy, viewportHeight: root.size.height)
+                    heroView(progress: progress)
                 } content: {
                     LazyVStack(spacing: 0) {
                         ForEach(markets) { row in
@@ -70,6 +76,13 @@ struct PlayerPropDetailView: View {
                                 .id(row.market)
                                 .background(spyTracker(market: row.market, topInset: topInset))
                         }
+                    }
+                }
+                .overlay(alignment: .top) {
+                    if hasPicker {
+                        marketPicker(proxy: proxy, viewportHeight: root.size.height)
+                            .padding(.horizontal, 16)
+                            .padding(.top, max(topInset, heroBottom))
                     }
                 }
                 .overlay(alignment: .bottom) { scrubber }
@@ -101,7 +114,7 @@ struct PlayerPropDetailView: View {
     /// Global Y at which a market widget counts as "in view" — the docked
     /// hero's bottom edge (title + pinned picker), matching the pin line.
     private func spyAnchor(topInset: CGFloat) -> CGFloat {
-        heroMin + max(8, topInset * 0.35) + 8
+        max(topInset, heroBottom) + (hasPicker ? pickerBand : 0) + 8
     }
 
     private func spyTracker(market: String, topInset: CGFloat) -> some View {
@@ -129,7 +142,7 @@ struct PlayerPropDetailView: View {
     // MARK: - Collapsing hero (title docks; picker stays)
 
     @ViewBuilder
-    private func heroView(progress p: CGFloat, proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
+    private func heroView(progress p: CGFloat) -> some View {
         // Match `MatchupGlassHero`: 50→36 disc, last stretch slides right to
         // clear the circular back button (~16 + 36 + 16 + gap = 80pt).
         let headSize = lerp(50, 36, p)
@@ -140,55 +153,48 @@ struct PlayerPropDetailView: View {
         let pct = activeComputed?.l10.pct
 
         VStack(spacing: lerp(8, 6, p)) {
-            VStack(spacing: lerp(8, 6, p)) {
-                heroTopRow
-                    .opacity(detail)
-                    .frame(height: lerp(18, 0, min(1, p * 1.6)))
-                    .clipped()
+            heroTopRow
+                .opacity(detail)
+                .frame(height: lerp(18, 0, min(1, p * 1.6)))
+                .clipped()
 
-                HStack(alignment: .center, spacing: lerp(12, 8, p)) {
-                    PlayerHeadshot(playerId: selection.playerId, size: headSize)
-                        .padding(ringPad)
-                        .teamGlassDisc(primary: teamColor, secondary: oppColor)
-                        .shadow(color: teamColor.opacity(lerp(0.35, 0.18, p)), radius: lerp(8, 3, p))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(selection.playerName)
-                            .font(.system(size: lerp(19, 15, p), weight: .heavy))
-                            .foregroundStyle(Color.appTextPrimary)
+            HStack(alignment: .center, spacing: lerp(12, 8, p)) {
+                PlayerHeadshot(playerId: selection.playerId, size: headSize)
+                    .padding(ringPad)
+                    .teamGlassDisc(primary: teamColor, secondary: oppColor)
+                    .shadow(color: teamColor.opacity(lerp(0.35, 0.18, p)), radius: lerp(8, 3, p))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(selection.playerName)
+                        .font(.system(size: lerp(19, 15, p), weight: .heavy))
+                        .foregroundStyle(Color.appTextPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    if detail > 0.04 {
+                        Text(subtitle)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.appTextSecondary)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                        if detail > 0.04 {
-                            Text(subtitle)
-                                .font(.system(size: 11))
-                                .foregroundStyle(Color.appTextSecondary)
-                                .lineLimit(1)
-                                .opacity(detail)
-                        }
+                            .opacity(detail)
                     }
-                    Spacer(minLength: 0)
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text(pct.map(String.init) ?? "—")
-                            .font(.system(size: lerp(27, 17, p), weight: .heavy))
-                            .foregroundStyle(Color.appPrimary)
-                        if pct != nil {
-                            Text("%")
-                                .font(.system(size: lerp(16, 11, p), weight: .heavy))
-                                .foregroundStyle(Color.appPrimary)
-                        }
-                    }
-                    .contentTransition(.numericText())
-                    .animation(.snappy(duration: 0.28), value: pct)
                 }
-                .frame(height: lerp(58, 44, p), alignment: .center)
+                Spacer(minLength: 0)
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text(pct.map(String.init) ?? "—")
+                        .font(.system(size: lerp(27, 17, p), weight: .heavy))
+                        .foregroundStyle(Color.appPrimary)
+                    if pct != nil {
+                        Text("%")
+                            .font(.system(size: lerp(16, 11, p), weight: .heavy))
+                            .foregroundStyle(Color.appPrimary)
+                    }
+                }
+                .contentTransition(.numericText())
+                .animation(.snappy(duration: 0.28), value: pct)
             }
-            .padding(.leading, leading)
-            .padding(.trailing, 16)
-
-            if hasPicker {
-                marketPicker(proxy: proxy, viewportHeight: viewportHeight)
-                    .padding(.horizontal, 16)
-            }
+            .frame(height: lerp(58, 44, p), alignment: .center)
         }
+        .padding(.leading, leading)
+        .padding(.trailing, 16)
         .padding(.top, lerp(8, 0, p))
         .frame(maxWidth: .infinity, alignment: .top)
     }
@@ -241,9 +247,15 @@ struct PlayerPropDetailView: View {
     @ViewBuilder
     private var scrubber: some View {
         if let activeRow {
-            PropLineScrubber(lines: activeRow.lines, selectedLine: activeLineBinding)
-                .id(activeMarket)
-                .padding(.bottom, 8)
+            // Spacers eat the overlay's full-width proposal so the pill hugs
+            // its content instead of becoming a banner.
+            HStack {
+                Spacer(minLength: 0)
+                PropLineScrubber(lines: activeRow.lines, selectedLine: activeLineBinding)
+                    .id(activeMarket)
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, 8)
         }
     }
 
