@@ -745,11 +745,6 @@ struct NFLPropTrendChart: View {
                 chart
                     .frame(height: 176)
                 logoRow
-                Text("Season game log · oldest left → most recent right")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.appTextMuted)
-                    .frame(maxWidth: .infinity)
-                    .multilineTextAlignment(.center)
             }
         }
     }
@@ -805,6 +800,7 @@ struct NFLPropTrendChart: View {
             plot.padding(.top, 16)
         }
         .chartYAxis(.hidden)
+        .chartLegend(.hidden)
         .chartXAxis(.hidden)
     }
 

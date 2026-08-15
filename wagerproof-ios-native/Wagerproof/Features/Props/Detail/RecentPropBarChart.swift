@@ -32,15 +32,8 @@ struct RecentPropBarChart: View {
                 .foregroundStyle(Color.appTextMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            VStack(spacing: 4) {
-                chart
-                    .frame(height: 168)
-                Text("Last \(bars.count) games · oldest left → most recent right")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.appTextMuted)
-                    .frame(maxWidth: .infinity)
-                    .multilineTextAlignment(.center)
-            }
+            chart
+                .frame(height: 168)
         }
     }
 
@@ -75,31 +68,9 @@ struct RecentPropBarChart: View {
         .chartXScale(domain: bars.map { String($0.id) })
         .chartYScale(domain: 0...maxVal)
         .chartYAxis(.hidden)
-        .chartXAxis {
-            AxisMarks(values: bars.map { String($0.id) }) { value in
-                AxisValueLabel(orientation: .vertical) {
-                    if let label = value.as(String.self),
-                       let id = Int(label),
-                       let bar = bars.first(where: { $0.id == id }),
-                       let short = Self.shortDate(bar.date) {
-                        Text(short)
-                            .font(.system(size: 8))
-                            .foregroundStyle(Color.appTextMuted)
-                    }
-                }
-            }
-        }
+        .chartLegend(.hidden)
+        .chartXAxis(.hidden)
         // Animate threshold slide + bar recolor when the line changes.
         .animation(.easeInOut(duration: 0.25), value: line)
-    }
-
-    /// "2026-06-15" → "6/15". Mirrors RN `formatShortDate`.
-    static func shortDate(_ iso: String?) -> String? {
-        guard let iso else { return nil }
-        let parts = iso.split(separator: "-")
-        guard parts.count >= 3,
-              let month = Int(parts[1]),
-              let day = Int(parts[2].prefix(2)) else { return nil }
-        return "\(month)/\(day)"
     }
 }

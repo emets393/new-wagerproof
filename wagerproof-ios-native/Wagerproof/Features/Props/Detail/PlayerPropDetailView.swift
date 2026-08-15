@@ -287,26 +287,17 @@ struct PlayerPropDetailView: View {
     private func marketWidget(_ row: MLBPlayerPropRow) -> some View {
         let l = line(for: row.market)
         if let c = MLBPlayerProps.computePropAtLine(row, line: l) {
-            WidgetCollapsingSection(title: MLBPlayerProps.marketLabel(row.market), systemImage: "chart.bar.fill") {
+            WidgetCollapsingSection(
+                title: MLBPlayerProps.marketLabel(row.market),
+                systemImage: "chart.bar.fill",
+                headline: MLBPlayerProps.buildVerdict(row, c)
+            ) {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(MLBPlayerProps.buildVerdict(row, c))
-                        .font(.system(size: 14))
-                        .lineSpacing(4)
-                        .foregroundStyle(Color.appTextPrimary)
-                        .contentTransition(.numericText())
-                        .animation(.snappy(duration: 0.3), value: l)
-
                     RecentPropBarChart(bars: c.chartGames, line: l)
 
                     Divider().background(Color.appBorder.opacity(0.5))
 
                     PropContextTiles(row: row, computed: c)
-
-                    Text("\(MLBPlayerProps.marketLabel(row.market)) · O \(MLBPlayerProps.formatLine(l)) · \(MLBPlayerProps.formatOdds(c.overOdds)) / \(MLBPlayerProps.formatOdds(c.underOdds))")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.appTextSecondary)
-                        .contentTransition(.numericText())
-                        .animation(.snappy(duration: 0.3), value: l)
                 }
             }
         }
