@@ -4,3 +4,4 @@ export { AgentOverlapFooter } from './AgentOverlapFooter';
 export { AgentPickCard } from './AgentPickCard';
 export { AgentPickAuditPanel } from './AgentPickAuditPanel';
 export { AgentPerformanceCharts } from './AgentPerformanceCharts';
+export { AgentPickFeedbackCard } from './AgentPickFeedbackCard';

@@ -39,6 +39,7 @@ import {
   useAgentDetailSnapshot,
   useGeneratePicks,
 } from '@/hooks/useAgentPicks';
+import { AgentPickFeedbackCard } from '@/components/agents/AgentPickFeedbackCard';
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
 import { ThinkingAnimation } from '@/components/agents/ThinkingAnimation';
@@ -1454,6 +1455,13 @@ export default function AgentDetailScreen() {
             </Text>
           </View>
         )}
+
+        <View style={{ marginBottom: 8 }}>
+          <AgentPickFeedbackCard
+            agent={agent}
+            picks={allPicks?.length ? allPicks : (detailSnapshotV2?.todays_picks ?? [])}
+          />
+        </View>
 
         {/* Disclaimer */}
         <View style={styles.disclaimerContainer}>

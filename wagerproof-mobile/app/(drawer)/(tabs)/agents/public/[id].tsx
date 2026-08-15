@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAgent } from '@/hooks/useAgents';
 import { useAgentPicks, useAgentDetailSnapshot } from '@/hooks/useAgentPicks';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
+import { AgentPickFeedbackCard } from '@/components/agents/AgentPickFeedbackCard';
 import { AgentPickItem, PickCardSkeleton } from '@/components/agents/AgentPickItem';
 import { AgentPerformanceCharts } from '@/components/agents/AgentPerformanceCharts';
 import { LockedPickCard } from '@/components/LockedPickCard';
@@ -1052,6 +1053,13 @@ export default function PublicAgentViewScreen() {
             </View>
           </LockedOverlay>
         )}
+
+        <View style={{ marginBottom: 8 }}>
+          <AgentPickFeedbackCard
+            agent={agent}
+            picks={allPicks?.length ? allPicks : (detailSnapshot?.todays_picks ?? [])}
+          />
+        </View>
 
         {/* Disclaimer */}
         <View style={styles.disclaimerContainer}>
