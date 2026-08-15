@@ -78,15 +78,28 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
     /// makes a plurality read as disagreement.
     public let agreement: Double
     /// Agents-on-one-side needed to flag today; scales with the slate's volume.
+    /// Internal plumbing — never shown to a user. See `verdict`.
     public let threshold: Int
     /// True when the side clears both the scaled count bar and the agreement bar.
     public let flagged: Bool
+    /// The SECOND-most-backed selection in the same market as `side`, verbatim.
+    /// Nil when the market was unanimous, or when the RPC predates the runner-up
+    /// migration. NOT "the other side": `pick_selection` is unnormalized, so a
+    /// market can hold more than two distinct strings.
+    public let runnerUpSide: String?
+    /// Distinct agents on `runnerUpSide`.
+    public let runnerUpAgents: Int?
+    /// Where this game ranks on its own date by agreement (1 = strongest),
+    /// flagged games first. Nil on pre-migration rows.
+    public let slateRank: Int?
+    /// Games on that date with at least one agent pick — the rank's denominator.
+    public let slateGames: Int?
     /// Up to 4 agents from the winning side, for the overlap stack.
     public let avatars: [ConsensusAvatar]
 
     public var id: String { gameId }
 
-    /// Agreement as a whole-number percentage, for the "100% agree" label.
+    /// Agreement as a whole-number percentage.
     public var agreementPercent: Int { Int((agreement * 100).rounded()) }
 
     public init(
@@ -100,6 +113,10 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
         agreement: Double,
         threshold: Int,
         flagged: Bool,
+        runnerUpSide: String? = nil,
+        runnerUpAgents: Int? = nil,
+        slateRank: Int? = nil,
+        slateGames: Int? = nil,
         avatars: [ConsensusAvatar]
     ) {
         self.gameId = gameId
@@ -112,6 +129,10 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
         self.agreement = agreement
         self.threshold = threshold
         self.flagged = flagged
+        self.runnerUpSide = runnerUpSide
+        self.runnerUpAgents = runnerUpAgents
+        self.slateRank = slateRank
+        self.slateGames = slateGames
         self.avatars = avatars
     }
 
@@ -126,6 +147,10 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
         case agreement
         case threshold
         case flagged
+        case runnerUpSide = "runner_up_side"
+        case runnerUpAgents = "runner_up_agents"
+        case slateRank = "slate_rank"
+        case slateGames = "slate_games"
         case avatars
     }
 
@@ -166,8 +191,119 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
         }
         threshold = try c.decode(Int.self, forKey: .threshold)
         flagged = try c.decode(Bool.self, forKey: .flagged)
+        // All four are OPTIONAL, unlike the counts above: they arrived with the
+        // runner-up/rank migration, and a client shipped ahead of it must still
+        // render the card (minus the second bar segment and the rank line)
+        // rather than failing the whole slate fetch.
+        runnerUpSide = try c.decodeIfPresent(String.self, forKey: .runnerUpSide)
+        runnerUpAgents = try c.decodeIfPresent(Int.self, forKey: .runnerUpAgents)
+        slateRank = try c.decodeIfPresent(Int.self, forKey: .slateRank)
+        slateGames = try c.decodeIfPresent(Int.self, forKey: .slateGames)
         // Only the avatar stack is optional — it is decoration, and a row that
         // loses its faces should still produce a working count/flag.
         avatars = (try? c.decode([ConsensusAvatar].self, forKey: .avatars)) ?? []
+    }
+}
+
+// MARK: - Copy
+
+/// What the card actually claims. This is the whole point of the widget: a
+/// percentage alone makes the reader do the judging, and most of a slate is
+/// noise (see the calibration in `.claude/docs/18_agent_consensus.md`).
+public enum ConsensusVerdict: String, Sendable, Hashable {
+    /// Clears both server gates — the rare game worth pointing at.
+    case consensus
+    /// Lopsided enough, but too few agents bet the market to trust it.
+    case lean
+    /// Most games. The agents disagree.
+    case split
+    /// Not a sample. Suppresses the percentage entirely.
+    case tooFew
+}
+
+extension GameAgentConsensus {
+    /// Mirrors the RPC's `p_min_share` default. It is duplicated here ONLY to
+    /// tell `lean` from `split` — `flagged` itself is always the server's call,
+    /// never recomputed. If the SQL default moves, move this with it.
+    private static let leanShare = 0.55
+    /// Below this a percentage is theatre: 1 of 2 is "50% agreement" and means
+    /// nothing.
+    private static let minMeaningfulMarket = 3
+
+    public var verdict: ConsensusVerdict {
+        if marketAgents < Self.minMeaningfulMarket { return .tooFew }
+        if flagged { return .consensus }
+        return agreement >= Self.leanShare ? .lean : .split
+    }
+
+    /// `nil` when the deployed RPC predates market labelling, which is exactly
+    /// when every sentence below has to drop its "betting the spread" clause
+    /// rather than say "side" and imply a two-way market that may not exist.
+    private var market: String? {
+        marketLabel.isEmpty ? nil : marketLabel
+    }
+
+    private func agentsWord(_ n: Int) -> String { n == 1 ? "agent" : "agents" }
+
+    /// One sentence, verdict first, answering "what do the agents think?".
+    /// Deliberately quotes no threshold: the user is told the conclusion, not
+    /// the rule that produced it.
+    public var headline: String {
+        switch verdict {
+        case .consensus:
+            return market.map { "Agents are on \(side) — \(sideAgents) of the \(marketAgents) betting the \($0)." }
+                ?? "Agents are on \(side) — \(sideAgents) of \(marketAgents) agents."
+        case .lean:
+            return market.map { "Agents lean \(side), but only \(marketAgents) bet the \($0)." }
+                ?? "Agents lean \(side), but only \(marketAgents) agents bet it."
+        case .split:
+            return market.map { "Agents are split on the \($0) — \(side) leads with \(sideAgents) of \(marketAgents)." }
+                ?? "Agents are split — \(side) leads with \(sideAgents) of \(marketAgents) agents."
+        case .tooFew:
+            let noun = agentsWord(marketAgents)
+            return market.map { "Only \(marketAgents) \(noun) bet the \($0) on this game." }
+                ?? "Only \(marketAgents) \(noun) bet this game."
+        }
+    }
+
+    /// The label under the big percentage. Replaces the old bare "agree", which
+    /// never said agree with *whom* or over *what* population.
+    public var sharePopulationLabel: String {
+        market.map { "of \($0) bets" } ?? "of agent bets"
+    }
+
+    public var mostBackedLabel: String {
+        // Never "side" — a market with alt lines or odds-suffixed selections is
+        // not necessarily two-way.
+        market.map { "Most-backed \($0)" } ?? "Most backed"
+    }
+
+    /// Feed-strip / Outliers-tile line. Carries the denominator, which the old
+    /// strip omitted entirely ("39 agents on OVER 7.5" over an invisible base).
+    public var leaderLine: String {
+        "\(sideAgents) of \(marketAgents) on \(side)"
+    }
+
+    /// Agents in this market who took neither the leader nor the runner-up.
+    /// Not "the other side" — see `runnerUpSide`.
+    public var otherAgents: Int {
+        max(0, marketAgents - sideAgents - (runnerUpAgents ?? 0))
+    }
+
+    /// Legend beneath the divided bar, one segment per real group.
+    public var barLegend: [String] {
+        guard marketAgents > 0 else { return [] }
+        if sideAgents >= marketAgents { return ["\(sideAgents) \(side)", "unanimous"] }
+        var parts = ["\(sideAgents) \(side)"]
+        if let r = runnerUpSide, let n = runnerUpAgents, n > 0 { parts.append("\(n) \(r)") }
+        if otherAgents > 0 { parts.append("\(otherAgents) other") }
+        return parts
+    }
+
+    /// "#3 of 14 today" — turns an abstract 51% into a comparison against the
+    /// board the user is looking at. Absent on pre-migration rows.
+    public var slateRankLabel: String? {
+        guard let slateRank, let slateGames, slateGames > 1 else { return nil }
+        return "#\(slateRank) of \(slateGames) today"
     }
 }

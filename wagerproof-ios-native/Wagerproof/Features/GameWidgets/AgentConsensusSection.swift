@@ -10,8 +10,13 @@ import WagerproofStores
 ///
 /// The answer is the SIDE they agree on, not the raw count: agents bet nearly
 /// every game on a slate, so a participation count says nothing on its own.
-/// That's also why the widget leads with agreement and ticks the flag threshold
-/// on its bar — "how close was this to a BET flag" is the actual question.
+///
+/// The card states a VERDICT (`ConsensusVerdict`) and hides the mechanism. It
+/// used to print "flag needs 13" — the agent-count gate only — while `flagged`
+/// also requires ≥55% agreement, so a card could show 18 ≥ 13 with its bar
+/// visibly past the tick and still not flag, contradicting itself. Field size is
+/// not a bullish signal, it is the sample size that makes the percentage
+/// trustworthy, so it lives in the bar legend rather than in a gate readout.
 ///
 /// Sport-agnostic on purpose: it goes FIRST in all five detail sheets, above the
 /// per-sport sections, exactly as web hosts it as the first child of the detail
@@ -35,6 +40,28 @@ struct AgentConsensusSection: View {
     /// badge row".
     static let emerald = Color(hex: 0x10B981)
     private static let maxVisible = 4
+
+    /// Verdict chip tints. The chip is ALWAYS present now — its colour, not its
+    /// existence, is what makes a consensus game pop, and a card that shows a
+    /// chip only on the 21% of games that flag leaves the other 79% looking
+    /// unlabelled rather than deliberately quiet.
+    static func verdictTint(_ v: ConsensusVerdict) -> UInt32 {
+        switch v {
+        case .consensus: return 0x10B981  // emerald-500
+        case .lean:      return 0xF59E0B  // amber-500
+        case .split,
+             .tooFew:    return 0x94A3B8  // slate-400
+        }
+    }
+
+    static func verdictWord(_ v: ConsensusVerdict) -> String {
+        switch v {
+        case .consensus: return "CONSENSUS"
+        case .lean:      return "LEAN"
+        case .split:     return "SPLIT"
+        case .tooFew:    return "TOO FEW"
+        }
+    }
 
     private var consensus: GameAgentConsensus? {
         store?.consensus(for: sport, gameId: gameId)
@@ -62,18 +89,21 @@ struct AgentConsensusSection: View {
 
     @ViewBuilder
     private func card(_ c: GameAgentConsensus) -> some View {
+        let verdict = c.verdict
         WidgetCollapsingSection(
             title: "Agent Consensus",
             systemImage: "person.3.fill",
             iconTint: Self.emerald,
-            // The shared verdict capsule stands in for web's solid emerald "Bet"
-            // pill — same slot, same word, in this app's accessory language so
-            // it can't drift from every other pinned widget's badge.
-            accessory: c.flagged ? .verdict(text: "BET", tintHex: 0x10B981) : .none,
-            contentKey: "\(c.gameId)-\(c.agents)-\(c.sideAgents)-\(c.marketAgents)-\(c.agreementPercent)-\(c.flagged)"
+            // The shared verdict capsule stands in for web's pill — same slot,
+            // in this app's accessory language so it can't drift from every
+            // other pinned widget's badge. "BET" was retired: it reads as an
+            // instruction from the app, and it collided with the model-signal
+            // badges the same card already carries.
+            accessory: .verdict(text: Self.verdictWord(verdict), tintHex: Self.verdictTint(verdict)),
+            contentKey: "\(c.gameId)-\(c.sideAgents)-\(c.marketAgents)-\(c.agreementPercent)-\(verdict.rawValue)-\(c.runnerUpAgents ?? -1)-\(c.slateRank ?? -1)"
         ) {
             VStack(alignment: .leading, spacing: 12) {
-                Text(headline(c))
+                Text(c.headline)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -81,7 +111,7 @@ struct AgentConsensusSection: View {
                 // Web puts this in the WidgetCard shell's `subtitle` slot; the
                 // iOS collapsing shell has no such slot, so it rides under the
                 // headline.
-                Text("What the public AI agents bet on this game, and how much they agree.")
+                Text("Independent picks from the public AI agents on this game.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.appTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -95,14 +125,6 @@ struct AgentConsensusSection: View {
         }
     }
 
-    private func headline(_ c: GameAgentConsensus) -> String {
-        let pct = c.agreementPercent
-        let inMarket = c.marketLabel.isEmpty ? "" : " betting the \(c.marketLabel)"
-        return c.flagged
-            ? "\(c.sideAgents) of \(c.marketAgents) agents\(inMarket) are on \(c.side) — \(pct)% agreement."
-            : "The most-backed side is \(c.side): \(c.sideAgents) of \(c.marketAgents) agents\(inMarket), \(pct)% agreement."
-    }
-
     // MARK: - The pick (largest thing in the card)
 
     @ViewBuilder
@@ -114,7 +136,7 @@ struct AgentConsensusSection: View {
             avatarStack(c, overflow: c.sideAgents - min(c.avatars.count, Self.maxVisible))
 
             VStack(alignment: .leading, spacing: 2) {
-                eyebrow(c.marketLabel.isEmpty ? "Most-backed side" : "Most-backed \(c.marketLabel)")
+                eyebrow(c.mostBackedLabel)
                 HStack(alignment: .top, spacing: 4) {
                     if let dir {
                         Image(systemName: dir == .over ? "arrow.up" : "arrow.down")
@@ -133,13 +155,20 @@ struct AgentConsensusSection: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(c.agreementPercent)%")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(Color.appTextPrimary)
-                eyebrow("agree")
+            // Suppressed on `.tooFew`: "50%" off a 2-agent market is theatre,
+            // and the headline already says how few bet it.
+            if c.verdict != .tooFew {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(c.agreementPercent)%")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(Color.appTextPrimary)
+                    // "agree" alone never said agree with WHOM, or over which
+                    // population — the denominator is the agents who bet this
+                    // market, not everyone who bet the game.
+                    eyebrow(c.sharePopulationLabel)
+                }
+                .fixedSize()
             }
-            .fixedSize()
         }
     }
 
@@ -204,54 +233,61 @@ struct AgentConsensusSection: View {
 
     // MARK: - Agreement bar
 
-    /// One divided bar with the flag threshold ticked, so "how close was this to
-    /// earning a BET flag" is readable without a second sentence.
+    /// The market split as ONE divided bar: leader · runner-up · everyone else.
+    /// The old single fill drew the other 49% as an unlabelled grey remainder,
+    /// which made a coin flip read as a lean.
+    ///
+    /// Segments are in agent counts over `marketAgents`. A selection belongs to
+    /// one market; whole-game participation pools unrelated moneyline/spread/
+    /// total bets and makes agreement shrink as more markets receive picks (the
+    /// old 5/17 versus correct 5/6 bug).
     @ViewBuilder
     private func agreementBar(_ c: GameAgentConsensus) -> some View {
-        // A selection belongs to one market. Whole-game participation includes
-        // unrelated moneyline/spread/total bets and makes agreement shrink as
-        // more markets receive picks (the old 5/17 versus correct 5/6 bug).
-        let sideFraction = c.marketAgents > 0
-            ? min(1, Double(c.sideAgents) / Double(c.marketAgents))
-            : 0
-        // The threshold is an agent COUNT; place its tick on the same
-        // 0…marketAgents scale the fill uses.
-        let thresholdFraction = c.marketAgents > 0
-            ? min(1, Double(c.threshold) / Double(c.marketAgents))
-            : 0
+        let total = Double(max(c.marketAgents, 1))
+        let leader = min(1, Double(c.sideAgents) / total)
+        let runnerUp = min(1 - leader, Double(c.runnerUpAgents ?? 0) / total)
+        let other = max(0, min(1 - leader - runnerUp, Double(c.otherAgents) / total))
 
         VStack(alignment: .leading, spacing: 6) {
             GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.appTextMuted.opacity(0.18))
-                    Capsule()
-                        .fill(c.flagged ? Self.emerald : Color.appTextMuted.opacity(0.5))
-                        .frame(width: max(0, geo.size.width * sideFraction))
-                    if thresholdFraction > 0 && thresholdFraction < 1 {
-                        Rectangle()
-                            .fill(Color.appTextPrimary.opacity(0.45))
-                            .frame(width: 2)
-                            .offset(x: geo.size.width * thresholdFraction)
+                HStack(spacing: 1.5) {
+                    segment(width: geo.size.width * leader,
+                            color: c.flagged ? Self.emerald : Color.appTextPrimary.opacity(0.55))
+                    if runnerUp > 0 {
+                        segment(width: geo.size.width * runnerUp,
+                                color: Color.appTextMuted.opacity(0.45))
                     }
+                    if other > 0 {
+                        segment(width: geo.size.width * other,
+                                color: Color.appTextMuted.opacity(0.2))
+                    }
+                    Spacer(minLength: 0)
                 }
+                .background(Capsule().fill(Color.appTextMuted.opacity(0.15)))
             }
             .frame(height: 10)
 
             HStack(spacing: 4) {
-                Text("\(c.sideAgents)")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Color.appTextPrimary)
-                Text(
-                    c.marketLabel.isEmpty
-                        ? "of \(c.marketAgents) agents"
-                        : "of \(c.marketAgents) agents betting the \(c.marketLabel)"
-                )
+                // Named counts, so "51%" has a visible numerator AND a visible
+                // denominator instead of one bar and a bare percentage.
+                Text(c.barLegend.joined(separator: " · "))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Spacer(minLength: 8)
-                Text(c.flagged ? "flag needs \(c.threshold) · cleared" : "flag needs \(c.threshold)")
+                if let rank = c.slateRankLabel {
+                    // Replaces "flag needs N". Reading 51% against today's board
+                    // is the comparison that makes it mean anything; the gate
+                    // that produced the verdict is deliberately not shown.
+                    Text(rank).fixedSize()
+                }
             }
             .font(.system(size: 10, weight: .medium))
             .foregroundStyle(Color.appTextSecondary)
         }
+    }
+
+    private func segment(width: CGFloat, color: Color) -> some View {
+        Capsule().fill(color).frame(width: max(0, width))
     }
 }
 
@@ -262,22 +298,46 @@ struct AgentConsensusSection: View {
         ConsensusAvatar(avatarId: "3", name: "Fade Fiona", spriteIndexOverride: nil, color: "#ec4899"),
         ConsensusAvatar(avatarId: "4", name: "Model Max", spriteIndexOverride: nil, color: nil),
     ]
+    // One row per verdict, plus the legacy shape, because the four render
+    // materially different copy and the last one is what a client sees when it
+    // is deployed ahead of the runner-up/rank migration.
     let store = AgentConsensusStore().debugSet(sport: .mlb, rows: [
-        "flagged": GameAgentConsensus(
-            gameId: "flagged", gameDate: "2026-07-26", agents: 39, side: "Over 7.5",
-            sideAgents: 39, agreement: 1.0, threshold: 8, flagged: true, avatars: avatars
+        "consensus": GameAgentConsensus(
+            gameId: "consensus", gameDate: "2026-07-26", agents: 44, side: "Over 7.5",
+            sideAgents: 31, marketAgents: 35, marketLabel: "total", agreement: 0.8857,
+            threshold: 12, flagged: true,
+            runnerUpSide: "Under 7.5", runnerUpAgents: 3, slateRank: 1, slateGames: 14,
+            avatars: avatars
         ),
         "split": GameAgentConsensus(
-            gameId: "split", gameDate: "2026-07-29", agents: 17,
+            gameId: "split", gameDate: "2026-07-26", agents: 41, side: "TCU -6.5",
+            sideAgents: 18, marketAgents: 35, marketLabel: "spread", agreement: 0.5143,
+            threshold: 13, flagged: false,
+            runnerUpSide: "Baylor +6.5", runnerUpAgents: 15, slateRank: 3, slateGames: 14,
+            avatars: avatars
+        ),
+        "lean": GameAgentConsensus(
+            gameId: "lean", gameDate: "2026-07-26", agents: 17,
             side: "Pittsburgh Pirates F5 -0.5", sideAgents: 5,
             marketAgents: 6, marketLabel: "F5 run line", agreement: 0.8333,
-            threshold: 8, flagged: false, avatars: avatars
+            threshold: 12, flagged: false,
+            runnerUpSide: "Milwaukee Brewers F5 +0.5", runnerUpAgents: 1,
+            slateRank: 6, slateGames: 14, avatars: avatars
+        ),
+        // No market_agents / market_label / runner_up / rank — the pre-migration
+        // RPC shape that prod was still serving on 2026-08-15.
+        "legacy": GameAgentConsensus(
+            gameId: "legacy", gameDate: "2026-07-26", agents: 30,
+            side: "Chicago White Sox ML", sideAgents: 13, agreement: 0.4333,
+            threshold: 13, flagged: false, avatars: avatars
         ),
     ])
     return ScrollView {
         VStack(spacing: 16) {
-            AgentConsensusSection(sport: .mlb, gameId: "flagged", gameDate: "2026-07-26")
+            AgentConsensusSection(sport: .mlb, gameId: "consensus", gameDate: "2026-07-26")
             AgentConsensusSection(sport: .mlb, gameId: "split", gameDate: "2026-07-26")
+            AgentConsensusSection(sport: .mlb, gameId: "lean", gameDate: "2026-07-26")
+            AgentConsensusSection(sport: .mlb, gameId: "legacy", gameDate: "2026-07-26")
         }
         .padding(.vertical, 16)
     }

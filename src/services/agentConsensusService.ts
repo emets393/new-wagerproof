@@ -43,10 +43,31 @@ export interface GameAgentConsensus {
   marketLabel: string;
   /** sideAgents / marketAgents, 0-1. */
   agreement: number;
-  /** Agents-on-one-side needed to flag today; scales with slate volume. */
+  /**
+   * Agents-on-one-side needed to flag today; scales with slate volume.
+   * Internal plumbing — never render it. It is only ONE of the two gates behind
+   * `flagged`, and printing it made a card claim the bar was cleared when the
+   * agreement gate was what failed.
+   */
   threshold: number;
   /** True when the side clears both the scaled count bar and the agreement bar. */
   flagged: boolean;
+  /**
+   * The SECOND-most-backed selection in the same market as `side`, verbatim.
+   * `null` when the market was unanimous, or when the deployed RPC predates the
+   * runner-up migration. NOT "the other side" — `pick_selection` is
+   * unnormalized, so a market can hold more than two distinct strings.
+   */
+  runnerUpSide: string | null;
+  /** Distinct agents on `runnerUpSide`. */
+  runnerUpAgents: number | null;
+  /**
+   * Where this game ranks on its own date by agreement (1 = strongest), flagged
+   * games first. `null` on pre-migration rows.
+   */
+  slateRank: number | null;
+  /** Games on that date with at least one agent pick — the rank's denominator. */
+  slateGames: number | null;
   /** Up to 4 agents from the winning side, for the overlap stack. */
   avatars: ConsensusAvatar[];
 }
@@ -63,7 +84,18 @@ export interface ConsensusRow {
   agreement: string | number | null;
   threshold: number;
   flagged: boolean;
+  runner_up_side?: string | null;
+  runner_up_agents?: number | null;
+  slate_rank?: number | null;
+  slate_games?: number | null;
   avatars: ConsensusAvatar[] | null;
+}
+
+/** `Number(null)` is 0, which would silently become a real rank. */
+function optionalInt(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 /** Exported for tests — the numeric-as-string coercion is the sharp edge here. */
@@ -82,6 +114,13 @@ export function mapConsensusRow(row: ConsensusRow): GameAgentConsensus {
     agreement: Number(row.agreement ?? 0),
     threshold: row.threshold,
     flagged: Boolean(row.flagged),
+    // Absent on a client deployed ahead of the runner-up/rank migration: the
+    // card drops its second bar segment and its rank line rather than inventing
+    // a "0 other" group or a "#0 of 0 today" footer.
+    runnerUpSide: row.runner_up_side ?? null,
+    runnerUpAgents: optionalInt(row.runner_up_agents),
+    slateRank: optionalInt(row.slate_rank),
+    slateGames: optionalInt(row.slate_games),
     avatars: row.avatars ?? [],
   };
 }

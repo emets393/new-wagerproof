@@ -65,31 +65,41 @@ function AvatarStack({
 }
 
 /**
- * Agent-consensus row on a game card. Three tiers:
- *   flagged  → emerald strip: avatar stack + "N agents on <SIDE>" + agreement + BET
- *   agents   → muted inline stack + bare count, no colour, no claim
+ * Agent-consensus row on a game card. ONE shape, two treatments:
+ *   flagged  → emerald strip: avatar stack + "31 of 35 on <SIDE>" + CONSENSUS
+ *   agents   → the same line, muted, no chip
  *   none     → renders nothing
+ *
+ * The unflagged tier used to render a bare participation count ("45 agents")
+ * beside winning-SIDE faces — a number that says how many agents ran that day,
+ * not what they think, next to a stack making a claim it never stated. Both
+ * tiers now name the side and carry the denominator; colour alone separates
+ * "worth pointing at" from "here's what they did".
  *
  * The count alone is deliberately NOT enough to earn the flag: agents bet
  * nearly every game, so participation flags ~96% of a slate. Only agreement
  * (see get_game_agent_consensus) turns the strip green.
  */
 export function AgentConsensusStrip({ consensus }: { consensus: GameAgentConsensus }) {
-  const { agents, side, sideAgents, agreement, flagged, avatars } = consensus;
+  const { agents, side, sideAgents, marketAgents, flagged, avatars } = consensus;
   if (agents <= 0) return null;
 
   const visible = avatars.slice(0, MAX_VISIBLE);
+  // Always the WINNING side, in both tiers — the stack is claiming "these
+  // agents are on this side", so counting the whole game beside it mislabels
+  // the faces.
+  const overflow = sideAgents - visible.length;
 
   if (!flagged) {
     return (
       <div className="relative mt-1.5 flex items-center gap-1.5">
         <AvatarStack
           avatars={visible}
-          overflow={agents - visible.length}
+          overflow={overflow}
           ringClass="border-white/70 dark:border-white/15"
         />
         <span className="truncate text-[10px] font-medium text-muted-foreground">
-          {agents === 1 ? '1 agent' : `${agents} agents`}
+          {sideAgents} of {marketAgents} on <span className="font-bold uppercase">{side}</span>
         </span>
       </div>
     );
@@ -99,21 +109,19 @@ export function AgentConsensusStrip({ consensus }: { consensus: GameAgentConsens
     <div className="relative mt-1.5 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5">
       <AvatarStack
         avatars={visible}
-        overflow={sideAgents - visible.length}
+        overflow={overflow}
         ringClass="border-emerald-50 dark:border-emerald-950"
       />
 
       <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">
-        {sideAgents} {sideAgents === 1 ? 'agent' : 'agents'} on{' '}
-        <span className="font-bold uppercase">{side}</span>
-        <span className="ml-1.5 font-medium text-emerald-700/70 dark:text-emerald-400/70">
-          {Math.round(agreement * 100)}% agree
-        </span>
+        {sideAgents} of {marketAgents} on <span className="font-bold uppercase">{side}</span>
       </span>
 
+      {/* Not "Bet": that reads as an instruction from the app, and it sat one
+          row away from the model-signal badges, which are a different claim. */}
       <span className="flex shrink-0 items-center gap-1 rounded-md bg-emerald-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
         <span className="h-1.5 w-1.5 rounded-full bg-white/90" />
-        Bet
+        Consensus
       </span>
     </div>
   );

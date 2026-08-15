@@ -33,6 +33,7 @@ import com.wagerproof.app.features.components.WidgetHeaderAccessory
 import com.wagerproof.app.features.games.GameDateGrouping
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.core.models.ConsensusVerdict
 import com.wagerproof.core.models.GameAgentConsensus
 import com.wagerproof.core.stores.GamesStore
 
@@ -50,15 +51,19 @@ private const val FALLBACK_AVATAR_COLOR = "#64748B"
  *
  * The answer is the SIDE they agree on, not the raw count: agents bet nearly
  * every game on a slate, so a participation count says nothing on its own.
- * That's why the card leads with agreement and ticks the flag threshold on its
- * bar — "how close was this to a BET flag" is the actual question.
+ *
+ * The card states a VERDICT ([GameAgentConsensus.verdict]) and hides the
+ * mechanism. It used to print "flag needs 13" — the agent-COUNT gate only —
+ * while `flagged` also requires ≥55% agreement, so a card could show 18 ≥ 13
+ * with its bar visibly past the tick and still not flag, contradicting itself.
+ * Field size is not a bullish signal, it is the sample size that makes the
+ * percentage trustworthy, so it lives in the bar legend instead.
  *
  * **The denominator is [GameAgentConsensus.marketAgents], never `agents`.**
  * `agents` pools every bet shape on the game, so a near-unanimous run line reads
- * as 29% disagreement once six other markets are counted. iOS's own widget still
- * divides by `agents` and disagrees with the percentage the server sent; do not
- * copy that. [GameAgentConsensus.marketLabel] names the population so the card
- * can say WHICH bet they agreed on.
+ * as 29% disagreement once six other markets are counted.
+ * [GameAgentConsensus.marketLabel] names the population so the card can say
+ * WHICH bet they agreed on.
  *
  * Sport-agnostic on purpose: it goes FIRST in all five detail pages, above the
  * per-sport sections, exactly as web hosts it as the first child of the grid.
@@ -97,21 +102,20 @@ private fun ConsensusCard(consensus: GameAgentConsensus, modifier: Modifier = Mo
         modifier = modifier,
         icon = AppIcon.PERSON_3_FILL,
         iconTint = AppColors.appConsensusEmerald,
-        // The shared verdict capsule stands in for web's solid emerald "Bet"
-        // pill — same slot, same word, in this app's accessory language so it
-        // can't drift from every other widget's badge.
-        accessory = if (consensus.flagged) {
-            WidgetHeaderAccessory.Verdict("BET", AppColors.appConsensusEmerald)
-        } else {
-            WidgetHeaderAccessory.None
-        },
-        headline = consensusHeadline(consensus),
+        // Always present — its COLOUR is what makes a consensus game pop, not
+        // its existence. "BET" is retired: it read as an instruction from the
+        // app and collided with the model-signal badges the same card carries.
+        accessory = WidgetHeaderAccessory.Verdict(
+            verdictWord(consensus.verdict),
+            verdictTint(consensus.verdict),
+        ),
+        headline = consensus.headline,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // Web puts this in the WidgetCard shell's `subtitle` slot; the
             // collapsing shell has no such slot, so it rides under the headline.
             Text(
-                "What the public AI agents bet on this game, and how much they agree.",
+                "Independent picks from the public AI agents on this game.",
                 color = AppColors.appTextSecondary,
                 fontSize = 12.sp,
                 lineHeight = 16.sp,
@@ -127,18 +131,18 @@ private fun ConsensusCard(consensus: GameAgentConsensus, modifier: Modifier = Mo
     }
 }
 
-/**
- * Headline sentence. Both branches state the market-scoped fraction so the
- * percentage next to it is always reproducible from the words.
- */
-internal fun consensusHeadline(c: GameAgentConsensus): String {
-    val inMarket = c.marketLabel?.let { " betting the $it" } ?: ""
-    val pct = c.agreementPercent
-    return if (c.flagged) {
-        "${c.sideAgents} of ${c.marketAgents} agents$inMarket are on ${c.side} — $pct% agreement."
-    } else {
-        "The most-backed side is ${c.side}: ${c.sideAgents} of ${c.marketAgents} agents$inMarket, $pct% agreement."
-    }
+/** Chip word. The sentences themselves live on [GameAgentConsensus]. */
+internal fun verdictWord(v: ConsensusVerdict): String = when (v) {
+    ConsensusVerdict.CONSENSUS -> "CONSENSUS"
+    ConsensusVerdict.LEAN -> "LEAN"
+    ConsensusVerdict.SPLIT -> "SPLIT"
+    ConsensusVerdict.TOO_FEW -> "TOO FEW"
+}
+
+internal fun verdictTint(v: ConsensusVerdict): Color = when (v) {
+    ConsensusVerdict.CONSENSUS -> AppColors.appConsensusEmerald
+    ConsensusVerdict.LEAN -> AppColors.appConsensusAmber
+    ConsensusVerdict.SPLIT, ConsensusVerdict.TOO_FEW -> AppColors.appTextMuted
 }
 
 // MARK: - The pick (largest thing in the card)
@@ -171,7 +175,7 @@ private fun SideRow(c: GameAgentConsensus) {
         )
 
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Eyebrow(c.marketLabel?.let { "Most-backed $it" } ?: "Most-backed side")
+            Eyebrow(c.mostBackedLabel)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 direction?.let { dir ->
                     val icon = if (dir == SideDirection.OVER) AppIcon.ARROW_UP else AppIcon.ARROW_DOWN
@@ -192,15 +196,22 @@ private fun SideRow(c: GameAgentConsensus) {
             }
         }
 
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                "${c.agreementPercent}%",
-                color = AppColors.appTextPrimary,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                softWrap = false,
-            )
-            Eyebrow("agree")
+        // Suppressed on TOO_FEW: "50%" off a 2-agent market is theatre, and the
+        // headline already says how few bet it.
+        if (c.verdict != ConsensusVerdict.TOO_FEW) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "${c.agreementPercent}%",
+                    color = AppColors.appTextPrimary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    softWrap = false,
+                )
+                // "agree" alone never said agree with WHOM, or over which
+                // population — the denominator is the agents who bet this
+                // market, not everyone who bet the game.
+                Eyebrow(c.sharePopulationLabel)
+            }
         }
     }
 }
@@ -241,83 +252,90 @@ private fun sideTint(direction: SideDirection?): Color = when (direction) {
 // MARK: - Agreement bar
 
 /**
- * One divided bar with the flag threshold ticked, so "how close was this to
- * earning a BET flag" is readable without a second sentence. Both the fill and
- * the tick are scaled over `marketAgents` — the same denominator the server used
- * for `agreement`, so the bar and the percentage can never disagree.
+ * The market split as ONE divided bar: leader · runner-up · everyone else. The
+ * old single fill drew the other 49% as an unlabelled grey remainder, which made
+ * a coin flip read as a lean.
+ *
+ * Every segment is scaled over `marketAgents` — the same denominator the server
+ * used for `agreement`, so the bar and the percentage can never disagree.
  */
 @Composable
 private fun AgreementBar(c: GameAgentConsensus) {
     val fractions = consensusBarFractions(c)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        val trackColor = AppColors.appTextMuted.copy(alpha = 0.18f)
-        val fillColor = if (c.flagged) AppColors.appConsensusEmerald else AppColors.appTextMuted.copy(alpha = 0.5f)
-        val tickColor = AppColors.appTextPrimary.copy(alpha = 0.45f)
+        val trackColor = AppColors.appTextMuted.copy(alpha = 0.15f)
+        val leaderColor =
+            if (c.flagged) AppColors.appConsensusEmerald else AppColors.appTextPrimary.copy(alpha = 0.55f)
+        val runnerUpColor = AppColors.appTextMuted.copy(alpha = 0.45f)
+        val otherColor = AppColors.appTextMuted.copy(alpha = 0.20f)
         Canvas(Modifier.fillMaxWidth().height(10.dp)) {
             val radius = CornerRadius(size.height / 2f, size.height / 2f)
             drawRoundRect(color = trackColor, cornerRadius = radius)
-            val fillWidth = size.width * fractions.side
-            if (fillWidth > 0f) {
+            // A 1.5dp hairline between segments so two adjacent greys still read
+            // as two groups rather than one long bar.
+            val gap = 1.5.dp.toPx()
+            var x = 0f
+            listOf(
+                fractions.side to leaderColor,
+                fractions.runnerUp to runnerUpColor,
+                fractions.other to otherColor,
+            ).forEach { (fraction, color) ->
+                val width = size.width * fraction
+                if (width <= 0f) return@forEach
                 drawRoundRect(
-                    color = fillColor,
-                    size = Size(fillWidth.coerceAtLeast(size.height), size.height),
+                    color = color,
+                    topLeft = Offset(x, 0f),
+                    size = Size((width - gap).coerceAtLeast(1f), size.height),
                     cornerRadius = radius,
                 )
-            }
-            if (fractions.threshold > 0f && fractions.threshold < 1f) {
-                val tickWidth = 2.dp.toPx()
-                drawRect(
-                    color = tickColor,
-                    topLeft = Offset((size.width * fractions.threshold).coerceAtMost(size.width - tickWidth), 0f),
-                    size = Size(tickWidth, size.height),
-                )
+                x += width
             }
         }
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            // The flag caption carries no weight, so it measures at its
-            // intrinsic width first and the denominator caption truncates into
-            // whatever is left — never the other way round.
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "${c.sideAgents}",
-                    color = AppColors.appTextPrimary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    "of ${c.marketAgents} agents" + (c.marketLabel?.let { " betting the $it" } ?: ""),
-                    color = AppColors.appTextSecondary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Spacer(Modifier.width(8.dp))
+            // The rank caption carries no weight, so it measures at its intrinsic
+            // width first and the legend truncates into whatever is left — never
+            // the other way round.
             Text(
-                if (c.flagged) "flag needs ${c.threshold} · cleared" else "flag needs ${c.threshold}",
+                // Named counts, so the percentage has a visible numerator AND a
+                // visible denominator instead of one bar and a bare number.
+                c.barLegend.joinToString(" · "),
                 color = AppColors.appTextSecondary,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
-                softWrap = false,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
+            c.slateRankLabel?.let { rank ->
+                Spacer(Modifier.width(8.dp))
+                // Replaces "flag needs N". Reading 51% against today's board is
+                // what makes it mean anything; the gate behind the verdict is
+                // deliberately not shown.
+                Text(
+                    rank,
+                    color = AppColors.appTextSecondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    softWrap = false,
+                )
+            }
         }
     }
 }
 
-internal data class ConsensusBarFractions(val side: Float, val threshold: Float)
+internal data class ConsensusBarFractions(val side: Float, val runnerUp: Float, val other: Float)
 
 /**
- * Bar geometry, extracted so it can be unit-tested. Guards the zero
- * denominator that a pre-migration row with no agents would produce.
+ * Bar geometry, extracted so it can be unit-tested. Guards the zero denominator
+ * a pre-migration row with no agents would produce, and clamps each segment to
+ * what the earlier ones left so rounding can never overflow the track.
  */
 internal fun consensusBarFractions(c: GameAgentConsensus): ConsensusBarFractions {
     val denominator = c.marketAgents
-    if (denominator <= 0) return ConsensusBarFractions(0f, 0f)
-    return ConsensusBarFractions(
-        side = (c.sideAgents.toFloat() / denominator).coerceIn(0f, 1f),
-        threshold = (c.threshold.toFloat() / denominator).coerceIn(0f, 1f),
-    )
+    if (denominator <= 0) return ConsensusBarFractions(0f, 0f, 0f)
+    val side = (c.sideAgents.toFloat() / denominator).coerceIn(0f, 1f)
+    val runnerUp = ((c.runnerUpAgents ?: 0).toFloat() / denominator).coerceIn(0f, 1f - side)
+    val other = (c.otherAgents.toFloat() / denominator).coerceIn(0f, 1f - side - runnerUp)
+    return ConsensusBarFractions(side, runnerUp, other)
 }
