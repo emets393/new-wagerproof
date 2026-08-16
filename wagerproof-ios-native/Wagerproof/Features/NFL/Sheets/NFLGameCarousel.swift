@@ -10,6 +10,11 @@ struct NFLGameCarousel: View {
     let initialGame: NFLPrediction
     var onClose: () -> Void = {}
 
+    /// Player-prop drill-down state. One navigationDestination here (not per
+    /// page) avoids duplicate-destination conflicts across the TabView pages.
+    @State private var selectedProp: NFLPlayerPropSelection?
+    @Namespace private var propTransition
+
     init(games: [NFLPrediction], initialGame: NFLPrediction, onClose: @escaping () -> Void = {}) {
         self.games = games
         self.initialGame = initialGame
@@ -42,9 +47,15 @@ struct NFLGameCarousel: View {
                     onClose: onClose,
                     showAura: false,
                     heroTopInset: topInset,
-                    contentBottomInset: bottomInset
+                    contentBottomInset: bottomInset,
+                    propNamespace: propTransition,
+                    onSelectProp: { selectedProp = $0 }
                 )
             }
         )
+        .navigationDestination(item: $selectedProp) { selection in
+            NFLPropDetailView(selection: selection)
+                .navigationTransition(.zoom(sourceID: selection.transitionID, in: propTransition))
+        }
     }
 }

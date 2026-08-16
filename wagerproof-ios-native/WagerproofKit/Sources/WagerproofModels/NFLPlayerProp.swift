@@ -8,11 +8,31 @@ public struct NFLPropRecentGame: Codable, Hashable, Sendable {
     public let opp: String?
     public let week: Int?
     public let actual: Double?
+    /// Historical result served by the trends table (O/Y = true, U/N = false).
+    /// This preserves the line that was available for that specific game.
+    public let cleared: Bool?
 
-    public init(opp: String?, week: Int?, actual: Double?) {
+    public init(opp: String?, week: Int?, actual: Double?, cleared: Bool? = nil) {
         self.opp = opp
         self.week = week
         self.actual = actual
+        self.cleared = cleared
+    }
+}
+
+/// A market advertised by the current player-page slate. Before Week 1 most
+/// markets are pending, so they may not exist in the live odds rows yet.
+public struct NFLPropMarketAvailability: Hashable, Sendable {
+    public let market: String
+    public let line: Double?
+    public let overPrice: Int?
+    public let underPrice: Int?
+
+    public init(market: String, line: Double?, overPrice: Int?, underPrice: Int?) {
+        self.market = market
+        self.line = line
+        self.overPrice = overPrice
+        self.underPrice = underPrice
     }
 }
 
@@ -49,7 +69,7 @@ public struct NFLPropBestQuote: Hashable, Sendable {
 /// See the "NFL Week 12 2025 Dry Run — App Data Contract" doc — the 2026
 /// in-season tables will follow this same shape.
 public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
-    public let gameId: String
+    public let gameId: String?
     public let eventId: String?
     public let season: Int?
     public let week: Int?
@@ -100,6 +120,16 @@ public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
     public let bestUnderLine: Double?
     public let bestUnderPrice: Double?
 
+    /// Live odds rows can arrive before the canonical game key is backfilled.
+    /// The event id is stable across every player/market row for that matchup,
+    /// so it preserves grouping until `game_id` becomes available.
+    var resolvedGameId: String {
+        if let gameId, !gameId.isEmpty { return gameId }
+        if let eventId, !eventId.isEmpty { return eventId }
+        return [String(season ?? 0), String(week ?? 0), team ?? "", opponent ?? ""]
+            .joined(separator: "_")
+    }
+
     enum CodingKeys: String, CodingKey {
         case gameId = "game_id"
         case eventId = "event_id"
@@ -149,7 +179,7 @@ public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
     }
 
     public init(
-        gameId: String, eventId: String?, season: Int?, week: Int?,
+        gameId: String?, eventId: String?, season: Int?, week: Int?,
         playerId: String?, playerName: String, position: String?,
         team: String?, opponent: String?, isHome: Bool?,
         market: String, closeLine: Double?, overPrice: Double?, underPrice: Double?,
@@ -226,10 +256,12 @@ public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
 public struct NFLPropGameContext: Hashable, Sendable {
     public let gameDate: String
     public let slot: String?
+    public let kickoff: String?
 
-    public init(gameDate: String, slot: String?) {
+    public init(gameDate: String, slot: String?, kickoff: String? = nil) {
         self.gameDate = gameDate
         self.slot = slot
+        self.kickoff = kickoff
     }
 }
 
@@ -269,29 +301,42 @@ public struct NFLPropMarket: Hashable, Sendable, Identifiable {
     public var id: String { market }
     public var label: String { NFLPlayerProps.marketLabel(market) }
 
-    /// Anytime-TD-style market: no posted line, the price is a yes-price.
-    public var isYesNo: Bool { closeLine == nil }
+    /// Anytime TD remains a yes/no market even before its price is posted.
+    /// Other Week 1 markets can also have a nil line while pending.
+    public var isYesNo: Bool { market == "player_anytime_td" }
 
     public var hasBestBooks: Bool { !bestOver.isEmpty || !bestUnder.isEmpty }
 
     /// The threshold a game "clears": the posted line, or ≥1 for yes/no
     /// markets (scored a TD).
-    public var clearThreshold: Double { closeLine ?? 0.5 }
+    public var clearThreshold: Double { closeLine ?? (isYesNo ? 0.5 : 1) }
 
     /// Last-10 strip for the feed card, oldest → newest.
     public var miniStrip: [(cleared: Bool, value: Double)] {
         recentGames.suffix(10).compactMap { g in
             guard let v = g.actual else { return nil }
-            return (cleared: v > clearThreshold, value: v)
+            return (cleared: clearsPostedLine(actual: v, historical: g.cleared), value: v)
         }
     }
 
-    /// L10 hit count vs the close line, computed from the game log so the
-    /// fraction always matches the strip (the server's `over_rate_l10` is
-    /// line-at-snapshot and can drift from the close).
+    /// L10 hit count vs TODAY's posted line (same rule as the detail chart
+    /// and web Last10Strip). Historical O/U letters are last year's close,
+    /// so they only fill in when this week's line or the actual is missing.
     public var l10Hits: (hits: Int, n: Int) {
-        let games = recentGames.suffix(10).compactMap(\.actual)
-        return (games.filter { $0 > clearThreshold }.count, games.count)
+        let games = recentGames.suffix(10).compactMap { game -> Bool? in
+            if let actual = game.actual {
+                return clearsPostedLine(actual: actual, historical: game.cleared)
+            }
+            return game.cleared
+        }
+        return (games.filter { $0 }.count, games.count)
+    }
+
+    /// Grade one result against the posted line when we have both numbers.
+    private func clearsPostedLine(actual: Double, historical: Bool?) -> Bool {
+        if let line = closeLine { return actual > line }
+        if isYesNo { return actual >= 1 }
+        return historical ?? (actual > clearThreshold)
     }
 
     public var l10HitRate: Double? {
@@ -356,6 +401,8 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
     public let gameDate: String
     /// Schedule slot key (thu_fri / sun_early / sun_late_sat / snf / monday).
     public let slot: String?
+    /// Upcoming kickoff ISO timestamp from the latest player-page slate.
+    public let kickoff: String?
     public let week: Int?
     /// Slate season from `nfl_dryrun_props` (e.g. 2025 dry-run week).
     public let season: Int?
@@ -370,6 +417,20 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
     /// the first in priority order (flags are the contract's badge layer).
     public var headlineMarket: NFLPropMarket? {
         markets.first { !$0.flags.isEmpty } ?? markets.first
+    }
+
+    /// Website parity: strongest L10 rate wins, then the larger sample. The
+    /// existing market order is the deterministic final tie-breaker.
+    public var bestMarket: NFLPropMarket? {
+        markets.enumerated().max { lhs, rhs in
+            let leftRate = lhs.element.l10HitRate ?? -1
+            let rightRate = rhs.element.l10HitRate ?? -1
+            if leftRate != rightRate { return leftRate < rightRate }
+            let leftN = lhs.element.l10Hits.n
+            let rightN = rhs.element.l10Hits.n
+            if leftN != rightN { return leftN < rightN }
+            return lhs.offset > rhs.offset
+        }?.element
     }
 
     /// All fired P-flags across this player's markets.
@@ -395,7 +456,7 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
         team: String?, opponent: String?, isHome: Bool?, position: String?,
         gameId: String, eventId: String?, gameDate: String, slot: String?,
         week: Int?, season: Int? = nil, reportStatus: String?, practiceStatus: String?,
-        markets: [NFLPropMarket]
+        markets: [NFLPropMarket], kickoff: String? = nil
     ) {
         self.playerName = playerName
         self.playerId = playerId
@@ -408,6 +469,7 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
         self.eventId = eventId
         self.gameDate = gameDate
         self.slot = slot
+        self.kickoff = kickoff
         self.week = week
         self.season = season
         self.reportStatus = reportStatus
@@ -579,6 +641,74 @@ public enum NFLPlayerProps {
         }
     }
 
+    /// Synthesize a stable matchup key from a player-page row. Pages do not
+    /// carry `game_id`; team + opponent + home flag are enough to group the
+    /// slate the same way the game sheet matches.
+    public static func synthesizedGameId(
+        season: Int, week: Int, team: String?, opponent: String?, isHome: Bool?
+    ) -> String {
+        let teamAbbr = team ?? ""
+        let oppAbbr = opponent ?? ""
+        let away = isHome == true ? oppAbbr : teamAbbr
+        let home = isHome == true ? teamAbbr : oppAbbr
+        return "\(season)_\(week)_\(away)_\(home)"
+    }
+
+    /// Build feed players from `nfl_prop_player_pages` + optional trend
+    /// game-logs. This is the live 2026 path — no dry-run tables.
+    public static func players(
+        from pages: [NFLPropPlayerPage],
+        recentGames: [String: [NFLPropRecentGame]] = [:]
+    ) -> [NFLPropPlayer] {
+        let players: [NFLPropPlayer] = pages.map { page in
+            var markets: [NFLPropMarket] = page.markets.map { market in
+                NFLPropMarket(
+                    market: market.key,
+                    closeLine: market.line,
+                    openLine: nil, lineDelta: nil, lineRange: nil,
+                    overPrice: market.overPrice, underPrice: market.underPrice,
+                    nBooks: nil, closeYesProb: nil, openYesProb: nil,
+                    lastGame: nil, l3Avg: nil, l5Avg: nil, l10Avg: nil,
+                    sznAvg: nil, sznMax: nil, sznMin: nil,
+                    overRateL5: nil, overRateL10: nil, defMatchupIdx: nil,
+                    flags: [],
+                    recentGames: recentGames["\(page.playerId)|\(market.key)"] ?? []
+                )
+            }
+            markets.sort { a, b in
+                let ai = marketSortIndex(a.market), bi = marketSortIndex(b.market)
+                if ai != bi { return ai < bi }
+                return a.market < b.market
+            }
+            return NFLPropPlayer(
+                playerName: page.playerName,
+                playerId: page.playerId,
+                headshotUrl: page.headshotUrl,
+                team: page.team,
+                opponent: page.opponent,
+                isHome: page.isHome,
+                position: page.position,
+                gameId: synthesizedGameId(
+                    season: page.season, week: page.week,
+                    team: page.team, opponent: page.opponent, isHome: page.isHome
+                ),
+                eventId: nil,
+                gameDate: page.kickoff.map { String($0.prefix(10)) } ?? "",
+                slot: nil,
+                week: page.week,
+                season: page.season,
+                reportStatus: nil,
+                practiceStatus: nil,
+                markets: markets,
+                kickoff: page.kickoff
+            )
+        }
+        return players.sorted { a, b in
+            if a.sortKey != b.sortKey { return a.sortKey < b.sortKey }
+            return a.playerName < b.playerName
+        }
+    }
+
     // MARK: Grouping
 
     /// Group raw (player, market) rows into per-player entities. Markets
@@ -587,19 +717,22 @@ public enum NFLPlayerProps {
     public static func group(
         _ rows: [NFLDryrunPropRow],
         games: [String: NFLPropGameContext] = [:],
-        bestBooksFallback: [String: NFLPropBestBooksFallback] = [:]
+        bestBooksFallback: [String: NFLPropBestBooksFallback] = [:],
+        recentGamesFallback: [String: [NFLPropRecentGame]] = [:],
+        playerSchedules: [String: NFLPropGameContext] = [:],
+        playerMarkets: [String: [NFLPropMarketAvailability]] = [:]
     ) -> [NFLPropPlayer] {
         struct PlayerKey: Hashable {
             let game: String
             let player: String
         }
         let byPlayer = Dictionary(grouping: rows) { row in
-            PlayerKey(game: row.gameId, player: row.playerId ?? row.playerName.lowercased())
+            PlayerKey(game: row.resolvedGameId, player: row.playerId ?? row.playerName.lowercased())
         }
 
         let players: [NFLPropPlayer] = byPlayer.values.compactMap { playerRows in
             guard let first = playerRows.first else { return nil }
-            let markets: [NFLPropMarket] = playerRows
+            var markets: [NFLPropMarket] = playerRows
                 .map { r in
                     let fallbackKey = r.playerId.map { "\($0)|\(r.market)" }
                     let fallback = fallbackKey.flatMap { bestBooksFallback[$0] }
@@ -620,7 +753,11 @@ public enum NFLPlayerProps {
                         overRateL5: r.overRateL5, overRateL10: r.overRateL10,
                         defMatchupIdx: r.defMatchupIdx,
                         flags: r.flags ?? [],
-                        recentGames: r.recentGames ?? [],
+                        recentGames: {
+                            if let served = r.recentGames, !served.isEmpty { return served }
+                            guard let playerId = r.playerId else { return [] }
+                            return recentGamesFallback["\(playerId)|\(r.market)"] ?? []
+                        }(),
                         bestOver: bestQuote(
                             bookKey: r.bestOverBook ?? fallback?.bestOverBook,
                             bookName: r.bestOverBookName ?? fallback?.bestOverBookName,
@@ -637,13 +774,32 @@ public enum NFLPlayerProps {
                         )
                     )
                 }
-                .sorted { a, b in
+            if let playerId = first.playerId {
+                let existing = Set(markets.map(\.market))
+                markets.append(contentsOf: (playerMarkets[playerId] ?? []).compactMap { available in
+                    guard !existing.contains(available.market) else { return nil }
+                    return NFLPropMarket(
+                        market: available.market,
+                        closeLine: available.line,
+                        openLine: nil, lineDelta: nil, lineRange: nil,
+                        overPrice: available.overPrice, underPrice: available.underPrice,
+                        nBooks: nil, closeYesProb: nil, openYesProb: nil,
+                        lastGame: nil, l3Avg: nil, l5Avg: nil, l10Avg: nil,
+                        sznAvg: nil, sznMax: nil, sznMin: nil,
+                        overRateL5: nil, overRateL10: nil, defMatchupIdx: nil,
+                        flags: [],
+                        recentGames: recentGamesFallback["\(playerId)|\(available.market)"] ?? []
+                    )
+                })
+            }
+            markets.sort { a, b in
                     let ai = marketSortIndex(a.market), bi = marketSortIndex(b.market)
                     if ai != bi { return ai < bi }
                     return a.market < b.market
-                }
+            }
 
-            let context = games[first.gameId]
+            let gameId = first.resolvedGameId
+            let context = games[gameId] ?? first.playerId.flatMap { playerSchedules[$0] }
             return NFLPropPlayer(
                 playerName: first.playerName,
                 playerId: first.playerId,
@@ -652,7 +808,7 @@ public enum NFLPlayerProps {
                 opponent: first.opponent,
                 isHome: first.isHome,
                 position: first.position,
-                gameId: first.gameId,
+                gameId: gameId,
                 eventId: first.eventId,
                 gameDate: context?.gameDate ?? "",
                 slot: context?.slot,
@@ -660,7 +816,8 @@ public enum NFLPlayerProps {
                 season: first.season,
                 reportStatus: first.reportStatus,
                 practiceStatus: first.practiceStatus,
-                markets: markets
+                markets: markets,
+                kickoff: context?.kickoff
             )
         }
 

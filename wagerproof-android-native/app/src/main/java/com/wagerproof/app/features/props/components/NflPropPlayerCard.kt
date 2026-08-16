@@ -21,6 +21,11 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +56,12 @@ import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.models.NFLTeams
 import com.wagerproof.core.models.SignalPerformance
 import com.wagerproof.core.models.SignalSeasonRecordDisplay
+import com.wagerproof.core.services.SportsbookPropMarketOdds
+import com.wagerproof.core.services.SportsbookPropOddsService
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private val SignalOrange = Color(0xFFF97316)
 
@@ -69,6 +80,15 @@ fun NflPropPlayerCard(
     val haptics = LocalHapticFeedback.current
     val player = item.player
     val headline: NFLPropMarket? = item.displayMarket
+    var liveOdds by remember(player.playerId, headline?.market) {
+        mutableStateOf<SportsbookPropMarketOdds?>(null)
+    }
+    LaunchedEffect(player.playerId, headline?.market) {
+        val playerId = player.playerId
+        liveOdds = if (!playerId.isNullOrEmpty() && headline != null) {
+            SportsbookPropOddsService.odds(playerId, headline.market)
+        } else null
+    }
     val (primary, secondary) = nflTeamColors(player.team ?: "")
     val shape = RoundedCornerShape(26.dp)
 
@@ -100,7 +120,7 @@ fun NflPropPlayerCard(
                 Text(subtitle(player), color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
             }
             Spacer(Modifier.weight(1f))
-            OverUnderBlock(headline)
+            OverUnderBlock(headline, liveOdds)
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text("L10 TREND", color = AppColors.appTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
@@ -122,18 +142,16 @@ fun NflPropPlayerCard(
             Spacer(Modifier.width(16.dp))
             InfoItem("HIT", hitLabel(headline), hitColorNfl(headline))
             Spacer(Modifier.weight(1f))
-            TimePill(player.slotLabel ?: PropsFormatting.dateLabel(player.gameDate))
-        }
-
-        val flags = headline?.flags
-        if (!flags.isNullOrEmpty()) {
-            NFLPropSignalFeedStrip(flags)
+            TimePill(nextGameLabel(player))
         }
     }
 }
 
 private fun subtitle(player: NFLPropPlayer): String {
-    val opp = player.opponentLabel
+    val opp = player.opponent?.let { opponent ->
+        val prefix = if (player.isHome == true) "vs" else "@"
+        "$prefix ${NFLTeams.abbr(opponent)}"
+    }.orEmpty()
     val pos = player.position
     return if (!pos.isNullOrEmpty()) {
         if (opp.isEmpty()) pos else "$pos · $opp"
@@ -143,20 +161,32 @@ private fun subtitle(player: NFLPropPlayer): String {
 }
 
 @Composable
-private fun OverUnderBlock(headline: NFLPropMarket?) {
+private fun OverUnderBlock(headline: NFLPropMarket?, live: SportsbookPropMarketOdds?) {
     if (headline?.isYesNo == true) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            OuPill("TD", "", NFLPlayerProps.formatOdds(headline.overPrice), AppColors.appPrimary)
+            OuPill("TD", "", NFLPlayerProps.formatOdds(live?.over?.quotes?.firstOrNull()?.price ?: headline.overPrice ?: headline.bestOver.price), AppColors.appPrimary)
             headline.closeYesProb?.let { p ->
                 Text("${NFLPlayerProps.formatPct(p)} implied", color = AppColors.appTextMuted, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     } else {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            OuPill("O", NFLPlayerProps.formatLine(headline?.closeLine), NFLPlayerProps.formatOdds(headline?.overPrice), AppColors.appPrimary)
-            OuPill("U", NFLPlayerProps.formatLine(headline?.closeLine), NFLPlayerProps.formatOdds(headline?.underPrice), AppColors.appTextSecondary)
+            val over = live?.over?.quotes?.firstOrNull()
+            val under = live?.under?.quotes?.firstOrNull()
+            OuPill("O", NFLPlayerProps.formatLine(over?.line ?: headline?.closeLine ?: headline?.bestOver?.line), NFLPlayerProps.formatOdds(over?.price ?: headline?.overPrice ?: headline?.bestOver?.price), AppColors.appPrimary)
+            OuPill("U", NFLPlayerProps.formatLine(under?.line ?: headline?.closeLine ?: headline?.bestUnder?.line), NFLPlayerProps.formatOdds(under?.price ?: headline?.underPrice ?: headline?.bestUnder?.price), AppColors.appTextSecondary)
         }
     }
+}
+
+private fun nextGameLabel(player: NFLPropPlayer): String {
+    player.kickoff?.takeIf { it.isNotEmpty() }?.let { iso ->
+        runCatching {
+            val date = OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.of("America/New_York"))
+            return date.format(DateTimeFormatter.ofPattern("M/d ha", Locale.US)).lowercase(Locale.US)
+        }
+    }
+    return "TBD"
 }
 
 private fun l10Label(headline: NFLPropMarket?): String {
@@ -178,240 +208,6 @@ private fun hitColorNfl(headline: NFLPropMarket?): Color {
         pct >= 70 -> AppColors.appPrimary
         pct >= 55 -> Color(0xFFEAB308)
         else -> AppColors.appTextSecondary
-    }
-}
-
-// MARK: - Prop signal UI (P-flags)
-
-/** Compact prop-signal rows shown beneath an NFL feed card when the market fired flags. */
-@Composable
-fun NFLPropSignalFeedStrip(flags: List<String>) {
-    val signals = NFLPropSignalDefinitions.resolve(flags)
-    if (signals.isEmpty()) return
-    val actionable = signals.filter { !it.isAntiSignal }
-    val anti = signals.filter { it.isAntiSignal }
-    val shape = RoundedCornerShape(14.dp)
-
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(AppColors.appSurfaceElevated.copy(alpha = 0.55f))
-            .border(0.6.dp, AppColors.appBorder.copy(alpha = 0.45f), shape)
-            .padding(horizontal = 10.dp, vertical = 9.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Icon(AppIcon.BOLT_FILL.imageVector, null, tint = SignalOrange, modifier = Modifier.size(11.dp))
-            Text(
-                if (signals.size == 1) "1 Prop Signal" else "${signals.size} Prop Signals",
-                color = SignalOrange, fontSize = 11.sp, fontWeight = FontWeight.Black,
-            )
-        }
-        if (actionable.isNotEmpty()) SignalGroup("Supports this prop", actionable, muted = false)
-        if (anti.isNotEmpty()) SignalGroup("Avoid this prop", anti, muted = true)
-    }
-}
-
-@Composable
-private fun SignalGroup(title: String, signals: List<NFLPropSignalDefinition>, muted: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, color = if (muted) AppColors.appAccentAmber else AppColors.appTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
-        signals.forEach { SignalCompactRow(it, muted) }
-    }
-}
-
-@Composable
-private fun SignalCompactRow(signal: NFLPropSignalDefinition, muted: Boolean) {
-    val tint = if (muted) AppColors.appAccentAmber else AppColors.appAccentBlue
-    val shape = RoundedCornerShape(10.dp)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(tint.copy(alpha = if (muted) 0.12f else 0.16f))
-            .border(0.8.dp, tint.copy(alpha = if (muted) 0.45f else 0.38f), shape)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            (if (muted) AppIcon.fromSystemName("exclamationmark.triangle.fill") else AppIcon.fromSystemName("info.circle.fill"))?.imageVector
-                ?: AppIcon.INFO_CIRCLE_FILL.imageVector,
-            null, tint = tint, modifier = Modifier.size(11.dp),
-        )
-        Column {
-            Text(signal.displayName, color = tint, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
-            Text(signal.betDirection, color = tint.copy(alpha = 0.75f), fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
-        }
-    }
-}
-
-/** Detail-page variant: an adaptive grid of tappable signal buttons. */
-@Composable
-fun NFLPropSignalGroup(
-    flags: List<String>,
-    onSelect: (NFLPropSignalDefinition) -> Unit,
-) {
-    val signals = NFLPropSignalDefinitions.resolve(flags)
-    if (signals.isEmpty()) return
-    val actionable = signals.filter { !it.isAntiSignal }
-    val anti = signals.filter { it.isAntiSignal }
-    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        if (actionable.isNotEmpty()) SignalButtonGroup("Supports this prop", actionable, muted = false, onSelect)
-        if (anti.isNotEmpty()) SignalButtonGroup("Avoid this prop", anti, muted = true, onSelect)
-    }
-}
-
-@Composable
-private fun SignalButtonGroup(
-    title: String,
-    signals: List<NFLPropSignalDefinition>,
-    muted: Boolean,
-    onSelect: (NFLPropSignalDefinition) -> Unit,
-) {
-    val color = if (muted) AppColors.appAccentAmber else AppColors.appAccentBlue
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Text(title, color = if (muted) AppColors.appAccentAmber else AppColors.appTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
-        // Two-column grid approximates iOS's adaptive(min:118) layout.
-        val rows = signals.chunked(2)
-        rows.forEach { pair ->
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
-                pair.forEach { signal ->
-                    Box(Modifier.weight(1f)) { SignalButton(signal, muted, color, onSelect) }
-                }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun SignalButton(
-    signal: NFLPropSignalDefinition,
-    muted: Boolean,
-    color: Color,
-    onSelect: (NFLPropSignalDefinition) -> Unit,
-) {
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(color.copy(alpha = if (muted) 0.12f else 0.18f))
-            .border(1.1.dp, color.copy(alpha = if (muted) 0.55f else 0.46f), shape)
-            .clickable { onSelect(signal) }
-            .padding(start = 10.dp, end = 7.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            (if (muted) AppIcon.fromSystemName("exclamationmark.triangle.fill") else AppIcon.fromSystemName("info.circle.fill"))?.imageVector
-                ?: AppIcon.INFO_CIRCLE_FILL.imageVector,
-            null, tint = color, modifier = Modifier.size(12.dp),
-        )
-        Column(Modifier.weight(1f)) {
-            Text(signal.displayName, color = color, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
-            Text(signal.betDirection, color = color.copy(alpha = 0.72f), fontSize = 8.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        }
-        Box(
-            Modifier.size(18.dp).clip(CircleShape).background(color),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(AppIcon.CHEVRON_UP_FORWARD.imageVector, null, tint = AppColors.appSurface, modifier = Modifier.size(9.dp))
-        }
-    }
-}
-
-/**
- * THE prop-signal sheet — renders BOTH the all-time backtest hit
- * (`signal.typicalHit`) AND the season-to-date record ([SignalSeasonRecordDisplay]),
- * kept visually separate. Port of iOS `NFLPropSignalDetailSheet`.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun NFLPropSignalDetailSheet(
-    signal: NFLPropSignalDefinition,
-    seasonRecord: SignalPerformance?,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = AppColors.appSurface,
-    ) {
-        Column(
-            Modifier
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text(signal.displayName, color = AppColors.appTextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Black)
-            if (signal.oneLiner.isNotEmpty()) {
-                Text(signal.oneLiner, color = AppColors.appTextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            }
-            SignalBlock("Definition", signal.definition)
-            SignalBlock("Why It Works", signal.whyItWorks)
-            SignalBlock("Bet Direction", signal.betDirection)
-            SignalPerformanceStats(backtestHit = signal.typicalHit, seasonDisplay = SignalSeasonRecordDisplay(seasonRecord))
-            if (signal.isAntiSignal) {
-                Text(
-                    "This is an anti-signal — the backtest says to avoid betting this market when it fires.",
-                    color = AppColors.appAccentAmber, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SignalBlock(title: String, body: String) {
-    if (body.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title.uppercase(), color = AppColors.appTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
-        Text(body, color = AppColors.appTextPrimary, fontSize = 14.sp)
-    }
-}
-
-/**
- * The all-time backtest hit and the season-to-date record, side by side but
- * clearly separated (see memory: keep the two signal records distinct).
- */
-@Composable
-private fun SignalPerformanceStats(backtestHit: String?, seasonDisplay: SignalSeasonRecordDisplay) {
-    val shape = RoundedCornerShape(14.dp)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(AppColors.appSurfaceElevated)
-            .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.5f), shape)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("ALL-TIME BACKTEST", color = AppColors.appTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
-            Text(
-                backtestHit ?: "—",
-                color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold,
-            )
-        }
-        Box(Modifier.fillMaxWidth().height(0.5.dp).background(AppColors.appBorder.copy(alpha = 0.5f)))
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("THIS SEASON", color = AppColors.appTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
-            val toneColor = when (seasonDisplay.tone) {
-                SignalSeasonRecordDisplay.Tone.POSITIVE -> AppColors.appWin
-                SignalSeasonRecordDisplay.Tone.NEGATIVE -> AppColors.appLoss
-                SignalSeasonRecordDisplay.Tone.NEUTRAL -> AppColors.appTextPrimary
-                SignalSeasonRecordDisplay.Tone.EMPTY -> AppColors.appTextMuted
-            }
-            Text(seasonDisplay.detail, color = toneColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            if (seasonDisplay.isSmallSample) {
-                Text("Small sample — read with caution.", color = AppColors.appTextMuted, fontSize = 11.sp)
-            }
-        }
     }
 }
 

@@ -94,9 +94,12 @@ struct MatchupGlassHero: View {
     private func discRow(size: CGFloat, split: Double, dock: CGFloat, p: CGFloat, detail: CGFloat) -> some View {
         let labelH = lerp(20, 0, dock).rounded()
         let rowH = size + 2 + labelH
-        // Inset further as we dock so the left disc clears the circular
-        // back button (leading ~16 + 36pt control + 16pt gap).
-        let edgeMargin = lerp(8, 80, dock).rounded()
+        // Keep the docked team clusters near the outer controls so their
+        // abbreviation/moneyline labels leave a distinct center lane for the
+        // compact Spread + O/U stats. The 64pt inset still clears the 52pt
+        // leading back-button footprint while preventing all three clusters
+        // from crowding each other on narrow phones.
+        let edgeMargin = lerp(8, 64, dock).rounded()
         GeometryReader { geo in
             let w = geo.size.width
             // The discs separate via real HStack LAYOUT spacing — not .offset or
@@ -116,8 +119,8 @@ struct MatchupGlassHero: View {
             let belowCY = size + 2 + max(labelH, 20) / 2
             // Docked: abbr + ML sit inward of each disc, vertically centered
             // in the toolbar row instead of stacked underneath.
-            let awayLabelX = lerp(awayCX, awayCX + size / 2 + 22, dock)
-            let homeLabelX = lerp(homeCX, homeCX - size / 2 - 22, dock)
+            let awayLabelX = lerp(awayCX, awayCX + size / 2 + 18, dock)
+            let homeLabelX = lerp(homeCX, homeCX - size / 2 - 18, dock)
             let labelCY = lerp(belowCY, discCY, dock)
 
             ZStack(alignment: .topLeading) {

@@ -490,7 +490,7 @@ public enum ParlayGodEngine {
                     guard let odds, oddsOk(odds) else { return nil }
                     return ParlayLeg(
                         kind: .prop, sport: .nfl, category: category, gameKey: player.gameId, matchupLabel: label,
-                        gameTimeEt: player.gameDate.isEmpty ? nil : player.gameDate,
+                        gameTimeEt: player.kickoff ?? (player.gameDate.isEmpty ? nil : player.gameDate),
                         subject: name, teamAbbr: team, playerId: nil, headshotUrl: player.headshotUrl,
                         betText: "\(over ? "Over" : "Under") \(lineText(line)) \(marketLabel)",
                         odds: odds, evidence: evidence, streakN: n, marketKey: market.market

@@ -38,7 +38,7 @@ at the bottom rather than left in the generated list.
 - `FIDELITY-WAIVER #236: matchup glass-disc merge is approximated` — app/src/main/java/com/wagerproof/app/features/outliers/OutlierMatchupCardView.kt
 - `FIDELITY-WAIVER #240: several Android-native component substitutions` — app/src/main/java/com/wagerproof/app/features/auth/ResetPasswordScreen.kt
 - `FIDELITY-WAIVER #241: animated auth/props/outlier chrome differs` — app/src/main/java/com/wagerproof/app/features/auth/AuthGateScreen.kt
-- `FIDELITY-WAIVER #242: nested-scroll props hero replaces iOS transition` — app/src/main/java/com/wagerproof/app/features/props/detail/PropsCollapsingScaffold.kt
+- `FIDELITY-WAIVER #242: nested-scroll props hero replaces iOS transition` — app/src/main/java/com/wagerproof/app/features/props/detail/PropsCollapsingScaffold.kt (scope extended 2026-08-15: also hosts the NFL analysis detail — picker-in-hero chip strip that FILTERS markets vs iOS's pinned-accessory strip; visual behaviour matches, internals differ)
 - `FIDELITY-WAIVER #244: SF Symbols use Material equivalents` — app/src/main/java/com/wagerproof/app/features/onboarding/components/OnboardingIcons.kt
 - `FIDELITY-WAIVER #251: Assistant FAB uses a single tonal shadow` — app/src/main/java/com/wagerproof/app/features/navigation/AssistantFab.kt
 - `FIDELITY-WAIVER #256: notification test flow differs` — app/src/main/java/com/wagerproof/app/features/settings/DeveloperSettingsScreen.kt

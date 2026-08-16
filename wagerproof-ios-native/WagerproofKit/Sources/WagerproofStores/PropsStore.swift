@@ -17,7 +17,7 @@ public final class PropsStore {
     /// the deepest props data today. No CFB — college player props aren't
     /// offered (NCAA restrictions), so the segment would be a dead end.
     public enum Sport: String, CaseIterable, Identifiable, Sendable {
-        case mlb, nfl, cfb, nba, ncaab
+        case mlb, nfl, nba
 
         public var id: String { rawValue }
 
@@ -25,9 +25,7 @@ public final class PropsStore {
             switch self {
             case .mlb: return "MLB"
             case .nfl: return "NFL"
-            case .cfb: return "CFB"
             case .nba: return "NBA"
-            case .ncaab: return "NCAAB"
             }
         }
 
@@ -78,6 +76,7 @@ public final class PropsStore {
     @ObservationIgnored public private(set) var matchupsVersion: Int = 0
     /// Same invalidation contract for the app-target NFL feed cache.
     @ObservationIgnored public private(set) var nflPlayersVersion: Int = 0
+    @ObservationIgnored private var nflInsightCache: [String: NFLPropsInsightSummary?] = [:]
 
     /// The only place `matchups` is assigned. Rebuilds the per-game index and
     /// drops every derived cache so nothing can outlive the data it came from.
@@ -95,6 +94,31 @@ public final class PropsStore {
     private func setNFLPlayers(_ new: [NFLPropPlayer]) {
         nflPlayers = new
         nflPlayersVersion &+= 1
+        nflInsightCache.removeAll()
+    }
+
+    /// Players in this matchup — team-abbr matching, not `game_id`. Player
+    /// pages synthesize a game key that may not match `nfl_dryrun_games`.
+    public func nflPlayers(matchingAway away: String, home: String) -> [NFLPropPlayer] {
+        let teams: Set<String> = [
+            NFLTeams.abbr(for: away).uppercased(),
+            NFLTeams.abbr(for: home).uppercased(),
+        ]
+        return nflPlayers.filter { player in
+            guard let team = player.team.map({ NFLTeams.abbr(for: $0).uppercased() }),
+                  let opp = player.opponent.map({ NFLTeams.abbr(for: $0).uppercased() })
+            else { return false }
+            return teams.contains(team) && teams.contains(opp)
+        }
+    }
+
+    /// Memoized matchup digest for the NFL game-sheet Player Props widget.
+    public func nflPropsInsight(matchingAway away: String, home: String) -> NFLPropsInsightSummary? {
+        let key = "\(NFLTeams.abbr(for: away).uppercased())|\(NFLTeams.abbr(for: home).uppercased())"
+        if let cached = nflInsightCache[key] { return cached }
+        let built = NFLPropsInsight.summary(for: nflPlayers(matchingAway: away, home: home))
+        nflInsightCache[key] = built
+        return built
     }
 
     /// 5-minute cache TTL — matches the games feed.
@@ -187,7 +211,7 @@ public final class PropsStore {
     public var isLoadingNFL: Bool { loadState[.nfl] == .loading }
     public var hasLoadedNFL: Bool { lastFetched[.nfl] != nil }
 
-    /// When true, NFL props load from `nfl_dryrun_*` staging tables.
+    /// Unused — NFL props read `nfl_prop_player_pages`, not dry-run tables.
     public var dryRunPreviewEnabled: Bool = false
 
     /// Matchups ordered by game time (the service already orders by date then

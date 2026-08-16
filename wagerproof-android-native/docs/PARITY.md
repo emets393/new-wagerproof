@@ -31,7 +31,7 @@ Legend: ⬜ not started · 🔨 in progress · ✅ source-complete/validated · 
 | Agents: office sim, cards, charts, HR/regen/autopilot sheets | 28 | 05 part4 | ✅ generation card visual suite (desk avatar, glyph matrix, thinking verbs, pulse waves), swipe-to-generate pill (#305 resolved), AutoPilot notifications card, office pauses off-tab (🎫 #205 chrome-only, #071, #301) |
 | Chat: WagerBot (SSE, ContentBlocks, threads) | 17 | 06 | ✅ compiles; assistant messages are selectable and copyable |
 | Chat: voice mode (OpenAI Realtime PTT) | | 06 | ✅ retained as developer-only code; no production entry point (owner decision) |
-| Props (16) | 16 | 06 | ✅ compiles (🎫 #240–#242) |
+| Props (16) | 16 | 06 | ✅ compiles (🎫 #240–#242); NFL detail rebuilt 2026-08-15 as the web player-analysis page (six sections: Projection / Recent Games / Matchup / H2H / Situations / Best Lines; picker filters like web MarketToggle; MLB hero chrome 134/126 + hit-% badge; signal strip/sheets removed) |
 | Outliers (29) | 29 | 06 | ✅ compiles (🎫 #024 carried, #230–#236) |
 | Analytics / Historical Trends (13) | 13 | 08 | ✅ full filters, MLB route/copy, hero/narrative/share, Saved Systems + leaderboard, NL filter chat |
 | LearnMore (11) | 11 | 08 | ✅ compiles |

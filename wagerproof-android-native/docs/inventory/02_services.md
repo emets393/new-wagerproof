@@ -311,6 +311,18 @@ with a session → phase `.authenticated(userId)` + loads profile; on `signedOut
 - Best-shop fallback: bundled JSON `nfl_dryrun_prop_best_books.json` keyed `player_id|market`
   (see NFLPropBestBooksBundle) until the table carries those columns.
 
+### NFLPropPageService.swift (post-port addition, 2026-08-15)
+- Purpose: the NFL player-ANALYSIS detail contract — the same three CFB-project tables the web
+  `/props` player drilldown reads (`src/features/propBreakdown/hooks.ts`).
+- `detail(playerId)` → `NFLPropPlayerDetailBundle { page?, trends? }`, 5-min TTL cache per player:
+  1. slate resolve — `nfl_prop_player_pages` select `season,week` order both desc limit 1 (cached;
+     null offseason); 2. page — select `*` eq season/week/player_id (jsonb columns decode via
+     `JsonElement` → defensive mappers in `NFLPropPlayerPage`); 3. trends —
+     `nfl_player_prop_trends` select `player_id,recent_game_log,matchups,splits`; 4. enrichment —
+     `nfl_player_game_logs` stat totals merged into `recent_game_log[].actuals`
+     (`NFLPropTrendsEnrichment.enrich`, ATD = rush_tds + rec_tds). Page and trends degrade to
+     null independently. Kotlin `NFLPropPageService.kt` mirrors iOS 1:1.
+
 ### NFLPropBestBooksBundle.swift
 - Loads the bundled JSON resource once into `index: [String: NFLPropBestBooksRecord]`
   (fields `best_over_book/_name/_logo/_line/_price` + under equivalents). Android: ship the same JSON

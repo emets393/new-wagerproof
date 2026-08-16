@@ -88,6 +88,7 @@ import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.models.MLBPlayerProps
 import com.wagerproof.core.models.NFLPlayerProps
 import com.wagerproof.core.models.NFLTeamAssets
+import com.wagerproof.core.models.ParlaySport
 import com.wagerproof.core.models.ParlayTicket
 import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.stores.MLBPlayerPropPicksStore
@@ -459,14 +460,21 @@ private fun FeedContent(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         )
                     }
-                    item(key = "props-cheats") {
+                }
+                if ((sport == PropsStore.Sport.MLB || sport == PropsStore.Sport.NFL) && activeQuickFilter.isEmpty()) {
+                    item(key = "props-cheats-${sport.raw}") {
+                        val cheatSport = if (sport == PropsStore.Sport.NFL) ParlaySport.NFL else ParlaySport.MLB
                         ParlayGodRail(
                             title = "Props Cheats",
                             icon = AppIcon.SCOPE,
-                            tickets = parlayGod.propsTickets,
+                            tickets = parlayGod.propsTickets(cheatSport),
                             isLoading = parlayGod.isLoading,
-                            sports = parlayGod.propsSports,
-                            emptyMessage = "No perfect-streak props on the board right now — cheats reload when the day's props post each morning.",
+                            sports = parlayGod.propsSports(cheatSport),
+                            emptyMessage = if (cheatSport == ParlaySport.NFL) {
+                                "NFL prop cheats are waiting for more Week 1 markets. Cards will appear when enough posted props have a qualifying perfect streak."
+                            } else {
+                                "No perfect-streak props on the board right now — cheats reload when the day's props post each morning."
+                            },
                             errorMessage = parlayGod.errorMessage,
                             onRetry = { scope.launch { parlayGod.refreshIfNeeded(force = true) } },
                             onTicketClick = onSelectParlay,
@@ -807,8 +815,8 @@ private fun MiniLogo(url: String?, abbr: String) {
 
 private fun sportIcon(sport: PropsStore.Sport): ImageVector = when (sport) {
     PropsStore.Sport.MLB -> AppIcon.FIGURE_BASEBALL.imageVector
-    PropsStore.Sport.NFL, PropsStore.Sport.CFB -> AppIcon.FOOTBALL_FILL.imageVector
-    PropsStore.Sport.NBA, PropsStore.Sport.NCAAB -> AppIcon.BASKETBALL.imageVector
+    PropsStore.Sport.NFL -> AppIcon.FOOTBALL_FILL.imageVector
+    PropsStore.Sport.NBA -> AppIcon.BASKETBALL.imageVector
 }
 
 private fun sportOffSeason(sport: PropsStore.Sport): Boolean = !SportSeason.isInSeason(sport.gamesSport)
@@ -898,7 +906,7 @@ private fun PropSportPickerSheet(selection: PropsStore.Sport, onSelect: (PropsSt
             Text("Select sport", color = AppColors.appTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
             InsetGroupedSection {
                 PropsStore.Sport.entries.forEachIndexed { index, sport ->
-                    val offSeason = !SportSeason.isInSeason(sport.gamesSport)
+                    val offSeason = sport != PropsStore.Sport.NFL && !SportSeason.isInSeason(sport.gamesSport)
                     Row(
                         Modifier.fillMaxWidth().clickable { onSelect(sport); onDismiss() }.padding(vertical = 11.dp),
                         verticalAlignment = Alignment.CenterVertically,

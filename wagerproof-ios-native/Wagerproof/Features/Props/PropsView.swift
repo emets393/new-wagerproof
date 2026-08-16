@@ -148,6 +148,8 @@ struct PropsView: View {
                             if store.selectedSport == .mlb && activeQuickFilter.isEmpty {
                                 mlbBestPicksBanner
                                     .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                            if (store.selectedSport == .mlb || store.selectedSport == .nfl) && activeQuickFilter.isEmpty {
                                 propsCheatsRail
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                             }
@@ -517,8 +519,7 @@ struct PropsView: View {
         switch sport {
         case .mlb: return "baseball.fill"
         case .nfl: return "football.fill"
-        case .cfb: return "graduationcap.fill"
-        case .nba, .ncaab: return "basketball.fill"
+        case .nba: return "basketball.fill"
         }
     }
 
@@ -534,9 +535,10 @@ struct PropsView: View {
         GamesStore.Sport(rawValue: sport.rawValue) ?? .mlb
     }
 
-    /// Out-of-season sports read dimmed in the picker (parity with the Games tab).
+    /// NFL has a live preseason board and NBA is a coming-soon destination, so
+    /// only the live MLB feed follows the season-based dimming treatment.
     private func sportIsOffSeason(_ sport: PropsStore.Sport) -> Bool {
-        !SportSeason.isInSeason(gamesSport(sport))
+        sport == .mlb && !SportSeason.isInSeason(.mlb)
     }
 
     // MARK: - Content
@@ -571,14 +573,17 @@ struct PropsView: View {
     /// feed above the date sections (same slot behavior as the Best Picks card).
     @ViewBuilder
     private var propsCheatsRail: some View {
+        let sport: ParlaySport = store.selectedSport == .nfl ? .nfl : .mlb
         ParlayGodRail(
             title: "Props Cheats",
             icon: "scope",
-            tickets: parlayGodStore.propsTickets,
+            tickets: parlayGodStore.propsTickets(for: sport),
             isLoading: parlayGodStore.isLoading,
-            sports: parlayGodStore.propsSports,
+            sports: parlayGodStore.propsSports(for: sport),
             bleedInset: 12,
-            emptyNote: "No perfect-streak props on the board right now — cheats reload when the day's props post each morning."
+            emptyNote: sport == .nfl
+                ? "NFL prop cheats are waiting for more Week 1 markets. Cards will appear when enough posted props have a qualifying perfect streak."
+                : "No perfect-streak props on the board right now — cheats reload when the day's props post each morning."
         )
         .padding(.horizontal, 12)
         .padding(.bottom, 4)
@@ -976,7 +981,7 @@ private struct PropSportPickerSheet: View {
 
     @ViewBuilder
     private func row(for sport: PropsStore.Sport) -> some View {
-        let offSeason = !SportSeason.isInSeason(GamesStore.Sport(rawValue: sport.rawValue) ?? .mlb)
+        let offSeason = sport == .mlb && !SportSeason.isInSeason(.mlb)
         HStack(spacing: 12) {
             Image(systemName: icon(for: sport))
                 .font(.system(size: 15, weight: .semibold))
@@ -986,7 +991,11 @@ private struct PropSportPickerSheet: View {
                 Text(sport.label)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
-                if offSeason {
+                if sport == .nba {
+                    Text("Coming soon")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.appTextSecondary)
+                } else if offSeason {
                     Text("Out of season")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.appTextSecondary)
@@ -1007,8 +1016,8 @@ private struct PropSportPickerSheet: View {
     private func icon(for sport: PropsStore.Sport) -> String {
         switch sport {
         case .mlb: return "figure.baseball"
-        case .nfl, .cfb: return "football.fill"
-        case .nba, .ncaab: return "basketball.fill"
+        case .nfl: return "football.fill"
+        case .nba: return "basketball.fill"
         }
     }
 }

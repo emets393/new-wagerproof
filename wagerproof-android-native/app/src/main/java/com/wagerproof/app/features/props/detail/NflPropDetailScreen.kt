@@ -1,11 +1,7 @@
 package com.wagerproof.app.features.props.detail
 
-import android.graphics.Paint
-import android.graphics.Typeface
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +26,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -38,61 +37,66 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.wagerproof.app.features.gamecards.BestBookChip
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.props.NFLPlayerPropSelection
 import com.wagerproof.app.features.props.PropsFormatting
-import com.wagerproof.app.features.props.nflTeamColors
-import com.wagerproof.app.features.props.SportsbookLogo
+import com.wagerproof.app.features.props.RollingNumber
 import com.wagerproof.app.features.props.components.NFLPlayerHeadshot
-import com.wagerproof.app.features.props.components.NFLPropSignalDetailSheet
-import com.wagerproof.app.features.props.components.NFLPropSignalGroup
+import com.wagerproof.app.features.props.detail.nflpage.NflBestLinesBlock
+import com.wagerproof.app.features.props.detail.nflpage.NflHeadToHeadBlock
+import com.wagerproof.app.features.props.detail.nflpage.NflMatchupComparison
+import com.wagerproof.app.features.props.detail.nflpage.NflProjectionStrip
+import com.wagerproof.app.features.props.detail.nflpage.NflRecentGamesChart
+import com.wagerproof.app.features.props.detail.nflpage.NflSituationsGrid
+import com.wagerproof.app.features.props.nflTeamColors
 import com.wagerproof.app.features.props.teamGlassDisc
-import com.wagerproof.app.features.shared.InitialsDisc
-import com.wagerproof.app.features.shared.RemoteImage
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
-import com.wagerproof.core.models.SportsbookMarketQuotes
 import com.wagerproof.core.models.NFLPlayerProps
-import com.wagerproof.core.models.NFLPropBestQuote
 import com.wagerproof.core.models.NFLPropMarket
-import com.wagerproof.core.models.NFLPropRecentGame
-import com.wagerproof.core.models.NFLPropSignalDefinition
-import com.wagerproof.core.models.NFLTeamAssets
-import com.wagerproof.core.models.SignalPerformance
-import com.wagerproof.core.services.SignalPerformanceService
-import com.wagerproof.core.services.SignalSport
+import com.wagerproof.core.models.NFLPropPageMarket
+import com.wagerproof.core.models.NFLPropTrendGame
+import com.wagerproof.core.models.NFLPropVerdicts
+import com.wagerproof.core.services.NFLPropPageService
+import com.wagerproof.core.services.NFLPropPlayerDetailBundle
 import com.wagerproof.core.services.SportsbookPropMarketOdds
 import com.wagerproof.core.services.SportsbookPropOddsService
-import com.wagerproof.core.stores.SportsbookPreferenceStore
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.OffsetDateTime
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
- * Full-page NFL player-prop detail — a collapsing hero over a two-team aura, one
- * collapsing widget per market. Each market is a trend board: consensus close +
- * flags, season game-log bar chart vs the close line, best-book quotes, season
- * stat tiles, and the open→close line move. Each section header has an info (ⓘ)
- * button opening a metric-help sheet; tapping a Posted-Line signal opens the
- * signal sheet keyed by short P-code. Port of iOS `NFLPropDetailView.swift`.
+ * Full-page NFL player-analysis detail, styled like the MLB prop detail
+ * (`PlayerPropDetailScreen`): MLB collapsing hero (134/126) with the market
+ * picker + animated L10 hit-% badge in the hero.
+ *
+ * Content is the web player-analysis page (`src/features/propBreakdown/`):
+ * the picker FILTERS to one market (web MarketToggle behavior), and each
+ * market renders six sections: WagerProof Projection, Recent Games, Matchup
+ * vs the opponent's look, Head-to-Head, Situations, Best Lines.
+ *
+ * The hero renders instantly from the feed selection; the page + trends rows
+ * load per player through `NFLPropPageService` and degrade independently.
+ * Port of iOS `NFLPropDetailView.swift`.
  */
 @Composable
 fun NflPropDetailScreen(
@@ -104,64 +108,257 @@ fun NflPropDetailScreen(
     DisposableEffect(selection.id) {
         onDispose { graph.reviewPrompts.recordResearchDetailViewed() }
     }
+    val scope = rememberCoroutineScope()
     val player = selection.player
-    val markets = player.markets
     val listState = rememberLazyListState()
 
-    var selectedSignal by remember { mutableStateOf<SelectedSignal?>(null) }
-    var metricHelp by remember { mutableStateOf<NFLPropMetricHelp?>(null) }
-    var propPerfByKey by remember { mutableStateOf<Map<String, SignalPerformance>>(emptyMap()) }
+    var detail by remember(selection.id) { mutableStateOf<NFLPropPlayerDetailBundle?>(null) }
+    var isLoadingDetail by remember(selection.id) { mutableStateOf(true) }
     var bookOddsByMarket by remember(selection.id) { mutableStateOf<Map<String, SportsbookPropMarketOdds>>(emptyMap()) }
+    var metricHelp by remember { mutableStateOf<NFLPropMetricHelp?>(null) }
 
-    LaunchedEffect(selection.id) {
-        val playerId = player.playerId?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
-        val loaded = buildMap {
-            for (market in markets) {
-                SportsbookPropOddsService.odds(playerId, market.market)?.let { put(market.market, it) }
-            }
+    val initialMarket = remember(selection.id) {
+        val preferred = selection.preferredMarket?.let { m -> player.markets.firstOrNull { it.market == m } }
+        (preferred ?: player.markets.firstOrNull { it.flags.isNotEmpty() } ?: player.markets.firstOrNull())?.market ?: ""
+    }
+    var activeMarket by remember(selection.id) { mutableStateOf(initialMarket) }
+    var suppressScrollSpy by remember(selection.id) { mutableStateOf(false) }
+
+    // Display markets: the served page order wins; the props-feed rows are the
+    // fallback and supply best-book quotes + the game-log fallback per key.
+    val displayMarkets = remember(detail, selection.id) {
+        val feedByKey = player.markets.associateBy { it.market }
+        val pageMarkets = detail?.page?.markets.orEmpty()
+        if (pageMarkets.isNotEmpty()) {
+            pageMarkets.map { pm -> NflDisplayMarket(pm.key, pm.label, pm, feedByKey[pm.key]) }
+        } else {
+            player.markets.map { fm -> NflDisplayMarket(fm.market, fm.label, null, fm) }
         }
-        bookOddsByMarket = loaded
+    }
+    val activeDisplayMarket = displayMarkets.firstOrNull { it.key == activeMarket } ?: displayMarkets.firstOrNull()
+
+    LaunchedEffect(listState, displayMarkets) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collect { index ->
+                if (!suppressScrollSpy) {
+                    displayMarkets.getOrNull(index)?.key?.let { activeMarket = it }
+                }
+            }
     }
 
-    val headlineMarket = remember(selection.id) {
-        selection.preferredMarket?.let { m -> markets.firstOrNull { it.market == m } }
-            ?: markets.firstOrNull { it.flags.isNotEmpty() }
-            ?: markets.firstOrNull()
+    LaunchedEffect(selection.id) {
+        val playerId = player.playerId?.takeIf { it.isNotEmpty() }
+        detail = if (playerId != null) {
+            NFLPropPageService.shared.detail(playerId)
+        } else {
+            NFLPropPlayerDetailBundle(page = null, trends = null)
+        }
+        isLoadingDetail = false
+        // The served market list can drop the market the feed preferred —
+        // snap to the page's first market (web does exactly this).
+        val pageKeys = detail?.page?.markets.orEmpty().map { it.key }
+        if (pageKeys.isNotEmpty() && activeMarket !in pageKeys) {
+            activeMarket = pageKeys.first()
+        }
+        if (playerId != null) {
+            // Union of feed + page market keys: the board is the chart-line
+            // fallback for pending page markets and the live Best Lines source.
+            val requested = buildSet {
+                addAll(player.markets.map { it.market })
+                addAll(pageKeys)
+            }
+            bookOddsByMarket = coroutineScope {
+                requested.map { m -> async { m to SportsbookPropOddsService.odds(playerId, m) } }.awaitAll()
+            }.mapNotNull { (m, odds) -> odds?.let { m to it } }.toMap()
+        }
+    }
+
+    // Trends game log, falling back to the props-feed season log so Recent
+    // Games still renders when the trends row is missing.
+    fun trendGames(market: NflDisplayMarket?): List<NFLPropTrendGame> {
+        detail?.trends?.recentGameLog?.takeIf { it.isNotEmpty() }?.let { return it }
+        val feed = market?.feedMarket ?: return emptyList()
+        return feed.recentGames.reversed().mapNotNull { game ->
+            val actual = game.actual ?: return@mapNotNull null
+            NFLPropTrendGame(
+                season = player.season ?: 0,
+                week = game.week ?: 0,
+                opp = game.opp ?: "",
+                actuals = mapOf(feed.market to actual),
+            )
+        }
+    }
+
+    /** Today's grading threshold (web `chartLine`). */
+    fun chartLine(market: NflDisplayMarket): Double? =
+        market.pageMarket?.line
+            ?: market.feedMarket?.closeLine
+            ?: bookOddsByMarket[market.key]?.over?.quotes?.firstOrNull { it.line != null }?.line
+            ?: if (market.isYesNo) 0.5 else null
+
+    fun bestOverOdds(market: NflDisplayMarket): Double? =
+        bookOddsByMarket[market.key]?.over?.quotes?.firstOrNull()?.price?.toDouble()
+            ?: market.pageMarket?.overPrice?.toDouble()
+            ?: market.feedMarket?.overPrice?.toDouble()
+
+    fun l10Grading(market: NflDisplayMarket): Pair<Int, Int> {
+        val line = chartLine(market) ?: return 0 to 0
+        val actuals = trendGames(market).take(10).mapNotNull { it.actuals[market.key] }
+        return actuals.count { it > line } to actuals.size
     }
 
     val (teamColor, _) = nflTeamColors(player.team ?: "")
     val (oppColor, _) = nflTeamColors(player.opponent ?: "")
-
-    LaunchedEffect(selection.id) {
-        val season = player.season ?: 2025
-        propPerfByKey = SignalPerformanceService.shared.performances(SignalSport.NFL, season)
-    }
-
-    // Land on the feed card's headline market when the page opens.
-    LaunchedEffect(selection.id) {
-        val target = headlineMarket?.market ?: return@LaunchedEffect
-        if (markets.size <= 1) return@LaunchedEffect
-        delay(380)
-        val idx = markets.indexOfFirst { it.market == target }
-        if (idx > 0) listState.animateScrollToItem(idx)
-    }
+    val opponent = detail?.page?.scheme?.opponent ?: detail?.page?.opponent ?: player.opponent ?: ""
 
     Box(Modifier.fillMaxSize().background(AppColors.appSurface).navigationBarsPadding()) {
         PropsCollapsingScaffold(
-            heroMax = 88.dp,
-            heroMin = 72.dp,
+            heroMax = 134.dp,
+            heroMin = 126.dp,
             listState = listState,
             aura = { progress -> TeamAuraBackground(teamColor, oppColor, progress) },
-            hero = { progress -> NflHero(selection, progress, teamColor, oppColor) },
-        ) {
-            items(markets.size, key = { markets[it].market }) { i ->
-                MarketTrendBoard(
-                    market = markets[i],
-                    opponent = player.opponent,
-                    liveOdds = bookOddsByMarket[markets[i].market],
-                    onSignalTap = { selectedSignal = SelectedSignal(it, markets[i]) },
-                    onMetricHelp = { metricHelp = it },
+            hero = { progress ->
+                NflHero(
+                    selection = selection,
+                    progress = progress,
+                    teamColor = teamColor,
+                    oppColor = oppColor,
+                    kickoff = detail?.page?.kickoff,
+                    markets = displayMarkets,
+                    activeMarket = activeMarket,
+                    grading = activeDisplayMarket?.let(::l10Grading),
+                    onSelectMarket = { market ->
+                        activeMarket = market
+                        val index = displayMarkets.indexOfFirst { it.key == market }
+                        if (index >= 0) scope.launch {
+                            suppressScrollSpy = true
+                            listState.animateScrollToItem(index)
+                            delay(450)
+                            suppressScrollSpy = false
+                        }
+                    },
                 )
+            },
+        ) {
+            displayMarkets.forEach { market ->
+                item(key = market.key) {
+                    Column {
+                val line = chartLine(market)
+                val odds = bestOverOdds(market)
+                val page = detail?.page
+                val trends = detail?.trends
+                val games = trendGames(market)
+                val (hits, graded) = l10Grading(market)
+
+                // 1. WagerProof Projection.
+                    if (isLoadingDetail) {
+                        SkeletonSection(widgetTitle("WagerProof Projection", market), "scope")
+                    } else {
+                        WidgetCollapsingSection(
+                            title = widgetTitle("WagerProof Projection", market),
+                            systemImage = "scope",
+                            headline = NFLPropVerdicts.projectionHeadline(
+                                projection = page?.projection?.get(market.key),
+                                marketKey = market.key,
+                                marketLabel = market.label,
+                                line = line,
+                                vegasOdds = odds,
+                            ),
+                            onInfoTap = { metricHelp = NFLPropMetricHelp.all["projection"] },
+                        ) {
+                            NflProjectionStrip(
+                                projection = page?.projection?.get(market.key),
+                                rookie = page?.rookie ?: false,
+                                marketKey = market.key,
+                                line = if (market.isYesNo) null else line,
+                                vegasOdds = odds,
+                            )
+                        }
+                    }
+
+                // 2. Recent Games (renders from the feed log until trends arrive).
+                    WidgetCollapsingSection(
+                        title = widgetTitle("Recent Games", market),
+                        systemImage = "chart.bar.fill",
+                        headline = NFLPropVerdicts.recentGamesHeadline(
+                            hits = hits, graded = graded,
+                            isTd = market.isYesNo, hasLine = line != null,
+                        ),
+                        onInfoTap = { metricHelp = NFLPropMetricHelp.all["recent_games"] },
+                    ) {
+                        NflRecentGamesChart(
+                            games = games,
+                            marketKey = market.key,
+                            line = line,
+                            lineLabel = if (market.isYesNo) "TD" else null,
+                        )
+                    }
+
+                // 3. Matchup vs the opponent's look — needs the page's scheme.
+                if (isLoadingDetail) {
+                    SkeletonSection(widgetTitle("Matchup", market), "shield.lefthalf.filled")
+                } else if (page?.scheme != null) {
+                        WidgetCollapsingSection(
+                            title = widgetTitle(if (opponent.isEmpty()) "Matchup" else "Matchup vs $opponent", market),
+                            systemImage = "shield.lefthalf.filled",
+                            headline = NFLPropVerdicts.matchupHeadline(opponent, page.scheme?.defense?.identity),
+                            onInfoTap = { metricHelp = NFLPropMetricHelp.all["matchup"] },
+                        ) {
+                            NflMatchupComparison(page = page, marketKey = market.key)
+                        }
+                }
+
+                // 4. Head-to-Head.
+                if (trends != null) {
+                        WidgetCollapsingSection(
+                            title = widgetTitle("Head-to-Head", market),
+                            systemImage = "person.2.fill",
+                            headline = NFLPropVerdicts.headToHeadHeadline(
+                                matchup = trends.matchups[opponent],
+                                marketKey = market.key,
+                                opponent = opponent,
+                            ),
+                            onInfoTap = { metricHelp = NFLPropMetricHelp.all["h2h"] },
+                        ) {
+                            NflHeadToHeadBlock(
+                                matchup = trends.matchups[opponent],
+                                marketKey = market.key,
+                                marketLabel = market.label,
+                                opponent = opponent,
+                            )
+                        }
+                }
+
+                // 5. Situations — only when this market has served splits.
+                val buckets = trends?.splits?.get(market.key)
+                if (!buckets.isNullOrEmpty()) {
+                        WidgetCollapsingSection(
+                            title = widgetTitle("Situations", market),
+                            systemImage = "calendar",
+                            headline = NFLPropVerdicts.situationsHeadline(
+                                overall = buckets["overall"]?.let(com.wagerproof.core.models.NFLPropTrendsDetail::preferredWindow),
+                                marketKey = market.key,
+                            ),
+                            onInfoTap = { metricHelp = NFLPropMetricHelp.all["situations"] },
+                        ) {
+                            NflSituationsGrid(buckets = buckets, marketKey = market.key)
+                        }
+                }
+
+                // 6. Best Lines — live board or precomputed best shops.
+                val feedMarket = market.feedMarket
+                if (feedMarket != null && (feedMarket.hasBestBooks || bookOddsByMarket[market.key] != null)) {
+                        WidgetCollapsingSection(
+                            title = widgetTitle("Best Lines", market),
+                            systemImage = "dollarsign.circle.fill",
+                            onInfoTap = { metricHelp = NFLPropMetricHelp.all["book_odds"] },
+                        ) {
+                            NflBestLinesBlock(market = feedMarket, live = bookOddsByMarket[market.key])
+                        }
+                }
+                    }
+                }
             }
             item { Footnote() }
             item { Spacer(Modifier.height(80.dp)) }
@@ -181,59 +378,43 @@ fun NflPropDetailScreen(
         }
     }
 
-    selectedSignal?.let { selected ->
-        NFLPropSignalDetailSheet(
-            signal = selected.signal,
-            seasonRecord = selected.performanceKey?.let(propPerfByKey::get),
-            onDismiss = { selectedSignal = null },
-        )
-    }
     metricHelp?.let { help ->
         NFLPropMetricHelpSheet(help = help, onDismiss = { metricHelp = null })
     }
 }
 
-/** A short P-code is not a `signal_performance` key. Keep the selected market
- * with the definition so the detail sheet resolves the same canonical record
- * as iOS instead of arbitrarily taking the first key in a P-code family. */
-private data class SelectedSignal(
-    val signal: NFLPropSignalDefinition,
-    val performanceKey: String?,
+/**
+ * One pickable market: the served page market (posted/pending, line, prices)
+ * joined with the props-feed row (best books, game-log fallback). Key sets
+ * can differ between the two tables — union by page order.
+ */
+private data class NflDisplayMarket(
+    val key: String,
+    val label: String,
+    val pageMarket: NFLPropPageMarket?,
+    val feedMarket: NFLPropMarket?,
 ) {
-    constructor(signal: NFLPropSignalDefinition, market: NFLPropMarket) : this(
-        signal = signal,
-        performanceKey = performanceKey(signal, market),
-    )
-
-    companion object {
-        private fun performanceKey(signal: NFLPropSignalDefinition, market: NFLPropMarket): String? =
-            when (signal.id.uppercase(Locale.US)) {
-                "P1" -> "P1_pass_yds_form_over"
-                "P2" -> "P2_pass_yds_form_under"
-                "P3" -> "P3_pass_tds_form_over"
-                "P4" -> "P4_no_history_qb_under"
-                "P5" -> "P5_atd_drift_yes"
-                "P6" -> null
-                "P7" -> "P7_rush_yds_tough_d_under"
-                "P9" -> "P9_pass_tds_regression_over"
-                "P10" -> "P10_receptions_raised_under"
-                "P12" -> "P12_featured_wr_over"
-                "P13" -> "P13_featured_rb_over"
-                "P14" -> "P14_attempts_model_under"
-                "P15" -> "P15_attempts_steam_under"
-                "P16" -> "P16_attempts_confluence"
-                "P17" -> "P17_rush_yds_model_under"
-                "P18" -> "P18_pass_tds_model_over"
-                else -> null
-            }
-    }
+    val isYesNo: Boolean get() = key == "player_anytime_td"
 }
 
 @Composable
-private fun NflHero(selection: NFLPlayerPropSelection, progress: Float, teamColor: Color, oppColor: Color) {
+private fun NflHero(
+    selection: NFLPlayerPropSelection,
+    progress: Float,
+    teamColor: Color,
+    oppColor: Color,
+    kickoff: String?,
+    markets: List<NflDisplayMarket>,
+    activeMarket: String,
+    grading: Pair<Int, Int>?,
+    onSelectMarket: (String) -> Unit,
+) {
     val player = selection.player
     val headSize = lerp(50f, 32f, progress).dp
     val detail = (1f - progress * 1.9f).coerceIn(0f, 1f)
+    val pct: Int? = grading?.let { (hits, graded) ->
+        if (graded > 0) (hits.toDouble() / graded * 100).roundToInt() else null
+    }
 
     Column(
         Modifier
@@ -251,7 +432,10 @@ private fun NflHero(selection: NFLPlayerPropSelection, progress: Float, teamColo
                 Text(player.opponentLabel, color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.weight(1f))
-            Text(heroDateLabel(player.gameDate, player.slotLabel), color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                heroDateLabel(kickoff, player.gameDate, player.slotLabel),
+                color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(headSize + 8.dp).teamGlassDisc(teamColor, oppColor), contentAlignment = Alignment.Center) {
@@ -264,11 +448,74 @@ private fun NflHero(selection: NFLPlayerPropSelection, progress: Float, teamColo
                     Text(subtitle(selection), color = AppColors.appTextSecondary.copy(alpha = detail), fontSize = 11.sp, maxLines = 1)
                 }
             }
+            // MLB-style animated L10 hit-% badge for the active market.
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.Top) {
+                    RollingNumber(
+                        value = pct?.toString() ?: "—",
+                        fontSize = lerp(27f, 21f, progress).sp,
+                        color = AppColors.appPrimary,
+                        fontWeight = FontWeight.Black,
+                    )
+                    if (pct != null) {
+                        Text("%", color = AppColors.appPrimary, fontSize = lerp(16f, 13f, progress).sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                if (detail > 0.04f && grading != null && grading.second > 0) {
+                    Text("${grading.first}/${grading.second} L10", color = AppColors.appTextSecondary.copy(alpha = detail), fontSize = 10.sp)
+                }
+            }
+        }
+        if (markets.size > 1) {
+            NflNativeMarketPicker(markets, activeMarket, onSelectMarket)
         }
     }
 }
 
-private fun heroDateLabel(gameDate: String, slot: String?): String {
+/** Material's native single-choice segmented control, synchronized to scroll. */
+@Composable
+private fun NflNativeMarketPicker(
+    markets: List<NflDisplayMarket>,
+    activeMarket: String,
+    onSelect: (String) -> Unit,
+) {
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        markets.forEachIndexed { index, market ->
+            SegmentedButton(
+                selected = market.key == activeMarket,
+                onClick = { onSelect(market.key) },
+                shape = SegmentedButtonDefaults.itemShape(index, markets.size),
+                modifier = Modifier.weight(1f),
+                icon = {},
+            ) {
+                Text(NFLPlayerProps.marketAbbr(market.key), fontSize = 10.sp, maxLines = 1)
+            }
+        }
+    }
+}
+
+private fun widgetTitle(title: String, market: NflDisplayMarket): String =
+    "$title · ${market.label}"
+
+@Composable
+private fun SkeletonSection(title: String, systemImage: String) {
+    WidgetCollapsingSection(title = title, systemImage = systemImage) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.width(220.dp).height(14.dp).background(AppColors.appSurfaceMuted, RoundedCornerShape(6.dp)))
+            Box(Modifier.fillMaxWidth().height(96.dp).background(AppColors.appSurfaceMuted, RoundedCornerShape(12.dp)))
+            Box(Modifier.width(140.dp).height(10.dp).background(AppColors.appSurfaceMuted, RoundedCornerShape(6.dp)))
+        }
+    }
+}
+
+/** "Sun, 1:00 PM" in ET from the page kickoff, else the feed's date · slot. */
+private fun heroDateLabel(kickoff: String?, gameDate: String, slot: String?): String {
+    kickoff?.let { iso ->
+        runCatching {
+            val date = OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.of("America/New_York"))
+            return date.format(DateTimeFormatter.ofPattern("EEE, h:mm a", Locale.US))
+        }
+    }
     val date = PropsFormatting.dateLabel(gameDate)
     return if (slot != null) "$date · $slot" else date
 }
@@ -283,368 +530,43 @@ private fun subtitle(selection: NFLPlayerPropSelection): String {
 }
 
 @Composable
-private fun MarketTrendBoard(
-    market: NFLPropMarket,
-    opponent: String?,
-    liveOdds: SportsbookPropMarketOdds?,
-    onSignalTap: (NFLPropSignalDefinition) -> Unit,
-    onMetricHelp: (NFLPropMetricHelp) -> Unit,
-) {
-    WidgetCollapsingSection(title = market.label, systemImage = "chart.bar.fill") {
-        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            PropSectionBlock("Posted Line", "posted_line", showsDivider = false, onMetricHelp) {
-                Text(lineSummary(market), color = AppColors.appTextPrimary, fontSize = 13.sp)
-                if (market.flags.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
-                    NFLPropSignalGroup(market.flags, onSignalTap)
-                }
-            }
-            PropSectionBlock("Game Log", "game_log", showsDivider = true, onMetricHelp) {
-                NFLPropTrendChart(market.recentGames, market.clearThreshold, market.isYesNo)
-            }
-            if (liveOdds != null || market.hasBestBooks) {
-                PropSectionBlock("Best Lines", "book_odds", showsDivider = true, onMetricHelp) {
-                    BestBooksSection(market, liveOdds)
-                }
-            }
-            PropSectionBlock("Season Stats", "season_stats", showsDivider = true, onMetricHelp) {
-                StatTiles(market, opponent, onMetricHelp)
-            }
-            if (hasLineMovement(market)) {
-                PropSectionBlock("Line Movement", "line_movement", showsDivider = true, onMetricHelp) {
-                    Text(lineMovementText(market), color = AppColors.appTextSecondary, fontSize = 12.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PropSectionBlock(
-    title: String,
-    helpKey: String,
-    showsDivider: Boolean,
-    onMetricHelp: (NFLPropMetricHelp) -> Unit,
-    content: @Composable () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (showsDivider) {
-                Box(Modifier.fillMaxWidth().height(0.5.dp).background(AppColors.appBorder.copy(alpha = 0.55f)))
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(title.uppercase(), color = AppColors.appTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                Box(
-                    Modifier.size(22.dp).clickable { NFLPropMetricHelp.all[helpKey]?.let(onMetricHelp) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(AppIcon.INFO_CIRCLE.imageVector, null, tint = AppColors.appTextSecondary, modifier = Modifier.size(12.dp))
-                }
-            }
-        }
-        content()
-    }
-}
-
-private fun lineSummary(market: NFLPropMarket): String = if (market.isYesNo) {
-    "Anytime TD pays ${NFLPlayerProps.formatOdds(market.overPrice)} — ${NFLPlayerProps.formatPct(market.closeYesProb)} implied at close across ${market.nBooks ?: 0} books."
-} else {
-    "Consensus close ${NFLPlayerProps.formatLine(market.closeLine)} across ${market.nBooks ?: 0} books — Over ${NFLPlayerProps.formatOdds(market.overPrice)} / Under ${NFLPlayerProps.formatOdds(market.underPrice)}."
-}
-
-@Composable
-private fun BestBooksSection(market: NFLPropMarket, liveOdds: SportsbookPropMarketOdds?) {
-    if (liveOdds != null) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (market.isYesNo) {
-                LiveBookRow("Yes", liveOdds.over, market)
-            } else {
-                LiveBookRow("Over", liveOdds.over, market)
-                LiveBookRow("Under", liveOdds.under, market)
-            }
-        }
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (market.isYesNo) {
-            if (!market.bestOver.isEmpty) BestBookRow("Yes", market.bestOver, showLine = false)
-        } else {
-            if (!market.bestOver.isEmpty) BestBookRow("Over", market.bestOver, showLine = true)
-            if (!market.bestUnder.isEmpty) BestBookRow("Under", market.bestUnder, showLine = true)
-        }
-    }
-}
-
-@Composable
-private fun LiveBookRow(sideLabel: String, quotes: SportsbookMarketQuotes, market: NFLPropMarket) {
-    if (quotes.best == null) return
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(AppColors.appSurfaceMuted.copy(alpha = 0.35f))
-            .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.45f), shape)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(sideLabel, color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.weight(1f))
-        BestBookChip(
-            quotes = quotes,
-            selectedBookKeys = SportsbookPreferenceStore.selectedKeys,
-            marketTitle = market.label,
-            selectionTitle = "$sideLabel ${market.label}",
-            formatLine = { NFLPlayerProps.formatLine(it) },
-        )
-    }
-}
-
-@Composable
-private fun BestBookRow(sideLabel: String, quote: NFLPropBestQuote, showLine: Boolean) {
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(AppColors.appSurfaceMuted.copy(alpha = 0.35f))
-            .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.45f), shape)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(sideLabel, color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            Text(bestBookLineValue(quote, showLine), color = AppColors.appPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-        }
-        Spacer(Modifier.weight(1f))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("@", color = AppColors.appTextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            SportsbookLogo(quote.bookLogoUrl, quote.bookKey, quote.bookName)
-            Text(quote.bookName ?: quote.bookKey ?: "Book", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        }
-    }
-}
-
-private fun bestBookLineValue(quote: NFLPropBestQuote, showLine: Boolean): String {
-    val odds = NFLPlayerProps.formatOdds(quote.price)
-    val line = quote.line
-    return if (showLine && line != null) "${NFLPlayerProps.formatLine(line)} $odds" else odds
-}
-
-@Composable
-private fun StatTiles(market: NFLPropMarket, opponent: String?, onMetricHelp: (NFLPropMetricHelp) -> Unit) {
-    val tiles = listOf(
-        StatTileData("last_game", "Last Game", statValue(market.lastGame), AppColors.appTextPrimary),
-        StatTileData("l3_avg", "L3 Avg", statValue(market.l3Avg), AppColors.appTextPrimary),
-        StatTileData("l5_avg", "L5 Avg", statValue(market.l5Avg), AppColors.appTextPrimary),
-        StatTileData("szn_avg", "Season Avg", statValue(market.sznAvg), AppColors.appTextPrimary),
-        StatTileData("szn_high", "Season High", statValue(market.sznMax), AppColors.appTextPrimary),
-        StatTileData("opp_defense", "Opp Defense", matchupValue(market.defMatchupIdx, opponent), matchupColor(market.defMatchupIdx)),
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        tiles.chunked(3).forEach { rowTiles ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                rowTiles.forEach { t ->
-                    StatTile(t, Modifier.weight(1f), onMetricHelp)
-                }
-                repeat(3 - rowTiles.size) { Spacer(Modifier.weight(1f)) }
-            }
-        }
-    }
-}
-
-private data class StatTileData(val helpKey: String, val title: String, val value: String, val color: Color)
-
-@Composable
-private fun StatTile(t: StatTileData, modifier: Modifier, onMetricHelp: (NFLPropMetricHelp) -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
-    Column(
-        modifier
-            .clip(shape)
-            .background(AppColors.appSurfaceMuted.copy(alpha = 0.35f))
-            .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.5f), shape)
-            .clickable { NFLPropMetricHelp.all[t.helpKey]?.let(onMetricHelp) }
-            .padding(horizontal = 4.dp, vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(t.title.uppercase(), color = AppColors.appTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Icon(AppIcon.INFO_CIRCLE.imageVector, null, tint = AppColors.appTextSecondary.copy(alpha = 0.85f), modifier = Modifier.size(8.dp))
-        }
-        Text(t.value, color = t.color, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, maxLines = 2, textAlign = TextAlign.Center)
-    }
-}
-
-private fun statValue(v: Double?): String {
-    if (v == null || !v.isFinite()) return "-"
-    return if (v == Math.rint(v)) v.toInt().toString() else String.format(Locale.US, "%.1f", v)
-}
-
-private fun matchupValue(idx: Double?, opponent: String?): String {
-    if (idx == null || !idx.isFinite()) return "—"
-    val pct = (idx - 1) * 100
-    return if (!opponent.isNullOrEmpty()) {
-        String.format(Locale.US, "%s %+.0f%%", NFLTeamAssets.abbr(opponent), pct)
-    } else {
-        String.format(Locale.US, "%+.0f%% vs avg", pct)
-    }
-}
-
-private fun matchupColor(idx: Double?): Color {
-    if (idx == null) return AppColors.appTextPrimary
-    return when {
-        idx >= 1.08 -> AppColors.appPrimary
-        idx <= 0.92 -> AppColors.appLoss
-        else -> AppColors.appTextPrimary
-    }
-}
-
-private fun hasLineMovement(market: NFLPropMarket): Boolean = if (market.isYesNo) {
-    market.openYesProb != null && market.closeYesProb != null
-} else {
-    market.openLine != null && market.closeLine != null
-}
-
-private fun lineMovementText(market: NFLPropMarket): String {
-    if (market.isYesNo) {
-        val open = market.openYesProb
-        val close = market.closeYesProb
-        if (open != null && close != null) {
-            return "Implied probability moved ${NFLPlayerProps.formatPct(open)} → ${NFLPlayerProps.formatPct(close)} from open to close."
-        }
-        return ""
-    }
-    val open = market.openLine
-    val close = market.closeLine
-    if (open != null && close != null) {
-        val delta = market.lineDelta ?: (close - open)
-        val deltaText = if (delta == 0.0) "held steady from open" else String.format(Locale.US, "moved %+.1f from the open", delta)
-        val range = market.lineRange?.let { r ->
-            if (r > 0) " Books were spread across a ${NFLPlayerProps.formatLine(r)}-point range." else ""
-        } ?: ""
-        return "Line ${NFLPlayerProps.formatLine(open)} → ${NFLPlayerProps.formatLine(close)} — $deltaText.$range"
-    }
-    return ""
-}
-
-@Composable
 private fun Footnote() {
     Text(
-        "Lines are the consensus close (median across books). Trends are point-in-time season game logs.",
+        "Projections and matchup splits update weekly. Book boards are point-in-time snapshots — confirm at the book before betting.",
         color = AppColors.appTextMuted, fontSize = 10.sp, fontStyle = FontStyle.Italic,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
     )
 }
-
-// MARK: - Trend chart
-
-/**
- * Season game-log bar chart against the consensus close line — hand-drawn with
- * Compose [Canvas] (no external chart lib). Week-number + opponent-logo labels
- * sit below the plot. Port of iOS `NFLPropTrendChart`.
- */
-@Composable
-fun NFLPropTrendChart(games: List<NFLPropRecentGame>, line: Double, isYesNo: Boolean) {
-    data class Bar(val week: Int?, val opp: String?, val value: Double, val cleared: Boolean)
-    val bars = games.mapNotNull { g -> g.actual?.let { Bar(g.week, g.opp, it, it > line) } }
-    if (bars.isEmpty()) {
-        Text("No prior games this season", color = AppColors.appTextMuted, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.fillMaxWidth())
-        return
-    }
-    val maxVal = maxOf(line * 1.5, bars.maxOf { it.value }, line + 1, 1.0)
-    val primary = AppColors.appPrimary
-    val loss = AppColors.appLoss
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Canvas(Modifier.fillMaxWidth().height(176.dp)) {
-            val n = bars.size
-            val slot = size.width / n
-            val barW = slot * 0.62f
-            val topInset = 16.dp.toPx()
-            val valuePaint = Paint().apply {
-                isAntiAlias = true
-                textSize = 9.sp.toPx()
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                textAlign = Paint.Align.CENTER
-            }
-            bars.forEachIndexed { i, bar ->
-                val h = (bar.value / maxVal).toFloat() * (size.height - topInset)
-                val cx = slot * i + slot / 2f
-                val left = cx - barW / 2f
-                val top = size.height - h
-                drawRoundRect(
-                    color = if (bar.cleared) primary else loss.copy(alpha = 0.7f),
-                    topLeft = Offset(left, top),
-                    size = Size(barW, h),
-                    cornerRadius = CornerRadius(2.dp.toPx()),
-                )
-                valuePaint.color = if (bar.cleared) primary.toArgb() else loss.toArgb()
-                drawContext.canvas.nativeCanvas.drawText(barLabel(bar.value), cx, top - 4.dp.toPx(), valuePaint)
-            }
-            val ty = size.height - (line / maxVal).toFloat() * (size.height - topInset)
-            drawLine(
-                color = primary.copy(alpha = 0.85f),
-                start = Offset(0f, ty), end = Offset(size.width, ty),
-                strokeWidth = 1.2.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())),
-            )
-            val labelPaint = Paint().apply {
-                isAntiAlias = true
-                textSize = 9.sp.toPx()
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                textAlign = Paint.Align.LEFT
-                color = primary.toArgb()
-            }
-            drawContext.canvas.nativeCanvas.drawText(if (isYesNo) "TD" else "Line ${NFLPlayerProps.formatLine(line)}", 4.dp.toPx(), ty - 3.dp.toPx(), labelPaint)
-        }
-        // Logo + week labels below the plot.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-            bars.forEach { bar ->
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    val opp = bar.opp
-                    if (!opp.isNullOrEmpty()) {
-                        val initials = NFLTeamAssets.abbr(opp)
-                        Box(Modifier.size(20.dp).clip(CircleShape), contentAlignment = Alignment.Center) {
-                            RemoteImage(
-                                url = NFLTeamAssets.logo(opp),
-                                contentDescription = opp,
-                                modifier = Modifier.size(20.dp),
-                                contentScale = ContentScale.Fit,
-                                error = { InitialsDisc(initials.take(2), 20.dp) },
-                            )
-                        }
-                    } else {
-                        Box(Modifier.size(20.dp).clip(CircleShape).background(AppColors.appSurfaceElevated))
-                    }
-                    Text(bar.week?.let { "W$it" } ?: "—", color = AppColors.appTextMuted, fontSize = 8.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                }
-            }
-        }
-        // Chart caption removed — iOS dropped the "oldest left" subtext.
-    }
-}
-
-private fun barLabel(v: Double): String =
-    if (v == Math.rint(v)) v.toInt().toString() else String.format(Locale.US, "%.1f", v)
 
 // MARK: - Metric help
 
 data class NFLPropMetricHelp(val id: String, val title: String, val body: String) {
     companion object {
         val all: Map<String, NFLPropMetricHelp> = listOf(
-            Triple("posted_line", "Posted Line", "The consensus closing line and prices across sportsbooks for this prop market. For anytime TD, the price is the yes-side implied probability — there is no yardage line."),
-            Triple("game_log", "Game Log", "Each bar is one prior game this season (oldest left, most recent right). Green cleared the posted line; red missed. The dashed line is today's consensus close. Opponent logos and week numbers sit below each bar."),
-            Triple("book_odds", "Best Lines", "The best-shop over and under at the actionable close (T-60 before kickoff), precomputed in the props loader using the same logic as game picks and Outliers. For anytime TD, only the best yes price is shown."),
-            Triple("season_stats", "Season Stats", "Point-in-time season form through last week — stats and averages before this game. Tap any tile's info icon for what that specific number means."),
-            Triple("last_game", "Last Game", "The player's actual stat total in his most recent game before this week."),
-            Triple("l3_avg", "Last 3 Average", "Average stat over the player's prior three games this season."),
-            Triple("l5_avg", "Last 5 Average", "Average stat over the player's prior five games this season."),
-            Triple("szn_avg", "Season Average", "Average stat across every game the player played this season before this week."),
-            Triple("szn_high", "Season High", "The player's single-game high for this stat this season before this week."),
-            Triple("opp_defense", "Opponent Defense", "How much this week's opponent allows to players at this position for this prop stat, compared to league average entering the week. Positive (green) = softer matchup (defense allows more than average). Negative (red) = tough matchup."),
-            Triple("line_movement", "Line Movement", "How the consensus line moved from the open to the close across books. A rising line often means money came in on the over; a drop often means the under. The cross-book range shows how far apart the tightest and loosest books were at the close."),
+            Triple(
+                "projection", "WagerProof Projection",
+                "Our projected stat total for this market, placed against the Vegas line. \"Model\" means the live projection model produced the number; \"Preview\" means it comes from the player's recent game-by-game distribution until the model takes over. For anytime TD we project a probability to score and translate it into fair odds you can compare against the posted price.",
+            ),
+            Triple(
+                "recent_games", "Recent Games",
+                "Each bar is the player's actual stat total in one of his last 10 games (oldest left, most recent right). Green cleared TODAY's line; red missed it. The dashed line is today's threshold — historical results are graded against the current number, not the line posted at the time.",
+            ),
+            Triple(
+                "matchup", "Matchup",
+                "The player's career production against the defensive look this week's opponent plays most — yards per target for receivers, EPA per dropback for QBs, EPA per rush for backs — compared with his career average. Below it: his per-game averages against similar defenses, how often he cleared this market's line against them, and how often the opponent actually uses each look (with the league percentile).",
+            ),
+            Triple(
+                "h2h", "Head-to-Head",
+                "The player's career record for this market against this week's opponent. Needs at least 2 career meetings and 2 graded lines before it renders — otherwise the sample is noise.",
+            ),
+            Triple(
+                "situations", "Situations",
+                "The player's recent record for this market by game setting — home, away, division, primetime, and so on — over his last few graded games in each spot. Green is above 75%, amber above 60%.",
+            ),
+            Triple(
+                "book_odds", "Best Lines",
+                "The best available over and under across sportsbooks. Live boards come from hourly snapshots of each book's posted prop; when no live board exists, the precomputed best shop from the props loader is shown. Confirm at the book before betting.",
+            ),
         ).associate { it.first to NFLPropMetricHelp(it.first, it.second, it.third) }
     }
 }

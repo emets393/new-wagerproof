@@ -22,5 +22,5 @@ sealed interface WidgetHeaderAccessory {
 object WidgetCard {
     val corner = 16.dp
     val hInset = 16.dp
-    val gap = 12.dp
+    val gap = 16.dp
 }

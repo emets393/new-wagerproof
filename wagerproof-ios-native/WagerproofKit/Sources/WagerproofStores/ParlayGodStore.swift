@@ -46,6 +46,17 @@ public final class ParlayGodStore {
     public var slateSports: [ParlaySport] { ParlayGodEngine.sports(in: slateTickets) }
     public var propsSports: [ParlaySport] { ParlayGodEngine.sports(in: propsTickets) }
 
+    /// Props Cheats are deliberately scoped to the selected sport. Building
+    /// each sport separately also prevents an MLB leg from completing an NFL
+    /// ticket (or vice versa) when one slate is thin.
+    public func propsTickets(for sport: ParlaySport) -> [ParlayTicket] {
+        propsTickets.filter { ticket in ticket.legs.allSatisfy { $0.sport == sport } }
+    }
+
+    public func propsSports(for sport: ParlaySport) -> [ParlaySport] {
+        propsTickets(for: sport).isEmpty ? [] : [sport]
+    }
+
     /// Same-game tickets for a matchup widget. Built lazily per game from the
     /// cached pool; empty until the first refresh lands.
     public func tickets(forGameKey gameKey: String) -> [ParlayTicket] {
@@ -68,22 +79,25 @@ public final class ParlayGodStore {
             async let mlbBundleTask = OutliersTrendsService.shared.fetchMLBBundle()
             async let nflBundleTask = OutliersTrendsService.shared.fetchNFLBundle()
             async let matchupsTask = MLBPlayerPropsService.shared.fetchMatchups()
+            async let nflPlayersTask = NFLPlayerPropsService.shared.fetchPlayers()
 
             let mlbBundle = try? await mlbBundleTask
             let nflBundle = try? await nflBundleTask
-            let matchups = (try? await matchupsTask) ?? []
-            guard mlbBundle != nil || nflBundle != nil || !matchups.isEmpty else {
+            let matchups = try? await matchupsTask
+            let nflPlayers = try? await nflPlayersTask
+            guard mlbBundle != nil || nflBundle != nil || matchups != nil || nflPlayers != nil else {
                 throw NSError(domain: "ParlayGod", code: 1, userInfo: [
                     NSLocalizedDescriptionKey: "No slate data available",
                 ])
             }
 
             // Pure CPU work over value types — keep it off the main actor.
-            let built = await Task.detached(priority: .userInitiated) { () -> ([ParlayLeg], [ParlayLeg], [ParlayLeg]) in
+            let built = await Task.detached(priority: .userInitiated) { () -> ([ParlayLeg], [ParlayLeg], [ParlayLeg], [ParlayLeg]) in
                 let mlbTeam = mlbBundle.map { ParlayGodEngine.teamLegs(bundle: $0) } ?? []
                 let nflTeam = nflBundle.map { ParlayGodEngine.nflTeamLegs(bundle: $0) } ?? []
-                let props = ParlayGodEngine.propLegs(matchups: matchups)
-                return (mlbTeam, nflTeam, props)
+                let mlbProps = ParlayGodEngine.propLegs(matchups: matchups ?? [])
+                let nflProps = ParlayGodEngine.nflPropLegs(players: nflPlayers ?? [])
+                return (mlbTeam, nflTeam, mlbProps, nflProps)
             }.value
 
             // A transiently-failed source must not wipe its legs for the whole
@@ -91,12 +105,15 @@ public final class ParlayGodStore {
             // keep the last-known legs of that kind and stay stale to retry.
             let mlbTeamLegs = mlbBundle != nil ? built.0 : pool.filter { $0.kind == .team && $0.sport == .mlb }
             let nflTeamLegs = nflBundle != nil ? built.1 : pool.filter { $0.kind == .team && $0.sport == .nfl }
-            let propLegs = !matchups.isEmpty ? built.2 : pool.filter { $0.kind == .prop }
-            pool = mlbTeamLegs + nflTeamLegs + propLegs
+            let mlbPropLegs = matchups != nil ? built.2 : pool.filter { $0.kind == .prop && $0.sport == .mlb }
+            let nflPropLegs = nflPlayers != nil ? built.3 : pool.filter { $0.kind == .prop && $0.sport == .nfl }
+            pool = mlbTeamLegs + nflTeamLegs + mlbPropLegs + nflPropLegs
             slateTickets = ParlayGodEngine.slateTickets(from: pool)
-            propsTickets = ParlayGodEngine.propsTickets(from: pool)
+            propsTickets = [.mlb, .nfl].flatMap { sport in
+                ParlayGodEngine.propsTickets(from: pool.filter { $0.kind == .prop && $0.sport == sport })
+            }
             gameTicketCache = [:]
-            lastRefreshedAt = (mlbBundle != nil && nflBundle != nil && !matchups.isEmpty) ? Date() : nil
+            lastRefreshedAt = (mlbBundle != nil && nflBundle != nil && matchups != nil && nflPlayers != nil) ? Date() : nil
             loadState = .loaded
         } catch {
             loadState = .failed(error.localizedDescription)

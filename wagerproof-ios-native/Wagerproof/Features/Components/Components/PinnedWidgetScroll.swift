@@ -50,7 +50,7 @@ enum WidgetCard {
     /// Horizontal margin from the screen edge to the card.
     static let hInset: CGFloat = 16
     /// Vertical gap between one card and the next (lives on the body bottom).
-    static let gap: CGFloat = 12
+    static let gap: CGFloat = 16
 }
 
 extension View {

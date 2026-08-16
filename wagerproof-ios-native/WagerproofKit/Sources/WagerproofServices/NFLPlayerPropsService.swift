@@ -2,88 +2,134 @@ import Foundation
 import Supabase
 import WagerproofModels
 
-/// Fetches the NFL player-props board from the CFB (research) Supabase
-/// project, per the "NFL Week 12 2025 Dry Run — App Data Contract":
+/// Fetches the NFL player-props board from the live 2026 tables on the
+/// CFB (research) Supabase project:
 ///
-/// - `nfl_dryrun_props` — one row per player × market: consensus close
-///   line/prices (median across books), season game-log trends, defense
-///   matchup context, P-flags, precomputed best-shop over/under fields,
-///   and the official headshot URL.
-/// - `nfl_dryrun_games` — kickoff context (gameday + schedule slot), joined
-///   client-side on `game_id`.
+/// - `nfl_prop_player_pages` — one row per player per slate week: identity,
+///   posted/pending markets, kickoff.
+/// - `nfl_player_prop_trends` — prior-season game log (grades + lines).
+/// - `nfl_player_game_logs` — real stat totals merged into that log.
 ///
-/// The 2026 in-season tables will follow this same shape, so this service is
-/// the production read path — only the table names should change at cutover.
+/// Dry-run staging tables are not read.
 public actor NFLPlayerPropsService {
     public static let shared = NFLPlayerPropsService()
     public init() {}
 
-    /// Fetch the slate's prop rows + game contexts and group them per player.
-    /// The dry-run tables hold exactly one curated week (~950 rows), so no
-    /// date filter is needed; revisit if the in-season tables accumulate weeks.
+    /// Latest slate's player pages, enriched with L10 game logs.
     public func fetchPlayers() async throws -> [NFLPropPlayer] {
         let cfb = await CFBSupabase.shared.client
-
-        // Team logos/abbrs come from the `nfl_teams` reference table — warm
-        // the cache so the cards can read it synchronously.
         await NFLTeamsService.shared.ensureLoaded()
 
-        let rows: [NFLDryrunPropRow] = try await cfb
-            .from("nfl_dryrun_props")
-            .select()
-            .order("player_name", ascending: true)
+        guard let slate = try await resolveSlate(client: cfb) else { return [] }
+
+        let pages: [NFLPropPlayerPage] = try await cfb
+            .from("nfl_prop_player_pages")
+            .select("player_id,season,week,player_name,position,team,opponent,is_home,game_label,kickoff,headshot_url,rookie,markets")
+            .eq("season", value: slate.season)
+            .eq("week", value: slate.week)
             .execute()
             .value
 
-        // Kickoff context is decoration — a miss degrades to undated cards,
-        // never to an error.
-        let games = (try? await fetchGameContexts(client: cfb)) ?? [:]
-        return NFLPlayerProps.group(
-            rows,
-            games: games,
-            bestBooksFallback: Self.bestBooksFallbackIndex
+        let history = await fetchRecentGamesFallback(
+            client: cfb,
+            playerIds: pages.map(\.playerId)
         )
+        return NFLPlayerProps.players(from: pages, recentGames: history)
     }
 
-    /// Backend-precomputed best shops (dry-run bundle) — not calculated on device.
-    private static let bestBooksFallbackIndex: [String: NFLPlayerProps.NFLPropBestBooksFallback] = {
-        Dictionary(uniqueKeysWithValues: NFLPropBestBooksBundle.index.map { key, record in
-            (
-                key,
-                NFLPlayerProps.NFLPropBestBooksFallback(
-                    bestOverBook: record.bestOverBook,
-                    bestOverBookName: record.bestOverBookName,
-                    bestOverBookLogo: record.bestOverBookLogo,
-                    bestOverLine: record.bestOverLine,
-                    bestOverPrice: record.bestOverPrice,
-                    bestUnderBook: record.bestUnderBook,
-                    bestUnderBookName: record.bestUnderBookName,
-                    bestUnderBookLogo: record.bestUnderBookLogo,
-                    bestUnderLine: record.bestUnderLine,
-                    bestUnderPrice: record.bestUnderPrice
-                )
-            )
-        })
-    }()
+    // MARK: Slate
 
-    private struct GameContextRow: Decodable {
-        let gameId: String
-        let gameday: String?
-        let slot: String?
-        enum CodingKeys: String, CodingKey {
-            case gameId = "game_id"
-            case gameday, slot
-        }
+    private struct SlateRow: Decodable {
+        let season: Int
+        let week: Int
     }
 
-    private func fetchGameContexts(client: SupabaseClient) async throws -> [String: NFLPropGameContext] {
-        let rows: [GameContextRow] = try await client
-            .from("nfl_dryrun_games")
-            .select("game_id, gameday, slot")
+    /// Latest (season, week) present in the pages table — same rule as
+    /// `NFLPropPageService.resolveSlate` / the web `resolveLatestSlate`.
+    private func resolveSlate(client: SupabaseClient) async throws -> (season: Int, week: Int)? {
+        let rows: [SlateRow] = try await client
+            .from("nfl_prop_player_pages")
+            .select("season,week")
+            .order("season", ascending: false)
+            .order("week", ascending: false)
+            .limit(1)
             .execute()
             .value
-        return Dictionary(uniqueKeysWithValues: rows.map {
-            ($0.gameId, NFLPropGameContext(gameDate: $0.gameday ?? "", slot: $0.slot))
-        })
+        guard let row = rows.first else { return nil }
+        return (row.season, row.week)
+    }
+
+    // MARK: Trends + game-log enrichment
+
+    /// Website parity for Week 1: trends are queried by player only (no
+    /// current-season filter), so the card can show the last ten games from
+    /// the prior season until the new season has results.
+    private func fetchRecentGamesFallback(
+        client: SupabaseClient,
+        playerIds: [String]
+    ) async -> [String: [NFLPropRecentGame]] {
+        let uniqueIds = Array(Set(playerIds))
+        guard !uniqueIds.isEmpty else { return [:] }
+
+        var trends: [NFLPropTrendsDetail] = []
+        for chunk in uniqueIds.chunked(into: 120) {
+            let rows: [NFLPropTrendsDetail] = (try? await client
+                .from("nfl_player_prop_trends")
+                .select("player_id,recent_game_log,matchups,splits")
+                .in("player_id", values: chunk)
+                .execute()
+                .value) ?? []
+            trends.append(contentsOf: rows)
+        }
+        guard !trends.isEmpty else { return [:] }
+
+        let seasons = Array(Set(trends.flatMap { $0.recentGameLog.map(\.season) }))
+        let weeks = Array(Set(trends.flatMap { $0.recentGameLog.map(\.week) }))
+        guard !seasons.isEmpty, !weeks.isEmpty else { return [:] }
+
+        var logs: [NFLPlayerGameLogRow] = []
+        for chunk in uniqueIds.chunked(into: 120) {
+            let rows: [NFLPlayerGameLogRow] = (try? await client
+                .from("nfl_player_game_logs")
+                .select("player_id,season,week,pass_yds,pass_tds,rush_yds,rush_tds,rec_yds,rec_tds,receptions,pass_attempts,carries,completions")
+                .in("player_id", values: chunk)
+                .in("season", values: seasons)
+                .in("week", values: weeks)
+                .execute()
+                .value) ?? []
+            logs.append(contentsOf: rows)
+        }
+        let logsByPlayer = Dictionary(grouping: logs, by: \.playerId)
+        var result: [String: [NFLPropRecentGame]] = [:]
+        for trend in trends {
+            let enriched = NFLPropTrendsEnrichment.enrich(
+                trend.recentGameLog,
+                gameLogs: logsByPlayer[trend.playerId] ?? []
+            )
+            let markets = Set(enriched.flatMap { game in
+                Array(game.actuals.keys) + Array(game.markets.keys)
+            })
+            for market in markets {
+                let games = enriched.prefix(10).reversed().compactMap { game -> NFLPropRecentGame? in
+                    guard let actual = game.actuals[market] else { return nil }
+                    // Don't bake last year's O/U letter in as `cleared` —
+                    // the widget grades actuals against THIS week's line.
+                    return NFLPropRecentGame(
+                        opp: game.opp, week: game.week, actual: actual, cleared: nil
+                    )
+                }
+                if !games.isEmpty { result["\(trend.playerId)|\(market)"] = games }
+            }
+        }
+        return result
+    }
+}
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0, !isEmpty else { return isEmpty ? [] : [self] }
+        return stride(from: 0, to: count, by: size).map {
+            Array(self[$0..<Swift.min($0 + size, count)])
+        }
     }
 }
