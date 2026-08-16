@@ -1003,6 +1003,7 @@ struct NFLGameBottomSheet: View {
 
     @ViewBuilder
     private func trendDetailSheet(_ selection: NFLTrendDetailSelection) -> some View {
+        let rows = detailRows(selection)
         NavigationStack {
             ScrollView {
                 VStack(alignment: .center, spacing: 14) {
@@ -1020,13 +1021,21 @@ struct NFLGameBottomSheet: View {
                     }
                     .padding(.horizontal, 16)
 
-                    VStack(spacing: 0) {
-                        trendDetailHeader(kind: selection.kind)
-                        ForEach(detailRows(selection)) { row in
-                            trendDetailRow(row, kind: selection.kind)
+                    if rows.isEmpty {
+                        Text("No games have been played this season yet.")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.appTextSecondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 24)
+                    } else {
+                        VStack(spacing: 0) {
+                            trendDetailHeader(kind: selection.kind)
+                            ForEach(rows) { row in
+                                trendDetailRow(row, kind: selection.kind)
+                            }
                         }
+                        .padding(.horizontal, 10)
                     }
-                    .padding(.horizontal, 10)
                 }
                 .padding(.vertical, 16)
             }

@@ -617,7 +617,7 @@ struct CFBGameBottomSheet: View {
                     }
 
                     if rows.isEmpty {
-                        Text("No posted rows for this trend type.")
+                        Text("No games have been played this season yet.")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(Color.appTextMuted)
                             .frame(maxWidth: .infinity, alignment: .center)
