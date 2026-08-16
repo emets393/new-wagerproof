@@ -670,7 +670,7 @@ fun PolymarketSparkline(
             Box(Modifier.size(5.dp).clip(CircleShape).background(leaderColor))
             Spacer(Modifier.width(3.dp))
             Text(
-                if (leaderPct != null) "$leaderAbbr $leaderPct%" else "POLY ML",
+                if (leaderPct != null) "$leaderAbbr $leaderPct%" else "POLYMARKET",
                 color = if (leaderPct != null) leaderColor else AppColors.appTextMuted,
                 fontSize = 8.sp, fontWeight = FontWeight.Bold,
             )
@@ -679,7 +679,13 @@ fun PolymarketSparkline(
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
                 !loaded -> Box(Modifier.fillMaxWidth().height(20.dp).clip(RoundedCornerShape(6.dp)).background(AppColors.appSkeleton))
-                points.size < 2 -> Text("—", color = AppColors.appTextMuted, fontSize = 12.sp, modifier = Modifier.align(Alignment.Center))
+                points.size < 2 -> Text(
+                    "Market pending",
+                    color = AppColors.appTextMuted,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.Center),
+                )
                 else -> androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(24.dp)) {
                     val awayValues = points.map { it.p.toFloat() }
                     val homeValues = awayValues.map { 1f - it }

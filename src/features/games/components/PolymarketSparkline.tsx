@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { LineChart } from 'lucide-react';
 import { getAllMarketsData } from '@/services/polymarketService';
 import type { GamesSport } from '../types';
 
@@ -72,7 +73,7 @@ export function PolymarketSparkline({
   height = 34,
   demoSeries,
 }: PolymarketSparklineProps) {
-  const { data } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ['polymarket-all', league, awayTeam, homeTeam],
     queryFn: () => getAllMarketsData(awayTeam, homeTeam, league),
     staleTime: 5 * 60 * 1000,
@@ -81,7 +82,27 @@ export function PolymarketSparkline({
   });
 
   const ml = demoSeries ?? data?.moneyline;
-  if (!ml || ml.data.length < 2) return null;
+  if (!ml || ml.data.length < 2) {
+    const loading = !demoSeries && isPending;
+    return (
+      <div
+        className="flex shrink-0 flex-col items-end justify-center gap-1"
+        style={{ width, minHeight: height + 14 }}
+        role="status"
+        aria-label={loading ? 'Loading Polymarket odds' : 'Polymarket market not available yet'}
+      >
+        <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-muted-foreground/70">
+          <LineChart className="h-3 w-3" aria-hidden />
+          Polymarket
+        </span>
+        {loading ? (
+          <span className="h-2 w-20 animate-pulse rounded-full bg-muted" aria-hidden />
+        ) : (
+          <span className="text-[10px] font-semibold text-muted-foreground">Market pending</span>
+        )}
+      </div>
+    );
+  }
 
   // Downsample dense Polymarket histories so ~300 points don't turn into a
   // noisy audio-waveform when compressed into a ~100px sparkline.

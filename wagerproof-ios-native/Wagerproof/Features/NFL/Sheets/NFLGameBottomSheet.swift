@@ -644,7 +644,9 @@ struct NFLGameBottomSheet: View {
     /// so the sentence at the top and the graphic below it can't disagree.
     @ViewBuilder
     private func edgeVisual(_ pick: NFLDryrunPickRow) -> some View {
-        if isTotalHeader(for: pick),
+        if projectionValue(for: pick) == nil && marketValue(for: pick) == nil {
+            pendingMarketState(pick)
+        } else if isTotalHeader(for: pick),
            let market = pick.bestLine ?? pick.vegasLine,
            let model = pick.modelLine ?? pick.modelNumber,
            market.isFinite, model.isFinite {
@@ -688,6 +690,38 @@ struct NFLGameBottomSheet: View {
         } else {
             metricGrid(pick)
         }
+    }
+
+    private func projectionValue(for pick: NFLDryrunPickRow) -> Double? {
+        guard let value = pick.modelLine ?? pick.modelNumber, value.isFinite else { return nil }
+        return value
+    }
+
+    private func marketValue(for pick: NFLDryrunPickRow) -> Double? {
+        if isMoneylineCard(pick) { return moneylinePrice(for: pick).map(Double.init) }
+        if isTeamTotalCard(pick) { return teamTotalMarket(for: pick) }
+        guard let value = pick.bestLine ?? pick.vegasLine, value.isFinite else { return nil }
+        return value
+    }
+
+    private func pendingMarketState(_ pick: NFLDryrunPickRow) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "clock")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color.appTextMuted)
+                .frame(width: 24, height: 24)
+                .background(Color.appSurfaceMuted.opacity(0.7), in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Market data is still taking shape.")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.appTextPrimary)
+                Text("WagerProof's projection and the Vegas line for \(marketTitle(for: pick).lowercased()) will appear here as soon as they're available.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func isSpreadCard(_ pick: NFLDryrunPickRow) -> Bool {
@@ -803,10 +837,7 @@ struct NFLGameBottomSheet: View {
             HStack(spacing: 10) {
                 metricBox(
                     label: "Market Price",
-                    value: GameCardFormatting.formatMoneyline(
-                        pick.vegasPrice.map { Int($0.rounded()) }
-                            ?? pick.bestOdds.map { Int($0.rounded()) }
-                    ),
+                    value: moneylinePrice(for: pick).map { GameCardFormatting.formatMoneyline($0) } ?? "TBD",
                     tint: Color.appTextPrimary
                 )
                 Image(systemName: "arrow.right")
@@ -821,7 +852,11 @@ struct NFLGameBottomSheet: View {
             }
         } else {
             HStack(spacing: 10) {
-                metricBox(label: lineLabel(for: pick), value: formatPickLine(pick.bestLine ?? pick.vegasLine, pick: pick), tint: Color.appTextPrimary)
+                metricBox(
+                    label: lineLabel(for: pick),
+                    value: marketValue(for: pick).map { formatPickLine($0, pick: pick) } ?? "TBD",
+                    tint: Color.appTextPrimary
+                )
                 Image(systemName: "arrow.right")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(Color.appTextMuted)

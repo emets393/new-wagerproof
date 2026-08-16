@@ -352,6 +352,7 @@ export function MarketGapRow({
   gap,
   format = (v: number) => String(roundToHalf(v)),
   emphasis = 'neutral',
+  missingVegasLabel = '—',
 }: {
   label: string;
   model: number | null;
@@ -364,6 +365,8 @@ export function MarketGapRow({
   format?: (value: number) => string;
   /** 'signed' colours the gap green/red; 'neutral' leaves it in the primary tone. */
   emphasis?: 'signed' | 'neutral';
+  /** NFL markets use TBD to distinguish an unposted line from a missing value. */
+  missingVegasLabel?: string;
 }) {
   const resolvedGap =
     gap !== undefined ? gap : model !== null && vegas !== null ? model - vegas : null;
@@ -403,7 +406,7 @@ export function MarketGapRow({
         )}
       </span>
       <span className="w-14 shrink-0 text-right text-[12px] font-semibold tabular-nums text-muted-foreground">
-        {vegas === null ? '—' : format(vegas)}
+        {vegas === null ? missingVegasLabel : format(vegas)}
       </span>
       <span className={cn('w-12 shrink-0 text-right text-[11px] font-bold tabular-nums', gapClass)}>
         {resolvedGap === null ? '—' : `${resolvedGap > 0 ? '+' : ''}${format(resolvedGap)}`}
