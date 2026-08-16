@@ -446,6 +446,44 @@ public enum NFLPlayerProps {
         "player_tackles_assists": "Tackles + Ast",
     ]
 
+    static let marketAbbrs: [String: String] = [
+        "player_pass_yds": "PYD",
+        "player_pass_tds": "PTD",
+        "player_pass_attempts": "ATT",
+        "player_pass_completions": "CMP",
+        "player_pass_interceptions": "INT",
+        "player_rush_yds": "RYD",
+        "player_rush_attempts": "CAR",
+        "player_rush_tds": "RTD",
+        "player_reception_yds": "REY",
+        "player_receptions": "REC",
+        "player_reception_tds": "RETD",
+        "player_anytime_td": "ATD",
+        "player_kicking_points": "KP",
+        "player_field_goals": "FG",
+        "player_sacks": "SK",
+        "player_tackles_assists": "T+A",
+    ]
+
+    static let marketEmojis: [String: String] = [
+        "player_pass_yds": "🏈",
+        "player_pass_tds": "🎯",
+        "player_pass_attempts": "📤",
+        "player_pass_completions": "✅",
+        "player_pass_interceptions": "🚫",
+        "player_rush_yds": "🏃",
+        "player_rush_attempts": "➡️",
+        "player_rush_tds": "💥",
+        "player_reception_yds": "🙌",
+        "player_receptions": "🤲",
+        "player_reception_tds": "🎪",
+        "player_anytime_td": "🏆",
+        "player_kicking_points": "🦵",
+        "player_field_goals": "🥅",
+        "player_sacks": "💪",
+        "player_tackles_assists": "🛡️",
+    ]
+
     public static func marketLabel(_ market: String) -> String {
         if let label = marketLabels[market] { return label }
         // "player_some_stat" → "Some Stat"
@@ -454,6 +492,14 @@ public enum NFLPlayerProps {
             .split(separator: "_")
             .map { $0.prefix(1).uppercased() + $0.dropFirst() }
             .joined(separator: " ")
+    }
+
+    public static func marketAbbr(_ market: String) -> String {
+        marketAbbrs[market] ?? marketLabel(market)
+    }
+
+    public static func marketEmoji(_ market: String) -> String {
+        marketEmojis[market] ?? "🎲"
     }
 
     public static func marketSortIndex(_ market: String) -> Int {

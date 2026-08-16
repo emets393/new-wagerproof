@@ -37,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,58 +112,68 @@ fun PlayerPropDetailScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(AppColors.appSurface).navigationBarsPadding()) {
-        Box(Modifier.weight(1f)) {
-            PropsCollapsingScaffold(
-                heroMax = 134.dp,
-                heroMin = 116.dp,
-                listState = listState,
-                aura = { progress -> TeamAuraBackground(teamColor, oppColor, progress) },
-                hero = { progress ->
-                    Hero(
-                        selection = selection,
-                        progress = progress,
-                        markets = markets,
-                        activeMarket = activeMarket,
-                        computed = activeRow?.let { MLBPlayerProps.computePropAtLine(it, lineFor(it.market)) },
-                        onSelectMarket = { m, index ->
-                            activeMarket = m
-                            suppressSpyUntil = System.currentTimeMillis() + 450
-                            scope.launch { listState.animateScrollToItem(index) }
-                        },
-                    )
-                },
-            ) {
-                items(markets.size, key = { markets[it].market }) { i ->
-                    val row = markets[i]
-                    MarketWidget(row = row, line = lineFor(row.market))
-                }
-                item { Spacer(Modifier.height(120.dp)) }
-            }
+    var lineExpanded by remember { mutableStateOf(false) }
 
-            // Back affordance (nav bar hidden; name lives in the hero).
-            Box(
-                Modifier
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(8.dp)
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(AppColors.appSurfaceElevated.copy(alpha = 0.85f))
-                    .clickable(onClick = onBack),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(AppIcon.CHEVRON_LEFT.imageVector, "Back", tint = AppColors.appTextPrimary, modifier = Modifier.size(18.dp))
+    Box(Modifier.fillMaxSize().background(AppColors.appSurface)) {
+        PropsCollapsingScaffold(
+            heroMax = 134.dp,
+            heroMin = 126.dp,
+            listState = listState,
+            onUserScroll = { if (lineExpanded) lineExpanded = false },
+            aura = { progress -> TeamAuraBackground(teamColor, oppColor, progress) },
+            hero = { progress ->
+                Hero(
+                    selection = selection,
+                    progress = progress,
+                    markets = markets,
+                    activeMarket = activeMarket,
+                    computed = activeRow?.let { MLBPlayerProps.computePropAtLine(it, lineFor(it.market)) },
+                    onSelectMarket = { m, index ->
+                        activeMarket = m
+                        suppressSpyUntil = System.currentTimeMillis() + 450
+                        scope.launch { listState.animateScrollToItem(index) }
+                    },
+                )
+            },
+        ) {
+            items(markets.size, key = { markets[it].market }) { i ->
+                val row = markets[i]
+                MarketWidget(row = row, line = lineFor(row.market))
             }
+            item { Spacer(Modifier.height(120.dp)) }
         }
 
-        // Bottom scrubber for the in-view market.
+        // Back affordance (nav bar hidden; name lives in the hero).
+        Box(
+            Modifier
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(8.dp)
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(AppColors.appSurfaceElevated.copy(alpha = 0.85f))
+                .clickable(onClick = onBack),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(AppIcon.CHEVRON_LEFT.imageVector, "Back", tint = AppColors.appTextPrimary, modifier = Modifier.size(18.dp))
+        }
+
         activeRow?.let { row ->
-            PropLineScrubber(
-                lines = row.lines,
-                selectedLine = lineFor(row.market),
-                onLineChange = { selectedLines[row.market] = it },
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 28.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                PropLineScrubber(
+                    lines = row.lines,
+                    selectedLine = lineFor(row.market),
+                    onLineChange = { selectedLines[row.market] = it },
+                    expanded = lineExpanded,
+                    onExpandedChange = { lineExpanded = it },
+                )
+            }
         }
     }
 }
@@ -184,7 +193,13 @@ private fun Hero(
     val teamColor = hexColor(MLBTeams.colors(selection.teamName).primary)
     val oppColor = hexColor(MLBTeams.colors(selection.opponentName).primary)
 
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(lerp(8f, 6f, progress).dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = lerp(20f, 16f, progress).dp, end = 16.dp)
+            .padding(top = lerp(8f, 0f, progress).dp, bottom = lerp(0f, 10f, progress).dp),
+        verticalArrangement = Arrangement.spacedBy(lerp(8f, 6f, progress).dp),
+    ) {
         // Top row.
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(if (selection.gameIsDay) "☀️ Day" else "🌙 Night", color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
@@ -199,7 +214,7 @@ private fun Hero(
             Box(Modifier.size(headSize + 8.dp).teamGlassDisc(teamColor, oppColor), contentAlignment = Alignment.Center) {
                 PlayerHeadshot(selection.playerId, size = headSize)
             }
-            Spacer(Modifier.size(12.dp))
+            Spacer(Modifier.size(lerp(16f, 12f, progress).dp))
             Column(Modifier.weight(1f)) {
                 Text(selection.playerName, color = AppColors.appTextPrimary, fontSize = lerp(19f, 16f, progress).sp, fontWeight = FontWeight.Black, maxLines = 1)
                 if (detail > 0.04f) {
@@ -255,7 +270,7 @@ private fun SegmentedMarketPicker(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    MLBPlayerProps.marketLabel(row.market),
+                    MLBPlayerProps.marketAbbr(row.market),
                     color = if (selected) AppColors.appTextPrimary else AppColors.appTextSecondary,
                     fontSize = 11.sp,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
@@ -269,22 +284,15 @@ private fun SegmentedMarketPicker(
 @Composable
 private fun MarketWidget(row: MLBPlayerPropRow, line: Double) {
     val c = MLBPlayerProps.computePropAtLine(row, line) ?: return
-    WidgetCollapsingSection(title = MLBPlayerProps.marketLabel(row.market), systemImage = "chart.bar.fill") {
+    WidgetCollapsingSection(
+        title = MLBPlayerProps.marketLabel(row.market),
+        systemImage = "chart.bar.fill",
+        headline = MLBPlayerProps.buildVerdict(row, c),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(MLBPlayerProps.buildVerdict(row, c), color = AppColors.appTextPrimary, fontSize = 14.sp)
             RecentPropBarChart(bars = c.chartGames, line = line)
             Box(Modifier.fillMaxWidth().height(0.5.dp).background(AppColors.appBorder.copy(alpha = 0.5f)))
             PropContextTiles(row, c)
-            if (!row.isPitcher && c.contextualArchetype != null) {
-                Text(
-                    "Archetype split is based on the opposing starting pitcher only — relievers are not counted.",
-                    color = AppColors.appTextMuted, fontSize = 10.sp, fontStyle = FontStyle.Italic,
-                )
-            }
-            Text(
-                "${MLBPlayerProps.marketLabel(row.market)} · O ${MLBPlayerProps.formatLine(line)} · ${MLBPlayerProps.formatOdds(c.overOdds)} / ${MLBPlayerProps.formatOdds(c.underOdds)}",
-                color = AppColors.appTextSecondary, fontSize = 12.sp,
-            )
         }
     }
 }

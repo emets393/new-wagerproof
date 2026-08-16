@@ -2,18 +2,22 @@ import SwiftUI
 import WagerproofModels
 import WagerproofDesign
 
-/// Permanent bottom line scrubber — a Liquid Glass bar that replaces the tab
-/// bar on the prop detail page. The ladder of alternate lines is a horizontal
-/// scroll "wheel": the tick under the centered caret is the selected line, and
-/// scrubbing left/right (momentum scroll) moves through the lines, updating
-/// everything upstream in real time.
+/// Floating line scrubber. Collapsed it is a tiny glass pill that sits over
+/// the scrolling widgets; a tap expands the same pill to hold the readout and
+/// the alternate-line wheel. The wheel is always laid out inside the pill and
+/// revealed by growing the clip — it never inserts from outside the container.
 ///
-/// The readout (line + Over/Under odds) uses the numeric-text content
-/// transition so the digits roll as you scrub.
+/// The tick under the centered caret is the selected line, and scrubbing
+/// left/right updates everything upstream in real time. Digits roll via the
+/// numeric-text content transition.
 struct PropLineScrubber: View {
     let lines: [MLBPlayerPropLineEntry]
     @Binding var selectedLine: Double
 
+    /// Owned by the detail page so a market change (scroll-spy) cannot
+    /// remount this view and snap the pill shut. The page also eases it
+    /// closed when the user starts scrolling.
+    @Binding var isExpanded: Bool
     /// The line currently centered under the caret (drives the scroll wheel).
     @State private var centered: Double?
 
@@ -23,21 +27,26 @@ struct PropLineScrubber: View {
     private let wheelHeight: CGFloat = 54
 
     var body: some View {
-        VStack(spacing: 8) {
-            readout
+        VStack(spacing: isExpanded ? 8 : 0) {
+            header
+            // Always in the tree so expand is a clip/height reveal, not a
+            // transition that slides the wheel in from outside the pill.
             wheel
+                .frame(height: isExpanded ? wheelHeight : 0, alignment: .top)
+                .opacity(isExpanded ? 1 : 0)
+                .clipped()
+                .allowsHitTesting(isExpanded)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
-        .frame(maxWidth: .infinity)
-        .liquidGlassBackground(in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(Color.appBorder.opacity(0.5), lineWidth: 0.5)
-        )
-        .padding(.horizontal, 12)
-        .shadow(color: .black.opacity(0.12), radius: 12, x: 0, y: 4)
+        .padding(.horizontal, isExpanded ? 16 : 14)
+        .padding(.vertical, isExpanded ? 12 : 8)
+        // Hug when collapsed; a compact capsule when expanded — never the
+        // overlay's full-width proposal.
+        .fixedSize(horizontal: !isExpanded, vertical: false)
+        .frame(width: isExpanded ? 268 : nil)
+        .background { Color.clear.liquidGlassBackground(in: pillShape) }
+        .overlay(pillShape.strokeBorder(Color.appBorder.opacity(0.5), lineWidth: 0.5))
+        .clipShape(pillShape)
+        .shadow(color: .black.opacity(0.18), radius: isExpanded ? 16 : 10, x: 0, y: 4)
         .onAppear { centered = selectedLine }
         .onChange(of: centered) { _, v in
             if let v, v != selectedLine { selectedLine = v }
@@ -46,12 +55,57 @@ struct PropLineScrubber: View {
             if centered != v { centered = v }
         }
         .sensoryFeedback(.selection, trigger: selectedLine)
+        .animation(.smooth(duration: 0.38), value: isExpanded)
     }
 
-    // MARK: - Readout (line + odds)
+    private var pillShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: isExpanded ? 28 : 20, style: .continuous)
+    }
 
-    private var readout: some View {
-        HStack(alignment: .firstTextBaseline) {
+    // MARK: - Header (compact pill vs expanded readout)
+
+    private var header: some View {
+        Button {
+            isExpanded.toggle()
+        } label: {
+            Group {
+                if isExpanded {
+                    expandedReadout
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                } else {
+                    compactReadout
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Line \(MLBPlayerProps.formatLine(selectedLine))")
+        .accessibilityHint(isExpanded ? "Collapse line selector" : "Expand line selector")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    /// Tiny collapsed chip — line + over price, hugs its content.
+    private var compactReadout: some View {
+        HStack(spacing: 8) {
+            Text(MLBPlayerProps.formatLine(selectedLine))
+                .font(.system(size: 16, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.appTextPrimary)
+                .contentTransition(.numericText())
+                .animation(.snappy(duration: 0.28), value: selectedLine)
+            Text(MLBPlayerProps.formatOdds(activeEntry?.over))
+                .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                .foregroundStyle(Color.appPrimary)
+                .contentTransition(.numericText())
+                .animation(.snappy(duration: 0.28), value: selectedLine)
+            Image(systemName: "chevron.up")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Color.appTextMuted)
+        }
+    }
+
+    private var expandedReadout: some View {
+        HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("LINE")
                     .font(.system(size: 9, weight: .bold))
@@ -63,11 +117,16 @@ struct PropLineScrubber: View {
                     .contentTransition(.numericText())
                     .animation(.snappy(duration: 0.28), value: selectedLine)
             }
-            Spacer()
+            Spacer(minLength: 8)
             HStack(spacing: 6) {
                 oddsChip(prefix: "O", odds: activeEntry?.over, tint: Color.appPrimary)
                 oddsChip(prefix: "U", odds: activeEntry?.under, tint: Color.appTextSecondary)
             }
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Color.appTextMuted)
+                .frame(width: 18)
+                .accessibilityHidden(true)
         }
     }
 
@@ -122,7 +181,6 @@ struct PropLineScrubber: View {
             .scrollTargetBehavior(SnapToTickBehavior(tickWidth: tickWidth))
             .overlay(alignment: .top) { caret }
             .mask(
-                // Fade the ladder toward both edges so it reads as a wheel.
                 LinearGradient(
                     stops: [
                         .init(color: .clear, location: 0),
@@ -137,7 +195,6 @@ struct PropLineScrubber: View {
         .frame(height: wheelHeight)
     }
 
-    /// Fixed center indicator the wheel scrubs under.
     private var caret: some View {
         Capsule()
             .fill(Color.appPrimary)

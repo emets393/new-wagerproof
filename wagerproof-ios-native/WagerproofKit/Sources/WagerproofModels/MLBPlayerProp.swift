@@ -273,6 +273,21 @@ public enum MLBPlayerProps {
         "pitcher_outs": "🛡️",
     ]
 
+    /// Compact picker labels — full names truncate in a segmented control.
+    static let marketAbbrs: [String: String] = [
+        "batter_home_runs": "HR",
+        "batter_hits": "H",
+        "batter_total_bases": "TB",
+        "batter_rbis": "RBI",
+        "batter_hits_runs_rbis": "HRR",
+        "batter_walks": "BB",
+        "batter_strikeouts": "K",
+        "pitcher_strikeouts": "K",
+        "pitcher_hits_allowed": "HA",
+        "pitcher_walks": "BB",
+        "pitcher_outs": "OUT",
+    ]
+
     static let batterMarketOrder: [String] = [
         "batter_home_runs", "batter_hits", "batter_total_bases",
         "batter_rbis", "batter_hits_runs_rbis", "batter_walks", "batter_strikeouts",
@@ -287,6 +302,10 @@ public enum MLBPlayerProps {
 
     public static func marketEmoji(_ market: String) -> String {
         marketEmojis[market] ?? "🎲"
+    }
+
+    public static func marketAbbr(_ market: String) -> String {
+        marketAbbrs[market] ?? marketLabel(market)
     }
 
     static func marketSortIndex(_ market: String, isPitcher: Bool) -> Int {
@@ -428,9 +447,6 @@ public enum MLBPlayerProps {
         if let dn = computed.contextualDayNight, dn.games >= 5 {
             let label = row.gameIsDay ? "day" : "night"
             parts.append("\(dn.over)/\(dn.games) in \(label) games")
-        }
-        if let arch = computed.contextualArchetype, arch.games >= 3, let archName = row.oppArchetypeToday {
-            parts.append("\(arch.over)/\(arch.games) vs \(archName) starters")
         }
         let emoji = l10.over >= 7 ? "🔥 " : (l10.over >= 5 ? "📈 " : "")
         return emoji + parts.joined(separator: " — ") + "."

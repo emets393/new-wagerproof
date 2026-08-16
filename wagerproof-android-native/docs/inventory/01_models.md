@@ -573,7 +573,7 @@ Computed-split structs (client-only): **`MLBPropHitSplit`** (`over, games: Int`,
 - `hitSplit(games, line, max?)`: optionally prefix(max); pct = `round(over/n*100)` as Int, nil when n=0.
 - `computePropAtLine(row, line)`: nil unless line exists in ladder. l10 = hitSplit(max 10); season = full; day/night contextual = games with `d == (gameIsDay ? 1 : 0)` (nil if empty); archetype contextual only for batters with `oppArchetypeToday` and ≥3 matching games. Chart = most recent 12 reversed (oldest→newest), miniStrip = recent 10 reversed.
 - `pickHeadlineProp(props, market?)`: with market → that row at defaultLine; else max L10 over-rate (rate = over/games; games==0 → −1).
-- `buildVerdict(row, computed)`: l10.games==0 → "Not enough recent games to gauge this line."; parts: over≥7 → "Cleared in X of last N" (🔥 prefix), ≥5 → "Hit X/N over the last N" (📈), else "X/N over the last N"; append day/night split when games≥5 ("X/Y in day|night games") and archetype split when ≥3 ("X/Y vs <arch> starters"); join " — " + trailing ".".
+- `buildVerdict(row, computed)`: l10.games==0 → "Not enough recent games to gauge this line."; parts: over≥7 → "Cleared in X of last N" (🔥 prefix), ≥5 → "Hit X/N over the last N" (📈), else "X/N over the last N"; append day/night split when games≥5 ("X/Y in day|night games"); join " — " + trailing ".".
 - `groupPropsByPlayer(rows, isPitcher)`: preserves first-seen player order, markets sorted by canonical order.
 - `headshotURL(playerId)` = `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/{id}/headshot/67/current`.
 - `brandGreenHex = 0x22C55E`, `missRedHex = 0xEF4444`.
