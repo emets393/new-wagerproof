@@ -242,31 +242,46 @@ def main():
         return dict(overall=overall, splits=splits, applicable=opp_types_now,
                     window="2024-2025 games vs defenses classified by season scheme rates")
 
-    # ---- projection previews: empirical 2025 per-game bands (REAL data, PREVIEW status —
-    # the per-market model replaces these without any schema change) ----
+    # ---- projections: ONE number per market (owner 2026-08-15: "show an actual
+    # prediction instead of a range"). Priority: (1) the per-market model's point
+    # prediction for THIS week/opponent (kind="point", source="model") — from the same
+    # predict_slate that powers the P-flags; (2) the player's 2025 per-game median as
+    # a form-based fallback (kind="point", source="2025 form") when the model has no
+    # read (rookies, uncovered markets, pre-line weeks). ATD keeps its score rate.
     PROJ_STAT = {"player_receptions": "receptions", "player_reception_yds": "receiving_yards",
                  "player_rush_yds": "rushing_yards", "player_rush_attempts": "carries",
                  "player_pass_yds": "passing_yards", "player_pass_attempts": "attempts"}
     po25 = po
+    model_pt = {}
+    try:
+        from prop_model import predict_slate
+        _pr = predict_slate(SEASON, WEEK)
+        if _pr is not None and len(_pr):
+            model_pt = {(r.player_id, r.market): float(r.pred) for r in _pr.itertuples()}
+        print(f"[projections] model points for {len(model_pt)} (player, market) pairs")
+    except Exception as e:
+        print(f"[projections] model unavailable ({e}) — form fallback only")
+
     def projections(pid, markets_):
         g = po25[po25.player_id == pid]
-        if len(g) < 6:
-            return None
         out = {}
         for mk in markets_:
             if mk == "player_anytime_td":
-                rate = float(((g.receiving_tds + g.rushing_tds) > 0).mean())
-                out[mk] = dict(kind="rate", score_rate=round(rate, 2), n=int(len(g)),
-                               status="preview", source="2025 games")
-            elif mk in PROJ_STAT:
-                v = g[PROJ_STAT[mk]]
-                hi = float(v.quantile(0.65))
-                if hi <= 0:      # degenerate (e.g. a WR's rushing band) — suppress, don't render 0-0-0
+                if len(g) >= 6:
+                    rate = float(((g.receiving_tds + g.rushing_tds) > 0).mean())
+                    out[mk] = dict(kind="rate", score_rate=round(rate, 2), n=int(len(g)),
+                                   status="live", source="2025 games")
+                continue
+            mp = model_pt.get((pid, mk))
+            if mp is not None and mp > 0:
+                out[mk] = dict(kind="point", value=round(mp, 1),
+                               status="live", source="model")
+            elif mk in PROJ_STAT and len(g) >= 6:
+                med = float(g[PROJ_STAT[mk]].quantile(0.5))
+                if med <= 0:
                     continue
-                out[mk] = dict(kind="band", low=round(float(v.quantile(0.35)), 1),
-                               median=round(float(v.quantile(0.5)), 1),
-                               high=round(hi, 1), n=int(len(g)),
-                               status="preview", source="2025 games")
+                out[mk] = dict(kind="point", value=round(med, 1),
+                               status="preview", source="2025 form")
         return out or None
 
     # ---- QB / RB scheme substrates (build_qb_rb_scheme.py) ----
