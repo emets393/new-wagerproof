@@ -913,6 +913,11 @@ export function FootballDryRunSummarySection({
   const totalCharted = modelTotal !== null && vegasTotal !== null;
   const spreadRowNeeded = !spreadCharted && (modelHomeSpread !== null || vegasHomeSpread !== null);
   const totalRowNeeded = !totalCharted && (modelTotal !== null || vegasTotal !== null);
+  const summaryPending =
+    modelHomeSpread === null &&
+    modelTotal === null &&
+    vegasHomeSpread === null &&
+    vegasTotal === null;
 
   return (
     <WidgetCard
@@ -1027,15 +1032,24 @@ export function FootballDryRunSummarySection({
                 label={`Spread (${game.homeTeam.abbrev})`}
                 model={modelHomeSpread}
                 vegas={vegasHomeSpread}
+                missingVegasLabel={sport === 'nfl' ? 'TBD' : undefined}
               />
             )}
             {totalRowNeeded && (
-              <MarketGapRow label="Total" model={modelTotal} vegas={vegasTotal} />
+              <MarketGapRow
+                label="Total"
+                model={modelTotal}
+                vegas={vegasTotal}
+                missingVegasLabel={sport === 'nfl' ? 'TBD' : undefined}
+              />
             )}
           </div>
         )}
 
-        {!hasScore && modelHomeSpread === null && (
+        {sport === 'nfl' && summaryPending && (
+          <PendingMarketState marketLabel="this matchup" />
+        )}
+        {sport === 'cfb' && !hasScore && modelHomeSpread === null && (
           <EmptyNote>No projected score on this slate row yet.</EmptyNote>
         )}
       </div>
@@ -1598,6 +1612,7 @@ function PickRow({
   // borrowing the game-total bands and calling every 3-point gap a lean. A
   // spread/total row missing one of its two numbers lands here too.
   const showGapRow = !isMoneyline && !chartRendered;
+  const marketPending = sport === 'nfl' && model === null && vegas === null && moneyline === null;
   // Team totals are two O/U rows — logo + abbrev make home vs away obvious
   // (native NFL/CFB sheet parity via CollegeTeamMark / game feed TeamRef logos).
   const pickTeam = group === 'team_total' ? resolvePickTeam(row, away, home) : null;
@@ -1707,8 +1722,19 @@ function PickRow({
       {showGapRow && (model !== null || vegas !== null) && (
         <div>
           <MarketGapHeader />
-          <MarketGapRow label={gapLabel} model={model} vegas={vegas} gap={gap} format={formatNumber} />
+          <MarketGapRow
+            label={gapLabel}
+            model={model}
+            vegas={vegas}
+            gap={gap}
+            format={formatNumber}
+            missingVegasLabel={sport === 'nfl' ? 'TBD' : undefined}
+          />
         </div>
+      )}
+
+      {marketPending && (
+        <PendingMarketState marketLabel={(CARD_LABELS[group] || group).toLowerCase()} />
       )}
 
       {/* Always-visible Supports / Contradicts chips — native sheet parity.
@@ -1734,6 +1760,20 @@ function PickRow({
           flags={lookupFlags ?? fallbackFlags}
         />
       )}
+    </div>
+  );
+}
+
+function PendingMarketState({ marketLabel }: { marketLabel: string }) {
+  return (
+    <div className="flex items-start gap-2.5 py-1" role="status">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/70 text-muted-foreground">
+        <Clock3 className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        <span className="font-semibold text-foreground">Market data is still taking shape.</span>{' '}
+        WagerProof&apos;s projection and the Vegas line for {marketLabel} will appear here as soon as they&apos;re available.
+      </p>
     </div>
   );
 }

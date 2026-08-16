@@ -1003,7 +1003,7 @@ struct PolymarketMoneylineSparkline: View {
                     .lineLimit(1)
             }
         } else {
-            Text("POLY ML")
+            Text("POLYMARKET")
                 .font(.system(size: 7, weight: .bold))
                 .tracking(0.5)
                 .foregroundStyle(Color.appTextMuted)
@@ -1080,10 +1080,10 @@ struct PolymarketMoneylineSparkline: View {
         HStack(spacing: 3) {
             Image(systemName: "chart.line.flattrend.xyaxis")
                 .font(.system(size: 10))
-            Text("—")
+            Text("Market pending")
                 .font(.system(size: 9, weight: .semibold))
         }
-        .foregroundStyle(Color.appTextMuted.opacity(0.6))
+        .foregroundStyle(Color.appTextMuted.opacity(0.8))
         .frame(height: 24)
     }
 }
