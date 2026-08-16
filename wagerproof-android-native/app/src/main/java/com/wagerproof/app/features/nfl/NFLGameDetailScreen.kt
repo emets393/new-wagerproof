@@ -869,6 +869,11 @@ private fun PickEdgeVisual(game: NFLPrediction, pick: NFLDryrunPickRow, awayAbbr
         game.homeTeam -> awayAbbr
         else -> null
     }
+    if (projectionValue(pick) == null && marketValue(game, pick) == null) {
+        PendingMarketState(pick)
+        return
+    }
+
     when (pick.cardGroup) {
         "spread", "h1_spread" -> {
             val line = pick.bestLine ?: pick.vegasLine
@@ -884,7 +889,7 @@ private fun PickEdgeVisual(game: NFLPrediction, pick: NFLDryrunPickRow, awayAbbr
                     opponentAbbrev = opponentAbbrev,
                 )
             } else {
-                MetricGrid(pick)
+                MetricGrid(game, pick)
             }
         }
         "total", "h1_total" -> {
@@ -893,7 +898,7 @@ private fun PickEdgeVisual(game: NFLPrediction, pick: NFLDryrunPickRow, awayAbbr
             if (market != null && model != null) {
                 ModelEdgeRail(market = market, model = model, scale = EdgeScale.nfl)
             } else {
-                MetricGrid(pick)
+                MetricGrid(game, pick)
             }
         }
         "moneyline", "h1_ml" -> {
@@ -907,10 +912,66 @@ private fun PickEdgeVisual(game: NFLPrediction, pick: NFLDryrunPickRow, awayAbbr
                     teamAbbrev = pickAbbrev,
                 )
             } else {
-                MetricGrid(pick)
+                MetricGrid(game, pick)
             }
         }
-        else -> MetricGrid(pick)
+        else -> MetricGrid(game, pick)
+    }
+}
+
+private fun projectionValue(pick: NFLDryrunPickRow): Double? =
+    (pick.modelLine ?: pick.modelNumber)?.takeIf { it.isFinite() }
+
+private fun marketValue(game: NFLPrediction, pick: NFLDryrunPickRow): Double? = when {
+    isMoneylineCard(pick) -> (pick.vegasPrice ?: pick.bestOdds)?.takeIf { it.isFinite() }
+    pick.cardGroup == "team_total" -> nflTeamTotalMarket(game, pick)?.takeIf { it.isFinite() }
+    else -> (pick.bestLine ?: pick.vegasLine)?.takeIf { it.isFinite() }
+}
+
+private fun nflTeamTotalMarket(game: NFLPrediction, pick: NFLDryrunPickRow): Double? {
+    (pick.bestLine ?: pick.vegasLine)?.let { return it }
+    val team = pick.pickTeam ?: return null
+    val home = team == game.homeTeam || NFLTeamAssets.abbr(team) == NFLTeamAssets.abbr(game.homeTeam)
+    val close = if (home) game.ttHomeClose else game.ttAwayClose
+    val directed = when (overUnderDirection(pick)) {
+        "OVER" -> if (home) game.ttHomeBestOver else game.ttAwayBestOver
+        "UNDER" -> if (home) game.ttHomeBestUnder else game.ttAwayBestUnder
+        else -> null
+    }
+    return directed ?: close
+}
+
+@Composable
+private fun PendingMarketState(pick: NFLDryrunPickRow) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(
+            Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(AppColors.appSurfaceMuted.copy(alpha = 0.7f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            AppIcon.fromSystemName("clock")?.let {
+                Icon(it.imageVector, null, tint = AppColors.appTextMuted, modifier = Modifier.size(12.dp))
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                "Market data is still taking shape.",
+                color = AppColors.appTextPrimary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "WagerProof's projection and the Vegas line for ${NFLPickGroup(pick.cardGroup ?: "", emptyList()).title.lowercase(Locale.US)} will appear here as soon as they're available.",
+                color = AppColors.appTextSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 
@@ -920,7 +981,7 @@ private fun PickEdgeVisual(game: NFLPrediction, pick: NFLDryrunPickRow, awayAbbr
  * because the win % IS the reason for an ML pick; showing only best odds hides it.
  */
 @Composable
-private fun MetricGrid(pick: NFLDryrunPickRow) {
+private fun MetricGrid(game: NFLPrediction, pick: NFLDryrunPickRow) {
     val moneyline = isMoneylineCard(pick)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.weight(1f)) {
@@ -931,9 +992,10 @@ private fun MetricGrid(pick: NFLDryrunPickRow) {
                     else -> "Best Line"
                 },
                 value = if (moneyline) {
-                    GameCardFormatting.formatMoneyline((pick.vegasPrice ?: pick.bestOdds)?.roundToInt())
+                    (pick.vegasPrice ?: pick.bestOdds)?.roundToInt()
+                        ?.let(GameCardFormatting::formatMoneyline) ?: "TBD"
                 } else {
-                    formatPickLine(pick.bestLine ?: pick.vegasLine, pick)
+                    marketValue(game, pick)?.let { formatPickLine(it, pick) } ?: "TBD"
                 },
                 tint = AppColors.appTextPrimary,
             )
