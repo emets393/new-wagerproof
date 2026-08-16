@@ -68,6 +68,47 @@ export function useNflPropTrendsBatch(playerIds: string[]) {
       for (const row of data ?? []) {
         out[row.player_id] = row as NflPropPlayerTrends;
       }
+
+      const gameLogs = Object.values(out).flatMap((trend) => trend.recent_game_log ?? []);
+      const seasons = [...new Set(gameLogs.map((game) => game.season))];
+      const weeks = [...new Set(gameLogs.map((game) => game.week))];
+      if (seasons.length > 0 && weeks.length > 0) {
+        const { data: statRows, error: statError } = await collegeFootballSupabase
+          .from('nfl_player_game_logs')
+          .select('player_id,season,week,pass_yds,pass_tds,rush_yds,rush_tds,rec_yds,rec_tds,receptions,pass_attempts,carries,completions')
+          .in('player_id', playerIds)
+          .in('season', seasons)
+          .in('week', weeks);
+        if (statError) throw statError;
+        const statsByGame = new Map(
+          (statRows ?? []).map((row) => [`${row.player_id}-${row.season}-${row.week}`, row] as const),
+        );
+        const statByMarket = {
+          player_pass_yds: 'pass_yds',
+          player_pass_tds: 'pass_tds',
+          player_receptions: 'receptions',
+          player_reception_yds: 'rec_yds',
+          player_rush_yds: 'rush_yds',
+          player_pass_attempts: 'pass_attempts',
+          player_rush_attempts: 'carries',
+          player_pass_completions: 'completions',
+        } as const;
+        for (const [playerId, trend] of Object.entries(out)) {
+          trend.recent_game_log = (trend.recent_game_log ?? []).map((game) => {
+            const stats = statsByGame.get(`${playerId}-${game.season}-${game.week}`);
+            if (!stats) return game;
+            const actuals: Record<string, number> = { ...(game.actuals ?? {}) };
+            for (const [market, stat] of Object.entries(statByMarket)) {
+              const value = stats[stat as keyof typeof stats];
+              if (typeof value === 'number' && Number.isFinite(value)) actuals[market] = value;
+            }
+            const rushTds = typeof stats.rush_tds === 'number' ? stats.rush_tds : 0;
+            const receivingTds = typeof stats.rec_tds === 'number' ? stats.rec_tds : 0;
+            actuals.player_anytime_td = rushTds + receivingTds;
+            return { ...game, actuals };
+          });
+        }
+      }
       return out;
     },
   });

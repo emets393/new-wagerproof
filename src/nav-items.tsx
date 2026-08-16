@@ -65,6 +65,13 @@ export const navItems: NavItem[] = [
     icon: <TrendingUp className="h-4 w-4" />,
   },
   {
+    // Unified MLB/NFL player-prop matchup workspace. The old sport-specific
+    // routes redirect here so prop analysis has one home in the Analysis tree.
+    title: "Props",
+    to: "/props",
+    icon: <BarChart2 className="h-4 w-4" />,
+  },
+  {
     // Unified chat-forward Historical Trends page (NFL/CFB/MLB) — replaces the per-sport analytics pages.
     title: "Historical Trends",
     // No sport param — the page defaults to NFL, and a query-less link keeps
@@ -103,13 +110,6 @@ export const navItems: NavItem[] = [
     title: "NFL",
     to: "/games?sport=nfl",
     icon: <ShieldIcon className="h-4 w-4" />,
-    subItems: [
-      {
-        title: "Player Prop Matchups",
-        to: "/nfl/props",
-        icon: <BarChart2 className="h-4 w-4" />,
-      },
-    ],
   },
   {
     title: "CFB",
@@ -163,11 +163,6 @@ export const navItems: NavItem[] = [
       {
         title: "First-Five Splits",
         to: "/mlb/f5-splits",
-        icon: <BarChart2 className="h-4 w-4" />,
-      },
-      {
-        title: "Player Prop Matchups",
-        to: "/mlb/pitcher-matchups",
         icon: <BarChart2 className="h-4 w-4" />,
       },
       {

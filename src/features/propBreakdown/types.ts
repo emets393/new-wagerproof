@@ -186,11 +186,9 @@ export interface SchemeGameSplits {
 
 export type ProjectionStatus = 'preview' | 'model';
 
-export interface ProjectionBand {
-  kind: 'band';
-  low: number;
-  median: number;
-  high: number;
+export interface ProjectionPoint {
+  kind: 'point';
+  value: number;
   n: number;
   status: ProjectionStatus | string;
   source: string;
@@ -207,7 +205,7 @@ export interface ProjectionRate {
   vs_line?: number | null;
 }
 
-export type MarketProjection = ProjectionBand | ProjectionRate;
+export type MarketProjection = ProjectionPoint | ProjectionRate;
 
 export type HighlightDirection = 'up' | 'down';
 
@@ -252,6 +250,10 @@ export interface TrendGameLogEntry {
   is_div?: boolean;
   is_primetime?: boolean;
   markets?: Record<string, string>;
+  /** Actual stat totals, keyed by market, for quantitative Last 10 charts. */
+  actuals?: Record<string, number>;
+  /** The closing line used to grade each historical result. */
+  lines?: Record<string, number>;
 }
 
 export interface TrendMatchupMarket {

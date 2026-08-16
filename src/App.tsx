@@ -17,11 +17,10 @@ import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
 // The MLB tools are split views now; the old page files stay on disk
 // but are no longer routed (see src/features/mlbTools/README.md).
 import F5SplitsPage from "./features/mlbTools/f5Splits/F5SplitsPage";
-import PitcherMatchupsPage from "./features/mlbTools/pitcherMatchups/PitcherMatchupsPage";
 import RegressionReportPage from "./features/mlbTools/regression/RegressionReportPage";
 import { PlayerPropsReportPage } from "./features/mlbTools/playerPropsReport";
 import PropBreakdownPage from "./features/propBreakdown/PropBreakdownPage";
-import NflPropMatchupsPage from "./features/nflTools/propMatchups/NflPropMatchupsPage";
+import PropsPage from "./features/props/PropsPage";
 import CompetitionPage from "./features/competition/CompetitionPage";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
@@ -161,6 +160,7 @@ const SPLIT_VIEW_ROUTES = [
   '/agents',
   '/historical-trends',
   '/todays-trends',
+  '/props',
   '/mlb/f5-splits',
   '/mlb/pitcher-matchups',
   '/mlb/daily-regression-report',
@@ -188,6 +188,15 @@ function LegacyTrendsRedirect({ sport }: { sport: string }) {
 // The old page files stay on disk; only the routes point at the unified tool.
 function LegacyTodaysTrendsRedirect({ sport }: { sport: string }) {
   return <Navigate to={`/todays-trends?sport=${sport}`} replace />;
+}
+
+// Sport-specific prop tools now share one Analysis workspace. Keep the selected
+// game in old bookmarks while moving the sport axis onto the unified route.
+function LegacyPropsRedirect({ sport }: { sport: 'mlb' | 'nfl' }) {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  params.set('sport', sport);
+  return <Navigate to={`/props?${params.toString()}`} replace />;
 }
 
 // Supabase's Site URL still points at /wagerbot-chat, so this is where GoTrue
@@ -330,9 +339,10 @@ function AppRoutes() {
           <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
           <Route path="/games" element={<ProtectedRoute allowFreemium={true}><GamesPage /></ProtectedRoute>} />
           <Route path="/todays-trends" element={<ProtectedRoute allowFreemium={true}><TrendsTodayPage /></ProtectedRoute>} />
+          <Route path="/props" element={<ProtectedRoute allowFreemium={true}><PropsPage /></ProtectedRoute>} />
           <Route path="/college-football" element={<LegacySportRedirect sport="cfb" />} />
           <Route path="/nfl" element={<LegacySportRedirect sport="nfl" />} />
-          <Route path="/nfl/props" element={<ProtectedRoute allowFreemium={true}><NflPropMatchupsPage /></ProtectedRoute>} />
+          <Route path="/nfl/props" element={<LegacyPropsRedirect sport="nfl" />} />
           <Route path="/nfl/player/:playerId" element={<ProtectedRoute allowFreemium={true}><PropBreakdownPage /></ProtectedRoute>} />
           <Route path="/nba" element={<LegacySportRedirect sport="nba" />} />
           <Route path="/nba/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="nba" />} />
@@ -343,7 +353,7 @@ function AppRoutes() {
           <Route path="/mlb/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="mlb" />} />
           <Route path="/mlb/daily-regression-report" element={<ProtectedRoute><RegressionReportPage /></ProtectedRoute>} />
           <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true}><F5SplitsPage /></ProtectedRoute>} />
-          <Route path="/mlb/pitcher-matchups" element={<ProtectedRoute allowFreemium={true}><PitcherMatchupsPage /></ProtectedRoute>} />
+          <Route path="/mlb/pitcher-matchups" element={<LegacyPropsRedirect sport="mlb" />} />
           <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true}><PlayerPropsReportPage /></ProtectedRoute>} />
           <Route path="/mlb/picks-performance" element={<Navigate to="/mlb/picks-report?tab=performance" replace />} />
           <Route path="/ncaab/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="ncaab" />} />

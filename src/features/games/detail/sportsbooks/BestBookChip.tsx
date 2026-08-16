@@ -81,6 +81,7 @@ export function BestBookChip({
   selectionTitle,
   formatLine,
   className,
+  compact = false,
 }: {
   quotes: SportsbookMarketQuotes;
   selectedBookKeys: Set<string>;
@@ -88,6 +89,7 @@ export function BestBookChip({
   selectionTitle: string;
   formatLine: (line: number) => string;
   className?: string;
+  compact?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const shown = preferredQuote(quotes, selectedBookKeys);
@@ -103,15 +105,18 @@ export function BestBookChip({
         onClick={() => setOpen(true)}
         className={cn(
           'inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white/70 px-2.5 py-1.5 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06]',
+          compact && 'gap-1 px-2 py-1',
           className,
         )}
       >
         <SportsbookMark bookKey={shown.bookKey} bookName={shown.bookName} />
         <span className="flex min-w-0 flex-col items-start leading-tight">
-          <span className="text-[8px] font-black tracking-wide text-muted-foreground">
-            {chipLabel(selectedBookKeys, fromSelection)}
-          </span>
-          <span className="text-[13px] font-extrabold tabular-nums text-foreground">
+          {!compact && (
+            <span className="text-[8px] font-black tracking-wide text-muted-foreground">
+              {chipLabel(selectedBookKeys, fromSelection)}
+            </span>
+          )}
+          <span className={cn('text-[13px] font-extrabold tabular-nums text-foreground', compact && 'text-[11px]')}>
             {priceLabel(shown, formatLine)}
           </span>
         </span>

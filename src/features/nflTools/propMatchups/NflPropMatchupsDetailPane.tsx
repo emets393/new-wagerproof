@@ -8,10 +8,12 @@ export function NflPropMatchupsDetailPane({
   item,
   isFeedLoading,
   trendsByPlayer,
+  onSelectPlayer,
 }: {
   item: NflPropGameFeedItem | null;
   isFeedLoading: boolean;
   trendsByPlayer: Record<string, NflPropPlayerTrends>;
+  onSelectPlayer?: (playerId: string) => void;
 }) {
   const top = item?.topHighlight ?? null;
 
@@ -46,7 +48,7 @@ export function NflPropMatchupsDetailPane({
         ) : undefined
       }
     >
-      {item && <NflPropMatchupsSections item={item} trendsByPlayer={trendsByPlayer} />}
+      {item && <NflPropMatchupsSections item={item} trendsByPlayer={trendsByPlayer} onSelectPlayer={onSelectPlayer} />}
     </MlbToolDetailShell>
   );
 }
