@@ -522,7 +522,7 @@ def main():
     df["model_edge"] = df.model_pred - df.close_line
     ez = df.groupby("market").model_edge.transform(
         lambda x: (x - x.mean()) / x.std() if x.notna().sum() > 2 and x.std() > 0 else np.nan)
-    a_mask = df.flags.map(lambda f: bool(set(f or []) & {"P14", "P17", "P18"}))
+    a_mask = df["flags"].map(lambda f: bool(set(f or []) & {"P14", "P17", "P18"}))
     inj_ok = ~df.report_status.isin(["Out", "Doubtful"]) if "report_status" in df.columns else True
     df["rank_tier"] = np.where(a_mask & inj_ok, "A-validated",
                        np.where(ez.abs().ge(1.28) & inj_ok, "B-context", None))
