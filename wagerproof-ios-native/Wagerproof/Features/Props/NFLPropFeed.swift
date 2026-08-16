@@ -277,6 +277,6 @@ private extension NFLPropPlayer {
         if let filter {
             return markets.first { $0.market == filter }
         }
-        return markets.first { !$0.flags.isEmpty } ?? markets.first
+        return bestMarket
     }
 }

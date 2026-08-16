@@ -205,6 +205,6 @@ object NFLPropFeed {
             return player.markets.firstOrNull { it.flags.isNotEmpty() }
         }
         if (filter != null) return player.markets.firstOrNull { it.market == filter }
-        return player.markets.firstOrNull { it.flags.isNotEmpty() } ?: player.markets.firstOrNull()
+        return player.bestMarket
     }
 }

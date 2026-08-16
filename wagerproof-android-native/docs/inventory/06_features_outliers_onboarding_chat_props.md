@@ -436,7 +436,17 @@ Carousel (steps 1–18, one shared shell, button-driven slides) → generation c
 ## 4.14 `Detail/PropContextTiles.swift` (74 ln)
 - 3-col grid of hit-split tiles: L10 (always), day/night ("☀️ Day"/"🌙 Night") when present, "vs {Archetype} SP" (batters). Tile: uppercased 10pt label, fraction 22pt heavy appPrimary (numericText), "Over · pct%" caption; muted r10 bg + border; **low-confidence (<5 games) dims to 0.75**.
 
-## 4.15 `Detail/NFLPropDetailView.swift` (706 ln) — NFL prop detail (trend board)
+## 4.15 `Detail/NFLPropDetailView.swift` — NFL prop detail (trend board)
+
+> **SUPERSEDED 2026-08-15.** Both platforms replaced the trend board with the web
+> player-analysis page (`src/features/propBreakdown/`): MLB hero chrome + hit-% badge, a market
+> picker that FILTERS (web MarketToggle), and six sections per market — WagerProof Projection
+> (number line vs Vegas), Recent Games (trends game log vs today's line), Matchup vs the
+> opponent's look (scheme compare), Head-to-Head, Situations, Best Lines. The prop-signal
+> strip/group/sheet and the Posted Line / Season Stats / Line Movement sections were REMOVED
+> (flags still power the signals-only feed filter). Data: `NFLPropPageService` →
+> `nfl_prop_player_pages` + `nfl_player_prop_trends` + `nfl_player_game_logs`. Android:
+> `NflPropDetailScreen.kt` + `detail/nflpage/*`. The notes below describe the retired layout.
 - Same collapsing-hero shell (heroMax 88 / heroMin 72 — no market picker; markets stack vertically). Hero: top row (Week N · opponentLabel · date/slot), `NFLPlayerHeadshot` disc + name + subtitle (pos · team · reportStatus).
 - Content = eager VStack (NOT lazy — lazy + scrollTo skipped widgets) of per-market `WidgetCollapsingSection`s + a footnote ("Lines are the consensus close (median across books). Trends are point-in-time season game logs."). On open, auto-scrolls to the headline market (preferred → first flagged → first) after 380ms.
 - Each market widget = sectioned trend board, each section header has an **info (ⓘ) button → `NFLPropMetricHelpSheet`** (11 canned help entries keyed posted_line/game_log/book_odds/season_stats/last_game/l3_avg/l5_avg/szn_avg/szn_high/opp_defense/line_movement — full copy in file, medium detent):

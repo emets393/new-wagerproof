@@ -20,6 +20,14 @@ data class NFLPropRecentGame(
     val opp: String? = null,
     val week: Int? = null,
     val actual: Double? = null,
+    val cleared: Boolean? = null,
+)
+
+data class NFLPropMarketAvailability(
+    val market: String,
+    val line: Double?,
+    val overPrice: Int?,
+    val underPrice: Int?,
 )
 
 /** Precomputed best-shop quote for one side (over, under, or yes-ATD). Client-only, not serialized. */
@@ -44,7 +52,7 @@ data class NFLPropBestQuote(
  */
 @Serializable
 data class NFLDryrunPropRow(
-    @SerialName("game_id") val gameId: String,
+    @SerialName("game_id") val gameId: String? = null,
     @SerialName("event_id") val eventId: String? = null,
     val season: Int? = null,
     val week: Int? = null,
@@ -94,7 +102,12 @@ data class NFLDryrunPropRow(
     @SerialName("best_under_book_logo") val bestUnderBookLogo: String? = null,
     @SerialName("best_under_line") val bestUnderLine: Double? = null,
     @SerialName("best_under_price") val bestUnderPrice: Double? = null,
-)
+) {
+    val resolvedGameId: String
+        get() = gameId?.takeIf { it.isNotEmpty() }
+            ?: eventId?.takeIf { it.isNotEmpty() }
+            ?: "${season ?: 0}_${week ?: 0}_${team.orEmpty()}_${opponent.orEmpty()}"
+}
 
 /**
  * Matchup context joined from `nfl_dryrun_games` (kickoff day + slot) —
@@ -103,6 +116,7 @@ data class NFLDryrunPropRow(
 data class NFLPropGameContext(
     val gameDate: String,
     val slot: String?,
+    val kickoff: String? = null,
 )
 
 // MARK: - Grouped models
@@ -147,30 +161,38 @@ data class NFLPropMarket(
     val id: String get() = market
     val label: String get() = NFLPlayerProps.marketLabel(market)
 
-    /** Anytime-TD-style market: no posted line, the price is a yes-price. */
-    val isYesNo: Boolean get() = closeLine == null
+    val isYesNo: Boolean get() = market == "player_anytime_td"
 
     val hasBestBooks: Boolean get() = !bestOver.isEmpty || !bestUnder.isEmpty
 
     /** The threshold a game "clears": the posted line, or ≥1 for yes/no markets (scored a TD). */
-    val clearThreshold: Double get() = closeLine ?: 0.5
+    val clearThreshold: Double get() = closeLine ?: if (isYesNo) 0.5 else 1.0
 
     /** Last-10 strip for the feed card, oldest → newest. */
     val miniStrip: List<MiniStripEntry>
         get() = recentGames.takeLast(10).mapNotNull { g ->
-            g.actual?.let { MiniStripEntry(cleared = it > clearThreshold, value = it) }
+            g.actual?.let { MiniStripEntry(cleared = clearsPostedLine(it, g.cleared), value = it) }
         }
 
     /**
-     * L10 hit count vs the close line, computed from the game log so the
-     * fraction always matches the strip (the server's `over_rate_l10` is
-     * line-at-snapshot and can drift from the close).
+     * L10 hit count vs TODAY's posted line (same rule as the detail chart
+     * and web Last10Strip). Historical O/U letters are last year's close,
+     * so they only fill in when this week's line or the actual is missing.
      */
     val l10Hits: L10Hits
         get() {
-            val games = recentGames.takeLast(10).mapNotNull { it.actual }
-            return L10Hits(games.count { it > clearThreshold }, games.size)
+            val games = recentGames.takeLast(10).mapNotNull { game ->
+                game.actual?.let { clearsPostedLine(it, game.cleared) } ?: game.cleared
+            }
+            return L10Hits(games.count { it }, games.size)
         }
+
+    /** Grade one result against the posted line when we have both numbers. */
+    private fun clearsPostedLine(actual: Double, historical: Boolean?): Boolean {
+        closeLine?.let { return actual > it }
+        if (isYesNo) return actual >= 1.0
+        return historical ?: (actual > clearThreshold)
+    }
 
     val l10HitRate: Double?
         get() {
@@ -200,6 +222,7 @@ data class NFLPropPlayer(
     val gameDate: String,
     /** Schedule slot key (thu_fri / sun_early / sun_late_sat / snf / monday). */
     val slot: String?,
+    val kickoff: String? = null,
     val week: Int?,
     /** Slate season from `nfl_dryrun_props` (e.g. 2025 dry-run week). */
     val season: Int? = null,
@@ -216,6 +239,15 @@ data class NFLPropPlayer(
      */
     val headlineMarket: NFLPropMarket?
         get() = markets.firstOrNull { it.flags.isNotEmpty() } ?: markets.firstOrNull()
+
+    val bestMarket: NFLPropMarket?
+        get() = markets.withIndex().maxWithOrNull(
+            compareBy<IndexedValue<NFLPropMarket>>(
+                { it.value.l10HitRate ?: -1.0 },
+                { it.value.l10Hits.n },
+                { -it.index },
+            ),
+        )?.value
 
     /** All fired P-flags across this player's markets. */
     val allFlags: List<String>
@@ -360,6 +392,74 @@ object NFLPlayerProps {
         val bestUnderPrice: Double? = null,
     )
 
+    /**
+     * Synthesize a stable matchup key from a player-page row. Pages do not
+     * carry `game_id`; team + opponent + home flag are enough to group the
+     * slate the same way the game sheet matches.
+     */
+    fun synthesizedGameId(
+        season: Int,
+        week: Int,
+        team: String?,
+        opponent: String?,
+        isHome: Boolean?,
+    ): String {
+        val teamAbbr = team.orEmpty()
+        val oppAbbr = opponent.orEmpty()
+        val away = if (isHome == true) oppAbbr else teamAbbr
+        val home = if (isHome == true) teamAbbr else oppAbbr
+        return "${season}_${week}_${away}_${home}"
+    }
+
+    /**
+     * Build feed players from `nfl_prop_player_pages` + optional trend
+     * game-logs. This is the live 2026 path — no dry-run tables.
+     */
+    fun players(
+        from: List<NFLPropPlayerPage>,
+        recentGames: Map<String, List<NFLPropRecentGame>> = emptyMap(),
+    ): List<NFLPropPlayer> {
+        val players = from.map { page ->
+            val markets = page.markets.map { market ->
+                NFLPropMarket(
+                    market = market.key,
+                    closeLine = market.line,
+                    openLine = null, lineDelta = null, lineRange = null,
+                    overPrice = market.overPrice, underPrice = market.underPrice,
+                    nBooks = null, closeYesProb = null, openYesProb = null,
+                    lastGame = null, l3Avg = null, l5Avg = null, l10Avg = null,
+                    sznAvg = null, sznMax = null, sznMin = null,
+                    overRateL5 = null, overRateL10 = null, defMatchupIdx = null,
+                    flags = emptyList(),
+                    recentGames = recentGames["${page.playerId}|${market.key}"].orEmpty(),
+                )
+            }.sortedWith(compareBy({ marketSortIndex(it.market) }, { it.market }))
+            NFLPropPlayer(
+                playerName = page.playerName,
+                playerId = page.playerId,
+                headshotUrl = page.headshotUrl,
+                team = page.team,
+                opponent = page.opponent,
+                isHome = page.isHome,
+                position = page.position,
+                gameId = synthesizedGameId(
+                    season = page.season, week = page.week,
+                    team = page.team, opponent = page.opponent, isHome = page.isHome,
+                ),
+                eventId = null,
+                gameDate = page.kickoff?.take(10).orEmpty(),
+                slot = null,
+                kickoff = page.kickoff,
+                week = page.week,
+                season = page.season,
+                reportStatus = null,
+                practiceStatus = null,
+                markets = markets,
+            )
+        }
+        return players.sortedWith(compareBy({ it.sortKey }, { it.playerName }))
+    }
+
     // MARK: Grouping
 
     /**
@@ -371,9 +471,12 @@ object NFLPlayerProps {
         rows: List<NFLDryrunPropRow>,
         games: Map<String, NFLPropGameContext> = emptyMap(),
         bestBooksFallback: Map<String, NFLPropBestBooksFallback> = emptyMap(),
+        recentGamesFallback: Map<String, List<NFLPropRecentGame>> = emptyMap(),
+        playerSchedules: Map<String, NFLPropGameContext> = emptyMap(),
+        playerMarkets: Map<String, List<NFLPropMarketAvailability>> = emptyMap(),
     ): List<NFLPropPlayer> {
         val byPlayer = rows.groupBy { row ->
-            row.gameId to (row.playerId ?: row.playerName.lowercase())
+            row.resolvedGameId to (row.playerId ?: row.playerName.lowercase())
         }
 
         val players = byPlayer.values.mapNotNull { playerRows ->
@@ -399,7 +502,9 @@ object NFLPlayerProps {
                         overRateL5 = r.overRateL5, overRateL10 = r.overRateL10,
                         defMatchupIdx = r.defMatchupIdx,
                         flags = r.flags ?: emptyList(),
-                        recentGames = r.recentGames ?: emptyList(),
+                        recentGames = r.recentGames?.takeIf { it.isNotEmpty() }
+                            ?: r.playerId?.let { recentGamesFallback["$it|${r.market}"] }
+                            ?: emptyList(),
                         bestOver = bestQuote(
                             bookKey = r.bestOverBook ?: fallback?.bestOverBook,
                             bookName = r.bestOverBookName ?: fallback?.bestOverBookName,
@@ -416,9 +521,31 @@ object NFLPlayerProps {
                         ),
                     )
                 }
-                .sortedWith(compareBy({ marketSortIndex(it.market) }, { it.market }))
+                .toMutableList()
 
-            val context = games[first.gameId]
+            first.playerId?.let { playerId ->
+                val existing = markets.mapTo(mutableSetOf()) { it.market }
+                playerMarkets[playerId].orEmpty().forEach { available ->
+                    if (available.market !in existing) {
+                        markets += NFLPropMarket(
+                            market = available.market,
+                            closeLine = available.line,
+                            openLine = null, lineDelta = null, lineRange = null,
+                            overPrice = available.overPrice, underPrice = available.underPrice,
+                            nBooks = null, closeYesProb = null, openYesProb = null,
+                            lastGame = null, l3Avg = null, l5Avg = null, l10Avg = null,
+                            sznAvg = null, sznMax = null, sznMin = null,
+                            overRateL5 = null, overRateL10 = null, defMatchupIdx = null,
+                            flags = emptyList(),
+                            recentGames = recentGamesFallback["$playerId|${available.market}"].orEmpty(),
+                        )
+                    }
+                }
+            }
+            markets.sortWith(compareBy({ marketSortIndex(it.market) }, { it.market }))
+
+            val gameId = first.resolvedGameId
+            val context = games[gameId] ?: first.playerId?.let { playerSchedules[it] }
             NFLPropPlayer(
                 playerName = first.playerName,
                 playerId = first.playerId,
@@ -427,10 +554,11 @@ object NFLPlayerProps {
                 opponent = first.opponent,
                 isHome = first.isHome,
                 position = first.position,
-                gameId = first.gameId,
+                gameId = gameId,
                 eventId = first.eventId,
                 gameDate = context?.gameDate ?: "",
                 slot = context?.slot,
+                kickoff = context?.kickoff,
                 week = first.week,
                 season = first.season,
                 reportStatus = first.reportStatus,

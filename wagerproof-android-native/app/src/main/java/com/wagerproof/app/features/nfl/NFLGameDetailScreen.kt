@@ -8,11 +8,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,11 +58,15 @@ import com.wagerproof.app.features.gamecards.sheets.H2HHistoryContent
 import com.wagerproof.app.features.games.GameConsensusKey
 import com.wagerproof.app.features.gamewidgets.AgentConsensusSection
 import com.wagerproof.app.features.gamewidgets.GameWidgetHeadlines
+import com.wagerproof.app.features.gamewidgets.InsightWidgetSkeleton
+import com.wagerproof.app.features.nfl.props.NFLMatchupPropsDetailSheet
+import com.wagerproof.app.features.nfl.props.NFLMatchupPropsWidget
 import com.wagerproof.app.features.parlaygod.MatchupParlaysWidget
 import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
 import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
 import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.app.features.paywall.ProContentSection
+import com.wagerproof.app.features.props.NFLPlayerPropSelection
 import com.wagerproof.app.features.shared.hexColor
 import com.wagerproof.core.design.components.EdgeScale
 import com.wagerproof.core.design.components.ModelEdgeRail
@@ -88,6 +92,7 @@ import com.wagerproof.core.services.SignalPerformanceService
 import com.wagerproof.core.services.SignalSport
 import com.wagerproof.core.services.SportsbookOddsService
 import com.wagerproof.core.stores.GamesStore
+import com.wagerproof.core.stores.PropsStore
 import com.wagerproof.core.stores.SportsbookPreferenceStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -101,9 +106,9 @@ import kotlin.math.roundToInt
 
 /**
  * NFL game-detail page — port of iOS `NFLGameBottomSheet` (dry-run contract).
- * Section order: Market Odds → one prediction section per pick group
- * (spread, total, team_total, moneyline, h1_spread, h1_total, h1_ml) →
- * Public Betting → Matchup History → Line Movement → Agent rationale.
+ * Section order: Market Odds → spread → Total Prediction → Player Props →
+ * team_total / moneyline / 1H → Public Betting → Matchup History →
+ * Line Movement → Agent rationale.
  *
  * Data loads only when `runId` contains "dryrun" (parity with iOS) from
  * `nfl_dryrun_picks` / `nfl_signal_defs` / `nfl_team_trends` /
@@ -115,6 +120,7 @@ fun NFLGameDetailPage(
     game: NFLPrediction,
     topInset: Dp,
     bottomInset: Dp,
+    onSelectProp: (NFLPlayerPropSelection) -> Unit = {},
 ) {
     val graph = appGraph()
     val propsStore = graph.props
@@ -134,6 +140,7 @@ fun NFLGameDetailPage(
     var matchupParlayTickets by remember(game.gameId) { mutableStateOf<List<ParlayTicket>>(emptyList()) }
     var selectedParlay by remember(game.gameId) { mutableStateOf<ParlayTicket?>(null) }
     var showParlayPaywall by remember(game.gameId) { mutableStateOf(false) }
+    var showAllMatchupProps by remember(game.gameId) { mutableStateOf(false) }
     // Polymarket derives its own prose read once the price history lands; until
     // then the widget shows the generic market-odds sentence.
     var marketOddsHeadline by remember(game.gameId) { mutableStateOf<String?>(null) }
@@ -173,12 +180,7 @@ fun NFLGameDetailPage(
     // abbreviation first, then assemble against the props row's own game id.
     LaunchedEffect(game.gameId, awayAbbr, homeAbbr) {
         propsStore.refreshNFL()
-        val teams = setOf(awayAbbr.uppercase(), homeAbbr.uppercase())
-        val players = propsStore.nflPlayers.filter { player ->
-            val team = player.team?.uppercase() ?: return@filter false
-            val opponent = player.opponent?.uppercase() ?: return@filter false
-            team in teams && opponent in teams
-        }
+        val players = propsStore.nflPlayers(matchingAway = game.awayTeam, home = game.homeTeam)
         val gameKey = players.firstOrNull()?.gameId
         matchupParlayTickets = if (gameKey == null) {
             emptyList()
@@ -279,41 +281,71 @@ fun NFLGameDetailPage(
                     }
                 }
             }
+            item(key = "player-props") {
+                NFLPlayerPropsSection(
+                    game = game,
+                    propsStore = propsStore,
+                    onSelectProp = onSelectProp,
+                    onExpand = { showAllMatchupProps = true },
+                )
+            }
         } else {
-            items(groups, key = { it.id }) { group ->
-                WidgetCollapsingSection(
-                    title = group.title,
-                    showsHeader = false,
-                    headline = predictionHeadline(group),
-                    bodyPadding = 14.dp,
-                ) {
-                    ProContentSection(title = group.title, minHeight = 154.dp) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            group.picks.forEach { pick ->
-                                PickRow(
-                                    game = game,
-                                    pick = pick,
-                                    group = group,
-                                    awayAbbr = awayAbbr,
-                                    homeAbbr = homeAbbr,
-                                    signalsByKey = signalsByKey,
-                                    bookOdds = bookOdds,
-                                    onSignalTap = { selectedSignal = it },
-                                )
-                            }
-                            trendKind(group.cardGroup)?.let { kind ->
-                                TeamTrendStrip(
-                                    game = game,
-                                    group = group,
-                                    kind = kind,
-                                    awayAbbr = awayAbbr,
-                                    homeAbbr = homeAbbr,
-                                    trendsByAbbr = trendsByAbbr,
-                                    onTrendTap = { selectedTrend = it },
-                                )
+            groups.forEach { group ->
+                item(key = group.id) {
+                    WidgetCollapsingSection(
+                        title = group.title,
+                        showsHeader = false,
+                        headline = predictionHeadline(group),
+                        bodyPadding = 14.dp,
+                    ) {
+                        ProContentSection(title = group.title, minHeight = 154.dp) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                group.picks.forEach { pick ->
+                                    PickRow(
+                                        game = game,
+                                        pick = pick,
+                                        group = group,
+                                        awayAbbr = awayAbbr,
+                                        homeAbbr = homeAbbr,
+                                        signalsByKey = signalsByKey,
+                                        bookOdds = bookOdds,
+                                        onSignalTap = { selectedSignal = it },
+                                    )
+                                }
+                                trendKind(group.cardGroup)?.let { kind ->
+                                    TeamTrendStrip(
+                                        game = game,
+                                        group = group,
+                                        kind = kind,
+                                        awayAbbr = awayAbbr,
+                                        homeAbbr = homeAbbr,
+                                        trendsByAbbr = trendsByAbbr,
+                                        onTrendTap = { selectedTrend = it },
+                                    )
+                                }
                             }
                         }
                     }
+                }
+                if (group.cardGroup == "total") {
+                    item(key = "player-props") {
+                        NFLPlayerPropsSection(
+                            game = game,
+                            propsStore = propsStore,
+                            onSelectProp = onSelectProp,
+                            onExpand = { showAllMatchupProps = true },
+                        )
+                    }
+                }
+            }
+            if (groups.none { it.cardGroup == "total" }) {
+                item(key = "player-props") {
+                    NFLPlayerPropsSection(
+                        game = game,
+                        propsStore = propsStore,
+                        onSelectProp = onSelectProp,
+                        onExpand = { showAllMatchupProps = true },
+                    )
                 }
             }
         }
@@ -401,11 +433,68 @@ fun NFLGameDetailPage(
         ParlayGodDetailSheet(ticket = ticket, onDismiss = { selectedParlay = null })
     }
 
+    if (showAllMatchupProps) {
+        val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showAllMatchupProps = false },
+            sheetState = state,
+            containerColor = AppColors.appSurface,
+            dragHandle = null,
+        ) {
+            Box(Modifier.fillMaxWidth().fillMaxHeight(0.94f)) {
+                NFLMatchupPropsDetailSheet(
+                    awayTeam = game.awayTeam,
+                    homeTeam = game.homeTeam,
+                    propsStore = propsStore,
+                    onSelect = {
+                        showAllMatchupProps = false
+                        onSelectProp(it)
+                    },
+                )
+                Icon(
+                    AppIcon.XMARK.imageVector,
+                    contentDescription = "Close",
+                    tint = AppColors.appTextPrimary,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(AppColors.appSurfaceElevated.copy(alpha = 0.9f))
+                        .clickable { showAllMatchupProps = false }
+                        .padding(8.dp),
+                )
+            }
+        }
+    }
+
     PaywallDialogHost(
         show = showParlayPaywall,
         placementId = RevenueCatService.Placement.GENERIC_FEATURE,
         onDismiss = { showParlayPaywall = false },
     )
+}
+
+@Composable
+private fun NFLPlayerPropsSection(
+    game: NFLPrediction,
+    propsStore: PropsStore,
+    onSelectProp: (NFLPlayerPropSelection) -> Unit,
+    onExpand: () -> Unit,
+) {
+    if (propsStore.nflPropsInsight(matchingAway = game.awayTeam, home = game.homeTeam) != null) {
+        NFLMatchupPropsWidget(
+            awayTeam = game.awayTeam,
+            homeTeam = game.homeTeam,
+            propsStore = propsStore,
+            onSelect = onSelectProp,
+            onExpand = onExpand,
+        )
+    } else if (propsStore.isLoadingNFL && !propsStore.hasLoadedNFL) {
+        WidgetCollapsingSection("Player Props", icon = AppIcon.FOOTBALL_FILL) {
+            InsightWidgetSkeleton()
+        }
+    }
 }
 
 private fun hasPublicBetting(game: NFLPrediction): Boolean = listOf(

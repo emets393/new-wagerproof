@@ -106,6 +106,10 @@ Both are keyed `(game_id, season, week)`. Columns (the important ones):
   trends (no data — never will).**
 - **`nfl_player_prop_trends`** (**✅ 681**) — key `(player_id, through_season, through_week)`; `markets,
   splits, matchups, recent_game_log`. **CFB has NO player-prop trends (no data — never will).**
+  Readers (2026-08-15): web `propBreakdown/hooks.ts` + Outliers, AND both native apps —
+  `NFLPropPageService` (iOS Kit + Android core/services) reads
+  `nfl_prop_player_pages` / `nfl_player_prop_trends` (`recent_game_log,matchups,splits`) /
+  `nfl_player_game_logs` for the NFL player-analysis detail (the web `/props` drilldown port).
 
 ### Team meta (logos/colors)
 - **`nfl_teams`** — key `team_abbr`; `team_name, team_nick, team_color/2/3/4, logo_espn, logo_squared,

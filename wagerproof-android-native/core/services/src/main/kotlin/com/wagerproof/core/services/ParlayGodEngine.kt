@@ -779,7 +779,7 @@ object ParlayGodEngine {
                         category = category,
                         gameKey = player.gameId,
                         matchupLabel = label,
-                        gameTimeEt = player.gameDate.takeIf { it.isNotEmpty() },
+                        gameTimeEt = player.kickoff ?: player.gameDate.takeIf { it.isNotEmpty() },
                         subject = name,
                         teamAbbr = team,
                         playerId = null,

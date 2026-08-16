@@ -166,6 +166,7 @@ fun WidgetCollapsingSection(
     systemImage: String,
     modifier: Modifier = Modifier,
     headline: String? = null,
+    onInfoTap: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(true) }
@@ -188,6 +189,15 @@ fun WidgetCollapsingSection(
             )
             Spacer(Modifier.width(8.dp))
             Text(title, color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            if (onInfoTap != null) {
+                Spacer(Modifier.width(6.dp))
+                Box(Modifier.size(22.dp).clickable(onClick = onInfoTap), contentAlignment = Alignment.Center) {
+                    Icon(
+                        AppIcon.INFO_CIRCLE.imageVector, "About this section",
+                        tint = AppColors.appTextSecondary, modifier = Modifier.size(12.dp),
+                    )
+                }
+            }
             Spacer(Modifier.weight(1f))
             Icon(
                 if (expanded) AppIcon.CHEVRON_DOWN.imageVector else AppIcon.CHEVRON_RIGHT.imageVector,

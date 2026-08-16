@@ -1082,6 +1082,7 @@ All types here use **camelCase** field names on the wire (synthesized keys, "bre
 | 26 | NBAGame.swift | `nba/NBAGame.kt` | camelCase wire; + injuries, trends, accuracy |
 | 27 | NCAABGame.swift | `ncaab/NCAABGame.kt` | camelCase wire; + trends, accuracy, team mapping |
 | 28 | NFLPlayerProp.swift | `nfl/NFLPlayerProp.kt` | dry-run rows + grouping + NFLTeams identity map |
+| 28b | NFLPropPlayerPage.swift / NFLPropTrendsDetail.swift / NFLPropSchemeCompare.swift / NFLPropVerdicts.swift (added 2026-08-15) | `NFLPropPlayerPage.kt` / `NFLPropTrendsDetail.kt` / `NFLPropSchemeCompare.kt` / `NFLPropVerdicts.kt` | NFL player-ANALYSIS contract (`nfl_prop_player_pages` + `nfl_player_prop_trends` + game-log enrichment); defensive JsonElement decode of drifting jsonb; scheme-compare + verdict-headline logic mirrors web `propBreakdown` |
 | 29 | NFLPrediction.swift | `nfl/NFLPrediction.kt` | fully tolerant decode; id fallback chain |
 | 30 | NFLPropSignalDefinitions.swift | `nfl/NFLPropSignalDefinitions.kt` | static catalog, copy strings verbatim |
 | 31 | NFLTeamAssets.swift | `nfl/NFLTeamAssets.kt` | singleton cache |

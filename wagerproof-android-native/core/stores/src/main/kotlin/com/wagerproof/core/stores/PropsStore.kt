@@ -9,6 +9,9 @@ import androidx.compose.runtime.setValue
 import com.wagerproof.core.models.MLBPropMatchup
 import com.wagerproof.core.models.MLBPropsInsight
 import com.wagerproof.core.models.NFLPropPlayer
+import com.wagerproof.core.models.NFLPropsInsight
+import com.wagerproof.core.models.NFLPropsInsightSummary
+import com.wagerproof.core.models.NFLTeams
 import com.wagerproof.core.models.PropsInsightSummary
 import com.wagerproof.core.services.MLBPlayerPropsService
 import com.wagerproof.core.services.NFLPlayerPropsService
@@ -38,9 +41,7 @@ class PropsStore(
     enum class Sport(val raw: String, val label: String) {
         MLB("mlb", "MLB"),
         NFL("nfl", "NFL"),
-        CFB("cfb", "CFB"),
-        NBA("nba", "NBA"),
-        NCAAB("ncaab", "NCAAB");
+        NBA("nba", "NBA");
 
         /** Whether this sport has a player-props feed yet. */
         val hasProps: Boolean get() = this == MLB || this == NFL
@@ -111,6 +112,8 @@ class PropsStore(
     // index instance, which clears the memo below.
     private val insightSummaryCache = HashMap<Int, PropsInsightSummary?>()
     private var insightSummarySource: Map<Int, MLBPropMatchup>? = null
+    private val nflInsightCache = HashMap<String, NFLPropsInsightSummary?>()
+    private var nflInsightSource: List<NFLPropPlayer>? = null
 
     /** Per-game lookup for the MLB game-sheet "Player Props" widget. */
     fun matchup(gamePk: Int): MLBPropMatchup? = matchupIndexState.value[gamePk]
@@ -155,6 +158,32 @@ class PropsStore(
      * `MLBPropGameFilterOptions.build`) can `remember(...)` on it.
      */
     fun sortedMatchups(): List<MLBPropMatchup> = sortedMatchupsState.value
+
+    /**
+     * Players in this matchup — team-abbr matching, not `game_id`. Player
+     * pages synthesize a game key that may not match prediction row ids.
+     */
+    fun nflPlayers(matchingAway: String, home: String): List<NFLPropPlayer> {
+        val teams = setOf(NFLTeams.abbr(matchingAway).uppercase(), NFLTeams.abbr(home).uppercase())
+        return nflPlayers.filter { player ->
+            val team = player.team?.let { NFLTeams.abbr(it).uppercase() } ?: return@filter false
+            val opp = player.opponent?.let { NFLTeams.abbr(it).uppercase() } ?: return@filter false
+            team in teams && opp in teams
+        }
+    }
+
+    /** Memoized matchup digest for the NFL game-sheet Player Props widget. */
+    fun nflPropsInsight(matchingAway: String, home: String): NFLPropsInsightSummary? {
+        val key = "${NFLTeams.abbr(matchingAway).uppercase()}|${NFLTeams.abbr(home).uppercase()}"
+        if (nflInsightSource !== nflPlayers) {
+            nflInsightCache.clear()
+            nflInsightSource = nflPlayers
+        }
+        if (nflInsightCache.containsKey(key)) return nflInsightCache[key]
+        val built = NFLPropsInsight.summary(nflPlayers(matchingAway, home))
+        nflInsightCache[key] = built
+        return built
+    }
 
     // MARK: - Fetch
 

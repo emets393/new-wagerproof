@@ -1,91 +1,146 @@
 package com.wagerproof.core.services
 
-import com.wagerproof.core.models.NFLDryrunPropRow
+import com.wagerproof.core.models.NFLPlayerGameLogRow
 import com.wagerproof.core.models.NFLPlayerProps
-import com.wagerproof.core.models.NFLPropGameContext
 import com.wagerproof.core.models.NFLPropPlayer
+import com.wagerproof.core.models.NFLPropPlayerPageRow
+import com.wagerproof.core.models.NFLPropRecentGame
+import com.wagerproof.core.models.NFLPropTrendsDetail
+import com.wagerproof.core.models.NFLPropTrendsDetailRow
+import com.wagerproof.core.models.NFLPropTrendsEnrichment
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Fetches the NFL player-props board from the CFB (research) Supabase
- * project, per the "NFL Week 12 2025 Dry Run — App Data Contract":
+ * Fetches the NFL player-props board from the live 2026 tables on the
+ * CFB (research) Supabase project:
  *
- * - `nfl_dryrun_props` — one row per player x market: consensus close
- *   line/prices, season game-log trends, defense matchup, P-flags, headshot.
- * - `nfl_dryrun_games` — kickoff context (gameday + slot), joined client-side.
+ * - `nfl_prop_player_pages` — one row per player per slate week: identity,
+ *   posted/pending markets, kickoff.
+ * - `nfl_player_prop_trends` — prior-season game log (grades + lines).
+ * - `nfl_player_game_logs` — real stat totals merged into that log.
  *
- * The 2026 in-season tables will follow this same shape, so this service is
- * the production read path — only the table names change at cutover.
+ * Dry-run staging tables are not read.
  */
 class NFLPlayerPropsService {
 
-    /**
-     * Fetch the slate's prop rows + game contexts and group them per player.
-     * The dry-run tables hold exactly one curated week (~950 rows), so no
-     * date filter is needed; revisit if the in-season tables accumulate weeks.
-     */
+    /** Latest slate's player pages, enriched with L10 game logs. */
     suspend fun fetchPlayers(): List<NFLPropPlayer> {
-        // Team logos/abbrs come from the `nfl_teams` reference table — warm
-        // the cache so the cards can read it synchronously.
         NFLTeamsService.ensureLoaded()
 
-        val rows = SupabaseClients.cfb
-            .from("nfl_dryrun_props")
-            .select {
-                order("player_name", Order.ASCENDING)
+        val slate = resolveSlate() ?: return emptyList()
+        val pages = SupabaseClients.cfb
+            .from("nfl_prop_player_pages")
+            .select(
+                columns = Columns.raw(
+                    "player_id,season,week,player_name,position,team,opponent,is_home,game_label,kickoff,headshot_url,rookie,markets",
+                ),
+            ) {
+                filter {
+                    eq("season", slate.first)
+                    eq("week", slate.second)
+                }
             }
-            .decodeList<NFLDryrunPropRow>()
+            .decodeList<NFLPropPlayerPageRow>()
+            .map { it.toPage() }
 
-        // Kickoff context is decoration — a miss degrades to undated cards,
-        // never to an error.
-        val games = runCatching { fetchGameContexts() }.getOrDefault(emptyMap())
-        return NFLPlayerProps.group(
-            rows,
-            games = games,
-            bestBooksFallback = bestBooksFallbackIndex,
-        )
+        val history = fetchRecentGamesFallback(pages.map { it.playerId })
+        return NFLPlayerProps.players(from = pages, recentGames = history)
     }
 
     @Serializable
-    private data class GameContextRow(
-        @SerialName("game_id") val gameId: String,
-        val gameday: String? = null,
-        val slot: String? = null,
-    )
+    private data class SlateRow(val season: Int, val week: Int)
 
-    private suspend fun fetchGameContexts(): Map<String, NFLPropGameContext> {
-        val rows = SupabaseClients.cfb
-            .from("nfl_dryrun_games")
-            .select(columns = Columns.raw("game_id, gameday, slot"))
-            .decodeList<GameContextRow>()
-        return rows.associate {
-            it.gameId to NFLPropGameContext(gameDate = it.gameday ?: "", slot = it.slot)
+    /**
+     * Latest (season, week) present in the pages table — same rule as
+     * [NFLPropPageService] / the web `resolveLatestSlate`.
+     */
+    private suspend fun resolveSlate(): Pair<Int, Int>? {
+        val row = SupabaseClients.cfb
+            .from("nfl_prop_player_pages")
+            .select(columns = Columns.raw("season,week")) {
+                order("season", Order.DESCENDING)
+                order("week", Order.DESCENDING)
+                limit(1)
+            }
+            .decodeList<SlateRow>()
+            .firstOrNull() ?: return null
+        return row.season to row.week
+    }
+
+    /**
+     * Website parity for Week 1: trends are queried by player only (no
+     * current-season filter), so the card can show the last ten games from
+     * the prior season until the new season has results.
+     */
+    private suspend fun fetchRecentGamesFallback(
+        playerIds: List<String>,
+    ): Map<String, List<NFLPropRecentGame>> {
+        val uniqueIds = playerIds.distinct()
+        if (uniqueIds.isEmpty()) return emptyMap()
+
+        val trends = mutableListOf<NFLPropTrendsDetail>()
+        for (chunk in uniqueIds.chunked(120)) {
+            val rows = runCatching {
+                SupabaseClients.cfb.from("nfl_player_prop_trends")
+                    .select(columns = Columns.raw("player_id,recent_game_log,matchups,splits")) {
+                        filter { isIn("player_id", chunk) }
+                    }
+                    .decodeList<NFLPropTrendsDetailRow>()
+                    .map { it.toDetail() }
+            }.getOrDefault(emptyList())
+            trends += rows
         }
+        if (trends.isEmpty()) return emptyMap()
+
+        val seasons = trends.flatMap { trend -> trend.recentGameLog.map { it.season } }.distinct()
+        val weeks = trends.flatMap { trend -> trend.recentGameLog.map { it.week } }.distinct()
+        if (seasons.isEmpty() || weeks.isEmpty()) return emptyMap()
+
+        val logs = mutableListOf<NFLPlayerGameLogRow>()
+        for (chunk in uniqueIds.chunked(120)) {
+            val rows = runCatching {
+                SupabaseClients.cfb.from("nfl_player_game_logs")
+                    .select(
+                        columns = Columns.raw(
+                            "player_id,season,week,pass_yds,pass_tds,rush_yds,rush_tds,rec_yds,rec_tds,receptions,pass_attempts,carries,completions",
+                        ),
+                    ) {
+                        filter {
+                            isIn("player_id", chunk)
+                            isIn("season", seasons)
+                            isIn("week", weeks)
+                        }
+                    }
+                    .decodeList<NFLPlayerGameLogRow>()
+            }.getOrDefault(emptyList())
+            logs += rows
+        }
+        val logsByPlayer = logs.groupBy { it.playerId }
+
+        val result = mutableMapOf<String, List<NFLPropRecentGame>>()
+        trends.forEach { trend ->
+            val enriched = NFLPropTrendsEnrichment.enrich(
+                trend.recentGameLog,
+                logsByPlayer[trend.playerId].orEmpty(),
+            )
+            val markets = enriched.flatMap { it.actuals.keys + it.markets.keys }.toSet()
+            markets.forEach { market ->
+                val games = enriched.take(10).asReversed().mapNotNull { game ->
+                    val actual = game.actuals[market] ?: return@mapNotNull null
+                    // Don't bake last year's O/U letter in as `cleared` —
+                    // the widget grades actuals against THIS week's line.
+                    NFLPropRecentGame(game.opp, game.week, actual, cleared = null)
+                }
+                if (games.isNotEmpty()) result["${trend.playerId}|$market"] = games
+            }
+        }
+        return result
     }
 
     companion object {
         val shared = NFLPlayerPropsService()
-
-        /** Backend-precomputed best shops (dry-run assets bundle) — not calculated on device. */
-        private val bestBooksFallbackIndex: Map<String, NFLPlayerProps.NFLPropBestBooksFallback> by lazy {
-            NFLPropBestBooksBundle.index.mapValues { (_, record) ->
-                NFLPlayerProps.NFLPropBestBooksFallback(
-                    bestOverBook = record.bestOverBook,
-                    bestOverBookName = record.bestOverBookName,
-                    bestOverBookLogo = record.bestOverBookLogo,
-                    bestOverLine = record.bestOverLine,
-                    bestOverPrice = record.bestOverPrice,
-                    bestUnderBook = record.bestUnderBook,
-                    bestUnderBookName = record.bestUnderBookName,
-                    bestUnderBookLogo = record.bestUnderBookLogo,
-                    bestUnderLine = record.bestUnderLine,
-                    bestUnderPrice = record.bestUnderPrice,
-                )
-            }
-        }
     }
 }

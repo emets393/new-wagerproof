@@ -10,6 +10,10 @@ struct NFLGameBottomSheet: View {
     var showAura: Bool = true
     var heroTopInset: CGFloat = 0
     var contentBottomInset: CGFloat = 0
+    /// Player-props widget plumbing — the carousel owns the zoom namespace +
+    /// the selected-prop navigation, so tapping a player here pushes its page.
+    var propNamespace: Namespace.ID? = nil
+    var onSelectProp: (NFLPlayerPropSelection) -> Void = { _ in }
 
     @Environment(AgentPickAuditStore.self) private var auditStore
     @Environment(\.colorScheme) private var colorScheme
@@ -21,6 +25,8 @@ struct NFLGameBottomSheet: View {
     /// Same-game perfect-streak parlays built from this matchup's props.
     @State private var matchupParlayTickets: [ParlayTicket] = []
     @State private var selectedParlay: ParlayTicket?
+    @State private var showAllMatchupProps = false
+    @Namespace private var fallbackPropNS
     @State private var signalsByKey: [String: NFLSignalDefinition] = [:]
     @State private var signalPerformanceByKey: [String: SignalPerformance] = [:]
     @State private var teamTrendsByAbbr: [String: NFLTeamTrendRow] = [:]
@@ -120,8 +126,9 @@ struct NFLGameBottomSheet: View {
             // Seed the hero text cache so subsequent scroll frames reuse it
             // instead of re-parsing the kickoff and re-building the stat rows.
             heroTextCache = HeroText(game)
-            await loadDryrunData()
-            await loadMatchupParlays()
+            async let dryrun: () = loadDryrunData()
+            async let props: () = loadMatchupParlays()
+            _ = await (dryrun, props)
         }
         .sheet(item: $selectedSignal) { signal in
             signalDefinitionSheet(signal)
@@ -131,6 +138,9 @@ struct NFLGameBottomSheet: View {
         }
         .sheet(item: $selectedTrendDetail) { selection in
             trendDetailSheet(selection)
+        }
+        .sheet(isPresented: $showAllMatchupProps) {
+            NFLMatchupPropsDetailSheet(awayTeam: game.awayTeam, homeTeam: game.homeTeam)
         }
         .onDisappear {
             auditStore.clear()
@@ -383,9 +393,16 @@ struct NFLGameBottomSheet: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.appTextSecondary)
             }
+            playerPropsSection
         } else {
             ForEach(groups) { group in
                 marketSection(group)
+                if group.cardGroup == "total" {
+                    playerPropsSection
+                }
+            }
+            if !groups.contains(where: { $0.cardGroup == "total" }) {
+                playerPropsSection
             }
         }
     }
@@ -1243,6 +1260,29 @@ struct NFLGameBottomSheet: View {
     }
 
     // MARK: - Data
+
+    // MARK: - Player props
+
+    /// Live player-pages digest for this matchup. Hidden until the slate
+    /// hydrates and this game has at least one usable market.
+    @ViewBuilder
+    private var playerPropsSection: some View {
+        if propsStore != nil {
+            if propsStore?.nflPropsInsight(matchingAway: game.awayTeam, home: game.homeTeam) != nil {
+                NFLMatchupPropsWidget(
+                    awayTeam: game.awayTeam,
+                    homeTeam: game.homeTeam,
+                    namespace: propNamespace ?? fallbackPropNS,
+                    onSelect: onSelectProp,
+                    onExpand: { showAllMatchupProps = true }
+                )
+            } else if propsStore?.isLoadingNFL == true, propsStore?.hasLoadedNFL == false {
+                WidgetCollapsingSection(title: "Player Props", systemImage: "figure.american.football") {
+                    InsightWidgetSkeleton()
+                }
+            }
+        }
+    }
 
     // MARK: - Matchup parlays
 

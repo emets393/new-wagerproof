@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofModels
 import WagerproofDesign
+import WagerproofServices
 
 /// NFL player-prop card. Mirrors `PropPlayerCard`'s chrome (rounded lifted
 /// surface, avatar-with-team-glow, O/U pills, L10 trend strip, bottom info
@@ -12,6 +13,7 @@ struct NFLPropPlayerCard: View {
     let onSelect: (NFLPlayerPropSelection) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @State private var liveOdds: SportsbookPropMarketOdds?
 
     private var player: NFLPropPlayer { item.player }
     private var headline: NFLPropMarket? { item.displayMarket }
@@ -34,6 +36,17 @@ struct NFLPropPlayerCard: View {
         .buttonStyle(.plain)
         .matchedTransitionSource(id: item.selection.transitionID, in: namespace)
         .sensoryFeedback(.impact(weight: .light), trigger: item.selection.id)
+        .task(id: "\(player.playerId ?? "")|\(headline?.market ?? "")") {
+            guard let playerId = player.playerId,
+                  let market = headline?.market else {
+                liveOdds = nil
+                return
+            }
+            liveOdds = await SportsbookPropOddsService.shared.odds(
+                playerId: playerId,
+                market: market
+            )
+        }
     }
 
     private var content: some View {
@@ -42,9 +55,6 @@ struct NFLPropPlayerCard: View {
             mainRow
             Divider().background(Color.appBorder.opacity(0.5))
             bottomInfoRow
-            if let flags = headline?.flags, !flags.isEmpty {
-                NFLPropSignalFeedStrip(flags: flags)
-            }
         }
         .padding(.leading, 12)
         .padding(.trailing, 14)
@@ -90,7 +100,10 @@ struct NFLPropPlayerCard: View {
     }
 
     private var subtitle: String {
-        let opp = player.opponentLabel
+        let opp = player.opponent.map { opponent in
+            let prefix = player.isHome == true ? "vs" : "@"
+            return "\(prefix) \(NFLTeams.abbr(for: opponent))"
+        } ?? ""
         if let pos = player.position, !pos.isEmpty {
             return opp.isEmpty ? pos : "\(pos) · \(opp)"
         }
@@ -145,12 +158,14 @@ struct NFLPropPlayerCard: View {
             VStack(spacing: 4) {
                 ouPill(
                     prefix: "O",
-                    value: NFLPlayerProps.formatOdds(headline?.overPrice),
+                    line: liveOdds?.over.quotes.first?.line ?? headline?.closeLine ?? headline?.bestOver.line,
+                    value: NFLPlayerProps.formatOdds(liveOdds?.over.quotes.first?.price ?? headline?.overPrice ?? headline?.bestOver.price),
                     tint: Color.appPrimary
                 )
                 ouPill(
                     prefix: "U",
-                    value: NFLPlayerProps.formatOdds(headline?.underPrice),
+                    line: liveOdds?.under.quotes.first?.line ?? headline?.closeLine ?? headline?.bestUnder.line,
+                    value: NFLPlayerProps.formatOdds(liveOdds?.under.quotes.first?.price ?? headline?.underPrice ?? headline?.bestUnder.price),
                     tint: Color.appTextSecondary
                 )
             }
@@ -174,9 +189,9 @@ struct NFLPropPlayerCard: View {
         .overlay(Capsule().stroke(Color.appBorder.opacity(0.6), lineWidth: 0.5))
     }
 
-    private func ouPill(prefix: String, value: String, tint: Color) -> some View {
+    private func ouPill(prefix: String, line: Double?, value: String, tint: Color) -> some View {
         HStack(spacing: 4) {
-            Text("\(prefix) \(NFLPlayerProps.formatLine(headline?.closeLine))")
+            Text("\(prefix) \(NFLPlayerProps.formatLine(line))")
                 .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(Color.appTextMuted)
             Text(value)
@@ -264,7 +279,7 @@ struct NFLPropPlayerCard: View {
     }
 
     private var timePill: some View {
-        Text(player.slotLabel ?? MLBFormatting.dateLabel(player.gameDate))
+        Text(nextGameLabel)
             .font(.system(size: 9, weight: .bold, design: .monospaced))
             .foregroundStyle(Color.appTextSecondary)
             .padding(.horizontal, 7)
@@ -272,254 +287,27 @@ struct NFLPropPlayerCard: View {
             .liquidGlassBackground(in: Capsule())
             .overlay(Capsule().stroke(Color.appBorder.opacity(0.6), lineWidth: 0.5))
     }
-}
 
-// MARK: - Prop signal UI (P1–P10 rule flags)
-
-/// Compact prop-signal row shown beneath an NFL prop feed card when the
-/// displayed market fired one or more P-flags.
-struct NFLPropSignalFeedStrip: View {
-    let flags: [String]
-
-    private var signals: [NFLPropSignalDefinition] {
-        NFLPropSignalDefinitions.resolve(flags)
-    }
-
-    private var actionable: [NFLPropSignalDefinition] {
-        signals.filter { !$0.isAntiSignal }
-    }
-
-    private var anti: [NFLPropSignalDefinition] {
-        signals.filter(\.isAntiSignal)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            header
-            if !actionable.isEmpty {
-                signalGroup(title: "Supports this prop", signals: actionable, muted: false)
-            }
-            if !anti.isEmpty {
-                signalGroup(title: "Avoid this prop", signals: anti, muted: true)
-            }
+    private var nextGameLabel: String {
+        guard let kickoff = player.kickoff else {
+            return "TBD"
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(Color.appSurfaceElevated.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.appBorder.opacity(0.45), lineWidth: 0.6)
-        )
-    }
-
-    private var header: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "bolt.fill")
-                .font(.system(size: 11, weight: .black))
-                .foregroundStyle(Color(hex: 0xF97316))
-            Text(signals.count == 1 ? "1 Prop Signal" : "\(signals.count) Prop Signals")
-                .font(.system(size: 11, weight: .black))
-                .foregroundStyle(Color(hex: 0xF97316))
-            Spacer(minLength: 0)
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        guard let date = fractional.date(from: kickoff) ?? plain.date(from: kickoff) else {
+            return "TBD"
         }
-    }
-
-    @ViewBuilder
-    private func signalGroup(title: String, signals: [NFLPropSignalDefinition], muted: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 9, weight: .black))
-                .foregroundStyle(muted ? Color.appAccentAmber : Color.appTextMuted)
-            VStack(spacing: 6) {
-                ForEach(signals) { signal in
-                    NFLPropSignalCompactRow(signal: signal, muted: muted)
-                }
-            }
-        }
-    }
-}
-
-private struct NFLPropSignalCompactRow: View {
-    let signal: NFLPropSignalDefinition
-    let muted: Bool
-
-    private var tint: Color { muted ? Color.appAccentAmber : Color.appAccentBlue }
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: muted ? "exclamationmark.triangle.fill" : "info.circle.fill")
-                .font(.system(size: 11, weight: .black))
-                .foregroundStyle(tint)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(signal.displayName)
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundStyle(tint)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Text(signal.betDirection)
-                    .font(.system(size: 9, weight: .heavy))
-                    .foregroundStyle(tint.opacity(0.75))
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(tint.opacity(muted ? 0.12 : 0.16), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(tint.opacity(muted ? 0.45 : 0.38), lineWidth: 0.8)
-        )
-    }
-}
-
-struct NFLPropSignalGroup: View {
-    let flags: [String]
-    var onSelect: (NFLPropSignalDefinition) -> Void = { _ in }
-
-    private var signals: [NFLPropSignalDefinition] {
-        NFLPropSignalDefinitions.resolve(flags)
-    }
-
-    var body: some View {
-        if signals.isEmpty {
-            EmptyView()
-        } else {
-            let actionable = signals.filter { !$0.isAntiSignal }
-            let anti = signals.filter(\.isAntiSignal)
-            VStack(alignment: .leading, spacing: 9) {
-                if !actionable.isEmpty {
-                    detailGroup(title: "Supports this prop", signals: actionable, muted: false)
-                }
-                if !anti.isEmpty {
-                    detailGroup(title: "Avoid this prop", signals: anti, muted: true)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func detailGroup(title: String, signals: [NFLPropSignalDefinition], muted: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title)
-                .font(.system(size: 9, weight: .black))
-                .foregroundStyle(muted ? Color.appAccentAmber : Color.appTextMuted)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 7)], alignment: .leading, spacing: 7) {
-                ForEach(signals) { signal in
-                    NFLPropSignalButton(signal: signal, muted: muted, onSelect: onSelect)
-                }
-            }
-        }
-    }
-}
-
-private struct NFLPropSignalButton: View {
-    let signal: NFLPropSignalDefinition
-    let muted: Bool
-    let onSelect: (NFLPropSignalDefinition) -> Void
-
-    private var color: Color { muted ? Color.appAccentAmber : Color.appAccentBlue }
-
-    var body: some View {
-        Button { onSelect(signal) } label: {
-            HStack(spacing: 8) {
-                Image(systemName: muted ? "exclamationmark.triangle.fill" : "info.circle.fill")
-                    .font(.system(size: 12, weight: .black))
-                    .foregroundStyle(color)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(signal.displayName)
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundStyle(color)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                    Text(signal.betDirection)
-                        .font(.system(size: 8, weight: .heavy))
-                        .foregroundStyle(color.opacity(0.72))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                }
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.up.forward")
-                    .font(.system(size: 9, weight: .black))
-                    .foregroundStyle(Color.appSurface)
-                    .frame(width: 18, height: 18)
-                    .background(color, in: Circle())
-            }
-            .padding(.leading, 10)
-            .padding(.trailing, 7)
-            .padding(.vertical, 8)
-            .background(color.opacity(muted ? 0.12 : 0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(color.opacity(muted ? 0.55 : 0.46), lineWidth: 1.1)
-            )
-            .shadow(color: color.opacity(0.16), radius: 6, x: 0, y: 3)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct NFLPropSignalDetailSheet: View {
-    let signal: NFLPropSignalDefinition
-    let seasonRecord: SignalPerformance?
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(signal.displayName)
-                        .font(.system(size: 22, weight: .black))
-                        .foregroundStyle(Color.appTextPrimary)
-                    if !signal.oneLiner.isEmpty {
-                        Text(signal.oneLiner)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color.appTextSecondary)
-                    }
-                    signalBlock("Definition", signal.definition)
-                    signalBlock("Why It Works", signal.whyItWorks)
-                    signalBlock("Bet Direction", signal.betDirection)
-                    SignalPerformanceStatsSection(
-                        backtestHit: signal.typicalHit,
-                        seasonDisplay: SignalSeasonRecordDisplay(performance: seasonRecord)
-                    )
-                    if signal.isAntiSignal {
-                        Text("This is an anti-signal — the backtest says to avoid betting this market when it fires.")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color.appAccentAmber)
-                    }
-                }
-                .padding(20)
-            }
-            .background(Color.appSurface)
-            .navigationTitle("Prop Signal")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .tint(Color.appPrimary)
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-    }
-
-    @ViewBuilder
-    private func signalBlock(_ title: String, _ body: String) -> some View {
-        if !body.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title.uppercased())
-                    .font(.system(size: 10, weight: .black))
-                    .tracking(0.6)
-                    .foregroundStyle(Color.appTextMuted)
-                Text(body)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.appTextPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
+        let datePart = DateFormatter()
+        datePart.locale = Locale(identifier: "en_US_POSIX")
+        datePart.timeZone = TimeZone(identifier: "America/New_York")
+        datePart.dateFormat = "M/d"
+        let timePart = DateFormatter()
+        timePart.locale = Locale(identifier: "en_US_POSIX")
+        timePart.timeZone = TimeZone(identifier: "America/New_York")
+        timePart.dateFormat = "ha"
+        return "\(datePart.string(from: date)) \(timePart.string(from: date).lowercased())"
     }
 }
 
