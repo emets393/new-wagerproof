@@ -10,13 +10,10 @@ import { ModelStrip } from './components/ModelStrip';
 import { ComparisonBlock } from './components/ComparisonBlock';
 import { VsTeamCluster } from './components/VsTeamCluster';
 import { Last10Strip } from './components/Last10Strip';
-import { HighlightRibbons } from './components/HighlightRibbons';
 import { SituationsDrawer } from './components/SituationsDrawer';
 import { PropBreakdownSkeleton } from './components/PropBreakdownSkeleton';
 import {
-  BestBookChip,
   fetchNflPropSportsbookOdds,
-  formatSignedLine,
   useSportsbookPreference,
   type SportsbookMarketQuotes,
 } from '@/features/games/detail/sportsbooks';
@@ -25,19 +22,24 @@ import {
  * /nfl/player/:playerId — Player Prop Breakdown.
  * Edge-first: highlights → overall vs this look → defense → H2H / last-10.
  */
-export default function PropBreakdownPage() {
-  const { playerId } = useParams<{ playerId: string }>();
+export function PropBreakdownContent({
+  playerId,
+  onBack,
+  backLabel = 'Props',
+}: {
+  playerId: string | undefined;
+  onBack?: () => void;
+  backLabel?: string;
+}) {
   const pageQ = useNflPropPlayerPage(playerId);
   const trendsQ = useNflPropPlayerTrends(playerId);
 
   const page = pageQ.data;
   const markets = Array.isArray(page?.markets) ? page.markets : [];
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
-  const [highlightsExpanded, setHighlightsExpanded] = React.useState(false);
 
   React.useEffect(() => {
     setSelectedKey(null);
-    setHighlightsExpanded(false);
   }, [playerId]);
 
   React.useEffect(() => {
@@ -51,34 +53,34 @@ export default function PropBreakdownPage() {
   const selectedMarket = markets.find((m) => m.key === marketKey);
   const colors = getNFLTeamColors(page?.team ?? '');
   const { selectedKeys } = useSportsbookPreference();
-  const [propBoard, setPropBoard] = React.useState<{
+  const [boardsByMarket, setBoardsByMarket] = React.useState<Record<string, {
     over: SportsbookMarketQuotes;
     under: SportsbookMarketQuotes;
-  } | null>(null);
+  } | null>>({});
+  const chartLine = selectedMarket?.line
+    ?? boardsByMarket[marketKey]?.over.quotes.find((quote) => quote.line != null)?.line
+    ?? (marketKey === 'player_anytime_td' ? 0.5 : null);
+  const bestOverOdds = boardsByMarket[marketKey]?.over.quotes[0]?.price ?? null;
 
   React.useEffect(() => {
-    if (!playerId || !marketKey) {
-      setPropBoard(null);
+    if (!playerId || markets.length === 0) {
+      setBoardsByMarket({});
       return;
     }
     let cancelled = false;
-    fetchNflPropSportsbookOdds(playerId, marketKey)
-      .then((odds) => {
-        if (!cancelled) setPropBoard(odds);
-      })
-      .catch(() => {
-        if (!cancelled) setPropBoard(null);
-      });
+    Promise.all(markets.map(async (market) => {
+      try {
+        return [market.key, await fetchNflPropSportsbookOdds(playerId, market.key)] as const;
+      } catch {
+        return [market.key, null] as const;
+      }
+    })).then((entries) => {
+      if (!cancelled) setBoardsByMarket(Object.fromEntries(entries));
+    });
     return () => {
       cancelled = true;
     };
-  }, [playerId, marketKey]);
-
-  const marketHighlights = React.useMemo(() => {
-    const all = Array.isArray(page?.highlights) ? page.highlights : [];
-    if (!marketKey) return [];
-    return all.filter((h) => Array.isArray(h.markets) && h.markets.includes(marketKey));
-  }, [page?.highlights, marketKey]);
+  }, [playerId, markets]);
 
   if (pageQ.isLoading || (pageQ.isFetching && !page)) {
     return <PropBreakdownSkeleton />;
@@ -91,9 +93,15 @@ export default function PropBreakdownPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           {pageQ.error instanceof Error ? pageQ.error.message : 'No row for this slate.'}
         </p>
-        <Link to="/nfl/props" className="mt-6 inline-block text-sm font-bold text-primary hover:underline">
-          Back to prop matchups
-        </Link>
+        {onBack ? (
+          <button type="button" onClick={onBack} className="mt-6 text-sm font-bold text-primary hover:underline">
+            Back to prop matchups
+          </button>
+        ) : (
+          <Link to="/nfl/props" className="mt-6 inline-block text-sm font-bold text-primary hover:underline">
+            Back to prop matchups
+          </Link>
+        )}
       </div>
     );
   }
@@ -106,77 +114,59 @@ export default function PropBreakdownPage() {
 
       <div className="relative mx-auto max-w-4xl px-4 pb-12 pt-4">
         <div className="mb-3 flex items-center gap-2.5">
-          <Link
-            to="/nfl/props"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-black/5 bg-white/60 px-3 text-[12px] font-bold backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06]"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Props
-          </Link>
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-black/5 bg-white/60 px-3 text-[12px] font-bold backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {backLabel}
+            </button>
+          ) : (
+            <Link
+              to="/nfl/props"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-black/5 bg-white/60 px-3 text-[12px] font-bold backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {backLabel}
+            </Link>
+          )}
           <span className="text-[12px] text-muted-foreground">
             Week {page.week} · {page.season}
           </span>
         </div>
 
-        <div className="sticky top-0 z-20 -mx-4 mb-4 border-b border-black/5 bg-background/85 px-4 py-2.5 backdrop-blur-xl dark:border-white/10">
-          <MarketToggle
-            markets={markets}
-            selectedKey={marketKey}
-            onSelect={(key) => {
-              setSelectedKey(key);
-              setHighlightsExpanded(false);
-            }}
-          />
-          {propBoard && (propBoard.over.quotes.length > 0 || propBoard.under.quotes.length > 0) && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {propBoard.over.quotes.length > 0 && (
-                <BestBookChip
-                  quotes={propBoard.over}
-                  selectedBookKeys={selectedKeys}
-                  marketTitle={selectedMarket?.label ?? marketKey}
-                  selectionTitle={`Over ${selectedMarket?.label ?? marketKey}`}
-                  formatLine={formatSignedLine}
-                />
-              )}
-              {propBoard.under.quotes.length > 0 && (
-                <BestBookChip
-                  quotes={propBoard.under}
-                  selectedBookKeys={selectedKeys}
-                  marketTitle={selectedMarket?.label ?? marketKey}
-                  selectionTitle={`Under ${selectedMarket?.label ?? marketKey}`}
-                  formatLine={formatSignedLine}
-                />
-              )}
-            </div>
-          )}
-        </div>
-
         <div key={marketKey} className="space-y-3 animate-in fade-in duration-150">
-          <ModelStrip page={page} marketKey={marketKey} market={selectedMarket} />
-
+          {/* Player title card is the root of the detail waterfall. */}
           <OrbitHero page={page} teamPrimary={colors.primary} teamSecondary={colors.secondary} />
 
-          <HighlightRibbons
-            highlights={marketHighlights}
-            expanded={highlightsExpanded}
-            onExpand={() => setHighlightsExpanded(true)}
-          />
-
-          <ComparisonBlock page={page} marketKey={marketKey} />
-
-          <div className="grid gap-3 lg:grid-cols-2">
-            <VsTeamCluster
-              trends={trendsQ.data}
-              opponent={page.opponent}
-              marketKey={marketKey}
-              marketLabel={selectedMarket?.label ?? 'market'}
-            />
-            <Last10Strip log={trendsQ.data?.recent_game_log} marketKey={marketKey} />
+          {/* 1. Markets and live book lines. */}
+          <div className="sticky top-2 z-20 rounded-2xl border border-black/5 bg-white/55 px-3 py-2.5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.05]">
+            <MarketToggle markets={markets} selectedKey={marketKey} onSelect={setSelectedKey} boardsByMarket={boardsByMarket} selectedBookKeys={selectedKeys} />
           </div>
 
+          {/* 2. WagerProof projection. */}
+          <ModelStrip page={page} marketKey={marketKey} market={selectedMarket} marketLine={chartLine} vegasOdds={bestOverOdds} />
+
+          {/* 3. Recent market results. */}
+          <Last10Strip log={trendsQ.data?.recent_game_log} marketKey={marketKey} line={chartLine} />
+
+          {/* 4. Dynamic opponent-performance comparison. */}
+          <ComparisonBlock page={page} marketKey={marketKey} />
+
+          {/* 5. Historical results against this team. */}
+          <VsTeamCluster trends={trendsQ.data} opponent={page.opponent} marketKey={marketKey} marketLabel={selectedMarket?.label ?? 'market'} />
+
+          {/* 6. Situational splits. */}
           <SituationsDrawer splits={trendsQ.data?.splits} marketKey={marketKey} />
         </div>
       </div>
     </div>
   );
+}
+
+export default function PropBreakdownPage() {
+  const { playerId } = useParams<{ playerId: string }>();
+  return <PropBreakdownContent playerId={playerId} />;
 }

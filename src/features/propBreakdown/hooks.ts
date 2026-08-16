@@ -67,7 +67,47 @@ export function useNflPropPlayerTrends(playerId: string | undefined) {
         .eq('player_id', playerId!)
         .maybeSingle();
       if (error) throw error;
-      return (data as NflPropPlayerTrends | null) ?? null;
+      const trends = (data as NflPropPlayerTrends | null) ?? null;
+      if (!trends?.recent_game_log?.length) return trends;
+
+      const seasons = [...new Set(trends.recent_game_log.map((game) => game.season))];
+      const weeks = [...new Set(trends.recent_game_log.map((game) => game.week))];
+      const { data: gameStats, error: statsError } = await collegeFootballSupabase
+        .from('nfl_player_game_logs')
+        .select('player_id,season,week,pass_yds,pass_tds,rush_yds,rush_tds,rec_yds,rec_tds,receptions,pass_attempts,carries,completions')
+        .eq('player_id', playerId!)
+        .in('season', seasons)
+        .in('week', weeks);
+      if (statsError) throw statsError;
+
+      const statsByGame = new Map(
+        (gameStats ?? []).map((row) => [`${row.season}-${row.week}`, row] as const),
+      );
+      const statByMarket = {
+        player_pass_yds: 'pass_yds',
+        player_pass_tds: 'pass_tds',
+        player_receptions: 'receptions',
+        player_reception_yds: 'rec_yds',
+        player_rush_yds: 'rush_yds',
+        player_pass_attempts: 'pass_attempts',
+        player_rush_attempts: 'carries',
+        player_pass_completions: 'completions',
+      } as const;
+
+      trends.recent_game_log = trends.recent_game_log.map((game) => {
+        const stats = statsByGame.get(`${game.season}-${game.week}`);
+        if (!stats) return game;
+        const actuals: Record<string, number> = { ...(game.actuals ?? {}) };
+        for (const [market, stat] of Object.entries(statByMarket)) {
+          const value = stats[stat as keyof typeof stats];
+          if (typeof value === 'number' && Number.isFinite(value)) actuals[market] = value;
+        }
+        const rushTds = typeof stats.rush_tds === 'number' ? stats.rush_tds : 0;
+        const receivingTds = typeof stats.rec_tds === 'number' ? stats.rec_tds : 0;
+        actuals.player_anytime_td = rushTds + receivingTds;
+        return { ...game, actuals };
+      });
+      return trends;
     },
   });
 }

@@ -152,8 +152,16 @@ def build_logs():
         rec = pl.setdefault(gk, dict(
             season=int(r.season), week=int(r.week),
             opp=(r.away_ab if is_home else r.home_ab), is_home=is_home, is_div=is_div,
-            is_primetime=is_pt, markets={}))
+            is_primetime=is_pt, markets={}, actuals={}, lines={}))
         rec["markets"][r.market] = res
+        # Preserve the values behind the grade so the client can render an
+        # amount-based bar chart instead of reducing every result to O/U.
+        if pd.notna(r.actual):
+            rec["actuals"][r.market] = round(float(r.actual), 2)
+        elif r.market == "player_anytime_td":
+            rec["actuals"][r.market] = 1 if res == "Y" else 0
+        if pd.notna(r.close_line):
+            rec["lines"][r.market] = round(float(r.close_line), 2)
         meta[r.player_id] = (r.player_name, r.position, r.team)
     # to newest-first game lists
     out = {}

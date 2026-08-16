@@ -6,6 +6,8 @@ export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
   icon?: React.ReactNode;
+  disabled?: boolean;
+  status?: string;
 }
 
 interface SegmentedControlProps<T extends string> {
@@ -49,13 +51,16 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="tab"
             aria-selected={selected}
+            aria-disabled={opt.disabled || undefined}
+            disabled={opt.disabled}
             onClick={() => onChange(opt.value)}
             className={cn(
               'relative flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-semibold transition-colors',
               size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3.5 py-1.5 text-[13px]',
+              opt.disabled && 'cursor-not-allowed opacity-45',
               selected
                 ? 'text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+                : 'text-muted-foreground enabled:hover:text-foreground'
             )}
           >
             {selected && (
@@ -67,6 +72,11 @@ export function SegmentedControl<T extends string>({
             )}
             {opt.icon && <span className="relative z-10">{opt.icon}</span>}
             <span className="relative z-10">{opt.label}</span>
+            {opt.status && (
+              <span className="relative z-10 rounded-full bg-black/[0.06] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide dark:bg-white/10">
+                {opt.status}
+              </span>
+            )}
           </button>
         );
       })}

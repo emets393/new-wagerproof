@@ -1,4 +1,3 @@
-import { ArrowRight, Equal, TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlassCard } from '@/components/ios';
 import type {
@@ -12,11 +11,15 @@ import {
   LOOK_BUCKET_LABELS,
   type DefenseKey,
 } from '../marketMap';
-import { formatPerGame, formatPctile, formatRatePct, topBadge } from '../format';
+import { formatPerGame, formatPctile, formatRatePct } from '../format';
 import { DEFENSE_TIPS } from '../statTips';
-import { GAME_SPLIT_STAT_FOR_MARKET, resolveSchemeCompare } from '../schemeCompare';
+import {
+  GAME_SPLIT_STAT_FOR_MARKET,
+  resolveSchemeCompare,
+  type CompareLookRow,
+  type SchemeCompareResolved,
+} from '../schemeCompare';
 import { StatTip } from './StatTip';
-import { WhoHeIsSection } from './WhoHeIsSection';
 
 function isDim(v: unknown): v is DefenseDim {
   return Boolean(v) && typeof v === 'object' && 'rate' in (v as object) && 'pctile' in (v as object);
@@ -28,40 +31,6 @@ function SampleBadge({ sample }: { sample?: 'ok' | 'thin' }) {
     <span className="ml-1 rounded bg-amber-500/20 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-200">
       Thin
     </span>
-  );
-}
-
-function DeltaGlyph({
-  delta,
-  threshold,
-}: {
-  delta: number | null;
-  threshold: number;
-}) {
-  const up = delta != null && delta >= threshold;
-  const down = delta != null && delta <= -threshold;
-  const even = delta != null && !up && !down;
-  return (
-    <div className="flex w-16 flex-col items-center justify-center gap-1">
-      {up && <TrendingUp className="h-4 w-4 text-emerald-500" />}
-      {down && <TrendingDown className="h-4 w-4 text-rose-500" />}
-      {even && <Equal className="h-4 w-4 text-muted-foreground" />}
-      {delta == null && <ArrowRight className="h-4 w-4 text-muted-foreground" />}
-      <span
-        className={cn(
-          'font-mono text-[12px] font-black',
-          up && 'text-emerald-600 dark:text-emerald-300',
-          down && 'text-rose-600 dark:text-rose-300',
-          even && 'text-muted-foreground'
-        )}
-      >
-        {delta == null
-          ? '—'
-          : delta === 0
-            ? 'even'
-            : `${delta > 0 ? '+' : ''}${formatPerGame(delta, Math.abs(delta) < 1 ? 2 : 1)}`}
-      </span>
-    </div>
   );
 }
 
@@ -129,6 +98,101 @@ function GameSplitsBlock({
   );
 }
 
+function SchemeLinearComparison({
+  compare,
+  row,
+  opp,
+}: {
+  compare: SchemeCompareResolved;
+  row: CompareLookRow;
+  opp: string;
+}) {
+  const overall = Number(compare.overallValue);
+  const matchup = Number(row.value);
+  const digits = compare.mode === 'receiving' ? 1 : 2;
+  const delta = row.delta ?? matchup - overall;
+  const up = delta >= row.deltaThreshold;
+  const down = delta <= -row.deltaThreshold;
+  const metricName = compare.mode === 'qb'
+    ? 'EPA per dropback'
+    : compare.mode === 'rush'
+      ? 'EPA per rush'
+      : 'yards per target';
+  const direction = delta > 0 ? 'higher' : delta < 0 ? 'lower' : 'the same';
+  const lookLabel = row.label.replace(/^vs\s+/i, '').toLowerCase();
+  const gap = Math.abs(matchup - overall);
+  const padding = Math.max(compare.mode === 'receiving' ? 0.1 : 0.01, gap * 0.5);
+  const scaleMin = Math.min(overall, matchup) - padding;
+  const scaleMax = Math.max(overall, matchup) + padding;
+  const scaleSpan = Math.max(scaleMax - scaleMin, 0.0001);
+  const position = (value: number) => 6 + ((value - scaleMin) / scaleSpan) * 88;
+  const overallPosition = position(overall);
+  const matchupPosition = position(matchup);
+  const connectorLeft = Math.min(overallPosition, matchupPosition);
+  const connectorWidth = Math.abs(overallPosition - matchupPosition);
+  const deltaLabel = `${delta > 0 ? '+' : ''}${formatPerGame(delta, Math.abs(delta) < 1 ? 2 : 1)} ${row.unit}`;
+
+  return (
+    <div className="grid gap-4 py-1 md:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)] md:items-center">
+      <ul className="text-[13px] font-semibold leading-relaxed text-foreground">
+        <li className="flex gap-2.5">
+          <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.65)]" />
+          <span>
+            He produces {formatPerGame(matchup, digits)} {metricName} against {lookLabel}, compared with {formatPerGame(overall, digits)} across his career—{formatPerGame(Math.abs(delta), Math.abs(delta) < 1 ? 2 : 1)} {row.unit} {direction} against the look {opp} prefers.
+          </span>
+        </li>
+      </ul>
+
+      <div className="min-w-0">
+        <span className="text-[9px] font-black uppercase tracking-[0.13em] text-muted-foreground">Production comparison</span>
+        <div className="relative mt-2 h-[126px]">
+          <div className="absolute inset-x-[5%] top-[68px] h-1 rounded-full bg-muted-foreground/20" />
+          <div
+            className={cn(
+              'absolute top-[68px] h-1',
+              up && 'bg-emerald-500/55',
+              down && 'bg-rose-500/55',
+              !up && !down && 'bg-muted-foreground/40',
+            )}
+            style={{ left: `${connectorLeft}%`, width: `${connectorWidth}%` }}
+          />
+
+          <div className="absolute top-0 w-[104px] -translate-x-1/2 text-center" style={{ left: `${overallPosition}%` }}>
+            <span className="whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-muted-foreground">Career avg</span>
+            <p className="mt-0.5 font-mono text-[14px] font-black leading-none">{formatPerGame(overall, digits)}</p>
+            <p className="mt-1 text-[9px] font-bold text-muted-foreground">{compare.overallUnit}</p>
+            <div className="mx-auto mt-1.5 h-[20px] w-px bg-slate-400/60" />
+          </div>
+          <div className="absolute top-[63px] h-3 w-3 -translate-x-1/2 rounded-full bg-slate-400 ring-2 ring-background" style={{ left: `${overallPosition}%` }} />
+
+          <div className="absolute top-0 w-[104px] -translate-x-1/2 text-center" style={{ left: `${matchupPosition}%` }}>
+            <span className="whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-amber-600 dark:text-amber-300">Vs {opp}&apos;s look</span>
+            <p className="mt-0.5 font-mono text-[14px] font-black leading-none">{formatPerGame(matchup, digits)}</p>
+            <p className="mt-1 text-[9px] font-bold text-muted-foreground">{row.unit}</p>
+            <div className="mx-auto mt-1.5 h-[20px] w-px bg-amber-500/60" />
+          </div>
+          <div className="absolute top-[63px] h-3 w-3 -translate-x-1/2 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)] ring-2 ring-background" style={{ left: `${matchupPosition}%` }} />
+
+          <span
+            className={cn(
+              'absolute top-[82px] -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] font-black',
+              up && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+              down && 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
+              !up && !down && 'bg-muted text-muted-foreground',
+            )}
+            style={{ left: `${connectorLeft + connectorWidth / 2}%` }}
+          >
+            {deltaLabel}
+          </span>
+
+          <span className="absolute bottom-0 left-[5%] text-[9px] font-bold text-muted-foreground">Lower production</span>
+          <span className="absolute bottom-0 right-[5%] text-[9px] font-bold text-muted-foreground">Higher production</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The page's core job: make "who he is" vs "who he is against THIS defense"
  * impossible to miss. Career average on the left, vs-look on the right, delta
@@ -141,7 +205,6 @@ export function ComparisonBlock({
   page: NflPropPlayerPage;
   marketKey: string;
 }) {
-  const baseline = page.baseline;
   const scheme = page.scheme;
   const defense = scheme?.defense;
   const opp = scheme?.opponent ?? page.opponent;
@@ -286,38 +349,13 @@ export function ComparisonBlock({
         : `We need career production vs the looks ${opp} plays to compare him to that scheme. Below is how often that defense uses each look.`;
 
   return (
-    <div className="space-y-3">
-      {/* 1) Who he is — season baseline only */}
-      <GlassCard radius={18} className="p-4">
-        <div className="mb-1 flex items-end justify-between gap-2">
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              Who he is
-            </div>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">
-              Season averages — his normal production, before the matchup.
-            </p>
-          </div>
-          {baseline && (
-            <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
-              {baseline.season} · {baseline.games} g
-            </span>
-          )}
-        </div>
-
-        {!baseline ? (
-          <p className="mt-3 text-[13px] text-muted-foreground">No NFL sample yet · 2026 rookie</p>
-        ) : (
-          <WhoHeIsSection page={page} marketKey={marketKey} />
-        )}
-      </GlassCard>
-
-      {/* 2) THE comparison — career avg vs this defense's look */}
+    <div className="space-y-3" data-card="dynamic" aria-label="Dynamic player matchup comparison">
+      {/* Career baseline vs this defense's look. */}
       <GlassCard radius={18} className="overflow-hidden border-amber-500/35 p-0 shadow-[0_0_24px_rgba(245,158,11,0.12)]">
         <div className="border-b border-amber-500/25 bg-amber-500/10 px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-amber-800 dark:text-amber-200">
-              Him vs this defense
+              Dynamic
             </div>
             <SampleBadge sample={compare?.sample} />
           </div>
@@ -332,96 +370,14 @@ export function ComparisonBlock({
               <>Facing {opp}</>
             )}
           </p>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
-            Left = his career average. Right = how he produces against the looks this defense
-            actually plays
-            {compare?.mode === 'qb'
-              ? ' (EPA per dropback).'
-              : compare?.mode === 'rush'
-                ? ' (EPA per rush; YPC as support).'
-                : ' (yards per target).'}
-          </p>
         </div>
 
         <div className="space-y-3 p-4">
           {hasCompare && compare ? (
-            <div className="space-y-2">
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                <span>His career avg</span>
-                <span className="w-16 text-center">Diff</span>
-                <span className="text-right">Vs {opp}&apos;s look</span>
-              </div>
-
-              {compare.lookRows.map((row) => {
-                const up = row.delta != null && row.delta >= row.deltaThreshold;
-                const down = row.delta != null && row.delta <= -row.deltaThreshold;
-                return (
-                  <div
-                    key={row.key}
-                    className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 rounded-2xl border border-black/5 bg-muted/20 p-2 dark:border-white/10"
-                  >
-                    <div className="rounded-xl bg-background/80 px-3 py-2.5 dark:bg-black/30">
-                      <div className="flex items-center text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                        {compare.overallLabel}
-                        <SampleBadge sample={compare.sample} />
-                      </div>
-                      <div className="mt-1 font-mono text-[22px] font-black leading-none">
-                        {formatPerGame(
-                          compare.overallValue,
-                          compare.mode === 'receiving' ? 1 : 2
-                        )}
-                        <span className="ml-1 text-[11px] font-bold text-muted-foreground">
-                          {compare.overallUnit}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-[11px] text-muted-foreground">
-                        {compare.overallDetail}
-                      </div>
-                      {compare.overallSupport && (
-                        <div className="mt-0.5 text-[10px] text-muted-foreground">
-                          {compare.overallSupport}
-                        </div>
-                      )}
-                    </div>
-
-                    <DeltaGlyph delta={row.delta} threshold={row.deltaThreshold} />
-
-                    <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
-                      <div className="flex items-center text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-200">
-                        {row.label}
-                        <SampleBadge sample={row.sample} />
-                      </div>
-                      <div
-                        className={cn(
-                          'mt-1 font-mono text-[22px] font-black leading-none',
-                          up && 'text-emerald-700 dark:text-emerald-300',
-                          down && 'text-rose-700 dark:text-rose-300'
-                        )}
-                      >
-                        {formatPerGame(row.value, compare.mode === 'receiving' ? 1 : 2)}
-                        <span className="ml-1 text-[12px] font-bold text-muted-foreground">
-                          {row.unit}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-[11px] font-semibold text-muted-foreground">
-                        {row.detail}
-                        {row.pctile != null ? ` · ${topBadge(row.pctile)}` : ''}
-                      </div>
-                      {row.support && (
-                        <div className="mt-0.5 text-[10px] text-muted-foreground">{row.support}</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-
-              <p className="px-1 text-[11px] leading-snug text-muted-foreground">
-                {compare.mode === 'rush'
-                  ? 'Diff is EPA per rush vs his career average (more stable than ypc alone). YPC is shown as support.'
-                  : compare.mode === 'qb'
-                    ? 'Diff is EPA per dropback vs his career average. Positive = he beats his own baseline against that look.'
-                    : 'Positive diff = he beats his own career average against that look. Negative = he produces less than usual when the defense plays it.'}
-              </p>
+            <div className="divide-y divide-black/[0.06] dark:divide-white/10">
+              {compare.lookRows.map((row) => (
+                <SchemeLinearComparison key={row.key} compare={compare} row={row} opp={opp} />
+              ))}
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/[0.04] px-4 py-5 text-center">
