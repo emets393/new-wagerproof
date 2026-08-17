@@ -26,6 +26,7 @@ MARKETS = "h2h,spreads,totals"
 REGIONS = "us"
 CREDITS_PER_SNAP = 30           # 10 x 3 markets x 1 region
 SAFETY_MIN_CREDITS = 3000
+DENSE = False
 
 SEASONS = {2021: ("2021-08-20", "2022-01-20"), 2022: ("2022-08-20", "2023-01-20"),
            2023: ("2023-08-20", "2024-01-20"), 2024: ("2024-08-20", "2025-01-20"),
@@ -33,6 +34,11 @@ SEASONS = {2021: ("2021-08-20", "2022-01-20"), 2022: ("2022-08-20", "2023-01-20"
 # UTC hours per weekday (Mon=0..Sun=6); dense Thu-Sat (game days incl late-night windows)
 HOURS = {0: [16, 23], 1: [16, 23], 2: [16, 23], 3: [2, 16, 20, 23],
          4: [2, 16, 20, 23], 5: [1, 4, 13, 16, 19, 22], 6: [1, 16, 23]}
+# --dense adds fill-in hours (probe 2026-08-17: off-grid 2021 stamps carry 52-58 lined
+# events — the 4->13Z Saturday hole spans the Fri-night/Sat-morning move window that
+# left 459 games at <=2 snaps). Manifest skips already-done stamps, so a dense re-run
+# on a fetched season only buys the NEW hours.
+DENSE_EXTRA = {3: [7, 12], 4: [7, 12], 5: [7, 10], 6: [7, 13, 19]}
 
 
 def key():
@@ -55,7 +61,8 @@ def snapshots(season):
               datetime.now(timezone.utc))
     ts = []
     while d <= end:
-        for h in HOURS[d.weekday()]:
+        hours = HOURS[d.weekday()] + (DENSE_EXTRA.get(d.weekday(), []) if DENSE else [])
+        for h in sorted(set(hours)):
             ts.append(d.replace(hour=h, minute=0, second=0))
         d += timedelta(days=1)
     return ts
@@ -96,7 +103,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--year", type=int, required=True, choices=list(SEASONS))
     ap.add_argument("--go", action="store_true")
+    ap.add_argument("--dense", action="store_true", help="add DENSE_EXTRA fill-in hours")
     a = ap.parse_args()
+    global DENSE
+    DENSE = a.dense
     K = key()
     base = "https://api.the-odds-api.com/v4"
     r = requests.get(f"{base}/sports", params={"apiKey": K}, timeout=30)
