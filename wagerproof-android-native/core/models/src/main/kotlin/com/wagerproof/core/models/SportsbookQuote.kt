@@ -77,11 +77,11 @@ object SportsbookPreference {
 
     fun decode(raw: String?): Set<String> {
         if (raw.isNullOrEmpty()) return emptySet()
-        return raw.split(",")
-            .map { it.trim() }
-            .filter { it in SportsbookCatalog.names }
-            .toSet()
+        return decode(raw.split(",").map { it.trim() })
     }
+
+    fun decode(keys: Collection<String>): Set<String> =
+        keys.filter { it in SportsbookCatalog.names }.toSet()
 
     fun encode(keys: Set<String>): String = keys.sorted().joinToString(",")
 

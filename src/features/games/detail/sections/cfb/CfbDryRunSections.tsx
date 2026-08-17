@@ -65,10 +65,11 @@ import type { NFLPrediction } from '../../../api/nflGames';
 import type { GameFeedItem, TeamRef } from '../../../types';
 
 /**
- * Football slate detail sections — slate summary + grouped prediction cards
- * from `*_slate_picks` (or fg_* synthesis when picks are empty) with visible
- * Supports / Contradicts signal chips under each market pick (native sheet
- * parity) + per-market team season trends.
+ * Football slate detail sections — score-only slate summary + grouped
+ * prediction cards from `*_slate_picks` (or fg_* synthesis when picks are empty)
+ * with spread/total/moneyline edge charts on those cards, visible Supports /
+ * Contradicts signal chips under each market pick (native sheet parity) +
+ * per-market team season trends.
  *
  * Used for both CFB and NFL. The market cards' model numbers must equal the
  * `*_slate_games` header's; a divergence means the picks table is stale and is
@@ -741,6 +742,37 @@ function synthesizeFgMarketPicks(
   return picks;
 }
 
+/** Home-side spread + total from the slate row — same numbers the summary headline uses. */
+type SlateMarketLines = {
+  modelHomeSpread: number | null;
+  vegasHomeSpread: number | null;
+  modelTotal: number | null;
+  vegasTotal: number | null;
+};
+
+function slateMarketLines(game: GameFeedItem<FootballDryRunRaw>): SlateMarketLines {
+  const raw = game.raw;
+  const predAway = toNum(raw.pred_away_score);
+  const predHome = toNum(raw.pred_home_score);
+  const hasScore = predAway !== null && predHome !== null;
+  return {
+    modelHomeSpread: hasScore
+      ? predAway - predHome
+      : toNum(raw.pred_spread) ?? toNum(raw.fg_pred_spread),
+    vegasHomeSpread:
+      toNum(raw.home_spread) ?? toNum(raw.fg_spread_close) ?? game.lines.homeSpread ?? null,
+    modelTotal: hasScore
+      ? predAway + predHome
+      : toNum(raw.pred_total) ?? toNum(raw.pred_over_line) ?? toNum(raw.fg_pred_total),
+    vegasTotal: toNum(raw.over_line) ?? toNum(raw.fg_total_close) ?? game.lines.total ?? null,
+  };
+}
+
+function pickSideFromHome(homeValue: number | null, pickIsHome: boolean): number | null {
+  if (homeValue === null) return null;
+  return pickIsHome ? homeValue : -homeValue;
+}
+
 /** Best-book mark with onError → favicon → letter fallback (native SportsbookLogoView). */
 function SportsbookMark({
   logo,
@@ -880,8 +912,9 @@ function ConvictionChip({
 }
 
 /**
- * Slate summary: how hard the model likes this game, its projected final score,
- * and where its spread/total land against the book.
+ * Slate summary: conviction + projected final. Spread / total / moneyline
+ * charts live on the market cards below — same split as the native sheet's
+ * Score Prediction widget vs. the pick cards.
  */
 export function FootballDryRunSummarySection({
   game,
@@ -891,7 +924,6 @@ export function FootballDryRunSummarySection({
   sport: FootballSport;
 }) {
   const prediction = game.raw;
-  const scale = EDGE_SCALE_BY_SPORT[sport];
   const convictionSummary = normalizeConvictionSummary(prediction.conviction_summary);
 
   const isMammothCard = Boolean(
@@ -905,44 +937,13 @@ export function FootballDryRunSummarySection({
   const predAway = toNum(prediction.pred_away_score);
   const predHome = toNum(prediction.pred_home_score);
   const hasScore = predAway !== null && predHome !== null;
-  // Prefer score-derived lines so spread + total reconcile with the projected
-  // final; fall back to the dryrun fair lines when scores aren't on the row yet.
-  const modelHomeSpread = hasScore
-    ? predAway - predHome
-    : toNum(prediction.pred_spread) ?? toNum(prediction.fg_pred_spread);
-  const modelTotal = hasScore
-    ? predAway + predHome
-    : toNum(prediction.pred_total) ??
-      toNum(prediction.pred_over_line) ??
-      toNum(prediction.fg_pred_total);
-  const vegasHomeSpread =
-    toNum(prediction.home_spread) ??
-    toNum(prediction.fg_spread_close) ??
-    game.lines.homeSpread ??
-    null;
-  const vegasTotal =
-    toNum(prediction.over_line) ??
-    toNum(prediction.fg_total_close) ??
-    game.lines.total ??
-    null;
+  const { modelHomeSpread, vegasHomeSpread, modelTotal, vegasTotal } = slateMarketLines(game);
   const homeWins = hasScore && predHome >= predAway;
 
   const spreadCapped = prediction.fg_spread_capped === true;
   const spreadGap =
     modelHomeSpread !== null && vegasHomeSpread !== null ? modelHomeSpread - vegasHomeSpread : null;
   const totalGap = modelTotal !== null && vegasTotal !== null ? modelTotal - vegasTotal : null;
-
-  // A chart needs BOTH sides of the comparison; a lone number falls back to the
-  // compact table row so the book's figure is still on the card.
-  const spreadCharted = modelHomeSpread !== null && vegasHomeSpread !== null;
-  const totalCharted = modelTotal !== null && vegasTotal !== null;
-  const spreadRowNeeded = !spreadCharted && (modelHomeSpread !== null || vegasHomeSpread !== null);
-  const totalRowNeeded = !totalCharted && (modelTotal !== null || vegasTotal !== null);
-  const summaryPending =
-    modelHomeSpread === null &&
-    modelTotal === null &&
-    vegasHomeSpread === null &&
-    vegasTotal === null;
 
   return (
     <WidgetCard
@@ -964,7 +965,7 @@ export function FootballDryRunSummarySection({
           playMarketCount: convictionSummary.length,
         }) ?? undefined
       }
-      subtitle="How hard the model likes this game, the score it projects, and where that lands against the book."
+      subtitle="How hard the model likes this game, and the score it projects."
       className="@xl:col-span-2"
     >
       <div className={STACK}>
@@ -1014,67 +1015,10 @@ export function FootballDryRunSummarySection({
           />
         )}
 
-        {/* Both charts are drawn from the HOME team's perspective, the same frame
-            the projected score above them uses. The spread bar plots MARGIN, so
-            the home spread is negated exactly once: a -6.5 home line is the home
-            team needing to win by 7. Its cushion is vegas − model, which is
-            −spreadGap — the magnitude the headline quotes. */}
-        {spreadCharted && (
-          <div className="flex flex-col gap-2 border-t border-black/5 pt-2.5 dark:border-white/10">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-              Spread — {game.homeTeam.abbrev} to cover
-            </span>
-            <SpreadCoverBar
-              line={vegasHomeSpread as number}
-              modelMargin={-(modelHomeSpread as number)}
-              scale={scale}
-              pickAbbrev={game.homeTeam.abbrev}
-              opponentAbbrev={game.awayTeam.abbrev}
-            />
-          </div>
-        )}
-
-        {totalCharted && (
-          <div className="flex flex-col gap-2 border-t border-black/5 pt-2.5 dark:border-white/10">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-              Total
-            </span>
-            <ModelEdgeRail
-              market={vegasTotal as number}
-              model={modelTotal as number}
-              scale={scale}
-            />
-          </div>
-        )}
-
-        {/* One number posted without its counterpart can't be plotted against
-            anything, so it falls back to the compact table row. */}
-        {(spreadRowNeeded || totalRowNeeded) && (
-          <div className="border-t border-black/5 pt-2 dark:border-white/10">
-            <MarketGapHeader />
-            {spreadRowNeeded && (
-              <MarketGapRow
-                label={`Spread (${game.homeTeam.abbrev})`}
-                model={modelHomeSpread}
-                vegas={vegasHomeSpread}
-                missingVegasLabel={sport === 'nfl' ? 'TBD' : undefined}
-              />
-            )}
-            {totalRowNeeded && (
-              <MarketGapRow
-                label="Total"
-                model={modelTotal}
-                vegas={vegasTotal}
-                missingVegasLabel={sport === 'nfl' ? 'TBD' : undefined}
-              />
-            )}
-          </div>
-        )}
-
-        {sport === 'nfl' && summaryPending && (
+        {sport === 'nfl' && !hasScore && (
           <PendingMarketState marketLabel="this matchup" />
         )}
-        {sport === 'cfb' && !hasScore && modelHomeSpread === null && (
+        {sport === 'cfb' && !hasScore && (
           <EmptyNote>No projected score on this slate row yet.</EmptyNote>
         )}
       </div>
@@ -1429,6 +1373,8 @@ export function FootballDryRunPicksSection({
     );
   }
 
+  const slateLines = slateMarketLines(game);
+
   return (
     <>
       {/* No standalone "Signal convictions" card — chips only under each market. */}
@@ -1457,6 +1403,7 @@ export function FootballDryRunPicksSection({
             sport={sport}
             bookOdds={bookOdds}
             selectedBookKeys={selectedKeys}
+            slateLines={slateLines}
           />
         );
       })}
@@ -1487,6 +1434,7 @@ function PredictionGroupCard({
   sport,
   bookOdds,
   selectedBookKeys,
+  slateLines,
 }: {
   group: string;
   rows: FootballDryRunPick[];
@@ -1505,6 +1453,7 @@ function PredictionGroupCard({
   sport: FootballSport;
   bookOdds: SportsbookGameOdds | null;
   selectedBookKeys: Set<string>;
+  slateLines: SlateMarketLines;
 }) {
   const Icon = group.includes('spread') ? Target
     : group.includes('total') ? BarChart3
@@ -1565,6 +1514,7 @@ function PredictionGroupCard({
             home={home}
             bookOdds={bookOdds}
             selectedBookKeys={selectedBookKeys}
+            slateLines={slateLines}
           />
         ))}
       </div>
@@ -1591,6 +1541,7 @@ function PickRow({
   home,
   bookOdds,
   selectedBookKeys,
+  slateLines,
 }: {
   row: FootballDryRunPick;
   sport: FootballSport;
@@ -1603,6 +1554,7 @@ function PickRow({
   home: TeamRef;
   bookOdds: SportsbookGameOdds | null;
   selectedBookKeys: Set<string>;
+  slateLines: SlateMarketLines;
 }) {
   // Prefer picks.signal_keys (joined to defs). When empty — common on
   // projection-only NFL cards — fall back to matching game-level flags so
@@ -1615,31 +1567,14 @@ function PickRow({
     (k) => !signalKeys.includes(k),
   );
   const useFlagFallback = signalKeys.length === 0 && counterKeys.length === 0 && fallbackFlags.length > 0;
-  const model = toNum(row.model_line) ?? toNum(row.model_number);
-  const vegas = toNum(row.vegas_line);
   const gap = resolveRowGap(row);
   const group = normalizeCardGroup(row.card_group);
   const scale = EDGE_SCALE_BY_SPORT[sport];
 
-  // Which visual this market gets. All three plot the CLOSE (`vegas_line` /
-  // `vegas_price`), never `best_line`: the card's headline is written against
-  // the close, and shopping gain would make the chart and the sentence quote two
-  // different edges on one card. The best-shopped number keeps its own slot in
-  // the book chip, labelled as a price rather than as the market.
   const isSpreadChart = group === 'spread' || group === 'h1_spread';
   const isTotalChart = group === 'total' || group === 'h1_total';
   const isMoneyline = group === 'moneyline' || group === 'h1_ml';
   const moneyline = isMoneyline ? moneylineRowOutcome(row) : null;
-  const chartRendered =
-    ((isSpreadChart || isTotalChart) && model !== null && vegas !== null) || moneyline !== null;
-  // Team totals sit around 24 points where a game total sits at 45, and nothing
-  // upstream calibrates them, so they keep the compact table row rather than
-  // borrowing the game-total bands and calling every 3-point gap a lean. A
-  // spread/total row missing one of its two numbers lands here too.
-  const showGapRow = !isMoneyline && !chartRendered;
-  const marketPending = sport === 'nfl' && model === null && vegas === null && moneyline === null;
-  // Team-sided markets (spread / ML / TT) get the club mark; pure totals get
-  // the Over/Under arrow in that same slot — native Recommendation parity.
   const isTotalMarket = group === 'total' || group === 'h1_total';
   const isTeamSidedMarket =
     group === 'team_total' ||
@@ -1649,6 +1584,33 @@ function PickRow({
     group === 'h1_ml';
   const pickTeam = isTeamSidedMarket ? resolvePickTeam(row, away, home) : null;
   const spreadTeam = isSpreadChart ? pickTeam ?? resolvePickTeam(row, away, home) : null;
+
+  let model = toNum(row.model_line) ?? toNum(row.model_number);
+  // Prefer the close the headline is written against; `best_line` only fills in
+  // when the pick row never stored a close. FG spread/total then fall back to
+  // the slate row so these cards get the cover bar / rail instead of the old
+  // disagreement table.
+  let vegas = toNum(row.vegas_line) ?? toNum(row.best_line);
+  if (group === 'spread') {
+    const sideTeam = spreadTeam ?? pickTeam;
+    if (sideTeam) {
+      const pickHome = sideTeam === home;
+      if (vegas === null) vegas = pickSideFromHome(slateLines.vegasHomeSpread, pickHome);
+      if (model === null) model = pickSideFromHome(slateLines.modelHomeSpread, pickHome);
+    }
+  } else if (group === 'total') {
+    if (vegas === null) vegas = slateLines.vegasTotal;
+    if (model === null) model = slateLines.modelTotal;
+  }
+
+  const chartRendered =
+    ((isSpreadChart || isTotalChart) && model !== null && vegas !== null) || moneyline !== null;
+  // Team totals sit around 24 points where a game total sits at 45, and nothing
+  // upstream calibrates them, so they keep the compact table row rather than
+  // borrowing the game-total bands and calling every 3-point gap a lean. A
+  // spread/total row missing one of its two numbers lands here too.
+  const showGapRow = !isMoneyline && !chartRendered;
+  const marketPending = sport === 'nfl' && model === null && vegas === null && moneyline === null;
   const ouDirection = isTotalMarket || group === 'team_total' ? resolveOuDirection(row) : null;
   const pickLabel =
     group === 'team_total' && pickTeam != null

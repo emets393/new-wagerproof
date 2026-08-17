@@ -82,6 +82,7 @@ struct CFBGameBottomSheet: View {
             // (same placement as web's detail grid).
             AgentConsensusSection(sport: .cfb, gameId: GameConsensusKey.cfb(game), gameDate: game.gameDate)
             marketOddsSection
+            projectedScoreSection
             ForEach(marketRows) { row in
                 marketSection(row)
             }
@@ -1316,50 +1317,109 @@ struct CFBGameBottomSheet: View {
     /// The team a signal is betting, when it names a side. Totals signals
     /// (OVER/UNDER) name no team, so the caller falls back to the bolt glyph.
     private func signalTeam(_ flag: CFBDryRunFlag) -> String? {
-        switch flag.side.uppercased() {
-        case let s where s.contains("HOME"): return game.homeTeam
-        case let s where s.contains("AWAY"): return game.awayTeam
-        default:
-            // Team-total flags carry the club name in `side` directly.
-            if flag.side == game.homeTeam { return game.homeTeam }
-            if flag.side == game.awayTeam { return game.awayTeam }
-            return nil
+        let side = flag.side.trimmingCharacters(in: .whitespacesAndNewlines)
+        let upper = side.uppercased()
+        if upper.contains("HOME") { return game.homeTeam }
+        if upper.contains("AWAY") { return game.awayTeam }
+        // Team-total flags (and some structured sides) carry the club name.
+        if side == game.homeTeam { return game.homeTeam }
+        if side == game.awayTeam { return game.awayTeam }
+        let homeAbbr = CFBTeamAssets.abbr(for: game.homeTeam).uppercased()
+        let awayAbbr = CFBTeamAssets.abbr(for: game.awayTeam).uppercased()
+        if upper == homeAbbr || upper.hasPrefix(homeAbbr + " ") { return game.homeTeam }
+        if upper == awayAbbr || upper.hasPrefix(awayAbbr + " ") { return game.awayTeam }
+        return nil
+    }
+
+    /// Concrete per-game pick copy — never raw HOME/AWAY.
+    /// Mirrors web `resolveSignalDirectionDisplay` for the common cases.
+    private func signalDirectionLabel(_ flag: CFBDryRunFlag) -> String {
+        let market = flag.market.lowercased()
+        let side = flag.side.trimmingCharacters(in: .whitespacesAndNewlines)
+        let upper = side.uppercased()
+        let half = market.hasPrefix("h1_") ? "1H " : ""
+
+        if upper == "OVER" || upper == "UNDER" || upper.hasPrefix("OVER ") || upper.hasPrefix("UNDER ") {
+            let isOver = upper.hasPrefix("OVER")
+            let dir = isOver ? "Over" : "Under"
+            if let line = flag.line { return "\(half)\(dir) \(num(line))" }
+            let rest = side.split(separator: " ").dropFirst().joined(separator: " ")
+            return rest.isEmpty ? "\(half)\(dir)" : "\(half)\(dir) \(rest)"
         }
+
+        if let team = signalTeam(flag) {
+            let abbr = CFBTeamAssets.abbr(for: team)
+            if market.contains("moneyline") || market.hasSuffix("_ml") || market == "ml" {
+                return market.hasPrefix("h1_") ? "\(abbr) 1H ML" : "\(abbr) ML"
+            }
+            if market.contains("team_total") {
+                let hay = upper
+                let dir = hay.contains("UNDER") ? "Under" : hay.contains("OVER") ? "Over" : nil
+                if let dir, let line = flag.line { return "\(abbr) \(dir) \(num(line))" }
+                if let dir { return "\(abbr) \(dir)" }
+            }
+            let prefix = market.hasPrefix("h1_") ? "\(abbr) 1H" : abbr
+            if let line = flag.line {
+                return "\(prefix) \(GameCardFormatting.formatSpread(line))"
+            }
+            return prefix
+        }
+
+        let line = lineText(flag.line)
+        if line.isEmpty { return side }
+        return "\(side) \(line)".trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Static def copy that is not a per-game pick (web `isGenericBetDirection`).
+    private func isGenericBetDirection(_ value: String?) -> Bool {
+        guard let value else { return true }
+        let text = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if text.isEmpty { return true }
+        return text == "side indicated by the rule"
+            || text == "follow the indicated side"
+            || text.hasPrefix("side indicated")
     }
 
     @ViewBuilder
     private func signalDefinitionSheet(_ flag: CFBDryRunFlag) -> some View {
         let resolvedDefinition = flag.signalDefinition ?? CFBSignalDefinitionsService.definition(for: flag.source, in: signalDefinitionsBySource)
         let team = signalTeam(flag)
+        let direction = signalDirectionLabel(flag)
         NavigationStack {
             ScrollView {
                 // Chart first, then the numbers, then the prose — the reader
                 // asks "does this actually win?" before "what is it?".
                 VStack(alignment: .leading, spacing: 22) {
                     HStack(spacing: 11) {
-                        if let team {
-                            GameCardTeamAvatar(
-                                teamName: team,
-                                sport: "cfb",
-                                size: 42,
-                                colors: CFBTeamColors.colorPair(for: team)
-                            )
-                        } else {
-                            Image(systemName: "bolt.fill")
-                                .font(.system(size: 16, weight: .black))
-                                .foregroundStyle(signalColor(flag))
-                                .frame(width: 42, height: 42)
-                                .background(signalColor(flag).opacity(0.14), in: Circle())
-                        }
+                        signalHeaderGlyph
                         VStack(alignment: .leading, spacing: 4) {
                             Text(resolvedDefinition?.displayName ?? flag.source)
                                 .font(.system(size: 20, weight: .black))
                                 .foregroundStyle(Color.appTextPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            Text("\(marketLabel(flag.market)) · \(flag.side) \(lineText(flag.line))")
+                            Text(marketLabel(flag.market))
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(Color.appTextSecondary)
+                                .foregroundStyle(Color.appTextMuted)
                         }
+                    }
+
+                    // Concrete pick — same job as web SignalDetail's Direction row.
+                    HStack(spacing: 8) {
+                        Text("DIRECTION")
+                            .font(.system(size: 10, weight: .black))
+                            .tracking(0.6)
+                            .foregroundStyle(Color.appTextMuted)
+                        if let team {
+                            GameCardTeamAvatar(
+                                teamName: team,
+                                sport: "cfb",
+                                size: 18,
+                                colors: CFBTeamColors.colorPair(for: team)
+                            )
+                        }
+                        Text(direction)
+                            .font(.system(size: 15, weight: .black))
+                            .foregroundStyle(Color.appTextPrimary)
                     }
 
                     if let oneLiner = resolvedDefinition?.oneLiner, !oneLiner.isEmpty {
@@ -1378,7 +1438,11 @@ struct CFBGameBottomSheet: View {
                         VStack(alignment: .leading, spacing: 14) {
                             if let definition = def.definition { definitionLine("What it means", definition) }
                             if let why = def.whyItWorks { definitionLine("Why it works", why) }
-                            if let direction = def.betDirection { definitionLine("Bet direction", direction) }
+                            // Skip generic "side indicated by the rule" — the Direction
+                            // row above already names the concrete pick.
+                            if let betDir = def.betDirection, !isGenericBetDirection(betDir) {
+                                definitionLine("Bet direction", betDir)
+                            }
                         }
                     } else {
                         Text("Signal definition unavailable.")
@@ -1405,6 +1469,15 @@ struct CFBGameBottomSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private var signalHeaderGlyph: some View {
+        Image(systemName: "waveform.path.ecg")
+            .font(.system(size: 18, weight: .black))
+            .foregroundStyle(Color.appAccentAmber)
+            .frame(width: 42, height: 42)
+            .background(Color.appAccentAmber.opacity(0.14), in: Circle())
+            .accessibilityLabel("Signal")
     }
 
     private func signalPerformance(for flag: CFBDryRunFlag) -> SignalPerformance? {
@@ -1443,6 +1516,49 @@ struct CFBGameBottomSheet: View {
                 marketOddsHeadline = $0
             }
         }
+    }
+
+    /// A quick, matchup-level read before the user gets into individual market
+    /// predictions and their supporting signals.
+    @ViewBuilder
+    private var projectedScoreSection: some View {
+        if let score = game.predictedScore {
+            let awayAbbr = CFBTeamAssets.abbr(for: game.awayTeam)
+            let homeAbbr = CFBTeamAssets.abbr(for: game.homeTeam)
+            WidgetCollapsingSection(
+                title: "Score Prediction",
+                systemImage: "sportscourt",
+                iconTint: Color.appPrimary
+            ) {
+                ProjectedScoreRow(
+                    away: projectedScoreSide(
+                        team: game.awayTeam,
+                        abbreviation: awayAbbr,
+                        score: score.away
+                    ),
+                    home: projectedScoreSide(
+                        team: game.homeTeam,
+                        abbreviation: homeAbbr,
+                        score: score.home
+                    )
+                )
+            }
+        }
+    }
+
+    private func projectedScoreSide(
+        team: String,
+        abbreviation: String,
+        score: Double
+    ) -> ProjectedScoreRow.Side {
+        let colors = CFBTeamColors.colorPair(for: team)
+        return ProjectedScoreRow.Side(
+            logoURL: CFBTeamAssets.logo(for: team),
+            abbr: abbreviation,
+            primary: colors.primary,
+            secondary: colors.secondary,
+            score: score
+        )
     }
 
     private var honestySection: some View {
@@ -1862,7 +1978,7 @@ struct CFBGameBottomSheet: View {
     }
 
     private func signalHeadline(_ flag: CFBDryRunFlag) -> String {
-        "\(marketLabel(flag.market)) \(flag.side) \(lineText(flag.line))"
+        "\(marketLabel(flag.market)) · \(signalDirectionLabel(flag))"
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -2224,6 +2340,7 @@ struct CFBGameBottomSheet: View {
             dryRunPicks = []
             return
         }
+        await SportsbookCatalogService.shared.ensureLoaded()
         let cfb = await CFBSupabase.shared.client
         let definitions = await CFBSignalDefinitionsService.shared.definitionsBySource()
         signalDefinitionsBySource = definitions

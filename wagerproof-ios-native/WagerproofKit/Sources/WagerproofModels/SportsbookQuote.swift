@@ -302,7 +302,77 @@ public enum SportsbookCatalog {
     ]
 
     public static func name(for key: String) -> String {
-        names[key] ?? key.capitalized
+        let k = key.lowercased()
+        return dbNames[k] ?? names[k] ?? key.capitalized
+    }
+
+    /// `logo_url` from `nfl_sportsbooks` / `cfb_sportsbooks`, keyed by Odds-API book key.
+    public static func logoURL(for key: String?) -> String? {
+        guard let key else { return nil }
+        return logos[key.lowercased()]
+    }
+
+    /// `domain` from the same sportsbooks row.
+    public static func domain(for key: String?) -> String? {
+        guard let key else { return nil }
+        return domains[key.lowercased()]
+    }
+
+    /// Hydrated once per launch from `nfl_sportsbooks` ∪ `cfb_sportsbooks`.
+    public static func install(_ rows: [Book]) {
+        for row in rows {
+            let key = row.key.lowercased()
+            if dbNames[key] == nil { dbNames[key] = row.name }
+            if logos[key] == nil, let logo = row.logoURL, !logo.isEmpty { logos[key] = logo }
+            if domains[key] == nil, let domain = row.domain, !domain.isEmpty { domains[key] = domain }
+        }
+    }
+
+    public struct Book: Sendable {
+        public let key: String
+        public let name: String
+        public let logoURL: String?
+        public let domain: String?
+
+        public init(key: String, name: String, logoURL: String?, domain: String?) {
+            self.key = key
+            self.name = name
+            self.logoURL = logoURL
+            self.domain = domain
+        }
+    }
+
+    private static var logos: [String: String] = [:]
+    private static var domains: [String: String] = [:]
+    private static var dbNames: [String: String] = [:]
+
+    /// Cards from the precomputed Outliers feed carry display names rather than
+    /// Odds-API keys. Normalize them back to the same preference key used by
+    /// live NFL/CFB book boards.
+    public static func key(forDisplayName name: String?) -> String? {
+        guard let name else { return nil }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let lower = trimmed.lowercased()
+        if names[lower] != nil || dbNames[lower] != nil { return lower }
+        if let exact = names.first(where: {
+            $0.value.compare(trimmed, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }) {
+            return exact.key
+        }
+        if let exact = dbNames.first(where: {
+            $0.value.compare(trimmed, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }) {
+            return exact.key
+        }
+        // "DraftKings Sportsbook", "Caesars Sportsbook", etc.
+        if let fuzzy = names.first(where: { lower.contains($0.value.lowercased()) }) {
+            return fuzzy.key
+        }
+        if lower.contains("caesars") || lower.contains("william hill") { return "williamhill_us" }
+        if lower == "dk" { return "draftkings" }
+        if lower.contains("fan duel") { return "fanduel" }
+        return nil
     }
 }
 
@@ -328,11 +398,15 @@ public enum SportsbookPreference {
 
     public static func decode(_ raw: String?) -> Set<String> {
         guard let raw, !raw.isEmpty else { return [] }
-        return Set(
-            raw.split(separator: ",")
-                .map { String($0).trimmingCharacters(in: .whitespaces) }
-                .filter { SportsbookCatalog.names[$0] != nil }
-        )
+        return decode(raw.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) })
+    }
+
+    public static func decode(_ keys: [String]) -> Set<String> {
+        Set(keys.filter { SportsbookCatalog.names[$0] != nil })
+    }
+
+    public static func clearLocal() {
+        UserDefaults.standard.removeObject(forKey: defaultsKey)
     }
 
     /// Sorted on write so the stored string is stable — an unordered Set would

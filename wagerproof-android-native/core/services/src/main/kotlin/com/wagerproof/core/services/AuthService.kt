@@ -157,9 +157,44 @@ object AuthService {
             ?.takeIf { it.isNotEmpty() }
     }.getOrNull()
 
+    sealed class PreferredSportsbooksLoad {
+        data object Failed : PreferredSportsbooksLoad()
+        data object Unset : PreferredSportsbooksLoad()
+        data class Ready(val keys: List<String>) : PreferredSportsbooksLoad()
+    }
+
+    suspend fun loadPreferredSportsbooks(userId: String): PreferredSportsbooksLoad = runCatching {
+        val row = SupabaseClients.main.from("profiles")
+            .select(Columns.raw("preferred_sportsbooks")) { filter { eq("user_id", userId) } }
+            .decodeSingleOrNull<PreferredBooksRow>()
+        when {
+            row == null -> PreferredSportsbooksLoad.Unset
+            row.preferredSportsbooks == null -> PreferredSportsbooksLoad.Unset
+            else -> PreferredSportsbooksLoad.Ready(row.preferredSportsbooks)
+        }
+    }.getOrElse { PreferredSportsbooksLoad.Failed }
+
+    suspend fun savePreferredSportsbooks(userId: String, keys: Collection<String>) {
+        runCatching {
+            SupabaseClients.main.from("profiles").update(
+                PreferredBooksPayload(keys.sorted()),
+            ) { filter { eq("user_id", userId) } }
+        }
+    }
+
     @Serializable
     private data class DiscordLinkRow(
         @SerialName("discord_user_id") val discordUserId: String? = null,
+    )
+
+    @Serializable
+    private data class PreferredBooksRow(
+        @SerialName("preferred_sportsbooks") val preferredSportsbooks: List<String>? = null,
+    )
+
+    @Serializable
+    private data class PreferredBooksPayload(
+        @SerialName("preferred_sportsbooks") val preferredSportsbooks: List<String>,
     )
 
     internal fun requireSuccessfulAccountDeletion(response: EdgeFunctions.EdgeResponse) {

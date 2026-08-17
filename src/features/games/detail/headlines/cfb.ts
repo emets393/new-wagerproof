@@ -125,7 +125,7 @@ export type CfbDryRunSummaryHeadlineInput = {
   homeWins: boolean;
   /**
    * modelHomeSpread - vegasHomeSpread, derived in the component exactly as the
-   * Spread MarketGapRow derives it. NEGATIVE = the model has HOME favoured by
+   * projected score's spread value is. NEGATIVE = the model has HOME favoured by
    * more than the book, i.e. spread value on HOME. POSITIVE = value on AWAY.
    * Independently cross-checked against the generator: fg_spread_edge =
    * pred_margin + spread_close = -spreadGap, and the model picks HOME when that

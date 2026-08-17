@@ -166,19 +166,35 @@ public struct ModelEdgeRail: View {
     /// (neutral market / accent model) keeps them attributable.
     private var captionPositions: (market: CGFloat, model: CGFloat) {
         guard railWidth > captionWidth else { return (marketX, modelX) }
-        var mkt = marketX
-        var mdl = modelX
-        let minimumSeparation = captionWidth + 6
-        let separation = abs(mdl - mkt)
-        if separation < minimumSeparation {
-            let push = (minimumSeparation - separation) / 2
-            let direction: CGFloat = mdl >= mkt ? 1 : -1
-            mkt -= direction * push
-            mdl += direction * push
-        }
+        let minimumSeparation = captionWidth + 8
         let lower = captionWidth / 2
-        let upper = railWidth - captionWidth / 2
-        return (Swift.min(Swift.max(mkt, lower), upper), Swift.min(Swift.max(mdl, lower), upper))
+        let upper = Swift.max(railWidth - captionWidth / 2, lower)
+        let usable = upper - lower
+
+        let marketIsLeft = marketX <= modelX
+        var left = marketIsLeft ? marketX : modelX
+        var right = marketIsLeft ? modelX : marketX
+
+        if right - left < minimumSeparation {
+            let mid = (left + right) / 2
+            left = mid - minimumSeparation / 2
+            right = mid + minimumSeparation / 2
+        }
+        if minimumSeparation > usable {
+            let mid = (lower + upper) / 2
+            return (mid, mid)
+        }
+        if left < lower {
+            let shift = lower - left
+            left += shift
+            right += shift
+        }
+        if right > upper {
+            let shift = right - upper
+            left -= shift
+            right -= shift
+        }
+        return marketIsLeft ? (left, right) : (right, left)
     }
 
     // MARK: - Body

@@ -61,32 +61,61 @@ export function useMeasuredWidth<T extends HTMLElement>(): [React.RefObject<T>, 
 }
 
 /**
- * Push two captions apart when their markers nearly coincide, otherwise a small
- * edge renders both labels stacked on top of each other. The *markers* stay
- * truthful; only the labels move, and the colour pairing keeps them
- * attributable. Positions in and out are pixels from the left edge.
+ * Push two captions apart when their markers nearly coincide. Shifts the pair
+ * as a unit so edge-clamping cannot collapse them back on top of each other.
+ * Returns pixel centres in the same order as the inputs. When the container
+ * cannot fit both side-by-side, both centres land on the same X and the caller
+ * should stack them vertically (`captionsNeedStack`).
  */
 export function separateCaptions(
-  leftX: number,
-  rightX: number,
+  firstX: number,
+  secondX: number,
   captionWidth: number,
   containerWidth: number,
 ): [number, number] {
-  if (containerWidth <= captionWidth) return [leftX, rightX];
-  let left = leftX;
-  let right = rightX;
-  const minimumSeparation = captionWidth + 6;
-  const separation = Math.abs(right - left);
-  if (separation < minimumSeparation) {
-    const shove = (minimumSeparation - separation) / 2;
-    const direction = right >= left ? 1 : -1;
-    left -= direction * shove;
-    right += direction * shove;
-  }
+  if (containerWidth <= captionWidth) return [firstX, secondX];
+
+  const minimumSeparation = captionWidth + 8;
   const lower = captionWidth / 2;
-  const upper = containerWidth - captionWidth / 2;
-  const clamp = (v: number) => Math.min(Math.max(v, lower), upper);
-  return [clamp(left), clamp(right)];
+  const upper = Math.max(containerWidth - captionWidth / 2, lower);
+  const usable = upper - lower;
+
+  const firstIsLeft = firstX <= secondX;
+  let left = firstIsLeft ? firstX : secondX;
+  let right = firstIsLeft ? secondX : firstX;
+
+  if (right - left < minimumSeparation) {
+    const mid = (left + right) / 2;
+    left = mid - minimumSeparation / 2;
+    right = mid + minimumSeparation / 2;
+  }
+
+  if (minimumSeparation > usable) {
+    const mid = (lower + upper) / 2;
+    return [mid, mid];
+  }
+
+  if (left < lower) {
+    const shift = lower - left;
+    left += shift;
+    right += shift;
+  }
+  if (right > upper) {
+    const shift = right - upper;
+    left -= shift;
+    right -= shift;
+  }
+
+  return firstIsLeft ? [left, right] : [right, left];
+}
+
+/** True when two caption centres still collide after separation — stack them. */
+export function captionsNeedStack(
+  firstX: number,
+  secondX: number,
+  captionWidth: number,
+): boolean {
+  return Math.abs(firstX - secondX) < captionWidth * 0.9;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +160,7 @@ export function MarkerCaption({
   size = 'sm',
   x,
   width,
+  stackOffset = 0,
 }: {
   label: string;
   value?: string | null;
@@ -139,11 +169,13 @@ export function MarkerCaption({
   size?: 'sm' | 'lg';
   x: number;
   width: number;
+  /** Extra top offset in px when two captions stack vertically. */
+  stackOffset?: number;
 }) {
   return (
     <span
-      className="absolute top-0 flex flex-col items-center gap-px"
-      style={{ left: x, width, transform: 'translateX(-50%)' }}
+      className="absolute flex flex-col items-center gap-px"
+      style={{ left: x, top: stackOffset, width, transform: 'translateX(-50%)' }}
     >
       <span className="max-w-full truncate text-[8px] font-black uppercase leading-none tracking-[0.06em] text-muted-foreground/70">
         {label}

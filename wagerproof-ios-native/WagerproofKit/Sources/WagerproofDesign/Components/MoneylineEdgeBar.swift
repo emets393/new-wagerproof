@@ -162,22 +162,35 @@ public struct MoneylineEdgeBar: View {
 
     private var captionPositions: (breakEven: CGFloat, model: CGFloat) {
         guard barWidth > captionWidth else { return (breakEvenX, modelX) }
-        var left = breakEvenX
-        var right = modelX
-        let minimumSeparation = captionWidth + 6
-        let separation = abs(right - left)
-        if separation < minimumSeparation {
-            let shove = (minimumSeparation - separation) / 2
-            let direction: CGFloat = right >= left ? 1 : -1
-            left -= direction * shove
-            right += direction * shove
-        }
+        let minimumSeparation = captionWidth + 8
         let lower = captionWidth / 2
-        let upper = barWidth - captionWidth / 2
-        return (
-            Swift.min(Swift.max(left, lower), upper),
-            Swift.min(Swift.max(right, lower), upper)
-        )
+        let upper = Swift.max(barWidth - captionWidth / 2, lower)
+        let usable = upper - lower
+
+        let firstIsLeft = breakEvenX <= modelX
+        var left = firstIsLeft ? breakEvenX : modelX
+        var right = firstIsLeft ? modelX : breakEvenX
+
+        if right - left < minimumSeparation {
+            let mid = (left + right) / 2
+            left = mid - minimumSeparation / 2
+            right = mid + minimumSeparation / 2
+        }
+        if minimumSeparation > usable {
+            let mid = (lower + upper) / 2
+            return (mid, mid)
+        }
+        if left < lower {
+            let shift = lower - left
+            left += shift
+            right += shift
+        }
+        if right > upper {
+            let shift = right - upper
+            left -= shift
+            right -= shift
+        }
+        return firstIsLeft ? (left, right) : (right, left)
     }
 
     // MARK: - Body

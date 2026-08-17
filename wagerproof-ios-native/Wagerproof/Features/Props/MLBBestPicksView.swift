@@ -195,10 +195,10 @@ struct MLBBestPicksView: View {
     }
 
     private enum MarketTableLayout {
-        static let columnSpacing: CGFloat = 10
-        static let wlp: CGFloat = 46
+        static let columnSpacing: CGFloat = 8
+        static let wlp: CGFloat = 76
         static let units: CGFloat = 54
-        static let roi: CGFloat = 62
+        static let roi: CGFloat = 56
     }
 
     private var marketHeaderRow: some View {
@@ -242,6 +242,7 @@ struct MLBBestPicksView: View {
                 .foregroundStyle(Color.appTextSecondary)
                 .monospacedDigit()
                 .lineLimit(1)
+                .minimumScaleFactor(0.75)
                 .frame(width: MarketTableLayout.wlp, alignment: .trailing)
                 .layoutPriority(1)
             Text(MLBPlayerPropPerformanceFormatting.formatUnits(row.unitsWon))
@@ -249,6 +250,7 @@ struct MLBBestPicksView: View {
                 .foregroundStyle(unitsColor(row.unitsWon))
                 .monospacedDigit()
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .frame(width: MarketTableLayout.units, alignment: .trailing)
                 .layoutPriority(1)
             Text(MLBPlayerPropPerformanceFormatting.formatPct(row.roiPct))
@@ -256,6 +258,7 @@ struct MLBBestPicksView: View {
                 .foregroundStyle(unitsColor(row.unitsWon))
                 .monospacedDigit()
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .frame(width: MarketTableLayout.roi, alignment: .trailing)
                 .layoutPriority(1)
         }

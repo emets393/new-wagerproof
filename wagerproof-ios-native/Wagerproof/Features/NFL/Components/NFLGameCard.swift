@@ -64,7 +64,8 @@ struct NFLGameCard: View {
             slatePicks: predictionPills,
             oddsBreakdown: oddsBreakdown,
             isMammoth: hasMammothPlay,
-            consensus: consensus
+            consensus: consensus,
+            signalCount: signalCount
         )
     }
 
@@ -74,6 +75,15 @@ struct NFLGameCard: View {
             pick.hasPlay == true
                 && (pick.isMammoth == true || (pick.conviction ?? "").lowercased() == "mammoth")
         }
+    }
+
+    /// Same blanket strip the detail sheet uses, so the feed pill never counts
+    /// pipeline scaffolding keys like `sides_model`.
+    private var signalCount: Int {
+        FootballBlanketSignals.displayKeys(
+            sport: "nfl",
+            keys: slatePicks.flatMap(\.signalKeys)
+        ).count
     }
 
     private var predictionPills: GameRowCard.SlatePicks {

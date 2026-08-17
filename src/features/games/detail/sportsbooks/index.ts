@@ -1,7 +1,7 @@
 /**
- * Per-book shopping for game-detail cards. Preference is local
- * (`sportsbook.preferred`); the chip leads with the user's best book and
- * never hides a better number elsewhere.
+ * Per-book shopping for game-detail cards. Preference lives on
+ * `profiles.preferred_sportsbooks` and is cached locally so the chip leads
+ * with the user's best book and never hides a better number elsewhere.
  *
  * Cross-platform siblings — keep the maths in step:
  *   iOS     `WagerproofKit/Sources/WagerproofModels/SportsbookQuote.swift`

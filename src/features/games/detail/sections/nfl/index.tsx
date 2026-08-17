@@ -20,7 +20,7 @@ import { NflLineMovementSection } from './NflLineMovementSection';
 /**
  * NFL detail-pane widget stack — mirrors the native sheet after the 2026
  * dryrun cutover:
- *   slate summary → multi-market picks (with team season trends per market) →
+ *   score prediction (slate summary) → multi-market picks (with team season trends per market) →
  *   market odds → betting splits → line movement → matchup history.
  *
  * Legacy EPA spread/total cards are intentionally omitted: FG lines + picks

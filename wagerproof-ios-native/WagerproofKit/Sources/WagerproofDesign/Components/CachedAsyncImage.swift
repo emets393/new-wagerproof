@@ -32,11 +32,17 @@ public final class RemoteImageCache {
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.urlCache = URLCache(
-            memoryCapacity: 8 * 1024 * 1024,
-            diskCapacity: 64 * 1024 * 1024,
+            memoryCapacity: 32 * 1024 * 1024,
+            diskCapacity: 128 * 1024 * 1024,
             diskPath: "wagerproof-remote-images"
         )
-        config.requestCachePolicy = .returnCacheDataElseLoad
+        // Honour HTTP cache headers. `.returnCacheDataElseLoad` would forever
+        // replay a failed favicon body and starve later ESPN headshot fetches
+        // on the same session.
+        config.requestCachePolicy = .useProtocolCachePolicy
+        config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForResource = 20
+        config.httpMaximumConnectionsPerHost = 8
         return URLSession(configuration: config)
     }()
 
@@ -109,8 +115,12 @@ public struct CachedAsyncImage<Content: View>: View {
             phase = .empty
             return
         }
+        // Always assign for *this* URL. Skipping when `phase` is already
+        // `.success` leaves the previous book's mark on screen — Outliers
+        // remaps FanDuel → DraftKings on the same view identity, so the
+        // leftover success was a FanDuel spark next to the word DraftKings.
         if let hit = RemoteImageCache.shared.cached(url) {
-            if case .success = phase {} else { phase = .success(hit) }
+            phase = .success(hit)
             return
         }
         if let image = await RemoteImageCache.shared.image(for: url) {

@@ -33,8 +33,6 @@ import WagerproofStores
 struct SettingsView: View {
     /// Empty string = "best available"; `@AppStorage` can't hold a nil String.
     @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKey: String = ""
-    /// Prefetched circle-cropped book logos for the preferred-sportsbook menu.
-    private var logoCache = SportsbookLogoCache.shared
 
     @Environment(AuthStore.self) private var auth
     @Environment(SettingsStore.self) private var settings
@@ -54,6 +52,9 @@ struct SettingsView: View {
     @State private var notificationDeniedAlert = false
     @State private var didCopyUserId = false
     @State private var copyResetTask: Task<Void, Never>?
+    /// A `Menu` dismisses itself on every tap, which makes selecting more than
+    /// one book frustrating. This explicit sheet remains open until dismissal.
+    @State private var isSportsbookPickerPresented = false
     /// Opens the branded walkthrough for WagerProof's remote MCP connector.
     /// The connector is deliberately available to every signed-in user: it is
     /// read-only and uses the account they explicitly authorize in Claude.
@@ -156,6 +157,9 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $isClaudeConnectorGuidePresented) {
             WagerproofClaudeConnectorGuideSheet()
+        }
+        .sheet(isPresented: $isSportsbookPickerPresented) {
+            SportsbookPreferencePicker()
         }
         .alert("Logout", isPresented: $isLogoutAlertPresented) {
             Button("Cancel", role: .cancel) {}
@@ -265,102 +269,21 @@ struct SettingsView: View {
         }
     }
 
-    /// Pins one book across every card that quotes a price. Bespoke rather than
-    /// a `ProfileRow` because it carries an inline `Menu` instead of a tap
-    /// action.
-    ///
-    /// The pinned book is what cards LEAD with — it never suppresses a better
-    /// number, which still shows in the book board flagged BEST. Hiding a better
-    /// line would quietly cost the user money.
+    /// Preferred books lead NFL / CFB odds surfaces. A dedicated picker, rather
+    /// than a SwiftUI `Menu`, stays open while a user selects their full set.
     @ViewBuilder
     private var preferredSportsbookRow: some View {
-        HStack(spacing: Spacing.lg) {
-            Image(systemName: "building.columns")
-                .font(.system(size: 20, weight: .regular))
-                .foregroundStyle(Color.appTextSecondary)
-                .frame(width: Self.iconColumnWidth)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("My Sportsbooks")
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(Color.appTextPrimary)
-                Text(preferredBookKey.isEmpty
-                     ? "Showing whichever book has the best number"
-                     : "\(SportsbookCatalog.name(for: preferredBookKey)) shown first on every card")
-                    .font(AppFont.caption)
-                    .foregroundStyle(Color.appTextMuted)
-                    .lineLimit(2)
-            }
-            Spacer(minLength: Spacing.sm)
-            Menu {
-                Button {
-                    preferredBookKey = ""
-                } label: {
-                    Label("All books", systemImage: selectedBooks.isEmpty ? "checkmark" : "")
-                }
-                Divider()
-                ForEach(SportsbookCatalog.selectable, id: \.self) { key in
-                    Button {
-                        toggleBook(key)
-                    } label: {
-                        // `Label(_:image:)` with a prefetched UIImage — a menu
-                        // is a UIMenu under the hood and resolves its icon once,
-                        // so SportsbookLogoView's async load never lands here.
-                        if let logo = logoCache.image(for: key) {
-                            Label {
-                                Text(bookMenuTitle(key))
-                            } icon: {
-                                Image(uiImage: logo).renderingMode(.original)
-                            }
-                        } else {
-                            Label(
-                                bookMenuTitle(key),
-                                systemImage: selectedBooks.contains(key) ? "checkmark" : ""
-                            )
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(menuButtonLabel)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color.appTextSecondary)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color.appTextMuted)
-                }
-            }
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, 14)
-        .task { logoCache.prefetch(SportsbookCatalog.selectable) }
+        ProfileRow(
+            icon: "building.columns",
+            title: "My Sportsbooks",
+            subtitle: SportsbookPreference.summary(selectedBooks),
+            accessory: .chevron,
+            action: { isSportsbookPickerPresented = true }
+        )
+        .task { await SportsbookCatalogService.shared.ensureLoaded() }
     }
 
     private var selectedBooks: Set<String> { SportsbookPreference.decode(preferredBookKey) }
-
-    private var menuButtonLabel: String {
-        switch selectedBooks.count {
-        case 0: return "All"
-        case 1: return SportsbookCatalog.name(for: selectedBooks.first!)
-        default: return "\(selectedBooks.count) books"
-        }
-    }
-
-    /// A SwiftUI `Menu` closes on every tap, so multi-select is one book per
-    /// open. Acceptable for a set-once preference, and it keeps the row compact
-    /// — a dedicated picker screen for ten checkboxes would be heavier than the
-    /// setting deserves.
-    private func toggleBook(_ key: String) {
-        var next = selectedBooks
-        if next.contains(key) { next.remove(key) } else { next.insert(key) }
-        preferredBookKey = SportsbookPreference.encode(next)
-    }
-
-    /// The tick can't be a separate icon once the row carries a logo — a menu
-    /// item gets ONE image — so selection is marked in the title.
-    private func bookMenuTitle(_ key: String) -> String {
-        let name = SportsbookCatalog.name(for: key)
-        return selectedBooks.contains(key) ? "\(name)  ✓" : name
-    }
 
     // MARK: - WagerProof AI connector
 
@@ -791,6 +714,88 @@ struct SettingsView: View {
             if !Task.isCancelled {
                 await MainActor.run { versionTapCount = 0 }
             }
+        }
+    }
+}
+
+/// Persistent multi-select. Owns `@AppStorage` itself so the sheet does not
+/// snapshot an empty set at presentation — each tap writes the CSV and the
+/// checkmarks re-read it, including the next time the page opens.
+private struct SportsbookPreferencePicker: View {
+    @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKey: String = ""
+    @State private var selectedBooks: Set<String> = []
+    @Environment(AuthStore.self) private var auth
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Button {
+                        apply([])
+                    } label: {
+                        HStack {
+                            Text("All books")
+                            Spacer()
+                            if selectedBooks.isEmpty {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .black))
+                                    .foregroundStyle(Color.appPrimary)
+                            }
+                        }
+                    }
+                    .foregroundStyle(Color.appTextPrimary)
+                } footer: {
+                    Text("With no books selected, WagerProof shows the best number available anywhere.")
+                }
+
+                Section("My Sportsbooks") {
+                    ForEach(SportsbookCatalog.selectable, id: \.self) { key in
+                        Button {
+                            var next = selectedBooks
+                            if next.contains(key) {
+                                next.remove(key)
+                            } else {
+                                next.insert(key)
+                            }
+                            apply(next)
+                        } label: {
+                            HStack(spacing: 12) {
+                                SportsbookLogoView(
+                                    logoURL: nil,
+                                    bookKey: key,
+                                    bookName: SportsbookCatalog.name(for: key),
+                                    style: .compact
+                                )
+                                Text(SportsbookCatalog.name(for: key))
+                                Spacer()
+                                if selectedBooks.contains(key) {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 14, weight: .black))
+                                        .foregroundStyle(Color.appPrimary)
+                                }
+                            }
+                        }
+                        .foregroundStyle(Color.appTextPrimary)
+                    }
+                }
+            }
+            .navigationTitle("My Sportsbooks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onAppear { selectedBooks = SportsbookPreference.selectedBookKeys }
+        }
+    }
+
+    private func apply(_ keys: Set<String>) {
+        selectedBooks = keys
+        preferredBookKey = SportsbookPreference.encode(keys)
+        if case .authenticated(let userId) = auth.phase {
+            Task { await SportsbookPreferenceService.shared.save(userId: userId, keys: keys) }
         }
     }
 }

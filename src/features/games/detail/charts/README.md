@@ -11,7 +11,7 @@ the gap between them highlighted.**
 
 | Component | Threshold | Model | Axis anchored at |
 |---|---|---|---|
-| `SpreadCoverBar` | the margin needed to cover | projected margin | a TIE |
+| `SpreadCoverBar` | the margin needed to cover | projected margin | an auto-fit window around those two, with TIE labelled when it falls inside |
 | `ModelEdgeRail` | the market number | projected number | the market |
 | `MoneylineEdgeBar` | break-even win rate at the price | projected win % | 50% |
 
@@ -24,6 +24,15 @@ row, kept for the places that have no threshold to plot.
 -modelLine`. The negation happens exactly once, at the call site, and every call
 site comments it. The whole point is to stop printing "+4.5" next to "−2.1" and
 making the reader reconcile a line against a margin.
+
+A revision once plotted pick-side *lines* on the axis while the captions kept
+speaking margin, and it failed twice over: the same projection printed as "+0.3"
+on the bar and "losing by 0.3" in the sentence above it, and the axis direction
+inverted, because a bigger line means the market rates the team *worse* — so the
+covering half of the bar ended up under the opponent's abbreviation. Both are
+unfixable while two units share one axis. Captions still speak margin (`LA by
+3.5`). Axis ticks write the pick team's line at that score (`spreadTickLabel`:
+`LA −4`, `TIE`, `LA +4`).
 
 **2. Half lines can't push; whole lines must say they do.** A final margin is a
 whole number, so `threshold = -line`, `coverMin = floor(threshold) + 1`,
@@ -59,14 +68,16 @@ Every number a card prints has to reconcile with every other one, so:
   read "Over Lean" under an UNDER pick.
 - **Plot the CLOSE, not the best-shopped line.** The football pick cards have
   both `vegas_line` and `best_line`; the card headline is written against the
-  close, so the charts use the close too. The shopped price keeps its own slot in
-  the book chip, labelled as a price.
+  close, so the charts use the close too. `best_line` is only a fallback when
+  the close is missing, so the card still gets a cover bar instead of the old
+  compact table. The shopped price keeps its own slot in the book chip, labelled
+  as a price.
 
 ## Wiring
 
 | Sport | Spread | Total | Moneyline |
 |---|---|---|---|
-| NFL | dryrun pick rows + slate summary | dryrun pick rows + slate summary | dryrun pick rows |
+| NFL | dryrun pick rows | dryrun pick rows | dryrun pick rows |
 | CFB | same file (`sections/cfb/CfbDryRunSections.tsx`) | same | same |
 | NBA | `NbaSpreadSection` | `NbaTotalSection` | — (no ML card) |
 | NCAAB | `CollegeModelCards` via `NcaabPredictionsSection` | same | — |

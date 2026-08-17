@@ -254,9 +254,9 @@ private fun TierSection(group: MLBPlayerPropTierSummary) {
     }
 }
 
-private val ColWlp = 46.dp
+private val ColWlp = 76.dp
 private val ColUnits = 54.dp
-private val ColRoi = 62.dp
+private val ColRoi = 56.dp
 
 @Composable
 private fun MarketHeaderRow() {

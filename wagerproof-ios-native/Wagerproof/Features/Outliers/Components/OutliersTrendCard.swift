@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofModels
+import WagerproofServices
 
 struct OutliersTrendCard: View {
     /// Carousel cards are a fixed-size compact preview; the detail sheet renders
@@ -18,6 +19,11 @@ struct OutliersTrendCard: View {
     /// Live compact cards and expanded detail cards keep their existing layout.
     var marqueeStyle = false
     var onExpandPlayers: (() -> Void)?
+    /// NFL / CFB Outliers cards carry per-book lines from the same odds capture
+    /// as game detail. MLB's feed has one canonical line, so it deliberately
+    /// ignores this preference.
+    @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKeysRaw: String = ""
+    @State private var liveOdds: SportsbookGameOdds?
 
     /// Compact carousel cards show at most this many trend rows; the rest are
     /// summarized by the "+N more" footer and revealed in the detail sheet.
@@ -38,6 +44,22 @@ struct OutliersTrendCard: View {
 
     private var isCompact: Bool { displayMode == .compact }
     private var usesSingleLineLayout: Bool { isCompact || marqueeStyle }
+    private var selectedBookKeys: Set<String> {
+        SportsbookPreference.decode(preferredBookKeysRaw)
+    }
+    private var displayedBettingLines: [OutliersTrendsBettingLine] {
+        guard sport == .nfl || sport == .ncaaf else { return card.bettingLines }
+        let source = card.bettingLines.isEmpty ? synthesizedBettingLines : card.bettingLines
+        let remapped = source.map(preferredBettingLine)
+        guard !selectedBookKeys.isEmpty else { return remapped }
+        let matches = remapped.filter { line in
+            guard let key = SportsbookCatalog.key(forDisplayName: line.bookName) else { return false }
+            return selectedBookKeys.contains(key)
+        }
+        // Do not blank a trend just because the stored snapshot is missing the
+        // user's book. This matches game detail's safe fallback to best overall.
+        return matches.isEmpty ? remapped : matches
+    }
 
     private var visibleRows: [OutliersTrendsCardRow] {
         isCompact ? Array(card.rows.prefix(compactRowCap)) : card.rows
@@ -68,13 +90,18 @@ struct OutliersTrendCard: View {
     }
 
     var body: some View {
-        if card.isPlayerOverflow {
-            Button(action: { onExpandPlayers?() }) {
-                overflowContent
+        Group {
+            if card.isPlayerOverflow {
+                Button(action: { onExpandPlayers?() }) {
+                    overflowContent
+                }
+                .buttonStyle(.plain)
+            } else {
+                cardContent
             }
-            .buttonStyle(.plain)
-        } else {
-            cardContent
+        }
+        .task(id: "\(sport.rawValue)-\(card.gameId)") {
+            await loadPreferredOdds()
         }
     }
 
@@ -85,7 +112,7 @@ struct OutliersTrendCard: View {
                 Spacer(minLength: 4)
                 gameScheduleLabel
             }
-            if !card.bettingLines.isEmpty {
+            if !displayedBettingLines.isEmpty {
                 bettingLinesBlock
             } else if let line = card.lineContext {
                 Text(line)
@@ -239,17 +266,17 @@ struct OutliersTrendCard: View {
     }
 
     private var bettingLinesBlock: some View {
-        let showBookName = card.bettingLines.count < 2
+        let showBookName = displayedBettingLines.count < 2
         return Group {
-            if card.bettingLines.count >= 2 {
+            if displayedBettingLines.count >= 2 {
                 HStack(alignment: .top, spacing: 6) {
-                    ForEach(card.bettingLines) { line in
+                    ForEach(displayedBettingLines) { line in
                         bettingLineChip(line, showBookName: false)
                             .frame(maxWidth: .infinity)
                     }
                 }
             } else {
-                ForEach(card.bettingLines) { line in
+                ForEach(displayedBettingLines) { line in
                     bettingLineChip(line, showBookName: showBookName)
                 }
             }
@@ -257,7 +284,7 @@ struct OutliersTrendCard: View {
     }
 
     private func bettingLineChip(_ line: OutliersTrendsBettingLine, showBookName: Bool) -> some View {
-        let isOverUnderPair = card.bettingLines.count >= 2
+        let isOverUnderPair = displayedBettingLines.count >= 2
         return HStack(alignment: .center, spacing: 8) {
             if isOverUnderPair {
                 sportsbookTrailingBlock(line: line, showBookName: false)
@@ -310,7 +337,7 @@ struct OutliersTrendCard: View {
                 }
                 SportsbookLogoView(
                     logoURL: line.bookLogoUrl,
-                    bookKey: nil,
+                    bookKey: SportsbookCatalog.key(forDisplayName: line.bookName),
                     bookName: line.bookName,
                     style: .compact
                 )
@@ -371,6 +398,227 @@ struct OutliersTrendCard: View {
             return nil
         }
         return upper
+    }
+
+    /// Overlay the live preferred-book quote onto a stored Outliers chip.
+    /// Player props and MLB stay on the precomputed line.
+    private func preferredBettingLine(_ line: OutliersTrendsBettingLine) -> OutliersTrendsBettingLine {
+        guard let liveOdds, let market = sportsbookMarket(for: line) else { return line }
+        guard let quote = liveOdds.quotes(for: market).preferred(selectedBookKeys) else { return line }
+        return OutliersTrendsBettingLine(
+            id: "\(line.id)-\(quote.bookKey)",
+            label: line.label,
+            lineText: preferredLineText(for: line, quote: quote),
+            oddsText: quote.price.map { GameCardFormatting.formatMoneyline($0) } ?? line.oddsText,
+            bookName: quote.bookName,
+            bookLogoUrl: SportsbookCatalog.logoURL(for: quote.bookKey),
+            teamAbbr: line.teamAbbr
+        )
+    }
+
+    private func preferredLineText(for line: OutliersTrendsBettingLine, quote: SportsbookQuote) -> String {
+        if card.marketKey == "moneyline" || card.marketKey == "h1_ml" {
+            // Keep the team label ("CLE ML"); the price lives in `oddsText`.
+            return line.lineText
+        }
+        guard let number = quote.line else { return line.lineText }
+        if isOverUnderMarket {
+            let dir = overUnderChipLabel(for: line).capitalized
+            return "\(dir) \(GameCardFormatting.roundToNearestHalf(number))"
+        }
+        return GameCardFormatting.formatSpread(number)
+    }
+
+    /// Snapshot cards for moneyline (and some 1H markets) often ship with an
+    /// empty `betting_lines` array even though the game row and the live board
+    /// both have a number. Fill those chips here rather than leaving the card
+    /// blank. Team totals and player props have no live board in this service.
+    private var synthesizedBettingLines: [OutliersTrendsBettingLine] {
+        guard card.subjectKind != .player else { return [] }
+        switch card.marketKey {
+        case "spread", "h1_spread", "moneyline", "h1_ml":
+            if let line = synthesizedSideLine() { return [line] }
+        case "total", "h1_total":
+            return ["OVER", "UNDER"].compactMap { synthesizedTotalLine(side: $0) }
+        default:
+            return []
+        }
+        return []
+    }
+
+    private func synthesizedSideLine() -> OutliersTrendsBettingLine? {
+        let market = sportsbookMarket(for: nil)
+        if let liveOdds, let market,
+           let quote = liveOdds.quotes(for: market).preferred(selectedBookKeys) {
+            return chip(from: quote, label: card.betTypeLabel, sideLabel: nil)
+        }
+        return closeLineFallback()
+    }
+
+    private func synthesizedTotalLine(side: String) -> OutliersTrendsBettingLine? {
+        let isOver = side == "OVER"
+        let market: SportsbookMarket? = {
+            switch card.marketKey {
+            case "total": return .total(isOver: isOver)
+            case "h1_total": return sport == .nfl ? .firstHalfTotal(isOver: isOver) : .total(isOver: isOver)
+            default: return nil
+            }
+        }()
+        if let liveOdds, let market,
+           let quote = liveOdds.quotes(for: market).preferred(selectedBookKeys) {
+            return chip(from: quote, label: side.capitalized, sideLabel: side.capitalized)
+        }
+        return closeTotalFallback(side: side)
+    }
+
+    private func chip(
+        from quote: SportsbookQuote,
+        label: String,
+        sideLabel: String?
+    ) -> OutliersTrendsBettingLine {
+        let lineText: String
+        if card.marketKey == "moneyline" || card.marketKey == "h1_ml" {
+            lineText = moneylineLineText
+        } else if let sideLabel, let number = quote.line {
+            lineText = "\(sideLabel) \(GameCardFormatting.roundToNearestHalf(number))"
+        } else {
+            lineText = GameCardFormatting.formatSpread(quote.line)
+        }
+        return OutliersTrendsBettingLine(
+            id: "\(card.id)-live-\(label.lowercased())",
+            label: label,
+            lineText: lineText,
+            oddsText: quote.price.map { GameCardFormatting.formatMoneyline($0) },
+            bookName: quote.bookName,
+            bookLogoUrl: SportsbookCatalog.logoURL(for: quote.bookKey),
+            teamAbbr: card.teamAbbr
+        )
+    }
+
+    private var moneylineLineText: String {
+        if let abbr = card.teamAbbr, !abbr.isEmpty { return "\(abbr) ML" }
+        return "ML"
+    }
+
+    /// Last resort when the live board hasn't loaded: the close already sitting
+    /// on the game row. No book attribution — this is not a shopped number.
+    private func closeLineFallback() -> OutliersTrendsBettingLine? {
+        guard let game else { return nil }
+        let isHome = isHomeSide(nil)
+        switch card.marketKey {
+        case "spread":
+            guard let close = game.fgSpreadClose else { return nil }
+            let number = isHome ? close : -close
+            return untitledChip(
+                label: card.betTypeLabel,
+                lineText: GameCardFormatting.formatSpread(number),
+                oddsText: "-110"
+            )
+        case "moneyline":
+            let price = isHome ? game.nflContext?.homeMl : game.nflContext?.awayMl
+            guard let price else { return nil }
+            return untitledChip(
+                label: card.betTypeLabel,
+                lineText: moneylineLineText,
+                oddsText: GameCardFormatting.formatMoneyline(Int(price.rounded()))
+            )
+        case "h1_spread":
+            guard let close = game.nflContext?.h1SpreadClose else { return nil }
+            let number = isHome ? close : -close
+            let price = isHome ? game.nflContext?.h1SpreadHomePrice : game.nflContext?.h1SpreadAwayPrice
+            return untitledChip(
+                label: card.betTypeLabel,
+                lineText: GameCardFormatting.formatSpread(number),
+                oddsText: GameCardFormatting.formatMoneyline(price.map { Int($0.rounded()) })
+            )
+        default:
+            return nil
+        }
+    }
+
+    private func closeTotalFallback(side: String) -> OutliersTrendsBettingLine? {
+        guard let game else { return nil }
+        let isOver = side == "OVER"
+        let number: Double?
+        let price: Double?
+        switch card.marketKey {
+        case "total":
+            number = game.fgTotalClose
+            price = nil
+        case "h1_total":
+            number = game.nflContext?.h1TotalClose
+            price = isOver ? game.nflContext?.h1TotalOverPrice : game.nflContext?.h1TotalUnderPrice
+        default:
+            return nil
+        }
+        guard let number else { return nil }
+        return untitledChip(
+            label: side.capitalized,
+            lineText: "\(side.capitalized) \(GameCardFormatting.roundToNearestHalf(number))",
+            oddsText: price.map { GameCardFormatting.formatMoneyline(Int($0.rounded())) } ?? "-110"
+        )
+    }
+
+    private func untitledChip(label: String, lineText: String, oddsText: String?) -> OutliersTrendsBettingLine {
+        OutliersTrendsBettingLine(
+            id: "\(card.id)-close-\(label.lowercased())",
+            label: label,
+            lineText: lineText,
+            oddsText: oddsText,
+            bookName: nil,
+            bookLogoUrl: nil,
+            teamAbbr: card.teamAbbr
+        )
+    }
+
+    private func sportsbookMarket(for line: OutliersTrendsBettingLine?) -> SportsbookMarket? {
+        let isHome = isHomeSide(line)
+        let isOver = line.map { overUnderChipLabel(for: $0) == "OVER" } ?? false
+        switch card.marketKey {
+        case "spread": return .spread(isHome: isHome)
+        case "h1_spread": return sport == .nfl ? .firstHalfSpread(isHome: isHome) : .spread(isHome: isHome)
+        case "total": return .total(isOver: isOver)
+        case "h1_total": return sport == .nfl ? .firstHalfTotal(isOver: isOver) : .total(isOver: isOver)
+        case "moneyline", "h1_ml": return .moneyline(isHome: isHome)
+        default: return nil
+        }
+    }
+
+    private func isHomeSide(_ line: OutliersTrendsBettingLine?) -> Bool {
+        guard let game else { return false }
+        let key = (line?.teamAbbr ?? card.teamAbbr ?? "").uppercased()
+        return key == game.homeAb.uppercased() || key == game.homeTeam.uppercased()
+    }
+
+    private func loadPreferredOdds() async {
+        guard !marqueeStyle, (sport == .nfl || sport == .ncaaf), let game else { return }
+        let kickoff = parseKickoff(game.kickoff)
+        let odds: SportsbookGameOdds?
+        if sport == .ncaaf {
+            odds = await SportsbookOddsService.shared.cfbOdds(
+                gameId: game.id,
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                kickoff: kickoff
+            )
+        } else {
+            odds = await SportsbookOddsService.shared.odds(
+                gameId: game.id,
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                kickoff: kickoff
+            )
+        }
+        liveOdds = odds
+    }
+
+    private func parseKickoff(_ raw: String?) -> Date? {
+        guard let raw else { return nil }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        return fractional.date(from: raw) ?? plain.date(from: raw)
     }
 
     private var displaySubjectDetail: String? {

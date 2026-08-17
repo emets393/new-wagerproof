@@ -2429,6 +2429,7 @@ export type Database = {
           id: string
           onboarding_completed: boolean
           onboarding_data: Json | null
+          preferred_sportsbooks: string[] | null
           revenuecat_customer_id: string | null
           subscription_active: boolean | null
           subscription_expires_at: string | null
@@ -2445,6 +2446,7 @@ export type Database = {
           id?: string
           onboarding_completed?: boolean
           onboarding_data?: Json | null
+          preferred_sportsbooks?: string[] | null
           revenuecat_customer_id?: string | null
           subscription_active?: boolean | null
           subscription_expires_at?: string | null
@@ -2461,6 +2463,7 @@ export type Database = {
           id?: string
           onboarding_completed?: boolean
           onboarding_data?: Json | null
+          preferred_sportsbooks?: string[] | null
           revenuecat_customer_id?: string | null
           subscription_active?: boolean | null
           subscription_expires_at?: string | null

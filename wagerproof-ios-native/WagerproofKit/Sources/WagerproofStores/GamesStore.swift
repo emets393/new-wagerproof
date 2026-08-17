@@ -710,6 +710,7 @@ public final class GamesStore {
         // Team logos/abbrs come from the `nfl_teams` reference table — warm
         // the cache so the cards can read it synchronously.
         await NFLTeamsService.shared.ensureLoaded()
+        await SportsbookCatalogService.shared.ensureLoaded()
         guard let slate = await Self.resolveFootballCurrentWeek(cfb, table: "nfl_dryrun_games") else {
             return []
         }
@@ -1380,6 +1381,7 @@ public final class GamesStore {
     private func fetchCFBDryrun() async throws {
         let cfb = await CFBSupabase.shared.client
         await CFBTeamsService.shared.ensureLoaded()
+        await SportsbookCatalogService.shared.ensureLoaded()
 
         guard let slate = await Self.resolveFootballCurrentWeek(cfb, table: "cfb_dryrun_games") else {
             games.cfb = []

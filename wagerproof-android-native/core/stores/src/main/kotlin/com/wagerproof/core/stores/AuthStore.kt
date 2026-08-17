@@ -69,6 +69,7 @@ class AuthStore(
      * "were we ever signed in?" flag the sign-out teardown keys off.
      */
     private var lastIdentifiedUserId: String? = null
+    private var lastHydratedPrefsUserId: String? = null
 
     /** Account currently allowed to own [profile] and SDK identity state. */
     private var boundUserId: String? = null
@@ -190,6 +191,10 @@ class AuthStore(
                     prepareAuthenticatedUser(user.id)
                     phase = Phase.Authenticated(user.id)
                     loadProfile(user.id)
+                    if (lastHydratedPrefsUserId != user.id) {
+                        lastHydratedPrefsUserId = user.id
+                        SportsbookPreferenceStore.hydrate(user.id, service)
+                    }
                     // Remember how they authenticated so onboarding's Meta
                     // CompleteRegistration reports the real method instead of
                     // always claiming "email" — the sign-in that created the
@@ -290,7 +295,9 @@ class AuthStore(
             RevenueCatService.clearSubscriberIdentity()
         }
         lastIdentifiedUserId = null
+        lastHydratedPrefsUserId = null
         boundUserId = null
+        SportsbookPreferenceStore.detach()
     }
 
     private fun persistAuthProvider(provider: String) {

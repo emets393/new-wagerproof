@@ -430,6 +430,7 @@ struct GameRowCard: View {
             HStack(spacing: 6) {
                 slateTotalPill(slatePicks.total)
                 slateSpreadPill(slatePicks.spread)
+                signalPill
                 Spacer(minLength: 0)
                 if model.oddsBreakdown != nil {
                     timePill
@@ -561,6 +562,30 @@ struct GameRowCard: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.appTextMuted)
             }
+        }
+    }
+
+    /// Game-level signal count belongs beside the actual model picks, before
+    /// the user opens the card. Orange keeps it distinct from a green OVER /
+    /// red UNDER verdict.
+    @ViewBuilder
+    private var signalPill: some View {
+        if let count = model.signalCount, count > 0 {
+            HStack(spacing: 3) {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: 9, weight: .black))
+                Text("\(count) \(count == 1 ? "SIGNAL" : "SIGNALS")")
+                    .font(.system(size: 9, weight: .black))
+                    .tracking(0.35)
+            }
+            .foregroundStyle(Color.appAccentAmber)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
+            .background(Color.appAccentAmber.opacity(0.14), in: Capsule())
+            .overlay(Capsule().stroke(Color.appAccentAmber.opacity(0.42), lineWidth: 0.5))
+            .accessibilityLabel("\(count) attached \(count == 1 ? "signal" : "signals")")
         }
     }
 
@@ -739,6 +764,8 @@ extension GameRowCard {
         /// game no public agent bet, or any surface that doesn't fetch it
         /// (Search, Outliers) — and simply renders no strip.
         let consensus: GameAgentConsensus?
+        /// Distinct model/situational signals attached to this matchup.
+        let signalCount: Int?
 
         init(
             id: String,
@@ -755,7 +782,8 @@ extension GameRowCard {
             slatePicks: SlatePicks? = nil,
             oddsBreakdown: OddsBreakdown? = nil,
             isMammoth: Bool = false,
-            consensus: GameAgentConsensus? = nil
+            consensus: GameAgentConsensus? = nil,
+            signalCount: Int? = nil
         ) {
             self.id = id
             self.league = league
@@ -772,6 +800,7 @@ extension GameRowCard {
             self.oddsBreakdown = oddsBreakdown
             self.isMammoth = isMammoth
             self.consensus = consensus
+            self.signalCount = signalCount
         }
     }
 

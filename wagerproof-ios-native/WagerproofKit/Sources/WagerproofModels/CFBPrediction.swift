@@ -632,12 +632,14 @@ public extension CFBPrediction {
     }
 
     var predictedScore: (home: Double, away: Double)? {
+        // Prefer stored per-team projections when present — same order NFL uses
+        // for `fgPredHomePts` / `fgPredAwayPts`.
+        if let home = predHomeScore ?? predHomePoints,
+           let away = predAwayScore ?? predAwayPoints {
+            return (home, away)
+        }
         let total = fgPredTotal ?? predTotal ?? predOverLine
-        let margin = fgPredMargin ?? {
-            if let home = predHomeScore, let away = predAwayScore { return home - away }
-            return nil
-        }()
-        guard let total, let margin else { return nil }
+        guard let total, let margin = fgPredMargin else { return nil }
         return ((total + margin) / 2, (total - margin) / 2)
     }
 

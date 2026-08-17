@@ -49,6 +49,10 @@ public final class AuthStore {
     /// the real registration method.
     static let lastAuthProviderKey = "auth.lastProvider"
 
+    /// Which user we last loaded sportsbook prefs for. Token refresh must not
+    /// overwrite an in-progress picker edit.
+    private var lastHydratedPrefsUserId: UUID?
+
     /// The provider the current user authenticated with, defaulting to "email"
     /// (the only method that existed before social sign-in shipped).
     public static var lastAuthProvider: String {
@@ -117,6 +121,8 @@ public final class AuthStore {
             try await client.auth.signOut()
             phase = .unauthenticated
             profile = nil
+            lastHydratedPrefsUserId = nil
+            SportsbookPreference.clearLocal()
         } catch {
             lastError = Self.message(from: error)
         }
@@ -198,6 +204,10 @@ public final class AuthStore {
             if let userId = session?.user.id {
                 phase = .authenticated(userId: userId)
                 await loadProfile(userId: userId)
+                if lastHydratedPrefsUserId != userId {
+                    lastHydratedPrefsUserId = userId
+                    await SportsbookPreferenceService.shared.hydrate(userId: userId)
+                }
                 // Remember how they authenticated so onboarding's Meta
                 // CompleteRegistration can report the real method instead of
                 // always claiming "email".
@@ -213,6 +223,8 @@ public final class AuthStore {
         case .signedOut:
             phase = .unauthenticated
             profile = nil
+            lastHydratedPrefsUserId = nil
+            SportsbookPreference.clearLocal()
             // Drop the departing user's hashed PII and external ID so the next
             // (anonymous or different) user's events aren't matched to them.
             MetaAnalyticsService.shared.clearUser()

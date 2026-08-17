@@ -65,12 +65,12 @@ export function sportsbookName(key: string): string {
 
 export function decodePreferredBooks(raw: string | null | undefined): Set<string> {
   if (!raw) return new Set();
-  return new Set(
-    raw
-      .split(',')
-      .map((part) => part.trim())
-      .filter((key) => key in SPORTSBOOK_NAMES),
-  );
+  return decodePreferredBookList(raw.split(',').map((part) => part.trim()));
+}
+
+export function decodePreferredBookList(keys: string[] | null | undefined): Set<string> {
+  if (!keys?.length) return new Set();
+  return new Set(keys.filter((key) => key in SPORTSBOOK_NAMES));
 }
 
 export function encodePreferredBooks(keys: Iterable<string>): string {

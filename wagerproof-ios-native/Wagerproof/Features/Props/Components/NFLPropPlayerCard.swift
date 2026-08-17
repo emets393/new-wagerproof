@@ -325,7 +325,7 @@ struct NFLPlayerHeadshot: View {
         Group {
             if let urlString = headshotUrl ?? NFLTeams.headshotUrl(playerId: playerId),
                let url = URL(string: urlString) {
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     if case .success(let img) = phase {
                         img.resizable().scaledToFill()
                     } else {

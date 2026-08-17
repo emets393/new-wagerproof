@@ -14,7 +14,7 @@ import { CfbWeatherSection } from './CfbWeatherSection';
 
 /**
  * CFB detail stack for the /games split view — mirrors the native sheet:
- *   slate summary → multi-market picks (from dryrun_picks, or fg_* synthesis
+ *   score prediction (slate summary) → multi-market picks (from dryrun_picks, or fg_* synthesis
  *   when picks are cold Weeks 1–3) with team season trends → market odds →
  *   weather → open→close line move → head-to-head (cfb_games prior seasons).
  *

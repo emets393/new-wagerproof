@@ -4,6 +4,7 @@ import {
   cfbCanonicalName,
   cfbSupportedAliasCount,
   decodePreferredBooks,
+  decodePreferredBookList,
   encodePreferredBooks,
   isQuoteFromSelection,
   nflCityName,
@@ -45,6 +46,15 @@ describe('preference encode/decode', () => {
     expect([...decodePreferredBooks('fanduel,nope,draftkings')].sort()).toEqual(['draftkings', 'fanduel']);
     expect(decodePreferredBooks('').size).toBe(0);
     expect(preferredBooksSummary(new Set())).toMatch(/any book/);
+  });
+
+  it('decodes the profile text[] the same way as the CSV cache', () => {
+    expect([...decodePreferredBookList(['fanduel', 'nope', 'draftkings'])].sort()).toEqual([
+      'draftkings',
+      'fanduel',
+    ]);
+    expect(decodePreferredBookList([]).size).toBe(0);
+    expect(decodePreferredBookList(null).size).toBe(0);
   });
 });
 

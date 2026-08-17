@@ -40,6 +40,7 @@ public final class CFBDryRunPicksStore {
         loadState = .loading
         do {
             await CFBTeamsService.shared.ensureLoaded()
+            await SportsbookCatalogService.shared.ensureLoaded()
             let cfb = await CFBSupabase.shared.client
 
             // Current week = soonest upcoming kickoff with 6h grace (same as GamesStore).

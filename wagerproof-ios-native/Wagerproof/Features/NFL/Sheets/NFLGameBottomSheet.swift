@@ -328,55 +328,39 @@ struct NFLGameBottomSheet: View {
     private var projectedScoreSection: some View {
         if let score = game.predictedScore {
             WidgetCollapsingSection(
-                title: "Projected Score",
+                title: "Score Prediction",
                 systemImage: "sportscourt",
-                iconTint: Color.appPrimary,
-                headline: GameWidgetHeadlines.projectedScore(
-                    awayName: teamNickname(for: game.awayTeam),
-                    homeName: teamNickname(for: game.homeTeam),
-                    awayScore: score.away,
-                    homeScore: score.home
-                )
+                iconTint: Color.appPrimary
             ) {
-                HStack(spacing: 16) {
-                    projectedTeam(
+                ProjectedScoreRow(
+                    away: projectedScoreSide(
                         team: game.awayTeam,
                         abbreviation: awayAbbr,
                         score: score.away
-                    )
-                    Text("–")
-                        .font(.system(size: 20, weight: .heavy))
-                        .foregroundStyle(Color.appTextMuted)
-                    projectedTeam(
+                    ),
+                    home: projectedScoreSide(
                         team: game.homeTeam,
                         abbreviation: homeAbbr,
                         score: score.home
                     )
-                }
+                )
             }
         }
     }
 
-    private func projectedTeam(team: String, abbreviation: String, score: Double) -> some View {
-        HStack(spacing: 10) {
-            GameCardTeamAvatar(
-                teamName: team,
-                sport: "nfl",
-                size: 38,
-                colors: NFLTeamColors.colorPair(for: team)
-            )
-            VStack(alignment: .leading, spacing: 1) {
-                Text(abbreviation)
-                    .font(.system(size: 10, weight: .heavy))
-                    .tracking(0.6)
-                    .foregroundStyle(Color.appTextSecondary)
-                Text(score.formatted(.number.precision(.fractionLength(1))))
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Color.appTextPrimary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
+    private func projectedScoreSide(
+        team: String,
+        abbreviation: String,
+        score: Double
+    ) -> ProjectedScoreRow.Side {
+        let colors = NFLTeamColors.colorPair(for: team)
+        return ProjectedScoreRow.Side(
+            logoURL: NFLTeamAssets.logo(for: team),
+            abbr: abbreviation,
+            primary: colors.primary,
+            secondary: colors.secondary,
+            score: score
+        )
     }
 
     @ViewBuilder
@@ -451,7 +435,7 @@ struct NFLGameBottomSheet: View {
                 if let board, board.best != nil {
                     BestBookChip(
                         quotes: board,
-                        selectedBookKeys: SportsbookPreference.decode(preferredBookKey),
+                        selectedBookKeys: selectedBookKeys,
                         marketTitle: marketTitle(for: pick),
                         selectionTitle: displayPickLabel(pick),
                         formatLine: { formatPickLine($0, pick: pick) }
@@ -483,7 +467,7 @@ struct NFLGameBottomSheet: View {
         }
 
         let selection = displayPickLabel(pick)
-        let marketLine = pick.bestLine ?? pick.vegasLine
+        let marketLine = preferredMarketLine(for: pick)
         let modelLine = pick.modelLine ?? pick.modelNumber
         let direction = overUnderDirection(for: pick)
 
@@ -664,7 +648,7 @@ struct NFLGameBottomSheet: View {
         if projectionValue(for: pick) == nil && marketValue(for: pick) == nil {
             pendingMarketState(pick)
         } else if isTotalHeader(for: pick),
-           let market = pick.bestLine ?? pick.vegasLine,
+           let market = preferredMarketLine(for: pick),
            let model = pick.modelLine ?? pick.modelNumber,
            market.isFinite, model.isFinite {
             ModelEdgeRail(market: market, model: model, scale: .nfl)
@@ -682,7 +666,7 @@ struct NFLGameBottomSheet: View {
                 scale: .nfl
             )
         } else if isSpreadCard(pick),
-                  let line = pick.bestLine ?? pick.vegasLine,
+                  let line = preferredMarketLine(for: pick),
                   let modelLine = pick.modelLine ?? pick.modelNumber,
                   line.isFinite, modelLine.isFinite {
             // `model_line` is the pick team's fair SPREAD; the bar works in
@@ -717,8 +701,7 @@ struct NFLGameBottomSheet: View {
     private func marketValue(for pick: NFLDryrunPickRow) -> Double? {
         if isMoneylineCard(pick) { return moneylinePrice(for: pick).map(Double.init) }
         if isTeamTotalCard(pick) { return teamTotalMarket(for: pick) }
-        guard let value = pick.bestLine ?? pick.vegasLine, value.isFinite else { return nil }
-        return value
+        return preferredMarketLine(for: pick)
     }
 
     private func pendingMarketState(_ pick: NFLDryrunPickRow) -> some View {
@@ -758,6 +741,9 @@ struct NFLGameBottomSheet: View {
     /// Same precedence as `metricGrid`, so swapping in the bar can't change
     /// which price the card is talking about.
     private func moneylinePrice(for pick: NFLDryrunPickRow) -> Int? {
+        if let price = preferredQuote(for: pick)?.price, abs(price) >= 100 {
+            return price
+        }
         guard let raw = pick.vegasPrice ?? pick.bestOdds, raw.isFinite else { return nil }
         let price = Int(raw.rounded())
         // ±100 is the smallest real American price; 0 means "no market".
@@ -813,6 +799,21 @@ struct NFLGameBottomSheet: View {
         guard let odds = bookOdds, let market = market(for: pick) else { return nil }
         let board = odds.quotes(for: market)
         return board.quotes.isEmpty ? nil : board
+    }
+
+    private var selectedBookKeys: Set<String> {
+        SportsbookPreference.decode(preferredBookKey)
+    }
+
+    private func preferredQuote(for pick: NFLDryrunPickRow) -> SportsbookQuote? {
+        quotes(for: pick)?.preferred(selectedBookKeys)
+    }
+
+    /// The number the card quotes: the user's books first, then the pick row.
+    private func preferredMarketLine(for pick: NFLDryrunPickRow) -> Double? {
+        if let line = preferredQuote(for: pick)?.line, line.isFinite { return line }
+        if let value = pick.bestLine ?? pick.vegasLine, value.isFinite { return value }
+        return nil
     }
 
     /// Maps a card group + picked side onto the market the odds table stores.
@@ -968,10 +969,11 @@ struct NFLGameBottomSheet: View {
         return NFLSignalDefinition(
                 signalKey: signal.key,
                 displayName: signal.displayName,
-                oneLiner: definition?.oneLiner ?? signal.action ?? signal.team,
+                // Keep one-liner as prose only — concrete side lives in the Direction row.
+                oneLiner: definition?.oneLiner,
                 definition: definition?.definition,
                 whyItWorks: definition?.whyItWorks,
-                betDirection: signal.action ?? signal.label ?? definition?.betDirection,
+                betDirection: definition?.betDirection,
                 typicalHit: definition?.typicalHit ?? signal.tier
         )
     }
@@ -1320,18 +1322,24 @@ struct NFLGameBottomSheet: View {
     private func loadDryrunData() async {
         guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else { return }
         await NFLTeamsService.shared.ensureLoaded()
+        await SportsbookCatalogService.shared.ensureLoaded()
         let cfb = await CFBSupabase.shared.client
 
         // Independent of the dryrun tables — a miss just means the cards keep
         // the pick row's own best-book row, so it's fired and forgotten.
         Task {
+            let kickoff = game.kickoff.flatMap { raw -> Date? in
+                let fractional = ISO8601DateFormatter()
+                fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                let plain = ISO8601DateFormatter()
+                plain.formatOptions = [.withInternetDateTime]
+                return fractional.date(from: raw) ?? plain.date(from: raw)
+            }
             let odds = await SportsbookOddsService.shared.odds(
                 gameId: game.gameId,
                 awayTeam: game.awayTeam,
                 homeTeam: game.homeTeam,
-                kickoff: game.kickoff.flatMap {
-                    ISO8601DateFormatter().date(from: $0)
-                }
+                kickoff: kickoff
             )
             await MainActor.run { bookOdds = odds }
         }
@@ -1411,37 +1419,42 @@ struct NFLGameBottomSheet: View {
     private func signalDefinitionSheet(_ display: NFLSignalDisplay) -> some View {
         let signal = signalContextDefinition(display)
         let performance = signalPerformanceByKey[signal.signalKey]
-        let abbr = signalTeamAbbr(display)
+        let team = signalTeam(display)
+        let direction = signalDirectionLabel(display)
         NavigationStack {
             ScrollView {
-                // Chart, then numbers, then prose — same order as CFB's sheet.
+                // Chart first, then the numbers, then the prose — same order as CFB.
                 VStack(alignment: .leading, spacing: 22) {
                     HStack(spacing: 11) {
-                        if let abbr {
-                            GameCardTeamAvatar(
-                                teamName: abbr,
-                                sport: "nfl",
-                                size: 42,
-                                colors: NFLTeamColors.colorPair(for: abbr)
-                            )
-                        } else {
-                            Image(systemName: "bolt.fill")
-                                .font(.system(size: 16, weight: .black))
-                                .foregroundStyle(Color.appAccentBlue)
-                                .frame(width: 42, height: 42)
-                                .background(Color.appAccentBlue.opacity(0.14), in: Circle())
-                        }
+                        signalHeaderGlyph
                         VStack(alignment: .leading, spacing: 4) {
                             Text(signal.displayName ?? signal.signalKey)
                                 .font(.system(size: 20, weight: .black))
                                 .foregroundStyle(Color.appTextPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            if let action = display.action ?? display.label {
-                                Text(action)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(Color.appTextSecondary)
-                            }
+                            Text(marketLabel(display.market))
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(Color.appTextMuted)
                         }
+                    }
+
+                    // Concrete pick — same job as CFB / web SignalDetail Direction row.
+                    HStack(spacing: 8) {
+                        Text("DIRECTION")
+                            .font(.system(size: 10, weight: .black))
+                            .tracking(0.6)
+                            .foregroundStyle(Color.appTextMuted)
+                        if let team {
+                            GameCardTeamAvatar(
+                                teamName: team,
+                                sport: "nfl",
+                                size: 18,
+                                colors: NFLTeamColors.colorPair(for: team)
+                            )
+                        }
+                        Text(direction)
+                            .font(.system(size: 15, weight: .black))
+                            .foregroundStyle(Color.appTextPrimary)
                     }
 
                     if let one = signal.oneLiner, !one.isEmpty {
@@ -1453,16 +1466,34 @@ struct NFLGameBottomSheet: View {
 
                     SignalBacktestChart(backtestRaw: signal.typicalHit, performance: performance)
 
-                    signalBlock("Definition", signal.definition)
-                    signalBlock("Why It Works", signal.whyItWorks)
-                    signalBlock("Bet Direction", signal.betDirection)
+                    VStack(alignment: .leading, spacing: 14) {
+                        if let definition = signal.definition {
+                            definitionLine("What it means", definition)
+                        }
+                        if let why = signal.whyItWorks {
+                            definitionLine("Why it works", why)
+                        }
+                        // Skip generic "side indicated by the rule" — the Direction
+                        // row above already names the concrete pick.
+                        if let betDir = signal.betDirection, !isGenericBetDirection(betDir) {
+                            definitionLine("Bet direction", betDir)
+                        }
+                    }
                 }
                 .padding(18)
             }
             .background(Color.appSurface.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { selectedSignal = nil }
+                    Button {
+                        selectedSignal = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .black))
+                            .foregroundStyle(Color.appTextPrimary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.appSurfaceMuted.opacity(0.7), in: Circle())
+                    }
                 }
             }
         }
@@ -1470,22 +1501,132 @@ struct NFLGameBottomSheet: View {
         .presentationDragIndicator(.visible)
     }
 
-    @ViewBuilder
-    private func signalBlock(_ title: String, _ body: String?) -> some View {
-        if let body, !body.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title.uppercased())
-                    .font(.system(size: 10, weight: .heavy))
-                    .tracking(0.6)
-                    .foregroundStyle(Color.appTextSecondary)
-                Text(body)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color.appTextPrimary)
-                    .lineSpacing(3)
+    private var signalHeaderGlyph: some View {
+        Image(systemName: "waveform.path.ecg")
+            .font(.system(size: 18, weight: .black))
+            .foregroundStyle(Color.appAccentAmber)
+            .frame(width: 42, height: 42)
+            .background(Color.appAccentAmber.opacity(0.14), in: Circle())
+            .accessibilityLabel("Signal")
+    }
+
+    private func definitionLine(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .black))
+                .tracking(0.6)
+                .foregroundStyle(Color.appTextMuted)
+            Text(value)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color.appTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Resolve a game-side club name for the Direction avatar, or nil for totals.
+    private func signalTeam(_ display: NFLSignalDisplay) -> String? {
+        if let abbr = signalTeamAbbr(display) {
+            return abbr == homeAbbr ? game.homeTeam : game.awayTeam
+        }
+        let side = (display.action ?? display.label ?? display.pickSide ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+        if side.contains("HOME") { return game.homeTeam }
+        if side.contains("AWAY") { return game.awayTeam }
+        if let pickTeam = display.pickTeam?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !pickTeam.isEmpty {
+            if pickTeam == game.homeTeam || NFLTeamAssets.abbr(for: pickTeam) == homeAbbr {
+                return game.homeTeam
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.appSurfaceMuted.opacity(0.45), in: RoundedRectangle(cornerRadius: 14))
+            if pickTeam == game.awayTeam || NFLTeamAssets.abbr(for: pickTeam) == awayAbbr {
+                return game.awayTeam
+            }
+        }
+        // Totals / Over-Under have no team disc.
+        if side.contains("OVER") || side.contains("UNDER") { return nil }
+        return nil
+    }
+
+    /// Concrete per-game pick copy — never raw HOME/AWAY.
+    private func signalDirectionLabel(_ display: NFLSignalDisplay) -> String {
+        let market = (display.market ?? "").lowercased()
+        let side = (display.action ?? display.label ?? display.pickSide ?? display.pickLabel ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let upper = side.uppercased()
+        let half = market.hasPrefix("h1_") ? "1H " : ""
+        let line = display.line
+
+        if upper == "OVER" || upper == "UNDER"
+            || upper.hasPrefix("OVER ") || upper.hasPrefix("UNDER ")
+            || upper.contains(" OVER") || upper.contains(" UNDER")
+            || (market.contains("total") && (upper.contains("OVER") || upper.contains("UNDER"))) {
+            let isOver = upper.contains("OVER")
+            let dir = isOver ? "Over" : "Under"
+            if market.contains("team_total"), let team = signalTeam(display) {
+                let abbr = NFLTeamAssets.abbr(for: team)
+                if let line { return "\(abbr) \(dir) \(GameCardFormatting.roundToNearestHalf(line))" }
+                return "\(abbr) \(dir)"
+            }
+            if let line { return "\(half)\(dir) \(GameCardFormatting.roundToNearestHalf(line))" }
+            let rest = side.split(separator: " ").dropFirst().joined(separator: " ")
+            return rest.isEmpty ? "\(half)\(dir)" : "\(half)\(dir) \(rest)"
+        }
+
+        if let team = signalTeam(display) {
+            let abbr = NFLTeamAssets.abbr(for: team)
+            if market.contains("moneyline") || market.hasSuffix("_ml") || market == "ml" {
+                return market.hasPrefix("h1_") ? "\(abbr) 1H ML" : "\(abbr) ML"
+            }
+            if market.contains("team_total") {
+                let dir = upper.contains("UNDER") ? "Under" : upper.contains("OVER") ? "Over" : nil
+                if let dir, let line {
+                    return "\(abbr) \(dir) \(GameCardFormatting.roundToNearestHalf(line))"
+                }
+                if let dir { return "\(abbr) \(dir)" }
+            }
+            let prefix = market.hasPrefix("h1_") ? "\(abbr) 1H" : abbr
+            if let line, market.contains("spread") || market.isEmpty {
+                return "\(prefix) \(GameCardFormatting.formatSpread(line))"
+            }
+            if let line {
+                return "\(prefix) \(GameCardFormatting.roundToNearestHalf(line))"
+            }
+            return prefix
+        }
+
+        if let pickLabel = display.pickLabel?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !pickLabel.isEmpty {
+            return pickLabel
+        }
+        if side.isEmpty { return display.displayName }
+        if let line {
+            return "\(side) \(GameCardFormatting.roundToNearestHalf(line))"
+        }
+        return side
+    }
+
+    private func isGenericBetDirection(_ value: String?) -> Bool {
+        guard let value else { return true }
+        let text = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if text.isEmpty { return true }
+        return text == "side indicated by the rule"
+            || text == "follow the indicated side"
+            || text.hasPrefix("side indicated")
+    }
+
+    private func marketLabel(_ raw: String?) -> String {
+        let value = (raw ?? "").lowercased()
+        switch value {
+        case "spread": return "Spread"
+        case "total": return "Total"
+        case "team_total": return "Team Total"
+        case "moneyline": return "Moneyline"
+        case "h1_spread": return "1H Spread"
+        case "h1_total": return "1H Total"
+        case "h1_ml": return "1H ML"
+        case "": return "Signal"
+        default:
+            return value.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 
@@ -1501,7 +1642,8 @@ struct NFLGameBottomSheet: View {
     }
 
     private func lineLabel(for pick: NFLDryrunPickRow) -> String {
-        pick.bestLine == nil ? "Vegas Line" : "Best Line"
+        if preferredQuote(for: pick) != nil { return "Sportsbook line" }
+        return pick.bestLine == nil ? "Vegas Line" : "Best Line"
     }
 
     private func modelMetricValue(for pick: NFLDryrunPickRow) -> String {
@@ -1519,7 +1661,7 @@ struct NFLGameBottomSheet: View {
             return pick.pickLabel ?? pick.recommendation ?? "No Bet"
         }
         let prefix = pick.cardGroup == "h1_spread" ? "\(team) 1H" : team
-        return "\(prefix) \(formatPickLine(pick.bestLine ?? pick.vegasLine, pick: pick))"
+        return "\(prefix) \(formatPickLine(preferredMarketLine(for: pick), pick: pick))"
     }
 
     private func shouldShowTeamHeader(for pick: NFLDryrunPickRow) -> Bool {
@@ -1546,12 +1688,12 @@ struct NFLGameBottomSheet: View {
         let name = teamNickname(for: team)
         switch pick.cardGroup {
         case "spread":
-            return "\(name) \(formatPickLine(pick.bestLine ?? pick.vegasLine, pick: pick))"
+            return "\(name) \(formatPickLine(preferredMarketLine(for: pick), pick: pick))"
         case "h1_spread":
-            return "\(name) 1H \(formatPickLine(pick.bestLine ?? pick.vegasLine, pick: pick))"
+            return "\(name) 1H \(formatPickLine(preferredMarketLine(for: pick), pick: pick))"
         case "team_total":
             if let direction = overUnderDirection(for: pick) {
-                return "\(name) \(direction.capitalized) \(formatPickLine(pick.bestLine ?? pick.vegasLine, pick: pick))"
+                return "\(name) \(direction.capitalized) \(formatPickLine(preferredMarketLine(for: pick), pick: pick))"
             }
             return displayPickLabel(pick).replacingOccurrences(of: team, with: name)
         case "moneyline":
@@ -1688,7 +1830,12 @@ struct NFLGameBottomSheet: View {
                     action: embedded?.action,
                     stance: stance,
                     tier: embedded?.tier,
-                    definition: definition
+                    definition: definition,
+                    market: pick.cardGroup,
+                    line: preferredMarketLine(for: pick),
+                    pickSide: pick.pickSide,
+                    pickTeam: pick.pickTeam,
+                    pickLabel: pick.pickLabel
                 )
             }
         }
@@ -1705,7 +1852,12 @@ struct NFLGameBottomSheet: View {
                 action: row.action,
                 stance: row.stance?.lowercased() == "counter" ? "counter" : "support",
                 tier: row.tier,
-                definition: definition
+                definition: definition,
+                market: pick.cardGroup,
+                line: preferredMarketLine(for: pick),
+                pickSide: pick.pickSide,
+                pickTeam: pick.pickTeam,
+                pickLabel: pick.pickLabel
             )
         }
     }
@@ -2037,6 +2189,12 @@ private struct NFLSignalDisplay: Identifiable, Sendable {
     let stance: String
     let tier: String?
     let definition: NFLSignalDefinition?
+    /// Pick context so the Direction row can name a concrete side + line.
+    let market: String?
+    let line: Double?
+    let pickSide: String?
+    let pickTeam: String?
+    let pickLabel: String?
 }
 
 private struct NFLSignalDefinition: Decodable, Identifiable, Sendable {

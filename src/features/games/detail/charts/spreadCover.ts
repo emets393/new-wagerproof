@@ -2,13 +2,18 @@
  * Everything a spread pick needs in order to explain itself, derived from two
  * numbers: the pick team's line and the model's projected margin for them.
  *
- * ## Why this exists
- * A spread card used to show "+4.5" beside "-2.1" and leave the reader to
- * reconcile them. They look like they straddle zero and therefore contradict
- * each other; they don't, because one is a *line* and the other is a *margin*
- * and the sign convention flips between the two. Everything here works in
- * MARGIN — "the pick team's final points minus their opponent's" — so nothing
- * is ever the negative of a negative.
+ * ## One unit, end to end: the final margin
+ * Every number here is a MARGIN — the points between the two teams when the
+ * game ends. The break-even, the model's projection, the push and the
+ * cover/lose conditions all live in that single unit, so no label can
+ * contradict another.
+ *
+ * An earlier cut plotted pick-side *lines* on the axis while the captions kept
+ * speaking margin, and those two conventions carry opposite signs: the same
+ * projection printed as "+0.3" on the bar and "losing by 0.3" in the sentence
+ * above it. The axis direction inverted too — a bigger line means the market
+ * rates the team WORSE — so the covering half of the bar landed under the
+ * opponent's abbreviation.
  *
  * ## Half points can't happen, whole points can push
  * A final margin is always a whole number. So:
@@ -66,10 +71,95 @@ export interface SpreadCoverOutcome {
   pushCondition: string | null;
   modelCondition: string;
   /**
-   * The line as a signed LINE (not a margin) — half values are legitimate here,
-   * which is why nothing else in this object prints it.
+   * The line as a signed LINE (not a margin) — half values are legitimate here.
+   * Printed on the market chip, never on the axis.
    */
   signedLine: string;
+  /**
+   * The model's fair LINE for the pick team — same units as `line`.
+   * `−modelMargin`: a projected lose-by-7.4 becomes `+7.4`. Kept for the
+   * market-versus-fair-number row; deliberately NOT plotted, because a line and
+   * a margin cannot share an axis.
+   */
+  modelFairLine: number;
+  /** Signed fair line for line-space copy (`+7.4`, `−3.5`, `PK`). */
+  signedModelFairLine: string;
+}
+
+/**
+ * Auto-fit window for the MARGIN axis: the break-even, the model's projection,
+ * and a tie when one is close enough to be worth anchoring to.
+ *
+ * The window is deliberately narrow. A ±21-point college axis for a 2-point
+ * lean spends all its width on scores nobody is arguing about and squeezes the
+ * only two numbers that matter into a few pixels.
+ */
+export function spreadMarginAxisDomain(
+  threshold: number,
+  modelMargin: number,
+  /** `EdgeScale.spreadWindow` — the sport's sense of how big a margin is. */
+  spreadWindow: number,
+): { min: number; max: number; ticks: number[] } {
+  /** Runs are not points: MLB's floor has to be an order tighter than the NFL's. */
+  const minPad = Math.max(spreadWindow * 0.15, 0.5);
+  const low = Math.min(threshold, modelMargin);
+  const high = Math.max(threshold, modelMargin);
+  const gap = high - low;
+  const pad = Math.max(gap * 0.55, minPad);
+  let lo = low - pad;
+  let hi = high + pad;
+
+  // TIE is the cheapest orientation anchor on the chart, so reach for it when
+  // it is already just off an edge — but never drag the window across a blowout
+  // line to go get it.
+  if (lo > 0 && lo <= pad) lo = -minPad * 0.2;
+  if (hi < 0 && -hi <= pad) hi = minPad * 0.2;
+
+  // Two markers a tenth of a point apart on a six-point window are one marker.
+  // Tighten the window until the gap is a readable share of it.
+  const minMarkerFraction = 0.2;
+  const span = hi - lo;
+  if (span > 0 && gap / span < minMarkerFraction) {
+    const target = Math.max(gap / minMarkerFraction, minPad * 2);
+    if (target < span) {
+      const mid = (threshold + modelMargin) / 2;
+      lo = mid - target / 2;
+      hi = mid + target / 2;
+    }
+  }
+
+  return { min: lo, max: hi, ticks: axisTicks(lo, hi) };
+}
+
+/**
+ * Gradations on a round step, sized to the window rather than to the sport.
+ * Fixed tick lists cannot work here: the window auto-fits, so a 3/7/10 set
+ * leaves a zoomed-in chart with no labels at all and nothing to orient by.
+ */
+function axisTicks(lo: number, hi: number): number[] {
+  const span = hi - lo;
+  if (span <= 0) return [];
+  const step = niceStep(span / 4);
+  // Keep a tick a comfortable distance inside the window so its label is not
+  // half off the end of the bar.
+  const inset = step * 0.15;
+  const first = Math.ceil((lo + inset) / step) * step;
+  const ticks: number[] = [];
+  for (let i = 0; i < 12; i += 1) {
+    const value = first + i * step;
+    if (value > hi - inset) break;
+    ticks.push(Math.abs(value) < 1e-9 ? 0 : Number(value.toFixed(4)));
+  }
+  return ticks;
+}
+
+/** 1, 2, 2.5, 5 or 10 times a power of ten — the smallest that clears `raw`. */
+function niceStep(raw: number): number {
+  const magnitude = 10 ** Math.floor(Math.log10(Math.max(raw, 1e-6)));
+  for (const multiple of [1, 2, 2.5, 5]) {
+    if (magnitude * multiple >= raw) return magnitude * multiple;
+  }
+  return magnitude * 10;
 }
 
 export function spreadCoverOutcome(line: number, modelMargin: number): SpreadCoverOutcome {
@@ -110,6 +200,14 @@ export function spreadCoverOutcome(line: number, modelMargin: number): SpreadCov
     modelMargin > 0 ? `Win by ${magnitude}` : modelMargin < 0 ? `Lose by ${magnitude}` : 'Dead even';
 
   const lineMagnitude = formatMargin(Math.abs(line));
+  const modelFairLine = -modelMargin;
+  const modelFairMagnitude = formatMargin(Math.abs(modelFairLine));
+  const signedModelFairLine =
+    modelFairLine === 0
+      ? 'PK'
+      : modelFairLine > 0
+        ? `+${modelFairMagnitude}`
+        : `−${modelFairMagnitude}`;
 
   return {
     line,
@@ -125,32 +223,58 @@ export function spreadCoverOutcome(line: number, modelMargin: number): SpreadCov
     loseCondition,
     pushCondition,
     modelCondition,
-    signedLine: line >= 0 ? `+${lineMagnitude}` : `−${lineMagnitude}`,
+    signedLine: line === 0 ? 'PK' : line > 0 ? `+${lineMagnitude}` : `−${lineMagnitude}`,
+    modelFairLine,
+    signedModelFairLine,
   };
 }
 
 /**
- * The push outcome for the tick's own caption, which already carries the word
- * PUSH above it — so "exactly" is redundant there and only costs the width that
- * makes "Lose by exactly 3" ellipsize inside an 84px label.
- * `pushCondition` keeps the long form for prose and the accessibility summary.
+ * A margin spoken as a lead: whose, and by how much. Used by the break-even /
+ * model captions (`LA by 3.5`), not the axis ticks.
  */
-export function pushMarginLabel(outcome: SpreadCoverOutcome): string | null {
-  const push = outcome.pushMargin;
-  if (push === null) return null;
-  if (push > 0) return `Win by ${push}`;
-  if (push < 0) return `Lose by ${-push}`;
-  return 'Tie';
+export function marginLabel(
+  margin: number,
+  pickAbbrev?: string | null,
+  opponentAbbrev?: string | null,
+  verbose = false,
+): string {
+  if (margin === 0) return verbose ? 'Tie' : 'TIE';
+  const magnitude = formatMargin(Math.abs(margin));
+  const team = margin > 0 ? pickAbbrev : opponentAbbrev;
+  if (!team) return margin > 0 ? `+${magnitude}` : `−${magnitude}`;
+  return verbose ? `${team} by ${magnitude}` : `${team} ${magnitude}`;
 }
 
 /**
- * Screen-reader summary: what has to happen, what pushes, where the model lands,
- * how much room that leaves. Same facts as the graphic, in one sentence.
+ * Axis tick: the pick team's line at that score. Winning by 4 is `LA −4`;
+ * losing by 4 is `LA +4`. Same team on every tick so the sign is the thing
+ * that moves, matching how a betting line is written.
  */
-export function spreadCoverSummary(outcome: SpreadCoverOutcome): string {
-  const parts = [`Covers if ${outcome.coverCondition}. Loses if ${outcome.loseCondition}.`];
+export function spreadTickLabel(margin: number, pickAbbrev?: string | null): string {
+  if (margin === 0) return 'TIE';
+  const line = -margin;
+  const magnitude = formatMargin(Math.abs(line));
+  const signed = line > 0 ? `+${magnitude}` : `−${magnitude}`;
+  return pickAbbrev ? `${pickAbbrev} ${signed}` : signed;
+}
+
+/**
+ * Screen-reader summary: where the break-even sits, where the model lands, what
+ * has to happen, what pushes, how much room that leaves. Same facts as the
+ * graphic and in the same unit, in one sentence.
+ */
+export function spreadCoverSummary(
+  outcome: SpreadCoverOutcome,
+  pickAbbrev?: string | null,
+  opponentAbbrev?: string | null,
+): string {
+  const parts = [
+    `Break-even at ${marginLabel(outcome.threshold, pickAbbrev, opponentAbbrev, true)}.`,
+    `Model projects ${marginLabel(outcome.modelMargin, pickAbbrev, opponentAbbrev, true)}.`,
+    `Covers if ${outcome.coverCondition}. Loses if ${outcome.loseCondition}.`,
+  ];
   if (outcome.pushCondition) parts.push(`${outcome.pushCondition} pushes.`);
-  parts.push(`Model projects ${outcome.modelCondition.toLowerCase()},`);
   const room = formatMargin(Math.abs(outcome.cushion));
   parts.push(outcome.covers ? `${room} points of room.` : `${room} points short.`);
   return parts.join(' ');

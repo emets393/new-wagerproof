@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatMargin,
-  pushMarginLabel,
+  marginLabel,
+  spreadTickLabel,
   spreadCoverOutcome,
   spreadCoverSummary,
+  spreadMarginAxisDomain,
 } from './spreadCover';
+import { captionsNeedStack, separateCaptions } from './chartChrome';
 import { breakEvenPercent, moneylineOutcome } from './moneyline';
-import { MLB_EDGE_SCALE, NFL_EDGE_SCALE } from './edgeScale';
+import { CFB_EDGE_SCALE, MLB_EDGE_SCALE, NFL_EDGE_SCALE } from './edgeScale';
 
 /**
  * The cases the spread bar exists to get right. Half vs whole lines is the one
@@ -103,14 +106,6 @@ describe('spread cover math', () => {
     });
   });
 
-  it('drops "exactly" only in the tick caption, which is already labelled PUSH', () => {
-    expect(pushMarginLabel(spreadCoverOutcome(3, 0))).toBe('Lose by 3');
-    expect(pushMarginLabel(spreadCoverOutcome(-10, 0))).toBe('Win by 10');
-    expect(pushMarginLabel(spreadCoverOutcome(0, 0))).toBe('Tie');
-    // Half-point line: nothing pushes, so the tick names no outcome at all.
-    expect(pushMarginLabel(spreadCoverOutcome(4.5, 0))).toBeNull();
-  });
-
   it('keeps the signed LINE separate from the margin axis', () => {
     // Half values are legitimate on a line and impossible as a final margin, so
     // the two are formatted by different code paths.
@@ -118,10 +113,132 @@ describe('spread cover math', () => {
     expect(spreadCoverOutcome(-10, 0).signedLine).toBe('−10');
   });
 
+  it('keeps the fair line available as a number without plotting it', () => {
+    // UNC +8.5, model lose-by-7.4 → fair line +7.4 for the market-vs-fair row.
+    const o = spreadCoverOutcome(8.5, -7.4);
+    expect(o.modelFairLine).toBeCloseTo(7.4);
+    expect(o.signedModelFairLine).toBe('+7.4');
+    expect(o.signedLine).toBe('+8.5');
+    expect(o.covers).toBe(true);
+    expect(o.cushion).toBeCloseTo(1.1);
+  });
+
+  it('summarises the chart in margin, the one unit the chart draws', () => {
+    const o = spreadCoverOutcome(8.5, -7.4);
+    const summary = spreadCoverSummary(o, 'UNC', 'TCU');
+    expect(summary).toContain('Break-even at TCU by 8.5');
+    expect(summary).toContain('Model projects TCU by 7.4');
+    expect(summary).toContain('1.1 points of room');
+    // No signed line anywhere: a "+8.5" beside "TCU by 7.4" is the mixed-unit
+    // read this chart was rebuilt to kill.
+    expect(summary).not.toContain('+8.5');
+  });
+
   it('drops a trailing .0 but keeps a real decimal', () => {
     expect(formatMargin(7)).toBe('7');
     expect(formatMargin(6.6)).toBe('6.6');
     expect(formatMargin(0)).toBe('0');
+  });
+});
+
+/**
+ * A margin is not a line. Every assertion here is about the axis staying in
+ * margin — the unit the cover/lose captions and the headline already speak.
+ */
+describe('margin axis label', () => {
+  it('names the team that is ahead in the break-even / model captions', () => {
+    expect(marginLabel(-3, 'ATL', 'PIT')).toBe('PIT 3');
+    expect(marginLabel(4, 'ATL', 'PIT')).toBe('ATL 4');
+    expect(marginLabel(-0.3, 'ATL', 'PIT', true)).toBe('PIT by 0.3');
+    expect(marginLabel(0, 'ATL', 'PIT')).toBe('TIE');
+    expect(marginLabel(0, 'ATL', 'PIT', true)).toBe('Tie');
+  });
+
+  it('falls back to a sign only when there is no team to name', () => {
+    expect(marginLabel(-3)).toBe('−3');
+    expect(marginLabel(3)).toBe('+3');
+  });
+});
+
+describe('spread axis tick', () => {
+  it('writes the pick team as a signed line at that score', () => {
+    expect(spreadTickLabel(4, 'LA')).toBe('LA −4');
+    expect(spreadTickLabel(2, 'LA')).toBe('LA −2');
+    expect(spreadTickLabel(-4, 'LA')).toBe('LA +4');
+    expect(spreadTickLabel(0, 'LA')).toBe('TIE');
+  });
+
+  it('falls back to the signed line when there is no pick to name', () => {
+    expect(spreadTickLabel(4)).toBe('−4');
+    expect(spreadTickLabel(-4)).toBe('+4');
+  });
+});
+
+describe('margin axis domain', () => {
+  it('frames the break-even and the model without wasting width on blowouts', () => {
+    // ATL +3, model has them losing by 0.3: break-even at PIT by 3.
+    const o = spreadCoverOutcome(3, -0.3);
+    const domain = spreadMarginAxisDomain(o.threshold, o.modelMargin, NFL_EDGE_SCALE.spreadWindow);
+    expect(domain.min).toBeLessThan(-3);
+    expect(domain.max).toBeGreaterThan(-0.3);
+    // A ±14 window for a 2.7-point argument is what made this unreadable.
+    expect(domain.max - domain.min).toBeLessThan(10);
+    expect(domain.ticks).toContain(0);
+    expect(domain.ticks.every((t) => t > domain.min && t < domain.max)).toBe(true);
+  });
+
+  it('always produces gradations to orient by, even zoomed in', () => {
+    // Whatever the window, an axis with no labels tells the reader nothing
+    // about which direction the pick team is winning in.
+    const cases: Array<[number, number, number]> = [
+      [3, -0.3, NFL_EDGE_SCALE.spreadWindow],
+      [-10, 11, NFL_EDGE_SCALE.spreadWindow],
+      [8.5, -7.4, CFB_EDGE_SCALE.spreadWindow],
+      [1.5, -0.6, MLB_EDGE_SCALE.spreadWindow],
+      [3.5, -3, NFL_EDGE_SCALE.spreadWindow],
+    ];
+    for (const [line, modelMargin, window] of cases) {
+      const o = spreadCoverOutcome(line, modelMargin);
+      const domain = spreadMarginAxisDomain(o.threshold, o.modelMargin, window);
+      expect(domain.ticks.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('does not drag a tie onto a blowout axis', () => {
+    // LAC -10 with the model winning by 11: nothing near this game is a tie,
+    // and stretching to zero would squeeze the only argument into a corner.
+    const o = spreadCoverOutcome(-10, 11);
+    const domain = spreadMarginAxisDomain(o.threshold, o.modelMargin, NFL_EDGE_SCALE.spreadWindow);
+    expect(domain.min).toBeGreaterThan(0);
+    expect(domain.ticks.every((t) => t > 0)).toBe(true);
+  });
+
+  it('tightens the window when break-even and model nearly coincide', () => {
+    // NE +3.5, model has them losing by 3 — half a point apart.
+    const o = spreadCoverOutcome(3.5, -3);
+    const domain = spreadMarginAxisDomain(o.threshold, o.modelMargin, NFL_EDGE_SCALE.spreadWindow);
+    const separation = Math.abs(o.cushion) / (domain.max - domain.min);
+    expect(separation).toBeGreaterThan(0.1);
+    expect(domain.min).toBeLessThan(-3.5);
+    expect(domain.max).toBeGreaterThan(-3);
+  });
+
+  it('scales to runs on a run line rather than to football points', () => {
+    const o = spreadCoverOutcome(1.5, -0.6);
+    const domain = spreadMarginAxisDomain(o.threshold, o.modelMargin, MLB_EDGE_SCALE.spreadWindow);
+    expect(domain.max - domain.min).toBeLessThan(4);
+  });
+});
+
+describe('caption separation', () => {
+  it('keeps captions apart near the edge instead of collapsing under clamp', () => {
+    const [a, b] = separateCaptions(340, 350, 84, 360);
+    expect(Math.abs(a - b)).toBeGreaterThanOrEqual(84);
+  });
+
+  it('flags a stack when both captions land on the same centre', () => {
+    const [a, b] = separateCaptions(180, 182, 84, 100);
+    expect(captionsNeedStack(a, b, 84)).toBe(true);
   });
 });
 

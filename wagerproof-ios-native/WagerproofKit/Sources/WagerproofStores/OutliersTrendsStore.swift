@@ -73,8 +73,10 @@ public final class OutliersTrendsStore {
             switch sport {
             case .nfl:
                 await NFLTeamsService.shared.ensureLoaded()
+                await SportsbookCatalogService.shared.ensureLoaded()
             case .ncaaf:
                 await CFBTeamsService.shared.ensureLoaded()
+                await SportsbookCatalogService.shared.ensureLoaded()
             default:
                 break
             }

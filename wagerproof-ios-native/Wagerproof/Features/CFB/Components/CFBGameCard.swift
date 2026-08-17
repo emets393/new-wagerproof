@@ -59,7 +59,8 @@ struct CFBGameCard: View {
             slatePicks: predictionPills,
             oddsBreakdown: oddsBreakdown(awayAbbr: awayAbbr, homeAbbr: homeAbbr),
             isMammoth: hasMammothPlay,
-            consensus: consensus
+            consensus: consensus,
+            signalCount: signalCount
         )
     }
 
@@ -69,6 +70,21 @@ struct CFBGameCard: View {
             pick.hasPlay == true
                 && (pick.isMammoth == true || (pick.conviction ?? "").lowercased() == "mammoth")
         }
+    }
+
+    /// Prefer already-loaded game flags; during the async pick fetch, use the
+    /// distinct signal keys attached to its market rows. Strip blanket keys so
+    /// the feed pill matches what the detail sheet actually shows.
+    private var signalCount: Int {
+        let pickSignals = FootballBlanketSignals.displayKeys(
+            sport: "cfb",
+            keys: slatePicks.flatMap(\.signalKeys)
+        ).count
+        let flagSignals = FootballBlanketSignals.displayKeys(
+            sport: "cfb",
+            keys: game.activeFlags.map(\.source)
+        ).count
+        return max(flagSignals, pickSignals)
     }
 
     private var predictionPills: GameRowCard.SlatePicks {

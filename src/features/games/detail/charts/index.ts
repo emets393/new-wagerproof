@@ -5,8 +5,11 @@ export { ModelVsMarketRow } from './ModelVsMarketRow';
 export { TONE, type ChartTone } from './chartChrome';
 export {
   formatMargin,
+  marginLabel,
+  spreadTickLabel,
   spreadCoverOutcome,
   spreadCoverSummary,
+  spreadMarginAxisDomain,
   type SpreadCoverOutcome,
 } from './spreadCover';
 export {

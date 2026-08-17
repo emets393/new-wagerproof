@@ -1,14 +1,18 @@
 import SwiftUI
+import UIKit
 import WagerproofDesign
+import WagerproofModels
 
-/// Sportsbook logo badge used by NFL/CFB game sheets and Outliers betting chips.
-/// Loads the primary logo URL when present, falls back to a DuckDuckGo favicon
-/// resolved from book key/name, then a letter placeholder.
+/// Sportsbook mark keyed by the book on screen.
+///
+/// Images live in the app bundle (`sportsbook_<book_key>`). The catalog
+/// tables still own names/keys so Outliers can remap FanDuel → DraftKings
+/// without keeping the previous book's mark. Remote `logo_url` values in
+/// those tables currently point at a dead Clearbit host — we do not wait
+/// on them to draw a chip.
 struct SportsbookLogoView: View {
     enum Style {
-        /// CFB market rows and Outliers chips — 18×18 logo, no background plate.
         case compact
-        /// NFL best-book row and prop detail — 30×30 logo, no background plate.
         case regular
     }
 
@@ -18,42 +22,45 @@ struct SportsbookLogoView: View {
     var style: Style = .compact
 
     var body: some View {
-        if let logoURL, let imageURL = URL(string: logoURL) {
-            CachedAsyncImage(url: imageURL) { phase in
-                switch phase {
-                case .success(let image):
-                    bookLogoImage(image)
-                case .failure:
-                    fallbackSportsbookLogo
-                case .empty:
-                    loadingPlaceholder
-                @unknown default:
-                    fallbackSportsbookLogo
+        Group {
+            if let ui = bundledLogo {
+                bookLogoImage(Image(uiImage: ui))
+            } else if let url = remoteURL {
+                CachedAsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        bookLogoImage(image)
+                    case .empty:
+                        loadingPlaceholder
+                    default:
+                        bookFallbackLogo
+                    }
                 }
+            } else {
+                bookFallbackLogo
             }
-        } else {
-            fallbackSportsbookLogo
         }
+        .id(resolvedKey ?? bookName ?? logoURL ?? "book")
     }
 
-    @ViewBuilder
-    private var fallbackSportsbookLogo: some View {
-        if let fallbackURL = SportsbookDomainResolver.fallbackURL(
-            bookKey: bookKey,
-            bookName: bookName,
-            logoURL: logoURL
-        ) {
-            CachedAsyncImage(url: fallbackURL) { phase in
-                switch phase {
-                case .success(let image):
-                    bookLogoImage(image)
-                default:
-                    bookFallbackLogo
-                }
-            }
-        } else {
-            bookFallbackLogo
+    private var resolvedKey: String? {
+        bookKey?.lowercased() ?? SportsbookCatalog.key(forDisplayName: bookName)
+    }
+
+    private var bundledLogo: UIImage? {
+        guard let key = resolvedKey else { return nil }
+        return UIImage(named: "sportsbook_\(key)")
+    }
+
+    private var remoteURL: URL? {
+        if let key = resolvedKey, let fromTable = SportsbookCatalog.logoURL(for: key),
+           let url = URL(string: fromTable), !fromTable.contains("logo.clearbit.com") {
+            return url
         }
+        if let logoURL, !logoURL.contains("logo.clearbit.com"), let url = URL(string: logoURL) {
+            return url
+        }
+        return nil
     }
 
     private var loadingPlaceholder: some View {
@@ -67,7 +74,7 @@ struct SportsbookLogoView: View {
             .resizable()
             .scaledToFit()
             .frame(width: imageSize, height: imageSize)
-            .padding(imagePadding)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     private var bookFallbackLogo: some View {
@@ -79,56 +86,9 @@ struct SportsbookLogoView: View {
     }
 
     private var imageSize: CGFloat { style == .compact ? 18 : 30 }
-    private var imagePadding: CGFloat { style == .compact ? 2 : 4 }
     private var frameSize: CGFloat { style == .compact ? 22 : 38 }
     private var cornerRadius: CGFloat { style == .compact ? 5 : 8 }
     private var fallbackFrameSize: CGFloat { style == .compact ? 22 : 38 }
-}
-
-enum SportsbookDomainResolver {
-    static func fallbackURL(bookKey: String?, bookName: String?, logoURL: String?) -> URL? {
-        guard let domain = domain(bookKey: bookKey, bookName: bookName, logoURL: logoURL) else { return nil }
-        return URL(string: "https://icons.duckduckgo.com/ip3/\(domain).ico")
-            ?? URL(string: "https://www.google.com/s2/favicons?domain=\(domain)&sz=64")
-    }
-
-    static func domain(bookKey: String?, bookName: String?, logoURL: String?) -> String? {
-        if let key = bookKey?.lowercased() {
-            switch key {
-            case "draftkings": return "draftkings.com"
-            case "fanduel": return "fanduel.com"
-            case "betmgm": return "betmgm.com"
-            case "betrivers": return "betrivers.com"
-            case "williamhill_us": return "caesars.com"
-            case "espnbet": return "espnbet.com"
-            case "fanatics": return "fanatics.com"
-            case "bet365": return "bet365.com"
-            case "bovada": return "bovada.lv"
-            case "betonlineag": return "betonline.ag"
-            case "mybookieag": return "mybookie.ag"
-            case "betus": return "betus.com.pa"
-            case "lowvig": return "lowvig.ag"
-            default: break
-            }
-        }
-        if let name = bookName?.lowercased() {
-            if name.contains("draftkings") { return "draftkings.com" }
-            if name.contains("fanduel") { return "fanduel.com" }
-            if name.contains("betmgm") { return "betmgm.com" }
-            if name.contains("betrivers") { return "betrivers.com" }
-            if name.contains("caesars") { return "caesars.com" }
-            if name.contains("espn") { return "espnbet.com" }
-            if name.contains("fanatics") { return "fanatics.com" }
-            if name.contains("bovada") { return "bovada.lv" }
-            if name.contains("betonline") { return "betonline.ag" }
-            if name.contains("mybookie") { return "mybookie.ag" }
-            if name.contains("betus") { return "betus.com.pa" }
-        }
-        if let logoURL, let host = URL(string: logoURL)?.host, !host.isEmpty {
-            return host
-        }
-        return nil
-    }
 }
 
 #Preview {
