@@ -11,6 +11,32 @@ Version strings live in four files and must be bumped together — see
 
 ---
 
+## 3.6.0 (build 123)
+
+**NFL player props, rebuilt**
+Every player prop now opens a full analysis page: a projection for the number, recent
+game-by-game results charted against the line, head-to-head history, situational
+splits, and the best available price across sportsbooks. Drag the line to see how the
+edge moves.
+
+**Matchup props on game pages**
+NFL game pages now carry a props widget showing the props that matter most in that
+matchup, so you can go from a game to the player angle without leaving the page.
+
+**Model vs. Vegas, charted**
+Game detail pages show where our model disagrees with the market, plus backtests of
+how each pick signal has actually performed.
+
+**Agent Consensus gives you a verdict**
+Game cards now say what the AI agents concluded — Consensus, Lean, or Split — instead
+of making you interpret a raw count.
+
+**Also in this release**
+Team-trend game-log drilldowns, clearer copy for markets that haven't posted yet, and
+fixes to agent pick sharing.
+
+---
+
 ## 3.5.9 (build 91)
 
 NFL and College Football are back — and this is the biggest update we've shipped.
