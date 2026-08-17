@@ -76,12 +76,14 @@ android {
         minSdk = 31
         targetSdk = 36
         // versionName tracks iOS MARKETING_VERSION (Configuration/Release.xcconfig) so one
-        // user-facing version means the same feature set on both stores. versionCode starts
-        // from the iOS CURRENT_PROJECT_VERSION but drifts above it: Play rejects any code not
-        // strictly greater than the live one, so an Android-only respin of the same
-        // marketing version (here: the launcher-icon fix) still has to increment. 91 = iOS.
-        versionCode = 92
-        versionName = "3.5.9"
+        // user-facing version means the same feature set on both stores — 3.6.0 here follows
+        // iOS 3.6.0. versionCode is now fully decoupled from the iOS build number (Xcode Cloud
+        // assigns that server-side); it only ever increments, because Play rejects any code not
+        // strictly greater than the live one.
+        // 91 = iOS 3.5.9, 92 = the launcher-icon respin (live on Play), 93 = this release,
+        // which carries the Meta attribution fix (#105) plus the 3.6.0 bump.
+        versionCode = 93
+        versionName = "3.6.0"
         buildConfigField("String", "FACEBOOK_APP_ID", quotedBuildConfig(facebookAppId))
         buildConfigField("String", "FACEBOOK_CLIENT_TOKEN", quotedBuildConfig(facebookClientToken))
     }
