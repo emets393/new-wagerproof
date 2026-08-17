@@ -556,27 +556,44 @@ function resolvePickTeam(
   away: TeamRef,
   home: TeamRef,
 ): TeamRef | null {
-  const pickTeam = String(row.pick_team || '').trim();
   const matches = (team: TeamRef, raw: string) => {
-    const u = raw.toUpperCase();
+    const u = raw.toUpperCase().trim();
+    if (!u) return false;
     const name = team.name.toUpperCase();
     const abbrev = team.abbrev.toUpperCase();
-    return (
-      u === name ||
-      u === abbrev ||
-      name.includes(u) ||
-      u.includes(name) ||
-      u.includes(abbrev)
-    );
+    // "New England" must hit "New England Patriots"; avoid abbrev false
+    // positives inside longer words by preferring word-boundary abbrev checks.
+    if (u === name || u === abbrev) return true;
+    if (name.startsWith(u) || u.startsWith(name) || name.includes(u) || u.includes(name)) {
+      return true;
+    }
+    const abbrevRe = new RegExp(`(^|[^A-Z0-9])${abbrev}([^A-Z0-9]|$)`);
+    return abbrevRe.test(u);
   };
 
-  if (pickTeam) {
-    const homeHit = matches(home, pickTeam);
-    const awayHit = matches(away, pickTeam);
+  const pickFromCandidates = (raw: string): TeamRef | null => {
+    const homeHit = matches(home, raw);
+    const awayHit = matches(away, raw);
     if (homeHit && !awayHit) return home;
     if (awayHit && !homeHit) return away;
     if (homeHit) return home;
     if (awayHit) return away;
+    return null;
+  };
+
+  const pickTeam = String(row.pick_team || '').trim();
+  if (pickTeam) {
+    const hit = pickFromCandidates(pickTeam);
+    if (hit) return hit;
+  }
+
+  // Surfaced labels like "New England +4.5" / "NE -3" often carry the side
+  // when pick_team is blank or stale.
+  const pickLabel = String(row.pick_label || '').trim();
+  if (pickLabel) {
+    const labelTeam = pickLabel.replace(/\s*[+-]?\d+(?:\.\d+)?\s*$/, '').trim();
+    const hit = pickFromCandidates(labelTeam || pickLabel);
+    if (hit) return hit;
   }
 
   const cardGroup = String(row.card_group || '').toLowerCase();
@@ -587,6 +604,14 @@ function resolvePickTeam(
   if (side === 'HOME') return home;
   if (side === 'AWAY') return away;
 
+  return null;
+}
+
+/** Over / Under direction for totals (and TT labels that carry O/U). */
+function resolveOuDirection(row: FootballDryRunPick): 'over' | 'under' | null {
+  const hay = `${row.pick_side || ''} ${row.pick_label || ''}`.toUpperCase();
+  if (/\bUNDER\b/.test(hay)) return 'under';
+  if (/\bOVER\b/.test(hay)) return 'over';
   return null;
 }
 
@@ -1613,12 +1638,20 @@ function PickRow({
   // spread/total row missing one of its two numbers lands here too.
   const showGapRow = !isMoneyline && !chartRendered;
   const marketPending = sport === 'nfl' && model === null && vegas === null && moneyline === null;
-  // Team totals are two O/U rows — logo + abbrev make home vs away obvious
-  // (native NFL/CFB sheet parity via CollegeTeamMark / game feed TeamRef logos).
-  const pickTeam = group === 'team_total' ? resolvePickTeam(row, away, home) : null;
-  const spreadTeam = isSpreadChart ? resolvePickTeam(row, away, home) : null;
+  // Team-sided markets (spread / ML / TT) get the club mark; pure totals get
+  // the Over/Under arrow in that same slot — native Recommendation parity.
+  const isTotalMarket = group === 'total' || group === 'h1_total';
+  const isTeamSidedMarket =
+    group === 'team_total' ||
+    group === 'spread' ||
+    group === 'h1_spread' ||
+    group === 'moneyline' ||
+    group === 'h1_ml';
+  const pickTeam = isTeamSidedMarket ? resolvePickTeam(row, away, home) : null;
+  const spreadTeam = isSpreadChart ? pickTeam ?? resolvePickTeam(row, away, home) : null;
+  const ouDirection = isTotalMarket || group === 'team_total' ? resolveOuDirection(row) : null;
   const pickLabel =
-    pickTeam != null
+    group === 'team_total' && pickTeam != null
       ? teamTotalDisplayLabel(row, pickTeam)
       : row.pick_label || 'Projection only';
   const gapLabel = pickTeam?.abbrev || 'Line';
@@ -1627,14 +1660,45 @@ function PickRow({
     <div className={cn('flex flex-col gap-2 py-3 first:pt-0 last:pb-0', row.display_only && 'opacity-70')}>
       {/* The pick first and largest; everything under it is the case for it. */}
       <div className="flex items-center gap-2.5">
-        {pickTeam ? <CollegeTeamMark team={pickTeam} size={28} /> : null}
+        {pickTeam ? (
+          <CollegeTeamMark team={pickTeam} size={28} />
+        ) : ouDirection ? (
+          <span
+            className={cn(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
+              ouDirection === 'over'
+                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
+                : 'bg-blue-500/15 text-blue-600 dark:text-blue-300',
+            )}
+            aria-hidden
+          >
+            {ouDirection === 'over' ? (
+              <ArrowUp className="h-4 w-4" strokeWidth={2.75} />
+            ) : (
+              <ArrowDown className="h-4 w-4" strokeWidth={2.75} />
+            )}
+          </span>
+        ) : null}
         <div className="flex min-w-0 flex-col">
           <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
             {row.display_only ? 'Projection only' : row.has_play ? 'Surfaced pick' : 'Informational'}
           </span>
           <span
-            className="truncate text-lg font-bold leading-tight tracking-tight text-foreground"
-            title={pickTeam ? `${pickTeam.name} team total` : undefined}
+            className={cn(
+              'truncate text-lg font-bold leading-tight tracking-tight',
+              ouDirection === 'over'
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : ouDirection === 'under'
+                  ? 'text-blue-700 dark:text-blue-300'
+                  : 'text-foreground',
+            )}
+            title={
+              pickTeam
+                ? group === 'team_total'
+                  ? `${pickTeam.name} team total`
+                  : pickTeam.name
+                : undefined
+            }
           >
             {pickLabel}
           </span>
