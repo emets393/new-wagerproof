@@ -80,9 +80,14 @@ android {
         // iOS 3.6.0. versionCode is now fully decoupled from the iOS build number (Xcode Cloud
         // assigns that server-side); it only ever increments, because Play rejects any code not
         // strictly greater than the live one.
-        // 91 = iOS 3.5.9, 92 = the launcher-icon respin (live on Play), 93 = this release,
-        // which carries the Meta attribution fix (#105) plus the 3.6.0 bump.
-        versionCode = 93
+        // 91 = iOS 3.5.9, 92 = the launcher-icon respin, 93 = consumed on Play (rejected as a
+        // duplicate on 2026-08-17), 94 = this release: the 3.6.0 bump, the Meta attribution
+        // fix (#105), and the Meta SDK fullyInitialize() fix.
+        //
+        // The repo is NOT a reliable source for the next code — 92 was the last value it knew
+        // about and 93 turned out to be taken. Read the live number from the Play Console
+        // before bumping, the same trap the iOS build number has.
+        versionCode = 94
         versionName = "3.6.0"
         buildConfigField("String", "FACEBOOK_APP_ID", quotedBuildConfig(facebookAppId))
         buildConfigField("String", "FACEBOOK_CLIENT_TOKEN", quotedBuildConfig(facebookClientToken))

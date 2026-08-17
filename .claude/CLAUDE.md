@@ -24,14 +24,14 @@ wrong one is wasted work, so confirm your target before starting.
 |---|---|---|---|
 | `src/` | **SHIPPING** — web | React 18.3 + Vite | Netlify → wagerproof.bet |
 | `wagerproof-ios-native/` | **SHIPPING** — iOS (3.6.0) | SwiftUI | Xcode Cloud on push to `main` |
-| `wagerproof-android-native/` | **SHIPPING** — Android (3.6.0 / versionCode 93) | Kotlin / Compose | `.github/workflows/android-release.yml` → Play |
+| `wagerproof-android-native/` | **SHIPPING** — Android (3.6.0 / versionCode 94) | Kotlin / Compose | `.github/workflows/android-release.yml` → Play |
 | `wagerproof-mobile/` | **DEPRECATED — phasing out** | React Native + Expo | nothing; no CI path |
 
 ### `wagerproof-mobile/` is deprecated
 
 The React Native app is being retired in favor of the two native apps. It is frozen as a
 release target — `app.json` still declares version 3.5.6 / buildNumber 40 and has not been
-touched since 2026-06-09, while iOS shipped 3.6.0 and Android moved to versionCode 93. It
+touched since 2026-06-09, while iOS shipped 3.6.0 and Android moved to versionCode 94. It
 claims the same bundle id (`com.wagerproof.mobile`) as the native apps, so it *cannot* ship
 alongside them.
 
