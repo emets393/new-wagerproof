@@ -71,12 +71,35 @@ object MetaAnalyticsService {
         val configuredLogger = runCatching {
             FacebookSdk.setApplicationId(appId.trim())
             FacebookSdk.setClientToken(clientToken.trim())
-            // Init stays manual so the SDK can't start before we've confirmed
-            // credentials exist (a credential-free local build must stay inert).
-            FacebookSdk.setAutoInitEnabled(false)
+
+            // Auto-init goes back ON here, and this line is load-bearing.
+            //
+            // The manifest ships AutoInitEnabled=false so FacebookInitProvider —
+            // a ContentProvider that runs BEFORE Application.onCreate — cannot
+            // boot the SDK before we've supplied credentials. That part is
+            // correct and stays. But this method previously ALSO set the flag
+            // false right here, after the credential check, and that silently
+            // disabled the very initialization it was about to perform:
+            //
+            //   FacebookSdk.sdkInitialize() calls fullyInitialize() ONLY when
+            //   getAutoInitEnabled() is true (facebook-core 18.3.0, bytecode
+            //   offsets 190-203: getAutoInitEnabled -> ifeq skips the call), and
+            //   fullyInitialize() is the ONLY writer of isFullyInitialized.
+            //
+            // GraphRequest refuses to run until isFullyInitialized is true, so
+            // every event was queued and then dropped with "GraphRequest can't be
+            // used when Facebook SDK isn't fully initialized" — the app id was
+            // compiled in and initialize() ran, and Meta still received nothing.
+            // Note the flag persists in the SDK's SharedPreferences, so the false
+            // survived restarts the same way the auto-log flags below do.
+            FacebookSdk.setAutoInitEnabled(true)
 
             @Suppress("DEPRECATION")
             FacebookSdk.sdkInitialize(appContext)
+            // Explicit and idempotent: sdkInitialize covers this given the flag
+            // above, but calling it directly means a future edit to that flag
+            // can't silently take the uploader down again.
+            FacebookSdk.fullyInitialize()
             AppEventsLogger.newLogger(appContext)
         }.getOrNull() ?: return
         applicationContext = appContext
