@@ -11,29 +11,31 @@ Version strings live in four files and must be bumped together — see
 
 ---
 
-## 3.6.0 (build 123)
+## 3.6.0 (build 215)
 
-**NFL player props, rebuilt**
-Every player prop now opens a full analysis page: a projection for the number, recent
-game-by-game results charted against the line, head-to-head history, situational
-splits, and the best available price across sportsbooks. Drag the line to see how the
-edge moves.
+NFL PLAYER PROPS, REBUILT
+Every player prop now opens a full analysis page. You get a projection for the number, the player's recent games charted against the current line, head-to-head history against this opponent, situational splits, and the best available price across sportsbooks. Drag the line up or down and watch the edge move with it.
 
-**Matchup props on game pages**
-NFL game pages now carry a props widget showing the props that matter most in that
-matchup, so you can go from a game to the player angle without leaving the page.
+PROPS ON THE GAME PAGE
+NFL game pages now carry a props widget showing the props that matter most in that matchup, so you can go from a game straight to the player angle without leaving the page.
 
-**Model vs. Vegas, charted**
-Game detail pages show where our model disagrees with the market, plus backtests of
-how each pick signal has actually performed.
+MODEL VS. VEGAS, CHARTED
+Game pages now chart where our model disagrees with the market instead of making you do the subtraction. Pick signals come with backtests showing how each one has actually performed, and you can set your preferred sportsbooks so the prices you see are ones you can really bet.
 
-**Agent Consensus gives you a verdict**
-Game cards now say what the AI agents concluded — Consensus, Lean, or Split — instead
-of making you interpret a raw count.
+AGENT CONSENSUS GIVES YOU A VERDICT
+Game cards now state what the public AI agents concluded — Consensus, Lean, or Split — instead of printing a number and leaving you to interpret it. Agreement is scored per market, so agreement on the spread is no longer confused with agreement on the total.
 
-**Also in this release**
-Team-trend game-log drilldowns, clearer copy for markets that haven't posted yet, and
-fixes to agent pick sharing.
+HOW DID WE DO?
+Agent pages now look back at graded picks and tell you how that agent actually did, including which reasoning held up and which did not.
+
+TEAM TRENDS YOU CAN OPEN UP
+NFL and College Football team trends drill down into the underlying game log, so you can see the actual games behind a trend instead of trusting the summary.
+
+WEATHER YOU CAN SEE
+Outdoor game pages now show rain and snow over the matchup art when the forecast calls for it.
+
+SMALLER THINGS
+Markets that have not posted yet say so plainly instead of showing a blank. The Outliers and Props card rails snap cleanly between cards, with haptics. College Football game pages dock their header into the toolbar as you scroll, matching NFL. We also fixed agent pick sharing, moneyline logo ordering, and College Football predicted scores.
 
 ---
 
