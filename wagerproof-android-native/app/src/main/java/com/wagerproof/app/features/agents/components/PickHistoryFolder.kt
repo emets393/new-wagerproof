@@ -1,25 +1,23 @@
 package com.wagerproof.app.features.agents.components
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -27,12 +25,10 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,13 +38,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,12 +49,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.GraphicsLayerScope
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -80,41 +70,33 @@ import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.AgentBetItem
 import com.wagerproof.core.models.AgentPick
 import com.wagerproof.core.models.AgentSport
-import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 // =====================================================================
 // PickHistoryFolder — manila folder card + expanded browse sheet. Port of
 // iOS PickHistoryFolder.swift.
 //
-// FIDELITY-WAIVER #212: the rolodex pile (per-ticket squash/lift/fade off live
-// LazyListState.layoutInfo) and the two-stage sheet (~440dp closed / large
-// expanded, ticket taps only select once expanded) are both implemented — see
-// RolodexPile/pileTicketTransform and the `expanded` height toggle in
-// PickHistorySheetContent. What's still approximated, not reproduced:
-//   - iOS uses real presentationDetents([.height(440), .large]); M3's
-//     ModalBottomSheet has no equivalent, so the two stages are faked by
-//     conditionally sizing the sheet's own content (440dp vs fillMaxHeight).
-//   - Only TAP expands the collapsed pile. A raw drag detector was tried and
-//     removed — it silently ate the sheet's native drag-to-dismiss gesture.
-//   - The scroll-notch haptic tick approximates a continuous offset (index *
-//     avg ticket stride + item scroll offset); LazyListState has no single
-//     continuous content offset the way SwiftUI's ScrollView does.
-//   - "Wide" (landscape) detection uses LocalConfiguration's screen dp, not
-//     hSize/vSize size classes — there's no Android equivalent in this app.
+// FIDELITY-WAIVER #212 (REVISED 2026-08-17): Android deliberately DIVERGES from
+// iOS here. iOS opens a two-stage sheet (presentationDetents 440 / .large) onto
+// a rolodex pile whose tickets squash, lift and fade against the folder mouth.
+// That was ported faithfully and did not survive contact with the device: the
+// physics are keyed to distance from the mouth, so once the sheet was open the
+// same transform drove tickets to alpha 0 almost as fast as they scrolled into
+// view, and the folder chrome ate ~230dp of an already-short sheet.
+//
+// What ships instead, per owner (2026-08-17): the folder card on the agent
+// detail page is unchanged and is still the entry point, but tapping it opens a
+// FULL-SCREEN sheet containing a plain LazyColumn — slight negative spacing and
+// a per-index jitter/tilt keep the stacked-pile character, with no scroll
+// physics at all. Tapping a ticket still opens it full-screen.
+//
+// Still approximated: "wide" (landscape) detection uses LocalConfiguration's
+// screen dp, not hSize/vSize size classes — there's no Android equivalent here.
 // =====================================================================
 
 private val jitterX = listOf(-6f, 5f, -3f)
 private val jitterTilt = listOf(-1.4f, 1.0f, -0.6f)
 private val pileJitterX = listOf(-8f, 7f, -4f, 9f, -6f, 3f)
 private val pileJitterTilt = listOf(-1.6f, 1.2f, -0.7f, 1.8f, -1.1f, 0.5f)
-
-/** Below this pick+parlay count the rolodex builds fast enough to skip the loading spinner. */
-private const val instantMountThreshold = 24
-
-/** How far the tap-to-unstack gesture scrolls the pile once the sheet expands. */
-private val unstackScrollDp = 600.dp
 
 // MARK: - Folder card (agent detail page)
 
@@ -207,10 +189,16 @@ private fun FolderFront(
 ) {
     val shape = pickFolderFrontShape()
     Box(modifier = modifier.fillMaxWidth().height(height).padding(horizontal = 8.dp)) {
+        // Scrimmed, not bare glass. This front has to READ as opaque card stock
+        // hiding the bottom of the tickets peeking out behind it; plain
+        // liquidGlassBackground let them show straight through, so they looked
+        // like they floated in front of the folder rather than sitting inside it
+        // (owner, 2026-08-17). The scrim goes THROUGH the modifier so it lands
+        // after the blur — a chained .background() draws underneath and never shows.
         Box(
             Modifier
                 .fillMaxSize()
-                .liquidGlassBackground(shape)
+                .liquidGlassBackground(shape, scrim = AppColors.appSurfaceElevated.copy(alpha = 0.72f))
                 .border(1.dp, Color.White.copy(alpha = 0.08f), shape),
         )
         Text(
@@ -257,6 +245,11 @@ fun PickHistorySheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = AppColors.pickHistorySheetBackground,
+        // Full-bleed: no drag handle and no top inset, so the list gets the whole
+        // screen. The sheet's own close button handles dismissal (the handle only
+        // bought a few dp of grab target and cost ~40dp of list).
+        dragHandle = null,
+        contentWindowInsets = { WindowInsets(0) },
     ) {
         PickHistorySheetContent(items, agentColor, onDismiss)
     }
@@ -278,33 +271,6 @@ private fun PickHistorySheetContent(
     // pile for a grid when the sheet is wider than it is tall (landscape phones/tablets).
     val configuration = LocalConfiguration.current
     val wide = configuration.screenWidthDp > configuration.screenHeightDp
-    var expanded by remember { mutableStateOf(wide) }
-    var stackRevealed by remember { mutableStateOf(false) }
-    val listState = rememberLazyListState()
-    val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
-    LaunchedEffect(wide) { if (wide) expanded = true }
-
-    // Gates the heavy rolodex mount for large histories — see instantMountThreshold above.
-    var contentReady by remember { mutableStateOf(items.size <= instantMountThreshold) }
-    LaunchedEffect(Unit) {
-        if (!contentReady) {
-            delay(60)
-            contentReady = true
-        }
-    }
-
-    // Fan the stack out: grow the sheet to full height + scroll the rolodex so a
-    // handful of tickets stand clear of the folder. Mirrors iOS's unstack(). Guarded
-    // by stackRevealed so re-tapping an already-expanded folder doesn't re-fire the
-    // scroll animation.
-    fun unstack() {
-        expanded = true
-        if (!stackRevealed) {
-            stackRevealed = true
-            scope.launch { listState.animateScrollBy(with(density) { unstackScrollDp.toPx() }) }
-        }
-    }
 
     val sportsAvailable = remember(items) { items.mapNotNull { it.sportForFilter }.distinct() }
     val filtered = remember(items, statusFilter, sportFilter, sortOrder) {
@@ -320,34 +286,9 @@ private fun PickHistorySheetContent(
             }
     }
 
-    // Rolodex feedback: a soft tick every ~64dp of pile scroll. LazyListState has no
-    // continuous content offset (items recycle), so we approximate one from
-    // index * average-ticket-stride + the current item's own scroll offset.
-    var scrollNotch by remember { mutableStateOf(0) }
-    LaunchedEffect(listState, contentReady, wide) {
-        if (!contentReady || wide) return@LaunchedEffect
-        val stridePx = with(density) { 128.dp.toPx() }
-        val notchPx = with(density) { 64.dp.toPx() }
-        snapshotFlow { listState.firstVisibleItemIndex * stridePx + listState.firstVisibleItemScrollOffset }
-            .collect { offset ->
-                val notch = (offset / notchPx).roundToInt()
-                if (notch != scrollNotch) {
-                    scrollNotch = notch
-                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                }
-            }
-    }
-
     Box(
         Modifier
-            .fillMaxWidth()
-            // Two-stage sheet: a fixed ~440dp "closed folder" height, or nearly-full
-            // once expanded — M3's ModalBottomSheet has no direct equivalent of
-            // SwiftUI's presentationDetents([.height(440), .large]), so this sizes
-            // the CONTENT itself (the sheet, set to skipPartiallyExpanded, follows).
-            .then(if (expanded) Modifier.fillMaxHeight(0.92f) else Modifier.height(440.dp))
-            // Springs the height change on unstack(), standing in for iOS's animated detent swap.
-            .animateContentSize()
+            .fillMaxSize()
             .drawBehind {
                 drawRect(AppColors.pickHistorySheetBackground)
                 drawRect(
@@ -359,70 +300,29 @@ private fun PickHistorySheetContent(
                 )
             },
     ) {
-        // Folder back (behind the pile) — the wide grid has no folder chrome.
-        if (!wide) {
-            Box(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(232.dp)
-                    .padding(horizontal = 12.dp, vertical = 0.dp)
-                    .padding(bottom = 42.dp)
-                    .background(
-                        Brush.verticalGradient(listOf(AppColors.folderBackTop, AppColors.folderBackBottom)),
-                        pickFolderTabShape(),
-                    ),
-            )
-        }
-
-        // Content: loading shell, expanded ticket, the wide grid, or the rolodex pile.
+        // No folder chrome inside the sheet any more. The back panel + front flap
+        // existed to sell the "pile sitting in a folder" metaphor, and between
+        // them they ate ~230dp off the bottom of the screen. The folder is still
+        // the ENTRY POINT on the agent detail page (AgentPickFolderCard); once
+        // it's open this is just a list, and the list gets the whole screen.
         val sel = selected
         when {
-            !contentReady -> LoadingPileArea(agentColor)
             sel != null -> ExpandedTicketArea(item = sel, agentColor = agentColor, onCollapse = { selected = null })
             wide -> WideTicketGrid(tickets = filtered, agentColor = agentColor, onSelect = { selected = it })
             filtered.isEmpty() -> SheetEmptyState(items.isEmpty(), Modifier.align(Alignment.Center))
-            else -> RolodexPile(
-                tickets = filtered,
-                agentColor = agentColor,
-                listState = listState,
-                expanded = expanded,
-                onTicketTap = { item -> if (expanded) selected = item else unstack() },
-                onBackgroundTap = { unstack() },
-            )
+            else -> PickList(tickets = filtered, agentColor = agentColor, onSelect = { selected = it })
         }
 
-        // Folder front (over the pile) — hidden in the wide grid layout.
-        if (!wide) Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(234.dp)
-                .padding(horizontal = 12.dp)
-                .clickable {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    when {
-                        selected != null -> selected = null
-                        !expanded -> unstack()
-                        else -> onDismiss()
-                    }
-                },
-        ) {
-            val shape = pickFolderFrontShape()
-            Box(Modifier.fillMaxSize().liquidGlassBackground(shape).border(1.dp, Color.White.copy(alpha = 0.08f), shape))
-            Text(
-                "PICK HISTORY",
-                color = Color.White.copy(alpha = 0.10f),
-                fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp,
-                modifier = Modifier.align(Alignment.BottomStart).padding(start = 22.dp, bottom = 20.dp),
-            )
-        }
-
-        // Floating top bar (back/close + filter pills).
+        // Floating top bar (back/close + filter pills). statusBarsPadding is
+        // load-bearing: the sheet sets contentWindowInsets to zero to get a
+        // full-bleed list, which also puts this row under the status bar and
+        // clipped the sort/filter pills. The inset comes back HERE rather than
+        // on the sheet, so the list still scrolls edge to edge behind it.
         Row(
             Modifier
                 .align(Alignment.TopStart)
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -440,7 +340,7 @@ private fun PickHistorySheetContent(
                 Icon(agentSymbol(if (selected == null) "xmark" else "chevron.left"), null, tint = AppColors.appTextPrimary, modifier = Modifier.size(15.dp))
             }
             // No filters while loading — nothing to filter yet, and it keeps that state cheap.
-            if (selected == null && contentReady) {
+            if (selected == null) {
                 FilterMenu(
                     text = statusFilter?.let { statusName(it) } ?: "Result",
                     isActive = statusFilter != null,
@@ -491,19 +391,6 @@ private fun PickHistorySheetContent(
 // MARK: - Content states (loading shell / expanded ticket / wide grid / rolodex pile)
 
 @Composable
-private fun LoadingPileArea(agentColor: Color) {
-    Column(
-        Modifier.fillMaxSize().padding(bottom = 230.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        CircularProgressIndicator(color = agentColor)
-        Spacer(Modifier.height(12.dp))
-        Text("Loading pick history…", color = AppColors.appTextSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
 private fun ExpandedTicketArea(item: AgentBetItem, agentColor: Color, onCollapse: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     // Resolved here (composable scope) — the onAudit callback below runs outside composition.
@@ -513,6 +400,7 @@ private fun ExpandedTicketArea(item: AgentBetItem, agentColor: Color, onCollapse
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
+            .statusBarsPadding()
             .padding(top = 64.dp, bottom = 140.dp)
             .clickable {
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -595,7 +483,12 @@ private fun WideTicketGrid(tickets: List<AgentBetItem>, agentColor: Color, onSel
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 300.dp),
         // Extra top padding clears the floating filter bar (no folder chrome to push below in wide mode).
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 72.dp, bottom = 16.dp),
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = 72.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+            bottom = 16.dp,
+        ),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize(),
@@ -614,88 +507,51 @@ private fun WideTicketGrid(tickets: List<AgentBetItem>, agentColor: Color, onSel
 }
 
 /**
- * Per-ticket wallet physics for the rolodex pile — mirrors iOS's `.visualEffect`:
- * tickets near the folder mouth squash back into it at rest, and pull out to full
- * size + fade in as they scroll up past the mouth; tickets reaching the top fade out.
- * Position-driven off [listState]'s live layout, so it re-runs every scroll frame
- * without a recomposition (graphicsLayer blocks are re-invoked on each placement).
- */
-private fun pileTicketTransform(scope: GraphicsLayerScope, listState: LazyListState, index: Int) = with(scope) {
-    val info = listState.layoutInfo
-    val itemInfo = info.visibleItemsInfo.firstOrNull { it.index == index }
-    if (itemInfo == null) {
-        // Not in visibleItemsInfo yet on first placement — fall back to identity instead of
-        // computing from a fake y=0, which read as buried (alpha 0) and caused a first-frame flash.
-        alpha = 1f
-        return@with
-    }
-    translationX = pileJitterX[index % pileJitterX.size] * density
-    rotationZ = pileJitterTilt[index % pileJitterTilt.size]
-    val container = if (info.viewportSize.height > 0) info.viewportSize.height.toFloat() else 800.dp.toPx()
-    val y = itemInfo.offset.toFloat()
-    val mouth = container - 236.dp.toPx()
-    val zoneTop = mouth - 130.dp.toPx()
-    val into = (y - zoneTop).coerceAtLeast(0f)
-    val residual = (into * 0.18f).coerceAtMost(200.dp.toPx())
-    val lift = into - residual
-    val buried = (1f - (residual - 150.dp.toPx()) / 45.dp.toPx()).coerceIn(0f, 1f)
-    val topFade = ((y - 8.dp.toPx()) / 56.dp.toPx()).coerceIn(0f, 1f)
-    val scale = 0.92f + 0.08f * topFade
-    translationY = -lift
-    scaleX = scale
-    scaleY = scale
-    transformOrigin = TransformOrigin(0.5f, 1f)
-    alpha = topFade * buried
-}
-
-/**
- * The rolodex pile: tickets overlap via negative spacing (SwiftUI's `VStack(spacing: -122)`
- * fanned via later-siblings-on-top; Compose achieves the same with negative
- * `spacedBy` — LazyColumn just lays each item further up than the one before).
- * While collapsed, native list scrolling is off and a tap anywhere on the pile
- * expands the sheet (see the `expanded` height toggle above — there's no
- * sheet-level detent-drag in this simplified two-height design). A raw drag
- * detector was tried here too but competes with the sheet's own drag-to-dismiss
- * gesture on the same content area, silently swallowing it — tap is the safe,
- * unambiguous affordance, so that's what ships; drag-to-expand is not wired.
- * Once expanded, normal scrolling takes over and each ticket's own tap selects it.
+ * The pick list. Deliberately plain: a LazyColumn with a slight negative gap so
+ * tickets overlap, plus a per-index jitter/tilt so the stack still reads as a
+ * hand-stacked pile rather than a table.
+ *
+ * This replaced a position-driven "rolodex" transform that squashed, lifted and
+ * faded every ticket off live `LazyListState.layoutInfo`. It was keyed to the
+ * folder mouth, so once the sheet opened it drove tickets transparent almost as
+ * fast as they were scrolled into view — the cards simply weren't visible. A
+ * list does not need scroll physics to be legible, and the owner asked for the
+ * whole screen instead (2026-08-17).
+ *
+ * Overlap is small enough that every ticket keeps its own tap target; the
+ * overlapped sliver belongs to the ticket drawn on top, which is the later one.
  */
 @Composable
-private fun RolodexPile(
-    tickets: List<AgentBetItem>,
-    agentColor: Color,
-    listState: LazyListState,
-    expanded: Boolean,
-    onTicketTap: (AgentBetItem) -> Unit,
-    onBackgroundTap: () -> Unit,
-) {
+private fun PickList(tickets: List<AgentBetItem>, agentColor: Color, onSelect: (AgentBetItem) -> Unit) {
     val haptics = LocalHapticFeedback.current
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val topPad = (maxHeight - 366.dp).coerceAtLeast(16.dp)
-        LazyColumn(
-            state = listState,
-            userScrollEnabled = expanded,
-            verticalArrangement = Arrangement.spacedBy((-122).dp),
-            contentPadding = PaddingValues(start = 28.dp, end = 28.dp, top = topPad, bottom = 430.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                ) { if (!expanded) onBackgroundTap() },
-        ) {
-            itemsIndexed(tickets, key = { _, item -> item.id }) { index, item ->
-                BetItemTicket(
-                    item = item,
-                    accent = agentColor,
-                    modifier = Modifier
-                        .graphicsLayer { pileTicketTransform(this, listState, index) }
-                        .clickable {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onTicketTap(item)
-                        },
-                )
-            }
+    LazyColumn(
+        // Top padding clears the floating close/filter bar; the rest is the
+        // screen, since there is no folder flap to avoid any more.
+        // 72dp clears the floating close/filter bar; the status-bar inset is
+        // added on top because the sheet draws full-bleed behind it.
+        contentPadding = PaddingValues(
+            start = 20.dp,
+            end = 20.dp,
+            top = 72.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+            bottom = 32.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy((-24).dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        itemsIndexed(tickets, key = { _, item -> item.id }) { index, item ->
+            BetItemTicket(
+                item = item,
+                accent = agentColor,
+                modifier = Modifier
+                    .graphicsLayer {
+                        translationX = pileJitterX[index % pileJitterX.size] * density
+                        rotationZ = pileJitterTilt[index % pileJitterTilt.size]
+                    }
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onSelect(item)
+                    },
+            )
         }
     }
 }

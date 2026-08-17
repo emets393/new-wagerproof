@@ -52,6 +52,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -300,13 +301,19 @@ private fun SwipeLabel(title: String, fillWidthPx: Float, confirmed: Boolean, mo
                 clipRect(left = 0f, top = 0f, right = fillWidthPx, bottom = size.height) { this@drawWithContent.drawContent() }
             },
         )
+        // fillMaxWidth BEFORE shimmering, so the sweep is measured against the
+        // whole pill rather than the glyph box. Applied to the bare Text it only
+        // spanned the ~half-width the label occupies, so the glint started and
+        // died inside the word instead of crossing the control (iOS sizes its
+        // shimmerSweep off the full-width ZStack).
         Text(
             title,
             color = Color.White,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
-            modifier = Modifier.shimmering(durationMillis = 1700),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().shimmering(durationMillis = 1700),
         )
     }
 }
@@ -419,6 +426,16 @@ fun SwipeToGeneratePill(
         // AgentResearchIdleCard.swift:265-268). Compose has no `.brightness()` /
         // `.shadow(color:radius:)` filter, so these are approximated with a
         // translucent white overlay and a blurred color copy behind the fill.
+        // Every layer is CircleShape-clipped so the fill is a capsule whose
+        // leading cap nests concentrically around the thumb. Without a shape the
+        // gradient drew as a hard-edged rectangle, and its square right edge read
+        // as the track colour "poking out" from under the circle.
+        //
+        // Alpha starts at ZERO and fades in over the first 10% of travel. iOS
+        // keeps a flat 0.4 floor (AgentResearchIdleCard.swift:308), but that
+        // relies on its capsule hugging the thumb exactly; here the owner wants
+        // the colour to arrive WITH the slide rather than sit there at rest.
+        val fillAlpha = (0.4f + p * 0.6f) * (p / 0.10f).coerceIn(0f, 1f)
         Box(Modifier.width(with(density) { fillWidthPx.toDp() }).fillMaxHeight()) {
             Box(
                 Modifier
@@ -429,10 +446,16 @@ fun SwipeToGeneratePill(
             Box(
                 Modifier
                     .matchParentSize()
+                    .clip(CircleShape)
                     .background(Brush.horizontalGradient(listOf(accent, accent, Color(0xFFFFE7A6))))
-                    .alpha((0.4f + p * 0.6f).coerceIn(0.4f, 1f)),
+                    .alpha(fillAlpha),
             )
-            Box(Modifier.matchParentSize().background(Color.White.copy(alpha = p * 0.12f)))
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = p * 0.12f)),
+            )
         }
 
         // 3. Centered recoloring label.
