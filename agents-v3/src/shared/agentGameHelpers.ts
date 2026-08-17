@@ -227,7 +227,15 @@ async function fetchNFLGamesFromDryrun(
   // (not per game) for each → fetch once, build perfMap (latest season per key)
   // + defMap (one def per signal_key). Both keyed by signal_key. injuryMap is
   // keyed by nflverse abbr (same scheme as game_id) — fetched once per slate.
-  const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId, perfMap, defMap, injuryMap] = await Promise.all([
+  // Team abbrs come from game_id parts ({season}_{wk}_{AWAY}_{HOME}) — the same
+  // nflverse scheme nfl_team_trends.team_abbr and nfl_coach_trends.current_team use.
+  const teamAbbrs = [...new Set(games.flatMap(g => {
+    const parts = String(g.game_id || '').split('_');
+    return [parts[2], parts[3]];
+  }).filter(Boolean))] as string[];
+  const refNames = [...new Set(games.map(g => String(g.assigned_referee || '')).filter(Boolean))];
+
+  const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId, perfMap, defMap, injuryMap, trendsByAbbr, coachByTeam, refByName] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nfl', games),
     fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_picks', gameIds),
     fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_flags', gameIds),
@@ -235,6 +243,9 @@ async function fetchNFLGamesFromDryrun(
     fetchSignalPerformanceMap(cfbClient, 'nfl'),
     fetchSignalDefsMap(cfbClient, 'nfl'),
     fetchNFLInjuryMap(cfbClient, slateSeason, slateWeek),
+    fetchNFLTeamTrendsByAbbr(cfbClient, teamAbbrs),
+    fetchCoachTrendsByTeam(cfbClient, 'nfl_coach_trends', teamAbbrs),
+    fetchRefereeTrendsByName(cfbClient, refNames),
   ]);
 
   const formattedGames = games.map(game => {
@@ -247,7 +258,12 @@ async function fetchNFLGamesFromDryrun(
       flagsByGameId.get(gameId) || [],
       perfMap,
       defMap,
-      injuryMap
+      injuryMap,
+      trendsByAbbr.get(String(game.game_id || '').split('_')[3] || '') || null,
+      trendsByAbbr.get(String(game.game_id || '').split('_')[2] || '') || null,
+      coachByTeam.get(normalizeTeamKey(String(game.game_id || '').split('_')[3] || '')) || null,
+      coachByTeam.get(normalizeTeamKey(String(game.game_id || '').split('_')[2] || '')) || null,
+      refByName.get(String(game.assigned_referee || '')) || null
     );
   });
   return { games, formattedGames };
@@ -287,13 +303,14 @@ async function fetchCFBGamesFromDryrun(
 
   // signal_performance (season-to-date) + cfb_signal_defs (all-time validated) —
   // see the NFL fetcher. One row-set per run each; both keyed by signal_key.
-  const [polymarketByGameKey, picksByGameId, flagsByGameId, trendsByTeam, perfMap, defMap] = await Promise.all([
+  const [polymarketByGameKey, picksByGameId, flagsByGameId, trendsByTeam, perfMap, defMap, coachByTeam] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'cfb', games),
     fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_picks', gameIds),
     fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_flags', gameIds),
     fetchCFBTeamTrendsByTeam(cfbClient, teamNames),
     fetchSignalPerformanceMap(cfbClient, 'cfb'),
     fetchSignalDefsMap(cfbClient, 'cfb'),
+    fetchCoachTrendsByTeam(cfbClient, 'cfb_coach_trends', teamNames),
   ]);
 
   const formattedGames = games.map(game => {
@@ -306,7 +323,9 @@ async function fetchCFBGamesFromDryrun(
       trendsByTeam.get(normalizeTeamKey(game.home_team)) || null,
       trendsByTeam.get(normalizeTeamKey(game.away_team)) || null,
       perfMap,
-      defMap
+      defMap,
+      coachByTeam.get(normalizeTeamKey(game.home_team)) || null,
+      coachByTeam.get(normalizeTeamKey(game.away_team)) || null
     );
   });
   return { games, formattedGames };
@@ -569,10 +588,13 @@ async function fetchCFBTeamTrendsByTeam(
     }
 
     // Keep the newest (season, through_week) row per team if duplicates exist.
+    // Season-aware: at 2026 week 0, a bare through_week compare would keep the
+    // 2025 week-15 row and feed agents LAST season's record as "trends".
     for (const row of data as Record<string, unknown>[]) {
       const key = normalizeTeamKey(row.team_name);
       const existing = result.get(key);
-      if (!existing || Number(row.through_week || 0) > Number(existing.through_week || 0)) {
+      const rank = (r: Record<string, unknown>) => Number(r.season || 0) * 100 + Number(r.through_week || 0);
+      if (!existing || rank(row) > rank(existing)) {
         result.set(key, row);
       }
     }
@@ -580,6 +602,103 @@ async function fetchCFBTeamTrendsByTeam(
     console.warn('[agentGameHelpers] cfb_team_trends fetch threw:', (error as Error).message);
   }
 
+  return result;
+}
+
+// nfl_team_trends mirrors cfb_team_trends but is also keyed by team_abbr in the
+// nflverse scheme — the same abbrs the dryrun game_id embeds ({season}_{wk}_{AWAY}_{HOME}).
+async function fetchNFLTeamTrendsByAbbr(
+  cfbClient: SupabaseClient,
+  abbrs: string[]
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+  if (abbrs.length === 0) return result;
+  try {
+    const { data, error } = await cfbClient
+      .from('nfl_team_trends')
+      .select('*')
+      .in('team_abbr', abbrs);
+    if (error || !data) {
+      console.warn('[agentGameHelpers] nfl_team_trends fetch failed:', error?.message || 'No data');
+      return result;
+    }
+    // Newest (season, through_week) row wins — season-aware for the same reason
+    // as the CFB fetcher (week 0 of a new season vs week 15 of the old one).
+    for (const row of data as Record<string, unknown>[]) {
+      const key = String(row.team_abbr || '');
+      const existing = result.get(key);
+      const rank = (r: Record<string, unknown>) => Number(r.season || 0) * 100 + Number(r.through_week || 0);
+      if (!existing || rank(row) > rank(existing)) {
+        result.set(key, row);
+      }
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] nfl_team_trends fetch threw:', (error as Error).message);
+  }
+  return result;
+}
+
+// nfl_coach_trends / cfb_coach_trends: one row per head coach, keyed by
+// current_team (nflverse abbr for NFL, school display name for CFB).
+// recent_game_log is excluded at the select — the splits already summarize it.
+async function fetchCoachTrendsByTeam(
+  cfbClient: SupabaseClient,
+  tableName: 'nfl_coach_trends' | 'cfb_coach_trends',
+  teams: string[]
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+  if (teams.length === 0) return result;
+  try {
+    const { data, error } = await cfbClient
+      .from(tableName)
+      .select('coach,current_team,career_games,first_season,last_season,splits,market_coverage,matchups')
+      .in('current_team', teams);
+    if (error || !data) {
+      console.warn(`[agentGameHelpers] ${tableName} fetch failed:`, error?.message || 'No data');
+      return result;
+    }
+    // The coach tables hold EVERY coach who ever ran the team (current_team =
+    // their team at their last game) plus multiple builder snapshots per coach.
+    // Keep the row with the newest last_season, tie-broken by career_games
+    // (the bigger sample = the newer snapshot) — else agents get George Seifert
+    // as Carolina's coach.
+    for (const row of data as Record<string, unknown>[]) {
+      const key = normalizeTeamKey(row.current_team);
+      const existing = result.get(key);
+      const rank = (r: Record<string, unknown>) =>
+        Number(r.last_season || 0) * 10_000 + Number(r.career_games || 0);
+      if (!existing || rank(row) > rank(existing)) {
+        result.set(key, row);
+      }
+    }
+  } catch (error) {
+    console.warn(`[agentGameHelpers] ${tableName} fetch threw:`, (error as Error).message);
+  }
+  return result;
+}
+
+// nfl_referee_trends keyed by referee name; slate rows carry assigned_referee.
+async function fetchRefereeTrendsByName(
+  cfbClient: SupabaseClient,
+  names: string[]
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+  if (names.length === 0) return result;
+  try {
+    const { data, error } = await cfbClient
+      .from('nfl_referee_trends')
+      .select('referee,career_games,first_season,last_season,splits,market_coverage')
+      .in('referee', names);
+    if (error || !data) {
+      console.warn('[agentGameHelpers] nfl_referee_trends fetch failed:', error?.message || 'No data');
+      return result;
+    }
+    for (const row of data as Record<string, unknown>[]) {
+      result.set(String(row.referee || ''), row);
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] nfl_referee_trends fetch threw:', (error as Error).message);
+  }
   return result;
 }
 
@@ -1753,7 +1872,12 @@ function formatNFLGameFromDryrun(
   flags: Record<string, unknown>[] = [],
   perfMap?: Map<string, Record<string, unknown>>,
   defMap?: Map<string, Record<string, unknown>>,
-  injuryMap?: Map<string, NFLInjuryEntry>
+  injuryMap?: Map<string, NFLInjuryEntry>,
+  homeTrends: Record<string, unknown> | null = null,
+  awayTrends: Record<string, unknown> | null = null,
+  homeCoach: Record<string, unknown> | null = null,
+  awayCoach: Record<string, unknown> | null = null,
+  refTrend: Record<string, unknown> | null = null
 ): Record<string, unknown> {
   // game_id = the nflverse id verbatim (text). Props + results join on it.
   const gameId = String(game.game_id || `${game.away_team}_${game.home_team}`);
@@ -1869,7 +1993,12 @@ function formatNFLGameFromDryrun(
       opening_spread: game.fg_spread_open ?? null,
       opening_total: game.fg_total_open ?? null,
     },
-    h2h_recent: [],
+    // Cross-season head-to-head vs THIS opponent, prebuilt by the team-trends
+    // builder (nfl_team_trends.matchups, keyed by opponent abbr).
+    h2h_recent: (() => {
+      const entry = matchupEntry(homeTrends, awayAbbr);
+      return entry ? [{ perspective: String(game.home_team || ''), opponent: String(game.away_team || ''), ...(entry as Record<string, unknown>) }] : [];
+    })(),
     polymarket,
     model_predictions: {
       // Legacy keys (1:1). ou_prob has no dryrun probability → null.
@@ -1959,6 +2088,25 @@ function formatNFLGameFromDryrun(
             : p;
         })
       : null,
+    // Season-to-date team trends (nfl_team_trends). Owner rule 2026-08-17:
+    // agents weigh the CURRENT season's record only — last5 chips and last-N
+    // split windows straddle the previous season early in the year, so the trim
+    // (filterSeasonTeamTrend) drops them.
+    trends: (homeTrends || awayTrends) ? {
+      home_team: homeTrends ? filterSeasonTeamTrend(homeTrends) : null,
+      away_team: awayTrends ? filterSeasonTeamTrend(awayTrends) : null,
+    } : null,
+    // Head-coach career market tendencies + record vs this opponent.
+    coaches: (homeCoach || awayCoach) ? {
+      home: homeCoach ? trimCoachTrend(homeCoach, awayAbbr) : null,
+      away: awayCoach ? trimCoachTrend(awayCoach, homeAbbr) : null,
+    } : null,
+    // Assigned referee + historical tendencies (nfl_referee_trends). Name-only
+    // when the ref has no trends row yet (new refs / early backfill gaps).
+    referee: game.assigned_referee ? {
+      name: game.assigned_referee,
+      ...(refTrend ? trimRefereeTrend(refTrend) : {}),
+    } : null,
     game_data_complete: {
       source_table: 'nfl_dryrun_games',
       raw_game_data: game,
@@ -1974,7 +2122,9 @@ function formatCFBGameFromDryrun(
   homeTrends: Record<string, unknown> | null = null,
   awayTrends: Record<string, unknown> | null = null,
   perfMap?: Map<string, Record<string, unknown>>,
-  defMap?: Map<string, Record<string, unknown>>
+  defMap?: Map<string, Record<string, unknown>>,
+  homeCoach: Record<string, unknown> | null = null,
+  awayCoach: Record<string, unknown> | null = null
 ): Record<string, unknown> {
   // game_id = the CFBD id verbatim (bigint → string). Picks/flags join on it.
   const gameId = String(game.game_id ?? `${game.away_team}_${game.home_team}`);
@@ -2120,9 +2270,19 @@ function formatCFBGameFromDryrun(
     // Season-to-date ATS/OU/TT + 1H trends per team (cfb_team_trends). Keyed by
     // team_name; surfaced under `trends` so it's a stable named group.
     trends: (homeTrends || awayTrends) ? {
-      home_team: homeTrends ? filterCFBTrend(homeTrends) : null,
-      away_team: awayTrends ? filterCFBTrend(awayTrends) : null,
+      home_team: homeTrends ? filterSeasonTeamTrend(homeTrends) : null,
+      away_team: awayTrends ? filterSeasonTeamTrend(awayTrends) : null,
     } : null,
+    // Head-coach career market tendencies + record vs this opponent.
+    coaches: (homeCoach || awayCoach) ? {
+      home: homeCoach ? trimCoachTrend(homeCoach, String(game.away_team || '')) : null,
+      away: awayCoach ? trimCoachTrend(awayCoach, String(game.home_team || '')) : null,
+    } : null,
+    // Cross-season head-to-head vs THIS opponent (cfb_team_trends.matchups).
+    h2h_recent: (() => {
+      const entry = matchupEntry(homeTrends, String(game.away_team || ''));
+      return entry ? [{ perspective: String(game.home_team || ''), opponent: String(game.away_team || ''), ...(entry as Record<string, unknown>) }] : [];
+    })(),
     game_data_complete: {
       source_table: 'cfb_dryrun_games',
       raw_game_data: game,
@@ -2240,20 +2400,66 @@ function formatDryrunPick(
   };
 }
 
-// Trim the heavy game_log jsonb off a cfb_team_trends row — the agent wants the
-// summary rates (ATS%, OVER%, TT OVER%, 1H), not the full per-game log blob.
-function filterCFBTrend(row: Record<string, unknown>): Record<string, unknown> {
+// SEASON-TO-DATE trim of a {nfl,cfb}_team_trends row (identical column shape).
+// Owner rule 2026-08-17: agents weigh the current season's record only — the
+// last5_* chips and last-N split windows straddle the PREVIOUS season early in
+// the year and are deliberately excluded. game_log jsonb is dropped for size.
+// season/through_week ride along so the agent can see "0 games so far" early
+// and weight accordingly.
+function filterSeasonTeamTrend(row: Record<string, unknown>): Record<string, unknown> {
+  const rec = (w: unknown, l: unknown, p: unknown) =>
+    w != null || l != null ? `${Number(w ?? 0)}-${Number(l ?? 0)}-${Number(p ?? 0)}` : null;
   return {
+    season: row.season ?? null,
+    through_week: row.through_week ?? null,
     games: row.games ?? null,
-    su_record: row.su_record ?? null,
+    su_record: row.su_record ?? rec(row.su_w, row.su_l, 0),
+    ats_record: rec(row.ats_w, row.ats_l, row.ats_p),
     ats_pct: row.ats_pct ?? null,
+    ou_record_over_under_push: rec(row.ou_o, row.ou_u, row.ou_p),
     over_pct: row.over_pct ?? null,
     tt_over_pct: row.tt_over_pct ?? null,
     h1_ats_pct: row.h1_ats_pct ?? null,
     h1_over_pct: row.h1_over_pct ?? null,
-    last5_su: Array.isArray(row.last5_su) ? row.last5_su : null,
-    last5_ats: Array.isArray(row.last5_ats) ? row.last5_ats : null,
-    last5_ou: Array.isArray(row.last5_ou) ? row.last5_ou : null,
+  };
+}
+
+// Look up the cross-season H2H entry for an opponent inside a trends/coach row's
+// matchups jsonb. NFL keys by abbr, CFB by school name → exact hit first, then
+// a normalized scan (name punctuation drifts between sources).
+function matchupEntry(row: Record<string, unknown> | null, oppKey: string): unknown {
+  const m = row?.matchups;
+  if (!m || typeof m !== 'object' || !oppKey) return null;
+  const rec = m as Record<string, unknown>;
+  if (rec[oppKey] != null) return rec[oppKey];
+  const want = normalizeTeamKey(oppKey);
+  for (const [k, v] of Object.entries(rec)) {
+    if (normalizeTeamKey(k) === want) return v;
+  }
+  return null;
+}
+
+// Coach/referee splits are inherently multi-season career windows — that IS
+// their value (unlike team trends, which reset each season) — so they keep the
+// last-5/10/15 windows. recent_game_log stays excluded at the fetch.
+function trimCoachTrend(row: Record<string, unknown>, oppKey?: string): Record<string, unknown> {
+  return {
+    coach: row.coach ?? null,
+    team: row.current_team ?? null,
+    career_games: row.career_games ?? null,
+    seasons: row.first_season != null ? `${row.first_season}-${row.last_season ?? 'now'}` : null,
+    splits: row.splits ?? null,
+    market_coverage: row.market_coverage ?? null,
+    vs_opponent: oppKey ? matchupEntry(row, oppKey) : null,
+  };
+}
+
+function trimRefereeTrend(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    career_games: row.career_games ?? null,
+    seasons: row.first_season != null ? `${row.first_season}-${row.last_season ?? 'now'}` : null,
+    splits: row.splits ?? null,
+    market_coverage: row.market_coverage ?? null,
   };
 }
 

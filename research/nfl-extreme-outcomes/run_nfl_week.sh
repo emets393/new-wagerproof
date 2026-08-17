@@ -66,6 +66,7 @@ step "dryrun slate: games + flags";  python3 dryrun_wk12_games.py
 step "assign referees to slate";     python3 backfill_dryrun_referees.py
 step "live props frame (DB -> current-week frame)"; python3 live_props_frame.py
 step "dryrun slate: player props";   python3 dryrun_wk12_props.py
+step "h2h matchup history";           python3 dryrun_wk12_matchups.py
 step "team trends (Outliers tab)";    python3 dryrun_wk12_trends.py
 step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
 step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py

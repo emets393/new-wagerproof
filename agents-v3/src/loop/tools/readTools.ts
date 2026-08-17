@@ -32,18 +32,18 @@ interface DeepToolDef {
  *  conviction/signals/props on top. projectGroups only emits keys present on the
  *  cached game, so a group listed for a sport that lacks it is simply skipped. */
 const DEEP_TOOLS: Record<string, DeepToolDef> = {
-  get_game_data: { groups: ["vegas_lines", "model_predictions", "conviction", "signals", "props", "weather", "public_betting", "team_stats", "trends", "injuries", "situational_trends", "prediction_accuracy", "accuracy_signals", "perfect_storm", "starting_pitchers", "h2h_recent", "line_movement", "polymarket"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Full data for a game: lines, model, conviction, signals, and all available context." },
+  get_game_data: { groups: ["vegas_lines", "model_predictions", "conviction", "signals", "props", "weather", "public_betting", "team_stats", "trends", "injuries", "situational_trends", "prediction_accuracy", "accuracy_signals", "perfect_storm", "starting_pitchers", "h2h_recent", "line_movement", "polymarket", "coaches", "referee"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Full data for a game: lines, model, conviction, signals, and all available context." },
   get_model_predictions: { groups: ["model_predictions", "prediction_accuracy", "accuracy_signals"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Model win/cover/total probabilities and edges." },
   get_market_odds: { groups: ["vegas_lines"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Vegas lines / odds (NFL/CFB incl. team-total + 1H markets; MLB incl. F5 + runline)." },
-  get_line_movement: { groups: ["line_movement", "opening_lines"], sports: ["nfl", "cfb"], grounds: "none", desc: "Line-movement history (open → close, snapshots where available)." },
-  get_public_betting: { groups: ["public_betting", "public_betting_detailed"], sports: ["nfl", "cfb"], grounds: "none", desc: "Public money/ticket splits." },
   get_weather: { groups: ["weather"], sports: ["nfl", "cfb", "mlb"], grounds: "none", desc: "Game-time weather." },
   get_team_ratings: { groups: ["team_stats"], sports: ["nba", "ncaab"], grounds: "none", desc: "Adjusted off/def/pace ratings (+ rankings for NCAAB)." },
   get_recent_form: { groups: ["trends", "team_stats"], sports: ["nba"], grounds: "none", desc: "Recent form / L3-L5 trends." },
-  get_ats_trends: { groups: ["trends"], sports: ["nba", "ncaab"], grounds: "none", desc: "ATS and O/U trend percentages." },
+  get_ats_trends: { groups: ["trends"], sports: ["nba", "ncaab", "nfl", "cfb"], grounds: "none", desc: "ATS and O/U trend percentages. NFL/CFB: SEASON-TO-DATE team records only (ATS, O/U, team-total, 1H) — early in the season these can be 0-0; do not treat an empty record as a signal." },
   get_injuries: { groups: ["injuries"], sports: ["nba", "nfl"], grounds: "none", desc: "Injury report with player impact. For NFL: each team's injury digest (QB status, starters out, severity score, key-position counts) plus the notable Out/Doubtful/Questionable players." },
   get_situational_trends: { groups: ["situational_trends"], sports: ["nba", "ncaab"], grounds: "none", desc: "Situational splits for the matchup." },
-  get_h2h_history: { groups: ["h2h_recent"], sports: ["nfl"], grounds: "none", desc: "Recent head-to-head results." },
+  get_h2h_history: { groups: ["h2h_recent"], sports: ["nfl", "cfb"], grounds: "none", desc: "Cross-season head-to-head record vs this exact opponent (SU/ATS/O-U in recent meetings)." },
+  get_coach_trends: { groups: ["coaches"], sports: ["nfl", "cfb"], grounds: "none", desc: "Both head coaches' career market tendencies: ATS/O-U/1H home-away splits over their last 5/10/15 games, career sample size, and the coach's record vs this opponent. Career-window data by design (coaches persist across seasons)." },
+  get_referee_trends: { groups: ["referee"], sports: ["nfl"], grounds: "none", desc: "The assigned referee's historical market tendencies: O/U and ATS home-away splits over their last 5/10/15 games plus career sample. Useful for totals (penalty-heavy vs let-them-play crews)." },
   get_prediction_accuracy: { groups: ["prediction_accuracy", "accuracy_signals"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "none", desc: "Historical model accuracy buckets for this matchup." },
   get_mlb_perfect_storm: { groups: ["perfect_storm", "accuracy_signals"], sports: ["mlb"], grounds: "all", desc: "Perfect Storm tiers + per-bet-type accuracy buckets (DOW/team/edge)." },
   get_mlb_statcast_signals: { groups: ["signals"], sports: ["mlb"], grounds: "none", desc: "Statcast / pitcher / bullpen signal messages." },

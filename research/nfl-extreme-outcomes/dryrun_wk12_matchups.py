@@ -15,6 +15,7 @@ Usage:  python3 dryrun_wk12_matchups.py [--no-load]
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -25,7 +26,10 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-SEASON, WEEK = 2025, 12
+# Parameterized like dryrun_wk12_trends.py: env overrides, defaults keep the
+# original 2025 wk12 dry-run byte-for-byte.
+SEASON = int(os.environ.get("NFL_SEASON", 2025))
+WEEK = int(os.environ.get("NFL_WEEK", 12))
 N_LAST = 5
 # relocations + scheme normalization -> current abbreviation
 RELOC = {"OAK": "LV", "SD": "LAC", "STL": "LA", "LAR": "LA", "WSH": "WAS", "JAC": "JAX"}
@@ -54,11 +58,25 @@ def build():
     g["gd"] = pd.to_datetime(g.gameday)
     g["key"] = [mkey(h, a) for h, a in zip(g.home_ab, g.away_ab)]
 
-    # dry-run cutoff: first kickoff of Week 12 2025
-    f = pd.read_parquet(DATA / "h1tt_frame.parquet")
-    wk = f[(f.season == SEASON) & (f.week == WEEK)].copy()
-    cutoff = pd.to_datetime(wk.gameday).min()
-    matchups = [(cur(h), cur(a)) for h, a in zip(wk.home_ab, wk.away_ab)]
+    # Slate pairings + cutoff come from the LIVE slate table so this tracks
+    # whatever week the pipeline just built (h1tt_frame has no rows until the
+    # season's pbp publishes, so it can't source a week-1 slate). game_id is
+    # {season}_{wk}_{AWAY}_{HOME} in current nflverse abbrs already.
+    key = load_key()
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+    slate = requests.get(
+        f"{BASE_URL}/nfl_dryrun_games?select=game_id,kickoff&season=eq.{SEASON}&week=eq.{WEEK}",
+        headers=hdr, timeout=60).json()
+    if isinstance(slate, list) and slate:
+        cutoff = pd.to_datetime([r["kickoff"] for r in slate if r.get("kickoff")]).tz_localize(None).min()
+        parts = [str(r["game_id"]).split("_") for r in slate]
+        matchups = [(cur(p[3]), cur(p[2])) for p in parts if len(p) == 4]
+    else:
+        # legacy fallback: the original 2025 wk12 dry-run path
+        f = pd.read_parquet(DATA / "h1tt_frame.parquet")
+        wk = f[(f.season == SEASON) & (f.week == WEEK)].copy()
+        cutoff = pd.to_datetime(wk.gameday).min()
+        matchups = [(cur(h), cur(a)) for h, a in zip(wk.home_ab, wk.away_ab)]
 
     g = g[g.gd < cutoff]
     rows = []

@@ -148,13 +148,13 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
 
   // Public / contrarian (NFL/CFB)
   if (p.fade_public) {
-    vote("public", 5); affin("get_public_betting", "+"); affin("get_line_movement", "+");
+    vote("public", 5);
     const thr = { 1: 60, 2: 65, 3: 70, 4: 75, 5: 80 }[Math.min(Math.max(Math.round(num(p.public_threshold)), 1), 5)] ?? 70;
     weighting.push(`Fade lopsided public money — take the other side when one side reaches ≥${thr}%.`);
   }
 
   // Value / dogs
-  if (p.chase_value || num(p.underdog_lean) >= 4) { vote("value", 3); vote("line_move", 3); affin("get_line_movement", "+"); weighting.push("Hunt plus-money dogs and reverse-line-movement value."); }
+  if (p.chase_value || num(p.underdog_lean) >= 4) { vote("value", 3); vote("line_move", 3); weighting.push("Hunt plus-money dogs and value in how the line moved from open."); }
 
   // Weather (NFL/CFB/MLB)
   if (p.weather_impacts_totals || num(p.weather_sensitivity) >= 3) { vote("weather", 4); affin("get_weather", "+"); weighting.push("Bad weather (wind/cold/precip) leans totals under."); }
