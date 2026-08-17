@@ -259,3 +259,22 @@ PRODUCTION DEPS: weekly CFBD pull (sides/totals/spots/mammoth) + weekly event-od
 (TT/1H need posted lines). 2026 hourly feed = sharper closes, selectors already tag-agnostic.
 DISPLAY: see product spec discussion — predicted score every game, tier-colored conviction, book routing, honest
 historical hit% per signal, |edge|>14 uncertainty flag.
+
+## 9. DERIVATIVE MARKETS — 1H/TT movement battery (2026-08-17, cfb_h1tt_movement.py)
+Pre-registered on the event_odds h72/h24/h2 archive (2023-25, 2,212 clean games; the
+(season,home,away) join fans out on 174 rematch/phantom pairs — week-keyed join is mandatory).
+- **ROTATION confirmed**: 1H/TT closes correlate 0.96-0.995 with FG closes — pure transforms,
+  everything below is read through the parent per the derived-market law.
+- **Naive continuation DEAD**: follow the h72→h24 derivative move = 48-50% vs 50-53% slice
+  bases, −5..−9% ROI, all three markets. Matches the FG verdict; do not revisit.
+- **Cross-market lag DEAD**: FG steams, 1H stale → 1H follows at 51.7% vs 50.5 base. Books
+  sync derivatives algorithmically.
+- **MODEL-CONFIRM transfers** (production core_total_edge formula, |edge|≥4 vs FG close,
+  graded @ h2): parent FG 57.0% (n=853); 1H total same direction 55.9% (n=843) — real but
+  no lift over the parent, keep as display context only.
+- **★ TT AWAY UNDER**: model under-edge ≤−4 → AWAY team total UNDER = **61.3%, n=271,
+  +16.9% @ −110, per-season 61/60/62, z=+3.13 vs the 51.8% blind base; beats its parent
+  (56.8%) on the same games.** HOME side is dead (48.7% vs 49.3 blind) — the public shades
+  home team totals, so the total's error concentrates on the away half. Dose-response
+  elevated at every depth (60/65/59 across −4/−6/−8 buckets). 2025 strongest season (62%).
+  NOT yet a shipped flag — needs an owner call + a tracking tier first (n=271, ~90/season).
