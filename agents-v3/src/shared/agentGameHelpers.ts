@@ -89,6 +89,21 @@ export async function fetchGamesForSport(
 // Sport-Specific Game Fetchers
 // =============================================================================
 
+// Live football slates span the whole week, so a late-week run would otherwise
+// see (and bet) games that already kicked off. Drop rows whose kickoff is in
+// the past. Fail OPEN on missing/unparseable timestamps — hiding the slate
+// because a feed omitted times is worse than showing a started game. Live
+// paths only: dryrun slates are frozen 2025 data and would filter to nothing.
+function excludeStartedGames<T extends Record<string, unknown>>(games: T[], tsField: string): T[] {
+  const now = Date.now();
+  return games.filter(g => {
+    const raw = g[tsField];
+    if (raw == null || raw === '') return true;
+    const t = Date.parse(String(raw));
+    return Number.isNaN(t) || t > now;
+  });
+}
+
 async function fetchNFLGames(
   cfbClient: SupabaseClient,
   mainClient: SupabaseClient,
@@ -107,14 +122,15 @@ async function fetchNFLGames(
     return { games: [], formattedGames: [] };
   }
 
-  const { data: games } = await cfbClient
+  const { data: rawGames } = await cfbClient
     .from('nfl_predictions_epa')
     .select('*')
     .eq('run_id', latestRun.run_id);
 
-  if (!games) {
+  if (!rawGames) {
     return { games: [], formattedGames: [] };
   }
+  const games = excludeStartedGames(rawGames, 'game_time_et');
 
   // Slate game_ids are whatever formatNFLGame assigns (training_key today; the
   // 2026 contract migrates this to the nflverse id, e.g. 2025_12_BUF_HOU). Props
@@ -149,13 +165,14 @@ async function fetchCFBGames(
 ): Promise<GameFetchResult> {
   if (source === 'dryrun') return fetchCFBGamesFromDryrun(cfbClient, mainClient);
 
-  const { data: games } = await cfbClient
+  const { data: rawGames } = await cfbClient
     .from('cfb_live_weekly_inputs')
     .select('*');
 
-  if (!games) {
+  if (!rawGames) {
     return { games: [], formattedGames: [] };
   }
+  const games = excludeStartedGames(rawGames, 'start_date');
 
   const [polymarketByGameKey, lineMovementByTrainingKey] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'cfb', games),
