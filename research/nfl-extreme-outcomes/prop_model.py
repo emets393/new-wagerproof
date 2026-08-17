@@ -60,7 +60,7 @@ def t60_lines():
 
 def panel():
     """All player-games 2018-2025 with the market's actual + form + team/opp/script features.
-    Training uses every row; evaluation only the 2024-25 rows that have a T-60 line."""
+    Training uses every row; evaluation only the 2023-25 rows that have a T-60 line."""
     po = pd.read_parquet(DATA / "player_offense.parquet")
     po["team"] = po.team.replace(NORM)
     off, dfn = team_feats()
@@ -89,7 +89,7 @@ def walk_forward(p, mkt):
     m = p[p.market == mkt].dropna(subset=["actual", "team_spread"]).copy()
     m["t"] = m.season * 100 + m.week
     m["pred"] = np.nan
-    for t in sorted(m[m.season.isin([2024, 2025])].t.unique()):
+    for t in sorted(m[m.season.isin([2023, 2024, 2025])].t.unique()):
         tr = m[m.t < t]
         te = m[m.t == t]
         if len(tr) < 500 or len(te) == 0:
@@ -134,7 +134,7 @@ def side(sub, is_over):
     k, n = int(win.sum()), len(s)
     lo, hi = wilson_ci(k, n)
     per = " ".join(f"{y}:{(((s[s.season==y].actual>s[s.season==y].close_line) if is_over else (s[s.season==y].actual<s[s.season==y].close_line)).mean()*100):.0f}%"
-                   for y in (2024, 2025) if len(s[s.season == y]))
+                   for y in (2023, 2024, 2025) if len(s[s.season == y]))
     return n, k/n*100, roi, per, (lo*100, hi*100)
 
 
