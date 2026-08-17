@@ -278,3 +278,18 @@ Pre-registered on the event_odds h72/h24/h2 archive (2023-25, 2,212 clean games;
   home team totals, so the total's error concentrates on the away half. Dose-response
   elevated at every depth (60/65/59 across −4/−6/−8 buckets). 2025 strongest season (62%).
   NOT yet a shipped flag — needs an owner call + a tracking tier first (n=271, ~90/season).
+
+## 10. STEAM TIMING (2026-08-17, cfb_steam_timing.py, densified 2021-25 archive)
+core_total_edge |edge|>=4, wks5-15, graded @ close. Ladder REPRODUCES on the denser frame:
+no-steam 52.7% (n=706) / T2 55.3% (n=161) / **T1 65.9% (n=85, 5/5 seasons 62-72%)** /
+decay >=2.5 48.4% — the never-chase rule stands.
+TIMING (windows open->h72->h24->h6->close, h6 = the densified Sat-AM window):
+- **LATE steam (h6->close) is the sharpest confirm: 60.0%, n=200, 5/5 seasons 56-62%.**
+- EARLY-ONLY steam (moved open->h72 then flat): 40.4% n=52 — a head-fake profile; and the
+  decay zone is precisely the fully-moved-by-h24 games (47.2% n=53). Late money is the
+  informed money; early money that the market stops following is a warning, not a confirm.
+- Morning window alone 52.5% (n=202) — the fill-in data mattered for measurement, not as
+  its own signal.
+CANDIDATE PRODUCTION REFINEMENT (not yet wired): demote ladder tiers whose toward-steam
+fully arrived before h24 with nothing after; late-window steam >=0.5 as an explicit T2+
+confirm. Live-computable from ncaaf_odds_history hourly capture.
