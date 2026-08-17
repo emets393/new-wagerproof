@@ -208,7 +208,7 @@ export function ComparisonBlock({
   const scheme = page.scheme;
   const defense = scheme?.defense;
   const opp = scheme?.opponent ?? page.opponent;
-  const identity = defense?.identity ?? null;
+  const identity = defense?.identity_by_family?.receiving ?? defense?.identity ?? null;
   const compare = resolveSchemeCompare(page, marketKey);
 
   const hitEntries = scheme?.look_hit_rates

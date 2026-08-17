@@ -56,6 +56,11 @@ export interface PropDefense {
   heavy_box?: DefenseDim;
   light_box?: DefenseDim;
   [key: string]: string | DefenseDim | undefined;
+  /** Market-aware headline tags (2026-08-17): the tab shows ITS family's identity —
+   *  a blitz tag never headlines a receiving market. Fallbacks are honest
+   *  ("AVERAGE COVERAGE MIX"), legacy `identity` kept for older payload rows. */
+  identity_by_family?: { receiving?: string; rushing?: string; passing?: string } | null;
+  note_by_family?: { receiving?: string | null } | null;
 }
 
 /** WR/TE/RB receiving coverage split. */

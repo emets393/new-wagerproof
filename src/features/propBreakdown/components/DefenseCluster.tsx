@@ -55,11 +55,30 @@ export function DefenseCluster({
       className={className}
       dense
     >
-      {defense.identity && (
-        <div className="mb-2.5 inline-flex rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-800 dark:text-amber-200">
-          {defense.identity}
-        </div>
-      )}
+      {(() => {
+        // Family identity for THIS tab — a blitz tag must never headline a
+        // receiving market (owner 2026-08-17). Legacy `identity` only as a
+        // fallback for payload rows that predate identity_by_family.
+        const family = marketKey.startsWith('player_pass') ? 'passing'
+          : marketKey.startsWith('player_rush') ? 'rushing'
+          : marketKey === 'player_anytime_td' ? null
+          : 'receiving';
+        const label = family
+          ? defense.identity_by_family?.[family] ?? defense.identity
+          : null;
+        const note = family === 'receiving' ? defense.note_by_family?.receiving : null;
+        if (!label) return null;
+        return (
+          <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+            <div className="inline-flex rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-800 dark:text-amber-200">
+              {label}
+            </div>
+            {note && (
+              <span className="text-[10px] italic text-muted-foreground">{note}</span>
+            )}
+          </div>
+        );
+      })()}
       {dims.length === 0 ? (
         <p className="text-[13px] text-muted-foreground">No defense profile for this opponent.</p>
       ) : (
