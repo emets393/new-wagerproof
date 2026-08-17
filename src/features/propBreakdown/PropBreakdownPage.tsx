@@ -70,7 +70,7 @@ export function PropBreakdownContent({
     let cancelled = false;
     Promise.all(markets.map(async (market) => {
       try {
-        return [market.key, await fetchNflPropSportsbookOdds(playerId, market.key)] as const;
+        return [market.key, await fetchNflPropSportsbookOdds(playerId, market.key, page?.season, page?.week)] as const;
       } catch {
         return [market.key, null] as const;
       }
@@ -80,7 +80,7 @@ export function PropBreakdownContent({
     return () => {
       cancelled = true;
     };
-  }, [playerId, markets]);
+  }, [playerId, markets, page?.season, page?.week]);
 
   if (pageQ.isLoading || (pageQ.isFetching && !page)) {
     return <PropBreakdownSkeleton />;

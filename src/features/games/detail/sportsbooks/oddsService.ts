@@ -249,16 +249,26 @@ function sortPropQuotes(quotes: SportsbookQuote[], isOver: boolean): SportsbookQ
 export async function fetchNflPropSportsbookOdds(
   playerId: string,
   market: string,
+  season?: number,
+  week?: number,
 ): Promise<SportsbookPropMarketOdds | null> {
-  const cacheKey = `${playerId}|${market}`;
+  const cacheKey = `${playerId}|${market}|${season ?? ''}|${week ?? ''}`;
   const cached = propCache.get(cacheKey);
   if (cached) return cached;
 
-  const { data, error } = await collegeFootballSupabase
+  // season/week REQUIRED for correctness: without them "latest snapshot" happily
+  // serves LAST SEASON'S closing line for a market no book has posted this week
+  // (owner caught Barner's Dec-2025 rec-yds line rendered as a wk1-2026 board).
+  // Callers must pass the page's season/week; a missing market then correctly
+  // returns null -> "Line pending".
+  let query = collegeFootballSupabase
     .from('nfl_player_props')
     .select('bookmaker,line,over_odds,under_odds,snapshot_time')
     .eq('player_id', playerId)
-    .eq('market', market)
+    .eq('market', market);
+  if (season != null) query = query.eq('season', season);
+  if (week != null) query = query.eq('week', week);
+  const { data, error } = await query
     .order('snapshot_time', { ascending: false })
     .limit(250);
 

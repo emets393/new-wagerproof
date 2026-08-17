@@ -110,7 +110,7 @@ export function NflPropPlayerCard({
     let cancelled = false;
     setLiveOdds(null);
     if (!market) return () => { cancelled = true; };
-    fetchNflPropSportsbookOdds(player.player_id, market.key)
+    fetchNflPropSportsbookOdds(player.player_id, market.key, player.season, player.week)
       .then((result) => {
         if (!cancelled) setLiveOdds(result);
       })
@@ -120,7 +120,7 @@ export function NflPropPlayerCard({
     return () => {
       cancelled = true;
     };
-  }, [player.player_id, market?.key]);
+  }, [player.player_id, market?.key, player.season, player.week]);
 
   if (!market) return null;
 
