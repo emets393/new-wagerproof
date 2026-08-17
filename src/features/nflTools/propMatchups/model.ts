@@ -113,6 +113,16 @@ export function buildNflPropGameFeed(pages: NflPropPlayerPage[]): NflPropGameFee
   for (const [key, g] of byGame) {
     const sortName = (a: NflPropPlayerPage, b: NflPropPlayerPage) =>
       a.player_name.localeCompare(b.player_name);
+    // POSTED-LINE GATE (owner 2026-08-17): once a game's prop board starts posting,
+    // list ONLY players with at least one posted market (any market counts, incl.
+    // anytime-TD). Before any props post for the game, keep the full roster preview —
+    // the page stays browsable pre-lines and self-tightens per game as books post.
+    const hasPosted = (p: NflPropPlayerPage) =>
+      p.markets.some((m) => m.status === 'posted');
+    if ([...g.home, ...g.away].some(hasPosted)) {
+      g.home = g.home.filter(hasPosted);
+      g.away = g.away.filter(hasPosted);
+    }
     g.home.sort(sortName);
     g.away.sort(sortName);
     const all = [...g.home, ...g.away];
