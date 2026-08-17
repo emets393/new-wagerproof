@@ -168,6 +168,34 @@ def main():
         elif prof["pressure"]["pctile"] >= 70: tags.append("PRESSURE FRONT")
         if prof["heavy_box"]["pctile"] >= 70: tags.append("STACKS THE BOX")
         prof["identity"] = " · ".join(tags[:2]) if tags else "BALANCED"
+
+        # MARKET-AWARE identities (owner spec 2026-08-17): each prop family headlines
+        # only ITS defensive dimension — a blitz tag must never headline a receiving
+        # tab (the NE catch). Max two tags; honest fallback when nothing is extreme;
+        # off-family context goes in `note`, not the headline.
+        def _p(k): return prof[k]["pctile"] or 50
+        recv = []
+        if _p("man") >= 70: recv.append("MAN-HEAVY")
+        elif _p("man") <= 30: recv.append("ZONE-HEAVY")
+        if _p("two_high") >= 70: recv.append("TWO-HIGH SHELL")
+        elif _p("two_high") <= 30: recv.append("SINGLE-HIGH")
+        rush = []
+        if _p("heavy_box") >= 70: rush.append("STACKS THE BOX")
+        if _p("light_box") >= 70: rush.append("LIGHT BOXES")
+        pas = []
+        if _p("pressure") >= 70: pas.append("PRESSURE FRONT")
+        if _p("blitz") >= 70:
+            pas.append("BLITZ-HAPPY, LOW PRESSURE" if _p("pressure") <= 30 else "BLITZ-HAPPY")
+        if _p("two_high") >= 70: pas.append("TWO-HIGH SHELL")
+        elif _p("two_high") <= 30: pas.append("SINGLE-HIGH")
+        prof["identity_by_family"] = dict(
+            receiving=" · ".join(recv[:2]) if recv else "AVERAGE COVERAGE MIX",
+            rushing=" · ".join(rush[:2]) if rush else "AVERAGE FRONTS",
+            passing=" · ".join(pas[:2]) if pas else "AVERAGE PASS RUSH",
+        )
+        prof["note_by_family"] = dict(
+            receiving=("blitzes often — expect quick throws" if _p("blitz") >= 70 else None),
+        )
         return prof
 
     # Precompute identity buckets once (for look_hit_rates aggregation).
