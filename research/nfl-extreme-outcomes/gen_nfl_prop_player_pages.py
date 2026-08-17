@@ -112,6 +112,28 @@ def main():
     tr = tr[tr.position.isin(POSITIONS) & tr.current_team.isin(games)]
     props = fetch("nfl_slate_props", f"season=eq.{SEASON}&week=eq.{WEEK}")
 
+    # Signal defs for resolving fired P-flags into user-facing chips (owner 2026-08-17:
+    # prop signals must render on the pages; the web redesign dropped them). Staging
+    # stores SHORT keys ("P17"); defs use the long key ("P17_rush_yds_model_under").
+    _defs = fetch("nfl_signal_defs", "select=signal_key,display_name,bet_direction,typical_hit")
+    _defs_by_short = {}
+    for _d in (_defs if isinstance(_defs, list) else []):
+        k = str(_d.get("signal_key") or "")
+        _defs_by_short[k] = _d
+        if "_" in k and k.split("_")[0].startswith(("P", "M", "K")):
+            _defs_by_short.setdefault(k.split("_")[0], _d)
+
+    def resolve_signals(flag_keys):
+        out = []
+        for fk in (flag_keys or []):
+            d = _defs_by_short.get(str(fk))
+            if d:
+                out.append(dict(key=str(fk), label=d.get("display_name") or str(fk),
+                                direction=d.get("bet_direction"), record=d.get("typical_hit")))
+            else:
+                out.append(dict(key=str(fk), label=str(fk), direction=None, record=None))
+        return out
+
     xw = pd.read_parquet(DATA / "players_xwalk.parquet")[["gsis_id", "headshot"]].dropna()
     heads = xw.set_index("gsis_id").headshot.to_dict()
 
@@ -354,6 +376,9 @@ def main():
                     hr = hit.iloc[0]
                     row.update(line=hr.get("line"), over_price=hr.get("over_price"),
                                under_price=hr.get("under_price"), status="posted")
+                    fl = hr.get("flags")
+                    if fl is not None and len(fl):
+                        row["signals"] = resolve_signals(list(fl))
             mkts.append(row)
         if not mkts:
             continue
