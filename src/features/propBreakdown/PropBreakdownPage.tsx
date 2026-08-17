@@ -144,6 +144,28 @@ export function PropBreakdownContent({
           {/* 1. Markets and live book lines. */}
           <div className="sticky top-2 z-20 rounded-2xl border border-black/5 bg-white/55 px-3 py-2.5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.05]">
             <MarketToggle markets={markets} selectedKey={marketKey} onSelect={setSelectedKey} boardsByMarket={boardsByMarket} selectedBookKeys={selectedKeys} />
+            {/* Fired prop signals for the ACTIVE market — renders nothing when none
+                (the normal case; signals are selective), so layout is unchanged. */}
+            {(selectedMarket?.signals?.length ?? 0) > 0 && (
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                {selectedMarket!.signals!.map((sig) => (
+                  <div
+                    key={sig.key}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1"
+                    title={sig.direction ?? undefined}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                      ⚡ {sig.label}
+                    </span>
+                    {sig.record && (
+                      <span className="text-[10px] font-semibold tabular-nums text-emerald-800/80 dark:text-emerald-200/80">
+                        {sig.record}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 2. WagerProof projection. */}

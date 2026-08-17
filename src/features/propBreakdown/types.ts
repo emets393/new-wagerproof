@@ -7,6 +7,13 @@ export type PropMarketStatus = 'pending' | 'posted';
 export type SampleFlag = 'ok' | 'thin';
 export type SchemeKind = 'receiving' | 'qb' | 'rb';
 
+export interface PropSignal {
+  key: string;
+  label: string;
+  direction: string | null;
+  record: string | null;
+}
+
 export interface PropMarket {
   key: string;
   label: string;
@@ -14,6 +21,9 @@ export interface PropMarket {
   over_price: number | null;
   under_price: number | null;
   status: PropMarketStatus;
+  /** Fired, validated prop signals for THIS player+market (resolved names + backtest
+   *  records from nfl_signal_defs). Absent on most rows — signals are selective. */
+  signals?: PropSignal[];
 }
 
 export interface MetricPctile {
