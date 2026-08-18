@@ -403,7 +403,7 @@ if WEEK >= 5 and os.path.exists(_cap):
                 if _ttl is not None:
                     rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
                                  "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "team_total",
-                                 "side": "UNDER", "line": round(float(_ttl), 1),
+                                 "side": f"{r.awayTeam} UNDER", "line": round(float(_ttl), 1),
                                  "price": int(_ttpx) if _ttpx is not None else -110,
                                  "edge": round(float(edge), 1), "conviction": "T2",
                                  "tier": "active", "stake_units": 1.0, "grade_line": "close",
@@ -459,7 +459,7 @@ if WEEK <= 3:
                     if _ttl is not None:
                         rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
                                      "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "team_total",
-                                     "side": "UNDER", "line": round(float(_ttl), 1),
+                                     "side": f"{r.awayTeam} UNDER", "line": round(float(_ttl), 1),
                                      "price": int(_ttpx) if _ttpx is not None else -110,
                                      "edge": round(edge, 1), "conviction": "T3",
                                      "tier": "active", "stake_units": C.STAKE["T3"],

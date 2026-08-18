@@ -243,6 +243,13 @@ for _, r in te.iterrows():
             ckey = C.tt_conv_key(edge, pside, p5); bt = best_tt(gid, team, pside)
         play = ckey is not None
         cv = {"T1": "high", "T2": "med"}.get(ckey, "none")
+        # Attach REAL flag keys (tt_away_under et al) so signal_performance can roll
+        # them up — the old hardcoded ["team_total"] placeholder meant team-total
+        # signals never accrued a season-to-date record. A firing flag also makes
+        # the card a play at its own tier when the model's own tt edge is quiet.
+        cv2, _m2, sig2 = conv_for(gid, "team_total", team=team, ou=pside) if pside else ("none", False, [])
+        if sig2 and not play:
+            play, cv = True, cv2
         line_disp = (bt[0] if bt else vg) if vg is not None else None
         rows.append(dict(game_id=gid, card_group="team_total", bet_type=bt_name, sort_order=so, pick_side=pside, pick_team=team,
             pick_label=(f"{team} {pside.title()} {line_disp:g}" if (vg is not None and pside) else f"{team} proj {proj:.1f} (no line)"),
@@ -250,7 +257,7 @@ for _, r in te.iterrows():
             vegas_line=round(float(vg), 1) if vg is not None else None, vegas_price=-110 if vg is not None else None,
             edge=round(float(edge), 1) if edge is not None else None,
             best_book=bt[2] if bt else None, best_line=round(bt[0], 1) if bt else None, best_odds=bt[1] if bt else None,
-            conviction=cv, is_mammoth=False, has_play=bool(play), display_only=(vg is None), signal_keys=(["team_total"] if play else []),
+            conviction=cv, is_mammoth=False, has_play=bool(play), display_only=(vg is None), signal_keys=(sorted(set(sig2)) or (["team_total"] if play else [])),
             stake_units=C.STAKE.get(ckey, 0) if play else 0))
     # ---- MONEYLINE — predicted winner (by predicted SCORE) + best price; signal pills only if a signal applies ----
     if pd.notna(r.pred_margin):
