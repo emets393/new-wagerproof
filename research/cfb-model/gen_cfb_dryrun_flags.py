@@ -446,6 +446,31 @@ if WEEK <= 3:
                              "mammoth": False, "signal_key": "early_total_edge",
                              "source": f"EARLY TOTAL EDGE: preseason-CORE blend implies "
                                        f"{r.pred_total_raw:.1f} vs line {r.total_close:g} ({edge:+.1f})"})
+                # ── TT AWAY UNDER, early-season variant (owner-pushed 2026-08-17): the
+                # weeks-1-4 subset of the validated cell holds (61.5% n=39 vs 61.2% wks5+),
+                # so the road-team under also rides the wk1-3 preseason-blend under calls.
+                # One tier lower (T3) until the early sample matures — the early gate is
+                # the analogous-but-not-identical formula (blend vs in-season CORE).
+                if side == "UNDER":
+                    _q = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_games?game_id=eq.{int(r.game_id)}"
+                                      f"&select=tt_away_close,tt_away_best_under", headers=C.H, timeout=30)
+                    _tr = (_q.json() or [{}])[0] if _q.ok else {}
+                    _ttl, _ttpx = _tr.get("tt_away_close"), _tr.get("tt_away_best_under")
+                    if _ttl is not None:
+                        rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                                     "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "team_total",
+                                     "side": "UNDER", "line": round(float(_ttl), 1),
+                                     "price": int(_ttpx) if _ttpx is not None else -110,
+                                     "edge": round(edge, 1), "conviction": "T3",
+                                     "tier": "active", "stake_units": C.STAKE["T3"],
+                                     "grade_line": "close", "mammoth": False,
+                                     "signal_key": "tt_away_under",
+                                     "bet_team": r.awayTeam, "bet_direction": "UNDER",
+                                     "bet_line": round(float(_ttl), 1),
+                                     "source": f"TT AWAY UNDER (early season): total looks "
+                                               f"{abs(edge):.1f} too high per the preseason blend — "
+                                               f"inflated points sit on the road side; {r.awayTeam} "
+                                               f"team total UNDER {_ttl:g}"})
 
 # ── Explicit bet target on every flag (owner rule 2026-08-07): a signal's text must
 # SAY the bet ("→ bet Tulsa +12.5"), because side=HOME/AWAY never renders and a source
