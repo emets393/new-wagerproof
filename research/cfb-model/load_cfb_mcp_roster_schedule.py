@@ -73,6 +73,18 @@ def main():
                       json=recs[i:i + 4000], timeout=120).raise_for_status()
     print(f"[schedule] loaded {len(recs)} rows for {s}")
 
+    # as-of ratings (cfb_ratings_asof) — the in-season strength table
+    ca = pd.read_parquet(os.path.join(HERE, "data", "cfbd", "core_asof.parquet"))
+    if season:
+        ca = ca[ca.season == season]
+    for yr in sorted(ca.season.unique()):
+        requests.delete(f"{SUPA}/cfb_ratings_asof?season=eq.{int(yr)}", headers=hdr, timeout=60)
+    recs = json.loads(ca.where(pd.notna(ca), None).to_json(orient="records"))
+    for i in range(0, len(recs), 4000):
+        requests.post(f"{SUPA}/cfb_ratings_asof", headers=hdr,
+                      json=recs[i:i + 4000], timeout=120).raise_for_status()
+    print(f"[ratings_asof] loaded {len(recs)} rows")
+
 
 if __name__ == "__main__":
     main()
