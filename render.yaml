@@ -91,7 +91,7 @@ services:
   - type: cron
     name: nfl-live-odds-hourly
     runtime: python
-    schedule: "0 * * 8-12,1-2 *"    # Aug added 2026-08-15: books post wk1 props/lines early — capture the openers            # every hour, NFL season — script controls 3x vs hourly
+    schedule: "*/15 * * 8-12,1-2 *"   # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
@@ -107,7 +107,7 @@ services:
   - type: cron
     name: cfb-live-odds-hourly
     runtime: python
-    schedule: "0 * * 8-12,1 *"              # every hour, CFB season — script controls 3x vs hourly
+    schedule: "*/15 * * 8-12,1 *"           # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
@@ -143,7 +143,7 @@ services:
   - type: cron
     name: nfl-live-props-hourly
     runtime: python
-    schedule: "0 * * 8-12,1-2 *"    # Aug added 2026-08-15: books post wk1 props/lines early — capture the openers            # every hour, NFL season — script controls 3x vs hourly
+    schedule: "*/15 * * 8-12,1-2 *"   # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'

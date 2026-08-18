@@ -5,7 +5,7 @@ The live counterpart to fetch_odds_history.py: same table, same FG markets (h2h/
 same game_id = Odds-API event id (no CFBD match needed), same pre-game rule. Uses the cheap BULK
 /odds endpoint (one call returns all upcoming events + odds), so no per-event fan-out.
 
-CADENCE (run hourly via Render): future-day games 3x/day (8/14/20 ET), today's games every hour,
+CADENCE (run every 15 min via Render — owner 2026-08-17): future-day games 3x/day (8/14/20 ET), today's games every hour,
 PRE-GAME ONLY (any event with commence_time <= now is dropped — no live in-play lines). One bulk
 call per run (~3 credits), so idle hours are cheap.
 
@@ -79,7 +79,7 @@ def parse(events, snap_iso, now, season):
         if ct <= snap:                                   # PRE-GAME ONLY (drops live odds)
             continue
         is_today = ct.astimezone(ET).date() == now.date()
-        if not (is_today or now.hour in SET_HOURS or FORCE):   # cadence: future days only at SET_HOURS
+        if not (is_today or (now.hour in SET_HOURS and now.minute < 15) or FORCE):   # cadence: future days only at SET_HOURS
             continue
         home, away = ev["home_team"], ev["away_team"]
         for bk in ev.get("bookmakers", []):
