@@ -58,7 +58,7 @@ GATE_MIN = 0.97
 
 # hoopR labels seasons by END year; nba_model_features labels by START year. Getting this
 # backwards would misalign every downstream join by a full season without erroring.
-SEASON_MAP = {2023: 2022, 2024: 2023, 2025: 2024, 2026: 2025}
+SEASON_MAP = {2021: 2020, 2022: 2021, 2023: 2022, 2024: 2023, 2025: 2024, 2026: 2025}
 
 EVENT_COLS = ["game_id", "season", "period_number", "type_text", "team_id",
               "athlete_id_1", "athlete_id_2", "home_team_id", "away_team_id",

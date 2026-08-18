@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(ROOT, "data", "plays_raw")
 OUT = os.path.join(ROOT, "data", "parquet")
 
-SEASONS = {"2022-23": 2023, "2023-24": 2024, "2024-25": 2025, "2025-26": 2026}
+SEASONS = {"2020-21": 2021, "2021-22": 2022, "2022-23": 2023, "2023-24": 2024, "2024-25": 2025, "2025-26": 2026}
 
 KEEP = ["gameId", "id", "season", "playType", "isHomeTeam", "teamId",
         "homeScore", "awayScore", "homeWinProbability", "period",
