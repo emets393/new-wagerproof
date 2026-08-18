@@ -273,3 +273,16 @@ edge = model prediction minus close line, in the market's own units
 
 (* = win%>need and ROI>0 in that bucket)
 ```
+
+## Line-as-feature experiment — REJECTED (2026-08-17, exp_prop_line_feature.py)
+Tested the NBA construction (close+open line as model features) on all 8 O/U markets,
+walk-forward 2023-25 on the 3-season line archive, same eval rows both arms.
+- MAE improves in 6/8 markets (the model drifts toward the line's answer) — but the line
+  itself still beats both arms everywhere, and MAE is the WRONG adjudicator here:
+- **Every production bet cell degrades.** rush_yds top-quartile UNDER: 58.3%/+9.6% line-blind
+  -> 48.8%/-8.6% line-aware. pass_tds OVER 63.6 -> 58.5. pass_attempts UNDER 57.3 -> 54.6.
+  rush_attempts wash. Only reception_yds UNDER ticks up (51.6 -> 54.2, ~breakeven).
+- Mechanism: the edge IS the model's independence from the market. Feeding it the line makes
+  predictions hug the line, shrinking exactly the disagreements the P-cells monetize.
+- **The line-blind design is load-bearing. Do not "improve" these models by adding market
+  features; the NBA props law (line-as-feature helps) does NOT port to NFL props.**
