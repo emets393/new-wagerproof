@@ -286,3 +286,15 @@ walk-forward 2023-25 on the 3-season line archive, same eval rows both arms.
   predictions hug the line, shrinking exactly the disagreements the P-cells monetize.
 - **The line-blind design is load-bearing. Do not "improve" these models by adding market
   features; the NBA props law (line-as-feature helps) does NOT port to NFL props.**
+
+## Third-season revalidation: movement/form family + attempts price QC (2026-08-17, prop_p_family_reval.py)
+Frozen production thresholds, graded @ T-60 close with real prices, 2023 added:
+- **ALL FIVE SURVIVE** (unlike P14's flat 2023): P12 65.6%/+22.8 (62/70/66), P13 65.0%/+22
+  (2023 44% on n=18 — noise-sized), P10 64.4%/+8.4 (70/65/62), P15 56.5%/+1.9 (52/55/62),
+  P16 61.5%/+12.8 (54/62/68). Two-season def records were optimistic (P12 "72%", P13 "82%")
+  — defs updated to 3-season numbers; user-facing records now honest.
+- **Attempts price data is CLEAN**: median under -115 across all 4 books, same as yardage.
+  The earlier "+39% ROI" P14 regrade was a grading artifact (retracted); honest P14 = 55.1%
+  hit, +1.1% at real prices / +5.2% at -110. The real structural quirk: 16% of attempts
+  unders close PLUS money (vs 2% yardage) — but those hit only 46%, efficiently priced,
+  no free lunch. P14 keeps its watch flag; economics thin but positive.
