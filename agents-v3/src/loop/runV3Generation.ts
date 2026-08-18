@@ -393,6 +393,27 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
     const result = await runAgenticLoop(ctx, slate, { transport });
 
     await markSucceeded(ctx.acceptedPicks.length, `engine=${result.engineUsed} accepted=${result.accepted} turns=${result.turns}`, gov);
+
+    // Pick-ready push. Mirrors the V2 worker's contract exactly (auto runs
+    // with >0 picks, POST {run_id}, non-fatal): the edge function validates
+    // the run and fans out to the user's devices. This call was stranded in
+    // the V2 worker when auto-gen consolidated onto V3 (2026-08-11) — zero
+    // pushes went out between then and this fix.
+    if ((payload.generationType ?? "manual") === "auto" && ctx.acceptedPicks.length > 0 && !ctx.dryRun) {
+      try {
+        const notifyResponse = await fetch(`${supabaseUrl}/functions/v1/send-agent-pick-ready-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+          body: JSON.stringify({ run_id: runId }),
+        });
+        if (!notifyResponse.ok) {
+          console.warn(`[v3] pick-ready push failed (non-fatal): ${notifyResponse.status} ${(await notifyResponse.text()).slice(0, 200)}`);
+        }
+      } catch (notifyError) {
+        console.warn(`[v3] pick-ready push threw (non-fatal): ${String(notifyError).slice(0, 200)}`);
+      }
+    }
+
     await telemetry(main, ctx, result.engineUsed, result.reason);
     hooks.onProgress?.({ kind: "phase", phase: "done", detail: `${ctx.acceptedPicks.length} pick(s)` });
     return {
