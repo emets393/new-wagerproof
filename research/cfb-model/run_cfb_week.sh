@@ -42,6 +42,7 @@ step "fetch CFBD extras2";                         python3 fetch_cfbd_extra2.py 
 step "fetch CFBD teams";                           python3 fetch_cfbd_teams.py            || true
 # returning production + transfer portal (feed the wk1-3 early-roster signals; returning loads ~August)
 step "fetch CFBD returning-production + portal";    python3 fetch_cfbd_roster.py "$SEASON"  || true
+step "sync cfb_game_advanced (MCP warehouse)";      python3 load_cfb_game_advanced.py "$SEASON" || true
 # player-level roster layer (rosters/recruits/player-PPA -> roster_scores) — feeds the early-week
 # blend's ROSTER_FEATS; no-ops gracefully until CFBD posts current-season rosters (~Aug)
 step "player roster layer + reconstruction";        (python3 fetch_roster_layer.py && python3 -W ignore build_roster_scores.py) || true
