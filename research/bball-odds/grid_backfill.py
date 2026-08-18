@@ -30,12 +30,21 @@ SPORT_KEYS = {"nba": "basketball_nba", "ncaab": "basketball_ncaab"}
 # a couple days past the title game, so openers' first postings are captured.
 SEASONS = {
     "nba": {
+        # 2020-21 = the COVID season (late-Dec start, 72 games, mostly empty arenas) — a
+        # distinct regime; use for eval/drift tests, never pooled blindly. Verified
+        # 2026-08-17: historical FG snapshots exist there (8-16 US books per game).
+        "2020-21": ("2020-12-18", "2021-07-22"),
+        "2021-22": ("2021-10-16", "2022-06-18"),
         "2022-23": ("2022-10-15", "2023-06-14"),
         "2023-24": ("2023-10-21", "2024-06-19"),
         "2024-25": ("2024-10-19", "2025-06-24"),
         "2025-26": ("2025-10-18", "2026-06-24"),
     },
     "ncaab": {
+        # 2020-21 college was heavily COVID-distorted (cancellations, uneven schedules);
+        # same drift caveat, doubly so.
+        "2020-21": ("2020-11-23", "2021-04-07"),
+        "2021-22": ("2021-11-05", "2022-04-06"),
         "2022-23": ("2022-11-04", "2023-04-05"),
         "2023-24": ("2023-11-03", "2024-04-10"),
         "2024-25": ("2024-11-01", "2025-04-09"),
@@ -78,7 +87,9 @@ class Fetcher:
             except requests.RequestException as e:
                 _time.sleep(10 * (attempt + 1))
                 continue
-            if r.status_code == 429:
+            # 5xx are transient on this API (a stray 502 killed a 5k-snapshot run);
+            # retry them like 429s instead of letting raise_for_status abort the season.
+            if r.status_code == 429 or r.status_code >= 500:
                 _time.sleep(5 * (attempt + 1))
                 continue
             self.calls += 1

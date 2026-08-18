@@ -26,12 +26,15 @@ OUT = os.path.join(ROOT, "data", "parquet")
 
 # season label -> (start, end) date window for ESPN day-by-day sweep
 NBA_SEASONS = {
+    "2020-21": (date(2020, 12, 22), date(2021, 7, 21)),   # COVID season: Dec start, 72 games
+    "2021-22": (date(2021, 10, 19), date(2022, 6, 17)),
     "2022-23": (date(2022, 10, 18), date(2023, 6, 15)),
     "2023-24": (date(2023, 10, 24), date(2024, 6, 20)),
     "2024-25": (date(2024, 10, 22), date(2025, 6, 25)),
     "2025-26": (date(2025, 10, 21), date(2026, 6, 25)),
 }
-NCAAB_SEASONS = {"2022-23": 2023, "2023-24": 2024, "2024-25": 2025, "2025-26": 2026}
+NCAAB_SEASONS = {"2020-21": 2021, "2021-22": 2022, "2022-23": 2023, "2023-24": 2024,
+                 "2024-25": 2025, "2025-26": 2026}
 
 ESPN_NBA = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
 CBBD = "https://api.collegebasketballdata.com/games"
