@@ -105,6 +105,84 @@ def parse(events, snap_iso, now, season):
     return rows
 
 
+# ── STEAM-TIMING re-tier (owner-approved 2026-08-17; cfb_steam_timing.py / LOCKED §10) ──
+# For core_total_edge flags on games inside 24h: recompute the steam ladder from the
+# hourly capture with WINDOW resolution. Late steam (arriving inside the final hours)
+# = the sharpest confirm (60.0%, n=200, 5/5 seasons); early steam that went quiet is a
+# head-fake (40.4%), and the >=2.5 fully-moved zone stays never-chase (48.4%). Runs
+# every capture, so the app tier upgrades/demotes within the hour as sharp money shows.
+def retier_steam_timing(season, now):
+    sk = _env("SUPABASE_SERVICE_KEY")
+    hdr = {"apikey": sk, "Authorization": f"Bearer {sk}", "Content-Type": "application/json"}
+    fl = requests.get(f"{SUPA}/cfb_dryrun_flags?signal_key=eq.core_total_edge&season=eq.{season}"
+                      f"&select=id,game_id,side,conviction,tier,stake_units,source", headers=hdr, timeout=30)
+    flags = fl.json() if fl.ok else []
+    if not flags:
+        return
+    gids = ",".join(str(f["game_id"]) for f in flags)
+    gq = requests.get(f"{SUPA}/cfb_dryrun_games?game_id=in.({gids})"
+                      f"&select=game_id,home_team,away_team,kickoff", headers=hdr, timeout=30)
+    games = {g["game_id"]: g for g in (gq.json() if gq.ok else [])}
+    now_utc = now.astimezone(dt.timezone.utc)
+    changed = 0
+    for f in flags:
+        g = games.get(f["game_id"])
+        if not g or not g.get("kickoff"):
+            continue
+        ko = dt.datetime.fromisoformat(g["kickoff"].replace("Z", "+00:00"))
+        hrs = (ko - now_utc).total_seconds() / 3600
+        if not (0 < hrs <= 24):        # the late window only exists inside T-24
+            continue
+        # line series for this game: match the capture's full names by school prefix
+        oq = requests.get(f"{SUPA}/{TABLE}?season=eq.{season}"
+                          f"&home_team=ilike.{requests.utils.quote(g['home_team'])}*"
+                          f"&total=not.is.null&select=snapshot,total,book,commence_time",
+                          headers=hdr, timeout=30)
+        rows = oq.json() if oq.ok else []
+        rows = [r for r in rows if abs((dt.datetime.fromisoformat(
+            r["commence_time"].replace("Z", "+00:00")) - ko).total_seconds()) < 6 * 3600]
+        if len(rows) < 4:
+            continue
+        import statistics
+        by_snap = {}
+        for r in rows:
+            by_snap.setdefault(r["snapshot"], []).append(float(r["total"]))
+        series = sorted((snap, statistics.median(v)) for snap, v in by_snap.items())
+        t24_target = ko - dt.timedelta(hours=24)
+        open_tot = series[0][1]
+        cur_tot = series[-1][1]
+        t24_tot = min(series, key=lambda x: abs(
+            dt.datetime.fromisoformat(x[0].replace("Z", "+00:00")) - t24_target))[1]
+        toward = 1.0 if f["side"] == "OVER" else -1.0
+        early = (t24_tot - open_tot) * toward
+        late = (cur_tot - t24_tot) * toward
+        full = (cur_tot - open_tot) * toward
+        if full >= 2.5:
+            conv, tier, stake, note = "track", "tracking", 0.5, "fully moved 2.5+ — never chase"
+        elif full >= 1.5:
+            conv, tier, stake, note = "T1", "active", 1.5, "strong steam toward us"
+        elif full >= 0.5:
+            conv, tier, stake, note = "T2", "active", 1.0, "steam toward us"
+        else:
+            conv, tier, stake, note = "track", "tracking", 0.5, "no market confirmation yet"
+        if conv in ("T1", "T2") and early >= 0.5 and late < 0.25:
+            conv, tier, stake = ("T2", "active", 1.0) if conv == "T1" else ("track", "tracking", 0.5)
+            note = "early move went quiet — head-fake profile, demoted"
+        if late >= 0.5 and full < 2.5:
+            if conv == "track":
+                conv, tier, stake = "T2", "active", 1.0
+            note = "LATE STEAM — sharp money arriving near kickoff"
+        base_src = f["source"].split(" | STEAM:")[0]
+        src = f"{base_src} | STEAM: {note} (open {open_tot:g} -> T24 {t24_tot:g} -> now {cur_tot:g})"
+        if (conv, tier, src) != (f["conviction"], f["tier"], f["source"]):
+            requests.patch(f"{SUPA}/cfb_dryrun_flags?id=eq.{f['id']}", headers=hdr,
+                           json={"conviction": conv, "tier": tier, "stake_units": stake, "source": src},
+                           timeout=30)
+            changed += 1
+    if changed:
+        print(f"[steam-timing] re-tiered {changed} core_total_edge flag(s)")
+
+
 def main():
     ok = _env("ODDS_API_KEY")
     now = dt.datetime.now(ET)
@@ -134,6 +212,10 @@ def main():
         resp = requests.post(f"{SUPA}/{TABLE}", headers=hdr, json=rows[i:i + 500], timeout=60)
         resp.raise_for_status()
     print(f"[write] inserted {len(rows)} rows at snap_ts={snap_iso}")
+    try:
+        retier_steam_timing(season, now)
+    except Exception as e:        # timing re-tier must never fail the capture
+        print(f"[steam-timing] skipped: {e}")
 
 
 if __name__ == "__main__":
