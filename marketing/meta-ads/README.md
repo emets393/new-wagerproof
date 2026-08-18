@@ -37,3 +37,30 @@ node client/meta.mjs report 3
 
 ⚠️ The signed-in Meta user also has access to Honeydew, Orbital Focus, and other
 accounts. This client is hard-locked to the account in `config.json` — keep it that way.
+
+## Meta Ads MCP connector (Claude)
+
+The official Meta connector (`https://mcp.facebook.com/ads`, added via Claude
+Settings → Connectors) is a **second, independent path** into the same ad
+accounts. Use it for reporting and one-off edits; the CLI above stays the
+shipping path for creative upload and batch builds.
+
+**The connector has no account lock.** Scope is granted once at Facebook-Login
+time and there is no account switcher afterward, so every request must name the
+ad account explicitly.
+
+| Ad account | Name | Business | Use it? |
+|---|---|---|---|
+| `2206204643248135` | WagerProof Ad Account **v3** | `762004099805747` WagerProof Main Business Portfolio | ✅ **canonical — live, spending** |
+| `16556569` | WagerProof Ad Account | `1093098979696321` WagerProof **Old** | ❌ dormant, zero spend |
+| `1414931413409228` | Emet Soler | *(personal)* | ❌ |
+
+⚠️ **The two WagerProof accounts differ by one token (`v3`).** That near-collision
+is how the connector got pointed at the wrong account on first setup. Always pass
+`2206204643248135` and confirm the returned name ends in **v3** before any write
+(`ads_create_campaign`, `ads_update_entity`, `ads_activate_entity`, budget changes).
+
+Re-scoping the grant, if ever needed: removing the connector in Claude does **not**
+revoke the Facebook-side authorization — also remove it at
+`facebook.com/settings?tab=business_tools` (Settings → Security → Business
+Integrations), or the portfolio picker won't reappear on reconnect.

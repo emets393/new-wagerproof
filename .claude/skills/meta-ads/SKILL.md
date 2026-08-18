@@ -37,6 +37,20 @@ echo 'META_ACCESS_TOKEN=EAA...' > marketing/meta-ads/.env   # System User token,
 node client/meta.mjs check
 ```
 
+## Two paths: CLI vs MCP connector
+The Node client below is the **shipping path** (creative upload, batch builds, hard account lock).
+The official Meta MCP connector (`https://mcp.facebook.com/ads`) is also connected in Claude — use it
+for **reporting and one-off edits**.
+
+⚠️ **The MCP connector has NO account lock**, and it can see three accounts whose names nearly collide:
+- ✅ `2206204643248135` — "WagerProof Ad Account **v3**" — **canonical, live, spending**
+- ❌ `16556569` — "WagerProof Ad Account" (business "WagerProof Old") — dormant
+- ❌ `1414931413409228` — "Emet Soler" — personal
+
+Always pass ad account `2206204643248135` and **confirm the returned name ends in `v3`** before any
+write (`ads_create_campaign`, `ads_update_entity`, `ads_activate_entity`, budget changes). The one-token
+`v3` difference is how the connector got mis-pointed on first setup. See `marketing/meta-ads/README.md`.
+
 ## Commands (run from `marketing/meta-ads/`)
 ```
 node client/meta.mjs check                                   # verify token, account, page, configured apps
