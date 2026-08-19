@@ -85,6 +85,21 @@ def main():
                       json=recs[i:i + 4000], timeout=120).raise_for_status()
     print(f"[ratings_asof] loaded {len(recs)} rows")
 
+    # weekly polls (cfb_rankings) — AP + Coaches, incl. preseason
+    rk = pd.read_parquet(os.path.join(HERE, "data", "cfbd", "rankings_weekly.parquet")) \
+        .rename(columns={"year": "season"})
+    rk = rk[rk.poll.isin(["AP Top 25", "Coaches Poll"])] \
+        .drop_duplicates(["season", "asof_week", "poll", "team"])
+    if season:
+        rk = rk[rk.season == season]
+    for yr in sorted(rk.season.unique()):
+        requests.delete(f"{SUPA}/cfb_rankings?season=eq.{int(yr)}", headers=hdr, timeout=60)
+    recs = json.loads(rk.where(pd.notna(rk), None).to_json(orient="records"))
+    for i in range(0, len(recs), 4000):
+        requests.post(f"{SUPA}/cfb_rankings", headers=hdr,
+                      json=recs[i:i + 4000], timeout=120).raise_for_status()
+    print(f"[rankings] loaded {len(recs)} rows")
+
 
 if __name__ == "__main__":
     main()
