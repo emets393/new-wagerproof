@@ -327,11 +327,12 @@ big-percentage bucket is mostly SMALL lines (2.5 → 3.5 threes and rebounds), n
 5. `player_threes` at −1.03 is 0.03 MAE better than the book. Whether a 1.5-line market can ever be
    monetised at 60% breakeven is a pricing question — best-of-N book shopping across more books
    than we hold is the only lever.
-6. **The cold-raise rule (§8) wants a live season and a mechanism.** It has never been tested
-   against the absence feed — the natural explanation is that the book raises a slumping player
-   because a teammate is out, and the market over-weights that situational reason against his
-   current form. `build_nba_absence.py` and `nba_player_team_agg` could confirm or kill that. Also
-   untested: whether it holds on the FIRST game of the raise only, or persists across the run.
+6. **The cold-raise rule (§8): mechanism SPLIT TESTED 2026-08-19** (`overnight_study4.py` →
+   `OVERNIGHT4_CONFIRMS.md`): tickets with a same-day FRESH team absence pay +7.7% (n=334) vs
+   +6.7% (n=203) without — the rule is NOT an absence artifact; it works standalone, so the
+   mechanism is the broader "market over-weights whatever caused the raise against current
+   form." (Team map = bdl_player_box name×date, 89.8% coverage.) Still wants a live season.
+   Still untested: FIRST game of the raise only vs persistence across the run.
 7. **Nothing is wired to production**, and per the standing instruction nothing should be yet. No
    props pipeline, no slate table, no live prop capture. Live T-60 prop capture has the same
    October deadline as the 1H/TT team odds.

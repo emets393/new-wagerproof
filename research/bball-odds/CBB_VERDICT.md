@@ -261,6 +261,26 @@ NBA note: this family ALREADY exists there (`nba_regression_features.parquet`: `
 comparison is pre-registered: ShotQuality's defender variables must beat this location-only
 baseline head-to-head or we don't renew.
 
+## 7-ter. THE ASSEMBLED RULE — steam filter + signal agreement (2026-08-19, both CONFIRMED)
+
+Overnight program (`movement_model_study.py`, `overnight_study{1,3,4}.py`). Two refinements
+layer on the shipping spread bet, each with its own permutation confirm:
+
+| layer | n | win% | ROI | seasons |
+|---|---|---|---|---|
+| L0 ship band 1.5–4 | 7,533 | 54.9 | +4.9 | 5/5 |
+| L1 + skip line-already-moved ≥1 toward us | 5,563 | 55.8 | +6.5 | 5/5 |
+| **L2 + ≥1 signal agrees (big/top1/guard-out, heat-hi)** | **1,575** | **59.0** | **+12.6** | **5/5 (+9..+15)** |
+| dropped by L1 | 1,970 | 52.6 | +0.4 | — |
+
+**L1 confirm p=0.0100; L2 confirm p=0.0010** (2,000-shuffle permutation each). Mechanism: the
+model beats the close, so early steam to our number consumes the CLV (L1); roster/heat states
+the market digests slowly compound with the model (L2). Confluence sub-results
+(`OVERNIGHT1_CONFLUENCE.md`): top1_out alone −0.3% but model-gated +10.2%; heat_hi alone −3.9%
+but gated +7.8% — **the model turns dead signals into live ones; never ship the signals bare.**
+Overnight nulls for the record: attendance/OT/density/rematch/lookahead all priced
+(`OVERNIGHT2_UNTESTED.md`).
+
 ## 8. STILL OPEN
 
 1. **Re-run `cbb_tt_gate.py`** on the shipping 164-feature model. The derived-market gating law was
