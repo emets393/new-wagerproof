@@ -1854,7 +1854,7 @@ private struct PaywallAIConnectorBanner: View {
                     .font(.system(size: compact ? 15 : 18, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
-                Text("Use any AI access and automate analysing our data.")
+                Text("Use any AI to access and automate analysis of our data.")
                     .font(.system(size: compact ? 12.5 : 15, weight: .medium))
                     .foregroundStyle(.white.opacity(0.92))
                     .lineLimit(3)
