@@ -188,7 +188,7 @@ DEFS = [
      "bettors hammer the Over anyway — but for THIS profile of player the Over still "
      "wins: 72% and 69% in the two seasons tested, even when graded at the worst "
      "available line.",
-     "Receiving yards Over", "72%/69% [both yrs]", "high"),
+     "Receiving yards Over", "65.6% / +22.8% ROI (n=346, 3 seasons: 62/70/66%)", "high"),
     ("P13_featured_rb_over", "Featured Rusher Yds Over", "player_prop",
      "A workhorse back's line is set below what he's been doing -> Over.",
      "A featured, workhorse running back — among the most efficient runners in the "
@@ -197,7 +197,7 @@ DEFS = [
      "Same idea as the featured-receiver Over: one long run beats the line, and "
      "efficient workhorses break them most often while their lines stay cautious. Hit "
      "82% and 79% in the two seasons tested, on a smaller sample of games.",
-     "Rushing yards Over", "82%/79% (n=50)", "med"),
+     "Rushing yards Over", "65.0% / +22% ROI (n=60, 3 seasons; 2023 weak on tiny n)", "med"),
 
     # ---------------- props — attempts volume model (nfl-game-script-analysis) ----------------
     ("P14_attempts_model_under", "Volume Model — Attempts Under", "player_prop",
@@ -210,7 +210,7 @@ DEFS = [
      "time the line is still fair — but when our projection says a line is clearly "
      "inflated, the Under has been profitable in both seasons tested: rush attempts "
      "59%, pass attempts 56%.",
-     "Rushing/passing attempts Under", "rush 59% / +7%, pass 56% / +5% [both yrs]", "med"),
+     "Rushing/passing attempts Under", "55.1% / +1-5% ROI (n=1482, 3 seasons; 2023 flat — watch)", "med"),
     ("P15_attempts_steam_under", "Attempts Line Jumped — Under", "player_prop",
      "The attempts line rose sharply before kickoff -> fade it to the Under.",
      "A player's pass- or rush-attempts line rose a full attempt or more between "
@@ -219,7 +219,7 @@ DEFS = [
      "about how the game will go. Fading that jump to the Under has paid in both "
      "seasons tested (rush 60% / +8%, pass 57% / +5%) — and it works independently of "
      "our own model's opinion.",
-     "Rushing/passing attempts Under", "rush 60% / +8%, pass 57% / +5% [both yrs]", "med"),
+     "Rushing/passing attempts Under", "56.5% / +1.9% ROI (n=855, 3 seasons: 52/55/62%)", "med"),
     ("P16_attempts_confluence", "Attempts Under — Model AND Market Agree", "player_prop",
      "Our model AND the line movement both say the attempts line is too high -> premium Under.",
      "Two completely independent warnings on the same prop: our model projects the "
@@ -228,7 +228,7 @@ DEFS = [
      "The numbers and the market movement pointing at the same Under is far stronger "
      "than either alone — this combination hit ~65% for +19% returns in both seasons "
      "tested. It's rare (two things must line up), which is what makes it premium.",
-     "Rushing/passing attempts Under", "65% / +19% ROI [thin n~90-130, both yrs]", "high"),
+     "Rushing/passing attempts Under", "61.5% / +12.8% ROI (n=340, 3 seasons: 54/62/68%)", "high"),
 
     ("P17_rush_yds_model_under", "Volume Model — Rush Yds Under", "player_prop",
      "Our model projects a rusher's yards well below the posted line -> Under.",
@@ -309,7 +309,7 @@ DEFS = [
      "again this week -> bet the Under.",
      "Consecutive upward receptions adjustments chase a hot streak the usage can't sustain; "
      "the Under has returned +12-20% (n~60-70), with overs hitting only ~30%.",
-     "Receptions Under", "+12.8-19.5% ROI (n~60-70)", "low"),
+     "Receptions Under", "64.4% / +8.4% ROI (n=135, 3 seasons: 70/65/62%)", "low"),
 
     # ---------------- 1H model (tracking, paper-trade 2026) ----------------
     ("M1_window_over_k1", "1H Over — Model Edge + Hot Team Totals", "h1_total",

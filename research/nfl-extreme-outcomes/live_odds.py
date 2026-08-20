@@ -5,7 +5,7 @@ Captures UPCOMING-game odds snapshots (full-game + 1H + team-total) into nfl_his
 the snap_ts series the models read for open / movement / close. The live counterpart to the
 historical h1tt_backfill.py (same table, same markets, same per-event endpoint).
 
-CADENCE (run hourly via Render):
+CADENCE (run every 15 min via Render — owner 2026-08-17):
   - games TODAY (not yet started)  -> snapshot every run  (hourly; last-before-kickoff = close)
   - games on a FUTURE day          -> snapshot only at the 3 SET hours (default 8/14/20 ET) = 3x/day
 PRE-GAME ONLY: any event with commence_time <= now is skipped — we never record an in-play line.
@@ -135,7 +135,7 @@ def main():
         if comm <= now:                       # game started -> never capture (no live lines)
             continue
         is_today = comm.date() == now.date()
-        if is_today or now.hour in SET_HOURS or FORCE:
+        if is_today or (now.hour in SET_HOURS and now.minute < 15) or FORCE:
             todo.append(ev)
     print(f"[cadence] hour={now.hour} ET -> {len(todo)} events to snapshot "
           f"(today=hourly, future=3x@{SET_HOURS})")

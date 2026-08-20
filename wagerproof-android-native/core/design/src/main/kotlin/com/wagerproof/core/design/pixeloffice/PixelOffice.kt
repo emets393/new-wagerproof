@@ -79,6 +79,13 @@ fun PixelOffice(
     agents: List<PixelOfficeAgentSpec>?,
     modifier: Modifier = Modifier,
     isActive: Boolean = true,
+    /**
+     * Multiplier on the name-plate / state-pill label text only — the pills,
+     * sprites, and scene are untouched. Defaults to 1f so the Agents tab and
+     * onboarding are unaffected; the paywall's Agent HQ slide passes a smaller
+     * value because long agent names crowd the 116-wide name box there.
+     */
+    labelTextScale: Float = 1f,
 ) {
     val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
@@ -161,7 +168,7 @@ fun PixelOffice(
                 tick // frame-loop invalidation
                 val mapScale = size.width / PixelOfficeGeo.MAP_WIDTH
                 scale(mapScale, mapScale, pivot = Offset.Zero) {
-                    drawOffice(context, sim, floorKey, textMeasurer, textCache)
+                    drawOffice(context, sim, floorKey, textMeasurer, textCache, labelTextScale)
                 }
             }
         }
@@ -212,6 +219,7 @@ private fun DrawScope.drawOffice(
     floorKey: String,
     textMeasurer: TextMeasurer,
     textCache: MutableMap<String, TextLayoutResult>,
+    labelTextScale: Float,
 ) {
     val mapSize = IntSize(PixelOfficeGeo.MAP_WIDTH.toInt(), PixelOfficeGeo.MAP_HEIGHT.toInt())
 
@@ -325,7 +333,7 @@ private fun DrawScope.drawOffice(
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f),
         )
         // AvenirNext-Heavy substitute: heaviest platform sans weight.
-        drawCentered(measure(a.stateLabel, 13f, FontWeight.Black), pillCenter, Color.White)
+        drawCentered(measure(a.stateLabel, 13f * labelTextScale, FontWeight.Black), pillCenter, Color.White)
 
         // Name box 116×22 r4 at 56 above, accent-stroked.
         val nameCenter = Offset(centerX, spriteCenterY - 56f)
@@ -342,7 +350,7 @@ private fun DrawScope.drawOffice(
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f),
             style = Stroke(width = 1.5f),
         )
-        drawCentered(measure(a.tagText, 15f, FontWeight.Bold), nameCenter, Color(0xFFE0E4EC))
+        drawCentered(measure(a.tagText, 15f * labelTextScale, FontWeight.Bold), nameCenter, Color(0xFFE0E4EC))
 
         // Speech bubble (dormant unless a named activity assigns an emoji).
         if (a.arrived && a.bubbleEmoji.isNotEmpty()) {

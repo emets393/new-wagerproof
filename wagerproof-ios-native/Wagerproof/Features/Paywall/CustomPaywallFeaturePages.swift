@@ -62,8 +62,8 @@ struct PaywallValueCarousel: View {
                 .tag(1)
 
                 featurePage(
-                    title: "\(resolvedAgentName) is already clocked in",
-                    blurb: "Watch your agents research the slate, move between desks, and file picks throughout the day.",
+                    title: "Your agent is already working",
+                    blurb: "Watch your agents move around the office and research for you 24/7",
                     heroHeight: compactHeight ? 250 : 372
                 ) {
                     agentHQHero
@@ -71,8 +71,8 @@ struct PaywallValueCarousel: View {
                 .tag(2)
 
                 featurePage(
-                    title: "Tail picks from the top strategies others created",
-                    blurb: "Records, units, win rate, and live streaks make the strongest agents easy to find.",
+                    title: "Copy from the leaderboard",
+                    blurb: "See the strategies that are working and tail the trends.",
                     heroHeight: compactHeight ? 268 : 384
                 ) {
                     PaywallLeaderboardHero(accent: accent, compact: compactHeight, isActive: page == 3)
@@ -192,7 +192,13 @@ struct PaywallValueCarousel: View {
                 min(preferredHeroHeight * 1.18, heroRegionHeight * 0.92)
             )
         )
-        let titleHeight: CGFloat = compactHeight ? 56 : 64
+        // Two lines of the title font have to FIT this frame. SwiftUI spills a
+        // too-tall Text out of a fixed-height frame instead of shrinking it
+        // (minimumScaleFactor only reacts to width), and `alignment: .bottom`
+        // sends that spill UPWARD into the hero — which is how the two-line
+        // leaderboard headline ended up drawn over its ticket cards. Keep this
+        // at roughly 2 × 1.25 × the title font size below.
+        let titleHeight: CGFloat = compactHeight ? 62 : 72
         let subtitleHeight: CGFloat = compactHeight ? 36 : 40
 
         return VStack(spacing: 0) {
@@ -989,15 +995,15 @@ private struct PaywallBeforeAfterPage: View {
     /// bold-lead-in + supporting sentence. The block is width-constrained and
     /// centered so it reads as a tidy column rather than stretching edge to edge.
     private var benefits: some View {
-        // Bullet 1 becomes the money line when we have the user's bet amount —
-        // ties the onboarding "money in play" thread into the paywall. Falls
-        // back to the generic time bullet only if no stakes answer exists.
+        // Bullet 1 is the money line, shown only when we have the user's bet
+        // amount — it ties the onboarding "money in play" thread into the
+        // paywall. There is deliberately no generic fallback: the old "Hours
+        // back every week" bullet was cut to buy vertical space for the second
+        // CTA, so a user with no stakes answer simply gets two bullets.
         let stakes = stakesBucketRaw.map { StakesEstimates(rawBucket: $0) }
         return VStack(alignment: .leading, spacing: compact ? 16 : 22) {
             if let stakes {
                 benefitRow(icon: "checkmark.shield.fill", lead: "Protect your \(stakes.yearlyActionDisplay)", rest: " in projected bets this year")
-            } else {
-                benefitRow(icon: "clock.badge.checkmark", lead: "Hours back", rest: " every week")
             }
             benefitRow(icon: "chart.line.uptrend.xyaxis", lead: "Find high multiple parlays", rest: " in seconds")
             benefitRow(icon: "checkmark.seal.fill", lead: "Public leaderboards", rest: " with real graded wins you can copy")
@@ -1491,7 +1497,7 @@ private struct PaywallLeaderboardHero: View {
     var body: some View {
         GeometryReader { proxy in
             let tight = compact || proxy.size.width < 370
-            leaderboard(tight: tight)
+            leaderboard(tight: tight, availableWidth: proxy.size.width)
         }
         .task(id: isActive) {
             guard isActive else {
@@ -1533,7 +1539,11 @@ private struct PaywallLeaderboardHero: View {
         }
     }
 
-    private func leaderboard(tight: Bool) -> some View {
+    /// Inset between the card's edge and its contents. Shared with the ticket
+    /// rail's fit math below — if these drift apart the rail overhangs the card.
+    private func cardPadding(tight: Bool) -> CGFloat { tight ? 9 : 12 }
+
+    private func leaderboard(tight: Bool, availableWidth: CGFloat) -> some View {
         VStack(spacing: tight ? 5 : 8) {
             HStack {
                 if selectingTopAgent {
@@ -1573,11 +1583,11 @@ private struct PaywallLeaderboardHero: View {
                 .opacity(selectingTopAgent ? 0 : 1)
                 .offset(y: selectingTopAgent ? 12 : 0)
 
-                miniTicketRail(tight: tight)
+                miniTicketRail(tight: tight, availableWidth: availableWidth)
             }
             .frame(maxHeight: .infinity, alignment: .top)
         }
-        .padding(tight ? 9 : 12)
+        .padding(cardPadding(tight: tight))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -1590,12 +1600,20 @@ private struct PaywallLeaderboardHero: View {
         .shadow(color: .black.opacity(0.32), radius: 18, y: 10)
     }
 
-    private func miniTicketRail(tight: Bool) -> some View {
-        let scale: CGFloat = tight ? 0.60 : 0.72
+    private func miniTicketRail(tight: Bool, availableWidth: CGFloat) -> some View {
+        let spacing: CGFloat = tight ? 6 : 9
+        // Three tickets plus two gaps have to fit INSIDE the card. At the old
+        // fixed 0.72 the rail measured ~402pt against ~380pt of interior, so it
+        // overhung both edges and the TabView page clipped the outer tickets.
+        // Clamping to the width that actually fits keeps the padding even and
+        // leaves wider screens at the original scale.
+        let interiorWidth = max(0, availableWidth - cardPadding(tight: tight) * 2)
+        let fittedScale = (interiorWidth - spacing * 2) / 3 / AgentPickMiniTicket.width
+        let scale = max(0.1, min(tight ? 0.60 : 0.72, fittedScale))
         let ticketWidth = AgentPickMiniTicket.width * scale
         let ticketHeight = AgentPickMiniTicket.height * scale
 
-        return HStack(alignment: .top, spacing: tight ? 6 : 9) {
+        return HStack(alignment: .top, spacing: spacing) {
             ForEach(Array(Self.topAgentPicks.enumerated()), id: \.element.id) { index, pick in
                 AgentPickMiniTicket(pick: pick, accent: accent)
                     .overlay(alignment: .topTrailing) {
@@ -1836,7 +1854,7 @@ private struct PaywallAIConnectorBanner: View {
                     .font(.system(size: compact ? 15 : 18, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
-                Text("Bring your agents, picks, and model analytics into a read-only AI workflow.")
+                Text("Use any AI to access and automate analysis of our data.")
                     .font(.system(size: compact ? 12.5 : 15, weight: .medium))
                     .foregroundStyle(.white.opacity(0.92))
                     .lineLimit(3)

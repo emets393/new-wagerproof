@@ -109,7 +109,7 @@ def main():
         if not gid:                                  # not on our modeled slate -> skip (cost)
             continue
         is_today = comm.astimezone(ET).date() == now.date()
-        if is_today or now.hour in SET_HOURS or FORCE:
+        if is_today or (now.hour in SET_HOURS and now.minute < 15) or FORCE:
             todo.append((e["id"], gid, to_db(e["home_team"]), to_db(e["away_team"]), e["commence_time"]))
     print(f"[cfb-1h] {len(ev)} events, {len(todo)} of our slate qualify (hour={now.hour} ET)")
     if not todo:

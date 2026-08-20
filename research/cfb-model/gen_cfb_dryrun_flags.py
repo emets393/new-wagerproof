@@ -350,6 +350,12 @@ if WEEK >= 5 and os.path.exists(_cap):
         _tw = int(_ca.thru_week.max())
         _ca = _ca[_ca.thru_week == _tw].set_index("team")
         print(f"  [core_total_edge] using as-of CORE thru wk{_tw} ({len(_ca)} teams)")
+        # TT AWAY UNDER companion (2026-08-17 battery): the away team-total line for
+        # each slate game, straight from the slate table the games generator just wrote.
+        _ttq = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                            f"&select=game_id,tt_away_close,tt_away_best_under", headers=C.H, timeout=30)
+        _ttmap = {int(x["game_id"]): (x.get("tt_away_close"), x.get("tt_away_best_under"))
+                  for x in (_ttq.json() if _ttq.ok else [])}
         B_OFF, B_DEF, B0 = 0.2285, 0.2547, 53.95   # frozen lstsq betas (2021-25, n=2708)
         for _, r in te.iterrows():
             if pd.isna(r.total_close):
@@ -387,6 +393,26 @@ if WEEK >= 5 and os.path.exists(_cap):
                          "mammoth": False, "signal_key": "core_total_edge",
                          "source": f"CORE TOTAL EDGE: context-adjusted O/D implies "
                                    f"{hat:.1f} vs line {r.total_close:g} ({edge:+.1f}{stx})"})
+            # ── TT AWAY UNDER (validated 2026-08-17, cfb_h1tt_movement.py + LOCKED §9):
+            # model under-edge <= -4 -> AWAY team total UNDER = 61.3% (n=271, 61/60/62
+            # by season, +16.9% @ -110), beats the parent FG under (56.8%) on the same
+            # games. HOME mirror is dead (books shade home TTs; the total's error
+            # concentrates on the away half). Ships ACTIVE T2 1u per owner 2026-08-17.
+            if side == "UNDER":
+                _ttl, _ttpx = _ttmap.get(int(r.game_id), (None, None))
+                if _ttl is not None:
+                    rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                                 "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "team_total",
+                                 "side": f"{r.awayTeam} UNDER", "line": round(float(_ttl), 1),
+                                 "price": int(_ttpx) if _ttpx is not None else -110,
+                                 "edge": round(float(edge), 1), "conviction": "T2",
+                                 "tier": "active", "stake_units": 1.0, "grade_line": "close",
+                                 "mammoth": False, "signal_key": "tt_away_under",
+                                 "bet_team": r.awayTeam, "bet_direction": "UNDER",
+                                 "bet_line": round(float(_ttl), 1),
+                                 "source": f"TT AWAY UNDER: game total looks {abs(edge):.1f} too high — "
+                                           f"the inflated points sit on the road side; {r.awayTeam} "
+                                           f"team total UNDER {_ttl:g}"})
 
 # ── EARLY TOTAL EDGE (owner-pushed 2026-08-11): the wk1-3 preseason-CORE blend's RAW
 # total >=4 off the close = 55.1% (n=352, 5/5 seasons >=52), >=6 = 57.9% (n=209) —
@@ -420,6 +446,31 @@ if WEEK <= 3:
                              "mammoth": False, "signal_key": "early_total_edge",
                              "source": f"EARLY TOTAL EDGE: preseason-CORE blend implies "
                                        f"{r.pred_total_raw:.1f} vs line {r.total_close:g} ({edge:+.1f})"})
+                # ── TT AWAY UNDER, early-season variant (owner-pushed 2026-08-17): the
+                # weeks-1-4 subset of the validated cell holds (61.5% n=39 vs 61.2% wks5+),
+                # so the road-team under also rides the wk1-3 preseason-blend under calls.
+                # One tier lower (T3) until the early sample matures — the early gate is
+                # the analogous-but-not-identical formula (blend vs in-season CORE).
+                if side == "UNDER":
+                    _q = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_games?game_id=eq.{int(r.game_id)}"
+                                      f"&select=tt_away_close,tt_away_best_under", headers=C.H, timeout=30)
+                    _tr = (_q.json() or [{}])[0] if _q.ok else {}
+                    _ttl, _ttpx = _tr.get("tt_away_close"), _tr.get("tt_away_best_under")
+                    if _ttl is not None:
+                        rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                                     "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "team_total",
+                                     "side": f"{r.awayTeam} UNDER", "line": round(float(_ttl), 1),
+                                     "price": int(_ttpx) if _ttpx is not None else -110,
+                                     "edge": round(edge, 1), "conviction": "T3",
+                                     "tier": "active", "stake_units": C.STAKE["T3"],
+                                     "grade_line": "close", "mammoth": False,
+                                     "signal_key": "tt_away_under",
+                                     "bet_team": r.awayTeam, "bet_direction": "UNDER",
+                                     "bet_line": round(float(_ttl), 1),
+                                     "source": f"TT AWAY UNDER (early season): total looks "
+                                               f"{abs(edge):.1f} too high per the preseason blend — "
+                                               f"inflated points sit on the road side; {r.awayTeam} "
+                                               f"team total UNDER {_ttl:g}"})
 
 # ── Explicit bet target on every flag (owner rule 2026-08-07): a signal's text must
 # SAY the bet ("→ bet Tulsa +12.5"), because side=HOME/AWAY never renders and a source

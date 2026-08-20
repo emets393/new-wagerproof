@@ -296,7 +296,7 @@ def main():
         comm = dt.datetime.fromisoformat(ev["commence_time"].replace("Z", "+00:00")).astimezone(ET)
         if comm <= now:
             continue
-        if comm.date() == now.date() or now.hour in SET_HOURS or FORCE:
+        if comm.date() == now.date() or (now.hour in SET_HOURS and now.minute < 15) or FORCE:
             todo.append(ev)
     print(f"[cadence] hour={now.hour} ET -> {len(todo)} events to snapshot "
           f"(today=hourly, future=3x@{SET_HOURS})")
