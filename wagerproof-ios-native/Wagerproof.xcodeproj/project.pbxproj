@@ -1839,8 +1839,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				353784436AA615A352AB9123 /* Wagerproof */,
 				1F22B97DB644EB5347FF7834 /* WagerProofWidgetExtension */,
+				353784436AA615A352AB9123 /* Wagerproof */,
 			);
 		};
 /* End PBXProject section */

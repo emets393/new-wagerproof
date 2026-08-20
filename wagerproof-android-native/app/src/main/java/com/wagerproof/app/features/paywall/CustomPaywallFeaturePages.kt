@@ -40,6 +40,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -74,6 +75,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -181,8 +183,8 @@ internal fun PaywallValueCarousel(
                 }
 
                 2 -> FeaturePage(
-                    title = "$resolvedAgentName is already clocked in",
-                    blurb = "Watch your agents research the slate, move between desks, and file picks throughout the day.",
+                    title = "Your agent is already working",
+                    blurb = "Watch your agents move around the office and research for you 24/7",
                     compact = compact,
                 ) { heroModifier ->
                     AgentHQHero(
@@ -194,8 +196,8 @@ internal fun PaywallValueCarousel(
                 }
 
                 3 -> FeaturePage(
-                    title = "Tail picks from the top strategies others created",
-                    blurb = "Records, units, win rate, and live streaks make the strongest agents easy to find.",
+                    title = "Copy from the leaderboard",
+                    blurb = "See the strategies that are working and tail the trends.",
                     compact = compact,
                 ) { heroModifier ->
                     LeaderboardHero(
@@ -377,6 +379,9 @@ private fun BeforeAfterPage(
         afterProgress.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessLow))
     }
 
+    // The whole slide shrinks together — comparison chart, headline, and bullets.
+    // Scoped here rather than pushed into each child so nothing gets missed.
+    ScaledDown(PAGE_SHRINK) {
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
@@ -409,6 +414,7 @@ private fun BeforeAfterPage(
         )
 
         Benefits(accent = accent, compact = compact, stakesBucketRaw = stakesBucketRaw)
+    }
     }
 }
 
@@ -646,9 +652,10 @@ private fun Benefits(accent: Color, compact: Boolean, stakesBucketRaw: String?) 
                 " in projected bets this year",
                 accent, compact,
             )
-        } else {
-            BenefitRow(AppIcon.CLOCK_BADGE, "Hours back", " every week", accent, compact)
         }
+        // No generic fallback for the money line: the old "Hours back every
+        // week" bullet was cut to buy vertical space for the second CTA, so a
+        // user with no stakes answer simply gets two bullets.
         BenefitRow(AppIcon.CHART_LINE_UPTREND, "Find high multiple parlays", " in seconds", accent, compact)
         BenefitRow(
             AppIcon.CHECKMARK_SEAL_FILL,
@@ -925,7 +932,14 @@ private fun AgentHQHero(
                 .clip(RoundedCornerShape(18.dp))
                 .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(18.dp)),
         ) {
-            PixelOffice(agents = agents, isActive = isActive, modifier = Modifier.fillMaxSize())
+            // Labels only — the scene, sprites, and pills keep their size. Long
+            // agent names were crowding the name plates at this slide's scale.
+            PixelOffice(
+                agents = agents,
+                isActive = isActive,
+                modifier = Modifier.fillMaxSize(),
+                labelTextScale = PAGE_SHRINK,
+            )
 
             // PixelOffice always draws floor/time control chips bottom-right; iOS
             // hides them here via `showsControls: false` and core:design has no
@@ -957,7 +971,7 @@ private fun AgentHQHero(
                 Box(Modifier.size(7.dp).background(AppColors.appPrimary, CircleShape))
                 Text(
                     text = "LIVE AGENT HQ",
-                    style = AppTypography.monoCaption.copy(fontSize = 10.sp),
+                    style = AppTypography.monoCaption.copy(fontSize = (10f * PAGE_SHRINK).sp),
                     fontWeight = FontWeight.Black,
                     color = Color.White,
                 )
@@ -1029,13 +1043,20 @@ private fun LeaderboardHero(
     BoxWithConstraints(modifier) {
         val tight = compact || maxWidth < 370.dp
         val shape = RoundedCornerShape(24.dp)
+        // Single source of truth: the card's inset also feeds the ticket rail's
+        // fit math below. If the two drift apart the rail overhangs the card and
+        // the outer tickets get clipped by the card's own `clip(shape)`.
+        val cardPadding = if (tight) 9.dp else 12.dp
+        // Hoisted here: `maxWidth` belongs to this BoxWithConstraints scope and
+        // is shadowed inside the nested Box where the rail is composed.
+        val cardInteriorWidth = maxWidth - cardPadding * 2
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(shape)
                 .background(Color(0xFF121513), shape)
                 .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
-                .padding(if (tight) 9.dp else 12.dp),
+                .padding(cardPadding),
             verticalArrangement = Arrangement.spacedBy(if (tight) 5.dp else 8.dp),
         ) {
             LeaderboardHeaderRow(selectingTopAgent, showingTopAgentPicks, accent, tight)
@@ -1060,6 +1081,7 @@ private fun LeaderboardHero(
                     tight = tight,
                     visible = showingTopAgentPicks,
                     stamped = winStampsVisible,
+                    availableWidth = cardInteriorWidth,
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
             }
@@ -1244,15 +1266,23 @@ private fun MiniTicketRail(
     tight: Boolean,
     visible: Boolean,
     stamped: Boolean,
+    availableWidth: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val scale = if (tight) 0.60f else 0.72f
+    val spacing = if (tight) 6.dp else 9.dp
+    // Three tickets plus two gaps have to fit INSIDE the card. At the old fixed
+    // 0.72 the rail measured ~402dp against a card interior nearer 350dp, so it
+    // overhung both edges and `clip(shape)` cut the outer tickets off. Clamping
+    // to the scale that actually fits keeps the padding even, and wide screens
+    // still get the original size.
+    val fittedScale = (availableWidth - spacing * 2) / 3 / MINI_TICKET_WIDTH
+    val scale = (if (tight) 0.60f else 0.72f).coerceAtMost(fittedScale).coerceAtLeast(0.1f)
     val ticketWidth = MINI_TICKET_WIDTH * scale
     val ticketHeight = MINI_TICKET_HEIGHT * scale
 
     Row(
         modifier = modifier.padding(top = if (tight) 3.dp else 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(if (tight) 6.dp else 9.dp),
+        horizontalArrangement = Arrangement.spacedBy(spacing),
     ) {
         PaywallTicketFixtures.topAgentPicks.forEachIndexed { index, pick ->
             val ticketAlpha by animateFloatAsState(
@@ -1307,6 +1337,29 @@ private fun MiniTicketRail(
 // MARK: - Page 5: reasoned picks
 
 /** Fixed footprint of `AgentPickMiniTicket` / `AgentParlayMiniTicket`. */
+/**
+ * Slides whose heroes were designed on a taller canvas render at 80% so they fit
+ * without scrolling or clipping. Applied per-slide, not globally — the pages that
+ * already fit are left alone.
+ */
+private const val PAGE_SHRINK = 0.8f
+
+/**
+ * Render [content] at [factor] of normal size. Overriding density scales every
+ * `dp` AND `sp` inside together AND re-measures layout at the smaller size, so
+ * the slide genuinely occupies less room instead of just drawing smaller the way
+ * a `graphicsLayer` scale would. `fontScale` is passed through untouched so the
+ * user's own text-size accessibility setting still applies on top.
+ */
+@Composable
+private fun ScaledDown(factor: Float, content: @Composable () -> Unit) {
+    val base = LocalDensity.current
+    CompositionLocalProvider(
+        LocalDensity provides Density(base.density * factor, base.fontScale),
+        content = content,
+    )
+}
+
 private val MINI_TICKET_WIDTH = 178.dp
 private val MINI_TICKET_HEIGHT = 240.dp
 
@@ -1332,7 +1385,9 @@ private fun ReasonedPicksHero(
         revealParlay = true
     }
 
-    val scale = if (compact) 0.94f else 1.10f
+    // × PAGE_SHRINK: the two tickets are the whole slide, so shrinking their own
+    // scale knob shrinks "everything" here — no density override needed.
+    val scale = (if (compact) 0.94f else 1.10f) * PAGE_SHRINK
 
     BoxWithConstraints(
         modifier.clearAndSetSemantics {

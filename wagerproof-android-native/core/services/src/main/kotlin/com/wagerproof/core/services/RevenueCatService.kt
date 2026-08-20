@@ -205,6 +205,26 @@ object RevenueCatService {
     suspend fun customerInfo(): CustomerInfo =
         Purchases.sharedInstance.awaitCustomerInfo()
 
+    /**
+     * The RevenueCat customer this device is currently acting as. Needed by the
+     * app-to-web checkout link — a web purchase that doesn't carry this id lands
+     * on a DIFFERENT customer and its entitlement never reaches the device.
+     */
+    val appUserId: String
+        get() = Purchases.sharedInstance.appUserID
+
+    /**
+     * Drop the cached `CustomerInfo` so the next fetch hits the server.
+     *
+     * Only for the app-to-web return trip: that purchase completes on
+     * RevenueCat's servers with nothing pushing it to the device, and the SDK
+     * caches customer info for ~5 minutes. Used sparingly — invalidating for any
+     * other reason just burns a network round trip.
+     */
+    fun invalidateCustomerInfoCache() {
+        Purchases.sharedInstance.invalidateCustomerInfoCache()
+    }
+
     suspend fun currentOffering(): Offering? =
         Purchases.sharedInstance.awaitOfferings().current
 

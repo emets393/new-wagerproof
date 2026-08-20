@@ -38,7 +38,7 @@ object ConnectorContent {
 
     const val BANNER_TITLE = "Connect WagerProof to your AI"
     const val BANNER_SUBTITLE =
-        "Bring your agents, picks, and model analytics into a read-only AI workflow."
+        "Use any AI access and automate analysing our data."
 
     /**
      * Faces shown on the banner — mirrors iOS's five-logo stack. This is the

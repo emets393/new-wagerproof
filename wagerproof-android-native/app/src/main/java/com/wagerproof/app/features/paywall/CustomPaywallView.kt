@@ -39,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +59,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -105,6 +109,13 @@ import kotlin.math.roundToInt
  * (unit-tested); this file is presentation + SDK plumbing only.
  */
 private const val PAYWALL_VARIANT = "custom_v2_product_hero"
+
+/**
+ * Plan cards render at 80% of their original size — the paywall gained a second
+ * full-width CTA (web checkout) and the cards were the cheapest place to buy
+ * back vertical space. Mirrors iOS's `CustomPaywallView.planCardScale`.
+ */
+private const val PLAN_CARD_SCALE = 0.8f
 private const val TERMS_URL = "https://wagerproof.bet/terms-and-conditions"
 private const val PRIVACY_URL = "https://wagerproof.bet/privacy-policy"
 
@@ -169,6 +180,85 @@ internal fun CustomPaywallView(
     var confirmSignOut by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
+
+    val webCheckoutSavings = remember(offering) {
+        PaywallPlanResolver.webCheckoutSavingsPercent(offering?.metadata.orEmpty())
+    }
+    val webCheckoutUrl = remember(offering, selectedId) {
+        PaywallPlanResolver.webCheckoutUrl(
+            metadata = offering?.metadata.orEmpty(),
+            appUserId = RevenueCatService.appUserId,
+            packageId = selectedId,
+            isDebugBuild = BuildConfig.DEBUG,
+        )
+    }
+    /**
+     * Set when we hand off to the browser. RevenueCat's own paywall button
+     * invalidates cached customer info when the shopper comes back; a custom
+     * button has to do it by hand, or someone who just paid on the web returns
+     * to the very paywall they paid to remove.
+     */
+    var awaitingWebCheckoutReturn by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event != Lifecycle.Event.ON_RESUME || !awaitingWebCheckoutReturn) return@LifecycleEventObserver
+            awaitingWebCheckoutReturn = false
+            scope.launch {
+                RevenueCatService.invalidateCustomerInfoCache()
+                // Silent on failure by design: the shopper may simply have
+                // backed out of the browser, which is not an error worth an
+                // alert. Restore stays as the manual fallback.
+                val info = runCatching { RevenueCatService.customerInfo() }.getOrNull()
+                    ?: return@launch
+                if (info.entitlements.active[RevenueCatService.ENTITLEMENT_IDENTIFIER] == null) return@launch
+                AnalyticsService.track(
+                    "paywall_web_checkout_completed",
+                    mapOf("source" to source, "variant" to PAYWALL_VARIANT),
+                )
+                // No StoreTransaction exists for a web purchase. Meta's
+                // Subscribe/StartTrial is sent server-side by RevenueCat's own
+                // integration, so passing null is correct — a client-side
+                // conversion here would double-count.
+                // See .claude/docs/18_meta_attribution.md
+                onPurchaseFinalized(null, info)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Hoisted so the normal CTA stack and the plans-unavailable card render the
+    // same button — the latter matters most, since a failed catalog leaves the
+    // web as the only checkout left.
+    val webCheckoutCta: (@Composable () -> Unit)? = webCheckoutUrl?.let { url ->
+        {
+            PaywallPurchaseButton(
+                title = "Or save $webCheckoutSavings% with web checkout",
+                subtitle = "Opens in your browser",
+                loading = false,
+                enabled = !isPurchasing && !isRestoring,
+                accent = accent,
+                reduceMotion = reduceMotion,
+                emphasis = PaywallCtaEmphasis.GRADIENT,
+                onClick = {
+                    AnalyticsService.track(
+                        "paywall_web_checkout_tapped",
+                        mapOf(
+                            "source" to source,
+                            "variant" to PAYWALL_VARIANT,
+                            "savings_percent" to webCheckoutSavings.toString(),
+                        ),
+                    )
+                    // Play's alternative-billing rules require the web flow to
+                    // complete OUTSIDE the app, so this opens the system
+                    // browser — never an in-app WebView.
+                    awaitingWebCheckoutReturn = true
+                    uriHandler.openUri(url)
+                },
+            )
+        }
+    }
 
     var didTrackPresented by remember(offeringKey) { mutableStateOf(false) }
     LaunchedEffect(offeringKey, selectedId) {
@@ -378,6 +468,7 @@ internal fun CustomPaywallView(
                         )
                         onRequestClose()
                     },
+                    webCheckout = webCheckoutCta,
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
                 )
             } else {
@@ -445,8 +536,11 @@ internal fun CustomPaywallView(
                         enabled = selected != null && !isPurchasing && !isRestoring,
                         accent = accent,
                         reduceMotion = reduceMotion,
+                        emphasis = PaywallCtaEmphasis.SOLID,
                         onClick = { buy() },
                     )
+
+                    webCheckoutCta?.invoke()
 
                     PaywallFooter(
                         isRestoring = isRestoring,
@@ -695,7 +789,11 @@ private fun PlanCard(
     modifier: Modifier = Modifier,
 ) {
     val product = plan.product
-    val shape = RoundedCornerShape(17.dp)
+    // Plan cards render at 80% of their original size. The paywall grew a second
+    // full-width CTA (web checkout) and the cards were the cheapest place to buy
+    // back the vertical space. Mirrors iOS's `planCardScale`.
+    val scale = PLAN_CARD_SCALE
+    val shape = RoundedCornerShape(17.dp * scale)
     val ribbon = PaywallPlanResolver.cardRibbon(product, isAnnual, savingsPercent)
     val perMonth = PaywallPlanResolver.perMonthPrice(product)
     val showIntro = PaywallPlanResolver.introDisplayEligible(product)
@@ -720,17 +818,20 @@ private fun PlanCard(
                 // One merged, labelled node so TalkBack reads the whole plan
                 // ("Yearly, $99.99 per year, selected") instead of five fragments.
                 .clickable(onClickLabel = label, onClick = onSelect)
-                .padding(vertical = if (compact) 10.dp else 13.dp, horizontal = 6.dp),
+                .padding(
+                    vertical = (if (compact) 10.dp else 13.dp) * scale,
+                    horizontal = 6.dp * scale,
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp),
+            verticalArrangement = Arrangement.spacedBy((if (compact) 2.dp else 4.dp) * scale),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp * scale),
             ) {
                 Text(
                     text = plan.name,
-                    style = AppTypography.display.copy(fontSize = if (compact) 13.sp else 15.sp),
+                    style = AppTypography.display.copy(fontSize = ((if (compact) 13f else 15f) * scale).sp),
                     fontWeight = FontWeight.SemiBold,
                     color = AppColors.appTextPrimary,
                 )
@@ -739,7 +840,7 @@ private fun PlanCard(
                         imageVector = AppIcon.CHECKMARK_CIRCLE_FILL.imageVector,
                         contentDescription = null,
                         tint = accent,
-                        modifier = Modifier.size(11.dp),
+                        modifier = Modifier.size(11.dp * scale),
                     )
                 }
             }
@@ -748,7 +849,7 @@ private fun PlanCard(
                 text = PaywallPlanResolver.cardPrice(product),
                 style = AppTypography.display.copy(
                     fontFamily = AppTypography.SystemFontFamily,
-                    fontSize = if (compact) 19.sp else 22.sp,
+                    fontSize = ((if (compact) 19f else 22f) * scale).sp,
                     fontWeight = FontWeight.Black,
                 ),
                 color = Color.White,
@@ -756,7 +857,7 @@ private fun PlanCard(
                 overflow = TextOverflow.Ellipsis,
             )
 
-            val secondarySize = if (compact) 10.5.sp else 12.sp
+            val secondarySize = ((if (compact) 10.5f else 12f) * scale).sp
             when {
                 showIntro -> Text(
                     // e.g. "then $99.99/year" under the $19.99 first-month price.
@@ -794,7 +895,7 @@ private fun PlanCard(
         if (ribbon != null) {
             Text(
                 text = ribbon,
-                style = AppTypography.monoCaption.copy(fontSize = 9.sp),
+                style = AppTypography.monoCaption.copy(fontSize = (9f * scale).sp),
                 fontWeight = FontWeight.Black,
                 color = Color.Black,
                 maxLines = 1,
@@ -802,7 +903,7 @@ private fun PlanCard(
                     .align(Alignment.TopCenter)
                     .clip(CircleShape)
                     .background(AppColors.appAccentAmber)
-                    .padding(horizontal = 9.dp, vertical = 3.dp),
+                    .padding(horizontal = 9.dp * scale, vertical = 3.dp * scale),
             )
         }
     }
@@ -817,6 +918,11 @@ private fun UnavailablePlans(
     onOpenPrivacy: () -> Unit,
     onRetry: () -> Unit,
     onContinueWithout: () -> Unit,
+    /**
+     * Highest-value placement for the link-out: Play Billing gave us nothing to
+     * sell, so the web is the only checkout left. Null hides it.
+     */
+    webCheckout: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(18.dp)
@@ -870,6 +976,7 @@ private fun UnavailablePlans(
                 textAlign = TextAlign.Center,
             )
         }
+        webCheckout?.invoke()
         Text(
             text = "Continue without subscription",
             color = AppColors.appTextSecondary,
@@ -889,6 +996,14 @@ private fun UnavailablePlans(
 
 // MARK: - CTA + footer
 
+/**
+ * Which of the paywall's two CTAs this is. The animated gradient is the loudest
+ * element on the screen, so exactly one button may wear it — it marks the
+ * web-checkout link-out, and the Play Billing Continue reads as the calmer flat
+ * green action. Mirrors iOS's `PaywallPurchaseButton.Emphasis`.
+ */
+internal enum class PaywallCtaEmphasis { GRADIENT, SOLID }
+
 @Composable
 private fun PaywallPurchaseButton(
     title: String,
@@ -897,8 +1012,10 @@ private fun PaywallPurchaseButton(
     enabled: Boolean,
     accent: Color,
     reduceMotion: Boolean,
+    emphasis: PaywallCtaEmphasis = PaywallCtaEmphasis.GRADIENT,
     onClick: () -> Unit,
 ) {
+    val isGradient = emphasis == PaywallCtaEmphasis.GRADIENT
     val shape = RoundedCornerShape(18.dp)
     val transition = rememberInfiniteTransition(label = "cta")
     // Kept as State (not `by`) so the offset lambda below reads it in the LAYOUT
@@ -916,14 +1033,23 @@ private fun PaywallPurchaseButton(
             .fillMaxWidth()
             .height(54.dp)
             .clip(shape)
-            .background(
-                Brush.horizontalGradient(listOf(accent, Color(0xFF8EF0B6), AppColors.appAccentAmber)),
+            .then(
+                if (isGradient) {
+                    Modifier.background(
+                        Brush.horizontalGradient(
+                            listOf(accent, Color(0xFF8EF0B6), AppColors.appAccentAmber),
+                        ),
+                    )
+                } else {
+                    Modifier.background(accent)
+                },
             )
-            .border(1.dp, Color.White.copy(alpha = 0.3f), shape)
+            .border(1.dp, Color.White.copy(alpha = if (isGradient) 0.3f else 0.16f), shape)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (!reduceMotion) {
+        // Only the gradient CTA animates, so the two never compete for attention.
+        if (isGradient && !reduceMotion) {
             // Travelling highlight band. A soft white sweep rather than iOS's
             // `.blendMode(.screen)` overlay, which Compose has no equivalent for;
             // over the green/amber gradient it reads the same at this scale.

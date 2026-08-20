@@ -21,7 +21,7 @@ Legend: ⬜ not started · 🔨 in progress · ✅ source-complete/validated · 
 | App shell: RootRouter phases / MainTabView / tab bar / deep links | 5 | 08 | ✅ onboarding enabled; entitlement resolver fails closed before exposing shell |
 | Auth (8) | 8 | 08 | ✅ compiles (🎫 #201 Apple sign-in dropped — owner-confirmed 2026-07-31; adds reset-password screen) |
 | Onboarding (24 steps — 21 carousel pages + 3 cinematics) | 22 | 06 | ✅ research-time/stakes cost/reclaim arc, leaderboard, generation/reveal/time summary; 🎫 ATT omitted |
-| Paywall (6) + RevenueCat | 6 | 08 | ✅ custom checkout + generic gates, default-hard remote gate, exact offer terms, restore/sign-out/error/accessibility paths, customer center, attribution |
+| Paywall (6) + RevenueCat | 6 | 08 | ✅ custom checkout + generic gates, default-hard remote gate, exact offer terms, restore/sign-out/error/accessibility paths, customer center, attribution, app-to-web checkout link-out (URL shapes unit-tested in `PaywallPlanResolverTest`) |
 | Games feed + GameCards (universal GameRowCard, CollapsingWidgetScroll) | 21 | 07 | ✅ audited expanded and compact layouts |
 | Sport detail pages: NFL / CFB / NBA / NCAAB / MLB bottom sheets | 31 | 07 | ✅ audited heroes, cards, charts, sheets, locked states, and compact layouts |
 | Scoreboard (live polling) | 6 | 07 | ✅ compiles |

@@ -29,10 +29,12 @@ struct CustomPaywallView: View {
     var debugClose: Bool = false
 
     @Environment(AuthStore.self) private var auth
+    @Environment(\.openURL) private var openURL
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var selected: Package?
     @State private var trialEligibility: [String: IntroEligibilityStatus] = [:]
@@ -47,6 +49,11 @@ struct CustomPaywallView: View {
     /// Resolved once in `onAppear` — reading it per-render would restart a
     /// lapsed window mid-session and make the clock jump.
     @State private var picksWindow: PicksExpiryService.Window?
+    /// Set when we hand off to the browser for web checkout. RevenueCat's own
+    /// paywall button invalidates cached customer info when the shopper comes
+    /// back; a custom button has to do it by hand, or someone who just paid on
+    /// the web returns to the very paywall they paid to remove.
+    @State private var awaitingWebCheckoutReturn = false
 
     private struct DisplayPlan: Identifiable {
         let package: Package
@@ -276,6 +283,122 @@ struct CustomPaywallView: View {
         return percent > 0 ? percent : nil
     }
 
+    // MARK: - Web checkout link-out
+
+    /// WagerProof's RevenueCat Web Purchase Link (dashboard: Funnels → Purchase
+    /// Links → Share URL). The trailing slash is load-bearing — the app user id
+    /// is appended as the next path segment. `web_checkout_url` in offering
+    /// metadata overrides this without an app release.
+    private static let fallbackWebCheckoutURL: String? = "https://pay.rev.cat/ynvjwxbzxgwjjgok/"
+
+    /// Advertised discount for buying on the web instead of through StoreKit.
+    /// Metadata-driven for the same reason as the URL: the number in the copy has
+    /// to track whatever the web offering is actually priced at.
+    private var webCheckoutSavingsPercent: Int {
+        if let value = offering.metadata["web_checkout_savings_percent"] as? Int { return value }
+        if let raw = offering.metadata["web_checkout_savings_percent"] as? String,
+           let value = Int(raw) { return value }
+        return 30
+    }
+
+    private var webCheckoutURL: URL? {
+        let configured = (offering.metadata["web_checkout_url"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let rawURL = configured?.isEmpty == false ? configured : Self.fallbackWebCheckoutURL,
+              var components = URLComponents(string: rawURL) else { return nil }
+
+        // The web purchase MUST land on the same RevenueCat customer or the
+        // entitlement never reaches this device. RevenueCat has two documented
+        // shapes for that and they disagree on where the id goes, so branch on
+        // the host rather than guessing.
+        let appUserID = Purchases.shared.appUserID
+        let packageID = selected?.identifier
+
+        if components.host?.contains("pay.rev.cat") == true {
+            // RevenueCat Web Purchase Link. Documented shape is
+            // `https://pay.rev.cat/<token>/<appUserId>` — the app user id is a
+            // trailing PATH segment, not a query param — and `package_id`
+            // preselects a package so the link opens straight on checkout.
+            // See https://www.revenuecat.com/docs/web/web-billing/web-purchase-links
+            if !components.path.hasSuffix("/\(appUserID)") {
+                let base = components.path.hasSuffix("/")
+                    ? String(components.path.dropLast())
+                    : components.path
+                components.path = "\(base)/\(appUserID)"
+            }
+            if let packageID {
+                components.queryItems = (components.queryItems ?? [])
+                    + [URLQueryItem(name: "package_id", value: packageID)]
+            }
+        } else {
+            // Our own checkout page. Mirror the parameter names RevenueCat's
+            // stock Web Purchase Button sends to a "Custom" checkout URL, so a
+            // page written against their docs works with either button.
+            var items = components.queryItems ?? []
+            items.append(URLQueryItem(name: "rc_app_user_id", value: appUserID))
+            if let packageID { items.append(URLQueryItem(name: "rc_package", value: packageID)) }
+            items.append(URLQueryItem(name: "rc_env", value: rcCheckoutEnvironment))
+            components.queryItems = items
+        }
+        return components.url
+    }
+
+    /// `rc_env` tells the checkout page which RevenueCat environment to bill
+    /// against. Build configuration is the proxy — note a TestFlight build is
+    /// Release yet transacts against StoreKit sandbox, so treat this as a hint
+    /// for the page, never as an entitlement decision.
+    private var rcCheckoutEnvironment: String {
+        #if DEBUG
+        "sandbox"
+        #else
+        "production"
+        #endif
+    }
+
+    /// DEBUG-only: the silent failure here is a `web_checkout_url` set on an
+    /// offering this paywall never loads (it prefers the ONBOARDING PLACEMENT
+    /// offering, not simply the current one), which looks identical to "not
+    /// configured" — both fall through to `fallbackWebCheckoutURL`.
+    private func logWebCheckoutResolution() {
+        #if DEBUG
+        let configured = offering.metadata["web_checkout_url"] as? String
+        print("""
+        [paywall] offering=\(offering.identifier) \
+        metadataKeys=\(offering.metadata.keys.sorted()) \
+        web_checkout_url=\(configured ?? "<unset — using fallback>") \
+        resolved=\(webCheckoutURL?.absoluteString ?? "<nil>")
+        """)
+        #endif
+    }
+
+    @ViewBuilder
+    private var webCheckoutButton: some View {
+        if let webCheckoutURL {
+            PaywallPurchaseButton(
+                title: "Or save \(webCheckoutSavingsPercent)% with web checkout",
+                subtitle: "Opens in your browser",
+                loading: false,
+                enabled: !isPurchasing && !isRestoring,
+                accent: accent,
+                reduceMotion: reduceMotion,
+                emphasis: .gradient
+            ) {
+                AnalyticsService.shared.track("paywall_web_checkout_tapped", properties: [
+                    "source": source,
+                    "variant": "custom_v2_product_hero",
+                    "savings_percent": String(webCheckoutSavingsPercent),
+                ])
+                // Apple requires the alternative payment flow to complete
+                // OUTSIDE the app, so this must open the system browser — never
+                // an in-app web view.
+                awaitingWebCheckoutReturn = true
+                openURL(webCheckoutURL)
+            }
+            .accessibilityLabel("Save \(webCheckoutSavingsPercent) percent with web checkout. Opens in your browser.")
+            .onAppear { logWebCheckoutResolution() }
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -294,6 +417,11 @@ struct CustomPaywallView: View {
         }
         .preferredColorScheme(.dark)
         .sensoryFeedback(.selection, trigger: selected?.identifier)
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, awaitingWebCheckoutReturn else { return }
+            awaitingWebCheckoutReturn = false
+            Task { await settleWebCheckoutReturn() }
+        }
         .task(id: offering.identifier) {
             await loadTrialEligibility()
         }
@@ -637,10 +765,13 @@ struct CustomPaywallView: View {
                     loading: isPurchasing,
                     enabled: selected != nil && !isPurchasing && !isRestoring,
                     accent: accent,
-                    reduceMotion: reduceMotion
+                    reduceMotion: reduceMotion,
+                    emphasis: .solid
                 ) {
                     Task { await buy() }
                 }
+
+                webCheckoutButton
 
                 footer
             }
@@ -672,6 +803,10 @@ struct CustomPaywallView: View {
             .frame(height: 48)
             .background(accent, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
 
+            // Highest-value placement for the link-out: StoreKit gave us nothing
+            // to sell, so the web is the only checkout left.
+            webCheckoutButton
+
             footer
         }
         .padding(14)
@@ -691,6 +826,11 @@ struct CustomPaywallView: View {
         .padding(.top, 8)
     }
 
+    /// Plan cards render at 80% of their original size. The paywall grew a
+    /// second full-width CTA (web checkout) and the cards were the cheapest
+    /// place to buy back the vertical space.
+    private static let planCardScale: CGFloat = 0.8
+
     private func planCard(_ plan: DisplayPlan, compact: Bool) -> some View {
         let isSelected = selected?.identifier == plan.id
         let product = plan.package.storeProduct
@@ -698,7 +838,8 @@ struct CustomPaywallView: View {
         let intro = payUpFrontIntro(plan.package)
         let showIntro = intro != nil && introDisplayEligible(plan.package)
         let isAnnual = plan.package.identifier == annualPackage?.identifier
-        let shape = RoundedRectangle(cornerRadius: 17, style: .continuous)
+        let scale = Self.planCardScale
+        let shape = RoundedRectangle(cornerRadius: 17 * scale, style: .continuous)
 
         return Button {
             withAnimation(.smooth(duration: 0.2)) {
@@ -710,20 +851,20 @@ struct CustomPaywallView: View {
                 "source": source,
             ])
         } label: {
-            VStack(spacing: compact ? 2 : 4) {
-                HStack(spacing: 5) {
+            VStack(spacing: (compact ? 2 : 4) * scale) {
+                HStack(spacing: 5 * scale) {
                     Text(plan.name)
-                        .font(.system(size: compact ? 13 : 15, weight: .semibold, design: .rounded))
+                        .font(.system(size: (compact ? 13 : 15) * scale, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color.appTextPrimary)
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 11 * scale, weight: .bold))
                             .foregroundStyle(accent)
                     }
                 }
 
                 Text((showIntro ? intro?.localizedPriceString : nil) ?? product.localizedPriceString)
-                    .font(.system(size: compact ? 19 : 22, weight: .bold, design: .rounded))
+                    .font(.system(size: (compact ? 19 : 22) * scale, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -735,7 +876,7 @@ struct CustomPaywallView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 } else if isAnnual, let monthly = perMonthString(product) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 4 * scale) {
                         Text("\(monthly)/mo")
                         if let savings = annualSavingsPercent {
                             Text("• Save \(savings)%")
@@ -746,10 +887,10 @@ struct CustomPaywallView: View {
                     Text("per \(billingPeriod(for: product))")
                 }
             }
-            .font(.system(size: compact ? 10.5 : 12, weight: .medium))
+            .font(.system(size: (compact ? 10.5 : 12) * scale, weight: .medium))
             .foregroundStyle(Color.appTextSecondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, compact ? 10 : 13)
+            .padding(.vertical, (compact ? 10 : 13) * scale)
             .background(shape.fill(Color.white.opacity(isSelected ? 0.12 : 0.045)))
             .overlay(
                 shape.strokeBorder(
@@ -778,12 +919,13 @@ struct CustomPaywallView: View {
     }
 
     private func planRibbon(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 9, weight: .heavy, design: .monospaced))
+        let scale = Self.planCardScale
+        return Text(text)
+            .font(.system(size: 9 * scale, weight: .heavy, design: .monospaced))
             .tracking(0.4)
             .foregroundStyle(.black)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 3)
+            .padding(.horizontal, 9 * scale)
+            .padding(.vertical, 3 * scale)
             .background(Capsule().fill(Color.appAccentAmber))
             .shadow(color: Color.appAccentAmber.opacity(0.3), radius: 5, y: 2)
             .fixedSize()
@@ -824,6 +966,30 @@ struct CustomPaywallView: View {
         }
         .font(.system(size: 12, weight: .semibold))
         .foregroundStyle(Color.appTextSecondary)
+    }
+
+    /// Returning from web checkout. The purchase happened on RevenueCat's
+    /// servers, so nothing pushes it to this device — the SDK caches
+    /// `CustomerInfo` for ~5 minutes and would keep reporting "free". Invalidate,
+    /// refetch, and finalize if the entitlement actually landed.
+    ///
+    /// Silent on failure by design: the shopper may simply have backed out of
+    /// the browser, which is not an error worth an alert. Restore stays as the
+    /// manual fallback.
+    private func settleWebCheckoutReturn() async {
+        Purchases.shared.invalidateCustomerInfoCache()
+        guard let info = try? await Purchases.shared.customerInfo(),
+              info.entitlements.active[RevenueCatService.entitlementIdentifier] != nil else { return }
+
+        AnalyticsService.shared.track("paywall_web_checkout_completed", properties: [
+            "source": source,
+            "variant": "custom_v2_product_hero",
+        ])
+        // No StoreTransaction exists for a web purchase. Meta's Subscribe /
+        // StartTrial is sent server-side by RevenueCat's own integration, so
+        // passing nil here is correct — firing a client-side conversion would
+        // double-count. See .claude/docs/18_meta_attribution.md
+        onPurchaseFinalized(nil, info)
     }
 
     // MARK: - Purchase and restore
@@ -928,16 +1094,25 @@ struct CustomPaywallView: View {
 // MARK: - Branded purchase button
 
 private struct PaywallPurchaseButton: View {
+    /// Which of the two CTAs this is. The animated gradient is the paywall's
+    /// single loudest element, so exactly one button may wear it — it now marks
+    /// the web-checkout link-out, and the StoreKit Continue reads as the calmer
+    /// flat-green action.
+    enum Emphasis { case gradient, solid }
+
     let title: String
     let subtitle: String
     let loading: Bool
     let enabled: Bool
     let accent: Color
     let reduceMotion: Bool
+    var emphasis: Emphasis = .gradient
     let action: () -> Void
 
     @State private var shimmer = false
     @State private var pulse = false
+
+    private var isGradient: Bool { emphasis == .gradient }
 
     var body: some View {
         Button(action: action) {
@@ -948,6 +1123,8 @@ private struct PaywallPurchaseButton: View {
                     VStack(spacing: 2) {
                         Text(title)
                             .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
                         Text(subtitle)
                             .font(.system(size: 10.5, weight: .semibold))
                             .opacity(0.76)
@@ -971,38 +1148,48 @@ private struct PaywallPurchaseButton: View {
             .frame(height: 60)
             .background {
                 ZStack {
-                    LinearGradient(
-                        colors: [accent, Color(hex: 0x8EF0B6), Color.appAccentAmber],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    if !reduceMotion {
-                        GeometryReader { geometry in
-                            LinearGradient(
-                                colors: [.clear, .white.opacity(0.62), .clear],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                            .frame(width: geometry.size.width * 0.45)
-                            .offset(x: shimmer ? geometry.size.width * 1.25 : -geometry.size.width * 0.7)
-                            .blendMode(.screen)
+                    if isGradient {
+                        LinearGradient(
+                            colors: [accent, Color(hex: 0x8EF0B6), Color.appAccentAmber],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        if !reduceMotion {
+                            GeometryReader { geometry in
+                                LinearGradient(
+                                    colors: [.clear, .white.opacity(0.62), .clear],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                                .frame(width: geometry.size.width * 0.45)
+                                .offset(x: shimmer ? geometry.size.width * 1.25 : -geometry.size.width * 0.7)
+                                .blendMode(.screen)
+                            }
                         }
+                    } else {
+                        accent
                     }
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
+                    .strokeBorder(Color.white.opacity(isGradient ? 0.3 : 0.16), lineWidth: 1)
             )
-            .shadow(color: accent.opacity(0.48), radius: pulse ? 24 : 14, y: 6)
-            .scaleEffect(pulse ? 1.01 : 1)
+            .shadow(
+                color: accent.opacity(isGradient ? 0.48 : 0.26),
+                radius: isGradient && pulse ? 24 : 14,
+                y: 6
+            )
+            .scaleEffect(isGradient && pulse ? 1.01 : 1)
         }
         .buttonStyle(PaywallPressStyle())
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.58)
         .onAppear {
-            guard !reduceMotion else { return }
+            // Only the gradient CTA animates; the solid one stays still so the
+            // two never compete for attention.
+            guard isGradient, !reduceMotion else { return }
             withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) {
                 shimmer = true
             }

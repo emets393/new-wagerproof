@@ -351,4 +351,94 @@ class PaywallPlanResolverTest {
         assertTrue(PaywallPlanResolver.hasFreeTrial(yearlyWithTrial))
         assertFalse(PaywallPlanResolver.hasFreeTrial(introAnnual))
     }
+
+    // MARK: - Web checkout link-out
+    //
+    // The app user id is the whole point of these URLs: a web purchase that
+    // doesn't carry it lands on a DIFFERENT RevenueCat customer and the
+    // entitlement never reaches the device. RevenueCat's two documented shapes
+    // disagree on where it goes, and getting that wrong fails silently — the
+    // page still loads, it just bills a stranger.
+
+    @Test
+    fun webPurchaseLinkPutsAppUserIdInThePathNotTheQuery() {
+        val url = PaywallPlanResolver.webCheckoutUrl(
+            metadata = emptyMap(),
+            appUserId = "abc-123",
+            packageId = "\$rc_yearly_discount",
+            isDebugBuild = false,
+        )
+        assertEquals(
+            "https://pay.rev.cat/ynvjwxbzxgwjjgok/abc-123?package_id=%24rc_yearly_discount",
+            url,
+        )
+    }
+
+    @Test
+    fun webPurchaseLinkDoesNotDoubleAppendAnIdTheLinkAlreadyCarries() {
+        val url = PaywallPlanResolver.webCheckoutUrl(
+            metadata = mapOf("web_checkout_url" to "https://pay.rev.cat/token/abc-123"),
+            appUserId = "abc-123",
+            packageId = null,
+            isDebugBuild = false,
+        )
+        assertEquals("https://pay.rev.cat/token/abc-123", url)
+    }
+
+    @Test
+    fun customCheckoutUrlUsesRevenueCatsQueryParameterNames() {
+        val url = PaywallPlanResolver.webCheckoutUrl(
+            metadata = mapOf("web_checkout_url" to "https://wagerproof.bet/upgrade"),
+            appUserId = "abc-123",
+            packageId = "monthly",
+            isDebugBuild = true,
+        )
+        assertEquals(
+            "https://wagerproof.bet/upgrade?rc_app_user_id=abc-123&rc_package=monthly&rc_env=sandbox",
+            url,
+        )
+    }
+
+    @Test
+    fun customCheckoutUrlPreservesQueryAlreadyOnTheConfiguredLink() {
+        val url = PaywallPlanResolver.webCheckoutUrl(
+            metadata = mapOf("web_checkout_url" to "https://wagerproof.bet/upgrade?utm_source=ios"),
+            appUserId = "abc-123",
+            packageId = null,
+            isDebugBuild = false,
+        )
+        assertEquals(
+            "https://wagerproof.bet/upgrade?utm_source=ios&rc_app_user_id=abc-123&rc_env=production",
+            url,
+        )
+    }
+
+    @Test
+    fun blankOrUnusableMetadataFallsBackToTheDefaultLink() {
+        val blank = PaywallPlanResolver.webCheckoutUrl(
+            metadata = mapOf("web_checkout_url" to "   "),
+            appUserId = "abc",
+            packageId = null,
+            isDebugBuild = false,
+        )
+        assertTrue(blank!!.startsWith(PaywallPlanResolver.DEFAULT_WEB_CHECKOUT_URL))
+
+        // A non-http scheme must not be handed to the browser.
+        assertNull(
+            PaywallPlanResolver.webCheckoutUrl(
+                metadata = mapOf("web_checkout_url" to "javascript:alert(1)"),
+                appUserId = "abc",
+                packageId = null,
+                isDebugBuild = false,
+            ),
+        )
+    }
+
+    @Test
+    fun savingsPercentDefaultsTo30AndAcceptsNumbersOrStrings() {
+        assertEquals(30, PaywallPlanResolver.webCheckoutSavingsPercent(emptyMap()))
+        assertEquals(45, PaywallPlanResolver.webCheckoutSavingsPercent(mapOf("web_checkout_savings_percent" to 45)))
+        assertEquals(45, PaywallPlanResolver.webCheckoutSavingsPercent(mapOf("web_checkout_savings_percent" to "45")))
+        assertEquals(30, PaywallPlanResolver.webCheckoutSavingsPercent(mapOf("web_checkout_savings_percent" to "nope")))
+    }
 }

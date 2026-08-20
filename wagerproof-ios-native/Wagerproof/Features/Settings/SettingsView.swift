@@ -888,7 +888,7 @@ struct AIConnectorBanner: View {
                     .font(.system(size: compact ? 15 : 18, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
-                Text("Bring your agents, picks, and model analytics into a read-only AI workflow.")
+                Text("Use any AI access and automate analysing our data.")
                     .font(.system(size: compact ? 12.5 : 15, weight: .medium))
                     .foregroundStyle(.white.opacity(0.92))
                     .lineLimit(3)
