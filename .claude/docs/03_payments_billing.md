@@ -290,6 +290,66 @@ const actualDiscount = Math.round(
 - Carries a **3-hour picks-expiry countdown pill**, and starts a Lock Screen
   Live Activity when the user leaves without subscribing — see
   `.claude/docs/19_picks_expiry_hold.md`
+- **Web-checkout link-out** under the Continue button ("Or save 30% with web
+  checkout"), also rendered on the plans-unavailable fallback where the web is
+  the only checkout left. **Shipped on iOS AND Android** — same copy, same URL
+  shapes, same return-trip handling. Two offering-metadata keys drive it so
+  repricing the web offer never needs an app release:
+  | Key | Type | Default | Meaning |
+  |---|---|---|---|
+  | `web_checkout_url` | string | `https://pay.rev.cat/ynvjwxbzxgwjjgok/` | Destination, compiled in on both platforms. |
+  | `web_checkout_savings_percent` | int | `30` | The number in the button copy. |
+  The button hides itself only when the resolved value isn't a usable http(s)
+  URL. **Set the metadata key on the offering the post-onboarding gate actually
+  loads** — `PostOnboardingPaywall` prefers the `onboarding` PLACEMENT offering
+  (currently `hardPaywall`), not simply the current offering. A key set on the
+  wrong offering is indistinguishable from an unset one; iOS DEBUG logs the
+  resolved offering and URL as `[paywall] offering=… resolved=…` to tell them
+  apart.
+
+  ⚠️ **The advertised 30% is NOT true for the preselected annual plan.** As of
+  2026-08-19 the web offering prices Pro Yearly at **$99.00/yr** against
+  **$69.99/yr** in-app — 41% MORE expensive — while Pro Monthly ($20.00) really
+  is ~33% under the in-app $29.99. Yearly is the default selection, so most taps
+  hit the false claim. Reprice the web annual below the store price or change the
+  copy before leaning on this button.
+
+  The URL is built to RevenueCat's two documented app-to-web shapes, picked by
+  host. Without the app user id the web purchase lands on a DIFFERENT RevenueCat
+  customer and the entitlement never reaches the device:
+  - **`pay.rev.cat` (Web Purchase Link)** — app user id is a trailing PATH
+    segment, `https://pay.rev.cat/<token>/<appUserId>`, plus `package_id` to
+    preselect the plan. Get the token from the RevenueCat dashboard:
+    **Funnels → Purchase Links → Share URL**.
+    ([docs](https://www.revenuecat.com/docs/web/web-billing/web-purchase-links))
+  - **Any other host (own checkout page)** — query params `rc_app_user_id`,
+    `rc_package`, `rc_env`, the same names RevenueCat's stock Web Purchase
+    Button sends to a "Custom" checkout URL, so a page written against their
+    docs works with either button.
+    ([docs](https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls/web-purchase-button))
+
+  **Returning from the browser** — iOS `settleWebCheckoutReturn()` on
+  `scenePhase → .active`, Android a `Lifecycle.Event.ON_RESUME` observer. A web
+  purchase happens on RevenueCat's servers with nothing pushing it to the device,
+  and the SDK caches `CustomerInfo` for ~5 minutes, so both invalidate the cache,
+  refetch, and finalize if the entitlement landed. RevenueCat's own paywall
+  button does this internally; a custom button must do it by hand or the buyer
+  returns to the paywall they just paid to remove. Passing a null
+  `StoreTransaction` to `onPurchaseFinalized` is correct — Meta's
+  Subscribe/StartTrial is sent server-side by RevenueCat.
+
+  Fires `paywall_web_checkout_tapped`, then `paywall_web_checkout_completed` if
+  the entitlement is present on return. Opens in the SYSTEM BROWSER — both
+  stores require the alternative payment flow to complete outside the app, so
+  this must never become an in-app web view / WebView. Link-outs are
+  US-storefront only (App Store May 2025+, Play Store October 2025+).
+
+  **Where the code lives.** iOS keeps URL building inline in
+  `CustomPaywallView.swift`; Android puts it in `PaywallPlanResolver`
+  (`webCheckoutUrl` / `webCheckoutSavingsPercent`) so it is unit-tested —
+  see `PaywallPlanResolverTest`, which pins the path-vs-query split, the
+  no-double-append rule, and the non-http rejection. Android also exposes
+  `RevenueCatService.appUserId` / `invalidateCustomerInfoCache()` for this flow.
 
 ---
 

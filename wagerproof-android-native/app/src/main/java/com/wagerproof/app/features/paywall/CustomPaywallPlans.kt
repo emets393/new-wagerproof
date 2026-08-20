@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.paywall
 
+import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
@@ -132,6 +135,95 @@ object PaywallPlanResolver {
         val raw = metadata["entry_offer"] as? String ?: return PaywallEntryOffer.MONTHLY
         return PaywallEntryOffer.entries.firstOrNull { it.raw == raw } ?: PaywallEntryOffer.MONTHLY
     }
+
+    // MARK: - Web checkout link-out
+
+    /**
+     * WagerProof's RevenueCat Web Purchase Link (dashboard: Funnels → Purchase
+     * Links → Share URL). The trailing slash is load-bearing — the app user id
+     * is appended as the next path segment. `web_checkout_url` in offering
+     * metadata overrides this without an app release.
+     */
+    const val DEFAULT_WEB_CHECKOUT_URL = "https://pay.rev.cat/ynvjwxbzxgwjjgok/"
+
+    /**
+     * Advertised discount for buying on the web instead of through Play
+     * Billing. Metadata-driven for the same reason as the URL: the number in the
+     * copy has to track whatever the web offering is actually priced at.
+     */
+    fun webCheckoutSavingsPercent(metadata: Map<String, Any?>): Int =
+        when (val raw = metadata["web_checkout_savings_percent"]) {
+            is Number -> raw.toInt()
+            is String -> raw.toIntOrNull() ?: DEFAULT_WEB_CHECKOUT_SAVINGS
+            else -> DEFAULT_WEB_CHECKOUT_SAVINGS
+        }
+
+    /**
+     * Build the app-to-web checkout URL.
+     *
+     * The purchase MUST land on the same RevenueCat customer or the entitlement
+     * never reaches the device. RevenueCat documents two shapes and they
+     * disagree on where the id goes, so branch on the host rather than guessing:
+     *
+     *  - `pay.rev.cat` Web Purchase Link — app user id is a trailing PATH
+     *    segment (`https://pay.rev.cat/<token>/<appUserId>`), package preselected
+     *    with `package_id`.
+     *  - anything else (our own checkout page) — query params `rc_app_user_id`,
+     *    `rc_package`, `rc_env`, the names RevenueCat's own Web Purchase Button
+     *    sends to a "Custom" checkout URL.
+     *
+     * Returns null when the configured value isn't a usable http(s) URL.
+     */
+    fun webCheckoutUrl(
+        metadata: Map<String, Any?>,
+        appUserId: String,
+        packageId: String?,
+        isDebugBuild: Boolean,
+    ): String? {
+        val configured = (metadata["web_checkout_url"] as? String)?.trim()
+        val raw = if (!configured.isNullOrEmpty()) configured else DEFAULT_WEB_CHECKOUT_URL
+        val parsed = runCatching { URI(raw) }.getOrNull() ?: return null
+        if (parsed.scheme?.lowercase() !in setOf("http", "https")) return null
+
+        val builder = StringBuilder()
+        val base = raw.substringBefore('?').substringBefore('#')
+        val existingQuery = raw.substringAfter('?', "").substringBefore('#')
+
+        return if (parsed.host?.contains("pay.rev.cat") == true) {
+            builder.append(base.trimEnd('/'))
+            if (!base.trimEnd('/').endsWith("/$appUserId")) {
+                // Appended RAW, not form-encoded: this is a path segment, and
+                // `$` / `:` are legal there. RevenueCat anonymous ids look like
+                // `$RCAnonymousID:abc`, and percent-encoding them here would
+                // diverge from iOS's URLComponents output for the same id.
+                builder.append('/').append(appUserId)
+            }
+            val query = buildList {
+                if (existingQuery.isNotEmpty()) add(existingQuery)
+                if (packageId != null) add("package_id=${encode(packageId)}")
+            }
+            if (query.isNotEmpty()) builder.append('?').append(query.joinToString("&"))
+            builder.toString()
+        } else {
+            builder.append(base)
+            val query = buildList {
+                if (existingQuery.isNotEmpty()) add(existingQuery)
+                add("rc_app_user_id=${encode(appUserId)}")
+                if (packageId != null) add("rc_package=${encode(packageId)}")
+                // `rc_env` hints which RevenueCat environment the page should
+                // bill against. Build type is the proxy — treat it as a hint for
+                // the page, never as an entitlement decision.
+                add("rc_env=${if (isDebugBuild) "sandbox" else "production"}")
+            }
+            builder.append('?').append(query.joinToString("&"))
+            builder.toString()
+        }
+    }
+
+    private const val DEFAULT_WEB_CHECKOUT_SAVINGS = 30
+
+    private fun encode(value: String): String =
+        URLEncoder.encode(value, StandardCharsets.UTF_8.name())
 
     // MARK: - Trial / intro predicates
 
