@@ -27,6 +27,13 @@ internal val JsonElement?.asInt: Int?
     get() = (this as? JsonPrimitive)?.intOrNull ?: asDouble?.toInt()
 internal val JsonElement?.asBool: Boolean? get() = (this as? JsonPrimitive)?.booleanOrNull
 
+data class NFLPropPageSignal(
+    val key: String,
+    val label: String,
+    val direction: String? = null,
+    val record: String? = null,
+)
+
 /**
  * One entry of the page's `markets` array — the posted (or pending) book
  * market for this player. ATD is posted with a null line (yes/no market).
@@ -39,8 +46,12 @@ data class NFLPropPageMarket(
     val underPrice: Int?,
     /** "pending" | "posted" — raw string so new statuses degrade. */
     val status: String,
+    /** Fired, validated prop signals for THIS player+market. Empty on most rows. */
+    val signals: List<NFLPropPageSignal> = emptyList(),
 ) {
     val isPosted: Boolean get() = status == "posted"
+    /** Short P-codes (`P1`, `P14`, …) for the catalog / feed filter. */
+    val flagKeys: List<String> get() = signals.map { it.key }
 }
 
 /**
@@ -171,6 +182,23 @@ data class NFLPropPlayerPage(
                     overPrice = o["over_price"].asInt,
                     underPrice = o["under_price"].asInt,
                     status = o["status"].asString ?: "pending",
+                    signals = mapSignals(o["signals"]),
+                )
+            }
+        }
+
+        /** Non-array / missing `signals` degrades to empty (the normal case). */
+        fun mapSignals(json: JsonElement?): List<NFLPropPageSignal> {
+            val items = json.asArr ?: return emptyList()
+            return items.mapNotNull { item ->
+                val o = item.asObj ?: return@mapNotNull null
+                val key = o["key"].asString?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                val label = o["label"].asString?.trim().orEmpty().ifEmpty { key }
+                NFLPropPageSignal(
+                    key = key,
+                    label = label,
+                    direction = o["direction"].asString,
+                    record = o["record"].asString,
                 )
             }
         }

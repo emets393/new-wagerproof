@@ -671,7 +671,9 @@ public enum NFLPlayerProps {
                     lastGame: nil, l3Avg: nil, l5Avg: nil, l10Avg: nil,
                     sznAvg: nil, sznMax: nil, sznMin: nil,
                     overRateL5: nil, overRateL10: nil, defMatchupIdx: nil,
-                    flags: [],
+                    // Pages embed resolved signals; short codes drive the catalog,
+                    // feed "Prop Signals" filter, and native chip UI.
+                    flags: market.flagKeys,
                     recentGames: recentGames["\(page.playerId)|\(market.key)"] ?? []
                 )
             }

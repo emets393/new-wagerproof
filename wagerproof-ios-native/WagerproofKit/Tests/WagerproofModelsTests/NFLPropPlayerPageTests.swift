@@ -35,7 +35,7 @@ final class NFLPropPlayerPageTests: XCTestCase {
           "rookie": false,
           "markets": [
             {"key": "player_anytime_td", "label": "Anytime TD", "line": null, "over_price": 145, "under_price": null, "status": "posted"},
-            {"key": "player_reception_yds", "label": "Receiving Yards", "line": 84.5, "over_price": -112, "under_price": -108, "status": "posted"},
+            {"key": "player_reception_yds", "label": "Receiving Yards", "line": 84.5, "over_price": -112, "under_price": -108, "status": "posted", "signals": [{"key": "P12", "label": "Featured WR", "direction": "OVER", "record": "18-10 · 64%"}]},
             {"key": "player_receptions", "label": "Receptions", "line": null, "over_price": null, "under_price": null, "status": "pending"}
           ],
           "projection": {
@@ -80,6 +80,11 @@ final class NFLPropPlayerPageTests: XCTestCase {
         XCTAssertNil(page.markets[0].line)
         XCTAssertTrue(page.markets[0].isPosted)
         XCTAssertEqual(page.markets[1].line, 84.5)
+        XCTAssertEqual(page.markets[1].signals.count, 1)
+        XCTAssertEqual(page.markets[1].signals.first?.key, "P12")
+        XCTAssertEqual(page.markets[1].signals.first?.record, "18-10 · 64%")
+        XCTAssertEqual(page.markets[1].flagKeys, ["P12"])
+        XCTAssertTrue(page.markets[0].signals.isEmpty)
         XCTAssertFalse(page.markets[2].isPosted)
         XCTAssertFalse(page.rookie)
 

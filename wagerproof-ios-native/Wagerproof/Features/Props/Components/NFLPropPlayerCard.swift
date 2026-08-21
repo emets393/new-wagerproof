@@ -53,6 +53,9 @@ struct NFLPropPlayerCard: View {
         let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
         return VStack(alignment: .leading, spacing: 8) {
             mainRow
+            if let flags = headline?.flags, !flags.isEmpty {
+                NFLPropSignalFeedStrip(flags: flags)
+            }
             Divider().background(Color.appBorder.opacity(0.5))
             bottomInfoRow
         }

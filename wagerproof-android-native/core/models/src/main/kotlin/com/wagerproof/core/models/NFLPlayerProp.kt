@@ -430,7 +430,9 @@ object NFLPlayerProps {
                     lastGame = null, l3Avg = null, l5Avg = null, l10Avg = null,
                     sznAvg = null, sznMax = null, sznMin = null,
                     overRateL5 = null, overRateL10 = null, defMatchupIdx = null,
-                    flags = emptyList(),
+                    // Pages embed resolved signals; short codes drive the catalog,
+                    // feed "Prop Signals" filter, and native chip UI.
+                    flags = market.flagKeys,
                     recentGames = recentGames["${page.playerId}|${market.key}"].orEmpty(),
                 )
             }.sortedWith(compareBy({ marketSortIndex(it.market) }, { it.market }))

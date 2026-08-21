@@ -53,6 +53,8 @@ import com.wagerproof.app.features.props.NFLPlayerPropSelection
 import com.wagerproof.app.features.props.PropsFormatting
 import com.wagerproof.app.features.props.RollingNumber
 import com.wagerproof.app.features.props.components.NFLPlayerHeadshot
+import com.wagerproof.app.features.props.components.NFLPropSignalDetailSheet
+import com.wagerproof.app.features.props.components.NFLPropSignalGroup
 import com.wagerproof.app.features.props.detail.nflpage.NflBestLinesBlock
 import com.wagerproof.app.features.props.detail.nflpage.NflHeadToHeadBlock
 import com.wagerproof.app.features.props.detail.nflpage.NflMatchupComparison
@@ -66,10 +68,14 @@ import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.NFLPlayerProps
 import com.wagerproof.core.models.NFLPropMarket
 import com.wagerproof.core.models.NFLPropPageMarket
+import com.wagerproof.core.models.NFLPropSignalDefinition
 import com.wagerproof.core.models.NFLPropTrendGame
 import com.wagerproof.core.models.NFLPropVerdicts
+import com.wagerproof.core.models.SignalPerformance
 import com.wagerproof.core.services.NFLPropPageService
 import com.wagerproof.core.services.NFLPropPlayerDetailBundle
+import com.wagerproof.core.services.SignalPerformanceService
+import com.wagerproof.core.services.SignalSport
 import com.wagerproof.core.services.SportsbookPropMarketOdds
 import com.wagerproof.core.services.SportsbookPropOddsService
 import kotlinx.coroutines.async
@@ -116,6 +122,8 @@ fun NflPropDetailScreen(
     var isLoadingDetail by remember(selection.id) { mutableStateOf(true) }
     var bookOddsByMarket by remember(selection.id) { mutableStateOf<Map<String, SportsbookPropMarketOdds>>(emptyMap()) }
     var metricHelp by remember { mutableStateOf<NFLPropMetricHelp?>(null) }
+    var selectedSignal by remember { mutableStateOf<SelectedPropSignal?>(null) }
+    var propPerfByKey by remember(selection.id) { mutableStateOf<Map<String, SignalPerformance>>(emptyMap()) }
 
     val initialMarket = remember(selection.id) {
         val preferred = selection.preferredMarket?.let { m -> player.markets.firstOrNull { it.market == m } }
@@ -172,6 +180,8 @@ fun NflPropDetailScreen(
                 requested.map { m -> async { m to SportsbookPropOddsService.odds(playerId, m) } }.awaitAll()
             }.mapNotNull { (m, odds) -> odds?.let { m to it } }.toMap()
         }
+        val season = player.season ?: 2026
+        propPerfByKey = SignalPerformanceService.shared.performances(SignalSport.NFL, season)
     }
 
     // Trends game log, falling back to the props-feed season log so Recent
@@ -250,6 +260,29 @@ fun NflPropDetailScreen(
                 val trends = detail?.trends
                 val games = trendGames(market)
                 val (hits, graded) = l10Grading(market)
+                val pageSignals = market.pageMarket?.signals.orEmpty()
+                val flags = if (pageSignals.isNotEmpty()) {
+                    pageSignals.map { it.key }
+                } else {
+                    market.feedMarket?.flags.orEmpty()
+                }
+
+                // 0. Fired prop signals for THIS market.
+                if (flags.isNotEmpty()) {
+                    WidgetCollapsingSection(
+                        title = widgetTitle("Prop Signals", market),
+                        systemImage = "bolt.fill",
+                        headline = if (flags.size == 1) {
+                            "1 signal fired on this market."
+                        } else {
+                            "${flags.size} signals fired on this market."
+                        },
+                    ) {
+                        NFLPropSignalGroup(flags) { signal ->
+                            selectedSignal = SelectedPropSignal(signal)
+                        }
+                    }
+                }
 
                 // 1. WagerProof Projection.
                     if (isLoadingDetail) {
@@ -380,6 +413,41 @@ fun NflPropDetailScreen(
 
     metricHelp?.let { help ->
         NFLPropMetricHelpSheet(help = help, onDismiss = { metricHelp = null })
+    }
+    selectedSignal?.let { selected ->
+        NFLPropSignalDetailSheet(
+            signal = selected.signal,
+            seasonRecord = selected.performanceKey?.let { propPerfByKey[it] },
+            onDismiss = { selectedSignal = null },
+        )
+    }
+}
+
+private data class SelectedPropSignal(
+    val signal: NFLPropSignalDefinition,
+    val performanceKey: String? = performanceKey(signal),
+) {
+    companion object {
+        private fun performanceKey(signal: NFLPropSignalDefinition): String? =
+            when (signal.id.uppercase(Locale.US)) {
+                "P1" -> "P1_pass_yds_form_over"
+                "P2" -> "P2_pass_yds_form_under"
+                "P3" -> "P3_pass_tds_form_over"
+                "P4" -> "P4_no_history_qb_under"
+                "P5" -> "P5_atd_drift_yes"
+                "P6" -> null
+                "P7" -> "P7_rush_yds_tough_d_under"
+                "P9" -> "P9_pass_tds_regression_over"
+                "P10" -> "P10_receptions_raised_under"
+                "P12" -> "P12_featured_wr_over"
+                "P13" -> "P13_featured_rb_over"
+                "P14" -> "P14_attempts_model_under"
+                "P15" -> "P15_attempts_steam_under"
+                "P16" -> "P16_attempts_confluence"
+                "P17" -> "P17_rush_yds_model_under"
+                "P18" -> "P18_pass_tds_model_over"
+                else -> null
+            }
     }
 }
 

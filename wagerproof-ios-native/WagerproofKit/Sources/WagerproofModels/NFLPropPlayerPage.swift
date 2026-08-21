@@ -8,6 +8,25 @@ import Foundation
 // `markets` expected an array), so every jsonb decodes through `JSONValue`
 // and maps defensively — one bad blob nils only its widget, never the row.
 
+/// Fired P-flag for one player+market, resolved by the pages generator from
+/// `nfl_signal_defs` (name + direction + backtest record). Mirrors web
+/// `PropSignal` in `src/features/propBreakdown/types.ts`.
+public struct NFLPropPageSignal: Hashable, Sendable, Identifiable {
+    public let key: String
+    public let label: String
+    public let direction: String?
+    public let record: String?
+
+    public var id: String { key }
+
+    public init(key: String, label: String, direction: String? = nil, record: String? = nil) {
+        self.key = key
+        self.label = label
+        self.direction = direction
+        self.record = record
+    }
+}
+
 /// One entry of the page's `markets` array — the posted (or pending) book
 /// market for this player. ATD is posted with a nil line (yes/no market).
 public struct NFLPropPageMarket: Hashable, Sendable, Identifiable {
@@ -18,17 +37,31 @@ public struct NFLPropPageMarket: Hashable, Sendable, Identifiable {
     public let underPrice: Int?
     /// "pending" | "posted" — kept as a raw string so new statuses degrade.
     public let status: String
+    /// Fired, validated prop signals for THIS player+market. Empty on most
+    /// rows — signals are selective.
+    public let signals: [NFLPropPageSignal]
 
     public var id: String { key }
     public var isPosted: Bool { status == "posted" }
+    /// Short P-codes (`P1`, `P14`, …) for the catalog / feed filter.
+    public var flagKeys: [String] { signals.map(\.key) }
 
-    public init(key: String, label: String, line: Double?, overPrice: Int?, underPrice: Int?, status: String) {
+    public init(
+        key: String,
+        label: String,
+        line: Double?,
+        overPrice: Int?,
+        underPrice: Int?,
+        status: String,
+        signals: [NFLPropPageSignal] = []
+    ) {
         self.key = key
         self.label = label
         self.line = line
         self.overPrice = overPrice
         self.underPrice = underPrice
         self.status = status
+        self.signals = signals
     }
 }
 
@@ -296,7 +329,24 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
                 line: o["line"]?.doubleValue,
                 overPrice: o["over_price"]?.intValue,
                 underPrice: o["under_price"]?.intValue,
-                status: o["status"]?.stringValue ?? "pending"
+                status: o["status"]?.stringValue ?? "pending",
+                signals: mapSignals(o["signals"])
+            )
+        }
+    }
+
+    /// Non-array / missing `signals` degrades to `[]` (the normal case).
+    public static func mapSignals(_ json: JSONValue?) -> [NFLPropPageSignal] {
+        guard let items = json?.arrayValue else { return [] }
+        return items.compactMap { item in
+            guard let o = item.objectValue,
+                  let key = o["key"]?.stringValue, !key.isEmpty else { return nil }
+            let label = o["label"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return NFLPropPageSignal(
+                key: key,
+                label: (label?.isEmpty == false ? label! : key),
+                direction: o["direction"]?.stringValue,
+                record: o["record"]?.stringValue
             )
         }
     }
