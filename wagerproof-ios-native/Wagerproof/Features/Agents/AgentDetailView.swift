@@ -44,6 +44,9 @@ struct AgentDetailView: View {
     /// Programmatic push into Settings (the weekly section's "turn it on" hint).
     @State private var pushSettings: Bool = false
     @State private var errorMessage: String? = nil
+    /// Informational toast after a successful run that wrote nothing displayable
+    /// for today or this football week (picks can exist on a later kickoff).
+    @State private var emptySlateToast: String? = nil
     /// Full-screen pick focus/print presentation. `focusStartIndex` non-nil = the
     /// overlay is up; `focusPrintIntro` plays the printer feed + fan-out (used to
     /// reveal freshly generated picks).
@@ -100,6 +103,13 @@ struct AgentDetailView: View {
         // animated field (the opaque pixelwave base covers the full bleed, so no
         // separate appSurface base is needed).
         .preferredColorScheme(.dark)
+        .overlay(alignment: .top) {
+            if let emptySlateToast {
+                emptySlateToastBanner(emptySlateToast)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(1)
+            }
+        }
         // Transparent nav bar so the agent aura glows continuously to the top
         // behind the back button (the collapsing hero is opaque and masks the
         // content scrolling under it). Mirrors the MLB sheet.
@@ -635,6 +645,8 @@ struct AgentDetailView: View {
                 focusPrintIntro = true
                 focusSource = .daily
                 focusStartIndex = 0
+            } else {
+                presentEmptySlateToast()
             }
             // The daily pass can succeed while the follow-up weekly pass fails
             // (timeout, quota edge, no football entitlement path, etc.). Don't
@@ -756,6 +768,45 @@ struct AgentDetailView: View {
 
     private var errorAlertBinding: Binding<Bool> {
         Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
+    }
+
+    private static let emptySlateToastText = "No picks to display for today or this week."
+
+    /// Glass pill under the nav bar — same pattern as the historical-analysis chat toast.
+    private func presentEmptySlateToast() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            emptySlateToast = Self.emptySlateToastText
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 3_200_000_000)
+            if emptySlateToast == Self.emptySlateToastText {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    emptySlateToast = nil
+                }
+            }
+        }
+    }
+
+    private func emptySlateToastBanner(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.appTextSecondary)
+            Text(text)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.appTextPrimary)
+                .lineLimit(2)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .liquidGlassBackground(in: Capsule(), interactive: true)
+        .shadow(color: .black.opacity(0.18), radius: 14, x: 0, y: 6)
+        .padding(.horizontal, 24)
+        .padding(.top, 4)
+        .safeAreaPadding(.top)
+        .onTapGesture {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { emptySlateToast = nil }
+        }
     }
 }
 

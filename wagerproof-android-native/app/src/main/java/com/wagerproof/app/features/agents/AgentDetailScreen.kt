@@ -33,6 +33,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -176,6 +178,7 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
     var showRegenSheet by remember { mutableStateOf(false) }
     var showAutoPilotSheet by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
     var focusStartIndex by remember { mutableStateOf<Int?>(null) }
     var focusPrintIntro by remember { mutableStateOf(false) }
     var lastGenerationResultItems by remember { mutableStateOf<List<AgentBetItem>>(emptyList()) }
@@ -290,6 +293,8 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
             lastGenerationResultItems = fresh
             focusPrintIntro = true
             focusStartIndex = 0
+        } else if (failure == null && fresh.isEmpty()) {
+            snackbarHostState.showSnackbar("No picks to display for today or this week.")
         }
         markPicksSeen()
     }
@@ -385,6 +390,14 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
             )
             }
         }
+
+        SnackbarHost(
+            snackbarHostState,
+            Modifier
+                .align(Alignment.TopCenter)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(top = 8.dp),
+        )
 
         // Full-screen focus / printer overlay.
         focusStartIndex?.let { start ->
