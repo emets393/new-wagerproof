@@ -34,7 +34,7 @@ class NFLPropPlayerPageTest {
               "headshot_url": "https://example.com/jj.png", "rookie": false,
               "markets": [
                 {"key": "player_anytime_td", "label": "Anytime TD", "line": null, "over_price": 145, "under_price": null, "status": "posted"},
-                {"key": "player_reception_yds", "label": "Receiving Yards", "line": 84.5, "over_price": -112, "under_price": -108, "status": "posted"},
+                {"key": "player_reception_yds", "label": "Receiving Yards", "line": 84.5, "over_price": -112, "under_price": -108, "status": "posted", "signals": [{"key": "P12", "label": "Featured WR", "direction": "OVER", "record": "18-10 · 64%"}]},
                 {"key": "player_receptions", "label": "Receptions", "line": null, "over_price": null, "under_price": null, "status": "pending"}
               ],
               "projection": {
@@ -68,6 +68,11 @@ class NFLPropPlayerPageTest {
         assertNull(page.markets[0].line)
         assertTrue(page.markets[0].isPosted)
         assertEquals(84.5, page.markets[1].line)
+        assertEquals(1, page.markets[1].signals.size)
+        assertEquals("P12", page.markets[1].signals.first().key)
+        assertEquals("18-10 · 64%", page.markets[1].signals.first().record)
+        assertEquals(listOf("P12"), page.markets[1].flagKeys)
+        assertTrue(page.markets[0].signals.isEmpty())
         assertEquals(false, page.markets[2].isPosted)
 
         // Generator writes status "live" + source "model"; must read as model.

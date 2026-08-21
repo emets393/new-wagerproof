@@ -15,11 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,37 +29,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import com.wagerproof.app.features.props.NFLPlayerPropSelection
 import com.wagerproof.app.features.props.NFLPropFeedItem
-import com.wagerproof.app.features.props.PropsFormatting
 import com.wagerproof.app.features.props.nflTeamColors
 import com.wagerproof.app.features.shared.InitialsDisc
 import com.wagerproof.app.features.shared.RemoteImage
-import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.NFLPlayerProps
 import com.wagerproof.core.models.NFLPropMarket
 import com.wagerproof.core.models.NFLPropPlayer
-import com.wagerproof.core.models.NFLPropSignalDefinition
-import com.wagerproof.core.models.NFLPropSignalDefinitions
 import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.models.NFLTeams
-import com.wagerproof.core.models.SignalPerformance
-import com.wagerproof.core.models.SignalSeasonRecordDisplay
 import com.wagerproof.core.services.SportsbookPropMarketOdds
 import com.wagerproof.core.services.SportsbookPropOddsService
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-
-private val SignalOrange = Color(0xFFF97316)
 
 /**
  * NFL player-prop feed card — port of iOS `NFLPropPlayerCard.swift`. Mirrors
@@ -131,6 +116,11 @@ fun NflPropPlayerCard(
                     modifier = Modifier.size(74.dp, 46.dp),
                 )
             }
+        }
+
+        val flags = headline?.flags
+        if (!flags.isNullOrEmpty()) {
+            NFLPropSignalFeedStrip(flags)
         }
 
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(AppColors.appBorder.copy(alpha = 0.5f)))

@@ -23,6 +23,8 @@ struct NFLPropDetailView: View {
     @State private var bookOddsByMarket: [String: SportsbookPropMarketOdds] = [:]
     @State private var activeMarket: String
     @State private var metricHelp: NFLPropMetricHelp?
+    @State private var selectedSignal: SelectedPropSignal?
+    @State private var propPerfByKey: [String: SignalPerformance] = [:]
     @State private var heroBottom: CGFloat = 0
     @State private var suppressSpy = false
     @State private var spy = SpyStore()
@@ -136,6 +138,12 @@ struct NFLPropDetailView: View {
         .sheet(item: $metricHelp) { help in
             NFLPropMetricHelpSheet(help: help)
         }
+        .sheet(item: $selectedSignal) { selection in
+            NFLPropSignalDetailSheet(
+                signal: selection.signal,
+                seasonRecord: selection.performanceKey.flatMap { propPerfByKey[$0] }
+            )
+        }
     }
 
     // MARK: - Data
@@ -155,6 +163,12 @@ struct NFLPropDetailView: View {
             activeMarket = markets[0].key
         }
         await loadSportsbookOdds()
+        await loadPropSignalPerformance()
+    }
+
+    private func loadPropSignalPerformance() async {
+        let season = player.season ?? 2026
+        propPerfByKey = await SignalPerformanceService.shared.performances(for: .nfl, season: season)
     }
 
     private func loadSportsbookOdds() async {
@@ -408,6 +422,31 @@ struct NFLPropDetailView: View {
         let trends = detail?.trends
         let grading = l10Grading(marketKey: market.key, line: line)
         let opponent = page?.scheme?.opponent ?? page?.opponent ?? player.opponent ?? ""
+        let pageSignals = market.pageMarket?.signals ?? []
+        let flags = !pageSignals.isEmpty
+            ? pageSignals.map(\.key)
+            : (market.feedMarket?.flags ?? [])
+        let recordsByKey = Dictionary(
+            pageSignals.compactMap { sig -> (String, String)? in
+                guard let record = sig.record, !record.isEmpty else { return nil }
+                return (sig.key, record)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        // 0. Fired prop signals for THIS market (web chips under market toggle).
+        if !flags.isEmpty {
+            WidgetCollapsingSection(
+                title: widgetTitle("Prop Signals", market: market),
+                systemImage: "bolt.fill",
+                iconTint: Color(hex: 0xF97316),
+                headline: flags.count == 1 ? "1 signal fired on this market." : "\(flags.count) signals fired on this market."
+            ) {
+                NFLPropSignalGroup(flags: flags, recordsByKey: recordsByKey) {
+                    selectedSignal = SelectedPropSignal(signal: $0, marketKey: market.key)
+                }
+            }
+        }
 
         // 1. WagerProof Projection.
         if isLoadingDetail {
@@ -619,5 +658,41 @@ struct NFLPropMetricHelpSheet: View {
         }
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
+    }
+}
+
+/// Tap target for a prop-signal detail sheet — carries the catalog definition
+/// plus the season `signal_performance` lookup key for this flag.
+private struct SelectedPropSignal: Identifiable {
+    let signal: NFLPropSignalDefinition
+    let performanceKey: String?
+
+    init(signal: NFLPropSignalDefinition, marketKey _: String) {
+        self.signal = signal
+        self.performanceKey = SelectedPropSignal.performanceKey(for: signal)
+    }
+
+    var id: String { "\(signal.id)|\(performanceKey ?? "")" }
+
+    private static func performanceKey(for signal: NFLPropSignalDefinition) -> String? {
+        switch signal.id.uppercased() {
+        case "P1": return "P1_pass_yds_form_over"
+        case "P2": return "P2_pass_yds_form_under"
+        case "P3": return "P3_pass_tds_form_over"
+        case "P4": return "P4_no_history_qb_under"
+        case "P5": return "P5_atd_drift_yes"
+        case "P6": return nil
+        case "P7": return "P7_rush_yds_tough_d_under"
+        case "P9": return "P9_pass_tds_regression_over"
+        case "P10": return "P10_receptions_raised_under"
+        case "P12": return "P12_featured_wr_over"
+        case "P13": return "P13_featured_rb_over"
+        case "P14": return "P14_attempts_model_under"
+        case "P15": return "P15_attempts_steam_under"
+        case "P16": return "P16_attempts_confluence"
+        case "P17": return "P17_rush_yds_model_under"
+        case "P18": return "P18_pass_tds_model_over"
+        default: return nil
+        }
     }
 }
