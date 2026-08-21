@@ -3,8 +3,8 @@
 // Page 12: the leaderboard pitch. Minimal copy up top; the visual does the
 // selling. The board is a pixel-faithful replica of the Agents tab's real
 // leaderboard (`AgentLeaderboard.swift` LeaderboardRow: gold/silver/bronze
-// rank badges, glowing gradient avatar discs with pixel sprites, sports
-// labels, record + net units in win/loss colors, green win-rate badge, and
+// rank badges, glowing gradient avatar discs with pixel sprites, overlapping
+// sport-icon coins, record + net units in win/loss colors, green win-rate badge, and
 // the green filter pills above) fed with sample data, plus a flame streak
 // chip in the chevron slot since the rows aren't tappable here.
 //
@@ -218,18 +218,12 @@ struct OnboardingLeaderboardPage: View {
             } else {
                 avatar
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(entry.name)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
                     .lineLimit(1)
-                HStack(spacing: 4) {
-                    ForEach(entry.sports.prefix(2), id: \.self) { sport in
-                        Text(sport.label)
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Color.appTextSecondary)
-                    }
-                }
+                LeaderboardSportIconCluster(sports: entry.sports)
             }
         }
     }

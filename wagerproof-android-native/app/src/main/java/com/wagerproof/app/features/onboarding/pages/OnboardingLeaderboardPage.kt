@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.agents.AgentColorPalette
 import com.wagerproof.app.features.agents.components.GlowingCardWrapper
+import com.wagerproof.app.features.agents.components.LeaderboardSportIconCluster
 import com.wagerproof.app.features.onboarding.LocalOnboardingPageIsActive
 import com.wagerproof.app.features.onboarding.LocalOnboardingReduceMotion
 import com.wagerproof.app.features.onboarding.OnboardingPageScaffold
@@ -55,6 +56,7 @@ import com.wagerproof.app.features.onboarding.OnboardingTheme
 import com.wagerproof.app.features.onboarding.components.onboardingIcon
 import com.wagerproof.core.design.pixeloffice.PixelSpriteAvatar
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.core.models.AgentSport
 import kotlinx.coroutines.delay
 
 /**
@@ -212,9 +214,9 @@ private fun MockLeaderboardRow(
         ) {
             RankBadge(entry.rank)
             MockAvatar(entry)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(entry.name, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(entry.sports.joinToString("  "), color = AppColors.appTextSecondary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                LeaderboardSportIconCluster(entry.sports)
             }
             Column(Modifier.widthIn(min = 52.dp), horizontalAlignment = Alignment.End) {
                 Text(entry.record, color = AppColors.appTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
@@ -284,7 +286,7 @@ private data class MockLeaderboardEntry(
     val spriteIndex: Int,
     val name: String,
     val avatarColor: String,
-    val sports: List<String>,
+    val sports: List<AgentSport>,
     val record: String,
     val netUnits: Double,
     val winRate: Double,
@@ -292,9 +294,9 @@ private data class MockLeaderboardEntry(
 )
 
 private val entries = listOf(
-    MockLeaderboardEntry(1, 2, "Sharp Signal", "gradient:#22C55E,#0EA5E9", listOf("NFL", "NBA"), "48-30", 21.4, 0.615, 7),
-    MockLeaderboardEntry(2, 6, "Fade the Public", "gradient:#F97316,#EF4444", listOf("NFL"), "51-35-2", 14.2, 0.593, 4),
-    MockLeaderboardEntry(3, 4, "Totals Lab", "gradient:#8B5CF6,#EC4899", listOf("NBA", "MLB"), "44-32", 9.8, 0.579, 3),
-    MockLeaderboardEntry(4, 1, "Dog Money", "#3B82F6", listOf("MLB"), "39-31", 6.1, 0.557, 2),
-    MockLeaderboardEntry(5, 5, "Prime Time", "#EAB308", listOf("NFL", "CFB"), "41-34", 4.5, 0.547, 0),
+    MockLeaderboardEntry(1, 2, "Sharp Signal", "gradient:#22C55E,#0EA5E9", listOf(AgentSport.NFL, AgentSport.NBA), "48-30", 21.4, 0.615, 7),
+    MockLeaderboardEntry(2, 6, "Fade the Public", "gradient:#F97316,#EF4444", listOf(AgentSport.NFL), "51-35-2", 14.2, 0.593, 4),
+    MockLeaderboardEntry(3, 4, "Totals Lab", "gradient:#8B5CF6,#EC4899", listOf(AgentSport.NBA, AgentSport.MLB), "44-32", 9.8, 0.579, 3),
+    MockLeaderboardEntry(4, 1, "Dog Money", "#3B82F6", listOf(AgentSport.MLB), "39-31", 6.1, 0.557, 2),
+    MockLeaderboardEntry(5, 5, "Prime Time", "#EAB308", listOf(AgentSport.NFL, AgentSport.CFB), "41-34", 4.5, 0.547, 0),
 )
