@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,6 +67,7 @@ import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
 import com.wagerproof.app.features.parlaygod.ParlayGodRail
 import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.core.design.components.liquidGlassCapsule
+import com.wagerproof.core.design.components.rememberSnappingCarousel
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
@@ -492,7 +494,10 @@ private fun SectionBlock(
                 color = AppColors.appTextSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
             )
         }
+        val railState = rememberLazyListState()
         LazyRow(
+            state = railState,
+            flingBehavior = rememberSnappingCarousel(railState),
             contentPadding = PaddingValues(horizontal = Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -618,6 +623,9 @@ private fun LoadingState() {
                     Box(Modifier.size(14.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.35f)))
                     com.wagerproof.core.design.components.SkeletonBlock(height = 12.dp, width = 110.dp)
                 }
+                // Same gutter as the real rail below it, so placeholders don't
+                // shift sideways when the cards land (iOS gives its Outliers
+                // loading shimmer the same treatment).
                 LazyRow(
                     userScrollEnabled = false,
                     contentPadding = PaddingValues(horizontal = Spacing.lg),

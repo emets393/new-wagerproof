@@ -22,7 +22,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -42,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.cfb.CFBGameCard
-import com.wagerproof.app.features.components.GlassSegmentedPicker
 import com.wagerproof.app.features.components.QuickFilterEmptyState
 import com.wagerproof.app.features.components.QuickFilterField
 import com.wagerproof.app.features.gamecards.GameCardFormatting
@@ -57,6 +55,7 @@ import com.wagerproof.app.features.nfl.NFLGameCard
 import com.wagerproof.app.features.navigation.SettingsToolbarButton
 import com.wagerproof.app.features.navigation.WagerProofWordmark
 import com.wagerproof.app.nav.LocalAppNavigator
+import com.wagerproof.core.design.components.liquidGlassCapsule
 import com.wagerproof.core.design.components.staggeredAppear
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
@@ -152,20 +151,16 @@ fun GamesScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(start = 16.dp, top = 2.dp, bottom = 4.dp),
         )
 
-        // Quick Filter above the picker. iOS squeezes the field, sport menu and
-        // sort menu onto ONE row (GamesView.pickerBar) because it swapped the
-        // segmented control for an icon menu; Android keeps the five-way
-        // segmented picker (it fits the wider default form factor and is the
-        // shipped affordance), so the field gets its own row above it.
-        QuickFilterField(
-            value = quickFilter,
-            onValueChange = { store.searchTexts = store.searchTexts + (sport to it) },
-            accessibilityLabel = "Quick filter games",
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
+        // Quick Filter + sport + sort on ONE row, matching iOS
+        // `GamesView.pickerBar`. The five-way segmented picker used to own a
+        // second row below the field; collapsing the sport into a pull-down icon
+        // menu buys back that row's vertical space on a page where the game
+        // cards are what matter (owner request, 2026-08-17).
+        PickerBar(
+            store = store,
+            quickFilter = quickFilter,
+            sport = sport,
         )
-
-        // Pinned picker + sort bar.
-        PickerBar(store)
 
         PullToRefreshBox(
             // Only a gesture-driven refresh should show Material's pull
@@ -269,43 +264,132 @@ private fun filteredGamesAreEmpty(store: GamesStore, sport: GamesStore.Sport): B
     GamesStore.Sport.mlb -> store.sortedMLB().isEmpty()
 }
 
+/**
+ * Inline Quick Filter + sport + sort controls. iOS `GamesView.pickerBar`: the
+ * field takes the remaining width and the two pull-down menus sit beside it as
+ * fixed 44dp glass circles.
+ *
+ * The field must stay `weight(1f)` rather than `fillMaxWidth` — it is the only
+ * flexible child, and the icons measure at a fixed size, so this is what keeps
+ * NCAAB's wider label from pushing the sort menu off-screen.
+ */
 @Composable
-private fun PickerBar(store: GamesStore) {
-    val sports = GamesStore.Sport.displayOrder()
-    GlassSegmentedPicker(
-        labels = sports.map { it.label },
-        selectedIndex = sports.indexOf(store.selectedSport),
-        onSelect = { store.selectedSport = sports[it] },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
-        labelFontSize = 12.sp,
-        trailing = { SortMenu(store) },
-    )
+private fun PickerBar(store: GamesStore, quickFilter: String, sport: GamesStore.Sport) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        QuickFilterField(
+            value = quickFilter,
+            onValueChange = { store.searchTexts = store.searchTexts + (sport to it) },
+            accessibilityLabel = "Quick filter games",
+            modifier = Modifier.weight(1f),
+        )
+        SportMenu(store)
+        SortMenu(store)
+    }
+}
+
+/**
+ * 44dp glass circle wrapping a pull-down menu. Port of iOS `menuIconLabel` —
+ * same diameter as [QuickFilterField]'s height so the three controls share one
+ * seam, and the same `liquidGlassCapsule` material so they read as one row.
+ */
+@Composable
+private fun MenuIconButton(
+    systemName: String,
+    contentDescription: String,
+    isActive: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .liquidGlassCapsule(null)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            (AppIcon.fromSystemName(systemName) ?: AppIcon.SPORTSCOURT_FILL).imageVector,
+            contentDescription = contentDescription,
+            tint = if (isActive) AppColors.appPrimary else AppColors.appTextPrimary,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+/**
+ * Sport pull-down, replacing the five-way segmented control. Icon reflects the
+ * current sport so the row still says which slate you are on without spending a
+ * label's worth of width on it.
+ */
+@Composable
+private fun SportMenu(store: GamesStore) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        MenuIconButton(
+            systemName = sportSymbol(store.selectedSport),
+            contentDescription = "Choose sport shown",
+        ) { expanded = true }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            GamesStore.Sport.displayOrder().forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    leadingIcon = {
+                        Icon(
+                            (AppIcon.fromSystemName(sportSymbol(option)) ?: AppIcon.SPORTSCOURT_FILL).imageVector,
+                            contentDescription = null,
+                        )
+                    },
+                    trailingIcon = if (option == store.selectedSport) {
+                        { Icon(AppIcon.CHECKMARK.imageVector, contentDescription = null, tint = AppColors.appPrimary) }
+                    } else null,
+                    onClick = { store.selectedSport = option; expanded = false },
+                )
+            }
+        }
+    }
+}
+
+/** Android has no SF Symbol for a generic ball, so each sport carries its own. */
+private fun sportSymbol(sport: GamesStore.Sport): String = when (sport) {
+    GamesStore.Sport.mlb -> "baseball"
+    GamesStore.Sport.nba, GamesStore.Sport.ncaab -> "basketball"
+    GamesStore.Sport.nfl -> "football"
+    GamesStore.Sport.cfb -> "graduationcap"
 }
 
 @Composable
 private fun SortMenu(store: GamesStore) {
     var expanded by remember { mutableStateOf(false) }
+    val active = store.sortModes[store.selectedSport] ?: GamesStore.SortMode.TIME
     Box {
-        IconButton(onClick = { expanded = true }, modifier = Modifier.size(32.dp)) {
-            Icon(
-                (AppIcon.fromSystemName("arrow.up.arrow.down") ?: AppIcon.CHEVRON_RIGHT).imageVector,
-                contentDescription = "Sort games",
-                tint = AppColors.appTextPrimary,
-            )
-        }
+        MenuIconButton(
+            systemName = "arrow.up.arrow.down",
+            contentDescription = "Sort games",
+            // Tinted only when sorting differs from the default, so the row
+            // shows at a glance that a non-obvious order is in effect (iOS
+            // sortMenu's `isActive`).
+            isActive = active != GamesStore.SortMode.TIME,
+        ) { expanded = true }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Sort by Time") },
-                onClick = { store.sortModes = store.sortModes + (store.selectedSport to GamesStore.SortMode.TIME); expanded = false },
-            )
-            DropdownMenuItem(
-                text = { Text("Sort by Spread Value") },
-                onClick = { store.sortModes = store.sortModes + (store.selectedSport to GamesStore.SortMode.SPREAD); expanded = false },
-            )
-            DropdownMenuItem(
-                text = { Text("Sort by O/U Value") },
-                onClick = { store.sortModes = store.sortModes + (store.selectedSport to GamesStore.SortMode.OU); expanded = false },
-            )
+            listOf(
+                GamesStore.SortMode.TIME to "Sort by Time",
+                GamesStore.SortMode.SPREAD to "Sort by Spread Value",
+                GamesStore.SortMode.OU to "Sort by O/U Value",
+            ).forEach { (mode, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    trailingIcon = if (mode == active) {
+                        { Icon(AppIcon.CHECKMARK.imageVector, contentDescription = null, tint = AppColors.appPrimary) }
+                    } else null,
+                    onClick = {
+                        store.sortModes = store.sortModes + (store.selectedSport to mode)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }

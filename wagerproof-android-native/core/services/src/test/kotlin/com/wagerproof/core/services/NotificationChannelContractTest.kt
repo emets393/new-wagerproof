@@ -30,7 +30,9 @@ class NotificationChannelContractTest {
     @Test
     fun dispatcherTargetsRemoteChannelId() {
         val dispatcher = repoFile(
-            "supabase/functions/send-agent-pick-ready-notification/index.ts",
+            // The constant moved out of the per-function index.ts when the push
+            // broadcast work extracted a shared transport; every sender imports it.
+            "supabase/functions/shared/pushTransport.ts",
         ) ?: return
         val declared = Regex("ANDROID_CHANNEL_ID\\s*=\\s*'([^']+)'")
             .find(dispatcher.readText())?.groupValues?.get(1)

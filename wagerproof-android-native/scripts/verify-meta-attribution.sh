@@ -12,6 +12,10 @@ set -euo pipefail
 
 ARTIFACT="${1:?usage: verify-meta-attribution.sh <app-release.aab|app-release.apk>}"
 META_APP_ID="${META_APP_ID:-935005752525075}"
+# Checked too, because initialize() bails on `clientToken.isBlank()` exactly like it
+# does on a blank app id — a build with the id but no token passes an id-only check
+# and still sends Meta nothing.
+META_CLIENT_TOKEN="${META_CLIENT_TOKEN:-bd008d0839f36a9941c0ed27d686b615}"
 
 [ -f "$ARTIFACT" ] || { echo "Artifact not found: $ARTIFACT" >&2; exit 1; }
 
@@ -34,3 +38,20 @@ else
   echo "events reach Meta. Check FACEBOOK_APP_ID in app/build.gradle.kts." >&2
   exit 1
 fi
+
+if find "$WORK" -name '*.dex' -exec grep -l --binary-files=text "$META_CLIENT_TOKEN" {} + >/dev/null 2>&1; then
+  echo "OK: Meta client token present in $(basename "$ARTIFACT")."
+else
+  echo "ERROR: Meta client token is absent from $ARTIFACT." >&2
+  echo "MetaAnalyticsService.initialize() returns early on a blank client token, so" >&2
+  echo "attribution ships dead even with the app id present. Check" >&2
+  echo "FACEBOOK_CLIENT_TOKEN in app/build.gradle.kts." >&2
+  exit 1
+fi
+
+# NOTE: this script can only prove the CREDENTIALS are in the artifact. It cannot
+# catch a mis-initialized SDK — on 2026-08-17 both values were compiled in and Meta
+# still received nothing, because setAutoInitEnabled(false) meant sdkInitialize()
+# skipped fullyInitialize() and GraphRequest refused every upload. That class of bug
+# is only visible at runtime: launch a build and confirm logcat is free of
+# "GraphRequest can't be used when Facebook SDK isn't fully initialized".

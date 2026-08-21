@@ -179,16 +179,18 @@ data class GameAgentConsensus(
             return if (games > 1) "#$rank of $games today" else null
         }
 
-    private companion object {
+    // Not private: @Serializable generates serializer() into this companion, and a
+    // private companion makes GameAgentConsensus.serializer() unreachable from tests.
+    companion object {
         /**
          * Mirrors the RPC's `p_min_share` default. Duplicated here ONLY to tell
          * LEAN from SPLIT — [flagged] is always the server's call and is never
          * recomputed. If the SQL default moves, move this with it.
          */
-        const val LEAN_SHARE = 0.55
+        private const val LEAN_SHARE = 0.55
 
         /** Below this a percentage is theatre: 1 of 2 is "50%" and means nothing. */
-        const val MIN_MEANINGFUL_MARKET = 3
+        private const val MIN_MEANINGFUL_MARKET = 3
     }
 }
 
