@@ -177,6 +177,13 @@ def main():
         if not resp.ok:
             sys.exit(f"[write] {resp.status_code} inserting {TABLE}: {resp.text[:500]}")
     print(f"[write] inserted {len(rows)} rows at snap_ts={snap_iso}")
+    # SHARP ACTION signals (owner 2026-08-19): detect on the capture just written.
+    # Wrapped so a detector error can never fail the odds capture.
+    try:
+        from nfl_sharp_action import run as _sharp
+        _sharp(now.astimezone(dt.timezone.utc))
+    except Exception as e:
+        print(f"[sharp-action] skipped: {e}")
 
 
 if __name__ == "__main__":

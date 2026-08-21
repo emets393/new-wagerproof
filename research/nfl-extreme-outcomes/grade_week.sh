@@ -46,6 +46,8 @@ echo; echo ">>> 3-4) grade NFL props + grade picks + refresh signal_performance"
 # This ALSO appends completed games into {nfl,cfb}_analysis_base (Stage 1 of the historical-
 # trends warehouse refresh) via the refresh_{nfl,cfb}_analysis_base RPCs.
 python3 run_grade_rpcs.py "$SEASON"
+echo; echo ">>> 4b) grade SHARP ACTION flags at their detection line (appends to signal_performance)"
+python3 grade_nfl_sharp_flags.py "$SEASON" || true
 
 echo; echo ">>> 5) historical-trends warehouse: asof derived features (Stage 2, non-fatal)"
 # Recomputes the season-to-date/streak/h2h feature family for the newly-appended games.
