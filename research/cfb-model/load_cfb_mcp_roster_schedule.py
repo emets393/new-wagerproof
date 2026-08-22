@@ -41,6 +41,11 @@ def main():
              .merge(rd, on=["season", "team"], how="outer", suffixes=("", "_dim"))
     prof = prof.loc[:, ~prof.columns.duplicated()]
     prof = prof[[c for c in prof.columns if not c.endswith("_dim")]]
+    # 247Sports team talent composite (CFBD /talent) — raw composite alongside our derived
+    # talent_stock; weekly fetch_cfbd_extra refreshes the parquet (2026 lands when 247 publishes).
+    tal = pd.read_parquet(os.path.join(HERE, "data", "cfbd", "talent.parquet")) \
+        .rename(columns={"year": "season", "talent": "talent_composite"})
+    prof = prof.merge(tal, on=["season", "team"], how="left")
     if season:
         prof = prof[prof.season == season]
     for s in sorted(prof.season.unique()):
