@@ -7,8 +7,10 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { PixelSpriteAvatar } from '@/components/agents/split/PixelSpriteAvatar';
+import { SportIconCluster } from '@/components/agents/split/LeaderboardRowCard';
 import type { OutliersTrendsCard } from '@/features/outliers/types';
 import { getAvatarBackground, getPrimaryColor } from '@/utils/agentColors';
+import type { Sport } from '@/types/agent';
 
 // ── Mock leaderboard (OnboardingLeaderboardPage data) ────────────────────────
 
@@ -16,7 +18,7 @@ export interface MockLeaderboardRow {
   rank: number;
   name: string;
   avatarColor: string;
-  sports: string[];
+  sports: Sport[];
   record: string;
   netUnits: number;
   winRate: number;
@@ -25,11 +27,11 @@ export interface MockLeaderboardRow {
 }
 
 export const MOCK_LEADERBOARD: MockLeaderboardRow[] = [
-  { rank: 1, name: 'Sharp Signal', avatarColor: 'gradient:#22C55E,#0EA5E9', sports: ['NFL', 'NBA'], record: '48-30', netUnits: 21.4, winRate: 0.615, streak: 7, spriteIndex: 2 },
-  { rank: 2, name: 'Fade the Public', avatarColor: 'gradient:#F97316,#EF4444', sports: ['NFL'], record: '51-35-2', netUnits: 14.2, winRate: 0.593, streak: 4, spriteIndex: 6 },
-  { rank: 3, name: 'Totals Lab', avatarColor: 'gradient:#8B5CF6,#EC4899', sports: ['NBA', 'MLB'], record: '44-32', netUnits: 9.8, winRate: 0.579, streak: 3, spriteIndex: 4 },
-  { rank: 4, name: 'Dog Money', avatarColor: '#3B82F6', sports: ['MLB'], record: '39-31', netUnits: 6.1, winRate: 0.557, streak: 2, spriteIndex: 1 },
-  { rank: 5, name: 'Prime Time', avatarColor: '#EAB308', sports: ['NFL', 'CFB'], record: '41-34', netUnits: 4.5, winRate: 0.547, streak: 0, spriteIndex: 5 },
+  { rank: 1, name: 'Sharp Signal', avatarColor: 'gradient:#22C55E,#0EA5E9', sports: ['nfl', 'nba'], record: '48-30', netUnits: 21.4, winRate: 0.615, streak: 7, spriteIndex: 2 },
+  { rank: 2, name: 'Fade the Public', avatarColor: 'gradient:#F97316,#EF4444', sports: ['nfl'], record: '51-35-2', netUnits: 14.2, winRate: 0.593, streak: 4, spriteIndex: 6 },
+  { rank: 3, name: 'Totals Lab', avatarColor: 'gradient:#8B5CF6,#EC4899', sports: ['nba', 'mlb'], record: '44-32', netUnits: 9.8, winRate: 0.579, streak: 3, spriteIndex: 4 },
+  { rank: 4, name: 'Dog Money', avatarColor: '#3B82F6', sports: ['mlb'], record: '39-31', netUnits: 6.1, winRate: 0.557, streak: 2, spriteIndex: 1 },
+  { rank: 5, name: 'Prime Time', avatarColor: '#EAB308', sports: ['nfl', 'cfb'], record: '41-34', netUnits: 4.5, winRate: 0.547, streak: 0, spriteIndex: 5 },
 ];
 
 export function MockAvatarTile({ color, spriteIndex, size = 44 }: { color: string; spriteIndex: number; size?: number }) {
@@ -84,9 +86,14 @@ export function MockLeaderboardCard({ animated = true }: { animated?: boolean })
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-white/50">
-                {row.sports.join(' · ')} · {row.record}
-              </p>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <SportIconCluster
+                  sports={row.sports}
+                  size={16}
+                  className="[&>span]:border-white/20 [&>span]:bg-white/15 [&>span]:text-white"
+                />
+                <span className="text-[11px] text-white/50">{row.record}</span>
+              </div>
             </div>
             <div className="text-right">
               <p className="text-sm font-extrabold text-green-400">+{row.netUnits.toFixed(2)}u</p>

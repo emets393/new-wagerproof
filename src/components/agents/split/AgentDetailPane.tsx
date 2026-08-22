@@ -1,13 +1,15 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { Bot, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { GlassCard, SkeletonBlock, SkeletonCircle, TeamAura, WidgetCard } from '@/components/ios';
 import { AgentGenerationTerminal, AgentPerformanceCharts, AgentRecentActivity } from '@/components/agents';
 import { AgentDetailHero } from './AgentDetailHero';
 import { AgentPicksSection, AgentTodaysPicksSection, type AgentHistoryItem } from './AgentPicksSection';
 import { AgentPickFeedbackCard } from '@/components/agents/AgentPickFeedbackCard';
-import { useAgent } from '@/hooks/useAgents';
+import { useAgent, useAgentPicks, useAgentParlays } from '@/hooks/useAgents';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgentFollow } from '@/hooks/useAgentFollow';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,6 +67,33 @@ export function AgentDetailPane({
   const isOwner = !!agent && agent.user_id === user?.id;
   const canSeePicks = canViewAgentPicks || isOwner;
   const follow = useAgentFollow(agentId ?? undefined, { enabled: !!agent && !isOwner });
+  const { data: picks = [], isFetching: picksFetching } = useAgentPicks(
+    canSeePicks ? agentId ?? undefined : undefined,
+  );
+  const { data: parlays = [], isFetching: parlaysFetching } = useAgentParlays(
+    canSeePicks ? agentId ?? undefined : undefined,
+  );
+  const toastedGenerationRef = useRef(false);
+
+  useEffect(() => {
+    if (generation?.status === 'generating') {
+      toastedGenerationRef.current = false;
+      return;
+    }
+    if (generation?.status !== 'success' || toastedGenerationRef.current) return;
+    if (picksFetching || parlaysFetching) return;
+    toastedGenerationRef.current = true;
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const hasTodayPick = picks.some((pick) => pick.game_date === today);
+    const hasTodayOrWeekParlay = parlays.some((parlay) => {
+      const date = parlay.target_date ?? parlay.created_at.slice(0, 10);
+      return date === today || (parlay as { scope?: string }).scope === 'weekly';
+    });
+    if (!hasTodayPick && !hasTodayOrWeekParlay) {
+      toast.message('No picks to display for today or this week.');
+    }
+  }, [generation?.status, picks, parlays, picksFetching, parlaysFetching]);
 
   if (!agentId) {
     return (

@@ -298,23 +298,12 @@ private struct LeaderboardRow: View {
             } else {
                 avatar
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(entry.name)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
                     .lineLimit(1)
-                HStack(spacing: 4) {
-                    ForEach(Array(entry.preferredSports.prefix(2)), id: \.self) { sport in
-                        Text(sport.label)
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Color.appTextSecondary)
-                    }
-                    if entry.preferredSports.count > 2 {
-                        Text("+\(entry.preferredSports.count - 2)")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Color.appTextSecondary)
-                    }
-                }
+                LeaderboardSportIconCluster(sports: entry.preferredSports)
             }
         }
     }
@@ -371,5 +360,36 @@ private struct LeaderboardRow: View {
     private var netUnitsLabel: String {
         let sign = entry.netUnits >= 0 ? "+" : ""
         return String(format: "%@%.2fu", sign, entry.netUnits)
+    }
+}
+
+/// Overlapping sport-icon coins under the agent name. Compact enough that a
+/// 4–5 sport agent never wraps the way "NFL NCAAB +2" text did.
+struct LeaderboardSportIconCluster: View {
+    let sports: [AgentSport]
+    var coinSize: CGFloat = 18
+
+    var body: some View {
+        if sports.isEmpty {
+            EmptyView()
+        } else {
+            HStack(spacing: -7) {
+                ForEach(Array(sports.enumerated()), id: \.element) { idx, sport in
+                    ZStack {
+                        Circle().fill(Color.appSurfaceMuted)
+                        Image(systemName: sport.sfSymbol)
+                            .font(.system(size: coinSize * 0.44, weight: .bold))
+                            .foregroundStyle(Color.appTextPrimary)
+                    }
+                    .frame(width: coinSize, height: coinSize)
+                    .overlay(Circle().stroke(Color.appBorder.opacity(0.6), lineWidth: 1))
+                    .zIndex(Double(sports.count - idx))
+                    .accessibilityHidden(true)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(sports.map(\.label).joined(separator: ", "))
+            .fixedSize(horizontal: true, vertical: true)
+        }
     }
 }

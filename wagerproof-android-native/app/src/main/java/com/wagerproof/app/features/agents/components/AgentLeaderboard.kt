@@ -42,8 +42,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import com.wagerproof.core.design.components.SkeletonBlock
 import com.wagerproof.core.design.components.SkeletonCircle
@@ -52,6 +54,7 @@ import com.wagerproof.core.design.components.staggeredAppear
 import com.wagerproof.core.design.pixeloffice.PixelSpriteAvatar
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.AgentLeaderboardEntry
+import com.wagerproof.core.models.AgentSport
 import com.wagerproof.core.services.AgentPerformanceService
 import com.wagerproof.core.stores.AgentEntitlementsStore
 import com.wagerproof.core.stores.LeaderboardStore
@@ -291,6 +294,38 @@ private fun LeaderboardRow(
     }
 }
 
+/**
+ * Overlapping sport-icon coins under the agent name. Compact enough that a
+ * 4–5 sport agent never wraps the way "NFL NCAAB +2" text did.
+ */
+@Composable
+fun LeaderboardSportIconCluster(
+    sports: List<AgentSport>,
+    coinSize: Dp = 18.dp,
+) {
+    if (sports.isEmpty()) return
+    Row(horizontalArrangement = Arrangement.spacedBy((-7).dp)) {
+        sports.forEachIndexed { idx, sport ->
+            Box(
+                Modifier
+                    .zIndex((sports.size - idx).toFloat())
+                    .size(coinSize)
+                    .clip(CircleShape)
+                    .background(AppColors.appSurfaceMuted)
+                    .border(1.dp, AppColors.appBorder.copy(alpha = 0.6f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    agentSymbol(sport.sfSymbol),
+                    contentDescription = sport.label,
+                    tint = AppColors.appTextPrimary,
+                    modifier = Modifier.size(coinSize * 0.44f),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun RankBadge(rank: Int) {
     val color: Color
@@ -350,7 +385,10 @@ private fun AvatarSection(
             avatar()
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
             Text(
                 entry.name,
                 fontSize = 14.sp,
@@ -359,24 +397,7 @@ private fun AvatarSection(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                entry.preferredSports.take(2).forEach { sport ->
-                    Text(
-                        sport.label,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.appTextSecondary,
-                    )
-                }
-                if (entry.preferredSports.size > 2) {
-                    Text(
-                        "+${entry.preferredSports.size - 2}",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.appTextSecondary,
-                    )
-                }
-            }
+            LeaderboardSportIconCluster(entry.preferredSports)
         }
     }
 }

@@ -31,12 +31,12 @@ function getPrimaryColor(value: string): string {
   return value;
 }
 
-const SPORT_LABELS: Record<Sport, string> = {
-  nfl: 'NFL',
-  cfb: 'CFB',
-  nba: 'NBA',
-  ncaab: 'NCAAB',
-  mlb: 'MLB',
+const SPORT_ICONS: Record<Sport, string> = {
+  nfl: 'football',
+  cfb: 'shield-half-full',
+  nba: 'basketball',
+  ncaab: 'school',
+  mlb: 'baseball',
 };
 
 const LEADERBOARD_FILTERS: { label: string; value: LeaderboardSortMode }[] = [
@@ -160,28 +160,34 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
           >
             {entry.name}
           </Text>
-          <View style={styles.sportsRow}>
-            {entry.preferred_sports.slice(0, 2).map((sport) => (
-              <Text
+          <View
+            style={styles.sportsRow}
+            accessibilityLabel={entry.preferred_sports.map((s) => s.toUpperCase()).join(', ')}
+          >
+            {entry.preferred_sports.map((sport, i) => (
+              <View
                 key={sport}
                 style={[
-                  styles.sportTag,
-                  { color: theme.colors.onSurfaceVariant },
+                  styles.sportCoin,
+                  {
+                    marginLeft: i === 0 ? 0 : -7,
+                    zIndex: entry.preferred_sports.length - i,
+                    backgroundColor: isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.06)',
+                    borderColor: isDark
+                      ? 'rgba(255, 255, 255, 0.14)'
+                      : 'rgba(0, 0, 0, 0.08)',
+                  },
                 ]}
               >
-                {SPORT_LABELS[sport]}
-              </Text>
+                <MaterialCommunityIcons
+                  name={SPORT_ICONS[sport] as any}
+                  size={9}
+                  color={theme.colors.onSurface}
+                />
+              </View>
             ))}
-            {entry.preferred_sports.length > 2 && (
-              <Text
-                style={[
-                  styles.sportTag,
-                  { color: theme.colors.onSurfaceVariant },
-                ]}
-              >
-                +{entry.preferred_sports.length - 2}
-              </Text>
-            )}
           </View>
         </View>
       </View>
@@ -845,11 +851,16 @@ const styles = StyleSheet.create({
   },
   sportsRow: {
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    flexWrap: 'nowrap',
   },
-  sportTag: {
-    fontSize: 11,
-    fontWeight: '500',
+  sportCoin: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statsContainer: {
     width: 80,

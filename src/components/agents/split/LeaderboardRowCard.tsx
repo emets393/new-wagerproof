@@ -1,13 +1,13 @@
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { GlassCard } from '@/components/ios';
 import { AgentAvatarTile } from './AgentAvatarTile';
 import { AgentSelectionGlow } from './AgentSelectionGlow';
 import { RankBadge } from './RankBadge';
-import { formatNetUnits } from '@/types/agent';
+import { formatNetUnits, type Sport } from '@/types/agent';
 import { getAgentColorPair, DEFAULT_AGENT_COLOR } from '@/utils/agentColors';
 import type { LeaderboardEntry } from '@/services/agentPerformanceService';
+import { TicketSportIcon } from '@/components/agents/AgentTicketShell';
 
 interface LeaderboardRowCardProps {
   entry: LeaderboardEntry;
@@ -17,9 +17,44 @@ interface LeaderboardRowCardProps {
   onSelect: (avatarId: string) => void;
 }
 
+/** Overlapping sport-icon coins — compact enough that 4–5 sports never wrap. */
+export function SportIconCluster({
+  sports,
+  size = 18,
+  className,
+}: {
+  sports: Sport[];
+  size?: number;
+  className?: string;
+}) {
+  if (!sports.length) return null;
+  return (
+    <div
+      className={cn('flex flex-nowrap items-center', className)}
+      aria-label={sports.map((s) => s.toUpperCase()).join(', ')}
+    >
+      {sports.map((sport, i) => (
+        <span
+          key={sport}
+          title={sport.toUpperCase()}
+          className="relative grid shrink-0 place-items-center rounded-full border border-black/10 bg-muted text-foreground dark:border-white/15 dark:bg-white/10"
+          style={{
+            width: size,
+            height: size,
+            marginLeft: i === 0 ? 0 : -7,
+            zIndex: sports.length - i,
+          }}
+        >
+          <TicketSportIcon sport={sport} className="h-[55%] w-[55%]" />
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /**
  * iOS leaderboard row: rank badge (gold/silver/bronze glow for top 3),
- * gradient avatar, name + sports, trailing record / net units / WR badge.
+ * gradient avatar, name + overlapping sport icons, trailing record / net units / WR badge.
  */
 export function LeaderboardRowCard({
   entry,
@@ -63,18 +98,7 @@ export function LeaderboardRowCard({
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{entry.name}</p>
-          <div className="mt-0.5 flex items-center gap-1">
-            {sports.slice(0, 2).map((sport) => (
-              <Badge key={`${entry.avatar_id}-${sport}`} variant="outline" className="h-4 px-1.5 text-[9px]">
-                {sport.toUpperCase()}
-              </Badge>
-            ))}
-            {sports.length > 2 && (
-              <Badge variant="outline" className="h-4 px-1.5 text-[9px]">
-                +{sports.length - 2}
-              </Badge>
-            )}
-          </div>
+          <SportIconCluster sports={sports} className="mt-0.5" />
         </div>
 
         <div className="text-right">
