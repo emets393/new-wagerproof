@@ -494,7 +494,7 @@ def build_flags(g):
     # Entering-week league percentile ranks of defense (EPA allowed, lower=better) and offense
     # (EPA, higher=better) from team_week (= nfl_pregame_advanced_team_week, the legacy EPA feed
     # refreshed weekly). Week W uses the completed-through-W-1 row. Four rules, all graded @ close:
-    #   mid_fade_good_defense (wk5-11): fade the team whose D ranks >=40 pct pts better
+    #   mid_fade_good_defense (wk4-11): fade the team whose D ranks >=40 pct pts better
     #   late_bad_o_vs_good_d_tt_under (wk12+): bottom-third O facing top-25% D -> TT UNDER
     #   late_good_o_vs_bad_d_tt_over  (wk12+): top-third O facing bottom-25% D -> TT OVER
     #   late_matchup_under            (wk12+): top-25% D vs bottom-25% O either side -> UNDER
@@ -504,7 +504,7 @@ def build_flags(g):
         _tw = _tw[_tw.week == _tw.week.max()] if len(_tw) else _tw
     except Exception:
         _tw = pd.DataFrame()
-    if WEEK >= 5 and len(_tw) >= 28:
+    if WEEK >= 4 and len(_tw) >= 28:        # EPA convention: live from wk4 (3 weeks of games)
         _c2a = {"Arizona":"ARI","Atlanta":"ATL","Baltimore":"BAL","Buffalo":"BUF","Carolina":"CAR","Chicago":"CHI","Cincinnati":"CIN","Cleveland":"CLE","Dallas":"DAL","Denver":"DEN","Detroit":"DET","Green Bay":"GB","Houston":"HOU","Indianapolis":"IND","Jacksonville":"JAX","Kansas City":"KC","LA Rams":"LA","LA Chargers":"LAC","Las Vegas":"LV","Miami":"MIA","Minnesota":"MIN","New England":"NE","New Orleans":"NO","NY Giants":"NYG","NY Jets":"NYJ","Philadelphia":"PHI","Pittsburgh":"PIT","Seattle":"SEA","San Francisco":"SF","Tampa Bay":"TB","Tennessee":"TEN","Washington":"WAS"}
         _tw = _tw.assign(ab=_tw.team.map(_c2a).fillna(_tw.team),
                          d_epa=0.6 * _tw.def_pass_epa_allowed_neutral_s2d + 0.4 * _tw.def_rush_epa_allowed_neutral_s2d,
@@ -516,7 +516,7 @@ def build_flags(g):
             h, a = _rk.get(r.home_ab), _rk.get(r.away_ab)
             if not h or not a:
                 continue
-            if 5 <= WEEK <= 11:
+            if 4 <= WEEK <= 11:
                 gap = a["def_q"] - h["def_q"]            # + = home D ranks better
                 if abs(gap) >= 0.40 and pd.notna(r.fg_sp):
                     fade_home = gap < 0                    # away D better -> bet HOME

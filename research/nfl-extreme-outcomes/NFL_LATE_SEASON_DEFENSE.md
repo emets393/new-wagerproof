@@ -13,7 +13,7 @@ Good D really does tighten late and bad O really does fade.
 Team whose defense ranks >=40 percentile points better than the opponent's:
 wk5-8 **40.0%** ATS (n=185, losing in 7/8 seasons) -> wk9-14 ~50% -> wk15-18 **54.4%** (n=182,
 +3.8%). The seasonal arc is real but the *bettable* side is the opposite of the theory:
-**FADE the better-defense team midseason (wk5-11): 56.1%, +7.1%, n=312, 7/8 seasons >=51%.**
+**FADE the better-defense team midseason (wk4-11): 56.2%, +7.2%, n=349, 7/8 seasons >=51%** (wk4 alone 54.8%; aligned to the EPA wk4 convention 2026-08-23).
 The late-season follow (wk12+: 52.8% / wk15+: 54.4%) is breakeven-to-thin.
 
 ## Totals: league-wide the theory is BACKWARDS; the matchup version is real
@@ -32,7 +32,7 @@ Caveat: three seasons of TT lines, n=46/57. Per-season consistency is the tell; 
 tier for 2026 is the honest first step.
 
 ## Candidate signals (not wired — owner call)
-1. mid_fade_good_defense (spread, wk5-11): fade the team whose D ranks >=40 pct pts better.
+1. mid_fade_good_defense (spread, wk4-11): fade the team whose D ranks >=40 pct pts better.
 2. late_bad_o_vs_good_d_tt_under (team_total, wk12+): bottom-third O facing top-25% D.
 3. late_good_o_vs_bad_d_tt_over (team_total, wk12+): top-third O facing bottom-25% D.
 4. late_matchup_under (total, wk12+): top-25% D vs bottom-25% O in the game.

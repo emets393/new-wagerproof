@@ -32,17 +32,17 @@ DEFS = [
      "betting line.",
      "The side the model favors.", "~53% product-style, +CLV", "med"),
     ("mid_fade_good_defense", "Midseason Defense Fade", "spread",
-     "Weeks 5-11: bet against the team with the clearly better defense.",
+     "Weeks 4-11: bet against the team with the clearly better defense.",
      "We rank every defense by efficiency (points-per-play allowed, adjusted for situation) "
      "entering each week. When one team's defense ranks at least 40 percentile points better "
      "than its opponent's — a top-10 unit against a bottom-half unit, roughly — and it's weeks "
-     "5 through 11, we bet the OTHER team against the spread.",
+     "4 through 11, we bet the OTHER team against the spread.",
      "Bettors and books lean on a good defense before it has fully earned it. Through midseason "
      "the better-defense team covered only 40-50% of the time (just 40% in weeks 5-8), so "
      "fading it hit 56.1% across eight seasons (2018-2025), profitable in 7 of 8. By late "
      "December the market catches up and this stops working — which is why it is capped at "
      "week 11 and the late-season rules below take over.",
-     "Bet the opponent of the better-defense team.", "56.1% ATS / +7.1% ROI (n=312, 7/8 seasons)", "med"),
+     "Bet the opponent of the better-defense team.", "56.2% ATS / +7.2% ROI (n=349, wk4-11, 7/8 seasons)", "med"),
     ("late_bad_o_vs_good_d_tt_under", "December Wall — Team Total Under", "team_total",
      "Week 12 on: a weak offense running into a top defense -> its team total goes under.",
      "From week 12 through the end of the regular season, when an offense ranked in the bottom "
