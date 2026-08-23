@@ -1,4 +1,4 @@
-"""Grade the SHARP ACTION flags at their DETECTION line and publish season-to-date records.
+"""Grade DIRECT-GRADED flags (sharp action + late-season defense family) at their DETECTION line and publish season-to-date records.
 
 The signal_performance rollup grades through pick cards; sharp-action flags fire mid-week
 on their own side/line, so they are graded here directly (side margin + detection line)
@@ -13,7 +13,8 @@ import requests
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SUPA = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-KEYS = ("sharp_action_1to3d", "sharp_action_6h")
+KEYS = ("sharp_action_1to3d", "sharp_action_6h", "mid_fade_good_defense",
+        "late_bad_o_vs_good_d_tt_under", "late_good_o_vs_bad_d_tt_over", "late_matchup_under")
 
 
 def _key():
@@ -28,7 +29,7 @@ def main():
     sk = _key()
     hdr = {"apikey": sk, "Authorization": f"Bearer {sk}", "Content-Type": "application/json"}
     fl = requests.get(f"{SUPA}/nfl_dryrun_flags?season=eq.{season}&signal_key=in.({','.join(KEYS)})"
-                      f"&select=game_id,week,signal_key,bet_team,line", headers=hdr, timeout=60).json()
+                      f"&select=game_id,week,signal_key,market,side,bet_team,bet_direction,bet_line,line", headers=hdr, timeout=60).json()
     if not fl:
         print("[sharp-grade] no sharp flags yet"); return
     gids = ",".join(sorted({f["game_id"] for f in fl}))
@@ -42,9 +43,17 @@ def main():
             if f["signal_key"] != key or f["game_id"] not in finals:
                 continue
             g = finals[f["game_id"]]
-            is_home = f["bet_team"] == g["home_team"]
-            margin = (g["final_home"] - g["final_away"]) if is_home else (g["final_away"] - g["final_home"])
-            cm = margin + float(f["line"])
+            is_home = f.get("bet_team") == g["home_team"]
+            tot = g["final_home"] + g["final_away"]
+            side = str(f.get("side") or "").upper()
+            if f["market"] == "total":
+                cm = (tot - float(f["line"])) * (1 if "OVER" in side else -1)
+            elif f["market"] == "team_total":
+                pts = g["final_home"] if is_home else g["final_away"]
+                cm = (pts - float(f["line"])) * (1 if (f.get("bet_direction") or "").lower() == "over" or "OVER" in side else -1)
+            else:
+                margin = (g["final_home"] - g["final_away"]) if is_home else (g["final_away"] - g["final_home"])
+                cm = margin + float(f.get("bet_line") if f.get("bet_line") is not None else f["line"])
             if cm > 0: w += 1
             elif cm < 0: l += 1
             else: p += 1

@@ -46,7 +46,7 @@ STAKE = {"mammoth": 3.0, "high": 1.5, "med": 1.0, "low": 0.5, "lean": 0.25, "non
 CONV_RANK = {"none": 0, "lean": 1, "low": 2, "med": 3, "high": 4, "mammoth": 5}
 # the line a signal was computed from -> the line we GRADE against (grading framework)
 GRADE_LINE = {"fg_harness": "open", "consensus_totals": "open",
-              "props": "close", "h1_model": "close", "k_signal": "close"}
+              "props": "close", "h1_model": "close", "k_signal": "close", "late_defense": "close"}
 # default conviction per source/tier for a flag row (mirrors nfl_signal_defs.default_conviction)
 ACTIVE_HIGH = {"legacy_primetime", "legacy_fade", "tight_soft_ml_fade_home",
                "top_vs_top_pt_home", "dk_heavy_home_juice", "dk_giant_fav_over",
@@ -489,6 +489,58 @@ def build_flags(g):
                 add(r, "k_signal", "K12_tt_implies_away_cover", "tracking", "spread",
                     f"{r.away_ab} {-csp:+g}", -csp,
                     amer(r.spread_close_pay_spread_away_price), tt_vs_spread)
+
+    # ---- LATE-SEASON DEFENSE family (NFL_LATE_SEASON_DEFENSE.md, owner-shipped 2026-08-23).
+    # Entering-week league percentile ranks of defense (EPA allowed, lower=better) and offense
+    # (EPA, higher=better) from team_week (= nfl_pregame_advanced_team_week, the legacy EPA feed
+    # refreshed weekly). Week W uses the completed-through-W-1 row. Four rules, all graded @ close:
+    #   mid_fade_good_defense (wk5-11): fade the team whose D ranks >=40 pct pts better
+    #   late_bad_o_vs_good_d_tt_under (wk12+): bottom-third O facing top-25% D -> TT UNDER
+    #   late_good_o_vs_bad_d_tt_over  (wk12+): top-third O facing bottom-25% D -> TT OVER
+    #   late_matchup_under            (wk12+): top-25% D vs bottom-25% O either side -> UNDER
+    try:
+        _tw = pd.read_parquet(ROOT / "data" / "team_week.parquet")
+        _tw = _tw[(_tw.season == SEASON) & (_tw.week < WEEK)]
+        _tw = _tw[_tw.week == _tw.week.max()] if len(_tw) else _tw
+    except Exception:
+        _tw = pd.DataFrame()
+    if WEEK >= 5 and len(_tw) >= 28:
+        _c2a = {"Arizona":"ARI","Atlanta":"ATL","Baltimore":"BAL","Buffalo":"BUF","Carolina":"CAR","Chicago":"CHI","Cincinnati":"CIN","Cleveland":"CLE","Dallas":"DAL","Denver":"DEN","Detroit":"DET","Green Bay":"GB","Houston":"HOU","Indianapolis":"IND","Jacksonville":"JAX","Kansas City":"KC","LA Rams":"LA","LA Chargers":"LAC","Las Vegas":"LV","Miami":"MIA","Minnesota":"MIN","New England":"NE","New Orleans":"NO","NY Giants":"NYG","NY Jets":"NYJ","Philadelphia":"PHI","Pittsburgh":"PIT","Seattle":"SEA","San Francisco":"SF","Tampa Bay":"TB","Tennessee":"TEN","Washington":"WAS"}
+        _tw = _tw.assign(ab=_tw.team.map(_c2a).fillna(_tw.team),
+                         d_epa=0.6 * _tw.def_pass_epa_allowed_neutral_s2d + 0.4 * _tw.def_rush_epa_allowed_neutral_s2d,
+                         o_epa=0.6 * _tw.off_pass_epa_neutral_s2d + 0.4 * _tw.off_rush_epa_neutral_s2d)
+        _tw["def_q"] = _tw.d_epa.rank(pct=True)      # low = better defense
+        _tw["off_q"] = _tw.o_epa.rank(pct=True)      # high = better offense
+        _rk = _tw.set_index("ab")[["def_q", "off_q"]].to_dict("index")
+        for _, r in g.iterrows():
+            h, a = _rk.get(r.home_ab), _rk.get(r.away_ab)
+            if not h or not a:
+                continue
+            if 5 <= WEEK <= 11:
+                gap = a["def_q"] - h["def_q"]            # + = home D ranks better
+                if abs(gap) >= 0.40 and pd.notna(r.fg_sp):
+                    fade_home = gap < 0                    # away D better -> bet HOME
+                    ab = r.home_ab if fade_home else r.away_ab
+                    ln = r.fg_sp if fade_home else -r.fg_sp
+                    add(r, "late_defense", "mid_fade_good_defense", "active", "spread",
+                        f"{ab} {ln:+g}", ln, -110, abs(gap))
+            if WEEK >= 12:
+                for ab_o, o, d_opp, ttp, over_px, under_px in (
+                        (r.home_ab, h, a, r.tt_home_close_tt_home_point, r.tt_home_close_pay_tt_home_over_price, getattr(r, "tt_home_close_pay_tt_home_under_price", None)),
+                        (r.away_ab, a, h, r.tt_away_close_tt_away_point, r.tt_away_close_pay_tt_away_over_price, getattr(r, "tt_away_close_pay_tt_away_under_price", None))):
+                    if pd.isna(ttp):
+                        continue
+                    if o["off_q"] <= 1/3 and d_opp["def_q"] <= 0.25:
+                        add(r, "late_defense", "late_bad_o_vs_good_d_tt_under", "active", "team_total",
+                            f"{ab_o} TT UNDER {ttp:g}", ttp, amer(under_px) if under_px is not None else -110, d_opp["def_q"])
+                    if o["off_q"] >= 2/3 and d_opp["def_q"] >= 0.75:
+                        add(r, "late_defense", "late_good_o_vs_bad_d_tt_over", "active", "team_total",
+                            f"{ab_o} TT OVER {ttp:g}", ttp, amer(over_px), d_opp["def_q"])
+                if pd.notna(r.total_close_total_point) and (
+                        (h["def_q"] <= 0.25 and a["off_q"] <= 0.25) or (a["def_q"] <= 0.25 and h["off_q"] <= 0.25)):
+                    add(r, "late_defense", "late_matchup_under", "active", "total",
+                        f"UNDER {r.total_close_total_point:g}", r.total_close_total_point,
+                        amer(r.total_close_pay_total_under_price) if hasattr(r, "total_close_pay_total_under_price") else -110, 0)
 
     # ---- P11 (vaulted active): ATD-implied total top slate quintile -> game OVER
     for _, r in g[g.p11.fillna(False)].iterrows():

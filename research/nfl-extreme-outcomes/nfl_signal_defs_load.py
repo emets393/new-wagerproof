@@ -31,6 +31,49 @@ DEFS = [
      "and leaves only the spots where the model has a genuine disagreement with the "
      "betting line.",
      "The side the model favors.", "~53% product-style, +CLV", "med"),
+    ("mid_fade_good_defense", "Midseason Defense Fade", "spread",
+     "Weeks 5-11: bet against the team with the clearly better defense.",
+     "We rank every defense by efficiency (points-per-play allowed, adjusted for situation) "
+     "entering each week. When one team's defense ranks at least 40 percentile points better "
+     "than its opponent's — a top-10 unit against a bottom-half unit, roughly — and it's weeks "
+     "5 through 11, we bet the OTHER team against the spread.",
+     "Bettors and books lean on a good defense before it has fully earned it. Through midseason "
+     "the better-defense team covered only 40-50% of the time (just 40% in weeks 5-8), so "
+     "fading it hit 56.1% across eight seasons (2018-2025), profitable in 7 of 8. By late "
+     "December the market catches up and this stops working — which is why it is capped at "
+     "week 11 and the late-season rules below take over.",
+     "Bet the opponent of the better-defense team.", "56.1% ATS / +7.1% ROI (n=312, 7/8 seasons)", "med"),
+    ("late_bad_o_vs_good_d_tt_under", "December Wall — Team Total Under", "team_total",
+     "Week 12 on: a weak offense running into a top defense -> its team total goes under.",
+     "From week 12 through the end of the regular season, when an offense ranked in the bottom "
+     "third of the league faces a defense ranked in the top quarter, we bet that offense's "
+     "TEAM TOTAL UNDER.",
+     "Good defenses genuinely peak in December — top-quarter defenses allow two fewer points "
+     "per game late in the year than in October — and weak offenses fade at the same time. "
+     "Books adjust the game total for this but not the weak team's individual number enough. "
+     "This hit 69.6% over three seasons (69%, 69%, 71% by year), returning +33% per bet. The "
+     "same matchup in midseason is a coin flip, so the calendar is the whole edge.",
+     "Bet the weak offense's team total UNDER.", "69.6% / +32.8% ROI (n=46, 3/3 seasons 69-71%)", "med"),
+    ("late_good_o_vs_bad_d_tt_over", "December Mismatch — Team Total Over", "team_total",
+     "Week 12 on: a top offense facing a bottom defense -> its team total goes over.",
+     "The mirror image of the December Wall: from week 12 on, when a top-third offense faces a "
+     "bottom-quarter defense, we bet the strong offense's TEAM TOTAL OVER.",
+     "Bad defenses don't improve late in the year (they allow the same points in December as "
+     "in September) while the best offenses hold steady — so the gap between a top offense and "
+     "a bottom defense is at its widest exactly when books are shading team totals down for "
+     "winter. This hit 64.9% across three seasons (+24% per bet); the same matchup in "
+     "midseason is about 54%.",
+     "Bet the strong offense's team total OVER.", "64.9% / +23.9% ROI (n=57, 3/3 seasons 59-75%)", "med"),
+    ("late_matchup_under", "December Matchup Under", "total",
+     "Week 12 on: a top defense against a bottom offense -> the game total goes under.",
+     "From week 12 through the end of the regular season, when either team's defense ranks in "
+     "the top quarter AND the opposing offense ranks in the bottom quarter, we bet the game "
+     "total UNDER.",
+     "Late-season games as a whole actually go OVER slightly more than midseason, so 'it's "
+     "December, bet unders' is wrong. What's right is the specific matchup: a peaking defense "
+     "against a fading offense went under 58.9% of the time over eight seasons (+12.5% per "
+     "bet), versus 47% for the same matchup earlier in the year.",
+     "Bet the game total UNDER.", "58.9% / +12.5% ROI (n=95, 2018-25)", "med"),
     ("sharp_action_1to3d", "Sharp Money — Midweek", "spread",
      "Professional money moved the line 1-3 days before kickoff; we ride the side it moved toward.",
      "We watch every sportsbook's line all week. This fires when two things happen at once, "
