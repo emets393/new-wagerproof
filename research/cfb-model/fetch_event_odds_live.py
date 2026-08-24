@@ -54,6 +54,7 @@ def main():
         df = df[["season", "game_id", "home", "away", "snap_tag", "snap",
                  "book", "market", "name", "description", "price", "point"]]
     fp = OUTD / f"events_{SEASON}.parquet"
+    df = df.assign(game_id=pd.to_numeric(df.game_id, errors="coerce").astype("Int64"))
     df.to_parquet(fp, index=False)
     print(f"[fetch_event_odds_live] {len(df)} rows ({SEASON}) -> {fp}")
 

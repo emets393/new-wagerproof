@@ -78,6 +78,10 @@ _EV_COLS = ["game_id", "market", "book", "name", "description", "snap", "point",
 ev = pd.read_parquet(evp) if os.path.exists(evp) else pd.DataFrame(columns=_EV_COLS)
 if ev.empty or "game_id" not in ev.columns:   # preseason collector writes a schema-less 0-row parquet
     ev = pd.DataFrame(columns=_EV_COLS)
+# 2026-08-24 incident: the LIVE materializer wrote game_id as TEXT while g7 holds ints —
+# isin() silently emptied the frame and every TT/1H column shipped null despite 368
+# captured rows. Coerce here so a dtype drift can never blank the derivative markets again.
+ev["game_id"] = pd.to_numeric(ev.game_id, errors="coerce")
 ev = ev[ev.game_id.isin(g7)].copy()
 names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
 AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i",
