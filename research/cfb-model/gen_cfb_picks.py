@@ -278,7 +278,7 @@ for _, r in te.iterrows():
         if hs is not None:
             bsp = best_h1_spread(gid, "HOME")
             rows.append(dict(game_id=gid, card_group="h1_spread", bet_type="h1_spread", sort_order=5,
-                pick_side=None, pick_team=None, pick_label=f"1H line: {H} {fmt_line(hs)}",
+                pick_side=None, pick_team=None, pick_label=f"{H} 1H {fmt_line(hs)}",
                 model_number=None, model_line=None,
                 vegas_line=round(float(hs), 1), vegas_price=-110,
                 edge=None, best_book=bsp[2] if bsp else None, best_line=round(bsp[0], 1) if bsp else None,
@@ -287,7 +287,7 @@ for _, r in te.iterrows():
         if tline is not None:
             bht = best_h1_total(gid, "OVER")
             rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6,
-                pick_side=None, pick_team=None, pick_label=f"1H total: {tline:g}",
+                pick_side=None, pick_team=None, pick_label=f"1H O/U {tline:g}",
                 model_number=None, model_line=None,
                 vegas_line=round(float(tline), 1), vegas_price=-110,
                 edge=None, best_book=bht[2] if bht else None, best_line=round(bht[0], 1) if bht else None,
