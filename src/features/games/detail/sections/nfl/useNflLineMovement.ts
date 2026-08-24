@@ -22,6 +22,10 @@ interface NflLineMovementRow {
   h1_total: number | null;
   tt_home: number | null;
   tt_away: number | null;
+  ml_home?: number | null;
+  ml_away?: number | null;
+  h1_ml_home?: number | null;
+  h1_ml_away?: number | null;
 }
 
 export interface NflLineMovementInput {
@@ -34,9 +38,13 @@ export interface NflLineMovementInput {
 }
 
 const CONSENSUS_SELECT =
-  'snap_ts,n_books,fg_spread_home,fg_total,h1_spread_home,h1_total,tt_home,tt_away';
+  'snap_ts,n_books,fg_spread_home,fg_total,h1_spread_home,h1_total,tt_home,tt_away,ml_home,ml_away,h1_ml_home,h1_ml_away';
 
 const toConsensusSnap = (row: NflLineMovementRow): LineConsensusSnap => ({
+  ml_home: toNum(row.ml_home),
+  ml_away: toNum(row.ml_away),
+  h1_ml_home: toNum(row.h1_ml_home),
+  h1_ml_away: toNum(row.h1_ml_away),
   snap_ts: row.snap_ts,
   n_books: toNum(row.n_books),
   fg_spread_home: toNum(row.fg_spread_home),

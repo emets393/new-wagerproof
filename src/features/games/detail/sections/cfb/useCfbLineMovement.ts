@@ -19,6 +19,10 @@ interface CfbLineMovementRow {
   n_books: number | null;
   fg_spread_home: number | null;
   fg_total: number | null;
+  ml_home?: number | null;
+  ml_away?: number | null;
+  h1_ml_home?: number | null;
+  h1_ml_away?: number | null;
 }
 
 export interface CfbLineMovementInput {
@@ -45,9 +49,13 @@ const CFB_GROUPS: LineMarketGroup[] = [
   'h1_ml',
 ];
 
-const CONSENSUS_SELECT = 'snap_ts,n_books,fg_spread_home,fg_total';
+const CONSENSUS_SELECT = 'snap_ts,n_books,fg_spread_home,fg_total,ml_home,ml_away,h1_ml_home,h1_ml_away';
 
 const toConsensusSnap = (row: CfbLineMovementRow): LineConsensusSnap => ({
+  ml_home: toNum(row.ml_home),
+  ml_away: toNum(row.ml_away),
+  h1_ml_home: toNum(row.h1_ml_home),
+  h1_ml_away: toNum(row.h1_ml_away),
   snap_ts: row.snap_ts,
   n_books: toNum(row.n_books),
   fg_spread_home: toNum(row.fg_spread_home),

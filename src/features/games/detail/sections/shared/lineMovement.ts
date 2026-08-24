@@ -150,6 +150,8 @@ export interface LineScalarBundle {
   h1SpreadClose?: number | null;
   h1TotalClose?: number | null;
   h1MlHomeClose?: number | null;
+  h1MlHomeOpen?: number | null;
+  h1MlAwayOpen?: number | null;
   h1MlAwayClose?: number | null;
   spreadSplitsLabel?: string | null;
   totalSplitsLabel?: string | null;
@@ -183,7 +185,7 @@ type SeriesKey =
 export const SLATE_CLOSE_LABEL = 'Slate close';
 
 const ML_SERIES_NOTE =
-  'Moneyline prices are not archived in the movement view, so only the slate close is available.';
+  'Moneyline consensus from the live capture; open is the slate opener.';
 
 interface MarketDef {
   id: LineMarketId;
@@ -259,9 +261,9 @@ const MARKET_DEFS: MarketDef[] = [
     label: (a) => `${a.abbrev} ML`,
     color: (a) => a.colors.primary,
     team: (a) => a,
+    seriesKey: 'ml_away',
     scalarOpen: (s) => toNum(s.mlAwayOpen),
     scalarClose: (s) => toNum(s.mlAwayClose),
-    seriesNote: ML_SERIES_NOTE,
   },
   {
     id: 'ml_home',
@@ -271,9 +273,9 @@ const MARKET_DEFS: MarketDef[] = [
     label: (_a, h) => `${h.abbrev} ML`,
     color: (_a, h) => h.colors.primary,
     team: (_a, h) => h,
+    seriesKey: 'ml_home',
     scalarOpen: (s) => toNum(s.mlHomeOpen),
     scalarClose: (s) => toNum(s.mlHomeClose),
-    seriesNote: ML_SERIES_NOTE,
   },
   {
     id: 'tt_away',
@@ -341,8 +343,9 @@ const MARKET_DEFS: MarketDef[] = [
     label: (a) => `${a.abbrev} 1H ML`,
     color: (a) => a.colors.primary,
     team: (a) => a,
+    seriesKey: 'h1_ml_away',
+    scalarOpen: (s) => toNum(s.h1MlAwayOpen),
     scalarClose: (s) => toNum(s.h1MlAwayClose),
-    seriesNote: ML_SERIES_NOTE,
   },
   {
     id: 'h1_ml_home',
@@ -352,8 +355,9 @@ const MARKET_DEFS: MarketDef[] = [
     label: (_a, h) => `${h.abbrev} 1H ML`,
     color: (_a, h) => h.colors.primary,
     team: (_a, h) => h,
+    seriesKey: 'h1_ml_home',
+    scalarOpen: (s) => toNum(s.h1MlHomeOpen),
     scalarClose: (s) => toNum(s.h1MlHomeClose),
-    seriesNote: ML_SERIES_NOTE,
   },
 ];
 
@@ -518,6 +522,8 @@ export function slateScalars(row: Record<string, unknown>): LineScalarBundle {
     h1SpreadClose: toNum(row.h1_spread_close),
     h1TotalClose: toNum(row.h1_total_close),
     h1MlHomeClose: toNum(row.h1_ml_home_close),
+    h1MlHomeOpen: toNum(row.h1_ml_home_open),
+    h1MlAwayOpen: toNum(row.h1_ml_away_open),
     h1MlAwayClose: toNum(row.h1_ml_away_close),
     spreadSplitsLabel: (row.spread_splits_label as string | null) ?? null,
     totalSplitsLabel: (row.total_splits_label as string | null) ?? null,
