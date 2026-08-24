@@ -25,7 +25,7 @@ m = m.merge(g25, on="game_id", how="left")
 # ODDS-API lines (owner rule: every displayed/graded line comes from The Odds API, never CFBD). odds_game_frame
 # is the Odds-API consensus. Override model_games' CFBD consensus_lines for the shown FG spread/total + ML.
 of = pd.read_parquet("data/odds_game_frame.parquet")[
-    ["season", "home", "away", "open_spread", "close_spread", "open_total", "close_total", "close_home_ml", "close_away_ml"]]
+    ["season", "home", "away", "open_spread", "close_spread", "open_total", "close_total", "close_home_ml", "close_away_ml", "open_home_ml", "open_away_ml"]]
 m = m.merge(of, left_on=["season", "homeTeam", "awayTeam"], right_on=["season", "home", "away"], how="left")
 m["spread_open"] = m["open_spread"]; m["spread_close"] = m["close_spread"]
 m["total_open"] = m["open_total"]; m["total_close"] = m["close_total"]
@@ -194,7 +194,7 @@ for _, r in m.iterrows():
         "home_rank": rank(r.home_self_rank), "away_rank": rank(r.away_self_rank),
         "fg_spread_open": r.spread_open, "fg_spread_close": r.spread_close,
         "fg_total_open": r.total_open, "fg_total_close": r.total_close,
-        "fg_ml_home_close": r.close_home_ml, "fg_ml_away_close": r.close_away_ml,
+        "fg_ml_home_close": r.close_home_ml, "fg_ml_away_close": r.close_away_ml, "fg_ml_home_open": (round(float(r.open_home_ml)) if pd.notna(r.open_home_ml) else None), "fg_ml_away_open": (round(float(r.open_away_ml)) if pd.notna(r.open_away_ml) else None),
         "tt_home_close": (tth.get(gid) or (None,))[0], "tt_home_best_under": (tth.get(gid) or (None, None, None))[1], "tt_home_best_over": (tth.get(gid) or (None, None, None))[2],
         "tt_away_close": (tta.get(gid) or (None,))[0], "tt_away_best_under": (tta.get(gid) or (None, None, None))[1], "tt_away_best_over": (tta.get(gid) or (None, None, None))[2],
         "h1_spread_close": h1s.get(gid), "h1_total_close": h1t.get(gid), "h1_ml_home_close": h1mlh.get(gid), "h1_ml_away_close": h1mla.get(gid),

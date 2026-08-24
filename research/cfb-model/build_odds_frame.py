@@ -70,6 +70,7 @@ for gid, d in g.groupby("game_id"):
     rows.append({
         "season": close.season, "home": close.home_c, "away": close.away_c, "game_id": gid,
         "open_spread": open_.spread, "close_spread": close.spread, "spread_move": close.spread - open_.spread,
+        "open_home_ml": getattr(open_, "home_ml", None), "open_away_ml": getattr(open_, "away_ml", None),
         "open_total": open_.total, "close_total": close.total, "total_move": close.total - open_.total,
         "close_home_ml": close.home_ml, "close_away_ml": close.away_ml,
         "novig_home_prob": novig(close.home_ml, close.away_ml),

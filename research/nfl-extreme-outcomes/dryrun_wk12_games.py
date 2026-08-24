@@ -886,6 +886,7 @@ def main():
             fg_spread_open=r.open_spread, fg_spread_close=r.spread_close_spread_home,
             fg_total_open=r.open_total, fg_total_close=r.total_close_total_point,
             fg_ml_home_close=r.close_ml_home, fg_ml_away_close=r.close_ml_away,
+            fg_ml_home_open=getattr(r, 'open_ml_home', None), fg_ml_away_open=getattr(r, 'open_ml_away', None),
             tt_home_close=r.tt_home_close_tt_home_point,
             tt_home_over_price=amer(r.tt_home_close_pay_tt_home_over_price),
             tt_home_under_price=amer(r.tt_home_close_pay_tt_home_under_price),
