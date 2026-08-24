@@ -222,6 +222,8 @@ export type CfbDryRunPickHeadlineInput = {
   playCount: number;
   /** rows.every(display_only) — the whole card is projection-only. */
   allDisplayOnly: boolean;
+  /** Every row is a bare MARKET line (no model number) — early-week 1H cards. */
+  marketLineOnly?: boolean;
   /**
    * The lead row's pick_label, VERBATIM. This is the only source of side /
    * direction in the sentence: it already names the team or OVER/UNDER, so no
@@ -265,6 +267,13 @@ export function cfbDryRunPickHeadline(v: CfbDryRunPickHeadlineInput): string | n
   const label = v.leadPickLabel?.trim() ? v.leadPickLabel.trim() : null;
 
   if (v.allDisplayOnly) {
+    // Early-week 1H cards carry a posted line but NO model number — calling those
+    // "projection only" was backwards (owner 2026-08-24). Say what they are.
+    if (v.marketLineOnly) {
+      return label
+        ? `${v.marketLabel}: market line ${label} — the model prices this market from week 4.`
+        : `${v.marketLabel}: market line posted — the model prices this market from week 4.`;
+    }
     return label
       ? `${v.marketLabel}: projection only — ${label} on the board, with no play priced here.`
       : `${v.marketLabel}: the model priced this market for reference only — no play here.`;

@@ -1482,6 +1482,9 @@ function PredictionGroupCard({
           rowCount: rows.length,
           playCount,
           allDisplayOnly: rows.length > 0 && rows.every((row) => row.display_only),
+          marketLineOnly:
+            rows.length > 0 &&
+            rows.every((row) => row.display_only && row.model_number == null && row.vegas_line != null),
           leadPickLabel: lead?.pick_label ?? null,
           leadConvictionLabel: leadConvictionKey ? CONVICTION_LABEL[leadConvictionKey] : null,
           leadGap,
@@ -1643,7 +1646,13 @@ function PickRow({
         ) : null}
         <div className="flex min-w-0 flex-col">
           <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            {row.display_only ? 'Projection only' : row.has_play ? 'Surfaced pick' : 'Informational'}
+            {row.display_only
+              ? row.model_number == null && row.vegas_line != null
+                ? 'Market line'
+                : 'Projection only'
+              : row.has_play
+                ? 'Surfaced pick'
+                : 'Informational'}
           </span>
           <span
             className={cn(
@@ -1745,7 +1754,9 @@ function PickRow({
           row is never three unlabelled numbers mid-card. Moneylines are excluded
           outright: `vegas_line` is a line and `model_number` a probability, so
           subtracting them would print a meaningless gap. */}
-      {showGapRow && (model !== null || vegas !== null) && (
+      {/* model==null && vegas!=null = a bare market line (early 1H) — the OURS/EDGE
+          dashes read as broken, so the gap table only renders with a model number. */}
+      {showGapRow && model !== null && (
         <div>
           <MarketGapHeader />
           <MarketGapRow
