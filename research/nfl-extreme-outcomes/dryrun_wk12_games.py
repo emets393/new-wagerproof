@@ -203,7 +203,8 @@ def build_games():
     od["home_ab"] = norm_ab(od.home_ab); od["away_ab"] = norm_ab(od.away_ab)
     g = g.merge(od[od.season == SEASON][
         ["season", "home_ab", "away_ab", "open_spread", "open_total",
-         "close_spread", "close_total", "close_ml_home", "close_ml_away"]],
+         "close_spread", "close_total", "close_ml_home", "close_ml_away",
+         "open_ml_home", "open_ml_away"]],
         on=["season", "home_ab", "away_ab"], how="left")
     # The displayed FG close spread/total normally come from h1tt_frame, which is empty for an upcoming
     # (unplayed) slate. Fall back to the Odds-API consensus close (owner rule: lines come from The Odds API).
