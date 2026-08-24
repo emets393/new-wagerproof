@@ -293,7 +293,9 @@ for _, r in te.iterrows():
                 pick_side=("HOME" if _mh else "AWAY") if h1_proj_m is not None else None,
                 pick_team=_mteam if h1_proj_m is not None else None,
                 pick_label=f"{_mteam} 1H {fmt_line(_mline)}",
-                model_number=h1_proj_m, model_line=(-h1_proj_m if h1_proj_m is not None else None),
+                model_number=h1_proj_m,
+                # pick-perspective line, mirroring the FG spread card (away pick -> +margin)
+                model_line=((-h1_proj_m if _mh else h1_proj_m) if h1_proj_m is not None else None),
                 vegas_line=round(float(_mline), 1), vegas_price=-110,
                 edge=None, best_book=bsp[2] if bsp else None, best_line=round(bsp[0], 1) if bsp else None,
                 best_odds=bsp[1] if bsp else None, conviction="none", is_mammoth=False,
