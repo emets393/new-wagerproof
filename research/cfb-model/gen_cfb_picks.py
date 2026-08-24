@@ -277,9 +277,8 @@ for _, r in te.iterrows():
         hs, tline = h1s_cons(gid), h1t_cons(gid)
         # Coherent early 1H projection from the displayed blend score (52.7%/59.9% shares —
         # same derivation as the games-table h1_pred columns). Display-only, never a play.
-        _row = m[m.game_id == gid]
-        _pm = float(_row.pred_margin.iloc[0]) if len(_row) and pd.notna(_row.pred_margin.iloc[0]) else None
-        _pt = float(_row.pred_total.iloc[0]) if len(_row) and pd.notna(_row.pred_total.iloc[0]) else None
+        _pm = float(r.pred_margin) if pd.notna(r.pred_margin) else None
+        _pt = float(r.pred_total) if pd.notna(r.pred_total) else None
         h1_proj_m = round(0.599 * _pm, 1) if _pm is not None else None
         h1_proj_t = round(0.527 * _pt, 1) if _pt is not None else None
         if hs is not None:
