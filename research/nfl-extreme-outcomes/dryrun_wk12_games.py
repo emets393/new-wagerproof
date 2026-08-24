@@ -254,6 +254,64 @@ def build_games():
     g["tt_home_pred"] = (g.display_total + g.pred_margin) / 2
     g["tt_away_pred"] = (g.display_total - g.pred_margin) / 2
 
+    # ---- live 1H/TT close fallback (2026-08-24 incident) --------------------------------
+    # h1tt_frame carries closes only for PLAYED games, so every 1H/TT card on an upcoming
+    # slate rendered vegas TBD / "market taking shape" even while books had lines posted.
+    # Same owner rule as the FG fallback above: fill nulls from the Odds-API capture archive
+    # (odds_hist) — each book's latest non-null value per market, median across books.
+    # odds_hist prices are AMERICAN; frame pay_* columns are decimal profit-per-1 (amer()
+    # converts back at emit time), so convert here.
+    def _a2p(a):
+        return np.where(a > 0, a / 100.0, 100.0 / np.abs(a))
+    _oh = pd.read_parquet(DATA / "odds_hist.parquet")
+    _oh = _oh[_oh.season == SEASON].copy()
+    _tm = pd.read_parquet(DATA / "team_mapping.parquet")
+    _n2a = dict(zip(_tm["team_name"], _tm["Team Abbrev"]))
+    _n2a.update(dict(zip(_tm["city_and_name"], _tm["Team Abbrev"])))
+    _oh["home_ab"] = norm_ab(_oh.home_team.map(_n2a))
+    _oh["away_ab"] = norm_ab(_oh.away_team.map(_n2a))
+    _pts = {"h1_spread_close_h1_spread_home": "h1_spread_home",
+            "h1_total_close_h1_total_point": "h1_total_point",
+            "tt_home_close_tt_home_point": "tt_home_point",
+            "tt_away_close_tt_away_point": "tt_away_point"}
+    _pay = {"h1_spread_close_pay_h1_spread_home_price": "h1_spread_home_price",
+            "h1_spread_close_pay_h1_spread_away_price": "h1_spread_away_price",
+            "h1_total_close_pay_h1_total_over_price": "h1_total_over_price",
+            "h1_total_close_pay_h1_total_under_price": "h1_total_under_price",
+            "h1_ml_close_pay_h1_ml_home": "h1_ml_home",
+            "h1_ml_close_pay_h1_ml_away": "h1_ml_away",
+            "tt_home_close_pay_tt_home_over_price": "tt_home_over_price",
+            "tt_home_close_pay_tt_home_under_price": "tt_home_under_price",
+            "tt_away_close_pay_tt_away_over_price": "tt_away_over_price",
+            "tt_away_close_pay_tt_away_under_price": "tt_away_under_price"}
+    _src = sorted(set(_pts.values()) | set(_pay.values()))
+    # groupby.last() takes each book's last NON-NULL per column (per-series latest — a book
+    # posting only FG must not null out another book's 1H line), then median across books.
+    _lb = (_oh.sort_values("snap_ts")
+           .groupby(["home_ab", "away_ab", "book"])[_src].last())
+    _live = _lb.groupby(["home_ab", "away_ab"]).median().reset_index()
+    for sc in set(_pay.values()):
+        _live[sc] = _a2p(pd.to_numeric(_live[sc], errors="coerce"))
+    _live = _live.rename(columns={v: k for k, v in {**_pts, **_pay}.items()})
+    g = g.merge(_live, on=["home_ab", "away_ab"], how="left", suffixes=("", "_lv"))
+    for gc in list(_pts) + list(_pay):
+        if f"{gc}_lv" in g.columns:
+            g[gc] = g[gc].fillna(g[f"{gc}_lv"])
+            g.drop(columns=[f"{gc}_lv"], inplace=True)
+
+    # ---- derived 1H projections until the real 1H model has 2026 pbp --------------------
+    # h1m_preds is empty preseason (nflverse pbp unpublished), which left every 1H card with
+    # no projection at all — owner rule: the model ALWAYS shows its number. Derive from the
+    # FG models with market-implied shares (2023-25 h1tt_frame medians, n≈850):
+    # 1H total = 0.495 x FG total, 1H margin = 0.562 x FG margin. The real anchored model
+    # takes precedence automatically the moment h1m_preds populates (fillna only).
+    import math
+    g["pred_tot_anch"] = g.pred_tot_anch.fillna((0.495 * g.display_total).round(2))
+    g["pred_m_anch"] = g.pred_m_anch.fillna((0.562 * g.pred_margin).round(2))
+    g["prob_home_1h"] = g.prob_home_1h.fillna(g.pred_m_anch.map(
+        lambda m: round(0.5 * (1 + math.erf(m / (10.5 * math.sqrt(2)))), 4)
+        if pd.notna(m) else np.nan))
+
     # K1 point-in-time: within-slate rank of TT-sum minus posted total
     g["tt_sum"] = g.tt_home_close_tt_home_point + g.tt_away_close_tt_away_point
     g["k1"] = ((g.tt_sum - g.total_close_total_point).rank(pct=True) >= 0.8).fillna(False)
