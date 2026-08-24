@@ -406,7 +406,6 @@ export function buildLineMarkets(args: {
   } = args;
   const allowed = new Set(groups);
   const markets: LineMarket[] = [];
-  const latest = history.at(-1);
 
   for (const def of MARKET_DEFS) {
     if (!allowed.has(def.group)) continue;
@@ -418,7 +417,18 @@ export function buildLineMarkets(args: {
     const hasHistoryValue = series.some((p) => p.value !== null);
     const open = def.scalarOpen?.(scalars) ?? null;
     const closeScalar = def.scalarClose?.(scalars) ?? null;
-    const liveCurrent = latest ? readSeriesValue(latest, def) : null;
+    // Per-series latest: the movement view now interleaves rows from two feeds
+    // (FG/book consensus and 1H-ML event odds), so the globally-newest row can be
+    // null for this series while older rows carry live values (2026-08-24 incident:
+    // the spread tab fell back to "slate close" whenever an h1-ML row was newest).
+    let lastIdx = -1;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (readSeriesValue(history[i], def) !== null) {
+        lastIdx = i;
+        break;
+      }
+    }
+    const liveCurrent = lastIdx >= 0 ? readSeriesValue(history[lastIdx], def) : null;
     // Slate close only stands in when the view has nothing, and is relabelled.
     const current = liveCurrent ?? closeScalar;
     const isLive = liveCurrent !== null;
@@ -439,7 +449,7 @@ export function buildLineMarkets(args: {
       open,
       current,
       history: hasHistoryValue ? series : [],
-      latestBookCount: isLive ? (latest?.n_books ?? null) : null,
+      latestBookCount: isLive ? (history[lastIdx]?.n_books ?? null) : null,
       team: def.team?.(away, home),
       splitsLabel: def.splits?.(scalars) ?? null,
       notPosted,
