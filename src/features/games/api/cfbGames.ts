@@ -620,7 +620,13 @@ export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBP
         pred_home_points: predHomeScore,
         pred_away_points: predAwayScore,
         pred_over_line: prediction.fg_pred_total ?? null,
-        over_line_diff: prediction.fg_total_edge ?? null,
+        // O/U preview pill fallback (owner 2026-08-24): when the generator nulls
+        // fg_total_edge, derive the lean from the same numbers the detail card shows.
+        over_line_diff:
+          prediction.fg_total_edge ??
+          (prediction.fg_pred_total != null && prediction.fg_total_close != null
+            ? prediction.fg_pred_total - prediction.fg_total_close
+            : null),
         pred_spread: prediction.fg_pred_spread ?? null,
         home_spread_diff: prediction.fg_spread_edge ?? null,
         // Weather: map the new model's wx_* columns onto the field names the CFB detail widgets read.

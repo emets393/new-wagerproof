@@ -2,7 +2,6 @@ import * as React from 'react';
 import { ArrowDown, ArrowUp, Zap } from 'lucide-react';
 import { EdgePill } from '@/components/ios';
 import { cn } from '@/lib/utils';
-import { getDisplayedProb } from '../api/shared';
 import type { GameEdges, TeamRef } from '../types';
 
 function MiniTeamLogo({ team, size = 14 }: { team: TeamRef; size?: number }) {
@@ -39,7 +38,8 @@ function MiniTeamLogo({ team, size = 14 }: { team: TeamRef; size?: number }) {
 
 /**
  * Model projection chips under the matchup on GameListCard.
- * Side markets (ML / SPR) show the favored team's logo; totals use ↑ green / ↓ red.
+ * SPREAD + O/U only (owner rule 2026-08-24: no ML pill) — spread shows the
+ * favored team's logo; totals use ↑ green / ↓ red.
  * NFL/CFB also surface dryrun signal count from slate flags_* / n_flags_* (hidden at 0).
  */
 export function ProjectionPills({
@@ -56,16 +56,6 @@ export function ProjectionPills({
   signalCount?: number;
   className?: string;
 }) {
-  const displayedProb = getDisplayedProb(edges.mlProb);
-  const mlTeam =
-    edges.mlProb === null || edges.mlProb === undefined
-      ? null
-      : edges.mlProb >= 0.5
-        ? homeTeam
-        : awayTeam;
-  // Map win-prob onto the iOS 4-tier edge scale (same as the old % pill).
-  const mlMagnitude = displayedProb !== null ? (displayedProb * 100 - 50) / 6 : 0;
-
   // Positive home_spread_diff = value on home (see NflPredictionsSection / getEdgeInfo).
   const spreadTeam =
     edges.spreadEdge === null || edges.spreadEdge === 0
@@ -83,20 +73,10 @@ export function ProjectionPills({
         : 'under';
 
   const showSignals = signalCount > 0;
-  if (!mlTeam && !spreadTeam && !totalLean && !showSignals) return null;
+  if (!spreadTeam && !totalLean && !showSignals) return null;
 
   return (
     <div className={cn('flex min-w-0 flex-1 flex-wrap items-center gap-1', className)}>
-      {mlTeam && (
-        <EdgePill
-          className="px-2 py-0.5 text-[10px]"
-          text="ML"
-          magnitude={mlMagnitude}
-          icon={<MiniTeamLogo team={mlTeam} />}
-          title={`Favors ${mlTeam.name}`}
-          aria-label={`Moneyline favors ${mlTeam.name}`}
-        />
-      )}
       {spreadTeam && edges.spreadEdge !== null && (
         <EdgePill
           className="px-2 py-0.5 text-[10px]"
