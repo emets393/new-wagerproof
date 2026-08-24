@@ -93,6 +93,7 @@ def tdb(o):
     return c[0] if c else None
 ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True)
 ev["description"] = ev.description.fillna("_")  # 1H markets have null desc; avoid groupby dropping NaN keys
+ev_first = ev.sort_values("snap_dt").groupby(["game_id", "market", "book", "name", "description"], as_index=False).first()  # open=first snap
 ev = ev.sort_values("snap_dt").groupby(["game_id", "market", "book", "name", "description"], as_index=False).last()  # close=last snap
 
 def tt_side(team_is_home):
@@ -116,6 +117,9 @@ h1s = h1_cons("spreads_h1", home_side=True); h1t = h1_cons("totals_h1", name="Ov
 mlh = ev[(ev.market == "h2h_h1")]; mlh["nm"] = mlh.name.map(tdb)
 h1mlh = mlh[mlh.nm == mlh.home].groupby("game_id").price.median().to_dict()
 h1mla = mlh[mlh.nm == mlh.away].groupby("game_id").price.median().to_dict()
+_mo = ev_first[(ev_first.market == "h2h_h1")].copy(); _mo["nm"] = _mo.name.map(tdb)
+h1mlh_open = _mo[_mo.nm == _mo.home].groupby("game_id").price.median().to_dict()
+h1mla_open = _mo[_mo.nm == _mo.away].groupby("game_id").price.median().to_dict()
 
 # TT + 1H model preds/picks (harness output, wk 4+ only; empty in the early display window)
 if EARLY:
@@ -197,7 +201,7 @@ for _, r in m.iterrows():
         "fg_ml_home_close": r.close_home_ml, "fg_ml_away_close": r.close_away_ml, "fg_ml_home_open": (round(float(r.open_home_ml)) if pd.notna(r.open_home_ml) else None), "fg_ml_away_open": (round(float(r.open_away_ml)) if pd.notna(r.open_away_ml) else None),
         "tt_home_close": (tth.get(gid) or (None,))[0], "tt_home_best_under": (tth.get(gid) or (None, None, None))[1], "tt_home_best_over": (tth.get(gid) or (None, None, None))[2],
         "tt_away_close": (tta.get(gid) or (None,))[0], "tt_away_best_under": (tta.get(gid) or (None, None, None))[1], "tt_away_best_over": (tta.get(gid) or (None, None, None))[2],
-        "h1_spread_close": h1s.get(gid), "h1_total_close": h1t.get(gid), "h1_ml_home_close": h1mlh.get(gid), "h1_ml_away_close": h1mla.get(gid),
+        "h1_spread_close": h1s.get(gid), "h1_total_close": h1t.get(gid), "h1_ml_home_close": h1mlh.get(gid), "h1_ml_away_close": h1mla.get(gid), "h1_ml_home_open": (round(float(h1mlh_open[gid])) if gid in h1mlh_open else None), "h1_ml_away_open": (round(float(h1mla_open[gid])) if gid in h1mla_open else None),
         "fg_pred_margin": round(float(r.pred_margin), 1) if pd.notna(r.pred_margin) else None,
         # predicted team points — single source of truth for BOTH the headline score and the team-total cards
         "fg_pred_home_pts": round(C.fg_team_pts(float(r.pred_total), float(r.pred_margin), True), 1) if pd.notna(r.pred_total) and pd.notna(r.pred_margin) else None,

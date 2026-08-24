@@ -290,6 +290,23 @@ for _, r in te.iterrows():
                 edge=None, best_book=bsp[2] if bsp else None, best_line=round(bsp[0], 1) if bsp else None,
                 best_odds=bsp[1] if bsp else None, conviction="none", is_mammoth=False,
                 has_play=False, display_only=True, signal_keys=[], stake_units=0))
+        _mlrows = ev_rows(gid, "h2h_h1")
+        if len(_mlrows):
+            _mlrows = _mlrows.assign(nm=_mlrows.name.map(tdb))
+            _mh = _mlrows[_mlrows.nm == _mlrows.home].price.median()
+            _prob = None
+            if h1_proj_m is not None:
+                import math
+                _prob = round(0.5 * (1 + math.erf((h1_proj_m) / (16.0 * math.sqrt(2)))), 3)
+            rows.append(dict(game_id=gid, card_group="h1_ml", bet_type="h1_ml", sort_order=7,
+                pick_side=None, pick_team=None,
+                pick_label=f"{H} 1H ML {int(_mh):+d}" if pd.notna(_mh) else "1H ML",
+                model_number=_prob, model_line=None,
+                vegas_line=None, vegas_price=int(_mh) if pd.notna(_mh) else None,
+                edge=None, best_book=None, best_line=None,
+                best_odds=(lambda b: b[0] if b else None)(best_h1_ml(gid, "HOME")),
+                conviction="none", is_mammoth=False, has_play=False, display_only=True,
+                signal_keys=[], stake_units=0))
         if tline is not None:
             bht = best_h1_total(gid, "OVER")
             rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6,
