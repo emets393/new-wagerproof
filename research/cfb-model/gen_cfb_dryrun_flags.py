@@ -486,10 +486,10 @@ def _bet_text(r):
         return f"{team} {pre}{line:+g}" if line is not None else team
     if m in ("total", "h1_total") and s in ("OVER", "UNDER"):
         pre = "1H " if m == "h1_total" else ""
-        return f"{pre}{s.title()} {float(ln):g}" if ln is not None else s.title()
+        return f"{pre}{s} {float(ln):g}" if ln is not None else s
     if m == "moneyline" and s in ("HOME", "AWAY"):
         return f"{home if s == 'HOME' else away} ML"
-    return s.title() if s else None
+    return s if s else None
 
 def _bet_fields(r):
     """Structured direction for the UI (owner 2026-08-10): bet_team -> team logo,
