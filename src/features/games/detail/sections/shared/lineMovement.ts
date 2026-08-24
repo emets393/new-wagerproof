@@ -142,6 +142,8 @@ export interface LineScalarBundle {
   spreadClose?: number | null;
   totalClose?: number | null;
   mlHomeClose?: number | null;
+  mlHomeOpen?: number | null;
+  mlAwayOpen?: number | null;
   mlAwayClose?: number | null;
   ttHomeClose?: number | null;
   ttAwayClose?: number | null;
@@ -257,6 +259,7 @@ const MARKET_DEFS: MarketDef[] = [
     label: (a) => `${a.abbrev} ML`,
     color: (a) => a.colors.primary,
     team: (a) => a,
+    scalarOpen: (s) => toNum(s.mlAwayOpen),
     scalarClose: (s) => toNum(s.mlAwayClose),
     seriesNote: ML_SERIES_NOTE,
   },
@@ -268,6 +271,7 @@ const MARKET_DEFS: MarketDef[] = [
     label: (_a, h) => `${h.abbrev} ML`,
     color: (_a, h) => h.colors.primary,
     team: (_a, h) => h,
+    scalarOpen: (s) => toNum(s.mlHomeOpen),
     scalarClose: (s) => toNum(s.mlHomeClose),
     seriesNote: ML_SERIES_NOTE,
   },
@@ -506,6 +510,8 @@ export function slateScalars(row: Record<string, unknown>): LineScalarBundle {
     spreadClose: toNum(row.fg_spread_close),
     totalClose: toNum(row.fg_total_close),
     mlHomeClose: toNum(row.fg_ml_home_close),
+    mlHomeOpen: toNum(row.fg_ml_home_open),
+    mlAwayOpen: toNum(row.fg_ml_away_open),
     mlAwayClose: toNum(row.fg_ml_away_close),
     ttHomeClose: toNum(row.tt_home_close),
     ttAwayClose: toNum(row.tt_away_close),
