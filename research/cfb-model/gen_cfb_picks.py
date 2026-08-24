@@ -282,11 +282,19 @@ for _, r in te.iterrows():
         h1_proj_m = round(0.599 * _pm, 1) if _pm is not None else None
         h1_proj_t = round(0.527 * _pt, 1) if _pt is not None else None
         if hs is not None:
-            bsp = best_h1_spread(gid, "HOME")
+            # Label = the side the MODEL's projection favors vs the line (owner 2026-08-24:
+            # showing the market favorite in the pick slot reads as a wrong pick when the
+            # model leans the other way — NDSU -3.5 vs a 0.3-margin projection).
+            _cov = (h1_proj_m + hs) if h1_proj_m is not None else None   # >0 = home side covers
+            _mh = _cov is None or _cov > 0
+            _mteam, _mline = (H, hs) if _mh else (A, -hs)
+            bsp = best_h1_spread(gid, "HOME" if _mh else "AWAY")
             rows.append(dict(game_id=gid, card_group="h1_spread", bet_type="h1_spread", sort_order=5,
-                pick_side=None, pick_team=None, pick_label=f"{H} 1H {fmt_line(hs)}",
+                pick_side=("HOME" if _mh else "AWAY") if h1_proj_m is not None else None,
+                pick_team=_mteam if h1_proj_m is not None else None,
+                pick_label=f"{_mteam} 1H {fmt_line(_mline)}",
                 model_number=h1_proj_m, model_line=(-h1_proj_m if h1_proj_m is not None else None),
-                vegas_line=round(float(hs), 1), vegas_price=-110,
+                vegas_line=round(float(_mline), 1), vegas_price=-110,
                 edge=None, best_book=bsp[2] if bsp else None, best_line=round(bsp[0], 1) if bsp else None,
                 best_odds=bsp[1] if bsp else None, conviction="none", is_mammoth=False,
                 has_play=False, display_only=True, signal_keys=[], stake_units=0))
@@ -309,8 +317,10 @@ for _, r in te.iterrows():
                 signal_keys=[], stake_units=0))
         if tline is not None:
             bht = best_h1_total(gid, "OVER")
+            _lean = ("Over" if h1_proj_t > tline else "Under") if h1_proj_t is not None else None
             rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6,
-                pick_side=None, pick_team=None, pick_label=f"1H O/U {tline:g}",
+                pick_side=(_lean.upper() if _lean else None), pick_team=None,
+                pick_label=(f"1H {_lean} {tline:g}" if _lean else f"1H O/U {tline:g}"),
                 model_number=h1_proj_t, model_line=h1_proj_t,
                 vegas_line=round(float(tline), 1), vegas_price=-110,
                 edge=None, best_book=bht[2] if bht else None, best_line=round(bht[0], 1) if bht else None,
