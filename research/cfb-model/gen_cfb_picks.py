@@ -270,8 +270,29 @@ for _, r in te.iterrows():
             best_book=bm[1] if bm else None, best_line=None, best_odds=bm[0] if bm else None,
             conviction="none", is_mammoth=False, has_play=False, display_only=True, signal_keys=mlsig, stake_units=0))
     # ---- 1H cards (model projection per game; vegas line + play only when posted) ----
-    # Skipped in Weeks 1-3: the 1H nets are as cold as the full-game harness, and no book has posted
-    # a 1H line yet, so the card would be a spurious projection against nothing.
+    # Weeks 1-3: the 1H MODEL stays silent (cold nets -> spurious projections), but posted
+    # 1H LINES render as display-only market cards — books do post wk1 1H lines (owner
+    # 2026-08-24; the old "no book has posted" premise predates the live 1H capture).
+    if EARLY:
+        hs, tline = h1s_cons(gid), h1t_cons(gid)
+        if hs is not None:
+            bsp = best_h1_spread(gid, "HOME")
+            rows.append(dict(game_id=gid, card_group="h1_spread", bet_type="h1_spread", sort_order=5,
+                pick_side=None, pick_team=None, pick_label=f"1H line: {H} {fmt_line(hs)}",
+                model_number=None, model_line=None,
+                vegas_line=round(float(hs), 1), vegas_price=-110,
+                edge=None, best_book=bsp[2] if bsp else None, best_line=round(bsp[0], 1) if bsp else None,
+                best_odds=bsp[1] if bsp else None, conviction="none", is_mammoth=False,
+                has_play=False, display_only=True, signal_keys=[], stake_units=0))
+        if tline is not None:
+            bht = best_h1_total(gid, "OVER")
+            rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6,
+                pick_side=None, pick_team=None, pick_label=f"1H total: {tline:g}",
+                model_number=None, model_line=None,
+                vegas_line=round(float(tline), 1), vegas_price=-110,
+                edge=None, best_book=bht[2] if bht else None, best_line=round(bht[0], 1) if bht else None,
+                best_odds=bht[1] if bht else None, conviction="none", is_mammoth=False,
+                has_play=False, display_only=True, signal_keys=[], stake_units=0))
     if gid in h1proj and not EARLY:
         h1pm, h1pt = h1proj[gid]
         inrow = h1csv.loc[gid] if gid in h1csv.index else None
