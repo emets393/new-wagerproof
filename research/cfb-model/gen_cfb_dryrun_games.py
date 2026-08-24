@@ -137,6 +137,16 @@ def tt_pred(gid, team):  # UNIFIED: full-game-derived team points (coherent with
     ck = C.tt_conv_key(proj - vg[0], pside, p5)
     return round(proj, 1), (pside if ck else None)
 h1m = dict(zip(h1_csv.game_id, h1_csv.h1_pm)); h1pt = dict(zip(h1_csv.game_id, h1_csv.h1_pt))
+# EARLY weeks (owner 2026-08-24): the model must ALWAYS show a 1H projection, bettable or
+# not. Derive it from the displayed early-blend score the same way team totals are derived
+# (coherent with the headline): 1H = 52.7% of predicted total, 59.9% of predicted margin
+# (2023-25 shares, n=11,264 games). The harness 1H model takes over from week 4.
+if EARLY:
+    for _r in m.itertuples():
+        if _r.game_id not in h1pt and pd.notna(_r.pred_total):
+            h1pt[_r.game_id] = 0.527 * float(_r.pred_total)
+        if _r.game_id not in h1m and pd.notna(_r.pred_margin):
+            h1m[_r.game_id] = 0.599 * float(_r.pred_margin)
 h1sp = dict(zip(h1_csv.game_id, h1_csv.h1_spread_bet.fillna(""))); h1tp = dict(zip(h1_csv.game_id, h1_csv.h1_tot_bet.fillna(""))); h1mlp = dict(zip(h1_csv.game_id, h1_csv.h1_ml_bet.fillna("")))
 
 def rank(v): return int(v) if pd.notna(v) and v and v > 0 else None

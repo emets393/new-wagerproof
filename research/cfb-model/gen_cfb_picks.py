@@ -275,11 +275,18 @@ for _, r in te.iterrows():
     # 2026-08-24; the old "no book has posted" premise predates the live 1H capture).
     if EARLY:
         hs, tline = h1s_cons(gid), h1t_cons(gid)
+        # Coherent early 1H projection from the displayed blend score (52.7%/59.9% shares —
+        # same derivation as the games-table h1_pred columns). Display-only, never a play.
+        _row = m[m.game_id == gid]
+        _pm = float(_row.pred_margin.iloc[0]) if len(_row) and pd.notna(_row.pred_margin.iloc[0]) else None
+        _pt = float(_row.pred_total.iloc[0]) if len(_row) and pd.notna(_row.pred_total.iloc[0]) else None
+        h1_proj_m = round(0.599 * _pm, 1) if _pm is not None else None
+        h1_proj_t = round(0.527 * _pt, 1) if _pt is not None else None
         if hs is not None:
             bsp = best_h1_spread(gid, "HOME")
             rows.append(dict(game_id=gid, card_group="h1_spread", bet_type="h1_spread", sort_order=5,
                 pick_side=None, pick_team=None, pick_label=f"{H} 1H {fmt_line(hs)}",
-                model_number=None, model_line=None,
+                model_number=h1_proj_m, model_line=(-h1_proj_m if h1_proj_m is not None else None),
                 vegas_line=round(float(hs), 1), vegas_price=-110,
                 edge=None, best_book=bsp[2] if bsp else None, best_line=round(bsp[0], 1) if bsp else None,
                 best_odds=bsp[1] if bsp else None, conviction="none", is_mammoth=False,
@@ -288,7 +295,7 @@ for _, r in te.iterrows():
             bht = best_h1_total(gid, "OVER")
             rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6,
                 pick_side=None, pick_team=None, pick_label=f"1H O/U {tline:g}",
-                model_number=None, model_line=None,
+                model_number=h1_proj_t, model_line=h1_proj_t,
                 vegas_line=round(float(tline), 1), vegas_price=-110,
                 edge=None, best_book=bht[2] if bht else None, best_line=round(bht[0], 1) if bht else None,
                 best_odds=bht[1] if bht else None, conviction="none", is_mammoth=False,
