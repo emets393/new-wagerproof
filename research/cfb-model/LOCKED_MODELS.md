@@ -277,7 +277,7 @@ Pre-registered on the event_odds h72/h24/h2 archive (2023-25, 2,212 clean games;
   (56.8%) on the same games.** HOME side is dead (48.7% vs 49.3 blind) — the public shades
   home team totals, so the total's error concentrates on the away half. Dose-response
   elevated at every depth (60/65/59 across −4/−6/−8 buckets). 2025 strongest season (62%).
-  NOT yet a shipped flag — needs an owner call + a tracking tier first (n=271, ~90/season).
+  SHIPPED ACTIVE 2026-08-17 (owner call): `tt_away_under`, T2 1u from wk5 ratings, T3 via the wk1-3 early blend (early subset holds 61.5% n=39).
 
 ## 10. STEAM TIMING (2026-08-17, cfb_steam_timing.py, densified 2021-25 archive)
 core_total_edge |edge|>=4, wks5-15, graded @ close. Ladder REPRODUCES on the denser frame:
