@@ -180,6 +180,11 @@ The opponent-adjusted model is **cold** in weeks 1-3. In EARLY weeks:
 - **Projection**: `(pred_total ± pred_margin)/2` vs the posted TT.
 - **`tt_conv_key` frozen gates**: UNDER edge ≤ −3 → **T2** (~57%); OVER ≥ +4 **P5 only** →
   T2 (~58%); OVER ≥ +6 P5 → **T1** (~62%). **G5 overs are dead** — never an over play.
+  **Week 4+ only** (added 2026-08-25): weeks 1-3 the projections are the early blend,
+  which these gates were never validated on — the harness's cold preds collapse to the
+  league mean and fired 8 bogus away-OVER/home-UNDER T1/T2s on the 2026 wk1 slate. Early
+  TT bets come only from the contextual/early signals (`g5_tt_under_wk1`,
+  `style_offense_under`, early `tt_away_under`).
 - **`tt_away_under`**: game-total under-edge ≤ −4 → AWAY team total UNDER = **61.3%
   (n=271, 61/60/62 by season, +16.9%)**, beats its parent FG under on the same games.
   **T2 from week 5** (ratings engine), **T3 weeks 1-3** (early-blend engine). HOME mirror

@@ -138,7 +138,7 @@ def h1t_cons(gid):
 fl = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_flags?week=eq.{WEEK}&select=*", headers={**C.H, "Prefer": ""}).json()
 flags = pd.DataFrame(fl)
 CG = {"spread": "spread", "total": "total", "team_total": "team_total", "h1_spread": "h1_spread", "h1_total": "h1_total", "h1_ml": "h1_ml"}
-def counter_keys(gid, card_group, side):
+def counter_keys(gid, card_group, side, team=None):
     """Signal keys firing the OPPOSITE side of this market — the card's
     'Contradicts this pick' bucket. Real information (e.g. a tracking-tier
     regime fade against the model's active lean), hidden until now."""
@@ -148,6 +148,10 @@ def counter_keys(gid, card_group, side):
     opp = {"HOME": "AWAY", "AWAY": "HOME", "OVER": "UNDER", "UNDER": "OVER"}.get(side)
     if opp is None:
         return []
+    if card_group == "team_total" and team is not None:
+        # TT flag sides are "<Team> OVER|UNDER", not bare OVER/UNDER
+        f = f[f.side.str.contains(team, na=False, regex=False) & f.side.str.contains(opp, na=False, regex=False)]
+        return sorted(set(f.signal_key))
     return sorted(set(f[f.side == opp].signal_key))
 
 def conv_for(gid, card_group, side=None, team=None, ou=None):
@@ -240,7 +244,10 @@ for _, r in te.iterrows():
             pside, edge, bt, ckey = None, None, None, None
         else:
             edge = proj - vg; pside = "OVER" if proj >= vg else "UNDER"
-            ckey = C.tt_conv_key(edge, pside, p5); bt = best_tt(gid, team, pside)
+            # Weeks 1-3 the projections are the early blend, which tt_conv_key was never
+            # validated on — model TT conviction off until wk4; flag signals still promote.
+            ckey = None if EARLY else C.tt_conv_key(edge, pside, p5)
+            bt = best_tt(gid, team, pside)
         play = ckey is not None
         cv = {"T1": "high", "T2": "med"}.get(ckey, "none")
         # Attach REAL flag keys (tt_away_under et al) so signal_performance can roll
@@ -258,6 +265,7 @@ for _, r in te.iterrows():
             edge=round(float(edge), 1) if edge is not None else None,
             best_book=bt[2] if bt else None, best_line=round(bt[0], 1) if bt else None, best_odds=bt[1] if bt else None,
             conviction=cv, is_mammoth=False, has_play=bool(play), display_only=(vg is None), signal_keys=(sorted(set(sig2)) or (["team_total"] if play else [])),
+            counter_signal_keys=counter_keys(gid, "team_total", pside, team=team),
             stake_units=C.STAKE.get(ckey, 0) if play else 0))
     # ---- MONEYLINE — predicted winner (by predicted SCORE) + best price; signal pills only if a signal applies ----
     if pd.notna(r.pred_margin):

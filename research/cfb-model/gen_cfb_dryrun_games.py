@@ -138,7 +138,9 @@ def tt_pred(gid, team):  # UNIFIED: full-game-derived team points (coherent with
     if not vg: return round(proj, 1), None
     p5 = (row.homeConference if is_home else row.awayConference) in C.P5CONF
     pside = "OVER" if proj >= vg[0] else "UNDER"
-    ck = C.tt_conv_key(proj - vg[0], pside, p5)
+    # tt_conv_key was validated on the real model's projections; weeks 1-3 run the early
+    # blend, so model TT conviction stays off until wk4 (early TT bets = flag signals only).
+    ck = None if EARLY else C.tt_conv_key(proj - vg[0], pside, p5)
     return round(proj, 1), (pside if ck else None)
 h1m = dict(zip(h1_csv.game_id, h1_csv.h1_pm)); h1pt = dict(zip(h1_csv.game_id, h1_csv.h1_pt))
 # EARLY weeks (owner 2026-08-24): the model must ALWAYS show a 1H projection, bettable or

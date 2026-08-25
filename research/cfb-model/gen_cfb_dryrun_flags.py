@@ -52,6 +52,11 @@ for name, (mask, side, market, gl) in S.items():
 # team-total flags — UNIFIED: full-game-derived team points vs posted team total (coherent with the score).
 # event-odds (per-team totals) aren't captured preseason -> empty frame so TT flags just don't fire; the
 # other spots (model, G5 openers, style) still generate.
+# WEEK >= 4 ONLY: this block reads te.pred_total/pred_margin, which weeks 1-3 collapse to the league
+# mean (~53/-4 -> away 28.5 / home 24.5 pts), firing bogus away-OVER/home-UNDER T1/T2s (2026 wk1: 8
+# flags, all that fingerprint — UNC OVER "edge +9.3" vs the blend's real +0.8). tt_conv_key was also
+# validated on the REAL model's projections, not the early blend; weeks 1-3 TT coverage is the
+# contextual spots + the early tt_away_under variant below.
 _evp = f"data/event_odds/events_{SEASON}.parquet"
 _EVC = ["game_id", "market", "name", "description", "point"]
 ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(columns=_EVC)
@@ -65,7 +70,7 @@ def _tdb(o):
     c = [x for x in nm if str(o).startswith(str(x) + " ") or o == x]; c.sort(key=len, reverse=True); return c[0] if c else None
 ev["team"] = ev.description.map(_tdb); ev = ev.dropna(subset=["team", "point"])
 tt_cons = ev.groupby(["game_id", "team"]).point.median(); tt_bu = ev.groupby(["game_id", "team"]).point.max(); tt_bo = ev.groupby(["game_id", "team"]).point.min()
-for _, r in te.iterrows():
+for _, r in (te.iterrows() if WEEK >= 4 else iter(())):
     for team, is_home in [(r.homeTeam, True), (r.awayTeam, False)]:
         if (r.game_id, team) not in tt_cons.index or pd.isna(r.pred_total): continue
         proj = C.fg_team_pts(float(r.pred_total), float(r.pred_margin), is_home); vg = float(tt_cons[(r.game_id, team)])

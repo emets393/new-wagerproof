@@ -2116,7 +2116,14 @@ struct CFBGameBottomSheet: View {
     }
 
     private func signalSupportsPick(_ flag: CFBDryRunFlag, row: MarketRow) -> Bool {
-        let pick = row.pick.uppercased()
+        // Signal-driven plays leave the games-row pick empty ("No bet") while the card
+        // displays the picks-row side — stance must compare against what the card shows,
+        // or a supporting OVER chip renders amber (UNC@TCU TT, 2026 wk1).
+        var pick = row.pick.uppercased()
+        if normalizedOverUnder(pick) == nil, normalizedHomeAway(pick) == nil,
+           let side = dryRunPick(for: row)?.pickSide?.uppercased(), !side.isEmpty {
+            pick = side
+        }
 
         if pick == "OVER" || pick == "UNDER" {
             if let flagDirection = normalizedOverUnder(flag.side) {
