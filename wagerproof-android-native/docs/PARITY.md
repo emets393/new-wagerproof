@@ -22,12 +22,12 @@ Legend: ⬜ not started · 🔨 in progress · ✅ source-complete/validated · 
 | Auth (8) | 8 | 08 | ✅ compiles (🎫 #201 Apple sign-in dropped — owner-confirmed 2026-07-31; adds reset-password screen) |
 | Onboarding (24 steps — 21 carousel pages + 3 cinematics) | 22 | 06 | ✅ research-time/stakes cost/reclaim arc, leaderboard, generation/reveal/time summary; 🎫 ATT omitted |
 | Paywall (6) + RevenueCat | 6 | 08 | ✅ custom checkout + generic gates, default-hard remote gate, exact offer terms, restore/sign-out/error/accessibility paths, customer center, attribution, app-to-web checkout link-out (URL shapes unit-tested in `PaywallPlanResolverTest`) |
-| Games feed + GameCards (universal GameRowCard, CollapsingWidgetScroll) | 21 | 07 | ✅ audited expanded and compact layouts; sport picker is now iOS's pull-down icon menu sharing one row with Quick Filter + sort (2026-08-17), replacing the five-way segmented control |
+| Games feed + GameCards (universal GameRowCard, CollapsingWidgetScroll) | 21 | 07 | ✅ audited expanded and compact layouts |
 | Sport detail pages: NFL / CFB / NBA / NCAAB / MLB bottom sheets | 31 | 07 | ✅ audited heroes, cards, charts, sheets, locked states, and compact layouts |
 | Scoreboard (live polling) | 6 | 07 | ✅ compiles |
 | Agents: hub / detail / public / settings / stats | 8 | 05 part1 | ✅ 2026-08-05 parity wave: opaque hero mask + transparent bar, leaderboard/stats pull-to-refresh, sticky Top Picks header, MY AGENTS header + sort menu, full-swipe delete, hub haptics, settings fast-paint, todaysBetItems on public page, 160-pt chart downsampling (🎫 #231, #336) |
 | Agents: creation wizard (6 steps + intro + celebration + inputs) | 17 | 05 part2 | ✅ PixelWave launch builder + existing wizard (🎫 #079); copy-build hides the bottom bar |
-| Agents: tickets / folder / focus printer / feed | 15 | 05 part3 | ✅ share exports a rendered ticket PNG, measured printer feed (#214 resolved), scroll-gated parallax (🎫 #203, #215); **pick history deliberately diverges (#212 revised 2026-08-17)** — the ported rolodex physics + two-stage sheet are REMOVED in favour of a full-screen sheet + plain list, see PickHistoryFolder.kt header |
+| Agents: tickets / folder / focus printer / feed | 15 | 05 part3 | ✅ share exports a rendered ticket PNG, measured printer feed (#214 resolved), rolodex pile physics + two-stage sheet (#212 narrowed), scroll-gated parallax (🎫 #203, #215) |
 | Agents: office sim, cards, charts, HR/regen/autopilot sheets | 28 | 05 part4 | ✅ generation card visual suite (desk avatar, glyph matrix, thinking verbs, pulse waves), swipe-to-generate pill (#305 resolved), AutoPilot notifications card, office pauses off-tab (🎫 #205 chrome-only, #071, #301) |
 | Chat: WagerBot (SSE, ContentBlocks, threads) | 17 | 06 | ✅ compiles; assistant messages are selectable and copyable |
 | Chat: voice mode (OpenAI Realtime PTT) | | 06 | ✅ retained as developer-only code; no production entry point (owner decision) |
@@ -90,6 +90,9 @@ Notes on the consensus port:
   is used only as an explicitly relabelled fallback — and a series with fewer than 2 distinct values
   is not charted at all. Android is **ahead of iOS** on this widget: iOS still ships the waiver-#033
   stub.
+- CFB pick cards render `counter_signal_keys` as amber "argues against" chips (2026-08-25,
+  mirrors iOS `relevantSignals`; NFL already carried stance via the embedded `signals` jsonb).
+  Counter keys always land in the contradicting bucket with the opposite side attached.
 - MLB regression cards distinguish aligned, contradictory, and unavailable signals. NCAAB cards
   use mapped ESPN team artwork and known school colors, with deterministic initials/colors for
   schools missing upstream brand metadata.

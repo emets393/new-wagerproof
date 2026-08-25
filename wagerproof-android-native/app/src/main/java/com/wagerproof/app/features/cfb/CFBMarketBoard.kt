@@ -213,16 +213,20 @@ fun signalBuckets(
         pick = pick.pickSide ?: pick.pickLabel ?: row.pick,
         pickTeamName = pick.pickTeam ?: row.pickTeamName,
     )
-    // Game-detail chips come from picks.signal_keys (joined to defs), not flags.
+    // Game-detail chips come from picks.signal_keys + counter_signal_keys (joined to
+    // defs), not flags. Counter keys carry the OPPOSITE side and always land in the
+    // contradicting bucket — mirrors iOS `relevantSignals`.
     val keys = FootballBlanketSignals.displayKeys("cfb", pick?.signalKeys.orEmpty())
-    val signals = keys.map { key ->
+    val counterKeys = FootballBlanketSignals.displayKeys("cfb", pick?.counterSignalKeys.orEmpty())
+        .filterNot { it in keys }
+    fun pickFlag(key: String, side: String?): CFBDryRunFlag {
         val definition = CFBSignalDefinitionsService.definition(key, defs)
-        CFBDryRunFlag(
+        return CFBDryRunFlag(
             id = "pick-${pick?.id ?: game.gameId}-${signalIdentity(key, definition, defs)}",
             gameId = game.gameId,
             source = key,
             market = pick?.normalizedCardGroup ?: marketKey(row.id),
-            side = pick?.pickSide ?: effectiveRow.pick,
+            side = side ?: effectiveRow.pick,
             line = pick?.bestLine,
             price = pick?.bestOdds?.roundToInt(),
             edge = pick?.edge,
@@ -233,9 +237,14 @@ fun signalBuckets(
             signalDefinition = definition,
         )
     }
+    val signals = keys.map { pickFlag(it, pick?.pickSide) }
+    val opposite = mapOf("HOME" to "AWAY", "AWAY" to "HOME", "OVER" to "UNDER", "UNDER" to "OVER")[
+        pick?.pickSide?.uppercase(Locale.US),
+    ]
+    val counters = counterKeys.map { pickFlag(it, opposite) }
     return SignalBuckets(
         supporting = signals.filter { signalSupportsPick(it, effectiveRow, game) },
-        contradicting = signals.filterNot { signalSupportsPick(it, effectiveRow, game) },
+        contradicting = signals.filterNot { signalSupportsPick(it, effectiveRow, game) } + counters,
     )
 }
 

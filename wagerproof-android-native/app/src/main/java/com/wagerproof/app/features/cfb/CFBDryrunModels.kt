@@ -57,6 +57,8 @@ data class CFBDryrunPickRow(
     val recommendation: String? = null,
     @SerialName("display_only") @Serializable(with = CFBFlexibleBooleanSerializer::class) val displayOnly: Boolean? = null,
     @SerialName("signal_keys") @Serializable(with = CFBFlexibleStringListSerializer::class) val signalKeys: List<String> = emptyList(),
+    // Signals that fired AGAINST this pick — rendered as amber "argues against" chips.
+    @SerialName("counter_signal_keys") @Serializable(with = CFBFlexibleStringListSerializer::class) val counterSignalKeys: List<String> = emptyList(),
     @SerialName("has_play") @Serializable(with = CFBFlexibleBooleanSerializer::class) val hasPlay: Boolean? = null,
 ) {
     val resolvedModelLine: Double? get() = modelLine ?: modelNumber
