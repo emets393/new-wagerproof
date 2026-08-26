@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:8081": "vite --host 127.0.0.1 --port 8081 --strictPort",
     "build": "npm run check:editorial-style && npm run typecheck:guides && vite build && npm run prerender && npm run build:guides && npm run build:support && npm run build:sitemap && npm run verify:guides",
+    "build:netlify": "puppeteer browsers install chrome && npm run build",
     "build:no-prerender": "vite build",
     "build:dev": "vite build --mode development",
     "check:editorial-style": "node scripts/check-editorial-style.mjs",
