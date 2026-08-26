@@ -42,7 +42,13 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization') ?? '';
     const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
-    if (!serviceKey || bearerToken !== serviceKey) {
+    // Strict equality broke on 2026-08-26: the Trigger.dev worker holds a
+    // validly-signed service_role JWT with a different iat than the env-injected
+    // key, so `!==` 401'd every pick-ready push. Accept any Supabase-signed
+    // service_role token instead: the role claim sits inside the signed payload
+    // (unforgeable without the JWT secret), and PostgREST's signature validation
+    // is the authenticity check. Owner-approved change, 2026-08-26.
+    if (!serviceKey || !(await isServiceRoleToken(bearerToken, serviceKey))) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -255,5 +261,31 @@ async function recordNotification(
     }
   } catch (err) {
     console.error(`[push-notify] recordNotification error:`, err);
+  }
+}
+
+/**
+ * True when `token` is a service-role credential for THIS project: either the
+ * env-injected key verbatim, or a JWT whose signed payload carries
+ * role=service_role and whose signature PostgREST accepts. A forged or
+ * anon/user token fails one of the two checks.
+ */
+async function isServiceRoleToken(token: string, serviceKey: string): Promise<boolean> {
+  if (!token) return false;
+  if (token === serviceKey) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload?.role !== 'service_role') return false;
+    // Signature check: PostgREST returns 401 for any token not signed with the
+    // project's JWT secret; the root endpoint reads nothing sensitive.
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const res = await fetch(`${supabaseUrl}/rest/v1/`, {
+      headers: { apikey: token, Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }
