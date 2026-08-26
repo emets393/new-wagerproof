@@ -84,7 +84,9 @@ export interface SteeringProfile {
   archetype: string | null;
 }
 
-const CONF_FLOOR: Record<number, number> = { 1: 55, 2: 60, 3: 65, 4: 70, 5: 75 };
+// Recalibrated 2026-08-26 in lockstep with agents-v3 (see that file's comment):
+// the old 55-75% floors read as a literal win-prob bar and drove slate-wide skips.
+const CONF_FLOOR: Record<number, number> = { 1: 52, 2: 54, 3: 56, 4: 58, 5: 60 };
 const MAX_PICKS: Record<number, number> = { 1: 2, 2: 3, 3: 5, 4: 7, 5: 10 };
 
 export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
@@ -211,7 +213,7 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
     allowedMarkets,
     propsEnabled,
     maxPicks: MAX_PICKS[Math.min(Math.max(Math.round(num(p.max_picks_per_day)), 1), 5)] ?? 5,
-    confidenceFloorPct: CONF_FLOOR[Math.min(Math.max(Math.round(num(p.confidence_threshold)), 1), 5)] ?? 65,
+    confidenceFloorPct: CONF_FLOOR[Math.min(Math.max(Math.round(num(p.confidence_threshold)), 1), 5)] ?? 56,
     riskTolerance: risk,
     chaseValue: !!p.chase_value,
     unitBand: band,

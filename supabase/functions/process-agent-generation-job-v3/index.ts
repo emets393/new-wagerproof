@@ -143,6 +143,26 @@ Deno.serve(async (req) => {
     });
 
     await markSucceeded(ctx.acceptedPicks.length, `engine=${result.engineUsed} accepted=${result.accepted} turns=${result.turns}`, gov);
+
+    // Pick-ready push — same contract V2 had (auto runs with >0 picks, POST
+    // {run_id}, non-fatal). The 2026-08-18 fix landed only in the Trigger.dev
+    // worker, but ALL auto runs execute HERE (trigger_run_id null), so pushes
+    // stayed at zero until this mirror got the call too.
+    if (ctx.generationType === "auto" && ctx.acceptedPicks.length > 0 && !ctx.dryRun) {
+      try {
+        const notifyResponse = await fetch(`${supabaseUrl}/functions/v1/send-agent-pick-ready-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+          body: JSON.stringify({ run_id: runId }),
+        });
+        if (!notifyResponse.ok) {
+          console.warn(`[v3] pick-ready push failed (non-fatal): ${notifyResponse.status} ${(await notifyResponse.text()).slice(0, 200)}`);
+        }
+      } catch (notifyError) {
+        console.warn(`[v3] pick-ready push threw (non-fatal): ${String(notifyError).slice(0, 200)}`);
+      }
+    }
+
     await telemetry(main, ctx, result.engineUsed, result.reason);
     return ok(runId, "succeeded");
   } catch (e) {
