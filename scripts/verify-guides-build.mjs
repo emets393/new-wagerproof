@@ -346,7 +346,7 @@ function parseRedirects(text) {
   })
 }
 
-function verifyRedirects(text, guides, migration) {
+function verifyRedirects(text, migration) {
   const rules = parseRedirects(text)
   if (rules[0]?.from !== 'https://www.wagerproof.bet/*' || rules[0]?.to !== 'https://wagerproof.bet/:splat' || rules[0]?.status !== '301!') fail('_redirects: apex normalization must be first')
   if (rules.at(-1)?.from !== '/*' || rules.at(-1)?.to !== '/index.html' || rules.at(-1)?.status !== '200') fail('_redirects: SPA fallback must be last')
@@ -354,9 +354,10 @@ function verifyRedirects(text, guides, migration) {
   const blog404 = rules.findIndex((rule) => rule.from === '/blog/*' && rule.status === '404')
   if (guide404 < 0 || blog404 < 0 || guide404 >= rules.length - 1 || blog404 >= rules.length - 1) fail('_redirects: editorial namespace 404 rules must precede fallback')
   const ruleKey = new Map(rules.map((rule) => [`${rule.from}|${rule.to}|${rule.status}`, rule]))
-  for (const guide of guides) {
-    const noSlash = guide.canonicalPath.replace(/\/$/, '')
-    if (!ruleKey.has(`${noSlash}|${guide.canonicalPath}|301!`)) fail(`_redirects: canonical slash redirect missing for ${guide.slug}`)
+  for (const rule of rules.filter((candidate) => candidate.status.startsWith('301') && candidate.from.startsWith('/') && candidate.to.startsWith('/'))) {
+    const normalizedFrom = rule.from.replace(/\/+$/, '') || '/'
+    const normalizedTo = rule.to.replace(/\/+$/, '') || '/'
+    if (normalizedFrom === normalizedTo) fail(`_redirects: Netlify-normalized self redirect forbidden for ${rule.from}`)
   }
   for (const entry of migration.entries) {
     const source = entry.sourcePath.replace(/\/$/, '')
@@ -519,7 +520,7 @@ async function main() {
   }
 
   const redirectText = await fs.readFile(path.join(DIST, '_redirects'), 'utf8')
-  verifyRedirects(redirectText, guides, migration)
+  verifyRedirects(redirectText, migration)
   verifySitemap(await fs.readFile(path.join(DIST, 'sitemap.xml'), 'utf8'), guides)
   verifyFeed(await fs.readFile(path.join(DIST, 'guides', 'feed.xml'), 'utf8'), guides)
   await verifyInternalReferences(htmlByRoute, redirectText)

@@ -476,7 +476,7 @@ async function writeRoute(route, html) {
   await fs.writeFile(output, html)
 }
 
-function redirectLines(guides, migration) {
+function redirectLines(migration) {
   const lines = []
   const seen = new Set()
   const add = (from, to, status) => {
@@ -486,15 +486,10 @@ function redirectLines(guides, migration) {
     lines.push(`${from}  ${to}  ${status}`)
   }
   add('https://www.wagerproof.bet/*', 'https://wagerproof.bet/:splat', '301!')
-  add('/guides', '/guides/', '301!')
-  add('/guides/all', '/guides/all/', '301!')
   add('/blog', '/guides/', '301!')
   add('/blog/', '/guides/', '301!')
   add('/feed.xml', '/guides/feed.xml', '301!')
   add('/rss.xml', '/guides/feed.xml', '301!')
-  for (const guide of guides) {
-    add(guide.canonicalPath.replace(/\/$/, ''), guide.canonicalPath, '301!')
-  }
   for (const entry of migration.entries) {
     const source = entry.sourcePath.replace(/\/$/, '')
     const recommendation = entry.recommendation
@@ -523,7 +518,7 @@ async function main() {
   await writeRoute('/guides/all/', renderAllGuides(guides))
   for (const guide of guides) await writeRoute(guide.canonicalPath, renderArticle(guide, guideMap))
   await fs.writeFile(path.join(DIST_DIR, '404.html'), render404(guides[0].hero.socialSrc))
-  await fs.writeFile(path.join(DIST_DIR, '_redirects'), redirectLines(guides, migration))
+  await fs.writeFile(path.join(DIST_DIR, '_redirects'), redirectLines(migration))
   console.log(`Generated ${guides.length} static editorial articles, 2 directories, a 404, and ${migration.entries.length} audited URL dispositions.`)
 }
 
