@@ -290,7 +290,7 @@ Four generations of the engine exist in the repo. Get this right before touching
 | Engine | Location | Status |
 |---|---|---|
 | **V3 / Trigger.dev** | `agents-v3/trigger/generateV3Picks.ts` (task `generate-v3-picks`) | **CANONICAL** — what web + iOS native call |
-| V3 edge mirror | `supabase/functions/process-agent-generation-job-v3/` | Diverged fork of `agents-v3/src/loop/` — same module names, different code. **LIVE, not orphaned** — see below |
+| V3 edge mirror | `supabase/functions/process-agent-generation-job-v3/` | Diverged fork of `agents-v3/src/loop/` — same module names, different code. **LIVE — runs ALL auto generations** (ledger rows with `trigger_run_id` null); Trigger.dev serves manual runs only. A fix landed in one engine does nothing for the other engine's traffic — the 2026-08-18 push fix sat dead for 8 days this way |
 | V2 queue | `process-agent-generation-job-v2` + `request-avatar-picks-generation-v2` | Legacy; only the deprecated RN app calls it |
 | V1 | `supabase/functions/generate-avatar-picks/` | Dead — only a test script calls it |
 
