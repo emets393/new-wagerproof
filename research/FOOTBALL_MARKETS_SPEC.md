@@ -158,6 +158,11 @@ The opponent-adjusted model is **cold** in weeks 1-3. In EARLY weeks:
   conference structurals, `ret_prod_edge` (T2, 9/9 seasons)... full list in the audit.
 - **Degenerate cap**: |edge| > 14 → display-only, unless an agreeing signal fires (a
   disagreeing signal renders as counter, never flips the pick side).
+- **`coach_hammer_fav`** (**weeks 1-3, TRACKING 0.5u paper** — wired 2026-08-26): closing
+  fav ≥ 14 whose coach is top-quartile on the blowout-study Hammer Index (frozen lookup
+  `cfb-model/coach_blowout/out/hammer_2026_teams.csv`). LOSO backtest 59.0% (n=61, ≥50%
+  all 5 seasons) vs the close. Mercy-fade mirror regime-flipped — deliberately NOT wired.
+  See `cfb-model/COACH_BLOWOUT_STUDY.md`. Promote only after a live season.
 - No signal → projection only.
 
 ### 4.2 Total — CAN be a bet

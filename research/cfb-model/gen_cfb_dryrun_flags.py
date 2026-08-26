@@ -202,6 +202,36 @@ try:
 except Exception as e:
     print(f"  [early_roster_signals] skipped: {e}")
 
+# ── COACH HAMMER FAV (wks 1-3, PAPER-TRACK ONLY — owner-approved 2026-08-26): big early
+#    favorite whose coach keeps hammering with a 21+ lead (Hammer Index top quartile,
+#    frozen from the 2021-25 blowout study). LOSO backtest: favs >=14 covered 59.0%
+#    (n=61, >=50% all 5 seasons) vs the close. Tracking tier until a live season proves
+#    it; the mercy-fade mirror regime-flipped and is deliberately NOT wired.
+#    See COACH_BLOWOUT_STUDY.md; lookup = coach_blowout/out/hammer_2026_teams.csv.
+try:
+    _hm = pd.read_csv("coach_blowout/out/hammer_2026_teams.csv")
+    _hm = _hm[_hm.tier == "hammer"]
+    _h_ix = dict(zip(_hm.school, _hm.hammer)); _h_co = dict(zip(_hm.school, _hm.coach))
+    if WEEK <= 3:
+        for _, r in te.iterrows():
+            if pd.isna(r.spread_close) or abs(r.spread_close) < 14:
+                continue
+            fav_home = r.spread_close < 0
+            fav = r.homeTeam if fav_home else r.awayTeam
+            if fav not in _h_ix:
+                continue
+            rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                         "game": f"{r.awayTeam} @ {r.homeTeam}",
+                         "source": f"COACH HAMMER: {_h_co[fav]} ({_h_ix[fav]:+.2f}) lays {abs(r.spread_close):g}",
+                         "signal_key": "coach_hammer_fav", "market": "spread",
+                         "side": "HOME" if fav_home else "AWAY",
+                         "line": round(float(r.spread_close), 1),   # home-perspective, per _bet_fields
+                         "price": -110, "edge": round(float(_h_ix[fav]), 2),
+                         "conviction": "track", "tier": "tracking",
+                         "stake_units": C.STAKE["track"], "grade_line": "close", "mammoth": False})
+except Exception as e:
+    print(f"  [coach_hammer_fav] skipped: {e}")
+
 # ── DK-specific SMALL HOME-DOG MONEYLINE: when DraftKings prices the HOME team as a small dog (+100..+140),
 #    take the home moneyline. dk_ml_bands.py: home dogs in this band win outright ~48% vs ~43% DK-implied =
 #    +5.9% flat-bet ROI, 4/5 seasons (n=291). Structural: road favorites are overbet (all home dogs -1.5% vs
