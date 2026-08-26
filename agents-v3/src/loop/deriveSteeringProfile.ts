@@ -92,7 +92,12 @@ export interface SteeringProfile {
   archetype: string | null;
 }
 
-const CONF_FLOOR: Record<number, number> = { 1: 55, 2: 60, 3: 65, 4: 70, 5: 75 };
+// Win-probability floor by confidence_threshold. Recalibrated 2026-08-26: the
+// old 55-75% mapping predates real reasoning — once the Responses port restored
+// it (2026-08-16), Luna obeyed "only fire at 70%+" literally, and since no
+// model probability tops ~60% the fleet's zero-pick rate jumped to 55-65%.
+// 52-60% spans break-even (-110 ⇒ 52.4%) to elite, so the dial stays meaningful.
+const CONF_FLOOR: Record<number, number> = { 1: 52, 2: 54, 3: 56, 4: 58, 5: 60 };
 const MAX_PICKS: Record<number, number> = { 1: 2, 2: 3, 3: 5, 4: 7, 5: 10 };
 
 export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
@@ -225,7 +230,7 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
     allowedMarkets,
     propsEnabled,
     maxPicks: MAX_PICKS[Math.min(Math.max(Math.round(num(p.max_picks_per_day)), 1), 5)] ?? 5,
-    confidenceFloorPct: CONF_FLOOR[Math.min(Math.max(Math.round(num(p.confidence_threshold)), 1), 5)] ?? 65,
+    confidenceFloorPct: CONF_FLOOR[Math.min(Math.max(Math.round(num(p.confidence_threshold)), 1), 5)] ?? 56,
     riskTolerance: risk,
     chaseValue: !!p.chase_value,
     unitBand: band,

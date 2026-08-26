@@ -54,7 +54,7 @@ These define the agent's fundamental betting identity.
 | 1 | `risk_tolerance` | number | 1-5 | 1=Conservative, 5=Aggressive |
 | 2 | `underdog_lean` | number | 1-5 | 1=Favorites only, 3=Neutral, 5=Dogs only |
 | 3 | `over_under_lean` | number | 1-5 | 1=Unders, 3=Neutral, 5=Overs |
-| 4 | `confidence_threshold` | number | 1-5 | 1=Bet often (55%+), 5=Very selective (75%+) |
+| 4 | `confidence_threshold` | number | 1-5 | 1=Bet often (52%+ win est.), 5=Very selective (60%+). V3 floors recalibrated 2026-08-26 from 55-75% — see deriveSteeringProfile.ts CONF_FLOOR |
 | 5 | `chase_value` | boolean | - | true=Hunt big edges, false=Prefer safer picks |
 | 6 | `parlay_appetite` | number | 1-5 | 1=Straights only, 5=Loves parlays |
 | 7 | `parlays_only` | boolean | - | true=Submit only parlay tickets |
