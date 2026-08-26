@@ -1,0 +1,62 @@
+{
+  "layout": "release",
+  "slug": "wagerproof-3-5-9",
+  "canonicalPath": "/guides/wagerproof-3-5-9/",
+  "intent": "understand the shipped WagerProof 3.5.9 release",
+  "title": "WagerProof 3.5.9: football models, Systems, and agent consensus",
+  "shortTitle": "WagerProof 3.5.9",
+  "seoTitle": "WagerProof 3.5.9 Release Notes",
+  "description": "What shipped in WagerProof 3.5.9 for iOS: 2026 football models, rebuilt Historical Trends, saved Systems, agent consensus, and connector access.",
+  "dek": "The July 31 iOS release brought NFL and college football research back for 2026, rebuilt trend filters, and made saved Systems and public-agent workflows easier to inspect.",
+  "category": "Product updates",
+  "publishedAt": "2026-07-31",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "lastTestedAt": "2026-08-26",
+  "readingTimeMinutes": 6,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/wagerproof-3-5-9/wagerproof-3-5-9-title-card-v1.webp",
+    "socialSrc": "/guides/wagerproof-3-5-9/wagerproof-3-5-9-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "WagerProof app icon and version 3.5.9 over a layered green data grid",
+    "caption": "WagerProof 3.5.9 release artwork using the real app icon and an AI-assisted abstract data field.",
+    "source": "WagerProof native app icon and editorial composition"
+  },
+  "disclosure": "This is a first-party WagerProof release note. Feature availability can vary by plan, sport, platform, and data coverage. Model outputs are estimates and do not guarantee an outcome.",
+  "verdict": "Version 3.5.9 was primarily a research-workflow release: restored 2026 football coverage, more useful historical filters, persistent Systems with grading, and better visibility into what public agents agree on. It did not turn estimates into guarantees, and the public App Store listing remains the authority for the shipped iOS version.",
+  "relatedSlugs": [
+    "how-wagerproof-analysis-works",
+    "best-sports-betting-research-apps",
+    "how-to-read-line-movement",
+    "accurate-betting-performance-tracking-checklist"
+  ],
+  "redirectAliases": [],
+  "release": {
+    "version": "3.5.9",
+    "platforms": ["iPhone", "iPad"],
+    "releaseDate": "2026-07-31",
+    "changes": [
+      "Rebuilt NFL and college football models for the 2026 slate, with game predictions, live scores, Outliers, and agents using the refreshed model layer.",
+      "Expanded Historical Trends with baseball, football, weather, opponent, and series filters plus clearer filter controls.",
+      "Added saved Systems that are graded nightly, with a public leaderboard for community Systems.",
+      "Added follow and copy workflows for public AI agents.",
+      "Added agent-consensus flags on games where public agents strongly agree.",
+      "Added connector setup for supported AI assistants plus Google and Apple sign-in.",
+      "Improved game-detail scrolling and corrected several team-logo, split, and filter-display issues."
+    ],
+    "screenshots": [
+      {"src":"/guides/screenshots/games-v3-5-9.jpg","width":471,"height":1024,"alt":"WagerProof games screen showing a real sports research interface","caption":"Games research interface from WagerProof first-party product material."},
+      {"src":"/guides/screenshots/outliers-v3-5-9.jpg","width":471,"height":1024,"alt":"WagerProof Outliers screen showing model and market differences","caption":"Outliers interface from WagerProof first-party product material."},
+      {"src":"/guides/screenshots/agents-hq-v3-5-9.jpg","width":471,"height":1024,"alt":"WagerProof AI Agents headquarters screen","caption":"AI Agents interface from WagerProof first-party product material."}
+    ]
+  },
+  "faqs": [
+    {"question":"What is the latest shipped WagerProof iOS version in this release note?","answer":"The U.S. App Store listed WagerProof 3.5.9 as the current shipped iOS version when this page was reviewed on August 26, 2026. Its public release date is July 31, 2026."},
+    {"question":"Does WagerProof 3.5.9 guarantee winning picks?","answer":"No. WagerProof presents research, model estimates, market context, and graded records. Models can be wrong and every wager can lose."},
+    {"question":"Where should I verify current feature availability?","answer":"Check the current WagerProof App Store or Google Play listing and the in-product plan screen. Sports, data coverage, platform parity, and plan access can change after this release note was published."}
+  ]
+}

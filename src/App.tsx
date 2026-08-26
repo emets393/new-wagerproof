@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { logMixpanelStatus } from "@/lib/mixpanel";
 import { DEFAULT_AUTHENTICATED_ROUTE } from "@/lib/routes";
 import Landing from "./pages/NewLanding";
-import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./pages";
+import { GameAnalysis, Account, Welcome, PressKit } from "./pages";
 import NBATodayHalftimeTrends from "./pages/NBATodayHalftimeTrends";
 import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
 // The MLB tools are split views now; the old page files stay on disk
@@ -288,7 +288,7 @@ function AppRoutes() {
     '/free-picks', // Free picks landing page - public access
     '/ai-agents', // New separate landing page for the AI Agent feature
     '/mcp', // Public WagerProof MCP connector tutorial
-  ].includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/support');
+  ].includes(location.pathname) || location.pathname.startsWith('/support');
 
   // Pages that should not have the layout (landing, welcome)
   if (isPublicRoute) {
@@ -301,8 +301,6 @@ function AppRoutes() {
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/press-kit" element={<PressKit />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route

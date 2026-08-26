@@ -674,7 +674,7 @@ export const MCP_EXPLORE_LINKS = [
   { label: 'Market Odds', to: '/games' },
   { label: 'Community Agents', to: '/agents' },
   { label: 'My Record', to: '/account' },
-  { label: 'Editor Analysis', to: '/blog' },
+  { label: 'Research Guides', to: '/guides/' },
   { label: 'Build an Agent', to: '/agents/create' },
   { label: 'WagerProof for iOS', to: '/mobile-app' },
   { label: 'WagerProof for Android', to: '/mobile-app' },

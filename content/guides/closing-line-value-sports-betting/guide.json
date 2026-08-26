@@ -1,0 +1,43 @@
+{
+  "layout": "standard",
+  "slug": "closing-line-value-sports-betting",
+  "canonicalPath": "/blog/closing-line-value-sports-betting/",
+  "intent": "understand closing line value as a process metric",
+  "title": "Closing line value measures price quality, not certainty",
+  "shortTitle": "Closing line value",
+  "seoTitle": "Closing Line Value: Meaning and Limits",
+  "description": "Learn how to record and compare closing line value, why the exact market and timestamp matter, and why CLV is useful without proving future profit.",
+  "dek": "Beating a later market price can be evidence that your process found a better number. It is not proof that the wager should win or that every market improves toward close.",
+  "category": "Performance measurement",
+  "publishedAt": "2026-04-01",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "nextReviewAt": "2027-02-26",
+  "readingTimeMinutes": 8,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/closing-line-value-sports-betting/closing-line-value-sports-betting-title-card-v1.webp",
+    "socialSrc": "/guides/closing-line-value-sports-betting/closing-line-value-sports-betting-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "Opening and closing price markers aligned on a restrained comparison axis",
+    "caption": "AI-assisted editorial illustration using generic prices. It does not depict a real wager or outcome.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "This guide explains a recordkeeping metric. It does not claim that positive closing line value guarantees profit, and it does not present a private WagerProof backtest.",
+  "verdict": "Track CLV because the price is observable even when a single outcome is noisy. Compare the exact same market, side, and settlement rules at consistent timestamps. Use CLV with calibration, sample size, and complete results, not as a substitute for them.",
+  "relatedSlugs": [
+    "implied-probability-vs-true-probability",
+    "how-to-read-line-movement",
+    "accurate-betting-performance-tracking-checklist",
+    "prediction-markets-vs-sportsbook-odds"
+  ],
+  "redirectAliases": [],
+  "faqs": [
+    {"question":"What is closing line value?","answer":"Closing line value compares the price you recorded with a defined later market price, usually near the event start. It is a price-quality measure, not the result of the wager."},
+    {"question":"Does positive CLV guarantee profit?","answer":"No. A wager with a better price can still lose, and a strategy can show positive CLV over a small or biased sample without producing durable profit. CLV should be reviewed with complete records, calibration, and sample size."},
+    {"question":"Which closing price should I use?","answer":"Choose a consistent reference before analysis, such as the same sportsbook's final available price or a documented market consensus at a fixed cutoff. Do not switch references after seeing which one makes the record look better."}
+  ]
+}

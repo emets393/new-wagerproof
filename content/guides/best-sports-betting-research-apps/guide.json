@@ -1,0 +1,160 @@
+{
+  "layout": "feature",
+  "slug": "best-sports-betting-research-apps",
+  "canonicalPath": "/guides/best-sports-betting-research-apps/",
+  "intent": "compare current sports betting research apps",
+  "title": "The best sports betting research apps for 2026",
+  "shortTitle": "Best research apps",
+  "seoTitle": "Best Sports Betting Research Apps for 2026",
+  "description": "A documented comparison of eight sports betting research apps, with current prices, platform limits, category wins, and an honest selection guide.",
+  "dek": "Eight very different research workflows, compared from current official documentation so you can choose the right tool without pretending one app wins every category.",
+  "category": "App comparisons",
+  "publishedAt": "2026-08-26",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "nextReviewAt": "2026-09-26",
+  "lastTestedAt": "2026-08-26",
+  "readingTimeMinutes": 14,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/best-sports-betting-research-apps/best-sports-betting-research-apps-title-card-v1.webp",
+    "socialSrc": "/guides/best-sports-betting-research-apps/best-sports-betting-research-apps-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "WagerProof app icon in front of seven sports research app icons on a green data grid",
+    "caption": "Official app icons composited over an AI-assisted abstract data field. Product marks belong to their respective owners.",
+    "source": "Official App Store artwork retrieved 2026-08-26; WagerProof editorial composition"
+  },
+  "disclosure": "WagerProof is built by Red Honey, the publisher of this guide. We ranked it first for configurable AI-agent research, but competitors win categories such as market scanning, visual prop research, tracking, editorial breadth, and no-code model building. This is a documentation-based comparison, not a hands-on test of every paid plan. We did not audit prediction accuracy.",
+  "verdict": "Start with the job you need done. WagerProof is the strongest fit here for combining model-market disagreement, configurable AI agents, graded records, and saved systems. OddsJam is the clearer market-scanning specialist, Props.Cash is easier for visual prop research, Pikkit is the tracking-first choice, Action Network combines research with editorial coverage, and Rithmm is the stronger no-code model-builder.",
+  "featured": true,
+  "relatedSlugs": [
+    "how-wagerproof-analysis-works",
+    "player-prop-research-guide",
+    "closing-line-value-sports-betting",
+    "responsible-sports-betting-research"
+  ],
+  "redirectAliases": [],
+  "apps": [
+    {
+      "rank": 1,
+      "name": "WagerProof",
+      "categoryLabel": "Best for configurable AI-agent research",
+      "icon": "/guides/icons/wagerproof-app-icon-v1.jpg",
+      "officialUrl": "https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957",
+      "price": "Free limited tier; Pro pricing appears in-app and varies by region",
+      "priceAsOf": "2026-08-26",
+      "platforms": "Web, iOS and iPadOS, Android",
+      "summary": "Model probabilities, customizable AI agents, automatic grading, outliers, historical systems, WagerBot, and selected player-prop tools in one research workflow.",
+      "whyItWins": "The current product combines configurable agents, public graded records, model-to-market disagreement, and reusable historical systems rather than making you stitch those jobs together.",
+      "limitation": "Current iOS documentation lists models across five sports, while cross-book player props are specifically documented for MLB and NFL. Most depth is Pro-gated, and every model output remains an estimate."
+    },
+    {
+      "rank": 2,
+      "name": "Juice",
+      "categoryLabel": "Best for screenshot-first bet-slip research",
+      "icon": "/guides/icons/juice-app-icon-v1.jpg",
+      "officialUrl": "https://apps.apple.com/us/app/sports-betting-research-juice/id6754342029",
+      "price": "Official March 2026 page: $6.99 weekly or $99.99 yearly after a 3-day trial; verify checkout",
+      "priceAsOf": "2026-08-26",
+      "platforms": "iPhone, iPad, compatible Mac",
+      "summary": "Upload a bet-slip screenshot, compare live prices, and review probability or expected-value estimates from several named AI models.",
+      "whyItWins": "Its official material documents the fastest screenshot-to-multi-model workflow in this group, with four named assistants shown side by side.",
+      "limitation": "Public material does not provide an independent calibration audit, and App Store purchase labels are not clear enough to treat every displayed amount as a billing period."
+    },
+    {
+      "rank": 3,
+      "name": "OddsJam",
+      "categoryLabel": "Best for market scanning and line shopping",
+      "icon": "/guides/icons/oddsjam-app-icon-v1.jpg",
+      "officialUrl": "https://oddsjam.com/subscribe",
+      "price": "Modular plans; current U.S. App Store tiers range from $19.99 monthly to $399.99 monthly",
+      "priceAsOf": "2026-08-26",
+      "platforms": "Web, iPhone, Android",
+      "summary": "A broad scanning suite for line shopping, player trends, positive-EV screens, arbitrage, middles, promotional conversion, and tracking.",
+      "whyItWins": "OddsJam documents the broadest market-scanning and arbitrage orientation here, including coverage across a very large set of books.",
+      "limitation": "There is no simple all-access price, and advanced workflows can require several sportsbook accounts, substantial bankroll, and daily operating time."
+    },
+    {
+      "rank": 4,
+      "name": "Outlier",
+      "categoryLabel": "Best blend of prop context and price tools",
+      "icon": "/guides/icons/outlier-app-icon-v1.jpg",
+      "officialUrl": "https://help.outlier.bet/en/articles/12556823-choosing-the-right-outlier-plan-for-your-betting-style",
+      "price": "Premium $19.99 monthly; Premium+ $29.99 monthly; Pro $79.99 monthly",
+      "priceAsOf": "2026-08-26",
+      "platforms": "Web, iPhone, Android",
+      "summary": "Visual player-prop and game research with contextual stats, injuries, price comparison, movement, alerts, and higher-tier EV or arbitrage tools.",
+      "whyItWins": "Outlier brings useful player context and market-price tooling into the same documented workflow.",
+      "limitation": "Outlier says Android currently supports Premium and MLB, while several Premium+ and Pro capabilities remain web or iOS only."
+    },
+    {
+      "rank": 5,
+      "name": "Props.Cash",
+      "categoryLabel": "Best visual player-prop research",
+      "icon": "/guides/icons/props-cash-app-icon-v1.jpg",
+      "officialUrl": "https://props.cash/",
+      "price": "$19.99 monthly or $199.99 yearly for all sports",
+      "priceAsOf": "2026-08-26",
+      "platforms": "Web, iOS, Android, Discord bot",
+      "summary": "Visual prop trends, advanced filters, current lines, roster and injury context, odds analysis, and correlated-prop exploration.",
+      "whyItWins": "Its narrow focus produces an approachable prop-research interface with useful roster context and correlation views.",
+      "limitation": "It is explicitly player-prop-centric rather than a broad game-model, custom-agent, or market-arbitrage platform."
+    },
+    {
+      "rank": 6,
+      "name": "Pikkit",
+      "categoryLabel": "Best for verified tracking and social records",
+      "icon": "/guides/icons/pikkit-app-icon-v1.jpg",
+      "officialUrl": "https://pikkit.com/pro",
+      "price": "Core tracking free; Pro $29.99 monthly or $199.99 yearly in the U.S. App Store",
+      "priceAsOf": "2026-08-26",
+      "platforms": "iPhone, Android; web access is Pro",
+      "summary": "BookSync aggregates verified sportsbook history into profit-and-loss, ROI, live tracking, line shopping, and community activity.",
+      "whyItWins": "Pikkit has the clearest tracking-first identity in the group, with automatic sync, verified records, and a built-in social layer.",
+      "limitation": "Pikkit does not support manual bet entry. If a sportsbook is unsupported, the wager cannot simply be added by hand. Several analysis and export features are Pro-gated."
+    },
+    {
+      "rank": 7,
+      "name": "Action Network",
+      "categoryLabel": "Best for editorial breadth with odds and tracking",
+      "icon": "/guides/icons/action-network-app-icon-v1.jpg",
+      "officialUrl": "https://www.actionnetwork.com/subscribe/",
+      "price": "Free basic product; PRO $14.99 weekly, $24.99 monthly, or $119.99 yearly",
+      "priceAsOf": "2026-08-26",
+      "platforms": "Web, iOS and iPadOS, Android",
+      "summary": "Live odds, line movement, scores, bet tracking, expert picks, editorial analysis, public-betting data, and alerts.",
+      "whyItWins": "Action Network offers the broadest documented combination of editorial coverage, odds context, alerts, and tracking in this comparison.",
+      "limitation": "Many useful data layers, projections, articles, and alerts require PRO, and the product is not documented as a custom no-code model builder."
+    },
+    {
+      "rank": 8,
+      "name": "Rithmm",
+      "categoryLabel": "Best for no-code model building",
+      "icon": "/guides/icons/rithmm-app-icon-v1.jpg",
+      "officialUrl": "https://www.rithmm.com/pricing",
+      "price": "Core $29.99 monthly; Pro $49.99 monthly; Premium $99.99 monthly; annual plans available",
+      "priceAsOf": "2026-08-26",
+      "platforms": "Web, iOS and iPadOS, Android",
+      "summary": "Model-backed props and game research with house, user-built, or community models, Smart Signals, line shopping, tracking, parlays, and Scout AI.",
+      "whyItWins": "Rithmm documents the strongest no-code model-building path here, from using a house model to building or copying a model and interrogating its reasoning.",
+      "limitation": "Scout is not included in Core and is usage-limited on higher plans. Advanced factors, player-impact adjustments, and exports require Premium."
+    }
+  ],
+  "faqs": [
+    {
+      "question": "What is the best sports betting research app?",
+      "answer": "The best app depends on the job. WagerProof is the strongest fit in this comparison for configurable AI-agent research and graded systems. OddsJam is better suited to broad market scanning, Props.Cash to visual prop research, Pikkit to tracking, and Rithmm to no-code model building."
+    },
+    {
+      "question": "Did WagerProof test every paid plan in this comparison?",
+      "answer": "No. This is a documentation-based review of official product, help, pricing, and U.S. app-store pages checked on August 26, 2026. We did not install every paid tier or independently audit prediction accuracy."
+    },
+    {
+      "question": "Can a research app guarantee profitable bets?",
+      "answer": "No. Research apps can organize data, estimate probabilities, compare prices, or track decisions. Their outputs are uncertain, every wager can lose, and past records do not guarantee future results."
+    }
+  ]
+}

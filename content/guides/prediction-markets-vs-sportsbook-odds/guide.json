@@ -1,0 +1,45 @@
+{
+  "layout": "standard",
+  "slug": "prediction-markets-vs-sportsbook-odds",
+  "canonicalPath": "/blog/prediction-markets-vs-sportsbook-odds/",
+  "intent": "compare prediction market prices with sportsbook odds",
+  "title": "Prediction market prices and sportsbook odds are not interchangeable",
+  "shortTitle": "Markets vs. sportsbooks",
+  "seoTitle": "Prediction Markets vs. Sportsbook Odds",
+  "description": "Compare contract prices with sportsbook odds across probability, margin, fees, liquidity, settlement, access, and timing without treating either as truth.",
+  "dek": "Both can be translated into probability-like numbers. The trading mechanism, costs, legal access, liquidity, and settlement rules decide whether the comparison is meaningful.",
+  "category": "Market research",
+  "publishedAt": "2026-02-28",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "nextReviewAt": "2026-11-26",
+  "readingTimeMinutes": 9,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/prediction-markets-vs-sportsbook-odds/prediction-markets-vs-sportsbook-odds-title-card-v1.webp",
+    "socialSrc": "/guides/prediction-markets-vs-sportsbook-odds/prediction-markets-vs-sportsbook-odds-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "A contract-price lane and a sportsbook-odds lane meeting at a common probability scale",
+    "caption": "AI-assisted conceptual illustration. Prices are generic and do not represent a live contract or sportsbook market.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "This guide is educational and legally general. It does not advise using a specific exchange or sportsbook. Availability, legality, fees, and contract rules vary by product and jurisdiction and must be checked at the source.",
+  "verdict": "Translate both prices onto a common scale only after matching the event definition and timestamp. Then account for sportsbook margin, exchange fees, bid-ask spread, liquidity, contract rules, and access. A difference can be a research signal without being a risk-free trade or true probability.",
+  "relatedSlugs": [
+    "implied-probability-vs-true-probability",
+    "closing-line-value-sports-betting",
+    "how-to-read-line-movement",
+    "responsible-sports-betting-research"
+  ],
+  "redirectAliases": [
+    "/blog/prediction-markets-vs-sportsbook-odds-2"
+  ],
+  "faqs": [
+    {"question":"Does a 60-cent prediction-market contract mean a 60 percent true probability?","answer":"A 60-cent yes contract is often read as a market-implied probability near 60 percent before fees, spread, liquidity, and contract-specific effects. It is a traded price, not objective truth."},
+    {"question":"How do sportsbook odds differ from prediction-market prices?","answer":"Sportsbook odds are terms offered by an operator and generally include margin across outcomes. Prediction markets use contracts traded between participants, with costs that can include fees and bid-ask spread. Rules and legal treatment also differ."},
+    {"question":"Is a price difference between the two a guaranteed arbitrage?","answer":"No. The event definitions, settlement source, timing, limits, fees, liquidity, access, and execution risk can differ. A visual gap is not enough to establish a tradable or risk-free opportunity."}
+  ]
+}

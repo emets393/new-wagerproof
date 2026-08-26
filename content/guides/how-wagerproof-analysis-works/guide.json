@@ -1,0 +1,44 @@
+{
+  "layout": "standard",
+  "slug": "how-wagerproof-analysis-works",
+  "canonicalPath": "/guides/how-wagerproof-analysis-works/",
+  "intent": "understand WagerProof model and market analysis",
+  "title": "How a WagerProof analysis separates model, market, and result",
+  "shortTitle": "How analysis works",
+  "seoTitle": "How WagerProof Sports Analysis Works",
+  "description": "A transparent walkthrough of the WagerProof research contract: market definition, live price, model estimate, disagreement, context, grading, and limitations.",
+  "dek": "A model estimate, a market price, and the final result answer different questions. WagerProof is most useful when those layers remain visible instead of being collapsed into one pick label.",
+  "category": "Methodology",
+  "publishedAt": "2026-08-26",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "nextReviewAt": "2026-11-26",
+  "lastTestedAt": "2026-08-26",
+  "readingTimeMinutes": 11,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/how-wagerproof-analysis-works/how-wagerproof-analysis-works-title-card-v1.webp",
+    "socialSrc": "/guides/how-wagerproof-analysis-works/how-wagerproof-analysis-works-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "A blueprint flow from market definition to model estimate, comparison, context, and grading",
+    "caption": "AI-assisted editorial illustration of the research sequence. It is not a product screenshot or model-performance claim.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "This is a first-party explanation of the WagerProof product contract, not publication of proprietary model code or an independent validation. No backtest, win rate, or accuracy statistic is claimed here.",
+  "verdict": "A WagerProof analysis begins with a precisely defined market and live price, adds a versioned model estimate, displays the difference, and keeps context and grading visible. The difference is a research prompt. It is not proof that the market is wrong or that the outcome is certain.",
+  "relatedSlugs": [
+    "best-sports-betting-research-apps",
+    "wagerproof-3-5-9",
+    "accurate-betting-performance-tracking-checklist",
+    "player-prop-research-guide"
+  ],
+  "redirectAliases": [],
+  "faqs": [
+    {"question":"Does a larger WagerProof model-market gap guarantee a winning outcome?","answer":"No. The gap is the difference between a model estimate and a current market-derived probability. It can reflect a useful disagreement, stale data, model error, price movement, or uncertainty. Every outcome can still lose."},
+    {"question":"How should WagerProof model estimates be evaluated?","answer":"Preserve the model version, information cutoff, market, price, and every forecast. Review calibration, price quality, and results across comparable samples without deleting losses or changing the rule after the event."},
+    {"question":"Why does WagerProof show graded records?","answer":"A complete graded history lets a reader inspect wins, losses, pushes, units, and selection behavior rather than seeing only successful examples. A record still needs sample-size, price, and rule-change context."}
+  ]
+}

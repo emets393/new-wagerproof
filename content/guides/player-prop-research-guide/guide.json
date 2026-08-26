@@ -1,0 +1,44 @@
+{
+  "layout": "standard",
+  "slug": "player-prop-research-guide",
+  "canonicalPath": "/guides/player-prop-research-guide/",
+  "intent": "research player props with a repeatable checklist",
+  "title": "A player-prop research checklist that starts with the market",
+  "shortTitle": "Player-prop research",
+  "seoTitle": "Player Prop Research Guide and Checklist",
+  "description": "Research player props with a repeatable market, availability, role, metric, baseline, matchup, price, and recordkeeping checklist using official data.",
+  "dek": "The player name is not the market. Before studying a trend, lock down the line, price, rules, availability, role, and official metric definition.",
+  "category": "Player research",
+  "publishedAt": "2026-08-26",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "nextReviewAt": "2027-02-26",
+  "lastTestedAt": "2026-08-26",
+  "readingTimeMinutes": 10,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/player-prop-research-guide/player-prop-research-guide-title-card-v1.webp",
+    "socialSrc": "/guides/player-prop-research-guide/player-prop-research-guide-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "A generic player silhouette beside a distribution curve and price card on a data grid",
+    "caption": "AI-assisted editorial illustration. It contains no real player, sportsbook interface, or performance forecast.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "This checklist is educational. It does not recommend a player, market, or sportsbook and does not turn a descriptive hit-rate streak into a prediction.",
+  "verdict": "A good prop note preserves the exact market and price, verifies availability and expected opportunity, uses the official metric definition, compares a longer baseline with recent context, and records the decision before the event. A trend without price or role context is incomplete.",
+  "relatedSlugs": [
+    "how-wagerproof-analysis-works",
+    "how-to-read-line-movement",
+    "responsible-sports-betting-research",
+    "best-sports-betting-research-apps"
+  ],
+  "redirectAliases": [],
+  "faqs": [
+    {"question":"What should I check first when researching a player prop?","answer":"Confirm the exact operator, market, line, price, period, and settlement rules. A player's recent performance is not useful until you know precisely what event the prop defines."},
+    {"question":"Are recent hit-rate streaks predictive?","answer":"Not automatically. A streak is descriptive and can reflect a small sample, a changing line, role changes, opponent mix, or selective endpoints. Compare it with a longer baseline and the current offered price."},
+    {"question":"Which data sources should I use for player status and metrics?","answer":"Prefer official league injury or participation reports and official metric definitions. Examples include NBA injury reports and stats glossary, MLB Statcast, and NFL Next Gen Stats documentation."}
+  ]
+}
