@@ -148,7 +148,15 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && python3 live_props.py --write
+    # After capture, hourly (minute<15 runs only) rebuild the player pages so the
+    # props surface tracks what books ACTUALLY post: no posted line -> no card
+    # (owner rule 2026-08-27), and newly posted players appear within the hour.
+    startCommand: >-
+      cd research/nfl-extreme-outcomes && python3 live_props.py --write &&
+      { if [ "$(date +%M)" -lt 15 ]; then
+          SW=$(python3 resolve_nfl_week.py) &&
+          NFL_SEASON="${SW% *}" NFL_WEEK="${SW#* }" python3 gen_nfl_prop_player_pages.py;
+        fi || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels

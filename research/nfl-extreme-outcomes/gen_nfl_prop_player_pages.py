@@ -112,6 +112,20 @@ def main():
     tr = tr[tr.position.isin(POSITIONS) & tr.current_team.isin(games)]
     props = fetch("nfl_slate_props", f"season=eq.{SEASON}&week=eq.{WEEK}")
 
+    # LIVE captured lines (latest per player/market/book, 9-day fresh window) —
+    # collapsed to a per-(player, market) consensus: median line, median prices.
+    # nfl_slate_props is the weekly Tuesday consensus; this fills everything the
+    # books posted since. Owner rule 2026-08-27: the props surface shows ONLY
+    # players with an actual posted line — see the has_posted filter below.
+    live = fetch("nfl_player_props_current", f"season=eq.{SEASON}&week=eq.{WEEK}")
+    live_mkts = {}
+    if len(live):
+        for (pid_, mk_), grp in live.groupby(["player_id", "market"]):
+            live_mkts[(pid_, mk_)] = dict(
+                line=(None if grp.line.isna().all() else float(grp.line.median())),
+                over_price=(None if grp.over_odds.isna().all() else float(grp.over_odds.median())),
+                under_price=(None if grp.under_odds.isna().all() else float(grp.under_odds.median())))
+
     # Signal defs for resolving fired P-flags into user-facing chips (owner 2026-08-17:
     # prop signals must render on the pages; the web redesign dropped them). Staging
     # stores SHORT keys ("P17"); defs use the long key ("P17_rush_yds_model_under").
@@ -379,8 +393,14 @@ def main():
                     fl = hr.get("flags")
                     if fl is not None and len(fl):
                         row["signals"] = resolve_signals(list(fl))
+            if row["status"] != "posted" and (pid, mk) in live_mkts:
+                row.update(**live_mkts[(pid, mk)], status="posted")
             mkts.append(row)
         if not mkts:
+            continue
+        # Owner rule 2026-08-27: no posted line this week -> NO card. Trend-only
+        # players (backup QBs whose last line was seasons ago) do not ship.
+        if not any(m["status"] == "posted" for m in mkts):
             continue
 
         b = base.loc[pid] if pid in base.index else None
