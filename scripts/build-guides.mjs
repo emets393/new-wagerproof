@@ -308,7 +308,7 @@ function renderHub(guides) {
     <p class="empty-state" hidden data-guide-empty>No guides match that search.</p>
   </section>
   <section class="section-shell guide-index-bars" aria-label="Explore WagerProof">
-    <article><div><p class="eyebrow">WagerProof app</p><h2>Research without the busywork.</h2><p>Build AI agents, test historical Systems, compare lines, and inspect transparent win records in one place.</p></div><a class="button" href="${APP_STORE_URL}">Get the app</a></article>
+    <article><img class="guide-index-bars__icon" src="/guides/brand/wagerproof-cta-icon.png" width="1024" height="1024" alt="" loading="lazy" /><div><p class="eyebrow">WagerProof app</p><h2>Research without the busywork.</h2><p>Build AI agents, test historical Systems, compare lines, and inspect transparent win records in one place.</p></div><a class="button" href="${APP_STORE_URL}">Get the app</a></article>
     <article><div><p class="eyebrow">AI connector</p><h2>Bring the data to your AI.</h2><p>Use WagerProof MCPs with your preferred AI to explore the data and build your own research systems.</p></div><a class="button button--secondary" href="/mcp">View MCPs</a></article>
   </section>
 </main>`
