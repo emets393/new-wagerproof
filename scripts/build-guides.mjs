@@ -389,11 +389,15 @@ function articleHeader(guide) {
 }
 
 function disclosure(guide) {
-  return `<aside class="disclosure" aria-label="Editorial disclosure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 7.2v5.6c0 4.5 3.9 7.1 9.2 8.2 5.3-1.1 9.2-3.7 9.2-8.2V7.2L12 3Zm0 5.2v5.2m0 3.2h.01" /></svg><div><strong>How to read this page</strong><p>${escapeHtml(guide.disclosure)}</p></div></aside>`
+  const label = guide.layout === 'feature' ? 'Our conflict of interest' : 'How to read this page'
+  return `<aside class="disclosure" aria-label="Editorial disclosure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 7.2v5.6c0 4.5 3.9 7.1 9.2 8.2 5.3-1.1 9.2-3.7 9.2-8.2V7.2L12 3Zm0 5.2v5.2m0 3.2h.01" /></svg><div><strong>${label}</strong><p>${escapeHtml(guide.disclosure)}</p></div></aside>`
 }
 
 function bottomLine(guide) {
-  return `<section class="bottom-line" aria-labelledby="bottom-line-title"><p class="eyebrow">The bottom line</p><h2 id="bottom-line-title">A useful result keeps its limits attached.</h2><p>${escapeHtml(guide.verdict)}</p></section>`
+  const title = guide.slug === 'best-sports-betting-research-apps'
+    ? 'WagerProof is our best overall pick.'
+    : 'A useful result keeps its limits attached.'
+  return `<section class="bottom-line" aria-labelledby="bottom-line-title"><p class="eyebrow">The bottom line</p><h2 id="bottom-line-title">${title}</h2><p>${escapeHtml(guide.verdict)}</p></section>`
 }
 
 function renderComparison(guide) {
@@ -430,7 +434,11 @@ function authorCard() {
 
 function articleCta(guide) {
   const responsible = guide.slug === 'responsible-sports-betting-research'
-  return `<section class="article-cta"><div><p class="eyebrow">${responsible ? 'Keep the boundary visible' : 'Research inside WagerProof'}</p><h2>${responsible ? 'If the process feels hard to stop, stop the process.' : 'Put the model, market, and record on the same screen.'}</h2><p>${responsible ? 'Free, confidential U.S. support is available at any time. Limits and time-outs are valid research decisions.' : 'WagerProof organizes model probabilities, current lines, agents, trends, and graded records. It does not guarantee an outcome.'}</p></div><a class="button" href="${responsible ? 'https://1800myreset.org/' : APP_STORE_URL}">${responsible ? 'Visit MY-RESET' : 'View WagerProof'}</a></section>`
+  const comparison = guide.slug === 'best-sports-betting-research-apps'
+  const eyebrow = responsible ? 'Keep the boundary visible' : comparison ? 'Build your research desk' : 'Research inside WagerProof'
+  const title = responsible ? 'If the process feels hard to stop, stop the process.' : comparison ? 'Put your agents, Systems, records, and AI in one place.' : 'Put the model, market, and record on the same screen.'
+  const copy = responsible ? 'Free, confidential U.S. support is available at any time. Limits and time-outs are valid research decisions.' : comparison ? 'Start with a free agent, inspect the public records, and see how WagerProof fits the way you already research.' : 'WagerProof organizes model probabilities, current lines, agents, trends, and graded records. It does not guarantee an outcome.'
+  return `<section class="article-cta"><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2><p>${copy}</p></div><a class="button" href="${responsible ? 'https://1800myreset.org/' : APP_STORE_URL}">${responsible ? 'Visit MY-RESET' : comparison ? 'Try WagerProof' : 'View WagerProof'}</a></section>`
 }
 
 function readMore(guide, guideMap) {

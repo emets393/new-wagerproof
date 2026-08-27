@@ -1783,6 +1783,25 @@ summary:focus-visible,
     font-size: clamp(2.65rem, 13vw, 4rem);
   }
 
+  .layout-feature .article-header h1 {
+    font-size: clamp(2.35rem, 10.7vw, 3.25rem);
+    padding-inline: 1.75rem;
+  }
+
+  .layout-feature .article-header {
+    padding-inline: 0;
+  }
+
+  .layout-feature .article-header > .eyebrow {
+    max-width: 18rem;
+    margin-inline: auto;
+    text-wrap: balance;
+  }
+
+  .layout-feature .article-dek {
+    padding-inline: 2.75rem;
+  }
+
   .article-dek {
     font-size: 1rem;
   }
@@ -1907,7 +1926,16 @@ summary:focus-visible,
   }
 
   .article-body .table-scroll {
-    width: calc(100vw - 1.25rem);
+    width: 100%;
+  }
+
+  .app-review > header > div {
+    min-width: 0;
+  }
+
+  .app-review header h2 {
+    overflow-wrap: anywhere;
+    font-size: 1.45rem !important;
   }
 
   .byline dl {
