@@ -5,7 +5,7 @@
 // exact V2-formatted game.
 
 import { fetchGamesForSport } from "../../shared/agentGameHelpers";
-import { getDateTimeInET } from "../../shared/dateUtils";
+import { getDateTimeInET, footballWeekKeyForDate } from "../../shared/dateUtils";
 import type { AgentGenContext, FormattedGame, Sport } from "./context";
 import type { LensName, SteeringProfile } from "../deriveSteeringProfile";
 
@@ -71,6 +71,7 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
       const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate, source);
       let n = 0;
       let pastDropped = 0;
+      let kept: { id: string; fg: FormattedGame }[] = [];
       for (const fg of formattedGames as FormattedGame[]) {
         const id = String((fg as Record<string, unknown>).game_id ?? "");
         if (!id) continue;
@@ -86,8 +87,26 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
           const gt = String((fg as Record<string, unknown>).game_time ?? "00:00:00");
           if (gd && `${gd}T${gt}` <= notStartedCutoff) { startedDropped++; continue; }
         }
-        ctx.games.set(id, { sport, fg });
-        ctx.slateGameIds.add(id);
+        kept.push({ id, fg });
+      }
+      // Football slates span more than one football week (CFBD labels week-0
+      // games week 1, so the CFB table holds Aug 29 AND Sep 3-6 kickoffs).
+      // Offer only the EARLIEST Tue-anchored football week with games — the
+      // owner rule (2026-08-27): CFB agents must pick week 0 before week-1
+      // games exist to them; NFL is unaffected (its earliest week IS week 1).
+      if ((sport === 'nfl' || sport === 'cfb') && !ctx.dryRun && kept.length > 0) {
+        const wk = (e: { fg: FormattedGame }) =>
+          footballWeekKeyForDate(String((e.fg as Record<string, unknown>).game_date ?? '') || ctx.targetDate);
+        const minWeek = kept.map(wk).sort()[0];
+        const laterDropped = kept.length - kept.filter((e) => wk(e) === minWeek).length;
+        if (laterDropped > 0) {
+          console.log(`[v3] loadGames ${sport}: dropped ${laterDropped} game(s) beyond football week ${minWeek}`);
+        }
+        kept = kept.filter((e) => wk(e) === minWeek);
+      }
+      for (const e of kept) {
+        ctx.games.set(e.id, { sport, fg: e.fg });
+        ctx.slateGameIds.add(e.id);
         n++;
       }
       if (pastDropped > 0) {

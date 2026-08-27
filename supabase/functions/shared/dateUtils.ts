@@ -43,6 +43,17 @@ export function getFootballWeekKeyET(now: Date = new Date()): string {
 }
 
 /**
+ * Football week key for a plain YYYY-MM-DD game date (same Tuesday anchor as
+ * getFootballWeekKeyET, but on the date itself — game_date is already an
+ * ET-local calendar date, so no timezone shift belongs here).
+ */
+export function footballWeekKeyForDate(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 5) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+/**
  * The football week's final game date (the Monday), i.e. week_key + 6 days.
  * Weekly parlays store this as target_date so date-based history bucketing
  * graduates them only after Monday night.
