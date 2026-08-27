@@ -182,13 +182,20 @@ struct NFLPropDetailView: View {
         if let pageMarkets = detail?.page?.markets {
             requested.formUnion(pageMarkets.map(\.key))
         }
+        // Scope to the player's (season, week) — without it the board serves a
+        // player's LAST-SEASON closing line for a market with no line this week
+        // (backup QBs rendered 2023-25 pass-TD lines as a live 2026 board).
+        let season = player.season
+        let week = player.week
         var loaded: [String: SportsbookPropMarketOdds] = [:]
         await withTaskGroup(of: (String, SportsbookPropMarketOdds?).self) { group in
             for market in requested {
                 group.addTask {
                     let odds = await SportsbookPropOddsService.shared.odds(
                         playerId: playerId,
-                        market: market
+                        market: market,
+                        season: season,
+                        week: week
                     )
                     return (market, odds)
                 }

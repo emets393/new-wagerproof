@@ -71,7 +71,9 @@ fun NflPropPlayerCard(
     LaunchedEffect(player.playerId, headline?.market) {
         val playerId = player.playerId
         liveOdds = if (!playerId.isNullOrEmpty() && headline != null) {
-            SportsbookPropOddsService.odds(playerId, headline.market)
+            // season/week scoping keeps stale prior-season boards from rendering
+            // as live lines (backup-QB pass-TD incident, 2026-08-27).
+            SportsbookPropOddsService.odds(playerId, headline.market, player.season, player.week)
         } else null
     }
     val (primary, secondary) = nflTeamColors(player.team ?: "")

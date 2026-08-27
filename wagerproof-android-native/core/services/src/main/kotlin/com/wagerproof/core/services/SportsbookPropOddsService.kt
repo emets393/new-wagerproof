@@ -31,8 +31,12 @@ object SportsbookPropOddsService {
         @SerialName("snapshot_time") val snapshotTime: String? = null,
     )
 
-    suspend fun odds(playerId: String, market: String): SportsbookPropMarketOdds? {
-        val cacheKey = "$playerId|$market"
+    // season/week REQUIRED for correctness (mirrors web + iOS): without them
+    // "latest snapshot" serves a player's LAST-SEASON closing line for a market
+    // no book has posted this week — backup QBs rendered 2023-25 pass-TD lines
+    // as a live 2026 board. Missing market this week -> null -> "Line pending".
+    suspend fun odds(playerId: String, market: String, season: Int? = null, week: Int? = null): SportsbookPropMarketOdds? {
+        val cacheKey = "$playerId|$market|${season ?: ""}|${week ?: ""}"
         mutex.withLock { cache[cacheKey] }?.let { return it }
         val rows = runCatching {
             SupabaseClients.cfb.from("nfl_player_props")
@@ -40,6 +44,8 @@ object SportsbookPropOddsService {
                     filter {
                         eq("player_id", playerId)
                         eq("market", market)
+                        if (season != null) eq("season", season)
+                        if (week != null) eq("week", week)
                     }
                     order("snapshot_time", Order.DESCENDING)
                     limit(250)

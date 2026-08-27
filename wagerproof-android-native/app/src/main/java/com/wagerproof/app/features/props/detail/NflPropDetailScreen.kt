@@ -176,8 +176,10 @@ fun NflPropDetailScreen(
                 addAll(player.markets.map { it.market })
                 addAll(pageKeys)
             }
+            // season/week scoping keeps stale prior-season boards from rendering
+            // as live lines (backup-QB pass-TD incident, 2026-08-27).
             bookOddsByMarket = coroutineScope {
-                requested.map { m -> async { m to SportsbookPropOddsService.odds(playerId, m) } }.awaitAll()
+                requested.map { m -> async { m to SportsbookPropOddsService.odds(playerId, m, player.season, player.week) } }.awaitAll()
             }.mapNotNull { (m, odds) -> odds?.let { m to it } }.toMap()
         }
         val season = player.season ?: 2026

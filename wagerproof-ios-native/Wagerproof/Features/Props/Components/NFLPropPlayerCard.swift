@@ -42,9 +42,13 @@ struct NFLPropPlayerCard: View {
                 liveOdds = nil
                 return
             }
+            // season/week scoping keeps stale prior-season boards from rendering
+            // as live lines (backup-QB pass-TD incident, 2026-08-27).
             liveOdds = await SportsbookPropOddsService.shared.odds(
                 playerId: playerId,
-                market: market
+                market: market,
+                season: player.season,
+                week: player.week
             )
         }
     }

@@ -37,16 +37,24 @@ public actor SportsbookPropOddsService {
         }
     }
 
-    public func odds(playerId: String, market: String) async -> SportsbookPropMarketOdds? {
-        let cacheKey = "\(playerId)|\(market)"
+    // season/week REQUIRED for correctness (mirrors web oddsService): without them
+    // "latest snapshot" serves a player's LAST-SEASON closing line for a market no
+    // book has posted this week — owner caught backup QBs rendering pass-TD lines
+    // from 2023-2025 starts as a live 2026 board (Bagent 1.5/+200 from Nov 2023).
+    // A missing market this week then correctly returns nil -> "Line pending".
+    public func odds(playerId: String, market: String, season: Int? = nil, week: Int? = nil) async -> SportsbookPropMarketOdds? {
+        let cacheKey = "\(playerId)|\(market)|\(season.map(String.init) ?? "")|\(week.map(String.init) ?? "")"
         if let cached = cache[cacheKey] { return cached }
 
         let cfb = await CFBSupabase.shared.client
-        guard let rows: [PropRow] = try? await cfb
+        var query = cfb
             .from("nfl_player_props")
             .select("bookmaker,line,over_odds,under_odds,snapshot_time")
             .eq("player_id", value: playerId)
             .eq("market", value: market)
+        if let season { query = query.eq("season", value: season) }
+        if let week { query = query.eq("week", value: week) }
+        guard let rows: [PropRow] = try? await query
             .order("snapshot_time", ascending: false)
             .limit(250)
             .execute()
