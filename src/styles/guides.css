@@ -1189,12 +1189,33 @@ summary:focus-visible,
   scroll-margin-top: 6rem;
 }
 
+.ranked-reviews__heading {
+  max-width: 44rem;
+  margin-bottom: 2rem;
+}
+
+.ranked-reviews__heading h2 {
+  margin: 0.45rem 0 0.8rem !important;
+}
+
+.ranked-reviews__heading > p:last-child {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
 .app-review {
-  margin-top: 1.25rem;
-  padding: clamp(1.25rem, 3vw, 2rem);
+  margin-top: 1.5rem;
+  padding: clamp(1.35rem, 3vw, 2.15rem);
   border: 1px solid var(--line);
   border-radius: 1rem;
   background: var(--surface);
+}
+
+.app-review + .app-review {
+  margin-top: 2rem;
 }
 
 .app-review > header {
@@ -1232,38 +1253,95 @@ summary:focus-visible,
   text-transform: uppercase;
 }
 
-.app-review header h2 {
+.app-review header h3 {
   margin: 0.15rem 0 0 !important;
   font-size: 1.85rem !important;
+  line-height: 1.08;
 }
 
-.app-review__summary {
-  margin: 1.2rem 0 !important;
+.app-review header h3 a {
+  color: var(--ink);
+  text-decoration: none;
 }
 
-.app-review dl {
-  margin: 0 0 1.2rem;
+.app-review header h3 a:hover {
+  color: var(--green);
 }
 
-.app-review dl > div {
-  display: grid;
-  grid-template-columns: 8rem 1fr;
-  gap: 1rem;
-  padding-block: 0.75rem;
+.app-review__copy {
+  margin-top: 1.45rem;
+}
+
+.app-review__copy p {
+  margin: 0 0 1.1rem;
+  font-size: 0.97rem;
+  line-height: 1.72;
+}
+
+.app-review__copy p:last-child {
+  margin-bottom: 0;
+}
+
+.app-review__copy a,
+.app-review__meta a {
+  color: var(--green);
+  text-decoration-color: color-mix(in srgb, var(--green) 42%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.app-review__highlights {
+  margin-top: 1.35rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid color-mix(in srgb, var(--green) 25%, var(--line));
+  border-radius: 0.8rem;
+  background: var(--green-wash);
+}
+
+.app-review__highlights h4 {
+  margin: 0 0 0.65rem;
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.app-review__highlights ul {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.app-review__highlights li {
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.app-review__decision {
+  margin-top: 1.4rem;
+  padding-top: 1.25rem;
   border-top: 1px solid var(--line);
 }
 
-.app-review dt {
-  color: var(--ink);
-  font-size: 0.72rem;
-  font-weight: 820;
-  text-transform: uppercase;
+.app-review__decision p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.65;
 }
 
-.app-review dd {
-  margin: 0;
-  font-size: 0.83rem;
-  line-height: 1.55;
+.app-review__decision p + p {
+  margin-top: 0.55rem;
+}
+
+.app-review__decision strong,
+.app-review__meta strong {
+  color: var(--ink);
+}
+
+.app-review__meta {
+  margin: 1.15rem 0 0 !important;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.77rem !important;
+  line-height: 1.7 !important;
 }
 
 .release-panel {
@@ -1860,14 +1938,17 @@ summary:focus-visible,
     grid-template-columns: auto auto minmax(0, 1fr);
   }
 
+  .app-review > header > div {
+    grid-column: 1 / -1;
+  }
+
   .app-review header img {
     width: 48px;
     height: 48px;
   }
 
-  .app-review dl > div {
-    grid-template-columns: 1fr;
-    gap: 0.25rem;
+  .app-review__highlights {
+    padding: 1rem;
   }
 
   .author-card {
@@ -1933,9 +2014,13 @@ summary:focus-visible,
     min-width: 0;
   }
 
-  .app-review header h2 {
+  .app-review header h3 {
     overflow-wrap: anywhere;
     font-size: 1.45rem !important;
+  }
+
+  .app-review__meta a {
+    overflow-wrap: anywhere;
   }
 
   .byline dl {

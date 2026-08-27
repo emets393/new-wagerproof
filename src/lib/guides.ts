@@ -50,10 +50,16 @@ export interface RankedApp {
   officialUrl: string;
   price: string;
   priceAsOf: string;
+  priceSourceUrl: string;
   platforms: string;
-  summary: string;
-  whyItWins: string;
-  limitation: string;
+  review: RankedAppReview;
+}
+
+export interface RankedAppReview {
+  paragraphs: string[];
+  highlights?: string[];
+  chooseItFor: string;
+  thinkTwiceBecause: string;
 }
 
 export interface GuideScreenshot {

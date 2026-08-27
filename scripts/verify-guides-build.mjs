@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import { SITE_URL, ROOT, absoluteUrl, escapeHtml, loadEditorialSystem } from './lib/guides.mjs'
+import { SITE_URL, ROOT, absoluteUrl, escapeHtml, loadEditorialSystem, renderInlineMarkdown, slugify } from './lib/guides.mjs'
 
 const DIST = path.join(ROOT, 'dist')
 const failures = []
@@ -302,13 +302,51 @@ async function verifyArticleOutput(guide, guideMap, html) {
     }
   }
   if (guide.layout === 'feature') {
-    for (const app of guide.apps) {
+    const reviewYear = guide.reviewedAt.slice(0, 4)
+    if (!html.includes(`<h2>The ${guide.apps.length} best sports betting research apps in ${escapeHtml(reviewYear)}</h2>`)) fail(`${context}: full ranked review heading missing`)
+    if (html.includes('id="sources"') || html.includes('href="#sources"') || html.includes('Evidence ledger')) {
+      fail(`${context}: feature comparison must not render a bottom Sources section`)
+    }
+    if (html.includes('Official product source')) fail(`${context}: generic product-source footer must not render`)
+    for (const [index, app] of guide.apps.entries()) {
       if (!html.includes(`data-app-name="${escapeHtml(app.name)}"`)) fail(`${context}: ranked app review missing for ${app.name}`)
       if (count(html, new RegExp(app.icon.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) < 2) fail(`${context}: app icon not used in table and review for ${app.name}`)
       const iconFile = path.join(DIST, app.icon.replace(/^\//, ''))
       if (!await exists(iconFile)) fail(`${context}: missing app icon file ${app.icon}`)
+      const escapedName = escapeHtml(app.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const reviewMatch = new RegExp(`<article class="app-review" data-app-name="${escapedName}">([\\s\\S]*?)<\\/article>`).exec(html)
+      if (!reviewMatch) {
+        fail(`${context}: could not isolate inline review for ${app.name}`)
+        continue
+      }
+      const reviewHtml = reviewMatch[0]
+      const appId = `app-${slugify(app.name)}`
+      if (!reviewHtml.includes(`<h3 id="${appId}"><a href="${escapeHtml(app.officialUrl)}" rel="noopener noreferrer">${escapeHtml(app.name)}</a></h3>`)) {
+        fail(`${context}: linked H3 missing for ${app.name}`)
+      }
+      for (const paragraph of app.review.paragraphs) {
+        if (!reviewHtml.includes(`<p>${renderInlineMarkdown(paragraph)}</p>`)) fail(`${context}: rewritten paragraph missing for ${app.name}`)
+      }
+      if (!reviewHtml.includes(`<strong>Choose it for:</strong> ${renderInlineMarkdown(app.review.chooseItFor)}`)) fail(`${context}: Choose it for missing for ${app.name}`)
+      if (!reviewHtml.includes(`<strong>Think twice because:</strong> ${renderInlineMarkdown(app.review.thinkTwiceBecause)}`)) fail(`${context}: Think twice because missing for ${app.name}`)
+      const reviewStrings = [
+        ...app.review.paragraphs,
+        ...(app.review.highlights || []),
+        app.review.chooseItFor,
+        app.review.thinkTwiceBecause,
+      ]
+      const expectedSourceUrls = new Set([
+        app.priceSourceUrl,
+        ...reviewStrings.flatMap((value) => [...value.matchAll(/\[[^\]]+\]\((https:\/\/[^)\s]+)\)/g)].map((match) => match[1])),
+      ])
+      for (const sourceUrl of expectedSourceUrls) {
+        if (!reviewHtml.includes(`href="${escapeHtml(sourceUrl)}"`)) fail(`${context}: inline source missing from ${app.name}: ${sourceUrl}`)
+      }
+      if (index === 0 && !reviewHtml.includes('Where it shines')) fail(`${context}: top-pick highlights missing`)
     }
     assertCount(html, /data-app-name=/g, guide.apps.length, `${context} ranked reviews`)
+    assertCount(html, /<strong>Choose it for:<\/strong>/g, guide.apps.length, `${context} Choose it for lines`)
+    assertCount(html, /<strong>Think twice because:<\/strong>/g, guide.apps.length, `${context} Think twice because lines`)
     if (!html.toLowerCase().includes('documentation-based')) fail(`${context}: documentation-based limitation missing`)
   }
   if (guide.layout === 'release') {

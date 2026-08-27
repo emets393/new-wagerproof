@@ -62,6 +62,22 @@ function assertLocalAsset(value, context) {
   if (/^https?:/.test(value)) throw new Error(`${context}: remote asset is not allowed: ${value}`)
 }
 
+function markdownSourceUrls(value) {
+  return [...String(value).matchAll(/\[[^\]]+\]\((https:\/\/[^)\s]+)\)/g)].map((match) => match[1])
+}
+
+export function renderInlineMarkdown(markdown) {
+  let html = sanitizeHtml(marked.parseInline(markdown, { gfm: true }), {
+    allowedTags: ['a', 'strong', 'em', 'code'],
+    allowedAttributes: { a: ['href', 'title'] },
+    allowedSchemes: ['https'],
+    allowProtocolRelative: false,
+    enforceHtmlBoundary: true,
+  })
+  html = html.replace(/<a href="(https:\/\/[^\"]+)"/g, '<a href="$1" rel="noopener noreferrer"')
+  return html
+}
+
 export function validateGuide(meta, sources, context) {
   for (const key of REQUIRED_STRINGS) assertString(meta, key, context)
   if (!['standard', 'feature', 'release'].includes(meta.layout)) {
@@ -97,21 +113,67 @@ export function validateGuide(meta, sources, context) {
     if (!/^\/[a-z0-9\-/]+\/?$/.test(alias)) throw new Error(`${context}: invalid redirect alias ${alias}`)
   }
   if (!Array.isArray(sources) || sources.length < 2) throw new Error(`${context}: at least two sources are required`)
+  const sourceUrls = new Set()
   for (const [index, source] of sources.entries()) {
     for (const key of ['title', 'publisher', 'url', 'accessedAt', 'usedFor']) assertString(source, key, `${context}.sources[${index}]`)
     if (!/^https:\/\//.test(source.url)) throw new Error(`${context}: source URL must use https: ${source.url}`)
+    if (sourceUrls.has(source.url)) throw new Error(`${context}: duplicate source URL ${source.url}`)
+    sourceUrls.add(source.url)
     assertDate(source.accessedAt, `${context}.sources[${index}].accessedAt`)
   }
   if (meta.layout === 'feature') {
     if (!Array.isArray(meta.apps) || meta.apps.length < 5) throw new Error(`${context}: feature layout requires ranked apps`)
+    const citedSourceUrls = new Set()
+    const appIds = new Set()
     meta.apps.forEach((app, index) => {
       if (app.rank !== index + 1) throw new Error(`${context}: app ranks must be sequential`)
-      for (const key of ['name', 'categoryLabel', 'icon', 'officialUrl', 'price', 'priceAsOf', 'platforms', 'summary', 'whyItWins', 'limitation']) {
+      for (const key of ['name', 'categoryLabel', 'icon', 'officialUrl', 'price', 'priceAsOf', 'priceSourceUrl', 'platforms']) {
         assertString(app, key, `${context}.apps[${index}]`)
       }
+      const appId = slugify(app.name)
+      if (appIds.has(appId)) throw new Error(`${context}: app names must produce unique heading IDs: ${app.name}`)
+      appIds.add(appId)
+      if (!/^https:\/\//.test(app.officialUrl)) throw new Error(`${context}.apps[${index}]: officialUrl must use https`)
+      if (!sourceUrls.has(app.priceSourceUrl)) throw new Error(`${context}.apps[${index}]: priceSourceUrl is not in sources.json`)
+      citedSourceUrls.add(app.priceSourceUrl)
       assertLocalAsset(app.icon, `${context}.apps[${index}].icon`)
       assertDate(app.priceAsOf, `${context}.apps[${index}].priceAsOf`)
+      if (!app.review || typeof app.review !== 'object') throw new Error(`${context}.apps[${index}]: review is required`)
+      if (!Array.isArray(app.review.paragraphs) || app.review.paragraphs.length < 2) {
+        throw new Error(`${context}.apps[${index}]: review requires at least two paragraphs`)
+      }
+      app.review.paragraphs.forEach((paragraph, paragraphIndex) => {
+        if (typeof paragraph !== 'string' || !paragraph.trim()) {
+          throw new Error(`${context}.apps[${index}].review.paragraphs[${paragraphIndex}]: non-empty string required`)
+        }
+      })
+      for (const key of ['chooseItFor', 'thinkTwiceBecause']) assertString(app.review, key, `${context}.apps[${index}].review`)
+      if (app.review.highlights) {
+        if (!Array.isArray(app.review.highlights) || app.review.highlights.length < 2) {
+          throw new Error(`${context}.apps[${index}].review.highlights: at least two highlights required when present`)
+        }
+        app.review.highlights.forEach((highlight, highlightIndex) => {
+          if (typeof highlight !== 'string' || !highlight.trim()) {
+            throw new Error(`${context}.apps[${index}].review.highlights[${highlightIndex}]: non-empty string required`)
+          }
+        })
+      }
+      const reviewStrings = [
+        ...app.review.paragraphs,
+        ...(app.review.highlights || []),
+        app.review.chooseItFor,
+        app.review.thinkTwiceBecause,
+      ]
+      const reviewSourceUrls = reviewStrings.flatMap(markdownSourceUrls)
+      if (reviewSourceUrls.length === 0) throw new Error(`${context}.apps[${index}]: review requires inline source links`)
+      for (const url of reviewSourceUrls) {
+        if (!sourceUrls.has(url)) throw new Error(`${context}.apps[${index}]: inline source is not in sources.json: ${url}`)
+        citedSourceUrls.add(url)
+      }
     })
+    for (const source of sources) {
+      if (!citedSourceUrls.has(source.url)) throw new Error(`${context}: source is not cited inline: ${source.url}`)
+    }
   }
   if (meta.layout === 'release') {
     if (!meta.release || typeof meta.release !== 'object') throw new Error(`${context}: release layout requires release metadata`)

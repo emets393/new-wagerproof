@@ -8,6 +8,7 @@ import {
   escapeHtml,
   formatDate,
   loadEditorialSystem,
+  renderInlineMarkdown,
   slugify,
 } from './lib/guides.mjs'
 
@@ -367,7 +368,7 @@ function tableOfContents(guide) {
   if (guide.layout === 'release') extra.push({ id: 'what-shipped', label: 'What shipped' }, { id: 'release-screens', label: 'Product screens' })
   if (guide.howTo) extra.push({ id: 'step-by-step', label: guide.howTo.name })
   if (guide.faqs?.length) extra.push({ id: 'frequently-asked-questions', label: 'Frequently asked questions' })
-  extra.push({ id: 'sources', label: 'Sources' })
+  if (guide.layout !== 'feature') extra.push({ id: 'sources', label: 'Sources' })
   const headings = [...guide.headings, ...extra]
   return `<aside class="article-toc" aria-label="On this page"><p>On this page</p><ol>${headings.map((heading) => `<li><a href="#${escapeHtml(heading.id)}">${escapeHtml(heading.label)}</a></li>`).join('')}</ol></aside>`
 }
@@ -401,10 +402,18 @@ function bottomLine(guide) {
 }
 
 function renderComparison(guide) {
+  const reviewYear = guide.reviewedAt.slice(0, 4)
+  const reviews = guide.apps.map((app) => {
+    const appId = `app-${slugify(app.name)}`
+    const highlights = app.review.highlights?.length
+      ? `<section class="app-review__highlights" aria-labelledby="${appId}-highlights"><h4 id="${appId}-highlights">Where it shines</h4><ul>${app.review.highlights.map((highlight) => `<li>${renderInlineMarkdown(highlight)}</li>`).join('')}</ul></section>`
+      : ''
+    return `<article class="app-review" data-app-name="${escapeHtml(app.name)}"><header><span class="app-review__rank">${app.rank}</span><img src="${escapeHtml(app.icon)}" width="64" height="64" alt="${escapeHtml(`${app.name} app icon`)}" /><div><p>${escapeHtml(app.categoryLabel)}</p><h3 id="${appId}"><a href="${escapeHtml(app.officialUrl)}" rel="noopener noreferrer">${escapeHtml(app.name)}</a></h3></div></header><div class="app-review__copy">${app.review.paragraphs.map((paragraph) => `<p>${renderInlineMarkdown(paragraph)}</p>`).join('')}</div>${highlights}<div class="app-review__decision"><p><strong>Choose it for:</strong> ${renderInlineMarkdown(app.review.chooseItFor)}</p><p><strong>Think twice because:</strong> ${renderInlineMarkdown(app.review.thinkTwiceBecause)}</p></div><p class="app-review__meta"><strong>Platforms:</strong> ${escapeHtml(app.platforms)}<br /><strong>Price checked ${escapeHtml(formatDate(app.priceAsOf))}:</strong> <a href="${escapeHtml(app.priceSourceUrl)}" rel="noopener noreferrer">${escapeHtml(app.price)}</a></p></article>`
+  }).join('')
   return `<section class="comparison" aria-labelledby="comparison-title">
   <div class="section-heading section-heading--article"><div><p class="eyebrow">Snapshot date: August 26, 2026</p><h2 id="comparison-title">Picks at a glance</h2></div><p>U.S. public prices before tax. Verify checkout.</p></div>
-  <div class="table-scroll" tabindex="0" aria-label="Sports research app comparison table"><table><thead><tr><th>Rank</th><th>App</th><th>Best for</th><th>Public price snapshot</th><th>Platforms</th></tr></thead><tbody>${guide.apps.map((app) => `<tr><td><span class="rank-pill">${app.rank}</span></td><td><span class="table-app"><img src="${escapeHtml(app.icon)}" width="42" height="42" alt="" />${escapeHtml(app.name)}</span></td><td>${escapeHtml(app.categoryLabel.replace(/^Best for /, ''))}</td><td>${escapeHtml(app.price)}</td><td>${escapeHtml(app.platforms)}</td></tr>`).join('')}</tbody></table></div>
-  <div class="ranked-reviews" id="ranked-reviews">${guide.apps.map((app) => `<article class="app-review" data-app-name="${escapeHtml(app.name)}"><header><span class="app-review__rank">${app.rank}</span><img src="${escapeHtml(app.icon)}" width="64" height="64" alt="${escapeHtml(`${app.name} app icon`)}" /><div><p>${escapeHtml(app.categoryLabel)}</p><h2>${escapeHtml(app.name)}</h2></div></header><p class="app-review__summary">${escapeHtml(app.summary)}</p><dl><div><dt>Why it wins</dt><dd>${escapeHtml(app.whyItWins)}</dd></div><div><dt>Important limit</dt><dd>${escapeHtml(app.limitation)}</dd></div><div><dt>Price checked ${escapeHtml(formatDate(app.priceAsOf))}</dt><dd>${escapeHtml(app.price)}</dd></div></dl><a class="text-link" href="${escapeHtml(app.officialUrl)}" rel="noopener noreferrer">Official product source <span aria-hidden="true">↗</span></a></article>`).join('')}</div>
+  <div class="table-scroll" tabindex="0" aria-label="Sports research app comparison table"><table><thead><tr><th>Rank</th><th>App</th><th>Best for</th><th>Public price snapshot</th><th>Platforms</th></tr></thead><tbody>${guide.apps.map((app) => `<tr><td><span class="rank-pill">${app.rank}</span></td><td><span class="table-app"><img src="${escapeHtml(app.icon)}" width="42" height="42" alt="" />${escapeHtml(app.name)}</span></td><td>${escapeHtml(app.categoryLabel.replace(/^Best for /, ''))}</td><td><a href="${escapeHtml(app.priceSourceUrl)}" rel="noopener noreferrer">${escapeHtml(app.price)}</a></td><td>${escapeHtml(app.platforms)}</td></tr>`).join('')}</tbody></table></div>
+  <div class="ranked-reviews" id="ranked-reviews"><div class="ranked-reviews__heading"><p class="eyebrow">Full reviews</p><h2>The ${guide.apps.length} best sports betting research apps in ${escapeHtml(reviewYear)}</h2><p>Official product links sit beside the features, prices, and limitations they support.</p></div>${reviews}</div>
   </section>`
 }
 
@@ -447,7 +456,7 @@ function readMore(guide, guideMap) {
 }
 
 function renderArticle(guide, guideMap) {
-  const bodyContent = `${bottomLine(guide)}${guide.contentHtml}${guide.layout === 'feature' ? renderComparison(guide) : ''}${guide.layout === 'release' ? renderRelease(guide) : ''}${renderHowTo(guide)}${renderFaqs(guide)}${renderSources(guide)}${authorCard()}${articleCta(guide)}<p class="corrections">Have a correction or a newer first-party source? <a href="mailto:support@wagerproof.bet?subject=${encodeURIComponent(`Guide correction: ${guide.shortTitle}`)}">Email the editorial team</a>.</p>`
+  const bodyContent = `${bottomLine(guide)}${guide.contentHtml}${guide.layout === 'feature' ? renderComparison(guide) : ''}${guide.layout === 'release' ? renderRelease(guide) : ''}${renderHowTo(guide)}${renderFaqs(guide)}${guide.layout === 'feature' ? '' : renderSources(guide)}${authorCard()}${articleCta(guide)}<p class="corrections">Have a correction or a newer first-party source? <a href="mailto:support@wagerproof.bet?subject=${encodeURIComponent(`Guide correction: ${guide.shortTitle}`)}">Email the editorial team</a>.</p>`
   const body = `<main id="main-content" class="article-page">
   ${articleHeader(guide)}
   <div class="article-layout section-shell">${tableOfContents(guide)}<article class="article-body">${disclosure(guide)}${bodyContent}</article></div>

@@ -13,7 +13,7 @@
   "updatedAt": "2026-08-26",
   "reviewedAt": "2026-08-26",
   "nextReviewAt": "2026-09-26",
-  "readingTimeMinutes": 13,
+  "readingTimeMinutes": 19,
   "author": "chris-habib",
   "hero": {
     "src": "/guides/best-sports-betting-research-apps/best-sports-betting-research-apps-title-card-v1.webp",
@@ -45,10 +45,26 @@
       "officialUrl": "https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957",
       "price": "Free limited tier; Pro pricing appears in-app and varies by region",
       "priceAsOf": "2026-08-26",
+      "priceSourceUrl": "https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957",
       "platforms": "Web, iOS and iPadOS, Android",
-      "summary": "WagerProof puts a configurable team of AI agents beside its own models, live sportsbook lines, historical Systems, WagerBot, player-prop tools, Discord community, and AI integrations. Every published pick and saved System keeps getting graded, so the record does not stop when the screenshot looks good.",
-      "whyItWins": "It keeps the whole research loop in one clean product. You can find a model and market disagreement, let agents research it, test the idea against history, inspect the public record, and bring the same data into Claude, ChatGPT, Cursor, or another compatible AI through the WagerProof MCP connector.",
-      "limitation": "Choose a specialist if your only goal is broad arbitrage scanning or automatic sportsbook syncing. WagerProof's current historical Systems cover MLB, NFL, and college football, while models cover five sports and cross-book props cover MLB and NFL. The free plan includes one active AI agent. Pro raises that to 30 total agents, with up to 10 active, and adds Historical Systems, cross-book props, unlimited WagerBot, and Discord access."
+      "review": {
+        "paragraphs": [
+          "WagerProof is for the bettor who is tired of stitching together a research process from five different places. It puts [models for spreads, moneylines, and totals across five sports](https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957) beside current sportsbook lines, then surfaces the biggest disagreements in Today's Outliers. You can check the slate in a few minutes or keep digging into a matchup without feeling like somebody poured a database onto your phone.",
+          "The biggest difference is the agent layer. You can [build an AI handicapper around the sports, markets, risk level, and research style you care about, with more than 50 settings available](https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957). The agent works through the slate, publishes its reasoning, and keeps the result attached to the pick. [Wins, losses, pushes, and units are graded automatically, and public agents can be followed, compared, or copied](https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957). A losing week does not disappear because it is inconvenient.",
+          "Historical Systems bring that same accountability to an angle you build yourself. [Save a set of filters and WagerProof grades the System again each night](https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957), so its record can improve or fall apart as new games are played. Pro members also get [Discord access for support and strategy discussions](https://wagerproof.bet/support/troubleshooting/contact-support). The point is not to collect more disconnected tools. It is to move from an idea, to research, to a pick, to a record in one clean interface.",
+          "The integrations are what make that workflow unusually flexible. The [WagerProof MCP connector](https://wagerproof.bet/mcp) works with Claude, ChatGPT, Cursor, Claude Code, OpenClaw, Hermes, and other compatible clients, giving them read-only access to the model, market, historical, agent, pick, and record tools allowed by your account. The free tier includes one active agent. [Pro subscriptions are available through the app and web](https://wagerproof.bet/support/plans-and-payments/how-to-subscribe), and the [current product listing describes higher agent limits, Historical Systems, cross-book props, unlimited WagerBot, and Discord](https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957)."
+        ],
+        "highlights": [
+          "Configurable AI agents that research the slate and keep their reasoning attached.",
+          "Historical Systems that continue grading instead of freezing a good-looking backtest.",
+          "A polished, visual interface that makes deep research easy to move through.",
+          "Public records with wins, losses, pushes, units, and leaderboards you can inspect.",
+          "Discord access for Pro members who want help, updates, and strategy discussion.",
+          "MCP integrations that bring WagerProof data into the AI tools you already use."
+        ],
+        "chooseItFor": "one polished research home for agents, historical Systems, live market comparisons, inspectable records, Discord, and outside AI integrations.",
+        "thinkTwiceBecause": "a specialist is the better purchase if all you need is automatic sportsbook syncing or industrial-scale arbitrage scanning. Historical System and cross-book prop coverage is also narrower than the full model lineup."
+      }
     },
     {
       "rank": 2,
@@ -58,10 +74,17 @@
       "officialUrl": "https://apps.apple.com/us/app/sports-betting-research-juice/id6754342029",
       "price": "Official March 2026 page: $6.99 weekly or $99.99 yearly after a 3-day trial; verify checkout",
       "priceAsOf": "2026-08-26",
+      "priceSourceUrl": "https://juicebetresearch.com/best-sports-betting-research-apps.html",
       "platforms": "iPhone, iPad, compatible Mac",
-      "summary": "Juice starts with the thing already on your phone: a bet-slip screenshot. Upload it and the app compares live prices while showing probability and expected-value estimates from ChatGPT, Claude, Gemini, and Grok.",
-      "whyItWins": "Its official workflow is direct: upload the slip, review the live price, and compare four named AI estimates side by side. It is built for the bettor who wants a quick second opinion on something already sitting in the bet slip.",
-      "limitation": "It is a screenshot-first research tool, not a historical System builder or a public performance ledger. Its public pages do not include an independent accuracy audit, and the App Store purchase labels make checkout the safest place to confirm the billing period."
+      "review": {
+        "paragraphs": [
+          "Juice starts at the moment most research tools ignore: you already have a bet slip open and want another look before doing anything with it. Upload a screenshot, add any context about a boost or parlay, and the app turns that slip into a research report instead of making you search for every game and market again.",
+          "The documented workflow is unusually direct. Juice [compares the slip with live prices from 20 sportsbooks and shows probability and expected-value estimates from ChatGPT, Claude, Gemini, and Grok](https://apps.apple.com/us/app/sports-betting-research-juice/id6754342029). It also includes Ask Juice for questions about games, players, matchups, props, and line movement. That makes the product easy to understand: it is a second opinion on a bet you are already considering.",
+          "Juice's own March 2026 page listed a [three-day trial followed by $6.99 per week or $99.99 per year](https://juicebetresearch.com/best-sports-betting-research-apps.html). Its App Store purchase labels do not make every billing period equally clear, so checkout is still the right place to confirm the current offer."
+        ],
+        "chooseItFor": "turning a sportsbook screenshot into a multi-model review without rebuilding the bet manually.",
+        "thinkTwiceBecause": "Juice does not document the ongoing historical Systems, configurable agent team, or public performance ledger that make WagerProof a more complete research home."
+      }
     },
     {
       "rank": 3,
@@ -71,10 +94,17 @@
       "officialUrl": "https://oddsjam.com/subscribe",
       "price": "Modular plans; current U.S. App Store tiers range from $19.99 monthly to $399.99 monthly",
       "priceAsOf": "2026-08-26",
+      "priceSourceUrl": "https://apps.apple.com/us/app/oddsjam-sharp-sports-betting/id6448072108",
       "platforms": "Web, iPhone, Android",
-      "summary": "OddsJam is the power tool in this list. It scans a large sportsbook set for line shopping, positive-EV spots, arbitrage, middles, promotional conversions, player trends, and tracking.",
-      "whyItWins": "Nothing else here is as focused on finding price differences across a huge number of books. If your research starts with the market and you are willing to operate a more demanding setup, OddsJam is the clearest choice.",
-      "limitation": "The product is priced in modules rather than one simple all-access plan. Its own plan selector also makes clear that the advanced workflows can require several sportsbook accounts, a meaningful bankroll, and hours of daily attention."
+      "review": {
+        "paragraphs": [
+          "OddsJam is less like a second-opinion app and more like a trading desk. Its job is to watch a very large market, catch price differences, and help someone act on line-shopping, positive-EV, arbitrage, middle, and promotional-conversion opportunities.",
+          "The scale is the reason to choose it. Its current App Store listing describes [real-time coverage from more than 150 books, plus separate tools for positive EV, arbitrage, middles, trends, sharp money, fantasy markets, and promo conversion](https://apps.apple.com/us/app/oddsjam-sharp-sports-betting/id6448072108). If your process begins with finding the best number across as many books as possible, OddsJam is the specialist in this comparison.",
+          "It is also the app whose requirements deserve the closest look before paying. OddsJam's [own plan selector](https://oddsjam.com/subscribe) describes pre-match arbitrage around three or more books, at least a $2,000 bankroll, and 30 to 60 minutes a day. Its live-arbitrage example assumes six or more books, at least $5,000, and more than two hours a day. The current U.S. App Store lists modules from $19.99 per month through $399.99 per month rather than one simple all-access subscription."
+        ],
+        "chooseItFor": "broad line shopping, arbitrage, middles, promo conversion, and market-first research across a large sportsbook set.",
+        "thinkTwiceBecause": "the product is expensive, modular, and built for a much more demanding daily routine than opening one app to understand a slate."
+      }
     },
     {
       "rank": 4,
@@ -84,10 +114,17 @@
       "officialUrl": "https://help.outlier.bet/en/articles/12556823-choosing-the-right-outlier-plan-for-your-betting-style",
       "price": "Premium $19.99 monthly; Premium+ $29.99 monthly; Pro $79.99 monthly",
       "priceAsOf": "2026-08-26",
+      "priceSourceUrl": "https://help.outlier.bet/en/articles/12556823-choosing-the-right-outlier-plan-for-your-betting-style",
       "platforms": "Web, iPhone, Android",
-      "summary": "Outlier sits between a visual prop app and a serious price tool. It combines player and game context, injuries, line movement, alerts, odds comparison, and higher-tier EV or arbitrage screens.",
-      "whyItWins": "It is built for bettors who want to understand the player and shop the price without switching products. Its official feature set puts contextual stats, injuries, line movement, and price comparison in the same workflow.",
-      "limitation": "The Android app is not yet the same product as the web and iOS versions. Outlier says Android currently supports Premium and MLB, while several Premium+ and Pro features remain elsewhere."
+      "review": {
+        "paragraphs": [
+          "Outlier is for the bettor who wants to understand a player and shop the price without changing products halfway through. It sits between a visual prop-research app and a more advanced market tool, which gives it a wider range than a pure trend-card product.",
+          "The current [Outlier plan breakdown](https://help.outlier.bet/en/articles/12556823-choosing-the-right-outlier-plan-for-your-betting-style) puts player and game research, data visuals, odds tracking, injuries, and alerts in the $19.99 Premium plan. Premium+ adds a positive-EV badge and detailed odds movement for $29.99 per month. The $79.99 Pro plan adds the full positive-EV feed, sharp-book comparisons, middling tools, boosted-parlay highlights, and an arbitrage feed.",
+          "Android is the important wrinkle. Outlier's [Android support page](https://help.outlier.bet/en/articles/16190884-outlier-for-android) says the native app currently supports the Premium tier and MLB, while Premium+ and Pro features remain available through the web or mobile-web product. It does not give a timeline for full parity."
+        ],
+        "chooseItFor": "putting prop context, injuries, line movement, odds comparison, and higher-tier market tools into one workflow.",
+        "thinkTwiceBecause": "the useful feature set changes substantially by plan, and Android is not yet the same product as web and iOS."
+      }
     },
     {
       "rank": 5,
@@ -97,10 +134,17 @@
       "officialUrl": "https://props.cash/",
       "price": "$19.99 monthly or $199.99 yearly for all sports",
       "priceAsOf": "2026-08-26",
+      "priceSourceUrl": "https://props.cash/",
       "platforms": "Web, iOS, Android, Discord bot",
-      "summary": "Props.Cash keeps player-prop research focused. Trend cards, filters, current lines, roster and injury context, odds analysis, and correlated-prop views are all built around answering one narrow question quickly.",
-      "whyItWins": "The narrow focus is the advantage. It is designed for someone who wants to open an app, understand a player's recent context, and compare a prop without first setting up a broad analytics workflow.",
-      "limitation": "That same focus is also the boundary. Props.Cash is not trying to be a broad game-model platform, a custom AI-agent desk, a historical System builder, or an arbitrage scanner."
+      "review": {
+        "paragraphs": [
+          "Props.Cash is the clean specialist in this group. It is built around one question: what does the relevant player context look like against the prop line being offered right now? If that is most of your research, there is real value in an app that does not ask you to configure a broader analytics system first.",
+          "Its [current product page](https://props.cash/) documents updated prop lines, statistical visualizations, advanced filters, injury and lineup context, odds analysis, and correlated-prop views. It covers web, iOS, Android, and a Discord bot. The all-sports plan is currently listed at $19.99 per month or $199.99 per year.",
+          "The narrowness is both the appeal and the boundary. Props.Cash is designed to help someone inspect player props quickly. Its public materials do not describe configurable research agents, saved historical Systems, broad game models, or a persistent public record of picks."
+        ],
+        "chooseItFor": "focused player-prop research with clear visual context, filters, current lines, roster news, and correlated-prop views.",
+        "thinkTwiceBecause": "it solves one part of the workflow very well, but it is not trying to replace a complete research desk."
+      }
     },
     {
       "rank": 6,
@@ -110,10 +154,17 @@
       "officialUrl": "https://pikkit.com/pro",
       "price": "Core tracking free; Pro $29.99 monthly or $199.99 yearly in the U.S. App Store",
       "priceAsOf": "2026-08-26",
+      "priceSourceUrl": "https://apps.apple.com/us/app/pikkit-sports-betting-tracker/id1586567110",
       "platforms": "iPhone, Android; web access is Pro",
-      "summary": "Pikkit is a tracker before it is anything else. BookSync pulls supported sportsbook history into profit and loss, ROI, live results, line shopping, and a social feed without asking you to grade each wager yourself.",
-      "whyItWins": "For an automatic record of bets you actually placed, Pikkit has the clearest workflow in this group. The verified history and social layer make it easy to follow real activity rather than manually posted wins.",
-      "limitation": "Pikkit does not allow manual bet entry. If your sportsbook is unsupported, you cannot simply add the wager yourself. Closing-line analysis, same-game parlay shopping, exports, alerts, and web access also require Pro."
+      "review": {
+        "paragraphs": [
+          "Pikkit is built around the uncomfortable question most bettors postpone: what actually happened to all the bets you placed? Its answer is to connect the sportsbooks directly, pull the history into one dashboard, and calculate the record without relying on memory or a spreadsheet you update only when you remember.",
+          "With [BookSync, supported sportsbook bets are imported automatically and organized by profit and loss, ROI, win rate, units, sport, bet type, book, and odds range](https://pikkit.com/bet-tracker). The same product adds line shopping and a social feed built around synced activity. That makes Pikkit the strongest fit here when the record you care about is your own real sportsbook history rather than the output of a model or research agent.",
+          "The verification model creates a real limitation. Pikkit [does not support manual bet entry](https://pikkit.com/pro), so a wager from an unsupported book cannot simply be added to complete the record. Closing-line analysis, same-game parlay shopping, exports, alerts, web access, and several deeper tools require Pro. The current U.S. App Store lists [Pikkit Pro at $29.99 per month or $199.99 per year](https://apps.apple.com/us/app/pikkit-sports-betting-tracker/id1586567110)."
+        ],
+        "chooseItFor": "automatic sportsbook syncing, personal performance tracking, verified social activity, and a record of bets you actually placed.",
+        "thinkTwiceBecause": "unsupported books leave holes that manual entry cannot fill, and the product tracks your betting activity rather than building the research process that produced it."
+      }
     },
     {
       "rank": 7,
@@ -123,10 +174,17 @@
       "officialUrl": "https://www.actionnetwork.com/subscribe/",
       "price": "Free basic product; PRO $14.99 weekly, $24.99 monthly, or $119.99 yearly",
       "priceAsOf": "2026-08-26",
+      "priceSourceUrl": "https://www.actionnetwork.com/subscribe/",
       "platforms": "Web, iOS and iPadOS, Android",
-      "summary": "Action Network is the familiar all-purpose sports desk in this comparison. It puts live odds, movement, scores, tracking, expert picks, written analysis, public betting data, and alerts in one large editorial product.",
-      "whyItWins": "Choose it when you want to read about the game as much as you want to study the number. No other app here has the same breadth of editorial coverage tied to odds and tracking.",
-      "limitation": "A lot of the useful data, projections, premium articles, expert picks, and alerts sit behind PRO. It is also not built around configurable AI agents, saved historical Systems, or your own no-code model."
+      "review": {
+        "paragraphs": [
+          "Action Network is the all-purpose sports desk on this list. It makes the most sense for someone who wants to read about the game, follow expert picks, check movement, watch scores, and track a bet without bouncing between a media site and an odds app.",
+          "Its [current App Store listing](https://apps.apple.com/us/app/action-network-sports-betting/id1083677479) combines live odds, line movement, scores, personal tracking, expert picks, written analysis, public betting information, and real-time alerts across major sports. No other product here leans as heavily into a full editorial operation alongside its research tools.",
+          "There is a free basic product, but much of the distinctive data sits behind PRO. Action's [current checkout](https://www.actionnetwork.com/subscribe/) lists $14.99 weekly, $24.99 monthly, or $119.99 annually and places money percentages, PRO System picks, premium articles, projections, sharp-action reports, custom tracking, and line alerts in the paid tier."
+        ],
+        "chooseItFor": "a broad mix of sports coverage, written analysis, expert picks, live odds, alerts, and personal tracking.",
+        "thinkTwiceBecause": "the strongest research features require PRO, and the product is not built around your own configurable agents, historical System builder, or no-code model."
+      }
     },
     {
       "rank": 8,
@@ -136,10 +194,17 @@
       "officialUrl": "https://www.rithmm.com/pricing",
       "price": "Core $29.99 monthly; Pro $49.99 monthly; Premium $99.99 monthly; annual plans available",
       "priceAsOf": "2026-08-26",
+      "priceSourceUrl": "https://www.rithmm.com/pricing",
       "platforms": "Web, iOS and iPadOS, Android",
-      "summary": "Rithmm is for the bettor who wants to shape the model itself. You can start with a house model, build your own without code, copy a community model, shop lines, track bets, and ask Scout about the reasoning.",
-      "whyItWins": "It has the clearest no-code model-building path in this list. WagerProof gives you configurable agents and historical Systems, while Rithmm gives you more direct ownership over the model recipe.",
-      "limitation": "The feature ladder gets expensive. Scout is missing from Core and limited by monthly usage on higher plans, while advanced factors, player-impact adjustments, and exports require Premium."
+      "review": {
+        "paragraphs": [
+          "Rithmm is for the bettor who does not just want a model to hand over a number. It is for someone who wants a say in how that model thinks. You can begin with Rithmm's recommendations, build around the factors you care about, or copy a community model as a starting point.",
+          "The model builder is the reason Rithmm earns its category win. Rithmm says you can [weight factors such as pace, defensive rating, usage, and foul rate, rescore the slate around that logic, and backtest the result without writing code](https://www.rithmm.com/ai-sports-betting). The product also places live line shopping beside those projections. Scout, available on Pro and Premium, can explain the reasoning, compare plays, and build a parlay from the current slate.",
+          "The cost rises quickly with the amount of control. [Core is $29.99 per month and does not include Scout, Pro is $49.99 with a monthly Scout allowance, and Premium is $99.99 with deeper model controls, four times the Scout usage, player-impact adjustments, and tracked-bet exports](https://www.rithmm.com/pricing). The advanced model builder is a Premium feature, so the strongest version of Rithmm's category win is also its most expensive tier."
+        ],
+        "chooseItFor": "shaping and backtesting a model without code, then using line shopping and an AI analyst around that model.",
+        "thinkTwiceBecause": "direct model control, exports, and the largest Scout allowance sit at $99.99 per month, and Scout is absent from Core."
+      }
     }
   ],
   "faqs": [

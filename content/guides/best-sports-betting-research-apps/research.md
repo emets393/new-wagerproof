@@ -5,6 +5,8 @@
 - Do not compare or imply predictive accuracy. No independent calibration audit was completed.
 - Keep the Red Honey/WagerProof ownership disclosure above the first ranked recommendation.
 - Recheck every price, trial, sport, sportsbook count, and platform claim monthly.
+- Keep official links inside the numbered review where the factual claim appears. Do not restore a bottom Sources section for this comparison.
+- Every first-party URL in `sources.json` must appear in a numbered review or its linked price line so the internal evidence ledger and visible copy cannot drift apart.
 - Juice and OddsJam pricing are especially volatile. Checkout is authoritative.
 - Current WagerProof iOS documentation lists five model sports and MLB/NFL cross-book props. Older support copy is narrower.
 - Current WagerProof App Store copy documents configurable agents, automatic pick grading, visible wins/losses/pushes/units, public agent and System leaderboards, nightly System grading, AI-assistant connections, and Pro Discord access.
