@@ -159,8 +159,10 @@ class AgentDetailStore(agentId: String) {
             // Snapshot only includes today's picks when the server grants Pro
             // entitlement. Owners on the free tier still load history via direct
             // reads — surface today's slice from that cache when available.
+            // >= today, not ==: football picks target games days out and the strict
+            // match hid them (mirrors get_agent_detail_snapshot_v3's rail).
             val todayStr = localDateString()
-            return performancePicks.filter { it.gameDate == todayStr && !isDeleted(it) }
+            return performancePicks.filter { it.gameDate >= todayStr && !isDeleted(it) }
         }
 
     /**
@@ -173,7 +175,7 @@ class AgentDetailStore(agentId: String) {
                 .filter { !it.isWeekly && !isDeleted(it) }
             if (fromSnapshot.isNotEmpty()) return fromSnapshot
             val todayStr = localDateString()
-            return performanceParlays.filter { !it.isWeekly && it.displayDate == todayStr && !isDeleted(it) }
+            return performanceParlays.filter { !it.isWeekly && it.displayDate >= todayStr && !isDeleted(it) }
         }
 
     /** Active weekly tickets remain in the unified rail through the football week. */

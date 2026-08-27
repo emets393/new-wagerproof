@@ -219,14 +219,17 @@ export function AgentTodaysPicksSection({
     const date = new Date();
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }, []);
+  // >= today, not === today: football agents pick games days ahead (a run on Aug 26
+  // makes picks for Sep 4-13 games), and the strict-equality rail hid them entirely
+  // while the alert said "3 picks produced". Mirrors get_agent_detail_snapshot_v3.
   const items: HistoryItem[] = React.useMemo(() => [
-    ...picks.filter((pick) => pick.game_date === today).map((pick) => ({ kind: 'pick' as const, date: pick.game_date, createdAt: pick.created_at, pick })),
-    ...parlays.filter((parlay) => (parlay.target_date ?? parlay.created_at.slice(0, 10)) === today).map((parlay) => ({ kind: 'parlay' as const, date: today, createdAt: parlay.created_at, parlay })),
+    ...picks.filter((pick) => pick.game_date >= today).map((pick) => ({ kind: 'pick' as const, date: pick.game_date, createdAt: pick.created_at, pick })),
+    ...parlays.filter((parlay) => (parlay.target_date ?? parlay.created_at.slice(0, 10)) >= today).map((parlay) => ({ kind: 'parlay' as const, date: parlay.target_date ?? today, createdAt: parlay.created_at, parlay })),
   ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [picks, parlays, today]);
   const scroller = useTicketScroller(items.length);
   if (!items.length) return null;
   return (
-    <WidgetCard icon={<Target />} title="Today's Picks" subtitle={`${items.length} published ticket${items.length === 1 ? '' : 's'} from today's research.`} accessory={<TicketScrollerButtons bounds={scroller.bounds} onPrevious={() => scroller.scroll(-1)} onNext={() => scroller.scroll(1)} />}>
+    <WidgetCard icon={<Target />} title="Active Picks" subtitle={`${items.length} published ticket${items.length === 1 ? '' : 's'} for today and upcoming games.`} accessory={<TicketScrollerButtons bounds={scroller.bounds} onPrevious={() => scroller.scroll(-1)} onNext={() => scroller.scroll(1)} />}>
       <div ref={scroller.ref} className="-mx-4 overflow-x-auto px-4 pb-4 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex w-max snap-x snap-mandatory gap-3 pr-12">
           {items.map((item) => {

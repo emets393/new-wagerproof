@@ -98,8 +98,10 @@ public final class AgentDetailStore {
         // Snapshot only includes today's picks when the server grants Pro
         // entitlement. Owners on the free tier still load history via direct
         // reads — surface today's slice from that cache when available.
+        // >= today, not ==: football picks target games days out and the strict
+        // match hid them (mirrors get_agent_detail_snapshot_v3's rail).
         let todayStr = Self.localDateString(Date())
-        return performancePicks.filter { $0.gameDate == todayStr && !isDeleted(pickId: $0.id) }
+        return performancePicks.filter { $0.gameDate >= todayStr && !isDeleted(pickId: $0.id) }
     }
 
     /// Today's parlay tickets — same snapshot-first / direct-read-fallback
@@ -110,7 +112,7 @@ public final class AgentDetailStore {
         let fromSnapshot = (snapshot?.todaysParlays ?? []).filter { !$0.isWeekly }
         if !fromSnapshot.isEmpty { return fromSnapshot.filter { !isDeleted(parlayId: $0.id) } }
         let todayStr = Self.localDateString(Date())
-        return performanceParlays.filter { !$0.isWeekly && $0.displayDate == todayStr && !isDeleted(parlayId: $0.id) }
+        return performanceParlays.filter { !$0.isWeekly && $0.displayDate >= todayStr && !isDeleted(parlayId: $0.id) }
     }
 
     /// Active week-long parlay tickets for the current football week —
