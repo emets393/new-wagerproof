@@ -116,7 +116,7 @@ function getNavbar() {
     </a>
     <div class="navbar-links">
       <a href="/">Home</a>
-      <a href="/blog">Blog</a>
+      <a href="/guides/">Guides</a>
       <a href="/support">Support</a>
     </div>
   </div>

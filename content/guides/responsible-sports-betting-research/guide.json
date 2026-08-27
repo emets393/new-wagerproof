@@ -1,0 +1,43 @@
+{
+  "layout": "standard",
+  "slug": "responsible-sports-betting-research",
+  "canonicalPath": "/guides/responsible-sports-betting-research/",
+  "intent": "set responsible limits for sports betting research",
+  "title": "Responsible sports betting research starts before the dashboard",
+  "shortTitle": "Responsible research",
+  "seoTitle": "Responsible Sports Betting Research Guide",
+  "description": "Set time and money limits, separate research from action, reduce chasing triggers, use operator controls, and find current U.S. help resources.",
+  "dek": "More data cannot make gambling risk-free. Decide the limits, stopping rules, and help path before a model, streak, or alert creates urgency.",
+  "category": "Responsible use",
+  "publishedAt": "2026-08-26",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "nextReviewAt": "2026-09-26",
+  "readingTimeMinutes": 8,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/responsible-sports-betting-research/responsible-sports-betting-research-title-card-v1.webp",
+    "socialSrc": "/guides/responsible-sports-betting-research/responsible-sports-betting-research-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "A calm research checklist with time, money, and stop-limit controls on a green and cream field",
+    "caption": "AI-assisted editorial illustration. It contains no gambling outcome or promotional message.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "WagerProof is a research and information product. It does not accept wagers or handle money. This guide is not treatment or legal advice. Helpline details were checked on August 26, 2026 and should be rechecked regularly.",
+  "verdict": "Set a money limit, time limit, and stopping rule before opening a research session. Do not raise stakes to recover a loss or prove a model. Use operator limits and self-exclusion where needed. In the United States, call or text 1-800-MY-RESET or chat at 1800myreset.org for free, confidential help.",
+  "relatedSlugs": [
+    "accurate-betting-performance-tracking-checklist",
+    "best-sports-betting-research-apps",
+    "player-prop-research-guide",
+    "how-wagerproof-analysis-works"
+  ],
+  "redirectAliases": [],
+  "faqs": [
+    {"question":"What limits should I set before sports betting research?","answer":"Set a maximum amount of money, a session time limit, and a stopping rule before viewing picks or prices. Use operator deposit, wager, time-out, or self-exclusion controls when available."},
+    {"question":"Can more analytics remove gambling risk?","answer":"No. Models and market data can organize uncertainty, but they cannot guarantee an outcome. More research can also increase time spent and false confidence, so personal limits still matter."},
+    {"question":"What is the current U.S. national problem gambling helpline?","answer":"As of August 26, 2026, call or text 1-800-MY-RESET for free, confidential support at any time, or use chat at 1800myreset.org. In an immediate emergency, call local emergency services."}
+  ]
+}

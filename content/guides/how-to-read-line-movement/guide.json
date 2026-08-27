@@ -1,0 +1,56 @@
+{
+  "layout": "standard",
+  "slug": "how-to-read-line-movement",
+  "canonicalPath": "/guides/how-to-read-line-movement/",
+  "intent": "read sports betting line movement carefully",
+  "title": "How to read line movement without inventing a story",
+  "shortTitle": "Read line movement",
+  "seoTitle": "How to Read Sports Betting Line Movement",
+  "description": "A six-step line-movement workflow for matching markets, preserving timestamps, checking information, comparing books, and avoiding sharp-money myths.",
+  "dek": "A changed price tells you the market changed. It does not tell you why, who moved it, or whether the next move will continue.",
+  "category": "Market research",
+  "publishedAt": "2026-08-26",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "nextReviewAt": "2027-02-26",
+  "lastTestedAt": "2026-08-26",
+  "readingTimeMinutes": 9,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/how-to-read-line-movement/how-to-read-line-movement-title-card-v1.webp",
+    "socialSrc": "/guides/how-to-read-line-movement/how-to-read-line-movement-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "Opening, current, and closing markers on a green line chart with a timestamp axis",
+    "caption": "AI-assisted editorial illustration using generic markers. It does not depict a real sportsbook market.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "WagerProof displays line movement and selected public betting context. This guide does not claim that movement reveals a guaranteed sharp side or that public percentages identify the cause of a move.",
+  "verdict": "Preserve the exact market, price, book, and timestamp before interpreting a move. Then check confirmed information and compare books. Treat labels such as sharp, steam, and reverse line movement as hypotheses that need evidence, not explanations supplied by the chart itself.",
+  "relatedSlugs": [
+    "closing-line-value-sports-betting",
+    "implied-probability-vs-true-probability",
+    "player-prop-research-guide",
+    "how-wagerproof-analysis-works"
+  ],
+  "redirectAliases": [],
+  "howTo": {
+    "name": "How to review a line move",
+    "description": "A repeatable six-step check that separates the observed price change from possible explanations.",
+    "steps": [
+      {"name":"Match the market","text":"Confirm league, event, market, side, period, line, settlement rules, and sportsbook before comparing two observations."},
+      {"name":"Preserve both prices","text":"Record the line, associated price, timestamp, and time zone at each observation rather than remembering only the headline line."},
+      {"name":"Check confirmed information","text":"Review official injury, lineup, roster, weather, and schedule sources for information released between the observations."},
+      {"name":"Compare independent books","text":"Check whether the move appears across several books or only at one operator with a distinct price or exposure."},
+      {"name":"Separate evidence from labels","text":"Treat public-money, sharp-money, steam, and reverse-movement labels as hypotheses unless the underlying data and methodology are disclosed."},
+      {"name":"Record the close and outcome separately","text":"Preserve the closing reference for process review, then grade the result without using one win or loss to explain the move after the fact."}
+    ]
+  },
+  "faqs": [
+    {"question":"What causes a betting line to move?","answer":"A move can reflect new information, trading activity, market liquidity, operator exposure management, a related market, or noise. The chart establishes that the price changed, not which cause was responsible."},
+    {"question":"Does reverse line movement prove sharp money?","answer":"No. A line moving against a displayed public-bet percentage can be a useful prompt for research, but the percentage source, sample, timing, price changes, and operator behavior all matter. It does not identify who placed a wager."},
+    {"question":"Should I compare only the headline spread or total?","answer":"No. Record the line and its price together. A move from -2.5 at -110 to -3 at +100 carries different information from -2.5 changing only from -110 to -125."}
+  ]
+}

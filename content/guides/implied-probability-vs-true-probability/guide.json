@@ -1,0 +1,43 @@
+{
+  "layout": "standard",
+  "slug": "implied-probability-vs-true-probability",
+  "canonicalPath": "/blog/implied-probability-vs-true-probability/",
+  "intent": "calculate and interpret odds implied probability",
+  "title": "Implied probability is a price, not the truth",
+  "shortTitle": "Implied probability",
+  "seoTitle": "Implied Probability vs. True Probability",
+  "description": "Convert American or decimal odds to implied probability, remove a simple two-way margin, and understand why no-vig probability is still not objective truth.",
+  "dek": "Odds can be translated into a probability-shaped price. That calculation is useful, but it does not reveal the unknowable true chance of an outcome by itself.",
+  "category": "Odds fundamentals",
+  "publishedAt": "2026-03-24",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "nextReviewAt": "2027-02-26",
+  "readingTimeMinutes": 8,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/implied-probability-vs-true-probability/implied-probability-vs-true-probability-title-card-v1.webp",
+    "socialSrc": "/guides/implied-probability-vs-true-probability/implied-probability-vs-true-probability-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "A probability curve, percentage arc, and odds tile aligned on a green calibration grid",
+    "caption": "AI-assisted editorial illustration. The diagram is conceptual and does not show a real market or result.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "This guide explains price mathematics for research and education. A no-vig calculation is a normalization method, not proof of a true probability or a profitable opportunity.",
+  "verdict": "Use implied probability to put prices on a common scale. Use no-vig probability to remove a simple form of bookmaker margin. Call neither number true probability without an independent, well-tested estimate and a clear account of uncertainty.",
+  "relatedSlugs": [
+    "closing-line-value-sports-betting",
+    "how-to-read-line-movement",
+    "prediction-markets-vs-sportsbook-odds",
+    "accurate-betting-performance-tracking-checklist"
+  ],
+  "redirectAliases": [],
+  "faqs": [
+    {"question":"How do I convert positive American odds to implied probability?","answer":"For positive odds A, divide 100 by A plus 100. At +120, 100 divided by 220 equals 45.45 percent raw implied probability."},
+    {"question":"How do I convert negative American odds to implied probability?","answer":"For negative odds, use the absolute value A and divide A by A plus 100. At -150, 150 divided by 250 equals 60 percent raw implied probability."},
+    {"question":"Is no-vig probability the same as true probability?","answer":"No. A proportional no-vig calculation removes the displayed margin by normalizing all outcomes to 100 percent. It does not prove that the market allocated margin evenly or reveal an objective true probability."}
+  ]
+}

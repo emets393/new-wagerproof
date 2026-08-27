@@ -1,0 +1,6 @@
+[
+  {"title":"Customer Advisory: Understand the Risks of Event Contracts","publisher":"U.S. Commodity Futures Trading Commission","url":"https://www.cftc.gov/LearnAndProtect/AdvisoriesAndArticles/CustomerAdvisory_prediction_market.html","accessedAt":"2026-08-26","usedFor":"Event-contract risk and platform due-diligence framing"},
+  {"title":"Trading fees","publisher":"Kalshi Help Center","url":"https://help.kalshi.com/trading/fees","accessedAt":"2026-08-26","usedFor":"First-party example of product-specific event-contract fees"},
+  {"title":"Markets and trading","publisher":"Polymarket Documentation","url":"https://docs.polymarket.com/polymarket-learn/trading/markets","accessedAt":"2026-08-26","usedFor":"First-party contract-price and market-mechanics context"},
+  {"title":"The bookmaker's margin and the bookmaker's model","publisher":"Annals of Operations Research","url":"https://link.springer.com/article/10.1007/s10479-022-04722-3","accessedAt":"2026-08-26","usedFor":"Sportsbook booksum and margin framing"}
+]

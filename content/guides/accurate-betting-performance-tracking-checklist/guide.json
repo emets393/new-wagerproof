@@ -1,0 +1,43 @@
+{
+  "layout": "standard",
+  "slug": "accurate-betting-performance-tracking-checklist",
+  "canonicalPath": "/blog/accurate-betting-performance-tracking-checklist/",
+  "intent": "track betting research performance without cherry picking",
+  "title": "A complete sports research performance log",
+  "shortTitle": "Performance tracking",
+  "seoTitle": "Sports Betting Performance Tracking Checklist",
+  "description": "Use a downloadable research log and clear formulas to track every market, price, stake, result, model version, closing reference, and rule change.",
+  "dek": "A record is credible when it includes the decisions that lost, the prices that changed, the passes that mattered, and the rule versions that stopped working.",
+  "category": "Performance measurement",
+  "publishedAt": "2026-03-19",
+  "updatedAt": "2026-08-26",
+  "reviewedAt": "2026-08-26",
+  "nextReviewAt": "2027-02-26",
+  "readingTimeMinutes": 10,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/accurate-betting-performance-tracking-checklist/accurate-betting-performance-tracking-checklist-title-card-v1.webp",
+    "socialSrc": "/guides/accurate-betting-performance-tracking-checklist/accurate-betting-performance-tracking-checklist-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "A transparent research ledger with price, model version, close, and result columns",
+    "caption": "AI-assisted editorial illustration of a generic research ledger. It contains no real betting record or performance result.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "The downloadable CSV contains fictional example rows for structure only. It is not a WagerProof performance report and must not be read as a result claim.",
+  "verdict": "Log every eligible decision at the moment it is made. Keep the market, price, stake, model or rule version, closing reference, result, and notes in separate fields. Report sample size and missing data beside ROI, hit rate, calibration, and CLV.",
+  "relatedSlugs": [
+    "closing-line-value-sports-betting",
+    "how-wagerproof-analysis-works",
+    "responsible-sports-betting-research",
+    "prediction-markets-vs-sportsbook-odds"
+  ],
+  "redirectAliases": [],
+  "faqs": [
+    {"question":"What fields belong in a sports betting research log?","answer":"At minimum record event, market, side, line, price, sportsbook, timestamp, stake, result, net profit or loss, closing reference, model or rule version, research cutoff, and notes. Keep pushes and missing values explicit."},
+    {"question":"How is ROI calculated?","answer":"Divide net profit or loss by total amount staked for the stated sample, then multiply by 100 for a percentage. Always report total staked, sample size, date range, and whether bonuses or fees are included."},
+    {"question":"Why should model version and rule version be tracked?","answer":"A changed model, filter, or selection rule creates a different process. Version fields prevent an updated rule from being mixed invisibly with the record that preceded it."}
+  ]
+}

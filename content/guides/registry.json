@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "expectedCount": 10,
+  "entries": [
+    {
+      "slug": "best-sports-betting-research-apps",
+      "canonicalPath": "/guides/best-sports-betting-research-apps/",
+      "intent": "compare current sports betting research apps"
+    },
+    {
+      "slug": "wagerproof-3-5-9",
+      "canonicalPath": "/guides/wagerproof-3-5-9/",
+      "intent": "understand the shipped WagerProof 3.5.9 release"
+    },
+    {
+      "slug": "implied-probability-vs-true-probability",
+      "canonicalPath": "/blog/implied-probability-vs-true-probability/",
+      "intent": "calculate and interpret odds implied probability"
+    },
+    {
+      "slug": "closing-line-value-sports-betting",
+      "canonicalPath": "/blog/closing-line-value-sports-betting/",
+      "intent": "understand closing line value as a process metric"
+    },
+    {
+      "slug": "how-to-read-line-movement",
+      "canonicalPath": "/guides/how-to-read-line-movement/",
+      "intent": "read sports betting line movement carefully"
+    },
+    {
+      "slug": "player-prop-research-guide",
+      "canonicalPath": "/guides/player-prop-research-guide/",
+      "intent": "research player props with a repeatable checklist"
+    },
+    {
+      "slug": "how-wagerproof-analysis-works",
+      "canonicalPath": "/guides/how-wagerproof-analysis-works/",
+      "intent": "understand WagerProof model and market analysis"
+    },
+    {
+      "slug": "accurate-betting-performance-tracking-checklist",
+      "canonicalPath": "/blog/accurate-betting-performance-tracking-checklist/",
+      "intent": "track betting research performance without cherry picking"
+    },
+    {
+      "slug": "prediction-markets-vs-sportsbook-odds",
+      "canonicalPath": "/blog/prediction-markets-vs-sportsbook-odds/",
+      "intent": "compare prediction market prices with sportsbook odds"
+    },
+    {
+      "slug": "responsible-sports-betting-research",
+      "canonicalPath": "/guides/responsible-sports-betting-research/",
+      "intent": "set responsible limits for sports betting research"
+    }
+  ]
+}

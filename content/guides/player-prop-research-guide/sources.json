@@ -1,0 +1,7 @@
+[
+  {"title":"NBA official injury report, 2025-26 season","publisher":"NBA Official","url":"https://official.nba.com/nba-injury-report-2025-26-season/","accessedAt":"2026-08-26","usedFor":"Official player availability workflow"},
+  {"title":"NBA Stats glossary","publisher":"NBA","url":"https://www.nba.com/stats/help/glossary","accessedAt":"2026-08-26","usedFor":"Official basketball metric definitions"},
+  {"title":"Statcast search and league data","publisher":"Major League Baseball","url":"https://baseballsavant.mlb.com/league?view=statcast","accessedAt":"2026-08-26","usedFor":"Official advanced baseball data"},
+  {"title":"Next Gen Stats player tracking","publisher":"NFL Football Operations","url":"https://operations.nfl.com/game-operations-logistics/technology/performance-tracking-data-next-gen-stats","accessedAt":"2026-08-26","usedFor":"Official explanation of NFL player-tracking data"},
+  {"title":"WagerProof App Store listing","publisher":"Apple and WagerProof, LLC","url":"https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957","accessedAt":"2026-08-26","usedFor":"Current cross-book player-prop feature scope"}
+]

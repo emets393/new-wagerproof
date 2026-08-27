@@ -308,16 +308,16 @@ export const PressKit = () => {
           <h3 className="text-2xl font-semibold mb-6">Additional Resources</h3>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-card border border-border rounded-lg p-6">
-              <h4 className="font-semibold mb-3">Blog & Articles</h4>
+              <h4 className="font-semibold mb-3">Guides & Articles</h4>
               <p className="text-sm text-muted-foreground mb-4">
                 Read our latest insights on sports betting analytics, data science, and industry trends.
               </p>
-              <Link 
-                to="/blog"
+              <a
+                href="/guides/"
                 className="inline-flex items-center gap-2 text-primary hover:underline text-sm font-medium"
               >
-                Visit Blog <ExternalLink className="w-3 h-3" />
-              </Link>
+                Visit Guides <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
 
             <div className="bg-card border border-border rounded-lg p-6">
@@ -373,4 +373,3 @@ export const PressKit = () => {
     </div>
   );
 };
-
