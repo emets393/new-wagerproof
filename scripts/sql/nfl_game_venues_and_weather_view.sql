@@ -1,0 +1,30 @@
+-- APPLIED TO PROD (CFB project jpxnjuwglavsjbgbasnl) 2026-08-27 via MCP
+-- apply_migration, in two migrations:
+--   nfl_game_venues_table_and_intl_stadiums
+--   current_week_weather_from_game_venues
+--
+-- Owner directive: NFL venue resolution comes from the nflverse schedule, not
+-- the legacy per-team scrape tables (which don't fill until September and
+-- would have sent all 8 international 2026 games — incl. LA-SF at Melbourne
+-- Cricket Ground, WEEK 1 — to the home team's US stadium for weather).
+--
+-- nfl_game_venues: one row per scheduled game, resolved at load by
+-- research/nfl-extreme-outcomes/nfl_game_venues_load.py (weekly step in
+-- run_nfl_week.sh): stadium, nflverse roof (per-game truth, wins over the
+-- static dome flag), neutral flag, coords from nfl_stadium_weather (venue
+-- aliases + 5 new international rows: Melbourne CG, Maracana, Stade de
+-- France, FC Bayern Munich Stadium, Estadio Banorte). An unresolved
+-- NEUTRAL-site venue is a hard loader failure.
+--
+-- current_week_weather now: 10-day window over nfl_betting_lines ->
+-- nfl_game_venues by (season, week, vsin_home) -> home-stadium fallback.
+-- Output columns unchanged (fetch_nfl_weather contract); lat/lon cast to
+-- numeric to keep view column types.
+--
+-- Verified: 272 venue rows for 2026 (8 neutral); wk1 widened-window probe
+-- resolves Melbourne (-37.82, 144.98, neutral) + every US stadium with the
+-- right roof state (Reliant/Lucas Oil roof-null in nflverse -> dome via
+-- fallback).
+--
+-- See the two applied migrations in the CFB project's migration history for
+-- the executable DDL.

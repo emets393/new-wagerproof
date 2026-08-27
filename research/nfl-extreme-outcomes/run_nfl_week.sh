@@ -75,6 +75,9 @@ step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py
 # nfl_player_profiles + the nflverse roster, both of which go stale every offseason
 # (2026-08-27: Geno Smith shipped as LV in player pages; he's a Jet).
 step "player profiles (roster refresh)"; python3 nfl_player_profiles_load.py --season "$SEASON" || true
+# Per-game venues from nflverse (stadium/roof/neutral incl. internationals) —
+# feeds current_week_weather; refreshed weekly in case a venue moves.
+step "game venues (weather source)"; python3 nfl_game_venues_load.py --season "$SEASON" || true
 step "player-prop trends (Outliers)"; python3 gen_nfl_player_prop_trends.py
 step "QB/RB scheme substrates";          python3 build_qb_rb_scheme.py || true
 step "FTN player stats";                  python3 build_ftn_player_stats.py || true
