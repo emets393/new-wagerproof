@@ -54,6 +54,30 @@ def parse(html: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def load_supabase(df: pd.DataFrame, season: int, week: int) -> None:
+    """Publish to cfb_injuries (CFB Supabase) — MCP-connector users query it via
+    query_sports_database. Wipe-and-insert per (season, week)."""
+    key = None
+    for fn in (ROOT.parent.parent / ".env.local", ROOT.parent.parent / ".env"):
+        if fn.exists():
+            for line in fn.read_text().splitlines():
+                if line.startswith("SUPABASE_SERVICE_KEY="):
+                    key = line.split("=", 1)[1].strip()
+    if not key:
+        print("  [supabase] no service key — parquet only")
+        return
+    base = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1/cfb_injuries"
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    requests.delete(f"{base}?season=eq.{season}&week=eq.{week}", headers=hdr, timeout=60)
+    recs = df.to_dict("records")
+    for i in range(0, len(recs), 500):
+        r = requests.post(base, headers=hdr, json=recs[i:i + 500], timeout=60)
+        if r.status_code != 201:
+            print(f"  [supabase] insert failed: {r.status_code} {r.text[:200]}")
+            return
+    print(f"  [supabase] {len(recs)} rows -> cfb_injuries ({season} w{week})")
+
+
 def main():
     if len(sys.argv) < 3:
         sys.exit("usage: covers_cfb_injuries.py <season> <week>")
@@ -70,6 +94,7 @@ def main():
     n_qb = int((df.pos == "QB").sum())
     print(f"{len(df)} injury rows ({df.team.nunique()} teams, {n_qb} QBs) -> {path.name}")
     print(df.status.value_counts().to_dict())
+    load_supabase(df, season, week)
 
 
 if __name__ == "__main__":
