@@ -525,8 +525,8 @@ async function main() {
     guides.find((guide) => guide.featured)?.hero.socialSrc || guides[0].hero.socialSrc,
     guides,
   )
-  if (htmlByRoute.has('/guides/') && !htmlByRoute.get('/guides/').includes('class="featured-card__media" href="/guides/best-sports-betting-research-apps/" tabindex="-1" aria-hidden="true"')) {
-    fail('/guides/: duplicate featured-card image link must be hidden from the accessibility tree')
+  if (htmlByRoute.has('/guides/') && !htmlByRoute.get('/guides/').includes('<h1 id="find-title">Our Guides</h1>')) {
+    fail('/guides/: compact guide directory heading is missing')
   }
   if (htmlByRoute.has('/guides/all/')) await verifyHub(
     '/guides/all/',

@@ -215,14 +215,9 @@ function siteHeader() {
 
 function siteFooter() {
   return `<footer class="site-footer">
-  <div class="site-footer__grid">
-    <div>
-      <a class="wordmark wordmark--footer" href="/"><img src="/guides/brand/wagerproof-app-icon-v1.png" width="34" height="34" alt="" /><span>Wager<span>Proof</span></span></a>
-      <p>Build agents, test Systems, compare models and lines, and keep every result visible.</p>
-    </div>
-    <div><h2>Guides</h2><a href="/guides/best-sports-betting-research-apps/">Best research apps</a><a href="/guides/how-wagerproof-analysis-works/">How WagerProof works</a><a href="/guides/all/">All guides</a></div>
-    <div><h2>WagerProof</h2><a href="${APP_STORE_URL}">Get the app</a><a href="/mcp">AI connector</a><a href="/support">Help and support</a></div>
-    <div><h2>Policies</h2><a href="/privacy-policy">Privacy</a><a href="/terms-and-conditions">Terms</a><a href="mailto:support@wagerproof.bet">Corrections</a></div>
+  <div class="site-footer__top">
+    <a class="wordmark wordmark--footer" href="/"><img src="/guides/brand/wagerproof-app-icon-v1.png" width="34" height="34" alt="" /><span>Wager<span>Proof</span></span></a>
+    <nav aria-label="Footer"><a href="/guides/all/">All guides</a><a href="/mcp">AI connector</a><a href="/support">Support</a><a href="/privacy-policy">Privacy</a><a href="/terms-and-conditions">Terms</a></nav>
   </div>
   <div class="site-footer__legal">
     <p>WagerProof provides research and information. It does not accept wagers or guarantee outcomes. Must be of legal age in your jurisdiction.</p>
@@ -299,41 +294,23 @@ function hubSchemas(guides, canonicalPath, title, description) {
 
 function renderHub(guides) {
   const featured = guides.find((guide) => guide.featured) || guides[0]
-  const recent = [...guides].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.publishedAt.localeCompare(a.publishedAt)).slice(0, 4)
-  const collections = [
-    { title: 'Understand the price', text: 'Probability, movement, closing price, and market structure.', slugs: ['implied-probability-vs-true-probability', 'how-to-read-line-movement', 'closing-line-value-sports-betting', 'prediction-markets-vs-sportsbook-odds'] },
-    { title: 'Build a research process', text: 'Define inputs, preserve assumptions, and keep the record complete.', slugs: ['how-wagerproof-analysis-works', 'player-prop-research-guide', 'accurate-betting-performance-tracking-checklist', 'responsible-sports-betting-research'] },
-    { title: 'Choose and use WagerProof', text: 'Current app comparison and the latest shipped release.', slugs: ['best-sports-betting-research-apps', 'wagerproof-3-5-9'] },
-  ]
   const title = 'WagerProof Sports Betting Research Guides'
   const description = 'Original guides about sports research apps, odds, line movement, player props, model methodology, tracking, releases, and responsible use.'
   const body = `<main id="main-content">
-  <section class="hub-hero section-shell">
-    <p class="eyebrow">Sports betting research guides</p>
-    <h1>Sports betting research,<br /><span>explained clearly.</span></h1>
-    <p class="hub-hero__dek">Clear, sourced guides to models, odds, player props, line movement, tracking, and the tools that bring the research together.</p>
-    <div class="hub-hero__actions"><a class="button" href="/guides/all/">Browse all guides</a><a class="text-link" href="/guides/how-wagerproof-analysis-works/">Read our methodology <span aria-hidden="true">→</span></a></div>
-  </section>
-  <section class="section-shell featured" aria-labelledby="featured-title">
-    <div class="section-heading"><div><p class="eyebrow">Featured field guide</p><h2 id="featured-title">Choose the research job first</h2></div><a href="${escapeHtml(featured.canonicalPath)}">Read the comparison <span aria-hidden="true">→</span></a></div>
-    <article class="featured-card">
-      <a class="featured-card__media" href="${escapeHtml(featured.canonicalPath)}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(featured.hero.src)}" width="1672" height="941" alt="" fetchpriority="high" decoding="async" /></a>
-      <div class="featured-card__copy"><p class="eyebrow">${escapeHtml(featured.category)} <span>·</span> Reviewed ${escapeHtml(formatDate(featured.reviewedAt))}</p><h3><a href="${escapeHtml(featured.canonicalPath)}">${escapeHtml(featured.title)}</a></h3><p>${escapeHtml(featured.dek)}</p><p class="feature-note">Documentation-based. Ownership disclosed. Prices dated.</p></div>
-    </article>
-  </section>
-  <section class="section-shell topics" aria-labelledby="topics-title">
-    <div class="section-heading"><div><p class="eyebrow">Browse by topic</p><h2 id="topics-title">Start with the question you have</h2></div></div>
-    <nav class="topic-nav" aria-label="Guide topics">${[...new Set(guides.map((guide) => guide.category))].map((category) => `<a href="/guides/all/#${slugify(category)}">${escapeHtml(category)}</a>`).join('')}</nav>
-  </section>
-  <section class="section-shell find-guides" aria-labelledby="find-title">
-    <div class="section-heading"><div><p class="eyebrow">Search the library</p><h2 id="find-title">Find a specific guide</h2></div><a href="/guides/all/">Complete index <span aria-hidden="true">→</span></a></div>
+  <section class="guides-search-band">
+    <div class="section-shell">
     <label class="guide-search"><span class="sr-only">Search guides</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2A7.5 7.5 0 1 1 4 11.5a7.5 7.5 0 0 1 15 0Z" /></svg><input type="search" placeholder="Search probability, line movement, props…" data-guide-search /></label>
+    </div>
+  </section>
+  <section class="section-shell guide-directory-home" aria-labelledby="find-title">
+    <div class="guide-directory-home__heading"><h1 id="find-title">Our Guides</h1><a href="/guides/all/">View all <span aria-hidden="true">→</span></a></div>
     <div class="guide-row-list" data-guide-results>${guides.map(compactRow).join('')}</div>
     <p class="empty-state" hidden data-guide-empty>No guides match that search.</p>
   </section>
-  <section class="section-shell updates" aria-labelledby="updates-title"><div class="section-heading"><div><p class="eyebrow">Maintained, not abandoned</p><h2 id="updates-title">Recent updates</h2></div></div><div class="update-grid">${recent.map((guide) => guideCard(guide)).join('')}</div></section>
-  <section class="section-shell collections" aria-labelledby="collections-title"><div class="section-heading"><div><p class="eyebrow">Curated collections</p><h2 id="collections-title">Follow a complete thread</h2></div></div><div class="collection-grid">${collections.map((collection, index) => `<article class="collection-card"><span>0${index + 1}</span><h3>${escapeHtml(collection.title)}</h3><p>${escapeHtml(collection.text)}</p><ul>${collection.slugs.map((slug) => { const guide = guides.find((item) => item.slug === slug); return `<li><a href="${guide.canonicalPath}">${escapeHtml(guide.shortTitle)}</a></li>` }).join('')}</ul></article>`).join('')}</div></section>
-  <section class="section-shell editorial-note"><p class="eyebrow">How we publish</p><h2>Useful, sourced, and kept up to date.</h2><p>Every guide has a clear purpose, first-party sources, a named author, and a review date. See something that needs correcting? Email <a href="mailto:support@wagerproof.bet">support@wagerproof.bet</a>.</p></section>
+  <section class="section-shell guide-index-bars" aria-label="Explore WagerProof">
+    <article><div><p class="eyebrow">WagerProof app</p><h2>Research without the busywork.</h2><p>Build AI agents, test historical Systems, compare lines, and inspect transparent win records in one place.</p></div><a class="button" href="${APP_STORE_URL}">Get the app</a></article>
+    <article><div><p class="eyebrow">AI connector</p><h2>Bring the data to your AI.</h2><p>Use WagerProof MCPs with your preferred AI to explore the data and build your own research systems.</p></div><a class="button button--secondary" href="/mcp">View MCPs</a></article>
+  </section>
 </main>`
   return documentShell({
     headHtml: head({ title, description, canonicalPath: '/guides/', image: featured.hero.socialSrc, type: 'website', schemas: hubSchemas(guides, '/guides/', title, description) }),
