@@ -1259,15 +1259,6 @@ summary:focus-visible,
   line-height: 1.08;
 }
 
-.app-review header h3 a {
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.app-review header h3 a:hover {
-  color: var(--green);
-}
-
 .app-review__copy {
   margin-top: 1.45rem;
 }
@@ -1280,14 +1271,6 @@ summary:focus-visible,
 
 .app-review__copy p:last-child {
   margin-bottom: 0;
-}
-
-.app-review__copy a,
-.app-review__meta a {
-  color: var(--green);
-  text-decoration-color: color-mix(in srgb, var(--green) 42%, transparent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.18em;
 }
 
 .app-review__highlights {
@@ -1342,6 +1325,24 @@ summary:focus-visible,
   color: var(--muted);
   font-size: 0.77rem !important;
   line-height: 1.7 !important;
+}
+
+.app-review__sources {
+  margin: 0.55rem 0 0 !important;
+  color: var(--muted);
+  font-size: 0.74rem !important;
+  line-height: 1.65 !important;
+}
+
+.app-review__sources strong {
+  color: var(--ink);
+}
+
+.app-review__sources a {
+  color: var(--green);
+  text-decoration-color: color-mix(in srgb, var(--green) 42%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
 }
 
 .release-panel {
@@ -2019,7 +2020,7 @@ summary:focus-visible,
     font-size: 1.45rem !important;
   }
 
-  .app-review__meta a {
+  .app-review__sources a {
     overflow-wrap: anywhere;
   }
 

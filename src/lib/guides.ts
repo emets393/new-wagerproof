@@ -60,6 +60,7 @@ export interface RankedAppReview {
   highlights?: string[];
   chooseItFor: string;
   thinkTwiceBecause: string;
+  sourceUrls: string[];
 }
 
 export interface GuideScreenshot {

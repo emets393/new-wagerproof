@@ -8,7 +8,6 @@ import {
   escapeHtml,
   formatDate,
   loadEditorialSystem,
-  renderInlineMarkdown,
   slugify,
 } from './lib/guides.mjs'
 
@@ -219,10 +218,10 @@ function siteFooter() {
   <div class="site-footer__grid">
     <div>
       <a class="wordmark wordmark--footer" href="/"><img src="/guides/brand/wagerproof-app-icon-v1.png" width="34" height="34" alt="" /><span>Wager<span>Proof</span></span></a>
-      <p>Sports research that keeps the model, market, and record visible.</p>
+      <p>Build agents, test Systems, compare models and lines, and keep every result visible.</p>
     </div>
-    <div><h2>Editorial</h2><a href="/guides/">Guides</a><a href="/guides/all/">All guides</a><a href="/guides/feed.xml">RSS feed</a></div>
-    <div><h2>Product</h2><a href="${APP_STORE_URL}">App Store</a><a href="/mcp">AI connector</a><a href="/support">Support</a></div>
+    <div><h2>Guides</h2><a href="/guides/best-sports-betting-research-apps/">Best research apps</a><a href="/guides/how-wagerproof-analysis-works/">How WagerProof works</a><a href="/guides/all/">All guides</a></div>
+    <div><h2>WagerProof</h2><a href="${APP_STORE_URL}">Get the app</a><a href="/mcp">AI connector</a><a href="/support">Help and support</a></div>
     <div><h2>Policies</h2><a href="/privacy-policy">Privacy</a><a href="/terms-and-conditions">Terms</a><a href="mailto:support@wagerproof.bet">Corrections</a></div>
   </div>
   <div class="site-footer__legal">
@@ -306,13 +305,13 @@ function renderHub(guides) {
     { title: 'Build a research process', text: 'Define inputs, preserve assumptions, and keep the record complete.', slugs: ['how-wagerproof-analysis-works', 'player-prop-research-guide', 'accurate-betting-performance-tracking-checklist', 'responsible-sports-betting-research'] },
     { title: 'Choose and use WagerProof', text: 'Current app comparison and the latest shipped release.', slugs: ['best-sports-betting-research-apps', 'wagerproof-3-5-9'] },
   ]
-  const title = 'WagerProof Guides: sports research without the certainty theater'
+  const title = 'WagerProof Sports Betting Research Guides'
   const description = 'Original guides about sports research apps, odds, line movement, player props, model methodology, tracking, releases, and responsible use.'
   const body = `<main id="main-content">
   <section class="hub-hero section-shell">
-    <p class="eyebrow">WagerProof editorial desk</p>
-    <h1>Research the number.<br /><span>Keep the uncertainty.</span></h1>
-    <p class="hub-hero__dek">Practical, sourced guides for reading models, prices, trends, and records without pretending a clean dashboard can guarantee an outcome.</p>
+    <p class="eyebrow">Sports betting research guides</p>
+    <h1>Sports betting research,<br /><span>explained clearly.</span></h1>
+    <p class="hub-hero__dek">Clear, sourced guides to models, odds, player props, line movement, tracking, and the tools that bring the research together.</p>
     <div class="hub-hero__actions"><a class="button" href="/guides/all/">Browse all guides</a><a class="text-link" href="/guides/how-wagerproof-analysis-works/">Read our methodology <span aria-hidden="true">→</span></a></div>
   </section>
   <section class="section-shell featured" aria-labelledby="featured-title">
@@ -334,7 +333,7 @@ function renderHub(guides) {
   </section>
   <section class="section-shell updates" aria-labelledby="updates-title"><div class="section-heading"><div><p class="eyebrow">Maintained, not abandoned</p><h2 id="updates-title">Recent updates</h2></div></div><div class="update-grid">${recent.map((guide) => guideCard(guide)).join('')}</div></section>
   <section class="section-shell collections" aria-labelledby="collections-title"><div class="section-heading"><div><p class="eyebrow">Curated collections</p><h2 id="collections-title">Follow a complete thread</h2></div></div><div class="collection-grid">${collections.map((collection, index) => `<article class="collection-card"><span>0${index + 1}</span><h3>${escapeHtml(collection.title)}</h3><p>${escapeHtml(collection.text)}</p><ul>${collection.slugs.map((slug) => { const guide = guides.find((item) => item.slug === slug); return `<li><a href="${guide.canonicalPath}">${escapeHtml(guide.shortTitle)}</a></li>` }).join('')}</ul></article>`).join('')}</div></section>
-  <section class="section-shell editorial-note"><p class="eyebrow">Editorial standard</p><h2>No original value, no new URL.</h2><p>Each published page must offer a repeatable method, a current source, product evidence, a reusable reference, or a researched answer. Corrections are welcome at <a href="mailto:support@wagerproof.bet">support@wagerproof.bet</a>.</p></section>
+  <section class="section-shell editorial-note"><p class="eyebrow">How we publish</p><h2>Useful, sourced, and kept up to date.</h2><p>Every guide has a clear purpose, first-party sources, a named author, and a review date. See something that needs correcting? Email <a href="mailto:support@wagerproof.bet">support@wagerproof.bet</a>.</p></section>
 </main>`
   return documentShell({
     headHtml: head({ title, description, canonicalPath: '/guides/', image: featured.hero.socialSrc, type: 'website', schemas: hubSchemas(guides, '/guides/', title, description) }),
@@ -403,17 +402,23 @@ function bottomLine(guide) {
 
 function renderComparison(guide) {
   const reviewYear = guide.reviewedAt.slice(0, 4)
+  const sourceMap = new Map(guide.sources.map((source) => [source.url, source]))
   const reviews = guide.apps.map((app) => {
     const appId = `app-${slugify(app.name)}`
     const highlights = app.review.highlights?.length
-      ? `<section class="app-review__highlights" aria-labelledby="${appId}-highlights"><h4 id="${appId}-highlights">Where it shines</h4><ul>${app.review.highlights.map((highlight) => `<li>${renderInlineMarkdown(highlight)}</li>`).join('')}</ul></section>`
+      ? `<section class="app-review__highlights" aria-labelledby="${appId}-highlights"><h4 id="${appId}-highlights">Where it shines</h4><ul>${app.review.highlights.map((highlight) => `<li>${escapeHtml(highlight)}</li>`).join('')}</ul></section>`
       : ''
-    return `<article class="app-review" data-app-name="${escapeHtml(app.name)}"><header><span class="app-review__rank">${app.rank}</span><img src="${escapeHtml(app.icon)}" width="64" height="64" alt="${escapeHtml(`${app.name} app icon`)}" /><div><p>${escapeHtml(app.categoryLabel)}</p><h3 id="${appId}"><a href="${escapeHtml(app.officialUrl)}" rel="noopener noreferrer">${escapeHtml(app.name)}</a></h3></div></header><div class="app-review__copy">${app.review.paragraphs.map((paragraph) => `<p>${renderInlineMarkdown(paragraph)}</p>`).join('')}</div>${highlights}<div class="app-review__decision"><p><strong>Choose it for:</strong> ${renderInlineMarkdown(app.review.chooseItFor)}</p><p><strong>Think twice because:</strong> ${renderInlineMarkdown(app.review.thinkTwiceBecause)}</p></div><p class="app-review__meta"><strong>Platforms:</strong> ${escapeHtml(app.platforms)}<br /><strong>Price checked ${escapeHtml(formatDate(app.priceAsOf))}:</strong> <a href="${escapeHtml(app.priceSourceUrl)}" rel="noopener noreferrer">${escapeHtml(app.price)}</a></p></article>`
+    const sourceLinks = app.review.sourceUrls.map((url) => {
+      const source = sourceMap.get(url)
+      return `<a href="${escapeHtml(url)}" rel="noopener noreferrer">${escapeHtml(source.title)}</a>`
+    }).join(', ')
+    const sourceLabel = app.review.sourceUrls.length === 1 ? 'Official source' : 'Official sources'
+    return `<article class="app-review" data-app-name="${escapeHtml(app.name)}"><header><span class="app-review__rank">${app.rank}</span><img src="${escapeHtml(app.icon)}" width="64" height="64" alt="${escapeHtml(`${app.name} app icon`)}" /><div><p>${escapeHtml(app.categoryLabel)}</p><h3 id="${appId}">${escapeHtml(app.name)}</h3></div></header><div class="app-review__copy">${app.review.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('')}</div>${highlights}<div class="app-review__decision"><p><strong>Choose it for:</strong> ${escapeHtml(app.review.chooseItFor)}</p><p><strong>Think twice because:</strong> ${escapeHtml(app.review.thinkTwiceBecause)}</p></div><p class="app-review__meta"><strong>Platforms:</strong> ${escapeHtml(app.platforms)}<br /><strong>Price checked ${escapeHtml(formatDate(app.priceAsOf))}:</strong> ${escapeHtml(app.price)}</p><p class="app-review__sources"><strong>${sourceLabel}:</strong> ${sourceLinks}</p></article>`
   }).join('')
   return `<section class="comparison" aria-labelledby="comparison-title">
   <div class="section-heading section-heading--article"><div><p class="eyebrow">Snapshot date: August 26, 2026</p><h2 id="comparison-title">Picks at a glance</h2></div><p>U.S. public prices before tax. Verify checkout.</p></div>
-  <div class="table-scroll" tabindex="0" aria-label="Sports research app comparison table"><table><thead><tr><th>Rank</th><th>App</th><th>Best for</th><th>Public price snapshot</th><th>Platforms</th></tr></thead><tbody>${guide.apps.map((app) => `<tr><td><span class="rank-pill">${app.rank}</span></td><td><span class="table-app"><img src="${escapeHtml(app.icon)}" width="42" height="42" alt="" />${escapeHtml(app.name)}</span></td><td>${escapeHtml(app.categoryLabel.replace(/^Best for /, ''))}</td><td><a href="${escapeHtml(app.priceSourceUrl)}" rel="noopener noreferrer">${escapeHtml(app.price)}</a></td><td>${escapeHtml(app.platforms)}</td></tr>`).join('')}</tbody></table></div>
-  <div class="ranked-reviews" id="ranked-reviews"><div class="ranked-reviews__heading"><p class="eyebrow">Full reviews</p><h2>The ${guide.apps.length} best sports betting research apps in ${escapeHtml(reviewYear)}</h2><p>Official product links sit beside the features, prices, and limitations they support.</p></div>${reviews}</div>
+  <div class="table-scroll" tabindex="0" aria-label="Sports research app comparison table"><table><thead><tr><th>Rank</th><th>App</th><th>Best for</th><th>Public price snapshot</th><th>Platforms</th></tr></thead><tbody>${guide.apps.map((app) => `<tr><td><span class="rank-pill">${app.rank}</span></td><td><span class="table-app"><img src="${escapeHtml(app.icon)}" width="42" height="42" alt="" />${escapeHtml(app.name)}</span></td><td>${escapeHtml(app.categoryLabel.replace(/^Best for /, ''))}</td><td>${escapeHtml(app.price)}</td><td>${escapeHtml(app.platforms)}</td></tr>`).join('')}</tbody></table></div>
+  <div class="ranked-reviews" id="ranked-reviews"><div class="ranked-reviews__heading"><p class="eyebrow">Full reviews</p><h2>The ${guide.apps.length} best sports betting research apps in ${escapeHtml(reviewYear)}</h2><p>Official product sources are grouped at the end of each review.</p></div>${reviews}</div>
   </section>`
 }
 

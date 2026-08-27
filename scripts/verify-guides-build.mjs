@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import { SITE_URL, ROOT, absoluteUrl, escapeHtml, loadEditorialSystem, renderInlineMarkdown, slugify } from './lib/guides.mjs'
+import { SITE_URL, ROOT, absoluteUrl, escapeHtml, loadEditorialSystem, slugify } from './lib/guides.mjs'
 
 const DIST = path.join(ROOT, 'dist')
 const failures = []
@@ -307,7 +307,6 @@ async function verifyArticleOutput(guide, guideMap, html) {
     if (html.includes('id="sources"') || html.includes('href="#sources"') || html.includes('Evidence ledger')) {
       fail(`${context}: feature comparison must not render a bottom Sources section`)
     }
-    if (html.includes('Official product source')) fail(`${context}: generic product-source footer must not render`)
     for (const [index, app] of guide.apps.entries()) {
       if (!html.includes(`data-app-name="${escapeHtml(app.name)}"`)) fail(`${context}: ranked app review missing for ${app.name}`)
       if (count(html, new RegExp(app.icon.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) < 2) fail(`${context}: app icon not used in table and review for ${app.name}`)
@@ -321,30 +320,29 @@ async function verifyArticleOutput(guide, guideMap, html) {
       }
       const reviewHtml = reviewMatch[0]
       const appId = `app-${slugify(app.name)}`
-      if (!reviewHtml.includes(`<h3 id="${appId}"><a href="${escapeHtml(app.officialUrl)}" rel="noopener noreferrer">${escapeHtml(app.name)}</a></h3>`)) {
-        fail(`${context}: linked H3 missing for ${app.name}`)
+      if (!reviewHtml.includes(`<h3 id="${appId}">${escapeHtml(app.name)}</h3>`)) {
+        fail(`${context}: H3 missing for ${app.name}`)
       }
       for (const paragraph of app.review.paragraphs) {
-        if (!reviewHtml.includes(`<p>${renderInlineMarkdown(paragraph)}</p>`)) fail(`${context}: rewritten paragraph missing for ${app.name}`)
+        if (!reviewHtml.includes(`<p>${escapeHtml(paragraph)}</p>`)) fail(`${context}: rewritten paragraph missing for ${app.name}`)
       }
-      if (!reviewHtml.includes(`<strong>Choose it for:</strong> ${renderInlineMarkdown(app.review.chooseItFor)}`)) fail(`${context}: Choose it for missing for ${app.name}`)
-      if (!reviewHtml.includes(`<strong>Think twice because:</strong> ${renderInlineMarkdown(app.review.thinkTwiceBecause)}`)) fail(`${context}: Think twice because missing for ${app.name}`)
-      const reviewStrings = [
-        ...app.review.paragraphs,
-        ...(app.review.highlights || []),
-        app.review.chooseItFor,
-        app.review.thinkTwiceBecause,
-      ]
-      const expectedSourceUrls = new Set([
-        app.priceSourceUrl,
-        ...reviewStrings.flatMap((value) => [...value.matchAll(/\[[^\]]+\]\((https:\/\/[^)\s]+)\)/g)].map((match) => match[1])),
-      ])
-      for (const sourceUrl of expectedSourceUrls) {
-        if (!reviewHtml.includes(`href="${escapeHtml(sourceUrl)}"`)) fail(`${context}: inline source missing from ${app.name}: ${sourceUrl}`)
+      if (!reviewHtml.includes(`<strong>Choose it for:</strong> ${escapeHtml(app.review.chooseItFor)}`)) fail(`${context}: Choose it for missing for ${app.name}`)
+      if (!reviewHtml.includes(`<strong>Think twice because:</strong> ${escapeHtml(app.review.thinkTwiceBecause)}`)) fail(`${context}: Think twice because missing for ${app.name}`)
+      const proseBlock = /<div class="app-review__copy">([\s\S]*?)<\/div>/.exec(reviewHtml)?.[1] || ''
+      if (/<a\b/.test(proseBlock)) fail(`${context}: prose links must be grouped in the source line for ${app.name}`)
+      const sourceBlock = /<p class="app-review__sources">([\s\S]*?)<\/p>/.exec(reviewHtml)?.[1] || ''
+      const sourceLabel = app.review.sourceUrls.length === 1 ? 'Official source' : 'Official sources'
+      if (!sourceBlock.includes(`<strong>${sourceLabel}:</strong>`)) fail(`${context}: source label missing for ${app.name}`)
+      for (const sourceUrl of app.review.sourceUrls) {
+        const source = guide.sources.find((entry) => entry.url === sourceUrl)
+        if (!sourceBlock.includes(`href="${escapeHtml(sourceUrl)}"`) || !sourceBlock.includes(escapeHtml(source.title))) {
+          fail(`${context}: grouped source missing from ${app.name}: ${sourceUrl}`)
+        }
       }
       if (index === 0 && !reviewHtml.includes('Where it shines')) fail(`${context}: top-pick highlights missing`)
     }
     assertCount(html, /data-app-name=/g, guide.apps.length, `${context} ranked reviews`)
+    assertCount(html, /class="app-review__sources"/g, guide.apps.length, `${context} grouped review sources`)
     assertCount(html, /<strong>Choose it for:<\/strong>/g, guide.apps.length, `${context} Choose it for lines`)
     assertCount(html, /<strong>Think twice because:<\/strong>/g, guide.apps.length, `${context} Think twice because lines`)
     if (!html.toLowerCase().includes('documentation-based')) fail(`${context}: documentation-based limitation missing`)
@@ -522,7 +520,7 @@ async function main() {
 
   if (htmlByRoute.has('/guides/')) await verifyHub(
     '/guides/',
-    'WagerProof Guides: sports research without the certainty theater',
+    'WagerProof Sports Betting Research Guides',
     'Original guides about sports research apps, odds, line movement, player props, model methodology, tracking, releases, and responsible use.',
     guides.find((guide) => guide.featured)?.hero.socialSrc || guides[0].hero.socialSrc,
     guides,

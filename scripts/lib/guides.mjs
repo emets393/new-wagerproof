@@ -62,22 +62,6 @@ function assertLocalAsset(value, context) {
   if (/^https?:/.test(value)) throw new Error(`${context}: remote asset is not allowed: ${value}`)
 }
 
-function markdownSourceUrls(value) {
-  return [...String(value).matchAll(/\[[^\]]+\]\((https:\/\/[^)\s]+)\)/g)].map((match) => match[1])
-}
-
-export function renderInlineMarkdown(markdown) {
-  let html = sanitizeHtml(marked.parseInline(markdown, { gfm: true }), {
-    allowedTags: ['a', 'strong', 'em', 'code'],
-    allowedAttributes: { a: ['href', 'title'] },
-    allowedSchemes: ['https'],
-    allowProtocolRelative: false,
-    enforceHtmlBoundary: true,
-  })
-  html = html.replace(/<a href="(https:\/\/[^\"]+)"/g, '<a href="$1" rel="noopener noreferrer"')
-  return html
-}
-
 export function validateGuide(meta, sources, context) {
   for (const key of REQUIRED_STRINGS) assertString(meta, key, context)
   if (!['standard', 'feature', 'release'].includes(meta.layout)) {
@@ -135,7 +119,6 @@ export function validateGuide(meta, sources, context) {
       appIds.add(appId)
       if (!/^https:\/\//.test(app.officialUrl)) throw new Error(`${context}.apps[${index}]: officialUrl must use https`)
       if (!sourceUrls.has(app.priceSourceUrl)) throw new Error(`${context}.apps[${index}]: priceSourceUrl is not in sources.json`)
-      citedSourceUrls.add(app.priceSourceUrl)
       assertLocalAsset(app.icon, `${context}.apps[${index}].icon`)
       assertDate(app.priceAsOf, `${context}.apps[${index}].priceAsOf`)
       if (!app.review || typeof app.review !== 'object') throw new Error(`${context}.apps[${index}]: review is required`)
@@ -164,10 +147,17 @@ export function validateGuide(meta, sources, context) {
         app.review.chooseItFor,
         app.review.thinkTwiceBecause,
       ]
-      const reviewSourceUrls = reviewStrings.flatMap(markdownSourceUrls)
-      if (reviewSourceUrls.length === 0) throw new Error(`${context}.apps[${index}]: review requires inline source links`)
-      for (const url of reviewSourceUrls) {
-        if (!sourceUrls.has(url)) throw new Error(`${context}.apps[${index}]: inline source is not in sources.json: ${url}`)
+      if (reviewStrings.some((value) => /\[[^\]]+\]\(https:\/\//.test(value))) {
+        throw new Error(`${context}.apps[${index}]: review prose must keep links in sourceUrls`)
+      }
+      if (!Array.isArray(app.review.sourceUrls) || app.review.sourceUrls.length === 0 || new Set(app.review.sourceUrls).size !== app.review.sourceUrls.length) {
+        throw new Error(`${context}.apps[${index}]: review.sourceUrls must contain unique official sources`)
+      }
+      if (!app.review.sourceUrls.includes(app.priceSourceUrl)) {
+        throw new Error(`${context}.apps[${index}]: priceSourceUrl must appear in review.sourceUrls`)
+      }
+      for (const url of app.review.sourceUrls) {
+        if (!sourceUrls.has(url)) throw new Error(`${context}.apps[${index}]: review source is not in sources.json: ${url}`)
         citedSourceUrls.add(url)
       }
     })
