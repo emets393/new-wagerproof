@@ -10,8 +10,9 @@ export const getGameDetail: Tool = {
   annotations: readOnly("Get game detail"),
   description:
     "Get a detailed breakdown of one specific matchup: the full model + analytics " +
-    "row for the game and any matching prediction-market (Polymarket) prices. Use " +
-    "this when the user asks about a specific game (e.g. 'Lakers vs Celtics'). " +
+    "row for the game and any matching prediction-market (Polymarket) prices. For " +
+    "CFB it also includes both teams' listed injuries (covers.com weekly report). " +
+    "Use this when the user asks about a specific game (e.g. 'Lakers vs Celtics'). " +
     "Returns model estimates and market data for analysis, not betting advice.",
   inputSchema: {
     type: "object",
@@ -107,16 +108,14 @@ export const getGameDetail: Tool = {
       );
     };
 
-    let match = games.find((g) => matches(g, away, home));
+    // Swapped home/away still resolves — fall through so the enrichments
+    // (Polymarket, CFB injuries) attach on that path too.
+    const match = games.find((g) => matches(g, away, home)) ?? games.find((g) => matches(g, home, away));
     if (!match) {
-      const swapped = games.find((g) => matches(g, home, away));
-      if (!swapped) {
-        return {
-          found: false,
-          message: `No ${sport.toUpperCase()} game found matching ${input.away_team} @ ${input.home_team} on ${date}`,
-        };
-      }
-      return { found: true, game: swapped, sport, date };
+      return {
+        found: false,
+        message: `No ${sport.toUpperCase()} game found matching ${input.away_team} @ ${input.home_team} on ${date}`,
+      };
     }
 
     // Polymarket markets for this game (best-effort; non-critical).
@@ -133,6 +132,29 @@ export const getGameDetail: Tool = {
       /* non-critical */
     }
 
-    return { found: true, game: match, polymarket, sport, date };
+    // CFB: both teams' listed injuries (covers.com weekly report, resolved to
+    // CFBD names at load). Best-effort — an empty list means UNREPORTED, not
+    // healthy (CFB injury reporting is unmandated), so say so explicitly.
+    let injuries: unknown = null;
+    if (sport === "cfb") {
+      try {
+        const { data } = await cfb
+          .from("cfb_injuries")
+          .select("cfbd_team, player, pos, status, detail, reported")
+          .eq("season", match.season as number)
+          .eq("week", match.week as number)
+          .in("cfbd_team", [String(match.home_team ?? ""), String(match.away_team ?? "")]);
+        injuries = {
+          note:
+            "covers.com weekly report. CFB injury reporting is unmandated — a team " +
+            "with no rows is UNREPORTED, not necessarily healthy.",
+          listed: data ?? [],
+        };
+      } catch {
+        /* non-critical */
+      }
+    }
+
+    return { found: true, game: match, polymarket, injuries, sport, date };
   },
 };

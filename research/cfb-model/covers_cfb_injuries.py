@@ -87,6 +87,18 @@ def main():
         sys.exit("parsed 0 injury rows — covers markup changed?")
     df.insert(0, "season", season)
     df.insert(1, "week", week)
+    # CFBD-canonical team resolved at load (same philosophy as venue resolution:
+    # consumers join clean; get_game_detail attaches injuries on this column).
+    try:
+        import qb_availability as QA
+        cfbd_teams = set(pd.read_parquet(ROOT / "data" / "cfbd" / "qb_starts.parquet").team)
+        df["cfbd_team"] = [QA.map_team(t, cfbd_teams) for t in df.team]
+        n_un = int(df.cfbd_team.isna().sum())
+        if n_un:
+            print(f"  [cfbd_team] {n_un} rows unmapped (FCS/nonstandard names)")
+    except Exception as e:
+        print(f"  [cfbd_team] mapping skipped: {e}")
+        df["cfbd_team"] = None
     out = ROOT / "data" / "injuries"
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"cfb_injuries_{season}_w{week}.parquet"
