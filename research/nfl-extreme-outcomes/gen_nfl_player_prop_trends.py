@@ -215,14 +215,38 @@ def compute_matchups(gl):
     return out
 
 
+def current_roster_map():
+    """gsis_id -> CURRENT team from the live nflverse weekly roster. The historical
+    props frame only knows a player's team in his LAST LOGGED GAME, which goes stale
+    every offseason (2026-08-27: Geno Smith shipped as LV; he's a Jet). Latest-week
+    row per player wins; a player on NO current roster maps to None so he can never
+    attach to a live slate game."""
+    import datetime as _dt
+    _today = _dt.date.today()
+    ros_season = _today.year - (1 if _today.month < 3 else 0)   # NFL season rolls over in March
+    for yr in (ros_season, ros_season - 1):
+        try:
+            ros = pd.read_parquet(
+                f"https://github.com/nflverse/nflverse-data/releases/download/weekly_rosters/roster_weekly_{yr}.parquet")
+            ros = ros.sort_values("week").groupby("gsis_id").tail(1)
+            print(f"  [roster] current teams from roster_weekly_{yr} ({ros.gsis_id.nunique()} players)")
+            return dict(zip(ros.gsis_id, ros.team.map(lambda t: NORM.get(t, t))))
+        except Exception as e:
+            print(f"  [roster] roster_weekly_{yr} unavailable ({e}); trying fallback")
+    return None
+
+
 def build():
     logs, meta = build_logs()
+    roster = current_roster_map()
     rows = []
     for pid, gl in logs.items():
         splits, present = compute_splits(gl)
         if not present:
             continue
         name, pos, team = meta[pid]
+        if roster is not None:
+            team = roster.get(pid)   # None = not on any current roster -> never attaches to a slate
         rows.append(dict(
             player_id=pid, player_name=name, position=pos, current_team=team,
             markets=present, career_games=len(gl),

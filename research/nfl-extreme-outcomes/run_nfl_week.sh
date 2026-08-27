@@ -71,6 +71,10 @@ step "sync MCP warehouse tables";     python3 load_nfl_mcp_tables.py || true
 step "team trends (Outliers tab)";    python3 dryrun_wk12_trends.py
 step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
 step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py
+# Roster refresh MUST precede the prop builders: player->team assignment comes from
+# nfl_player_profiles + the nflverse roster, both of which go stale every offseason
+# (2026-08-27: Geno Smith shipped as LV in player pages; he's a Jet).
+step "player profiles (roster refresh)"; python3 nfl_player_profiles_load.py --season "$SEASON" || true
 step "player-prop trends (Outliers)"; python3 gen_nfl_player_prop_trends.py
 step "QB/RB scheme substrates";          python3 build_qb_rb_scheme.py || true
 step "FTN player stats";                  python3 build_ftn_player_stats.py || true
