@@ -232,6 +232,51 @@ try:
 except Exception as e:
     print(f"  [coach_hammer_fav] skipped: {e}")
 
+# ── BACKUP-QB PREGAME TRIGGER (live 2026-08-27): covers.com injuries x established
+#    starters (qb_availability). Established starter listed Out/IR -> the two vaulted
+#    signals fire PREGAME: fade_home_backup_qb (spread, home team only, T3) and
+#    backup_qb_under (total, either team, T3). Doubtful fires at tracking (soft).
+#    Guarded: no injury parquet for this week -> block skips silently (scraper is a
+#    run_cfb_week.sh step). Graded vs OPEN per SPOT_META.
+try:
+    import qb_availability as QA
+    _inj_path = f"data/injuries/cfb_injuries_{SEASON}_w{WEEK}.parquet"
+    if os.path.exists(_inj_path):
+        _inj = pd.read_parquet(_inj_path)
+        _est = QA.build_established(SEASON, WEEK, carry_prior=True)
+        _fired = QA.flag_backup_starts(_inj, _est)
+        for _, fr in _fired.iterrows():
+            g_home = te[te.homeTeam == fr.team]
+            g_away = te[te.awayTeam == fr.team]
+            grow = g_home.iloc[0] if len(g_home) else (g_away.iloc[0] if len(g_away) else None)
+            if grow is None:
+                continue
+            is_home = len(g_home) > 0
+            tier = "tracking" if fr.soft else "active"
+            conv = "track" if fr.soft else "T3"
+            src_tail = f"{fr.injured_qb} ({fr.status})" + (" [carried]" if fr.carried else "")
+            if pd.notna(grow.total_close):
+                rows.append({"game_id": int(grow.game_id), "season": SEASON, "week": WEEK,
+                             "game": f"{grow.awayTeam} @ {grow.homeTeam}",
+                             "source": f"BACKUP-QB UNDER: {fr.team} starter out — {src_tail}",
+                             "signal_key": "backup_qb_under", "market": "total", "side": "UNDER",
+                             "line": round(float(grow.total_close), 1), "price": -110, "edge": None,
+                             "conviction": conv, "tier": tier, "stake_units": C.STAKE[conv],
+                             "grade_line": "open", "mammoth": False})
+            if is_home and pd.notna(grow.spread_close):
+                rows.append({"game_id": int(grow.game_id), "season": SEASON, "week": WEEK,
+                             "game": f"{grow.awayTeam} @ {grow.homeTeam}",
+                             "source": f"BACKUP-QB FADE (home): {fr.team} starter out — {src_tail}",
+                             "signal_key": "fade_home_backup_qb", "market": "spread", "side": "AWAY",
+                             "line": round(float(grow.spread_close), 1), "price": -110, "edge": None,
+                             "conviction": conv, "tier": tier, "stake_units": C.STAKE[conv],
+                             "grade_line": "open", "mammoth": False})
+        print(f"  [backup_qb] {len(_fired)} trigger(s) from {_inj_path.split('/')[-1]}")
+    else:
+        print(f"  [backup_qb] no injury file for wk{WEEK} — skipped")
+except Exception as e:
+    print(f"  [backup_qb] skipped: {e}")
+
 # ── DK-specific SMALL HOME-DOG MONEYLINE: when DraftKings prices the HOME team as a small dog (+100..+140),
 #    take the home moneyline. dk_ml_bands.py: home dogs in this band win outright ~48% vs ~43% DK-implied =
 #    +5.9% flat-bet ROI, 4/5 seasons (n=291). Structural: road favorites are overbet (all home dogs -1.5% vs

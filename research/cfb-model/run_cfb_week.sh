@@ -89,9 +89,15 @@ python3 gen_cfb_teams.py
 python3 gen_cfb_sportsbooks.py
 # Weekly slate (order matters: games first; picks writes conviction onto games;
 # flags back-fills n_flags counts onto games; trends are independent).
+# ORDER (fixed 2026-08-27): flags BEFORE picks — gen_cfb_picks reads
+# cfb_dryrun_flags for per-card conviction (conv_for), so picks-first ran every
+# fresh week against the PREVIOUS week's flags.
 step "slate: dryrun games";  python3 gen_cfb_dryrun_games.py
-step "slate: pick cards";    python3 gen_cfb_picks.py
+# covers.com injuries -> backup-QB pregame trigger (live 2026-08-27). Guarded:
+# a scrape failure must never block the slate — the flags block skips silently.
+step "injuries (covers.com)"; python3 covers_cfb_injuries.py "$SEASON" "$WEEK" || true
 step "slate: bet flags";     python3 gen_cfb_dryrun_flags.py
+step "slate: pick cards";    python3 gen_cfb_picks.py
 step "slate: team trends";   python3 gen_cfb_team_trends.py
 # Outliers trends (team splits/matchups + coach career trends). Both no-op safely if the
 # Outliers DDL (cfb_outliers_trends.sql) hasn't been applied to the data project yet.
