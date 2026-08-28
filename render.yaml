@@ -112,7 +112,14 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/cfb-model && python3 live_odds_cfb.py --write && python3 live_odds_cfb_1h.py --write
+    # refresh_cfb_slate_lines closes the capture->display loop every run: the
+    # slate rows the clients read were frozen at Monday's build (owner 2026-08-28,
+    # TCU showed -7.5 while the live number was -9). Guarded — a refresh failure
+    # must never block the captures.
+    startCommand: >-
+      cd research/cfb-model && python3 live_odds_cfb.py --write &&
+      python3 live_odds_cfb_1h.py --write &&
+      { python3 refresh_cfb_slate_lines.py || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels

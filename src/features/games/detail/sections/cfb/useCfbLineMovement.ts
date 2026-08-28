@@ -23,6 +23,10 @@ interface CfbLineMovementRow {
   ml_away?: number | null;
   h1_ml_home?: number | null;
   h1_ml_away?: number | null;
+  h1_spread_home?: number | null;
+  h1_total?: number | null;
+  tt_home?: number | null;
+  tt_away?: number | null;
 }
 
 export interface CfbLineMovementInput {
@@ -49,7 +53,11 @@ const CFB_GROUPS: LineMarketGroup[] = [
   'h1_ml',
 ];
 
-const CONSENSUS_SELECT = 'snap_ts,n_books,fg_spread_home,fg_total,ml_home,ml_away,h1_ml_home,h1_ml_away';
+// TT + 1H series now flow from the extended view (2026-08-28); the event-odds
+// arm emits them on its own snapshot rows interleaved with the FG rows, and the
+// shared series builder skips nulls per market.
+const CONSENSUS_SELECT =
+  'snap_ts,n_books,fg_spread_home,fg_total,ml_home,ml_away,h1_ml_home,h1_ml_away,h1_spread_home,h1_total,tt_home,tt_away';
 
 const toConsensusSnap = (row: CfbLineMovementRow): LineConsensusSnap => ({
   ml_home: toNum(row.ml_home),
@@ -60,10 +68,10 @@ const toConsensusSnap = (row: CfbLineMovementRow): LineConsensusSnap => ({
   n_books: toNum(row.n_books),
   fg_spread_home: toNum(row.fg_spread_home),
   fg_total: toNum(row.fg_total),
-  h1_spread_home: null,
-  h1_total: null,
-  tt_home: null,
-  tt_away: null,
+  h1_spread_home: toNum(row.h1_spread_home),
+  h1_total: toNum(row.h1_total),
+  tt_home: toNum(row.tt_home),
+  tt_away: toNum(row.tt_away),
 });
 
 /**
