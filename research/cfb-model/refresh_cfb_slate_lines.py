@@ -155,6 +155,61 @@ def main():
         ok += r.status_code in (200, 204)
     print(f"picks: {ok}/{len(p_up)} vegas_line refreshed")
 
+    # ---- TT / 1H best-book refresh (labels + best_* on picks) ----------------
+    # TT has NO runtime book board on web (the FG board reads ncaaf_odds_history
+    # only), so a stale pick.best_line shows verbatim. Mirror gen_cfb_picks'
+    # best_tt / best_h1_* selection over the freshest event-odds captures.
+    ev = requests.get(
+        f"{SUPA}/ncaaf_event_odds?select=game_id,market,name,description,book,point,price,home,away,snap_ts"
+        f"&game_id=in.({gids})&season=eq.{season}&snap_ts=gte.{since}&order=snap_ts.desc",
+        headers=hdr, timeout=90).json()
+    b_up = []
+    if isinstance(ev, list) and ev:
+        e = pd.DataFrame(ev)
+        e = e.sort_values("snap_ts", ascending=False).drop_duplicates(["game_id", "market", "name", "description", "book"])
+        def _norm(s): return str(s or "").lower().replace("\u2019", "'")
+        def best_tt(gid, team, ou):
+            s = e[(e.game_id == str(gid)) & (e.market == "team_totals")]
+            s = s[s.description.map(lambda d: _norm(d).startswith(_norm(team)))]
+            over = s[s.name == "Over"]; under = s[s.name == "Under"]
+            pr = {r.book: r.price for r in (under if ou == "UNDER" else over).itertuples()}
+            v = [(float(r.point), float(pr.get(r.book, -110)), r.book) for r in over.itertuples() if pd.notna(r.point)]
+            if not v: return None
+            return max(v, key=lambda x: (x[0], x[1])) if ou == "UNDER" else min(v, key=lambda x: (x[0], -x[1]))
+        def best_h1s(gid, side, home):
+            s = e[(e.game_id == str(gid)) & (e.market == "spreads_h1")]
+            s = s[s.name.map(lambda n: _norm(n).startswith(_norm(home)))]
+            v = [((float(r.point) if side == "HOME" else -float(r.point)),
+                  float(r.price) if pd.notna(r.price) else -110, r.book) for r in s.itertuples() if pd.notna(r.point)]
+            return max(v, key=lambda x: (x[0], x[1])) if v else None
+        def best_h1t(gid, side):
+            s = e[(e.game_id == str(gid)) & (e.market == "totals_h1") & (e.name == side.capitalize())]
+            v = [(float(r.point), float(r.price) if pd.notna(r.price) else -110, r.book) for r in s.itertuples() if pd.notna(r.point)]
+            if not v: return None
+            return min(v, key=lambda x: (x[0], -x[1])) if side == "OVER" else max(v, key=lambda x: (x[0], x[1]))
+        for p in picks:
+            gid, cg, side = p["game_id"], p.get("card_group"), (p.get("pick_side") or "")
+            g = pred.get(int(gid)) or {}
+            bt = None
+            if cg == "team_total" and p.get("pick_team") and side:
+                bt = best_tt(gid, p["pick_team"], side)
+            elif cg == "h1_spread" and side in ("HOME", "AWAY"):
+                bt = best_h1s(gid, side, g.get("home_team", ""))
+            elif cg == "h1_total" and side in ("OVER", "UNDER"):
+                bt = best_h1t(gid, side)
+            if bt is None:
+                continue
+            line, odds, book = bt
+            rec = {"best_line": round(line, 1), "best_odds": odds, "best_book": book}
+            lbl = p.get("pick_label") or ""
+            m = re.match(r"^(.*?)([+-]?\d+(?:\.\d+)?)$", lbl.strip())
+            if m:
+                tail = (f"{round(line,1):+g}" if m.group(2).startswith(("+", "-")) else f"{round(line,1):g}")
+                rec["pick_label"] = f"{m.group(1)}{tail}"
+            r = requests.patch(f"{SUPA}/cfb_slate_picks?id=eq.{p['id']}", headers=hdr, json=rec, timeout=30)
+            b_up.append(r.status_code in (200, 204))
+    print(f"best-book (tt/1h): {sum(b_up)}/{len(b_up)} picks refreshed")
+
 
 if __name__ == "__main__":
     main()
