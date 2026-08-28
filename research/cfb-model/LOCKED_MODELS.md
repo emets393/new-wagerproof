@@ -101,6 +101,17 @@ The exploitable totals error is one-directional (books shade totals UP → publi
 | T2 under: ranked-upset-last-wk / PT-rr-letdown / backup-QB(open≥50) | situational | |
 
 ### 2f. SIDES — fundamentals model spots · grade @ open
+
+> **2026-08-28 refreeze (owner-directed): QB-availability feature added to the SIDES
+> model** (`home_backup_qb`/`away_backup_qb`; totals unchanged — no lift, mirroring
+> the NFL). Historical truth = box-score starter-out labels
+> (`data/starter_out_labels.parquet`); serve week filled live from the covers.com
+> trigger in `build_season()`, degrading to 0 (availability-blind) when no injury
+> file exists. Validation (`cfb_qb_feature_retrain.py`, walk-forward 2022-25):
+> margin MAE better ALL 4 seasons (12.750→12.650; flagged games 12.769→12.528),
+> top-10% sides 52.0%→53.9% (−0.7→+2.9% ROI). Refrozen during weeks 1-3 EARLY
+> (harness numbers don't drive surfaces until wk4), sign guard verified post-swap.
+
 | Spot | Rule | Close hit |
 |---|---|---|
 | PREMIUM lay-fav home/away | |side_edge|≥8, P5, |open|<21, back the favorite | 68.6/62.5% |

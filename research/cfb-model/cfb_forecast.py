@@ -24,7 +24,10 @@ P5 = {"SEC", "Big Ten", "Big 12", "ACC", "Pac-12"}
 
 EXCLUDE = {"game_id", "season", "date", "homeTeam", "awayTeam", "homeConference", "awayConference",
            "homePoints", "awayPoints", "venueId", "actual_total", "actual_margin",
-           "spread_close", "spread_open", "total_close", "total_open"}
+           "spread_close", "spread_open", "total_close", "total_open",
+           # QB availability rides `nets` into the SIDES model only (totals showed
+           # no lift, mirroring the NFL where injuries stay out of totals).
+           "home_backup_qb", "away_backup_qb"}
 
 
 def load():
@@ -40,6 +43,22 @@ def load():
         gm[f"net_{b}"] = (gm[f"home_adj_{b}"] + gm[f"away_adj_{b}_allowed"]) - \
                          (gm[f"away_adj_{b}"] + gm[f"home_adj_{b}_allowed"])
         nets.append(f"net_{b}")
+    # QB availability (2026-08-28, cfb_qb_feature_retrain.py: margin MAE better all
+    # 4 walk-forward seasons, +0.24 on flagged games; top-10% sides 52.0->53.9%).
+    # Historical truth = box-score starter-out labels; the CURRENT week is filled
+    # live from the covers.com trigger in build_season(). Missing -> 0, so the
+    # model degrades to availability-blind exactly when the data does.
+    _lab_path = os.path.join(HERE, "data", "starter_out_labels.parquet")
+    if os.path.exists(_lab_path):
+        _lab = pd.read_parquet(_lab_path)[["season", "week", "team", "qb_backup_start"]]
+        _lab["qb_backup_start"] = _lab.qb_backup_start.astype(int)
+        gm = gm.merge(_lab.rename(columns={"team": "homeTeam", "qb_backup_start": "home_backup_qb"}),
+                      on=["season", "week", "homeTeam"], how="left")
+        gm = gm.merge(_lab.rename(columns={"team": "awayTeam", "qb_backup_start": "away_backup_qb"}),
+                      on=["season", "week", "awayTeam"], how="left")
+    gm["home_backup_qb"] = gm.get("home_backup_qb", pd.Series(0, index=gm.index)).fillna(0).astype(int)
+    gm["away_backup_qb"] = gm.get("away_backup_qb", pd.Series(0, index=gm.index)).fillna(0).astype(int)
+    nets += ["home_backup_qb", "away_backup_qb"]   # sides feature set = feats + nets
     return gm, feats, nets
 
 
@@ -236,6 +255,24 @@ def build_season(season, week=None):
     te = gm[gm.season == a.season].copy()
     if a.week:
         te = te[te.week == a.week]
+    # LIVE QB-availability overlay for the serve week: box-truth labels only
+    # exist post-game, so the current week's flags come from the covers.com
+    # injury trigger. Guarded — no injury file, or any failure, leaves the
+    # columns at 0 (availability-blind, the pre-feature behavior).
+    if a.week:
+        try:
+            import qb_availability as _QA
+            _inj = os.path.join(HERE, "data", "injuries", f"cfb_injuries_{a.season}_w{a.week}.parquet")
+            if os.path.exists(_inj):
+                _fired = _QA.flag_backup_starts(pd.read_parquet(_inj),
+                                                _QA.build_established(a.season, a.week, carry_prior=True))
+                _out = set(_fired[~_fired.soft].team) if len(_fired) else set()
+                if _out:
+                    te.loc[te.homeTeam.isin(_out), "home_backup_qb"] = 1
+                    te.loc[te.awayTeam.isin(_out), "away_backup_qb"] = 1
+                    print(f"[qb_feature] live backup-QB flags set for: {sorted(_out)}")
+        except Exception as _e:
+            print(f"[qb_feature] live overlay skipped: {_e}")
     # Frozen-.pkl serving (task #13): fit once with --train (or when no model saved), else load + predict.
     import joblib
     _pkl = os.path.join(OUT, f"cfb_models_{a.season}.pkl")

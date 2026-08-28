@@ -87,6 +87,11 @@ for _, r in (te.iterrows() if WEEK >= 4 else iter(())):
 _h1p = f"out/cfb_h1_model_{SEASON}.csv"
 h1 = pd.read_csv(_h1p) if os.path.exists(_h1p) else pd.DataFrame(columns=["game_id"])
 h1 = h1[h1.game_id.isin(g7)]
+# EARLY gate (2026-08-28): the 1H model is COLD weeks 1-3 (gen_cfb_dryrun_games
+# blanks this CSV then; this block was only protected by the file not existing —
+# a wk1 forecast rerun wrote it and 7 cold 1H flags leaked through).
+if WEEK <= 3:
+    h1 = h1.iloc[0:0]
 for _, r in h1.iterrows():
     g = f"{r.awayTeam} @ {r.homeTeam}"
     if isinstance(r.h1_spread_bet, str) and r.h1_spread_bet:
