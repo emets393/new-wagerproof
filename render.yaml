@@ -70,6 +70,28 @@ services:
       - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
         value: "3.11.9"
 
+  # --- CFB mid-week slate REFRESH (owner 2026-08-28: lines move all week, so the
+  # line-sensitive signal flags must recompute, not just the displayed numbers).
+  # Reuses the EXACT weekly pipeline — idempotent by design, so a refresh with
+  # unchanged inputs reproduces the same slate and only line-dependent flags/picks
+  # move. 3x daily ~10am/2pm/6pm ET incl. Saturday pre-kickoff; the 15-min
+  # refresher (cfb-live-odds-hourly) keeps lines + pick sides coherent between
+  # full rebuilds. Monday's weekly run remains the canonical slate build.
+  - type: cron
+    name: cfb-slate-refresh
+    runtime: python
+    plan: standard
+    schedule: "0 14,18,22 * 8-12,1 *"      # daily 10am/2pm/6pm ET, CFB season
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/cfb-model && bash run_cfb_week.sh && { python3 refresh_cfb_slate_lines.py || true; }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
   # --- Post-game grading (both sports): finals -> player logs -> grade picks/props/signals
   - type: cron
     name: nfl-cfb-grade-daily
