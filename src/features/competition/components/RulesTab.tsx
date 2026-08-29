@@ -30,6 +30,11 @@ export function RulesTab() {
             resubmitting re-stamps at then-current lines.
           </li>
           <li>Other players&apos; picks stay hidden until the deadline (enforced in the database).</li>
+          <li>
+            After the deadline, open <strong>All Picks</strong> to browse every submitted card —
+            name on top, each pick with team logos — and <strong>Most Picked</strong> for the
+            field consensus.
+          </li>
         </ul>
       </div>
 

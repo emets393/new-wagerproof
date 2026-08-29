@@ -12,6 +12,7 @@ import {
   fetchMyEntry,
   fetchMyPicks,
   fetchWeekStats,
+  fetchWeekSubmissions,
   pickCurrentWeek,
   pickLatestPastWeek,
   saveCompPicks,
@@ -68,12 +69,14 @@ export function useResolvedCompWeek(
         null
       : null;
 
-  // My Picks → open/current week. Most Picked / Leaderboard → latest week past
-  // deadline when nothing is explicitly selected, so reveal RPCs aren't gated
-  // behind a still-open slate.
+  // My Picks → open/current week. Reveal tabs → latest week past deadline
+  // when nothing is explicitly selected, so reveal RPCs aren't gated behind a
+  // still-open slate.
   const week =
     explicit ??
-    ((tab === 'most' || tab === 'leaderboard') && latestPast ? latestPast : null) ??
+    ((tab === 'most' || tab === 'everyone' || tab === 'leaderboard') && latestPast
+      ? latestPast
+      : null) ??
     current;
 
   return { weeksQ, weeks, current, latestPast, week: week ?? null };
@@ -124,6 +127,16 @@ export function useCompWeekStats(weekId: number | undefined, enabled: boolean) {
   });
 }
 
+export function useCompWeekSubmissions(weekId: number | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['comp', 'week-submissions', weekId],
+    enabled: weekId != null && enabled,
+    queryFn: () => fetchWeekSubmissions(weekId!),
+    staleTime: STALE,
+    retry: false,
+  });
+}
+
 export function useNowTicker(intervalMs = 1000) {
   const [now, setNow] = React.useState(() => Date.now());
   React.useEffect(() => {
@@ -162,6 +175,8 @@ export function useSubmitCompPicks(weekId: number | undefined) {
       toast.success('Picks submitted — lines stamped');
       void qc.invalidateQueries({ queryKey: ['comp', 'entry', weekId, user?.id] });
       void qc.invalidateQueries({ queryKey: ['comp', 'games', weekId] });
+      void qc.invalidateQueries({ queryKey: ['comp', 'week-submissions', weekId] });
+      void qc.invalidateQueries({ queryKey: ['comp', 'week-stats', weekId] });
     },
     onError: (err: Error) => {
       toast.error(err.message);

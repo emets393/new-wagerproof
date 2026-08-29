@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { FilterPill, SegmentedControl } from '@/components/ios';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { EveryonePicksTab } from './components/EveryonePicksTab';
 import { GamePickCard } from './components/GamePickCard';
 import { GradedPicksView } from './components/GradedPicksView';
 import { LeaderboardTab } from './components/LeaderboardTab';
@@ -26,6 +27,7 @@ import {
   useCompGames,
   useCompLeaderboard,
   useCompWeekStats,
+  useCompWeekSubmissions,
   useEnsureCompTeamAssets,
   useMyCompEntry,
   useNowTicker,
@@ -69,6 +71,7 @@ export default function CompetitionPage() {
   const locked = isWeekLocked(week, now);
   const pastDeadline = isPastDeadline(week, now);
   const statsQ = useCompWeekStats(weekId, pastDeadline && tab === 'most');
+  const submissionsQ = useCompWeekSubmissions(weekId, pastDeadline && tab === 'everyone');
   const lbQ = useCompLeaderboard(
     week?.season,
     lbMode === 'week' ? weekId ?? null : null
@@ -289,6 +292,7 @@ export default function CompetitionPage() {
             className="w-max min-w-full sm:w-auto sm:min-w-0"
             options={[
               { value: 'picks' as const, label: 'My Picks' },
+              { value: 'everyone' as const, label: 'All Picks' },
               { value: 'most' as const, label: 'Most Picked' },
               { value: 'leaderboard' as const, label: 'Leaderboard' },
               { value: 'rules' as const, label: 'Rules' },
@@ -399,6 +403,23 @@ export default function CompetitionPage() {
                 </div>
               </aside>
             )}
+          </div>
+        )}
+
+        {tab === 'everyone' && (
+          <div className="h-full overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 md:px-6">
+            <EveryonePicksTab
+              week={week}
+              now={now}
+              pastDeadline={pastDeadline}
+              cards={submissionsQ.data}
+              isLoading={submissionsQ.isLoading}
+              error={
+                submissionsQ.isError
+                  ? (submissionsQ.error as Error)?.message ?? 'Could not load picks'
+                  : null
+              }
+            />
           </div>
         )}
 

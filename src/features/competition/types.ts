@@ -89,4 +89,32 @@ export interface CompWeekStatRow {
   n_potw: number;
 }
 
-export type CompetitionTab = 'picks' | 'most' | 'leaderboard' | 'rules';
+/** One pick row from `comp_week_submissions` (post-deadline browse). */
+export interface CompSubmissionPickRow {
+  entry_id: number;
+  user_id: string;
+  display_name: string;
+  submitted_at: string | null;
+  pick_id: number;
+  game_id: number;
+  sport: CompSport;
+  home_team: string;
+  away_team: string;
+  kickoff: string;
+  market: CompMarket;
+  side: CompSide;
+  line: number | null;
+  is_potw: boolean;
+  result: CompPickResult | null;
+  points: number | null;
+}
+
+export interface CompSubmissionCard {
+  entryId: number;
+  userId: string;
+  displayName: string;
+  submittedAt: string | null;
+  picks: CompSubmissionPickRow[];
+}
+
+export type CompetitionTab = 'picks' | 'most' | 'everyone' | 'leaderboard' | 'rules';

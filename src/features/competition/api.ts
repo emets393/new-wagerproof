@@ -5,6 +5,8 @@ import type {
   CompGame,
   CompLeaderboardRow,
   CompPick,
+  CompSubmissionCard,
+  CompSubmissionPickRow,
   CompWeek,
   CompWeekStatRow,
 } from './types';
@@ -94,6 +96,33 @@ export async function fetchWeekStats(weekId: number): Promise<CompWeekStatRow[]>
   const { data, error } = await supabase.rpc('comp_week_stats', { p_week_id: weekId });
   if (error) throw new Error(rpcMessage(error));
   return (data ?? []) as CompWeekStatRow[];
+}
+
+/** All submitted entries + picks for a week (post-deadline only). */
+export async function fetchWeekSubmissions(weekId: number): Promise<CompSubmissionCard[]> {
+  const { data, error } = await supabase.rpc('comp_week_submissions', { p_week_id: weekId });
+  if (error) throw new Error(rpcMessage(error));
+  const rows = (data ?? []) as CompSubmissionPickRow[];
+  const byEntry = new Map<number, CompSubmissionCard>();
+  for (const row of rows) {
+    let card = byEntry.get(row.entry_id);
+    if (!card) {
+      card = {
+        entryId: row.entry_id,
+        userId: row.user_id,
+        displayName: row.display_name || 'Player',
+        submittedAt: row.submitted_at,
+        picks: [],
+      };
+      byEntry.set(row.entry_id, card);
+    }
+    card.picks.push(row);
+  }
+  return [...byEntry.values()].sort((a, b) => {
+    const at = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+    const bt = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+    return at - bt;
+  });
 }
 
 /**

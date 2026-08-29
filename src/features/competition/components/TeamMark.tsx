@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import type { CompSport } from './types';
+import type { CompSport } from '../types';
 import { compTeamLogo, teamInitials } from '../teamLogos';
 
 /** ESPN logo with initials fallback — shared across competition surfaces. */
