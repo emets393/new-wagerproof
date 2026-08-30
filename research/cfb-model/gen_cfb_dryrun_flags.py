@@ -537,7 +537,7 @@ if WEEK <= 3:
                 # One tier lower (T3) until the early sample matures — the early gate is
                 # the analogous-but-not-identical formula (blend vs in-season CORE).
                 if side == "UNDER":
-                    _q = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_games?game_id=eq.{int(r.game_id)}"
+                    _q = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?game_id=eq.{int(r.game_id)}"
                                       f"&select=tt_away_close,tt_away_best_under", headers=C.H, timeout=30)
                     _tr = (_q.json() or [{}])[0] if _q.ok else {}
                     _ttl, _ttpx = _tr.get("tt_away_close"), _tr.get("tt_away_best_under")
@@ -625,6 +625,6 @@ C.wipe("cfb_dryrun_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")
 C.insert("cfb_dryrun_flags", df)
 act = df[df.tier == "active"].groupby("game_id").size(); trk = df[df.tier == "tracking"].groupby("game_id").size()
 for gid in g7:
-    requests.patch(f"{C.URL}/rest/v1/cfb_dryrun_games?game_id=eq.{gid}", headers=C.H,
+    requests.patch(f"{C.URL}/rest/v1/cfb_slate_games?game_id=eq.{gid}", headers=C.H,
                    data=json.dumps({"n_flags_active": int(act.get(gid, 0)), "n_flags_tracking": int(trk.get(gid, 0))}))
 print("  back-filled n_flags on games")

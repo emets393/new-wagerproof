@@ -404,7 +404,7 @@ print(f"  best_book coverage: {int(df.best_book.notna().sum())}/{len(df)}")
 # the games row it renders under — UTEP@OU 2026-wk1 shipped "Oklahoma -39.5" while the game
 # row correctly said AWAY. Cross-check spread + total sides against cfb_dryrun_games and
 # refuse to write on ANY mismatch (hard fail stops the runner before users see it).
-_g = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_games?season=eq.{SEASON}&week=eq.{WEEK}"
+_g = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
                   f"&select=game_id,fg_spread_pick,fg_total_pick", headers={**C.H, "Prefer": ""}).json()
 _gsp = {int(x["game_id"]): x["fg_spread_pick"] for x in _g if x.get("fg_spread_pick")}
 _gtp = {int(x["game_id"]): x["fg_total_pick"] for x in _g if x.get("fg_total_pick")}
@@ -432,6 +432,6 @@ for gid, sub in df[df.has_play].groupby("game_id"):
         items.append({"card": cg, "conviction": top, "mammoth": bool(s2.is_mammoth.any())})
     summ[int(gid)] = items
 for gid in g7:
-    requests.patch(f"{C.URL}/rest/v1/cfb_dryrun_games?game_id=eq.{gid}", headers=C.H,
+    requests.patch(f"{C.URL}/rest/v1/cfb_slate_games?game_id=eq.{gid}", headers=C.H,
                    data=json.dumps({"conviction_summary": summ.get(int(gid), [])}))
 print("  conviction_summary written to games")

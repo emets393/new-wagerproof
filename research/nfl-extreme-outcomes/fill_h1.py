@@ -110,18 +110,18 @@ def main():
                "Content-Type": "application/json", "Prefer": "return=minimal"}
     print(f"=== fill_h1 :: season={SEASON} {'(write)' if WRITE else '(dry-run)'} ===")
 
-    ndg = fetch_table("nfl_dryrun_games", "game_id,season,week,h1_home,h1_away")
+    ndg = fetch_table("nfl_slate_games", "game_id,season,week,h1_home,h1_away")
     ndg = ndg[ndg.season == SEASON]
-    apply_h1("NFL", "nfl_dryrun_games", ndg, nfl_h1(SEASON), hdr)
+    apply_h1("NFL", "nfl_slate_games", ndg, nfl_h1(SEASON), hdr)
 
-    cdg = fetch_table("cfb_dryrun_games", "game_id,season,week,h1_home,h1_away")
+    cdg = fetch_table("cfb_slate_games", "game_id,season,week,h1_home,h1_away")
     cdg = cdg[cdg.season == SEASON]
     # cfb game_id is bigint; align dtypes for the merge
     cdg["game_id"] = cdg["game_id"].astype("int64")
     ch1 = cfb_h1(SEASON)
     if len(ch1):
         ch1["game_id"] = ch1["game_id"].astype("int64")
-    apply_h1("CFB", "cfb_dryrun_games", cdg, ch1, hdr)
+    apply_h1("CFB", "cfb_slate_games", cdg, ch1, hdr)
 
     if not WRITE:
         print("\n[dry-run] no writes. Re-run with --write once coverage looks right.")

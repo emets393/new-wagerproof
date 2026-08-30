@@ -1038,12 +1038,12 @@ def main():
         raise SystemExit(f"[SIGN GUARD] {len(_bad)} spread pick(s) contradict the games header — REFUSING TO WRITE: {_bad}")
     print(f"  sign guard: {len(_hdr)} non-neutral spread headers agree with pick cards")
 
-    for t in ("nfl_dryrun_picks", "nfl_dryrun_flags", "nfl_dryrun_games"):
+    for t in ("nfl_dryrun_picks", "nfl_dryrun_flags", "nfl_slate_games"):
         resp = requests.delete(f"{BASE_URL}/{t}?season=eq.{SEASON}&week=eq.{WEEK}",
                                headers=hdr, timeout=60)
         if resp.status_code not in (200, 204):
             sys.exit(f"delete {t}: {resp.status_code} {resp.text[:300]}")
-    for t, df in (("nfl_dryrun_games", games), ("nfl_dryrun_flags", fl),
+    for t, df in (("nfl_slate_games", games), ("nfl_dryrun_flags", fl),
                   ("nfl_dryrun_picks", picks)):
         recs = json.loads(df.to_json(orient="records"))   # to_json handles numpy types
         resp = requests.post(f"{BASE_URL}/{t}", headers=hdr, json=recs, timeout=60)

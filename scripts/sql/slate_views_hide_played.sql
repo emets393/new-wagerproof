@@ -1,0 +1,28 @@
+-- APPLIED TO PROD (CFB project jpxnjuwglavsjbgbasnl) 2026-08-30 via MCP
+-- apply_migration (slate_games_views_hide_played), plus six function repoints
+-- executed via the Management API.
+--
+-- Owner-reported: played week-0 games still on the games cards. CFBD labels
+-- week-0 games "week 1", so the slate week spans two weekends and current-week
+-- filtering can't drop finals. Fix at the read layer, zero client deploys:
+--
+--   1. grade_{cfb,nfl}_dryrun_picks, {cfb,nfl}_analysis_upcoming,
+--      refresh_{cfb,nfl}_analysis_base repointed view -> base table
+--      (grading + warehouse need played rows).
+--   2. Pipeline writers repointed to base: gen_cfb_dryrun_games (wipe/insert),
+--      gen_cfb_picks (sign guard + conviction_summary), gen_cfb_dryrun_flags
+--      (n_flags), dryrun_wk12_games (NFL wipe/insert), fill_finals, fill_h1.
+--   3. The compat VIEWS the clients read (cfb_dryrun_games / nfl_dryrun_games)
+--      now hide games past kickoff (+6h grace, matching the feed resolver):
+--
+-- CREATE OR REPLACE VIEW public.cfb_dryrun_games AS
+--   SELECT * FROM public.cfb_slate_games
+--   WHERE kickoff IS NULL OR kickoff > now() - interval '6 hours';
+-- CREATE OR REPLACE VIEW public.nfl_dryrun_games AS
+--   SELECT * FROM public.nfl_slate_games
+--   WHERE kickoff IS NULL OR kickoff > now() - interval '6 hours';
+--
+-- Effect: web/iOS/Android feeds, V3 agents, and MCP get_game_detail all stop
+-- serving played games automatically (8 week-0 finals dropped; 43 upcoming
+-- remain); base tables keep all 51 rows for grading/finals/warehouse.
+-- Verified: full pipeline regen on base tables passes (sign guard green).

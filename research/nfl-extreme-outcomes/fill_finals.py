@@ -62,21 +62,21 @@ def fill_nfl(hdr):
     nv = nv[nv["home_score"].notna()].rename(
         columns={"home_team": "home_ab", "away_team": "away_ab",
                  "home_score": "sh", "away_score": "sa"})
-    dg = fetch_table("nfl_dryrun_games",
+    dg = fetch_table("nfl_slate_games",
                      select="game_id,season,week,home_ab,away_ab,final_home,final_away")
     m = dg.merge(nv[["season", "week", "home_ab", "away_ab", "sh", "sa"]],
                  on=["season", "week", "home_ab", "away_ab"], how="left", indicator=True)
-    _report_and_write("NFL", "nfl_dryrun_games", dg, m, ["home_ab", "away_ab"], hdr)
+    _report_and_write("NFL", "nfl_slate_games", dg, m, ["home_ab", "away_ab"], hdr)
 
 
 def fill_cfb(hdr):
     cg = fetch_table("cfb_games", select="season,week,home_team,away_team,home_points,away_points")
     cg = cg[cg["home_points"].notna()].rename(columns={"home_points": "sh", "away_points": "sa"})
-    dg = fetch_table("cfb_dryrun_games",
+    dg = fetch_table("cfb_slate_games",
                      select="game_id,season,week,home_team,away_team,final_home,final_away")
     m = dg.merge(cg[["season", "week", "home_team", "away_team", "sh", "sa"]],
                  on=["season", "week", "home_team", "away_team"], how="left", indicator=True)
-    _report_and_write("CFB", "cfb_dryrun_games", dg, m, ["home_team", "away_team"], hdr)
+    _report_and_write("CFB", "cfb_slate_games", dg, m, ["home_team", "away_team"], hdr)
 
 
 def main():

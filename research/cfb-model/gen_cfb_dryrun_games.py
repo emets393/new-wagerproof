@@ -238,5 +238,5 @@ for col in ["home_rank", "away_rank", "final_home", "final_away", "h1_home", "h1
     df[col] = pd.Series([int(v) if pd.notna(v) else None for v in df[col]], dtype=object, index=df.index)
 print(f"cfb_dryrun_games rows: {len(df)} | tiers: {df.conviction_tier.value_counts().to_dict()}")
 print(f"  with TT close: {df.tt_home_close.notna().sum()} | 1H total: {df.h1_total_close.notna().sum()} | ML: {df.fg_ml_home_close.notna().sum()}")
-C.wipe("cfb_dryrun_games", f"season=eq.{SEASON}&week=eq.{WEEK}")
-C.insert("cfb_dryrun_games", df)
+C.wipe("cfb_slate_games", f"season=eq.{SEASON}&week=eq.{WEEK}")
+C.insert("cfb_slate_games", df)
