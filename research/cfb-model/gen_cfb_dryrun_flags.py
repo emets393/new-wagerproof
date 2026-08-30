@@ -9,6 +9,7 @@ import cfb_style_delta as SD
 import cfb_early_roster_signals as ER
 warnings.filterwarnings("ignore")
 SEASON, WEEK = C.season_week()
+C.ensure_fresh_odds_frame(SEASON)   # never condition line-banded signals on a stale frame
 
 gm, te, S = C.harness_week(SEASON, WEEK)
 # OWNER RULE: every signal conditions on ODDS-API lines, never CFBD consensus. 2026 wk1 audit

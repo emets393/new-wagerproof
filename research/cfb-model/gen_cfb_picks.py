@@ -9,6 +9,7 @@ import dry_common as C
 
 warnings.filterwarnings("ignore")
 SEASON, WEEK = C.season_week()
+C.ensure_fresh_odds_frame(SEASON)   # never condition line-banded signals on a stale frame
 BOOKS = {"draftkings": ("DraftKings", "draftkings.com"), "fanduel": ("FanDuel", "fanduel.com"),
  "betmgm": ("BetMGM", "betmgm.com"), "betrivers": ("BetRivers", "betrivers.com"),
  "williamhill_us": ("Caesars", "caesars.com"), "fanatics": ("Fanatics Sportsbook", "fanatics.com"),

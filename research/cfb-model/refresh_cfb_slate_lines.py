@@ -209,7 +209,67 @@ def main():
             r = requests.patch(f"{SUPA}/cfb_slate_picks?id=eq.{p['id']}", headers=hdr, json=rec, timeout=30)
             b_up.append(r.status_code in (200, 204))
     print(f"best-book (tt/1h): {sum(b_up)}/{len(b_up)} picks refreshed")
+    revalidate_banded_flags(hdr, season, week, gids)
     flip_stale_sides(hdr, season, week, gids)
+
+
+# ---- LINE-BAND RE-VALIDATION (owner catch 2026-08-30: g5_dog_wk1_bigfav is
+# only defined for spreads 21-27.5; UAB@Illinois moved to -28.5 and the signal
+# kept showing). Between full slate rebuilds, delete any CLOSE-line-banded flag
+# whose CURRENT line sits outside its band, and cascade: strip the key from the
+# picks' signal/counter lists and recount n_flags. DELETE-ONLY and conservative
+# — this never creates flags (the full rebuild owns creation) and only touches
+# signals whose validity is a pure function of the current line. Open-graded /
+# model-edge / contextual signals never go line-stale and are untouched.
+BANDED = {
+    # signal_key: (market, validity test on the CURRENT line, line source)
+    "g5_dog_wk1_bigfav": ("spread", lambda sp: sp is not None and 21 <= abs(sp) < 28),
+    "key_dog":           ("spread", lambda sp: sp is not None and 2.5 <= abs(sp) <= 3.5),
+    "key_lay_fav":       ("spread", lambda sp: sp is not None and 6.5 <= abs(sp) <= 7.5),
+    "fade_high_total":   ("total",  lambda t: t is not None and t >= 60),
+}
+
+
+def revalidate_banded_flags(hdr, season, week, gids):
+    games = {int(g["game_id"]): g for g in requests.get(
+        f"{SUPA}/cfb_slate_games?select=game_id,fg_spread_close,fg_total_close"
+        f"&season=eq.{season}&week=eq.{week}&game_id=in.({gids})", headers=hdr, timeout=30).json()}
+    keys = ",".join(BANDED)
+    flags = requests.get(
+        f"{SUPA}/cfb_slate_flags?select=id,game_id,signal_key"
+        f"&season=eq.{season}&week=eq.{week}&signal_key=in.({keys})", headers=hdr, timeout=30).json()
+    killed = {}
+    for f in flags:
+        g = games.get(int(f["game_id"]))
+        if not g:
+            continue
+        market, ok = BANDED[f["signal_key"]]
+        cur = g.get("fg_spread_close") if market == "spread" else g.get("fg_total_close")
+        if not ok(None if cur is None else float(cur)):
+            r = requests.delete(f"{SUPA}/cfb_slate_flags?id=eq.{f['id']}", headers=hdr, timeout=30)
+            if r.status_code in (200, 204):
+                killed.setdefault(int(f["game_id"]), []).append(f["signal_key"])
+    for gid, keys_killed in killed.items():
+        # strip from pick signal/counter lists (client chips read these)
+        pks = requests.get(f"{SUPA}/cfb_slate_picks?select=id,signal_keys,counter_signal_keys"
+                           f"&game_id=eq.{gid}&season=eq.{season}&week=eq.{week}", headers=hdr, timeout=30).json()
+        for p in pks:
+            sk = [k for k in (p.get("signal_keys") or []) if k not in keys_killed]
+            ck = [k for k in (p.get("counter_signal_keys") or []) if k not in keys_killed]
+            if sk != (p.get("signal_keys") or []) or ck != (p.get("counter_signal_keys") or []):
+                requests.patch(f"{SUPA}/cfb_slate_picks?id=eq.{p['id']}", headers=hdr,
+                               json={"signal_keys": sk, "counter_signal_keys": ck}, timeout=30)
+        # recount flag badges on the game row
+        for tier, col in [("active", "n_flags_active"), ("tracking", "n_flags_tracking")]:
+            r = requests.get(f"{SUPA}/cfb_slate_flags?select=id&game_id=eq.{gid}&tier=eq.{tier}",
+                             headers={**hdr, "Prefer": "count=exact"}, timeout=30)
+            n = int((r.headers.get("content-range") or "0-0/0").split("/")[-1])
+            requests.patch(f"{SUPA}/cfb_slate_games?game_id=eq.{gid}", headers=hdr, json={col: n}, timeout=30)
+    if killed:
+        print(f"band re-validation: killed {sum(len(v) for v in killed.values())} out-of-band flag(s) "
+              f"on {len(killed)} game(s): { {k: v for k, v in killed.items()} }")
+    else:
+        print("band re-validation: all line-banded flags in band")
 
 
 # ---- SIDE FLIPS (owner catch 2026-08-28: Memphis +4 shown while the model had

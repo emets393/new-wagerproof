@@ -13,6 +13,7 @@ import numpy as np, pandas as pd, warnings
 import dry_common as C
 warnings.filterwarnings("ignore")
 SEASON, WEEK = C.season_week()
+C.ensure_fresh_odds_frame(SEASON)   # never condition line-banded signals on a stale frame
 EARLY = WEEK <= 3   # weeks 1-3: FG display from the priors blend; the betting model isn't reliable yet
 P5 = {"SEC", "Big Ten", "Big 12", "ACC", "Pac-12"}
 

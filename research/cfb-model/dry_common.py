@@ -76,6 +76,32 @@ def classify(token):
         if k in token: return v
     return None
 
+def ensure_fresh_odds_frame(season, max_age_hours=2):
+    """Rebuild odds_game_frame.parquet from the DB when its newest capture is
+    stale. Guards the foot-gun that burned us 2026-08-30: a direct local
+    generator run silently conditioned every line-banded signal on a week-old
+    committed frame (UAB@Illinois g5_dog fired at -27.5 with the market at
+    -28.5), clobbering the cron's correct output. Call before any generator
+    that reads spread_close/total_close."""
+    import subprocess, datetime as _dt
+    here = os.path.dirname(os.path.abspath(__file__))
+    hist = os.path.join(here, "data", "odds_history", f"odds_{season}.parquet")
+    stale = True
+    try:
+        import pandas as _pd
+        snap = _pd.read_parquet(hist, columns=["snapshot"]).snapshot.max()
+        age = _dt.datetime.now(_dt.timezone.utc) - _pd.to_datetime(snap, utc=True)
+        stale = age > _dt.timedelta(hours=max_age_hours)
+        if stale:
+            print(f"[odds_frame] history is {age} old -> rebuilding from DB")
+    except Exception as e:
+        print(f"[odds_frame] freshness check failed ({e}) -> rebuilding from DB")
+    if stale:
+        subprocess.run(["python3", os.path.join(here, "materialize_odds_history.py"), str(season)],
+                       check=True, cwd=here)
+        subprocess.run(["python3", os.path.join(here, "build_odds_frame.py")], check=True, cwd=here)
+
+
 def harness_week(season, week):
     """Authoritative source: re-run the locked harness for one week. Returns (gm, te, S).
     te has per-game preds/edges/p_home_conf/mammoth; S = spot_library dict {name:(mask,side,market,grade)}."""
