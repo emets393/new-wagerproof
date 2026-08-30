@@ -26,6 +26,51 @@ BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
 # Wk12-2025 dry-run so an unparameterized run stays byte-for-byte the original.
 SEASON = int(os.environ.get("NFL_SEASON", 2025))
 WEEK = int(os.environ.get("NFL_WEEK", 12))
+
+
+def _ensure_fresh_odds_hist(max_age_hours=2):
+    """Incrementally sync data/odds_hist.parquet from nfl_historical_odds when
+    stale. Same foot-gun as CFB (2026-08-30): a direct local run conditioned
+    lines on a week-old committed parquet and clobbered fresh cron output."""
+    import datetime as _dt
+    p = DATA / "odds_hist.parquet"
+    try:
+        oh = pd.read_parquet(p)
+        newest = pd.to_datetime(oh.snap_ts).max()
+        if pd.Timestamp.now(tz="UTC") - newest.tz_localize("UTC" if newest.tzinfo is None else None) \
+                <= pd.Timedelta(hours=max_age_hours):
+            return
+        print(f"[odds_hist] newest capture {newest} is stale -> incremental sync")
+        key = None
+        for fn in (ROOT.parent.parent / ".env.local", ROOT.parent.parent / ".env"):
+            if fn.exists():
+                for line in fn.read_text().splitlines():
+                    if line.startswith("SUPABASE_SERVICE_KEY="):
+                        key = line.split("=", 1)[1].strip()
+        hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+        since = newest.strftime("%Y-%m-%dT%H:%M:%SZ")
+        rows, off = [], 0
+        while True:
+            r = requests.get(f"{BASE_URL}/nfl_historical_odds?snap_ts=gt.{since}"
+                             f"&limit=1000&offset={off}", headers=hdr, timeout=60)
+            batch = r.json()
+            if not isinstance(batch, list) or not batch:
+                break
+            rows += batch
+            if len(batch) < 1000:
+                break
+            off += 1000
+        if rows:
+            new = pd.DataFrame(rows)[[c for c in oh.columns if c in rows[0]]]
+            merged = pd.concat([oh, new], ignore_index=True).drop_duplicates(
+                subset=["snap_ts", "home_team", "away_team", "book"], keep="last")
+            merged.to_parquet(p)
+            print(f"[odds_hist] +{len(new)} rows -> {len(merged)} total")
+    except Exception as e:
+        print(f"[odds_hist] freshness sync failed ({e}) — CONTINUING ON EXISTING CACHE")
+
+
+_ensure_fresh_odds_hist()
 GK = ["season", "week", "home_ab", "away_ab"]
 # harness/odds_consensus use nflfastR-style codes; h1tt frames use Odds-API-derived
 NORM = {"LAR": "LA", "WSH": "WAS", "JAC": "JAX"}

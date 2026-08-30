@@ -70,6 +70,25 @@ services:
       - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
         value: "3.11.9"
 
+  # --- NFL mid-week slate REFRESH (CFB port, owner 2026-08-30): full pipeline
+  # rerun 3x daily in season so line-sensitive conviction/flags recompute; the
+  # 15-min refresher handles lines + side flips between rebuilds (flips demote
+  # conviction to none until this rerun re-derives the NFL ladder).
+  - type: cron
+    name: nfl-slate-refresh
+    runtime: python
+    plan: standard
+    schedule: "0 14,18,22 * 9-12,1-2 *"    # daily 10am/2pm/6pm ET, NFL season
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
   # --- CFB mid-week slate REFRESH (owner 2026-08-28: lines move all week, so the
   # line-sensitive signal flags must recompute, not just the displayed numbers).
   # Reuses the EXACT weekly pipeline — idempotent by design, so a refresh with
@@ -118,7 +137,11 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && python3 live_odds.py --write
+    # refresh_nfl_slate_lines closes the capture->display loop (CFB port,
+    # 2026-08-30: first run found 10 silently-crossed pick sides). Guarded.
+    startCommand: >-
+      cd research/nfl-extreme-outcomes && python3 live_odds.py --write &&
+      { python3 refresh_nfl_slate_lines.py || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
