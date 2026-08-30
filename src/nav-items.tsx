@@ -110,11 +110,25 @@ export const navItems: NavItem[] = [
     title: "NFL",
     to: "/games?sport=nfl",
     icon: <ShieldIcon className="h-4 w-4" />,
+    subItems: [
+      {
+        title: "Regression Report",
+        to: "/nfl/regression-report",
+        icon: <TrendingUp className="h-4 w-4" />,
+      },
+    ],
   },
   {
     title: "CFB",
     to: "/games?sport=cfb",
     icon: <GraduationCap className="h-4 w-4" />,
+    subItems: [
+      {
+        title: "Regression Report",
+        to: "/cfb/regression-report",
+        icon: <TrendingUp className="h-4 w-4" />,
+      },
+    ],
   },
   {
     title: "NBA",
