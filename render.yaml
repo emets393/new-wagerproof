@@ -70,6 +70,28 @@ services:
       - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
         value: "3.11.9"
 
+  # --- Football regression reports (owner spec 2026-08-30): ONE living document
+  # per sport-week, updated daily — storylines append/update/resolve on the
+  # record, LLM writes the narrative over curated storylines only, NO PICKS.
+  # 15:05 UTC = after the 13:00 grade cron and the 14:00 slate refresh (which
+  # rescrapes injuries + recomputes flags), so the report always reads fresh
+  # inputs — the MLB report's post-ingestion sequencing discipline.
+  - type: cron
+    name: football-regression-reports
+    runtime: python
+    schedule: "5 15 * 8-12,1-2 *"          # daily 11:05am ET, football season
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nOPENAI_API_KEY_REPORTS=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$OPENAI_API_KEY_REPORTS" > .env.local
+    startCommand: >-
+      { cd research/cfb-model && python3 gen_cfb_regression_report.py || true; } &&
+      { cd ../nfl-extreme-outcomes && python3 gen_nfl_regression_report.py || true; }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
   # --- NFL mid-week slate REFRESH (CFB port, owner 2026-08-30): full pipeline
   # rerun 3x daily in season so line-sensitive conviction/flags recompute; the
   # 15-min refresher handles lines + side flips between rebuilds (flips demote

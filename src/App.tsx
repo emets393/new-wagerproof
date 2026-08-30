@@ -11,13 +11,14 @@ import { toast } from "sonner";
 import { logMixpanelStatus } from "@/lib/mixpanel";
 import { DEFAULT_AUTHENTICATED_ROUTE } from "@/lib/routes";
 import Landing from "./pages/NewLanding";
-import { GameAnalysis, Account, Welcome, PressKit } from "./pages";
+import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./pages";
 import NBATodayHalftimeTrends from "./pages/NBATodayHalftimeTrends";
 import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
 // The MLB tools are split views now; the old page files stay on disk
 // but are no longer routed (see src/features/mlbTools/README.md).
 import F5SplitsPage from "./features/mlbTools/f5Splits/F5SplitsPage";
 import RegressionReportPage from "./features/mlbTools/regression/RegressionReportPage";
+import { FootballRegressionPage } from "./features/footballRegression/FootballRegressionPage";
 import { PlayerPropsReportPage } from "./features/mlbTools/playerPropsReport";
 import PropBreakdownPage from "./features/propBreakdown/PropBreakdownPage";
 import PropsPage from "./features/props/PropsPage";
@@ -288,7 +289,7 @@ function AppRoutes() {
     '/free-picks', // Free picks landing page - public access
     '/ai-agents', // New separate landing page for the AI Agent feature
     '/mcp', // Public WagerProof MCP connector tutorial
-  ].includes(location.pathname) || location.pathname.startsWith('/support');
+  ].includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/support');
 
   // Pages that should not have the layout (landing, welcome)
   if (isPublicRoute) {
@@ -301,6 +302,8 @@ function AppRoutes() {
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/press-kit" element={<PressKit />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route
@@ -350,6 +353,8 @@ function AppRoutes() {
           <Route path="/mlb" element={<LegacySportRedirect sport="mlb" />} />
           <Route path="/mlb/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="mlb" />} />
           <Route path="/mlb/daily-regression-report" element={<ProtectedRoute><RegressionReportPage /></ProtectedRoute>} />
+          <Route path="/nfl/regression-report" element={<ProtectedRoute><FootballRegressionPage sport="nfl" /></ProtectedRoute>} />
+          <Route path="/cfb/regression-report" element={<ProtectedRoute><FootballRegressionPage sport="cfb" /></ProtectedRoute>} />
           <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true}><F5SplitsPage /></ProtectedRoute>} />
           <Route path="/mlb/pitcher-matchups" element={<LegacyPropsRedirect sport="mlb" />} />
           <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true}><PlayerPropsReportPage /></ProtectedRoute>} />
