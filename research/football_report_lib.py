@@ -95,7 +95,7 @@ def sync_storylines(env, sport, season, week, fresh):
             "status": "resolved",
             "updates": (old.get("updates") or []) + [
                 {"date": day, "status": "resolved",
-                 "note": "No longer holds at current lines/data — kept for the record."}],
+                 "note": "No longer applies — the line moved, the data changed, or the game has kicked off. Kept for the record."}],
             "updated_at": "now()"}, timeout=30)
         log.append({"type": "resolved", "key": key})
     return log
@@ -132,9 +132,13 @@ HARD RULES:
   or injuries. If a storyline lacks a number, describe it qualitatively.
 - When a signal storyline says the model agrees, say so plainly; when it conflicts with
   the model, present it as tension, not as a resolution.
+- Line movement: repeat the storyline's own wording about WHICH TEAM money came in on.
+  NEVER re-derive direction from the numbers yourself — a home-perspective spread going
+  UP means money on the AWAY team, and getting this backwards is a firing offense.
 - Lead with the 2-4 most material storylines (rank order is provided). Group the rest
-  briefly by theme. Mention resolved storylines only if instructive.
-- Plain language, no hype, no emojis. Numbers stated exactly as given."""
+  briefly by theme. Skip resolved storylines entirely.
+- Plain language, no hype. One fitting emoji at the start of each section heading is
+  encouraged (e.g. "## 🏥 Injuries"); none in body text. Numbers stated exactly as given."""
 
 
 def generate_narrative(env, league, storylines, extra_context=""):

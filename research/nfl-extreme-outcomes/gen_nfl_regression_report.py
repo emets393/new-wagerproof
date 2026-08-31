@@ -15,6 +15,7 @@ Families v1:
 Gated until current-season data: EPA gaps, turnover luck, rest/travel/schedule.
 Usage: gen_nfl_regression_report.py [season week]
 """
+import datetime as dt
 import sys
 from pathlib import Path
 
@@ -64,6 +65,9 @@ def main():
                   f"fg_spread_open,fg_spread_close,fg_total_open,fg_total_close,"
                   f"tt_home_close,tt_away_close,h1_spread_close,h1_total_close,"
                   f"fg_spread_pick,fg_total_pick&season=eq.{season}&week=eq.{week}")
+    # Played games out of the report: their storylines auto-resolve via sync.
+    now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    games = [g for g in games if g.get("kickoff") and str(g["kickoff"])[:19] > now_iso]
     label = {str(g["game_id"]): f"{g['away_team']} @ {g['home_team']}" for g in games}
     flags = fetch(env, "nfl_slate_flags",
                   f"select=game_id,signal_key,side,market,conviction,tier&season=eq.{season}&week=eq.{week}")
@@ -125,7 +129,11 @@ def main():
         moves = []
         so, sc = g.get("fg_spread_open"), g.get("fg_spread_close")
         if so is not None and sc is not None and abs(float(sc) - float(so)) >= 1.0:
-            moves.append(f"spread {float(so):+g} -> {float(sc):+g}")
+            # Home-perspective line: falling number = money on the home side.
+            # Name the team so the narrative LLM can't invert direction.
+            mover = g["home_team"] if float(sc) < float(so) else g["away_team"]
+            moves.append(f"the spread moved from {g['home_team']} {float(so):+g} to "
+                         f"{g['home_team']} {float(sc):+g} — money has come in on {mover}")
         to_, tc = g.get("fg_total_open"), g.get("fg_total_close")
         if to_ is not None and tc is not None and abs(float(tc) - float(to_)) >= 1.5:
             d = "down" if float(tc) < float(to_) else "up"

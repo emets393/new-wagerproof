@@ -13,6 +13,7 @@ Families v1 (data available now):
 Families gated until current-season data exists: EPA/luck regression, team form.
 CFB cap: top ~30 by materiality (owner call). Usage: gen_cfb_regression_report.py [season week]
 """
+import datetime as dt
 import sys
 from pathlib import Path
 
@@ -45,7 +46,9 @@ def main():
                   f"fg_total_open,fg_total_close,fg_pred_spread,fg_pred_total,fg_spread_pick,"
                   f"fg_total_pick,tt_home_close,tt_away_close,wx_summary"
                   f"&season=eq.{season}&week=eq.{week}")
-    upcoming = [g for g in games if g.get("kickoff")]
+    # Played games out of the report: their storylines auto-resolve via sync.
+    now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    upcoming = [g for g in games if g.get("kickoff") and str(g["kickoff"])[:19] > now_iso]
     gmap = {str(g["game_id"]): g for g in upcoming}
     label = {str(g["game_id"]): f"{g['away_team']} @ {g['home_team']}" for g in upcoming}
     flags = fetch(env, "cfb_slate_flags",
@@ -121,9 +124,12 @@ def main():
         to_, tc = g.get("fg_total_open"), g.get("fg_total_close")
         moves = []
         if so is not None and sc is not None and abs(float(sc) - float(so)) >= 1.5:
-            direction = "toward the home side" if float(sc) < float(so) else "toward the away side"
-            with_model = (g.get("fg_spread_pick") or "").split(" ")[0]
-            moves.append(f"spread {float(so):+g} -> {float(sc):+g} ({direction})")
+            # Name the team the market moved toward — home-perspective line, so a
+            # falling number = money on the home side. Abstract "home/away side"
+            # phrasing let the narrative LLM invert direction (Tulsa incident).
+            mover = g["home_team"] if float(sc) < float(so) else g["away_team"]
+            moves.append(f"the spread moved from {g['home_team']} {float(so):+g} to "
+                         f"{g['home_team']} {float(sc):+g} — money has come in on {mover}")
         if to_ is not None and tc is not None and abs(float(tc) - float(to_)) >= 1.5:
             d = "down" if float(tc) < float(to_) else "up"
             agree_t = (model_tot.get(gid) == ("UNDER" if d == "down" else "OVER"))

@@ -1,6 +1,9 @@
 import * as React from 'react';
-import { Sparkles, Activity, RefreshCcw, CheckCircle2 } from 'lucide-react';
+import { Activity, CalendarDays, ChevronDown, RefreshCcw } from 'lucide-react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { useEnsureCompTeamAssets } from '@/features/competition/hooks';
+import { getCfbTeamLogo } from '@/utils/cfbTeamAssets';
+import { getNflTeamLogo } from '@/utils/nflTeamAssets';
 import { cn } from '@/lib/utils';
 
 /**
@@ -8,12 +11,8 @@ import { cn } from '@/lib/utils';
  *
  * ONE living document per sport-week: the daily generator appends storylines,
  * updates them in place, and resolves the ones reality closed — nothing is
- * deleted, so a reader arriving Friday sees the whole week's evolution. The
- * "What changed today" timeline is the diff a returning reader scans first.
+ * deleted, so a reader arriving Friday sees the whole week's evolution.
  * NO PICKS anywhere by owner rule — the report says what to watch.
- *
- * v1 is a single-column read (narrative + changelog + ranked storyline cards);
- * the MLB-style split view is the planned upgrade once per-game depth grows.
  */
 
 interface ReportRow {
@@ -38,18 +37,20 @@ interface StorylineRow {
   created_at: string;
 }
 
-const FAMILY_LABEL: Record<string, string> = {
-  injuries: 'Injuries',
-  signals: 'Signals',
-  line_movement: 'Line Movement',
-  ref_trends: 'Referee',
-  coach_trends: 'Coach',
-  confluence: 'Ref + Coach Confluence',
-  coach: 'Coach Disposition',
-  luck: 'Regression',
-  situational: 'Situational',
-  roster: 'Roster',
+// Emoji + accent per storyline family — the visual identity of each card.
+const FAMILY_META: Record<string, { label: string; emoji: string; chip: string; border: string }> = {
+  injuries: { label: 'Injuries', emoji: '🏥', chip: 'bg-red-500/15 text-red-500 dark:text-red-400', border: 'border-l-red-500/70' },
+  signals: { label: 'Signal', emoji: '🎯', chip: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400', border: 'border-l-emerald-500/70' },
+  line_movement: { label: 'Line Movement', emoji: '📈', chip: 'bg-sky-500/15 text-sky-600 dark:text-sky-400', border: 'border-l-sky-500/70' },
+  ref_trends: { label: 'Referee', emoji: '🦓', chip: 'bg-amber-500/15 text-amber-600 dark:text-amber-400', border: 'border-l-amber-500/70' },
+  coach_trends: { label: 'Coach', emoji: '🧠', chip: 'bg-violet-500/15 text-violet-600 dark:text-violet-400', border: 'border-l-violet-500/70' },
+  coach: { label: 'Coach', emoji: '🧠', chip: 'bg-violet-500/15 text-violet-600 dark:text-violet-400', border: 'border-l-violet-500/70' },
+  confluence: { label: 'Ref + Coach', emoji: '⚡', chip: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400', border: 'border-l-yellow-500/80' },
+  luck: { label: 'Regression', emoji: '🎲', chip: 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400', border: 'border-l-fuchsia-500/70' },
+  situational: { label: 'Situational', emoji: '📅', chip: 'bg-teal-500/15 text-teal-600 dark:text-teal-400', border: 'border-l-teal-500/70' },
+  roster: { label: 'Roster', emoji: '👥', chip: 'bg-orange-500/15 text-orange-600 dark:text-orange-400', border: 'border-l-orange-500/70' },
 };
+const FAMILY_FALLBACK = { label: 'Storyline', emoji: '📌', chip: 'bg-muted text-muted-foreground', border: 'border-l-border' };
 
 function mdToHtml(md: string): string {
   return md
@@ -61,10 +62,41 @@ function mdToHtml(md: string): string {
     .replace(/\n{2,}/g, '<br/><br/>');
 }
 
+function TeamLogo({ sport, team }: { sport: 'nfl' | 'cfb'; team: string }) {
+  const src = sport === 'nfl' ? getNflTeamLogo(team) : getCfbTeamLogo(team);
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt={team}
+      className="h-7 w-7 shrink-0 object-contain"
+      loading="lazy"
+      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
+}
+
+/** "Away @ Home" matchup strip with both logos. */
+function MatchupStrip({ sport, matchup }: { sport: 'nfl' | 'cfb'; matchup: string }) {
+  const [away, home] = matchup.split(' @ ');
+  if (!home) return <span className="text-[12px] font-semibold text-muted-foreground">{matchup}</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <TeamLogo sport={sport} team={away} />
+      <span className="text-[12px] font-bold">{away}</span>
+      <span className="text-[11px] text-muted-foreground">@</span>
+      <TeamLogo sport={sport} team={home} />
+      <span className="text-[12px] font-bold">{home}</span>
+    </span>
+  );
+}
+
 export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   const [report, setReport] = React.useState<ReportRow | null>(null);
   const [storylines, setStorylines] = React.useState<StorylineRow[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [showResolved, setShowResolved] = React.useState(false);
+  const { isSuccess: logosReady } = useEnsureCompTeamAssets();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -101,6 +133,7 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   const active = storylines.filter((s) => s.status !== 'resolved');
   const resolved = storylines.filter((s) => s.status === 'resolved');
   const today = report?.changelog?.[0];
+  const famCounts = report?.summary?.families ?? {};
 
   if (loading) {
     return <div className="p-8 text-sm text-muted-foreground">Loading the {league} report…</div>;
@@ -108,31 +141,50 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   if (!report) {
     return (
       <div className="p-8 text-sm text-muted-foreground">
-        The {league} regression report opens with the first slate of the week.
+        🏈 The {league} regression report opens with the first slate of the week.
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 pb-16">
-      <header>
+      <header className="rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-card p-5">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
           <Activity className="h-4 w-4" /> {league} Weekly Regression Report
         </div>
-        <h1 className="mt-1 text-2xl font-black">
-          Week {report.week} · {report.season}
+        <h1 className="mt-1 text-3xl font-black">
+          🏈 Week {report.week} · {report.season}
         </h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          A living report: storylines accumulate all week and update in place — resolved ones stay
-          on the record. Nothing here is a pick; it&apos;s what the data says to watch.
-          Updated {new Date(report.updated_at).toLocaleString()}.
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold">
+            🏟️ {report.summary?.games ?? '—'} games
+          </span>
+          <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold">
+            📚 {active.length} live storylines
+          </span>
+          {Object.entries(famCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 4)
+            .map(([fam, n]) => {
+              const m = FAMILY_META[fam] ?? FAMILY_FALLBACK;
+              return (
+                <span key={fam} className={cn('rounded-full px-2.5 py-1 text-[11px] font-bold', m.chip)}>
+                  {m.emoji} {n} {m.label.toLowerCase()}
+                </span>
+              );
+            })}
+        </div>
+        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <CalendarDays className="h-3.5 w-3.5" />
+          A living report — storylines update in place all week; resolved ones stay on the record.
+          Nothing here is a pick. Updated {new Date(report.updated_at).toLocaleString()}.
         </p>
       </header>
 
       {today && today.entries?.length > 0 && (
         <section className="rounded-xl border border-primary/25 bg-primary/5 p-4">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
-            <RefreshCcw className="h-3.5 w-3.5" /> What changed · {today.date}
+            <RefreshCcw className="h-3.5 w-3.5" /> 🔄 What changed · {today.date}
           </div>
           <ul className="mt-2 space-y-1 text-[13px]">
             {today.entries.slice(0, 12).map((e, i) => (
@@ -156,12 +208,12 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
       )}
 
       {report.narrative && (
-        <section className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5" /> This week&apos;s read · AI-written from the data below
+        <section className="rounded-xl border border-border bg-card p-5">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            ✨ This week&apos;s read · AI-written from the data below
           </div>
           <div
-            className="prose-sm mt-2 text-[13px] leading-relaxed text-muted-foreground [&_h2]:mt-3 [&_h2]:text-[15px] [&_h2]:font-bold [&_h2]:text-foreground [&_h3]:mt-3 [&_h3]:text-[14px] [&_h3]:font-bold [&_h3]:text-foreground [&_li]:ml-4 [&_li]:list-disc"
+            className="prose-sm mt-2 text-[13px] leading-relaxed text-muted-foreground [&_h2]:mt-4 [&_h2]:text-[16px] [&_h2]:font-black [&_h2]:text-foreground [&_h3]:mt-4 [&_h3]:text-[14px] [&_h3]:font-bold [&_h3]:text-foreground [&_h4]:mt-3 [&_h4]:text-[13px] [&_h4]:font-bold [&_h4]:text-foreground [&_li]:ml-4 [&_li]:list-disc"
             dangerouslySetInnerHTML={{ __html: mdToHtml(report.narrative) }}
           />
         </section>
@@ -169,20 +221,25 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
 
       <section className="space-y-3">
         <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-          Storylines ({active.length})
+          📚 Storylines ({active.length})
         </h2>
         {active.map((s) => (
-          <StorylineCard key={s.id} s={s} />
+          <StorylineCard key={s.id} s={s} sport={sport} logosReady={logosReady} />
         ))}
       </section>
 
       {resolved.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-            Resolved this week ({resolved.length}) — kept for the record
-          </h2>
-          {resolved.map((s) => (
-            <StorylineCard key={s.id} s={s} />
+          <button
+            type="button"
+            onClick={() => setShowResolved((v) => !v)}
+            className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-muted-foreground"
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform', !showResolved && '-rotate-90')} />
+            ✅ Resolved this week ({resolved.length}) — kept for the record
+          </button>
+          {showResolved && resolved.map((s) => (
+            <StorylineCard key={s.id} s={s} sport={sport} logosReady={logosReady} />
           ))}
         </section>
       )}
@@ -190,32 +247,41 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   );
 }
 
-function StorylineCard({ s }: { s: StorylineRow }) {
-  const resolved = s.status === 'resolved';
+function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl' | 'cfb'; logosReady: boolean }) {
+  const isResolved = s.status === 'resolved';
+  const m = FAMILY_META[s.family] ?? FAMILY_FALLBACK;
   return (
     <article
       className={cn(
-        'rounded-xl border border-border bg-card p-4',
-        resolved && 'opacity-60',
+        'rounded-xl border border-border border-l-4 bg-card p-4',
+        m.border,
+        isResolved && 'opacity-55',
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-          {FAMILY_LABEL[s.family] ?? s.family}
+        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', m.chip)}>
+          {m.emoji} {m.label}
         </span>
-        {s.matchup && <span className="text-[11px] font-semibold text-muted-foreground">{s.matchup}</span>}
         {s.status === 'updated' && (
           <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-600 dark:text-amber-300">
             updated
           </span>
         )}
-        {resolved && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground">
-            <CheckCircle2 className="h-3 w-3" /> resolved
-          </span>
+        {isResolved && (
+          <span className="text-[10px] font-bold uppercase text-muted-foreground">✅ resolved</span>
         )}
       </div>
-      <h3 className="mt-1.5 text-[14px] font-bold">{s.title}</h3>
+      {s.matchup && (
+        <div className="mt-2">
+          {logosReady
+            ? <MatchupStrip sport={sport} matchup={s.matchup} />
+            : <span className="text-[12px] font-semibold text-muted-foreground">{s.matchup}</span>}
+        </div>
+      )}
+      {/* Generator titles append "— {matchup}"; the logo strip already shows it. */}
+      <h3 className="mt-1.5 text-[14px] font-bold">
+        {s.matchup ? s.title.replace(` — ${s.matchup}`, '') : s.title}
+      </h3>
       <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{s.body}</p>
       {s.updates?.length > 0 && (
         <ul className="mt-2 space-y-1 border-t border-border pt-2">
