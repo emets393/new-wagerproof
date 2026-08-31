@@ -699,64 +699,6 @@ class GamesStore {
         )
     }
 
-    /** Legacy 2-way merge (`cfb_live_weekly_inputs` + `cfb_api_predictions`). Currently unreferenced. */
-    @Suppress("unused")
-    private suspend fun fetchCFBLegacy() {
-        val cfb = SupabaseClients.cfb
-        val inputs: List<CFBInputRow> = cfb.from("cfb_live_weekly_inputs").select().decodeList()
-        val preds: List<CFBAPIRow> = runCatchingCancellable {
-            cfb.from("cfb_api_predictions").select().decodeList<CFBAPIRow>()
-        }.getOrDefault(emptyList())
-        val predsById = preds.associateBy { it.id }
-
-        val merged = inputs.map { input ->
-            val api = predsById[input.id]
-            val homeSpread = input.apiSpread ?: input.homeSpread
-            val awaySpread = input.apiSpread?.let { -it } ?: input.awaySpread
-            CFBPrediction(
-                id = input.id.toString(),
-                awayTeam = input.awayTeam ?: "",
-                homeTeam = input.homeTeam ?: "",
-                homeMl = input.homeMoneyline ?: input.homeMl,
-                awayMl = input.awayMoneyline ?: input.awayMl,
-                homeSpread = homeSpread,
-                awaySpread = awaySpread,
-                overLine = input.apiOverLine ?: input.totalLine,
-                gameDate = input.startTime ?: input.startDate ?: input.gameDate ?: "",
-                gameTime = input.startTime ?: input.startDate ?: input.gameTime ?: "",
-                trainingKey = input.trainingKey ?: "",
-                uniqueId = input.uniqueId ?: "${input.awayTeam ?: ""}_${input.homeTeam ?: ""}_${input.startTime ?: ""}",
-                homeAwayMlProb = input.predMlProba ?: input.homeAwayMlProb,
-                homeAwaySpreadCoverProb = input.predSpreadProba ?: input.homeAwaySpreadCoverProb,
-                ouResultProb = input.predTotalProba ?: input.ouResultProb,
-                runId = input.runId,
-                temperature = input.weatherTempF ?: input.temperature,
-                precipitation = input.precipitation,
-                windSpeed = input.weatherWindspeedMph ?: input.windSpeed,
-                icon = input.weatherIconText ?: input.icon,
-                spreadSplitsLabel = input.spreadSplitsLabel,
-                totalSplitsLabel = input.totalSplitsLabel,
-                mlSplitsLabel = input.mlSplitsLabel,
-                conference = input.conference,
-                predAwayScore = api?.predAwayScore ?: input.predAwayScore,
-                predHomeScore = api?.predHomeScore ?: input.predHomeScore,
-                predAwayPoints = api?.predAwayPoints ?: api?.awayPoints,
-                predHomePoints = api?.predHomePoints ?: api?.homePoints,
-                predSpread = api?.predSpread ?: api?.runLinePrediction ?: api?.spreadPrediction,
-                homeSpreadDiff = api?.homeSpreadDiff ?: api?.spreadDiff ?: api?.edge,
-                predTotal = api?.predTotal ?: api?.totalPrediction ?: api?.ouPrediction,
-                totalDiff = api?.totalDiff ?: api?.totalEdge,
-                predOverLine = api?.predOverLine,
-                overLineDiff = api?.overLineDiff,
-                openingSpread = input.spread,
-                openingTotal = input.totalLine,
-                convictionTierRaw = "none",
-                mammoth = false,
-                flags = emptyList(),
-            )
-        }
-        games = games.copy(cfb = merged)
-    }
 
     // MARK: - NBA fetch
 
@@ -1292,72 +1234,7 @@ class GamesStore {
         val icon: String? = null,
     )
 
-    @Serializable
-    private data class CFBInputRow(
-        val id: Int,
-        @SerialName("away_team") val awayTeam: String? = null,
-        @SerialName("home_team") val homeTeam: String? = null,
-        @SerialName("home_moneyline") val homeMoneyline: Int? = null,
-        @SerialName("away_moneyline") val awayMoneyline: Int? = null,
-        @SerialName("home_ml") val homeMl: Int? = null,
-        @SerialName("away_ml") val awayMl: Int? = null,
-        @SerialName("api_spread") val apiSpread: Double? = null,
-        @SerialName("home_spread") val homeSpread: Double? = null,
-        @SerialName("away_spread") val awaySpread: Double? = null,
-        @SerialName("api_over_line") val apiOverLine: Double? = null,
-        @SerialName("total_line") val totalLine: Double? = null,
-        val spread: Double? = null,
-        @SerialName("start_time") val startTime: String? = null,
-        @SerialName("start_date") val startDate: String? = null,
-        @SerialName("game_date") val gameDate: String? = null,
-        @SerialName("game_time") val gameTime: String? = null,
-        @SerialName("training_key") val trainingKey: String? = null,
-        @SerialName("unique_id") val uniqueId: String? = null,
-        @SerialName("run_id") val runId: String? = null,
-        @SerialName("pred_ml_proba") val predMlProba: Double? = null,
-        @SerialName("pred_spread_proba") val predSpreadProba: Double? = null,
-        @SerialName("pred_total_proba") val predTotalProba: Double? = null,
-        @SerialName("home_away_ml_prob") val homeAwayMlProb: Double? = null,
-        @SerialName("home_away_spread_cover_prob") val homeAwaySpreadCoverProb: Double? = null,
-        @SerialName("ou_result_prob") val ouResultProb: Double? = null,
-        @SerialName("weather_temp_f") val weatherTempF: Double? = null,
-        val temperature: Double? = null,
-        val precipitation: Double? = null,
-        @SerialName("weather_windspeed_mph") val weatherWindspeedMph: Double? = null,
-        @SerialName("wind_speed") val windSpeed: Double? = null,
-        @SerialName("weather_icon_text") val weatherIconText: String? = null,
-        val icon: String? = null,
-        @SerialName("spread_splits_label") val spreadSplitsLabel: String? = null,
-        @SerialName("total_splits_label") val totalSplitsLabel: String? = null,
-        @SerialName("ml_splits_label") val mlSplitsLabel: String? = null,
-        val conference: String? = null,
-        @SerialName("pred_away_score") val predAwayScore: Double? = null,
-        @SerialName("pred_home_score") val predHomeScore: Double? = null,
-    )
 
-    @Serializable
-    private data class CFBAPIRow(
-        val id: Int,
-        @SerialName("pred_away_score") val predAwayScore: Double? = null,
-        @SerialName("pred_home_score") val predHomeScore: Double? = null,
-        @SerialName("pred_away_points") val predAwayPoints: Double? = null,
-        @SerialName("pred_home_points") val predHomePoints: Double? = null,
-        @SerialName("away_points") val awayPoints: Double? = null,
-        @SerialName("home_points") val homePoints: Double? = null,
-        @SerialName("pred_spread") val predSpread: Double? = null,
-        @SerialName("run_line_prediction") val runLinePrediction: Double? = null,
-        @SerialName("spread_prediction") val spreadPrediction: Double? = null,
-        @SerialName("home_spread_diff") val homeSpreadDiff: Double? = null,
-        @SerialName("spread_diff") val spreadDiff: Double? = null,
-        val edge: Double? = null,
-        @SerialName("pred_total") val predTotal: Double? = null,
-        @SerialName("total_prediction") val totalPrediction: Double? = null,
-        @SerialName("ou_prediction") val ouPrediction: Double? = null,
-        @SerialName("total_diff") val totalDiff: Double? = null,
-        @SerialName("total_edge") val totalEdge: Double? = null,
-        @SerialName("pred_over_line") val predOverLine: Double? = null,
-        @SerialName("over_line_diff") val overLineDiff: Double? = null,
-    )
 
     @Serializable
     private data class CFBDryrunGameRow(

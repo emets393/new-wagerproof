@@ -6,7 +6,7 @@ import WagerproofModels
 /// Three public entry points mirror the RN exports:
 ///
 ///   - `fetchWeekGames()` — pulls NFL / CFB / NBA / NCAAB game rows from the
-///     CFB Supabase project (`v_input_values_with_epa`, `cfb_live_weekly_inputs`,
+///     CFB Supabase project (`nfl_dryrun_games`, `cfb_dryrun_games`,
 ///     `nba_input_values_view`, `v_cbb_input_values`), filters to the next
 ///     7 days in America/New_York, hydrates predictions, returns the merged
 ///     summary list.

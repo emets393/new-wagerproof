@@ -367,10 +367,16 @@ Four generations of the engine exist in the repo. Get this right before touching
 | Sport | Input Table | Predictions Table |
 |-------|-------------|-------------------|
 | NFL | `v_input_values_with_epa` | `nfl_predictions_epa` |
-| CFB | `cfb_live_weekly_inputs` | `cfb_api_predictions` |
+| CFB | `cfb_slate_games` (+ `_flags`/`_picks`; compat view `cfb_dryrun_games`) | same — model output IS the slate row |
 | NBA | `nba_input_values_view` | `nba_predictions` |
 | NCAAB | `v_cbb_input_values` | `ncaab_predictions` |
 | MLB | Statcast pregame tables | `mlb_training_snapshots` + model predictions |
+
+**The old CFB system is DEAD (owner call 2026-08-31).** `cfb_live_weekly_inputs` and
+`cfb_api_predictions` are permanently empty: their writer (`cfb_model.py` in
+cfb_automation) is deleted and every shipping surface (web, iOS, Android, V3 agents)
+reads the `cfb_slate_*` tables. The empty tables are intentionally KEPT so old RN
+builds degrade to an empty feed instead of erroring — do not repopulate or query them.
 
 ### Data Availability (matters for AI Agents)
 - **NFL/CFB**: Model predictions, weather, public betting labels — NO team ratings, NO trends

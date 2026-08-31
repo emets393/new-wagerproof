@@ -13,8 +13,8 @@ import WagerproofServices
 /// `refresh(sport:force:)` runs the matching per-sport query against the
 /// CFB Supabase project. NFL is the most complex: a 4-way merge of
 /// `v_input_values_with_epa` + `nfl_predictions_epa` + `nfl_betting_lines`
-/// + `production_weather`. CFB is a 2-way merge of `cfb_live_weekly_inputs`
-/// + `cfb_api_predictions`. NCAAB ported in B11 — a 3-way merge of
+/// + `production_weather`. CFB reads the slate tables (`cfb_dryrun_games`
+/// + `cfb_dryrun_flags`). NCAAB ported in B11 — a 3-way merge of
 /// `v_cbb_input_values` + `ncaab_predictions` + `ncaab_team_mapping`.
 /// NBA / MLB still placeholder pending B10/B12.
 ///
@@ -972,154 +972,8 @@ public final class GamesStore {
         games.nfl = merged
     }
 
-    // MARK: - CFB fetch
-    //
-    // Mirrors RN `fetchCFBData()` in index.tsx:330-397. Two queries:
-    //   1. cfb_live_weekly_inputs (all rows)
-    //   2. cfb_api_predictions (all rows; matched by id)
-    // Merge: for each input, find a prediction with matching id.
-
-    private struct CFBInputRow: Decodable, Sendable {
-        let id: Int
-        let awayTeam: String?
-        let homeTeam: String?
-        let homeMoneyline: Int?
-        let awayMoneyline: Int?
-        let homeMl: Int?
-        let awayMl: Int?
-        let apiSpread: Double?
-        let homeSpread: Double?
-        let awaySpread: Double?
-        let apiOverLine: Double?
-        let totalLine: Double?
-        let spread: Double?
-        let startTime: String?
-        let startDate: String?
-        let gameDate: String?
-        let gameTime: String?
-        let trainingKey: String?
-        let uniqueId: String?
-        let runId: String?
-        let predMlProba: Double?
-        let predSpreadProba: Double?
-        let predTotalProba: Double?
-        let homeAwayMlProb: Double?
-        let homeAwaySpreadCoverProb: Double?
-        let ouResultProb: Double?
-        let weatherTempF: Double?
-        let temperature: Double?
-        let precipitation: Double?
-        let weatherWindspeedMph: Double?
-        let windSpeed: Double?
-        let weatherIconText: String?
-        let icon: String?
-        let wxTempF: Double?
-        let wxWindMph: Double?
-        let wxPrecipMm: Double?
-        let wxIndoors: Bool?
-        let wxIcon: String?
-        let wxSummary: String?
-        let spreadSplitsLabel: String?
-        let totalSplitsLabel: String?
-        let mlSplitsLabel: String?
-        let conference: String?
-        let predAwayScore: Double?
-        let predHomeScore: Double?
-
-        enum CodingKeys: String, CodingKey {
-            case id
-            case awayTeam = "away_team"
-            case homeTeam = "home_team"
-            case homeMoneyline = "home_moneyline"
-            case awayMoneyline = "away_moneyline"
-            case homeMl = "home_ml"
-            case awayMl = "away_ml"
-            case apiSpread = "api_spread"
-            case homeSpread = "home_spread"
-            case awaySpread = "away_spread"
-            case apiOverLine = "api_over_line"
-            case totalLine = "total_line"
-            case spread
-            case startTime = "start_time"
-            case startDate = "start_date"
-            case gameDate = "game_date"
-            case gameTime = "game_time"
-            case trainingKey = "training_key"
-            case uniqueId = "unique_id"
-            case runId = "run_id"
-            case predMlProba = "pred_ml_proba"
-            case predSpreadProba = "pred_spread_proba"
-            case predTotalProba = "pred_total_proba"
-            case homeAwayMlProb = "home_away_ml_prob"
-            case homeAwaySpreadCoverProb = "home_away_spread_cover_prob"
-            case ouResultProb = "ou_result_prob"
-            case weatherTempF = "weather_temp_f"
-            case temperature
-            case precipitation
-            case weatherWindspeedMph = "weather_windspeed_mph"
-            case windSpeed = "wind_speed"
-            case weatherIconText = "weather_icon_text"
-            case icon
-            case wxTempF = "wx_temp_f"
-            case wxWindMph = "wx_wind_mph"
-            case wxPrecipMm = "wx_precip_mm"
-            case wxIndoors = "wx_indoors"
-            case wxIcon = "wx_icon"
-            case wxSummary = "wx_summary"
-            case spreadSplitsLabel = "spread_splits_label"
-            case totalSplitsLabel = "total_splits_label"
-            case mlSplitsLabel = "ml_splits_label"
-            case conference
-            case predAwayScore = "pred_away_score"
-            case predHomeScore = "pred_home_score"
-        }
-    }
-
-    private struct CFBAPIRow: Decodable, Sendable {
-        let id: Int
-        let predAwayScore: Double?
-        let predHomeScore: Double?
-        let predAwayPoints: Double?
-        let predHomePoints: Double?
-        let awayPoints: Double?
-        let homePoints: Double?
-        let predSpread: Double?
-        let runLinePrediction: Double?
-        let spreadPrediction: Double?
-        let homeSpreadDiff: Double?
-        let spreadDiff: Double?
-        let edge: Double?
-        let predTotal: Double?
-        let totalPrediction: Double?
-        let ouPrediction: Double?
-        let totalDiff: Double?
-        let totalEdge: Double?
-        let predOverLine: Double?
-        let overLineDiff: Double?
-
-        enum CodingKeys: String, CodingKey {
-            case id
-            case predAwayScore = "pred_away_score"
-            case predHomeScore = "pred_home_score"
-            case predAwayPoints = "pred_away_points"
-            case predHomePoints = "pred_home_points"
-            case awayPoints = "away_points"
-            case homePoints = "home_points"
-            case predSpread = "pred_spread"
-            case runLinePrediction = "run_line_prediction"
-            case spreadPrediction = "spread_prediction"
-            case homeSpreadDiff = "home_spread_diff"
-            case spreadDiff = "spread_diff"
-            case edge
-            case predTotal = "pred_total"
-            case totalPrediction = "total_prediction"
-            case ouPrediction = "ou_prediction"
-            case totalDiff = "total_diff"
-            case totalEdge = "total_edge"
-            case predOverLine = "pred_over_line"
-            case overLineDiff = "over_line_diff"
-        }
-    }
+    // MARK: - CFB fetch (slate tables — the legacy cfb_live_weekly_inputs +
+    // cfb_api_predictions system is dead; tables kept empty for old RN builds)
 
     private struct FlexibleString: Decodable, Hashable, Sendable {
         let value: String
@@ -1312,70 +1166,6 @@ public final class GamesStore {
 
     private func fetchCFB() async throws {
         try await fetchCFBDryrun()
-    }
-
-    private func fetchCFBLegacy() async throws {
-        let cfb = await CFBSupabase.shared.client
-        let inputs: [CFBInputRow] = try await cfb
-            .from("cfb_live_weekly_inputs")
-            .select()
-            .execute()
-            .value
-        let preds: [CFBAPIRow] = (try? await cfb
-            .from("cfb_api_predictions")
-            .select()
-            .execute()
-            .value) ?? []
-        let predsById: [Int: CFBAPIRow] = Dictionary(uniqueKeysWithValues: preds.map { ($0.id, $0) })
-
-        let merged: [CFBPrediction] = inputs.map { input in
-            let api = predsById[input.id]
-            let homeSpread = input.apiSpread ?? input.homeSpread
-            let awaySpread: Double? = {
-                if let s = input.apiSpread { return -s }
-                if let s = input.awaySpread { return s }
-                return nil
-            }()
-            return CFBPrediction(
-                id: String(input.id),
-                awayTeam: input.awayTeam ?? "",
-                homeTeam: input.homeTeam ?? "",
-                homeMl: input.homeMoneyline ?? input.homeMl,
-                awayMl: input.awayMoneyline ?? input.awayMl,
-                homeSpread: homeSpread,
-                awaySpread: awaySpread,
-                overLine: input.apiOverLine ?? input.totalLine,
-                gameDate: input.startTime ?? input.startDate ?? input.gameDate ?? "",
-                gameTime: input.startTime ?? input.startDate ?? input.gameTime ?? "",
-                trainingKey: input.trainingKey ?? "",
-                uniqueId: input.uniqueId ?? "\(input.awayTeam ?? "")_\(input.homeTeam ?? "")_\(input.startTime ?? "")",
-                homeAwayMlProb: input.predMlProba ?? input.homeAwayMlProb,
-                homeAwaySpreadCoverProb: input.predSpreadProba ?? input.homeAwaySpreadCoverProb,
-                ouResultProb: input.predTotalProba ?? input.ouResultProb,
-                runId: input.runId,
-                temperature: input.weatherTempF ?? input.temperature,
-                precipitation: input.precipitation,
-                windSpeed: input.weatherWindspeedMph ?? input.windSpeed,
-                icon: input.weatherIconText ?? input.icon,
-                spreadSplitsLabel: input.spreadSplitsLabel,
-                totalSplitsLabel: input.totalSplitsLabel,
-                mlSplitsLabel: input.mlSplitsLabel,
-                conference: input.conference,
-                predAwayScore: api?.predAwayScore ?? input.predAwayScore,
-                predHomeScore: api?.predHomeScore ?? input.predHomeScore,
-                predAwayPoints: api?.predAwayPoints ?? api?.awayPoints,
-                predHomePoints: api?.predHomePoints ?? api?.homePoints,
-                predSpread: api?.predSpread ?? api?.runLinePrediction ?? api?.spreadPrediction,
-                homeSpreadDiff: api?.homeSpreadDiff ?? api?.spreadDiff ?? api?.edge,
-                predTotal: api?.predTotal ?? api?.totalPrediction ?? api?.ouPrediction,
-                totalDiff: api?.totalDiff ?? api?.totalEdge,
-                predOverLine: api?.predOverLine,
-                overLineDiff: api?.overLineDiff,
-                openingSpread: input.spread,
-                openingTotal: input.totalLine
-            )
-        }
-        games.cfb = merged
     }
 
     private func fetchCFBDryrun() async throws {
