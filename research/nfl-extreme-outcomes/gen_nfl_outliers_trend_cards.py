@@ -167,12 +167,25 @@ def main():
         f"&team_abbr=in.({','.join(team_abbrs)})"
         f"&select=team_abbr,team_name,splits,matchups",
     )
+    # Current coach per team from the schedule feed, trend rows joined by coach
+    # NAME. current_team on the table is franchise history (every coach a team
+    # ever had) and last_season=SEASON matches nobody until games are played —
+    # the old filters were empty in week 1 and mislabeled movers after.
+    from urllib.parse import quote
+    from nfl_current_coaches import current_coaches
+    coach_map = {ab: nm for ab, nm in current_coaches(SEASON).items() if ab in team_abbrs}
+    names = ",".join(sorted({f'"{n}"' for n in coach_map.values()}))
     coaches = fetch_all(
         key, "nfl_coach_trends",
         f"through_season=eq.{SEASON}&through_week=eq.{THROUGH_WEEK}"
-        f"&last_season=eq.{SEASON}&current_team=in.({','.join(team_abbrs)})"
+        f"&coach=in.({quote(names)})"
         f"&select=coach,current_team,career_games,last_season,splits,matchups,market_coverage",
-    )
+    ) if coach_map else []
+    trend_by_name = {c["coach"]: c for c in coaches}
+    # Re-home each row to the team the coach ACTUALLY runs (the engine keys on
+    # current_team), one row per team.
+    coaches = [dict(trend_by_name[nm], current_team=ab, last_season=SEASON)
+               for ab, nm in coach_map.items() if nm in trend_by_name]
     refs = fetch_all(
         key, "nfl_referee_trends",
         f"through_season=eq.{SEASON}&through_week=eq.{THROUGH_WEEK}"

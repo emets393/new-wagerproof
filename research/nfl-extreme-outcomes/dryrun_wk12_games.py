@@ -37,8 +37,9 @@ def _ensure_fresh_odds_hist(max_age_hours=2):
     try:
         oh = pd.read_parquet(p)
         newest = pd.to_datetime(oh.snap_ts).max()
-        if pd.Timestamp.now(tz="UTC") - newest.tz_localize("UTC" if newest.tzinfo is None else None) \
-                <= pd.Timedelta(hours=max_age_hours):
+        if newest.tzinfo is None:  # tz_localize(None) on an aware ts STRIPS tz — only localize naive
+            newest = newest.tz_localize("UTC")
+        if pd.Timestamp.now(tz="UTC") - newest <= pd.Timedelta(hours=max_age_hours):
             return
         print(f"[odds_hist] newest capture {newest} is stale -> incremental sync")
         key = None

@@ -35,23 +35,7 @@ def fetch(env, table, params):
     return j if isinstance(j, list) else []
 
 
-def current_coaches(season):
-    """Team abbr -> current head coach from nflverse's schedule feed, which
-    pre-fills coach columns on FUTURE games — so offseason hires are correct.
-    nfl_coach_trends.current_team is the franchise a history row belongs to
-    (every coach a team ever had), NOT current employment — keying on it put
-    Urban Meyer on the Jaguars (2026-08-31 incident)."""
-    import pandas as pd
-    df = pd.read_csv("https://github.com/nflverse/nfldata/raw/master/data/games.csv",
-                     usecols=["season", "home_team", "home_coach", "away_team", "away_coach"])
-    df = df[df.season == season]
-    m = {}
-    for _, r in df.iterrows():
-        if isinstance(r["home_coach"], str):
-            m[r["home_team"]] = r["home_coach"]
-        if isinstance(r["away_coach"], str):
-            m[r["away_team"]] = r["away_coach"]
-    return m
+from nfl_current_coaches import current_coaches  # noqa: E402 — see that module's docstring
 
 
 def trend_read(splits, market, dim="overall", window="15"):
