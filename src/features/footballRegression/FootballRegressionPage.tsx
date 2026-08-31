@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Activity, CalendarDays, RefreshCcw } from 'lucide-react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { supabase } from '@/integrations/supabase/client';
 import { useEnsureCompTeamAssets } from '@/features/competition/hooks';
 import { getCfbTeamLogo } from '@/utils/cfbTeamAssets';
 import { getNflTeamLogo } from '@/utils/nflTeamAssets';
@@ -33,6 +34,23 @@ interface ReportRow {
   } | null;
   updated_at: string;
 }
+
+interface RecordSplitRow {
+  market: string;
+  scope: 'edge' | 'team';
+  scope_key: string;
+  wins: number;
+  losses: number;
+  pushes: number;
+  roi_units: number | null;
+}
+
+const MARKET_LABEL: Record<string, string> = {
+  fg_spread: 'Spread', fg_total: 'Total', fg_ml: 'Moneyline', tt: 'Team Totals',
+  h1_spread: '1H Spread', h1_total: '1H Total', h1_ml: '1H ML',
+};
+const MARKET_ORDER = ['fg_spread', 'fg_total', 'fg_ml', 'tt', 'h1_spread', 'h1_total', 'h1_ml'];
+const EDGE_BUCKETS = ['0-3', '3-6', '6-10', '10+', '0-5', '5-10', '10-20', '20+'];
 
 interface StorylineRow {
   id: number;
@@ -111,7 +129,25 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   const [report, setReport] = React.useState<ReportRow | null>(null);
   const [storylines, setStorylines] = React.useState<StorylineRow[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [splits, setSplits] = React.useState<RecordSplitRow[]>([]);
+  const [showSplits, setShowSplits] = React.useState(false);
+  const [teamQuery, setTeamQuery] = React.useState('');
   const { isSuccess: logosReady } = useEnsureCompTeamAssets();
+
+  // Edge/team splits live behind an authed edge function — the raw table is
+  // server-only so external anon-key readers never see this depth.
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('football-model-record', {
+          body: { sport },
+        });
+        if (!cancelled && data?.rows) setSplits(data.rows as RecordSplitRow[]);
+      } catch { /* section simply hides */ }
+    })();
+    return () => { cancelled = true; };
+  }, [sport]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -236,6 +272,16 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
               );
             })}
           </div>
+          {splits.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowSplits((v) => !v)}
+              className="mt-3 text-[12px] font-bold text-primary"
+            >
+              {showSplits ? 'Hide' : 'Show'} edge bands + team records ▾
+            </button>
+          )}
+          {showSplits && <RecordSplits splits={splits} teamQuery={teamQuery} setTeamQuery={setTeamQuery} />}
         </section>
       )}
 
@@ -314,6 +360,102 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
         );
       })}
 
+    </div>
+  );
+}
+
+function rec(r: { wins: number; losses: number; pushes: number }) {
+  return `${r.wins}-${r.losses}${r.pushes > 0 ? `-${r.pushes}` : ''}`;
+}
+
+function RecordSplits({ splits, teamQuery, setTeamQuery }: {
+  splits: RecordSplitRow[];
+  teamQuery: string;
+  setTeamQuery: (v: string) => void;
+}) {
+  const edge = splits.filter((s) => s.scope === 'edge');
+  const teams = splits.filter((s) => s.scope === 'team');
+  const markets = MARKET_ORDER.filter((m) => splits.some((s) => s.market === m));
+  const edgeCell = (m: string, b: string) => edge.find((s) => s.market === m && s.scope_key === b);
+  const teamNames = [...new Set(teams.map((t) => t.scope_key))].sort();
+  const q = teamQuery.trim().toLowerCase();
+  const shown = (q ? teamNames.filter((t) => t.toLowerCase().includes(q)) : teamNames).slice(0, 25);
+
+  return (
+    <div className="mt-3 space-y-4 border-t border-border pt-3">
+      <div>
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          📐 By model edge (points off the close; win-prob bands for ML)
+        </div>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-[12px] tabular-nums">
+            <thead>
+              <tr className="text-left text-[10px] uppercase text-muted-foreground">
+                <th className="pr-3 font-bold">Market</th>
+                {EDGE_BUCKETS.filter((b) => edge.some((s) => s.scope_key === b)).map((b) => (
+                  <th key={b} className="pr-3 font-bold">{b}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {markets.filter((m) => edge.some((s) => s.market === m)).map((m) => (
+                <tr key={m} className="border-t border-border/50">
+                  <td className="py-1 pr-3 font-semibold">{MARKET_LABEL[m] ?? m}</td>
+                  {EDGE_BUCKETS.filter((b) => edge.some((s) => s.scope_key === b)).map((b) => {
+                    const c = edgeCell(m, b);
+                    return (
+                      <td key={b} className={cn('py-1 pr-3',
+                        c && c.wins > c.losses && 'text-emerald-600 dark:text-emerald-400',
+                        c && c.wins < c.losses && 'text-red-500 dark:text-red-400')}>
+                        {c ? rec(c) : '—'}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          🏟️ By team — model record in that team&apos;s games
+        </div>
+        <input
+          value={teamQuery}
+          onChange={(e) => setTeamQuery(e.target.value)}
+          placeholder="Search team…"
+          className="mt-2 w-full max-w-xs rounded-lg border border-border bg-background px-3 py-1.5 text-[13px]"
+        />
+        <div className="mt-2 space-y-1.5">
+          {shown.map((t) => {
+            const tr = teams.filter((s) => s.scope_key === t);
+            return (
+              <div key={t} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t border-border/50 py-1.5 text-[12px]">
+                <span className="w-40 shrink-0 font-bold">{t}</span>
+                {MARKET_ORDER.filter((m) => tr.some((s) => s.market === m)).map((m) => {
+                  const c = tr.find((s) => s.market === m)!;
+                  return (
+                    <span key={m} className="tabular-nums text-muted-foreground">
+                      {MARKET_LABEL[m] ?? m}{' '}
+                      <span className={cn('font-semibold',
+                        c.wins > c.losses && 'text-emerald-600 dark:text-emerald-400',
+                        c.wins < c.losses && 'text-red-500 dark:text-red-400')}>
+                        {rec(c)}
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          })}
+          {teamNames.length > 25 && !q && (
+            <div className="text-[11px] text-muted-foreground">
+              Showing 25 of {teamNames.length} teams — search to narrow.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
