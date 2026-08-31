@@ -108,8 +108,10 @@ def write_report(env, sport, season, week, narrative, narrative_model, run_log, 
                        headers=H, timeout=30).json()
     day = today_et()
     changelog = (cur[0]["changelog"] if cur else []) or []
-    changelog = [c for c in changelog if c.get("date") != day]
     if run_log:
+        # Replace today's entry with the fresh log; a NO-CHANGE run keeps the
+        # earlier entry (a later idempotent rerun must not erase the day's news).
+        changelog = [c for c in changelog if c.get("date") != day]
         changelog.insert(0, {"date": day, "entries": run_log})
     row = dict(sport=sport, season=season, week=week, narrative=narrative,
                narrative_model=narrative_model, changelog=changelog,
