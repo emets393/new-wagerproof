@@ -79,12 +79,14 @@ def bets_for_game(g):
     margin, total = fh - fa, fh + fa
     out = []
 
-    def point_bet(market, pick, diff, edge):
+    def point_bet(market, pick, diff, edge, team=None):
+        # team: a TT bet belongs to ONE team's record; every other market is a
+        # game-level bet and attributes to both participants (team=None).
         if not pick:
             return
         res = grade_side(pick, diff)
         roi = {"win": 100 / 110, "loss": -1.0, "push": 0.0}[res]
-        out.append((market, res, roi, bucket(edge, PT_BUCKETS)))
+        out.append((market, res, roi, bucket(edge, PT_BUCKETS), team))
 
     sc = fnum(g.get("fg_spread_close"))
     pm = fnum(g.get("fg_pred_margin"))
@@ -111,14 +113,15 @@ def bets_for_game(g):
         price = g.get("fg_ml_home_close") if side == "HOME" else g.get("fg_ml_away_close")
         win_profit = ml_profit(price)
         roi = {"win": win_profit, "loss": -1.0, "push": 0.0}[res] if (win_profit is not None or res != "win") else None
-        out.append(("fg_ml", res, roi, bucket((prob - 0.5) * 100, PP_BUCKETS)))
+        out.append(("fg_ml", res, roi, bucket((prob - 0.5) * 100, PP_BUCKETS), None))
 
     for side_key, final_pts in (("home", fh), ("away", fa)):
         c = fnum(g.get(f"tt_{side_key}_close"))
         pred = fnum(g.get(f"tt_{side_key}_pred"))
         if c is not None:
             p = g.get(f"tt_{side_key}_pick") or (derived_side(pred - c, "OVER", "UNDER") if pred is not None else None)
-            point_bet("tt", p, final_pts - c, (pred - c) if pred is not None else None)
+            point_bet("tt", p, final_pts - c, (pred - c) if pred is not None else None,
+                      team=g.get(f"{side_key}_team"))
 
     h1h, h1a = fnum(g.get("h1_home")), fnum(g.get("h1_away"))
     if h1h is not None and h1a is not None:
@@ -139,7 +142,7 @@ def bets_for_game(g):
             price = g.get("h1_ml_home_close") if p == "HOME" else g.get("h1_ml_away_close")
             win_profit = ml_profit(price)
             roi = {"win": win_profit, "loss": -1.0, "push": 0.0}[res] if (win_profit is not None or res != "win") else None
-            out.append(("h1_ml", res, roi, None))
+            out.append(("h1_ml", res, roi, None, None))
 
     yield from out
 
@@ -194,10 +197,12 @@ def run(sport):
 
         for g in sg:
             teams = [g.get("home_team"), g.get("away_team")]
-            for market, res, roi, eb in bets_for_game(g):
+            for market, res, roi, eb, team in bets_for_game(g):
                 add(market, "overall", "all", res, roi)
                 add(market, "edge", eb, res, roi)
-                for t in teams:
+                # A TT bet counts only toward ITS team's record (owner rule);
+                # game-level bets attribute to both participants.
+                for t in ([team] if team else teams):
                     add(market, "team", t, res, roi)
 
         rows = [dict(sport=sport, season=season, market=m, scope=s, scope_key=k,
