@@ -258,8 +258,25 @@ def main():
     fam_counts = {}
     for s in stored:
         fam_counts[s["family"]] = fam_counts.get(s["family"], 0) + 1
+    # Early-season banner: each item's gate self-clears the first run its data
+    # exists (injuries land, refs assigned, season sample builds) and the client
+    # hides the banner when the list is empty — no app update needed.
+    coming = []
+    if not inj:
+        coming.append({"emoji": "🏥", "label": "Injury reports",
+                       "note": "Weekly practice reports begin in September — team-by-team Out/Doubtful "
+                               "listings will appear here the day they publish."})
+    if not any(g.get("assigned_referee") for g in games):
+        coming.append({"emoji": "🦓", "label": "Referee trends",
+                       "note": "Crew assignments publish during game week. Referees with a strong "
+                               "directional lean in any market — and ref + coach confluence — appear then."})
+    if week <= 4:
+        coming.append({"emoji": "📊", "label": "EPA gaps & regression",
+                       "note": "Team EPA differentials, turnover luck, and rest/travel/schedule edges "
+                               "activate once a few weeks of 2026 games are in the books."})
     lib.write_report(env, "nfl", season, week, narrative, model, log,
-                     {"games": len(games), "storylines": len(stored), "families": fam_counts})
+                     {"games": len(games), "storylines": len(stored), "families": fam_counts,
+                      "coming_soon": coming})
     print(f"nfl report {season} wk{week}: {len(S)} storylines "
           f"({len([l for l in log if l['type']=='new'])} new, "
           f"{len([l for l in log if l['type']=='updated'])} updated, "

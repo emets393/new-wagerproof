@@ -216,8 +216,23 @@ def main():
     fam_counts = {}
     for s in stored:
         fam_counts[s["family"]] = fam_counts.get(s["family"], 0) + 1
+    # Early-season banner: families gated on current-season data. Each item's
+    # condition self-clears (week advances / data arrives) and the client hides
+    # the banner when the list is empty — server-driven, no app update needed.
+    coming = []
+    if week <= 4:
+        coming.append({"emoji": "📊", "label": "EPA & performance regression",
+                       "note": "Which teams are over- or under-performing their underlying numbers — "
+                               "activates once a few weeks of 2026 games are in the books (around Week 4)."})
+        coming.append({"emoji": "🍀", "label": "Turnover & scoring luck",
+                       "note": "Teams riding unsustainable turnover or finishing luck, due to regress — "
+                               "needs a few weeks of games."})
+        coming.append({"emoji": "📅", "label": "Team form & situational trends",
+                       "note": "Recent-form reads (last 3-5 games, rest, lookahead spots) join the "
+                               "report as the season builds a sample."})
     lib.write_report(env, "cfb", season, week, narrative, model, log,
-                     {"games": len(upcoming), "storylines": len(stored), "families": fam_counts})
+                     {"games": len(upcoming), "storylines": len(stored), "families": fam_counts,
+                      "coming_soon": coming})
     print(f"cfb report {season} wk{week}: {len(S)} storylines "
           f"({len([l for l in log if l['type']=='new'])} new, "
           f"{len([l for l in log if l['type']=='updated'])} updated, "

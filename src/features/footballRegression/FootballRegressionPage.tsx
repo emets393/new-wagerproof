@@ -21,7 +21,12 @@ interface ReportRow {
   week: number;
   narrative: string | null;
   changelog: Array<{ date: string; entries: Array<{ type: string; title?: string; key: string }> }>;
-  summary: { games?: number; storylines?: number; families?: Record<string, number> } | null;
+  summary: {
+    games?: number;
+    storylines?: number;
+    families?: Record<string, number>;
+    coming_soon?: Array<{ emoji: string; label: string; note: string }>;
+  } | null;
   updated_at: string;
 }
 
@@ -138,6 +143,9 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
     (e) => (e.type === 'new' || e.type === 'updated') && e.title,
   );
   const famCounts = report?.summary?.families ?? {};
+  // Server-driven early-season banner: each generator drops an item the first
+  // run its data exists; when the list is empty the banner is gone for good.
+  const comingSoon = report?.summary?.coming_soon ?? [];
 
   if (loading) {
     return <div className="p-8 text-sm text-muted-foreground">Loading the {league} report…</div>;
@@ -184,6 +192,28 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
           Nothing here is a pick. Updated {new Date(report.updated_at).toLocaleString()}.
         </p>
       </header>
+
+      {comingSoon.length > 0 && (
+        <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <div className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+            🔜 More data unlocks as the season progresses
+          </div>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            It&apos;s early in the season — these sections join the report automatically the day
+            their data starts coming in:
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {comingSoon.map((c, i) => (
+              <li key={i} className="text-[13px] leading-relaxed text-muted-foreground">
+                <span className="font-bold text-foreground">
+                  {c.emoji} {c.label}
+                </span>{' '}
+                — {c.note}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {todayEntries.length > 0 && (
         <section className="rounded-xl border border-primary/25 bg-primary/5 p-4">
