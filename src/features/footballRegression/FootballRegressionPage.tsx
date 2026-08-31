@@ -130,7 +130,6 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   const [storylines, setStorylines] = React.useState<StorylineRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [splits, setSplits] = React.useState<RecordSplitRow[]>([]);
-  const [showSplits, setShowSplits] = React.useState(false);
   const [teamQuery, setTeamQuery] = React.useState('');
   const { isSuccess: logosReady } = useEnsureCompTeamAssets();
 
@@ -273,15 +272,6 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
             })}
           </div>
           {splits.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowSplits((v) => !v)}
-              className="mt-3 text-[12px] font-bold text-primary"
-            >
-              {showSplits ? 'Hide' : 'Show'} edge bands + team records ▾
-            </button>
-          )}
-          {showSplits && (
             <RecordSplits
               splits={splits}
               sport={sport}
