@@ -57,6 +57,13 @@ const FAMILY_META: Record<string, { label: string; emoji: string; chip: string; 
 };
 const FAMILY_FALLBACK = { label: 'Storyline', emoji: '📌', chip: 'bg-muted text-muted-foreground', border: 'border-l-border' };
 
+// Cards render grouped by family (owner: interleaving injury cards between
+// signal cards reads as disorder). Rank still orders WITHIN a family.
+const FAMILY_ORDER = [
+  'confluence', 'injuries', 'signals', 'line_movement',
+  'ref_trends', 'coach_trends', 'coach', 'luck', 'situational', 'roster',
+];
+
 function mdToHtml(md: string): string {
   return md
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
@@ -136,6 +143,10 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   const league = sport === 'nfl' ? 'NFL' : 'College Football';
   // Resolved storylines never render — they stay in the DB for history only.
   const active = storylines.filter((s) => s.status !== 'resolved');
+  const grouped = FAMILY_ORDER
+    .concat([...new Set(active.map((s) => s.family))].filter((f) => !FAMILY_ORDER.includes(f)))
+    .map((fam) => ({ fam, rows: active.filter((s) => s.family === fam) }))
+    .filter((g) => g.rows.length > 0);
   const today = report?.changelog?.[0];
   // The digest shows only what a returning reader cares about: new + updated,
   // by title. Internal keys and removals never render (owner feedback).
@@ -254,14 +265,19 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
         </section>
       )}
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-          📚 Storylines ({active.length})
-        </h2>
-        {active.map((s) => (
-          <StorylineCard key={s.id} s={s} sport={sport} logosReady={logosReady} />
-        ))}
-      </section>
+      {grouped.map(({ fam, rows }) => {
+        const m = FAMILY_META[fam] ?? FAMILY_FALLBACK;
+        return (
+          <section key={fam} className="space-y-3">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              {m.emoji} {m.label} ({rows.length})
+            </h2>
+            {rows.map((s) => (
+              <StorylineCard key={s.id} s={s} sport={sport} logosReady={logosReady} />
+            ))}
+          </section>
+        );
+      })}
 
     </div>
   );
