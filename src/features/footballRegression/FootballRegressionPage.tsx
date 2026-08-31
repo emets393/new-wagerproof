@@ -61,8 +61,8 @@ const EDGE_META: Record<string, { buckets: string[]; unit: string; note: string 
     note: "How far the model's win probability sat from a coin flip, in percentage points — 20+ means it saw a near-lock.",
   },
   h1_ml: {
-    buckets: PP_BUCKETS, unit: 'pp',
-    note: "How far the model's 1H win probability sat from a coin flip, in percentage points.",
+    buckets: PT_BUCKETS, unit: 'pts',
+    note: "How big the model's predicted first-half margin was — the bigger the margin, the stronger its 1H moneyline conviction.",
   },
 };
 const EDGE_DEFAULT = (m: string) => EDGE_META[m] ?? {

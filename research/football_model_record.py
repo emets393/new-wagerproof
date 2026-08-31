@@ -142,7 +142,9 @@ def bets_for_game(g):
             price = g.get("h1_ml_home_close") if p == "HOME" else g.get("h1_ml_away_close")
             win_profit = ml_profit(price)
             roi = {"win": win_profit, "loss": -1.0, "push": 0.0}[res] if (win_profit is not None or res != "win") else None
-            out.append(("h1_ml", res, roi, None, None))
+            # No 1H win-prob column exists — the pick derives from the predicted
+            # 1H margin, so conviction buckets by |margin| in points.
+            out.append(("h1_ml", res, roi, bucket(hpm, PT_BUCKETS), None))
 
     yield from out
 
