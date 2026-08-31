@@ -58,8 +58,10 @@ def main():
                   f"select=game_id,card_group,pick_side,pick_team&season=eq.{season}&week=eq.{week}")
     defs = {d["signal_key"]: d for d in fetch(env, "cfb_signal_defs",
             "select=signal_key,display_name,typical_hit,one_liner")}
+    # THIS season only — signal_performance is per-season; last year's record
+    # must never render as "Live this season" (NFL 0-1 incident, 2026-08-31).
     perf = {p["signal_key"]: p for p in fetch(env, "signal_performance",
-            f"select=signal_key,n,wins,losses,hit_rate&sport=eq.cfb&order=season.desc")}
+            f"select=signal_key,n,wins,losses,hit_rate&sport=eq.cfb&season=eq.{season}")}
     injuries = fetch(env, "cfb_injuries",
                      f"select=cfbd_team,player,pos,status,detail&season=eq.{season}&week=eq.{week}")
     model_side = {str(p["game_id"]): p.get("pick_side") for p in picks if p.get("card_group") == "spread"}

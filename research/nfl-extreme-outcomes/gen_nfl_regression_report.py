@@ -78,8 +78,10 @@ def main():
                   f"select=game_id,card_group,pick_side&season=eq.{season}&week=eq.{week}")
     defs = {d["signal_key"]: d for d in fetch(env, "nfl_signal_defs",
             "select=signal_key,display_name,typical_hit,one_liner")}
+    # THIS season only — signal_performance is per-season, and an unfiltered
+    # fetch showed 2025's 0-1 as "Live record" before a 2026 snap was played.
     perf = {p["signal_key"]: p for p in fetch(env, "signal_performance",
-            "select=signal_key,n,wins,losses&sport=eq.nfl&order=season.desc")}
+            f"select=signal_key,n,wins,losses&sport=eq.nfl&season=eq.{season}")}
     refs = {r["referee"]: r for r in fetch(env, "nfl_referee_trends", "select=referee,career_games,splits")}
     coaches = fetch(env, "nfl_coach_trends", "select=coach,splits,career_games,through_season")
     # One trend row per coach NAME (table has snapshot duplicates — keep freshest),
