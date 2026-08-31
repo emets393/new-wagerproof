@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
   const q = `${cfbUrl}/rest/v1/football_model_record` +
     `?sport=eq.${sport}&scope=in.(edge,team)` +
-    `&select=season,market,scope,scope_key,wins,losses,pushes,n,roi_units,through_week` +
+    `&select=season,market,scope,scope_key,wins,losses,pushes,n,roi_units,roi_n,through_week` +
     `&order=season.desc,scope,market,scope_key&limit=2000`;
   const r = await fetch(q, { headers: { apikey: cfbKey, Authorization: `Bearer ${cfbKey}` } });
   if (!r.ok) {

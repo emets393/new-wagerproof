@@ -114,7 +114,7 @@ def fetch_model_record(env, sport, season):
     just these headline records, which is the sanctioned public surface.
     """
     rows = requests.get(
-        f"{SUPA}/football_model_record?select=market,wins,losses,pushes,roi_units"
+        f"{SUPA}/football_model_record?select=market,wins,losses,pushes,roi_units,roi_n"
         f"&sport=eq.{sport}&season=eq.{season}&scope=eq.overall&order=market",
         headers=hdr(env), timeout=30).json()
     if not isinstance(rows, list):
@@ -123,7 +123,7 @@ def fetch_model_record(env, sport, season):
     rows.sort(key=lambda r: order.index(r["market"]) if r["market"] in order else 99)
     return [dict(market=r["market"], label=MARKET_LABELS.get(r["market"], r["market"]),
                  wins=r["wins"], losses=r["losses"], pushes=r["pushes"],
-                 roi_units=r["roi_units"]) for r in rows]
+                 roi_units=r["roi_units"], roi_n=r.get("roi_n")) for r in rows]
 
 
 def write_report(env, sport, season, week, narrative, narrative_model, run_log, summary):

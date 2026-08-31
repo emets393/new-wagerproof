@@ -43,6 +43,7 @@ interface RecordSplitRow {
   losses: number;
   pushes: number;
   roi_units: number | null;
+  roi_n: number;
 }
 
 const MARKET_LABEL: Record<string, string> = {
@@ -382,6 +383,12 @@ function RecordCell({ c }: { c?: RecordSplitRow }) {
   );
 }
 
+/** ROI% = profit / units risked, over the priced subset (roi_n). */
+function roiPct(r: RecordSplitRow): number | null {
+  if (r.roi_units == null || !r.roi_n) return null;
+  return (r.roi_units / r.roi_n) * 100;
+}
+
 function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
   splits: RecordSplitRow[];
   sport: 'nfl' | 'cfb';
@@ -395,10 +402,13 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
   const edgeCell = (m: string, b: string) => edge.find((s) => s.market === m && s.scope_key === b);
   const teamNames = [...new Set(teams.map((t) => t.scope_key))].sort();
   const q = teamQuery.trim().toLowerCase();
-  const shown = (q ? teamNames.filter((t) => t.toLowerCase().includes(q)) : teamNames).slice(0, 25);
+  const shown = q ? teamNames.filter((t) => t.toLowerCase().includes(q)) : teamNames;
   const buckets = EDGE_BUCKETS.filter((b) => edge.some((s) => s.scope_key === b));
   const th = 'px-2 py-1.5 text-left text-[10px] font-bold uppercase tracking-wide text-muted-foreground';
   const td = 'px-2 py-1.5 whitespace-nowrap';
+  // One market at a time in the team table (owner spec) — scales to a full
+  // season of teams and makes Record + ROI% first-class columns.
+  const [teamMarket, setTeamMarket] = React.useState(markets[0] ?? 'fg_spread');
 
   return (
     <div className="mt-3 space-y-5 border-t border-border pt-3">
@@ -428,9 +438,26 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
         </div>
       </div>
       <div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            🏟️ By team · model record in that team&apos;s games (TT = that team&apos;s total only)
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          🏟️ By team · model record in that team&apos;s games (TT = that team&apos;s total only)
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-1 rounded-lg bg-muted/50 p-1">
+            {markets.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setTeamMarket(m)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-[11px] font-bold',
+                  teamMarket === m
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {MARKET_SHORT[m] ?? m}
+              </button>
+            ))}
           </div>
           <input
             value={teamQuery}
@@ -444,12 +471,15 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
             <thead className="bg-muted/40">
               <tr>
                 <th className={th}>Team</th>
-                {markets.map((m) => <th key={m} className={cn(th, 'text-center')}>{MARKET_SHORT[m] ?? m}</th>)}
+                <th className={cn(th, 'text-center')}>{MARKET_LABEL[teamMarket] ?? teamMarket} Record</th>
+                <th className={cn(th, 'text-center')}>ROI%</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((t) => {
-                const tr = teams.filter((s) => s.scope_key === t);
+                const c = teams.find((s) => s.scope_key === t && s.market === teamMarket);
+                if (!c) return null;
+                const pct = roiPct(c);
                 return (
                   <tr key={t} className="border-t border-border/50">
                     <td className={cn(td, 'font-bold')}>
@@ -458,22 +488,18 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
                         {t}
                       </span>
                     </td>
-                    {markets.map((m) => (
-                      <td key={m} className={cn(td, 'text-center')}>
-                        <RecordCell c={tr.find((s) => s.market === m)} />
-                      </td>
-                    ))}
+                    <td className={cn(td, 'text-center')}><RecordCell c={c} /></td>
+                    <td className={cn(td, 'text-center tabular-nums font-semibold',
+                      pct != null && pct > 0 && 'text-emerald-600 dark:text-emerald-400',
+                      pct != null && pct < 0 && 'text-red-500 dark:text-red-400')}>
+                      {pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%` : '—'}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
-        {teamNames.length > 25 && !q && (
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            Showing 25 of {teamNames.length} teams — search to narrow.
-          </div>
-        )}
       </div>
     </div>
   );

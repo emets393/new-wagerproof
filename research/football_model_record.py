@@ -183,17 +183,18 @@ def run(sport):
     for season in seasons or []:
         sg = [g for g in games if g["season"] == season]
         through_week = max(g["week"] for g in sg)
-        agg = {}  # (market, scope, key) -> [w, l, p, roi_sum, roi_known]
+        agg = {}  # (market, scope, key) -> [w, l, p, roi_sum, roi_n]
 
         def add(market, scope, key, res, roi):
             if key is None:
                 return
-            a = agg.setdefault((market, scope, key), [0, 0, 0, 0.0, True])
+            a = agg.setdefault((market, scope, key), [0, 0, 0, 0.0, 0])
             a[{"win": 0, "loss": 1, "push": 2}[res]] += 1
-            if roi is None:
-                a[4] = False
-            else:
+            # roi None = ML winner with no stored close price: the bet counts in
+            # the record but is excluded from ROI (roi_n tracks the priced subset).
+            if roi is not None:
                 a[3] += roi
+                a[4] += 1
 
         for g in sg:
             teams = [g.get("home_team"), g.get("away_team")]
@@ -207,7 +208,7 @@ def run(sport):
 
         rows = [dict(sport=sport, season=season, market=m, scope=s, scope_key=k,
                      wins=a[0], losses=a[1], pushes=a[2], n=a[0] + a[1] + a[2],
-                     roi_units=round(a[3], 3) if a[4] else None,
+                     roi_units=round(a[3], 3) if a[4] else None, roi_n=a[4],
                      through_week=through_week, updated_at="now()")
                 for (m, s, k), a in agg.items()]
         requests.delete(f"{lib.SUPA}/football_model_record?sport=eq.{sport}&season=eq.{season}",
