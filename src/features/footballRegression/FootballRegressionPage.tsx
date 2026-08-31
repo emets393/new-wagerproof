@@ -51,7 +51,26 @@ const MARKET_LABEL: Record<string, string> = {
   h1_spread: '1H Spread', h1_total: '1H Total', h1_ml: '1H ML',
 };
 const MARKET_ORDER = ['fg_spread', 'fg_total', 'fg_ml', 'tt', 'h1_spread', 'h1_total', 'h1_ml'];
-const EDGE_BUCKETS = ['0-3', '3-6', '6-10', '10+', '0-5', '5-10', '10-20', '20+'];
+// Edge means something different per market: points off the closing line for
+// spreads/totals, win-probability distance from 50/50 for moneylines.
+const PT_BUCKETS = ['0-3', '3-6', '6-10', '10+'];
+const PP_BUCKETS = ['0-5', '5-10', '10-20', '20+'];
+const EDGE_META: Record<string, { buckets: string[]; unit: string; note: string }> = {
+  fg_ml: {
+    buckets: PP_BUCKETS, unit: 'pp',
+    note: "How far the model's win probability sat from a coin flip, in percentage points — 20+ means it saw a near-lock.",
+  },
+  h1_ml: {
+    buckets: PP_BUCKETS, unit: 'pp',
+    note: "How far the model's 1H win probability sat from a coin flip, in percentage points.",
+  },
+};
+const EDGE_DEFAULT = (m: string) => EDGE_META[m] ?? {
+  buckets: PT_BUCKETS, unit: 'pts',
+  note: m.includes('total') || m === 'tt'
+    ? "How many points the model's projected total was off the closing number — bigger gap, stronger disagreement."
+    : "How many points the model's own line was off the closing spread — bigger gap, stronger disagreement.",
+};
 
 interface StorylineRow {
   id: number;
@@ -399,40 +418,84 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
   const edge = splits.filter((s) => s.scope === 'edge');
   const teams = splits.filter((s) => s.scope === 'team');
   const markets = MARKET_ORDER.filter((m) => splits.some((s) => s.market === m));
-  const edgeCell = (m: string, b: string) => edge.find((s) => s.market === m && s.scope_key === b);
-  const teamNames = [...new Set(teams.map((t) => t.scope_key))].sort();
-  const q = teamQuery.trim().toLowerCase();
-  const shown = q ? teamNames.filter((t) => t.toLowerCase().includes(q)) : teamNames;
-  const buckets = EDGE_BUCKETS.filter((b) => edge.some((s) => s.scope_key === b));
   const th = 'px-2 py-1.5 text-left text-[10px] font-bold uppercase tracking-wide text-muted-foreground';
   const td = 'px-2 py-1.5 whitespace-nowrap';
-  // One market at a time in the team table (owner spec) — scales to a full
-  // season of teams and makes Record + ROI% first-class columns.
+  // One market at a time in both tables (owner spec) — edge is defined
+  // differently per market, and the team list scales to a full season.
   const [teamMarket, setTeamMarket] = React.useState(markets[0] ?? 'fg_spread');
+  const [edgeMarket, setEdgeMarket] = React.useState(markets[0] ?? 'fg_spread');
+  const [sortKey, setSortKey] = React.useState<'roi' | 'record'>('roi');
+  const [sortDesc, setSortDesc] = React.useState(true);
+
+  const q = teamQuery.trim().toLowerCase();
+  const teamRows = teams
+    .filter((s) => s.market === teamMarket && (!q || s.scope_key.toLowerCase().includes(q)))
+    .sort((a, b) => {
+      const val = (r: RecordSplitRow) =>
+        sortKey === 'roi'
+          ? (roiPct(r) ?? -Infinity)
+          : (r.wins + r.losses > 0 ? r.wins / (r.wins + r.losses) : -Infinity) + r.wins * 1e-6;
+      const d = val(b) - val(a);
+      return (sortDesc ? d : -d) || a.scope_key.localeCompare(b.scope_key);
+    });
+  const onSort = (key: 'roi' | 'record') => {
+    if (sortKey === key) setSortDesc((v) => !v);
+    else { setSortKey(key); setSortDesc(true); }
+  };
+  const arrow = (key: 'roi' | 'record') => (sortKey === key ? (sortDesc ? ' ↓' : ' ↑') : '');
+
+  const edgeMeta = EDGE_DEFAULT(edgeMarket);
+  const edgeRows = edgeMeta.buckets
+    .map((b) => ({ b, c: edge.find((s) => s.market === edgeMarket && s.scope_key === b) }));
 
   return (
     <div className="mt-3 space-y-5 border-t border-border pt-3">
       <div>
         <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-          📐 By model edge · points off the close (win-prob bands for ML)
+          📐 By model edge · how the model does when it disagrees with the close
         </div>
+        <div className="mt-2 flex flex-wrap gap-1 rounded-lg bg-muted/50 p-1 w-fit">
+          {markets.map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setEdgeMarket(m)}
+              className={cn(
+                'rounded-md px-2.5 py-1 text-[11px] font-bold',
+                edgeMarket === m
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {MARKET_SHORT[m] ?? m}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">{edgeMeta.note}</p>
         <div className="mt-2 overflow-x-auto rounded-lg border border-border/60">
           <table className="w-full text-[12px]">
             <thead className="bg-muted/40">
               <tr>
-                <th className={th}>Market</th>
-                {buckets.map((b) => <th key={b} className={cn(th, 'text-center')}>{b}</th>)}
+                <th className={th}>Model edge ({edgeMeta.unit})</th>
+                <th className={cn(th, 'text-center')}>Record</th>
+                <th className={cn(th, 'text-center')}>ROI%</th>
               </tr>
             </thead>
             <tbody>
-              {markets.filter((m) => edge.some((s) => s.market === m)).map((m) => (
-                <tr key={m} className="border-t border-border/50">
-                  <td className={cn(td, 'font-semibold')}>{MARKET_LABEL[m] ?? m}</td>
-                  {buckets.map((b) => (
-                    <td key={b} className={cn(td, 'text-center')}><RecordCell c={edgeCell(m, b)} /></td>
-                  ))}
-                </tr>
-              ))}
+              {edgeRows.map(({ b, c }) => {
+                const pct = c ? roiPct(c) : null;
+                return (
+                  <tr key={b} className="border-t border-border/50">
+                    <td className={cn(td, 'font-semibold')}>{b} {edgeMeta.unit}</td>
+                    <td className={cn(td, 'text-center')}><RecordCell c={c} /></td>
+                    <td className={cn(td, 'text-center tabular-nums font-semibold',
+                      pct != null && pct > 0 && 'text-emerald-600 dark:text-emerald-400',
+                      pct != null && pct < 0 && 'text-red-500 dark:text-red-400')}>
+                      {pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%` : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -471,21 +534,23 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
             <thead className="bg-muted/40">
               <tr>
                 <th className={th}>Team</th>
-                <th className={cn(th, 'text-center')}>{MARKET_LABEL[teamMarket] ?? teamMarket} Record</th>
-                <th className={cn(th, 'text-center')}>ROI%</th>
+                <th className={cn(th, 'cursor-pointer select-none text-center')} onClick={() => onSort('record')}>
+                  {MARKET_LABEL[teamMarket] ?? teamMarket} Record{arrow('record')}
+                </th>
+                <th className={cn(th, 'cursor-pointer select-none text-center')} onClick={() => onSort('roi')}>
+                  ROI%{arrow('roi')}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {shown.map((t) => {
-                const c = teams.find((s) => s.scope_key === t && s.market === teamMarket);
-                if (!c) return null;
+              {teamRows.map((c) => {
                 const pct = roiPct(c);
                 return (
-                  <tr key={t} className="border-t border-border/50">
+                  <tr key={c.scope_key} className="border-t border-border/50">
                     <td className={cn(td, 'font-bold')}>
                       <span className="inline-flex items-center gap-1.5">
-                        {logosReady && <TeamLogo sport={sport} team={t} size="h-5 w-5" />}
-                        {t}
+                        {logosReady && <TeamLogo sport={sport} team={c.scope_key} size="h-5 w-5" />}
+                        {c.scope_key}
                       </span>
                     </td>
                     <td className={cn(td, 'text-center')}><RecordCell c={c} /></td>
