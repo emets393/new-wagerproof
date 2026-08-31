@@ -238,6 +238,51 @@ try:
 except Exception as e:
     print(f"  [coach_hammer_fav] skipped: {e}")
 
+# ── LOOKING-AHEAD FADE (all-season, PAPER-TRACK — owner-approved 2026-08-31): AP
+#    top-20 favorite laying 14+ this week with a RANKED opponent next week where
+#    they project as the underdog (road/neutral next game — the v1 proxy; home-next
+#    dog cases are rare and skipped). Bet = this week's underdog + the points.
+#    Study (lookahead_allseason_study.py): favorite covers 41.5% pooled 2016-25
+#    (fade 58.5%, n=106), REPLICATED out-of-sample wks 4+ (40.3%), fade positive
+#    2024 (7-2) and 2025 (5-3); unranked-favorite placebo clean. Graded vs close.
+try:
+    _sched = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")
+    _rank = {}
+    for _, r in te.iterrows():
+        if pd.notna(r.get("home_self_rank")):
+            _rank[r.homeTeam] = float(r.home_self_rank)
+        if pd.notna(r.get("away_self_rank")):
+            _rank[r.awayTeam] = float(r.away_self_rank)
+    for _, r in te.iterrows():
+        if pd.isna(r.spread_close) or abs(r.spread_close) < 14:
+            continue
+        fav_home = r.spread_close < 0
+        fav = r.homeTeam if fav_home else r.awayTeam
+        rk = _rank.get(fav)
+        if rk is None or rk > 20:
+            continue
+        ng = _sched[((_sched.homeTeam == fav) | (_sched.awayTeam == fav)) & (_sched.week == WEEK + 1)]
+        if not len(ng):
+            continue
+        nr = ng.iloc[0]
+        n_opp = nr.awayTeam if nr.homeTeam == fav else nr.homeTeam
+        if n_opp not in _rank:
+            continue                    # next opponent must be ranked right now
+        if nr.homeTeam == fav and not bool(nr.neutralSite):
+            continue                    # projected-dog proxy: away or neutral next
+        rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                     "game": f"{r.awayTeam} @ {r.homeTeam}",
+                     "source": f"LOOKING AHEAD: #{int(rk)} {fav} lays {abs(r.spread_close):g}, "
+                               f"plays #{int(_rank[n_opp])} {n_opp} on the road next week",
+                     "signal_key": "lookahead_fade", "market": "spread",
+                     "side": "AWAY" if fav_home else "HOME",   # bet THIS week's underdog
+                     "line": round(float(r.spread_close), 1),  # home-perspective, per _bet_fields
+                     "price": -110, "edge": None,
+                     "conviction": "track", "tier": "tracking",
+                     "stake_units": C.STAKE["track"], "grade_line": "close", "mammoth": False})
+except Exception as e:
+    print(f"  [lookahead_fade] skipped: {e}")
+
 # ── BACKUP-QB PREGAME TRIGGER (live 2026-08-27): covers.com injuries x established
 #    starters (qb_availability). Established starter listed Out/IR -> the two vaulted
 #    signals fire PREGAME: fade_home_backup_qb (spread, home team only, T3) and
