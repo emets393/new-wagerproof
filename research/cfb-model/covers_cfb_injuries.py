@@ -99,6 +99,11 @@ def main():
     except Exception as e:
         print(f"  [cfbd_team] mapping skipped: {e}")
         df["cfbd_team"] = None
+    # Covers' school name IS the CFBD-style name for FBS teams, so it backstops
+    # whenever the parquet-based mapper is unavailable (Render clones lack
+    # data/cfbd/) or leaves a row unmapped. NULL here silently drops every
+    # injury from the regression report and get_game_detail.
+    df["cfbd_team"] = df["cfbd_team"].fillna(df["school"])
     out = ROOT / "data" / "injuries"
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"cfb_injuries_{season}_w{week}.parquet"
