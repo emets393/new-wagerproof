@@ -88,6 +88,7 @@ services:
       printf 'SUPABASE_SERVICE_KEY=%s\nOPENAI_API_KEY_REPORTS=%s\n'
       "$SUPABASE_SERVICE_KEY" "$OPENAI_API_KEY_REPORTS" > .env.local
     startCommand: >-
+      { python3 research/football_model_record.py || true; } &&
       { cd research/cfb-model && python3 gen_cfb_regression_report.py || true; } &&
       { cd ../nfl-extreme-outcomes && python3 gen_nfl_regression_report.py || true; }
     envVars:
