@@ -26,6 +26,10 @@ interface ReportRow {
     storylines?: number;
     families?: Record<string, number>;
     coming_soon?: Array<{ emoji: string; label: string; note: string }>;
+    model_record?: Array<{
+      market: string; label: string;
+      wins: number; losses: number; pushes: number; roi_units: number | null;
+    }>;
   } | null;
   updated_at: string;
 }
@@ -157,6 +161,7 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   // Server-driven early-season banner: each generator drops an item the first
   // run its data exists; when the list is empty the banner is gone for good.
   const comingSoon = report?.summary?.coming_soon ?? [];
+  const modelRecord = (report?.summary?.model_record ?? []).filter((m) => m.wins + m.losses + m.pushes > 0);
 
   if (loading) {
     return <div className="p-8 text-sm text-muted-foreground">Loading the {league} report…</div>;
@@ -203,6 +208,36 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
           Nothing here is a pick. Updated {new Date(report.updated_at).toLocaleString()}.
         </p>
       </header>
+
+      {modelRecord.length > 0 && (
+        <section className="rounded-xl border border-border bg-card p-4">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            📊 Model record this season · graded vs the closing line
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {modelRecord.map((m) => {
+              const winPct = m.wins + m.losses > 0 ? m.wins / (m.wins + m.losses) : 0;
+              const positive = m.roi_units != null ? m.roi_units > 0 : winPct > 0.5;
+              return (
+                <div key={m.market} className="rounded-lg bg-muted/50 p-2.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {m.label}
+                  </div>
+                  <div className={cn('text-[15px] font-black tabular-nums',
+                    positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400')}>
+                    {m.wins}-{m.losses}{m.pushes > 0 ? `-${m.pushes}` : ''}
+                  </div>
+                  {m.roi_units != null && (
+                    <div className="text-[11px] tabular-nums text-muted-foreground">
+                      {m.roi_units > 0 ? '+' : ''}{m.roi_units.toFixed(1)}u
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {comingSoon.length > 0 && (
         <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">

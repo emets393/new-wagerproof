@@ -234,7 +234,8 @@ def main():
                                "report as the season builds a sample."})
     lib.write_report(env, "cfb", season, week, narrative, model, log,
                      {"games": len(upcoming), "storylines": len(stored), "families": fam_counts,
-                      "coming_soon": coming})
+                      "coming_soon": coming,
+                      "model_record": lib.fetch_model_record(env, "cfb", season)})
     print(f"cfb report {season} wk{week}: {len(S)} storylines "
           f"({len([l for l in log if l['type']=='new'])} new, "
           f"{len([l for l in log if l['type']=='updated'])} updated, "

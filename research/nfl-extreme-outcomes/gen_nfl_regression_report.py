@@ -301,7 +301,8 @@ def main():
                                "activate once a few weeks of 2026 games are in the books."})
     lib.write_report(env, "nfl", season, week, narrative, model, log,
                      {"games": len(games), "storylines": len(stored), "families": fam_counts,
-                      "coming_soon": coming})
+                      "coming_soon": coming,
+                      "model_record": lib.fetch_model_record(env, "nfl", season)})
     print(f"nfl report {season} wk{week}: {len(S)} storylines "
           f"({len([l for l in log if l['type']=='new'])} new, "
           f"{len([l for l in log if l['type']=='updated'])} updated, "

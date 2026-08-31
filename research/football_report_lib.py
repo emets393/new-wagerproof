@@ -101,6 +101,31 @@ def sync_storylines(env, sport, season, week, fresh):
     return log
 
 
+MARKET_LABELS = {"fg_spread": "Spread", "fg_total": "Total", "fg_ml": "Moneyline",
+                 "tt": "Team Totals", "h1_spread": "1H Spread", "h1_total": "1H Total",
+                 "h1_ml": "1H Moneyline"}
+
+
+def fetch_model_record(env, sport, season):
+    """Overall per-market model records vs the close, for the report summary.
+
+    football_model_record itself is SERVER-ONLY (owner call 2026-08-31 —
+    edge/team splits are not for external anon readers); the report embeds
+    just these headline records, which is the sanctioned public surface.
+    """
+    rows = requests.get(
+        f"{SUPA}/football_model_record?select=market,wins,losses,pushes,roi_units"
+        f"&sport=eq.{sport}&season=eq.{season}&scope=eq.overall&order=market",
+        headers=hdr(env), timeout=30).json()
+    if not isinstance(rows, list):
+        return []
+    order = list(MARKET_LABELS)
+    rows.sort(key=lambda r: order.index(r["market"]) if r["market"] in order else 99)
+    return [dict(market=r["market"], label=MARKET_LABELS.get(r["market"], r["market"]),
+                 wins=r["wins"], losses=r["losses"], pushes=r["pushes"],
+                 roi_units=r["roi_units"]) for r in rows]
+
+
 def write_report(env, sport, season, week, narrative, narrative_model, run_log, summary):
     H = hdr(env)
     cur = requests.get(f"{SUPA}/football_regression_reports?select=changelog"
