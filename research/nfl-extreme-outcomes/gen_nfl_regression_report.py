@@ -35,6 +35,25 @@ def fetch(env, table, params):
     return j if isinstance(j, list) else []
 
 
+def current_coaches(season):
+    """Team abbr -> current head coach from nflverse's schedule feed, which
+    pre-fills coach columns on FUTURE games — so offseason hires are correct.
+    nfl_coach_trends.current_team is the franchise a history row belongs to
+    (every coach a team ever had), NOT current employment — keying on it put
+    Urban Meyer on the Jaguars (2026-08-31 incident)."""
+    import pandas as pd
+    df = pd.read_csv("https://github.com/nflverse/nfldata/raw/master/data/games.csv",
+                     usecols=["season", "home_team", "home_coach", "away_team", "away_coach"])
+    df = df[df.season == season]
+    m = {}
+    for _, r in df.iterrows():
+        if isinstance(r["home_coach"], str):
+            m[r["home_team"]] = r["home_coach"]
+        if isinstance(r["away_coach"], str):
+            m[r["away_team"]] = r["away_coach"]
+    return m
+
+
 def trend_read(splits, market, dim="overall", window="15"):
     """(pct, n, direction_label) for a splits jsonb cell, or None."""
     try:
@@ -78,8 +97,17 @@ def main():
     perf = {p["signal_key"]: p for p in fetch(env, "signal_performance",
             "select=signal_key,n,wins,losses&sport=eq.nfl&order=season.desc")}
     refs = {r["referee"]: r for r in fetch(env, "nfl_referee_trends", "select=referee,career_games,splits")}
-    coaches = fetch(env, "nfl_coach_trends", "select=coach,current_team,splits,career_games")
-    coach_by_ab = {c["current_team"]: c for c in coaches if c.get("current_team")}
+    coaches = fetch(env, "nfl_coach_trends", "select=coach,splits,career_games,through_season")
+    # One trend row per coach NAME (table has snapshot duplicates — keep freshest),
+    # then attach to teams via the schedule feed's CURRENT coach mapping. A
+    # rookie HC with no career row correctly gets no coach storyline.
+    trend_by_coach = {}
+    for c in coaches:
+        prev = trend_by_coach.get(c["coach"])
+        if prev is None or (c.get("through_season") or 0) > (prev.get("through_season") or 0):
+            trend_by_coach[c["coach"]] = c
+    coach_by_ab = {ab: trend_by_coach[nm] for ab, nm in current_coaches(season).items()
+                   if nm in trend_by_coach}
     inj = fetch(env, "nfl_injuries_raw",
                 f"select=team,player,position,report_status&season=eq.{season}&week=eq.{week}")
     model_side = {str(p["game_id"]): p.get("pick_side") for p in picks if p.get("card_group") == "spread"}
@@ -184,8 +212,14 @@ def main():
             if not t:
                 continue
             pct, n, direction = t
+            # trend_read's pct is the OVER/COVER rate; show the rate of the
+            # DIRECTION being claimed ("UNDER in 80%", never "UNDER at 20%").
+            disp = pct if direction in ("OVER", "COVER") else 1 - pct
+            verb = {"OVER": "gone OVER", "UNDER": "gone UNDER",
+                    "COVER": "seen the favorite side cover",
+                    "FADE": "seen the favorite side fail to cover"}[direction]
             body = (f"{ref_name} is the assigned referee for {label.get(gid)}. His last {n} games "
-                    f"have gone {direction} at {pct*100:.0f}% — a strong directional lean on the "
+                    f"have {verb} in {disp*100:.0f}% — a strong directional lean on the "
                     f"{market} market ({ref.get('career_games')} career games).")
             key = f"ref:{gid}:{market}"
             conf = None
@@ -195,13 +229,14 @@ def main():
                 if ct and ct[2] == direction:
                     conf = (c["coach"], ct)
             if conf:
-                cname, (cp, cn, _) = conf
+                cname, (cp, cn, cdir) = conf
+                cdisp = cp if cdir in ("OVER", "COVER") else 1 - cp
                 S.append(dict(storyline_key=f"confluence:{gid}:{market}", family="confluence",
                               game_id=gid, matchup=label.get(gid),
                               title=f"Ref + coach confluence — {label.get(gid)} {market}",
-                              body=body + f" Independently, head coach {cname}'s last {cn} games have "
-                                          f"gone the same direction at {cp*100:.0f}%. Two unrelated "
-                                          f"tendencies pointing the same way on the same market.",
+                              body=body + f" Independently, head coach {cname} has gone the same "
+                                          f"direction in {cdisp*100:.0f}% of his last {cn} games. Two "
+                                          f"unrelated tendencies pointing the same way on the same market.",
                               data={"referee": ref_name, "coach": cname, "market": market,
                                     "direction": direction}, rank=10))
             else:
@@ -224,12 +259,16 @@ def main():
                 if not t:
                     continue
                 pct, n, direction = t
+                disp = pct if direction in ("OVER", "COVER") else 1 - pct
+                verb = {"OVER": "gone OVER", "UNDER": "gone UNDER",
+                        "COVER": "covered the spread",
+                        "FADE": "failed to cover the spread"}[direction]
                 S.append(dict(storyline_key=f"coach:{gid}:{ab}:{market}", family="coach_trends",
                               game_id=gid, matchup=label.get(gid),
                               title=f"Coach trend — {c['coach']} ({market})",
-                              body=f"{c['coach']} ({ab})'s last {n} games have gone {direction} at "
-                                   f"{pct*100:.0f}% on the {market} market — a career-window tendency "
-                                   f"worth knowing in {label.get(gid)}.",
+                              body=f"{c['coach']} ({ab}): his teams have {verb} in {disp*100:.0f}% of "
+                                   f"his last {n} games — a career-window tendency worth knowing in "
+                                   f"{label.get(gid)}.",
                               data={"coach": c["coach"], "market": market,
                                     "direction": direction, "pct": pct, "n": n}, rank=45))
 
