@@ -59,6 +59,9 @@ services:
   - type: cron
     name: cfb-slate-weekly
     runtime: python
+    # standard (2GB) like cfb-slate-refresh: the Monday rebuild runs the full
+    # as-of ratings/tendencies pipeline and OOMed the 512Mi starter (2026-08-31).
+    plan: standard
     schedule: "0 11 * 8-12,1 1"            # Mon ~6-7am ET, CFB season (Aug–Jan)
     buildCommand: >-
       pip install -r research/requirements.txt &&
