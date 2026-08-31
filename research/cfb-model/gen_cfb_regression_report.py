@@ -100,20 +100,34 @@ def main():
         if gid not in gmap or f.get("tier") != "active":
             continue
         d = defs.get(f["signal_key"], {})
-        ms = model_side.get(gid) if f["market"] == "spread" else (
-            model_tot.get(gid) if f["market"] == "total" else None)
-        agree = (ms == f.get("side")) if ms and f.get("side") in ("HOME", "AWAY", "OVER", "UNDER") else None
+        g = gmap[gid]
+        side, market = f.get("side"), f["market"]
+        # Resolve the abstract side to an explicit team + CURRENT line — the
+        # report must never say "the away side" or "the G5 team" (owner rule).
+        sc, tc = g.get("fg_spread_close"), g.get("fg_total_close")
+        target = None
+        if market == "spread" and sc is not None and side in ("HOME", "AWAY"):
+            team = g["home_team"] if side == "HOME" else g["away_team"]
+            line = float(sc) if side == "HOME" else -float(sc)
+            target = f"{team} {line:+g}"
+        elif market == "total" and tc is not None and side in ("OVER", "UNDER"):
+            target = f"{side} {float(tc):g}"
+        ms = model_side.get(gid) if market == "spread" else (
+            model_tot.get(gid) if market == "total" else None)
+        agree = (ms == side) if ms and side in ("HOME", "AWAY", "OVER", "UNDER") else None
         pr = perf.get(f["signal_key"])
         rec = (f" Live this season: {pr['wins']}-{pr['losses']}." if pr and (pr.get("wins") or pr.get("losses")) else "")
         frame = (" The model leans the same way." if agree is True else
                  (" Note: the model leans the other way — treat as tension, not confirmation." if agree is False else ""))
+        name = d.get("display_name", f["signal_key"])
         S.append(dict(storyline_key=f"signal:{f['signal_key']}:{gid}", family="signals",
                       game_id=gid, matchup=label.get(gid),
-                      title=f"{d.get('display_name', f['signal_key'])} — {label.get(gid)}",
-                      body=f"{d.get('one_liner','Validated signal')} fired on {f.get('side')} "
-                           f"({f['market']}). Historical record: {d.get('typical_hit','validated')}." + rec + frame,
-                      data={"signal_key": f["signal_key"], "side": f.get("side"),
-                            "market": f["market"], "model_agrees": agree,
+                      title=f"{name}: {target}" if target else f"{name} — {label.get(gid)}",
+                      body=(f"This signal points to {target} in {label.get(gid)}. " if target else "")
+                           + f"{d.get('one_liner','Validated signal').rstrip('.')}. "
+                           f"Historical record: {d.get('typical_hit','validated')}." + rec + frame,
+                      data={"signal_key": f["signal_key"], "side": side, "target": target,
+                            "market": market, "model_agrees": agree,
                             "conviction": f.get("conviction")},
                       rank=20 if agree else 35))
 

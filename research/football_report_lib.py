@@ -55,7 +55,7 @@ def sync_storylines(env, sport, season, week, fresh):
     """
     H = hdr(env)
     existing = requests.get(
-        f"{SUPA}/football_regression_storylines?select=id,storyline_key,body,rank,status,updates"
+        f"{SUPA}/football_regression_storylines?select=id,storyline_key,title,body,rank,status,updates"
         f"&sport=eq.{sport}&season=eq.{season}&week=eq.{week}", headers=H, timeout=60).json()
     by_key = {e["storyline_key"]: e for e in existing}
     log, day = [], today_et()
@@ -77,8 +77,8 @@ def sync_storylines(env, sport, season, week, fresh):
                          updates=(old.get("updates") or []) + [
                              {"date": day, "status": "updated", "note": "Condition re-emerged — storyline reactivated."}])
             log.append({"type": "reactivated", "key": key, "title": s["title"]})
-        elif old.get("body") != s["body"]:
-            patch.update(status="updated", body=s["body"], data=s.get("data"),
+        elif old.get("body") != s["body"] or old.get("title") != s["title"]:
+            patch.update(status="updated", title=s["title"], body=s["body"], data=s.get("data"),
                          updates=(old.get("updates") or []) + [
                              {"date": day, "status": "updated", "note": s.get("update_note") or "Details refreshed with today's data."}])
             log.append({"type": "updated", "key": key, "title": s["title"]})
@@ -97,7 +97,7 @@ def sync_storylines(env, sport, season, week, fresh):
                 {"date": day, "status": "resolved",
                  "note": "No longer applies — the line moved, the data changed, or the game has kicked off. Kept for the record."}],
             "updated_at": "now()"}, timeout=30)
-        log.append({"type": "resolved", "key": key})
+        log.append({"type": "resolved", "key": key, "title": old.get("title") or key})
     return log
 
 

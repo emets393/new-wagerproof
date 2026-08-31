@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Activity, CalendarDays, ChevronDown, RefreshCcw } from 'lucide-react';
+import { Activity, CalendarDays, RefreshCcw } from 'lucide-react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { useEnsureCompTeamAssets } from '@/features/competition/hooks';
 import { getCfbTeamLogo } from '@/utils/cfbTeamAssets';
@@ -95,7 +95,6 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   const [report, setReport] = React.useState<ReportRow | null>(null);
   const [storylines, setStorylines] = React.useState<StorylineRow[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [showResolved, setShowResolved] = React.useState(false);
   const { isSuccess: logosReady } = useEnsureCompTeamAssets();
 
   React.useEffect(() => {
@@ -130,9 +129,14 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   }, [sport]);
 
   const league = sport === 'nfl' ? 'NFL' : 'College Football';
+  // Resolved storylines never render — they stay in the DB for history only.
   const active = storylines.filter((s) => s.status !== 'resolved');
-  const resolved = storylines.filter((s) => s.status === 'resolved');
   const today = report?.changelog?.[0];
+  // The digest shows only what a returning reader cares about: new + updated,
+  // by title. Internal keys and removals never render (owner feedback).
+  const todayEntries = (today?.entries ?? []).filter(
+    (e) => (e.type === 'new' || e.type === 'updated') && e.title,
+  );
   const famCounts = report?.summary?.families ?? {};
 
   if (loading) {
@@ -181,28 +185,29 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
         </p>
       </header>
 
-      {today && today.entries?.length > 0 && (
+      {todayEntries.length > 0 && (
         <section className="rounded-xl border border-primary/25 bg-primary/5 p-4">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
-            <RefreshCcw className="h-3.5 w-3.5" /> 🔄 What changed · {today.date}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wider">
+            <RefreshCcw className="h-3.5 w-3.5" /> Today&apos;s update · {today?.date}
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-300">
+              🆕 {todayEntries.filter((e) => e.type === 'new').length} new
+            </span>
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">
+              ✏️ {todayEntries.filter((e) => e.type === 'updated').length} updated
+            </span>
           </div>
           <ul className="mt-2 space-y-1 text-[13px]">
-            {today.entries.slice(0, 12).map((e, i) => (
+            {todayEntries.slice(0, 10).map((e, i) => (
               <li key={i} className="flex gap-2">
-                <span
-                  className={cn(
-                    'shrink-0 rounded px-1.5 text-[10px] font-bold uppercase leading-5',
-                    e.type === 'new' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
-                    e.type === 'updated' && 'bg-amber-500/15 text-amber-600 dark:text-amber-300',
-                    (e.type === 'resolved' || e.type === 'reactivated') &&
-                      'bg-muted text-muted-foreground',
-                  )}
-                >
-                  {e.type}
-                </span>
-                <span className="text-muted-foreground">{e.title ?? e.key}</span>
+                <span className="shrink-0 leading-5">{e.type === 'new' ? '🆕' : '✏️'}</span>
+                <span className="text-muted-foreground">{e.title}</span>
               </li>
             ))}
+            {todayEntries.length > 10 && (
+              <li className="text-[12px] text-muted-foreground">
+                …and {todayEntries.length - 10} more below.
+              </li>
+            )}
           </ul>
         </section>
       )}
@@ -228,36 +233,14 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
         ))}
       </section>
 
-      {resolved.length > 0 && (
-        <section className="space-y-3">
-          <button
-            type="button"
-            onClick={() => setShowResolved((v) => !v)}
-            className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-muted-foreground"
-          >
-            <ChevronDown className={cn('h-4 w-4 transition-transform', !showResolved && '-rotate-90')} />
-            ✅ Resolved this week ({resolved.length}) — kept for the record
-          </button>
-          {showResolved && resolved.map((s) => (
-            <StorylineCard key={s.id} s={s} sport={sport} logosReady={logosReady} />
-          ))}
-        </section>
-      )}
     </div>
   );
 }
 
 function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl' | 'cfb'; logosReady: boolean }) {
-  const isResolved = s.status === 'resolved';
   const m = FAMILY_META[s.family] ?? FAMILY_FALLBACK;
   return (
-    <article
-      className={cn(
-        'rounded-xl border border-border border-l-4 bg-card p-4',
-        m.border,
-        isResolved && 'opacity-55',
-      )}
-    >
+    <article className={cn('rounded-xl border border-border border-l-4 bg-card p-4', m.border)}>
       <div className="flex flex-wrap items-center gap-2">
         <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', m.chip)}>
           {m.emoji} {m.label}
@@ -266,9 +249,6 @@ function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl'
           <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-600 dark:text-amber-300">
             updated
           </span>
-        )}
-        {isResolved && (
-          <span className="text-[10px] font-bold uppercase text-muted-foreground">✅ resolved</span>
         )}
       </div>
       {s.matchup && (
@@ -283,13 +263,16 @@ function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl'
         {s.matchup ? s.title.replace(` — ${s.matchup}`, '') : s.title}
       </h3>
       <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{s.body}</p>
-      {s.updates?.length > 0 && (
+      {/* Only substantive update notes — the generic daily-refresh note is noise. */}
+      {(s.updates ?? []).filter((u) => u.note && !u.note.startsWith('Details refreshed')).length > 0 && (
         <ul className="mt-2 space-y-1 border-t border-border pt-2">
-          {s.updates.map((u, i) => (
-            <li key={i} className="text-[11px] text-muted-foreground">
-              <span className="font-semibold">{u.date}:</span> {u.note}
-            </li>
-          ))}
+          {s.updates
+            .filter((u) => u.note && !u.note.startsWith('Details refreshed'))
+            .map((u, i) => (
+              <li key={i} className="text-[11px] text-muted-foreground">
+                <span className="font-semibold">{u.date}:</span> {u.note}
+              </li>
+            ))}
         </ul>
       )}
     </article>

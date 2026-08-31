@@ -102,25 +102,49 @@ def main():
                       data={"team": team_ab, "listings": rows}, rank=15))
 
     # ---- signals with model-agreement framing --------------------------------
+    gmap = {str(g["game_id"]): g for g in games}
     for f in flags:
         gid = str(f["game_id"])
         if gid not in label or f.get("tier") != "active":
             continue
         d = defs.get(f["signal_key"], {})
-        ms = model_side.get(gid) if f["market"] == "spread" else (
-            model_tot.get(gid) if f["market"] == "total" else None)
-        agree = (ms == f.get("side")) if ms and f.get("side") in ("HOME", "AWAY", "OVER", "UNDER") else None
+        g = gmap[gid]
+        side, market = str(f.get("side") or ""), f["market"]
+        # NFL flags store "KC -3"-style labels whose LINE goes stale as the
+        # market moves. Resolve the abbr to home/away, then restate the side as
+        # full team name + CURRENT line — never an abbr with a dead number.
+        away_ab, home_ab = str(gid).split("_")[2:4]
+        sc, tc = g.get("fg_spread_close"), g.get("fg_total_close")
+        side_ha, target = None, None
+        tok = side.split(" ")[0]
+        if tok == home_ab:
+            side_ha = "HOME"
+        elif tok == away_ab:
+            side_ha = "AWAY"
+        elif tok in ("OVER", "UNDER"):
+            side_ha = tok
+        if market == "spread" and sc is not None and side_ha in ("HOME", "AWAY"):
+            team = g["home_team"] if side_ha == "HOME" else g["away_team"]
+            line = float(sc) if side_ha == "HOME" else -float(sc)
+            target = f"{team} {line:+g}"
+        elif market == "total" and tc is not None and side_ha in ("OVER", "UNDER"):
+            target = f"{side_ha} {float(tc):g}"
+        ms = model_side.get(gid) if market == "spread" else (
+            model_tot.get(gid) if market == "total" else None)
+        agree = (ms == side_ha) if ms and side_ha else None
         pr = perf.get(f["signal_key"])
         rec = (f" Live record: {pr['wins']}-{pr['losses']}." if pr and (pr.get("wins") or pr.get("losses")) else "")
         frame = (" The model leans the same way." if agree is True else
                  (" Note: the model leans the other way — tension, not confirmation." if agree is False else ""))
+        name = d.get("display_name", f["signal_key"])
         S.append(dict(storyline_key=f"signal:{f['signal_key']}:{gid}", family="signals",
                       game_id=gid, matchup=label.get(gid),
-                      title=f"{d.get('display_name', f['signal_key'])} — {label.get(gid)}",
-                      body=f"{d.get('one_liner','Validated signal')} fired on {f.get('side')} "
-                           f"({f['market']}). Historical: {d.get('typical_hit','validated')}." + rec + frame,
-                      data={"signal_key": f["signal_key"], "side": f.get("side"),
-                            "market": f["market"], "model_agrees": agree},
+                      title=f"{name}: {target}" if target else f"{name} — {label.get(gid)}",
+                      body=(f"This signal points to {target} in {label.get(gid)}. " if target else "")
+                           + f"{d.get('one_liner','Validated signal').rstrip('.')}. "
+                           f"Historical: {d.get('typical_hit','validated')}." + rec + frame,
+                      data={"signal_key": f["signal_key"], "side": side, "target": target,
+                            "market": market, "model_agrees": agree},
                       rank=20 if agree else 35))
 
     # ---- line movement — every captured market -------------------------------
