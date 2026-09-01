@@ -2,7 +2,7 @@ import Foundation
 import Supabase
 import WagerproofModels
 
-/// Fetches NFL trend snapshots + dry-run slate from CFB Supabase.
+/// Fetches NFL trend snapshots + slate from CFB Supabase.
 /// Queries are scoped to the current slate and slim columns only — full-table
 /// coach/ref pulls were ~4MB and timed out on device.
 public actor OutliersTrendsService {
@@ -67,7 +67,7 @@ public actor OutliersTrendsService {
         return rows.map(\.model)
     }
 
-    /// Current dry-run slate — latest season/week for the sport.
+    /// Current slate — latest season/week for the sport.
     public func fetchSlateGames(sport: OutliersTrendsSport) async throws -> [OutliersTrendsGame] {
         switch sport {
         case .nfl: return try await fetchNFLSlateGames()
@@ -82,7 +82,7 @@ public actor OutliersTrendsService {
         try await fetchPrecomputedCards(sport: .nfl, season: season, week: week)
     }
 
-    /// Current NFL dry-run slate — latest season/week only.
+    /// Current NFL slate — latest season/week only.
     public func fetchSlateGames() async throws -> [OutliersTrendsGame] {
         try await fetchNFLSlateGames()
     }
@@ -90,7 +90,7 @@ public actor OutliersTrendsService {
     private func fetchNFLSlateGames() async throws -> [OutliersTrendsGame] {
         let cfb = await CFBSupabase.shared.client
         let anchor: [SlateWeekRow] = try await cfb
-            .from("nfl_dryrun_games")
+            .from("nfl_slate_feed")
             .select("season,week")
             .order("season", ascending: false)
             .order("week", ascending: false)
@@ -99,7 +99,7 @@ public actor OutliersTrendsService {
             .value
         guard let slate = anchor.first else { return [] }
         let rows: [GameRow] = try await cfb
-            .from("nfl_dryrun_games")
+            .from("nfl_slate_feed")
             .select(Self.gameColumns)
             .eq("season", value: slate.season)
             .eq("week", value: slate.week)
@@ -112,7 +112,7 @@ public actor OutliersTrendsService {
     private func fetchCFBSlateGames() async throws -> [OutliersTrendsGame] {
         let cfb = await CFBSupabase.shared.client
         let anchor: [SlateWeekRow] = try await cfb
-            .from("cfb_dryrun_games")
+            .from("cfb_slate_feed")
             .select("season,week")
             .order("season", ascending: false)
             .order("week", ascending: false)
@@ -121,7 +121,7 @@ public actor OutliersTrendsService {
             .value
         guard let slate = anchor.first else { return [] }
         let rows: [CFBGameRow] = try await cfb
-            .from("cfb_dryrun_games")
+            .from("cfb_slate_feed")
             .select(Self.cfbGameColumns)
             .eq("season", value: slate.season)
             .eq("week", value: slate.week)

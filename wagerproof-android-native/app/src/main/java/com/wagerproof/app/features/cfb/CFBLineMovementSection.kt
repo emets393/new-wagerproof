@@ -56,7 +56,7 @@ import kotlin.math.floor
  *
  * These views are the ONLY valid series source. The raw per-book archives
  * (`nfl_historical_odds`, `ncaaf_odds_history`) are keyed by Odds-API event id /
- * city name — the views own that remap onto the dry-run `game_id`. And the
+ * city name — the views own that remap onto the slate `game_id`. And the
  * `*_betting_lines` slate-input tables are wiped and reinserted as one consensus
  * row per game every load, so they can never hold more than one point.
  * See .claude/docs/agents/24_LINE_MOVEMENT_ARCHIVE.md.
@@ -70,7 +70,7 @@ data class LineMovementSnap(
 )
 
 /**
- * Slate scalars from `*_dryrun_games`. Only `fg_*_open` is a true opener; the
+ * Slate scalars from `*_slate_games`. Only `fg_*_open` is a true opener; the
  * close is a stale model reference and must never be presented as the live line.
  */
 data class LineSlateScalars(
@@ -98,7 +98,7 @@ private const val SLATE_CLOSE_LABEL = "Slate close"
 /** Amber matches the OVER tint used on totals elsewhere in the stack. */
 private val TOTAL_TINT = Color(0xFFF97316)
 
-/** Live CFB line history off `cfb_line_movement`, keyed on the dry-run game id. */
+/** Live CFB line history off `cfb_line_movement`, keyed on the slate game id. */
 @Composable
 fun CFBLineMovementSection(game: CFBPrediction, modifier: Modifier = Modifier) {
     BettingLineMovementSection(
@@ -109,7 +109,7 @@ fun CFBLineMovementSection(game: CFBPrediction, modifier: Modifier = Modifier) {
         homeTeam = game.homeTeam,
         awayColor = CFBTeamColors.colorPair(game.awayTeam).primary,
         homeColor = CFBTeamColors.colorPair(game.homeTeam).primary,
-        // Only `fg_*_open` off the dry-run row is a real opener. CFBPrediction's
+        // Only `fg_*_open` off the slate row is a real opener. CFBPrediction's
         // `openingSpread` is set to the CURRENT spread on the legacy merge, so
         // reading it here would relabel today's line as the open.
         scalars = LineSlateScalars(
@@ -122,7 +122,7 @@ fun CFBLineMovementSection(game: CFBPrediction, modifier: Modifier = Modifier) {
     )
 }
 
-/** Live NFL line history off `nfl_line_movement`, keyed on the dry-run game id. */
+/** Live NFL line history off `nfl_line_movement`, keyed on the slate game id. */
 @Composable
 fun NFLLineMovementSection(
     game: NFLPrediction,

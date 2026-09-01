@@ -196,7 +196,7 @@ The report is a feed of per-entity cards — each renders one block of the
 
 Two feeds behind one sport picker: MLB (game-log trends + alt-line ladder, via the
 `get_mlb_player_props_l10` RPC) and NFL (consensus close + season trends, via the
-`nfl_dryrun_props` ⨝ `nfl_dryrun_games` tables on the CFB/research Supabase — the "NFL
+`nfl_slate_props` ⨝ `nfl_slate_feed` tables on the CFB/research Supabase — the "NFL
 Week 12 2025 Dry Run" app data contract; one row per player × market with median
 line/prices across books, point-in-time game logs, defense matchup index, P-flags, and
 `headshot_url`). NBA/NCAAB show "coming soon"; there is no CFB segment (college player
@@ -238,8 +238,8 @@ Data hierarchy: `MLBPropMatchup` (game) → `PlayerPropSelection` (player, all m
 | **NFL market widget** (trend board) | 2 | `Props/Detail/NFLPropDetailView.swift` | `NFLPropMarket` (**player id + market key**) — `NFLPropTrendChart` (game log vs close line, week x-labels) + stat tiles (LAST/L3/L5/SZN/MATCHUP) + open→close line movement + flag chips |
 | Collapsing hero + market segmented picker | 3 | `NFLPropDetailView.swift` | `NFLPlayerPropSelection` |
 
-Data hierarchy: `nfl_dryrun_props` rows (one per player × market, headshot + trends
-inline) ⨝ `nfl_dryrun_games` (gameday + slot) → `NFLPropPlayer` (player × game) →
+Data hierarchy: `nfl_slate_props` rows (one per player × market, headshot + trends
+inline) ⨝ `nfl_slate_feed` (gameday + slot) → `NFLPropPlayer` (player × game) →
 `NFLPropMarket` (consensus close line/prices + game log + flags). Models/helpers in
 `WagerproofKit/Sources/WagerproofModels/NFLPlayerProp.swift` (incl. `NFLTeams` identity
 map); team logos/abbrs from the `nfl_teams` reference table via `NFLTeamAssets`

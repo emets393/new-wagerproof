@@ -6,7 +6,7 @@ import WagerproofModels
 /// Three public entry points mirror the RN exports:
 ///
 ///   - `fetchWeekGames()` — pulls NFL / CFB / NBA / NCAAB game rows from the
-///     CFB Supabase project (`nfl_dryrun_games`, `cfb_dryrun_games`,
+///     CFB Supabase project (`nfl_slate_feed`, `cfb_slate_feed`,
 ///     `nba_input_values_view`, `v_cbb_input_values`), filters to the next
 ///     7 days in America/New_York, hydrates predictions, returns the merged
 ///     summary list.
@@ -35,7 +35,7 @@ public actor OutliersService {
         // 1. NFL ----------------------------------------------------------
         do {
             let anchor: [SlateWeekRow] = (try? await cfb
-                .from("nfl_dryrun_games")
+                .from("nfl_slate_feed")
                 .select("season,week")
                 .order("season", ascending: false)
                 .order("week", ascending: false)
@@ -43,8 +43,8 @@ public actor OutliersService {
                 .execute()
                 .value) ?? []
             if let slate = anchor.first, let season = slate.season, let week = slate.week {
-                let nflRows: [NFLDryrunOutlierRow] = try await cfb
-                    .from("nfl_dryrun_games")
+                let nflRows: [NFLSlateOutlierRow] = try await cfb
+                    .from("nfl_slate_feed")
                     .select("game_id,home_team,away_team,gameday,kickoff,fg_spread_close,fg_total_close,fg_ml_home_close,fg_ml_away_close")
                     .eq("season", value: season)
                     .eq("week", value: week)
@@ -77,7 +77,7 @@ public actor OutliersService {
         // 2. CFB ----------------------------------------------------------
         do {
             let anchor: [SlateWeekRow] = (try? await cfb
-                .from("cfb_dryrun_games")
+                .from("cfb_slate_feed")
                 .select("season,week")
                 .order("season", ascending: false)
                 .order("week", ascending: false)
@@ -85,8 +85,8 @@ public actor OutliersService {
                 .execute()
                 .value) ?? []
             if let slate = anchor.first, let season = slate.season, let week = slate.week {
-                let rows: [CFBDryrunOutlierRow] = try await cfb
-                    .from("cfb_dryrun_games")
+                let rows: [CFBSlateOutlierRow] = try await cfb
+                    .from("cfb_slate_feed")
                     .select("game_id,home_team,away_team,kickoff,fg_spread_close,fg_total_close,fg_ml_home_close,fg_ml_away_close")
                     .eq("season", value: season)
                     .eq("week", value: week)
@@ -429,8 +429,8 @@ public actor OutliersService {
         // ── NFL ────────────────────────────────────────────────
         let nflIds = games.filter { $0.sport == .nfl }.map { $0.gameId }
         if !nflIds.isEmpty {
-            let preds: [NFLDryrunHydrateRow] = (try? await cfb
-                .from("nfl_dryrun_games")
+            let preds: [NFLSlateHydrateRow] = (try? await cfb
+                .from("nfl_slate_feed")
                 .select("game_id,fg_home_win_prob,fg_home_cover_prob,fg_spread_edge,fg_total_edge")
                 .in("game_id", values: nflIds)
                 .execute()
@@ -458,8 +458,8 @@ public actor OutliersService {
         // ── CFB ────────────────────────────────────────────────
         let cfbIds = games.filter { $0.sport == .cfb }.map { $0.gameId }
         if !cfbIds.isEmpty {
-            let preds: [CFBDryrunHydrateRow] = (try? await cfb
-                .from("cfb_dryrun_games")
+            let preds: [CFBSlateHydrateRow] = (try? await cfb
+                .from("cfb_slate_feed")
                 .select("game_id,fg_home_win_prob,fg_home_cover_prob,fg_spread_edge,fg_total_edge")
                 .in("game_id", values: cfbIds)
                 .execute()
@@ -659,7 +659,7 @@ private struct SlateWeekRow: Decodable, Sendable {
     let week: Int?
 }
 
-private struct NFLDryrunOutlierRow: Decodable, Sendable {
+private struct NFLSlateOutlierRow: Decodable, Sendable {
     let gameId: String
     let homeTeam: String?
     let awayTeam: String?
@@ -681,7 +681,7 @@ private struct NFLDryrunOutlierRow: Decodable, Sendable {
     }
 }
 
-private struct CFBDryrunOutlierRow: Decodable, Sendable {
+private struct CFBSlateOutlierRow: Decodable, Sendable {
     let gameId: String
     let homeTeam: String?
     let awayTeam: String?
@@ -702,7 +702,7 @@ private struct CFBDryrunOutlierRow: Decodable, Sendable {
     }
 }
 
-private struct NFLDryrunHydrateRow: Decodable, Sendable {
+private struct NFLSlateHydrateRow: Decodable, Sendable {
     let gameId: String
     let fgHomeWinProb: Double?
     let fgHomeCoverProb: Double?
@@ -717,7 +717,7 @@ private struct NFLDryrunHydrateRow: Decodable, Sendable {
     }
 }
 
-private struct CFBDryrunHydrateRow: Decodable, Sendable {
+private struct CFBSlateHydrateRow: Decodable, Sendable {
     let gameId: String
     let fgHomeWinProb: Double?
     let fgHomeCoverProb: Double?

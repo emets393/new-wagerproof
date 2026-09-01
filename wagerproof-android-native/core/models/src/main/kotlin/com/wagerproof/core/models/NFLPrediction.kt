@@ -19,7 +19,7 @@ import kotlinx.serialization.json.booleanOrNull
 
 /**
  * NFL game prediction row. Mirrors the iOS `NFLPrediction` — the shape comes
- * from the NEW model's current-week table `nfl_dryrun_games` (Odds-API lines +
+ * from the NEW model's current-week table `nfl_slate_feed` (Odds-API lines +
  * the `fg`, `tt`, and `h1` model numbers plus `wx` weather). The legacy 4-way join
  * (`v_input_values_with_epa` + `nfl_predictions_epa` + `nfl_betting_lines` +
  * `production_weather`) was retired in the 2026 go-live repoint.
@@ -87,7 +87,7 @@ data class NFLPrediction(
     @Serializable(with = FlexibleDoubleSerializer::class)
     val ouResultProb: Double? = null,
     /**
-     * Model fair total (`fg_pred_total` in the dry-run contract). The legacy
+     * Model fair total (`fg_pred_total` in the slate contract). The legacy
      * pipeline doesn't publish one — nil there, and the card falls back to
      * `ouResultProb` for O/U direction.
      */
@@ -158,7 +158,7 @@ data class NFLPrediction(
     @SerialName("under_bets")
     @Serializable(with = FlexibleStringSerializer::class)
     val underBets: String? = null,
-    // NFL dry-run identity / model contract
+    // NFL slate identity / model contract
     @SerialName("game_id")
     @Serializable(with = FlexibleStringSerializer::class)
     private val gameIdRaw: String? = null,

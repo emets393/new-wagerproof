@@ -216,7 +216,7 @@ public struct OutliersTrendsMLBContext: Sendable, Hashable {
 }
 
 /// NFL betting context for Parlay God legs — ML closes plus fully-priced H1
-/// markets from `nfl_dryrun_games`. FG spread/total juice isn't stored there,
+/// markets from `nfl_slate_feed`. FG spread/total juice isn't stored there,
 /// so those legs price at the standard -110.
 public struct OutliersTrendsNFLContext: Sendable, Hashable {
     public let homeMl: Double?

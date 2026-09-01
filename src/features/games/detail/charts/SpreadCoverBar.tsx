@@ -47,7 +47,7 @@ export function SpreadCoverBar({
 }: {
   /** The pick team's line from its own perspective: `+4.5` = receiving 4.5. */
   line: number;
-  /** The pick team's projected final margin. On a dryrun row this is `-model_line`. */
+  /** The pick team's projected final margin. On a slate row this is `-model_line`. */
   modelMargin: number;
   scale?: EdgeScale;
   pickAbbrev?: string | null;

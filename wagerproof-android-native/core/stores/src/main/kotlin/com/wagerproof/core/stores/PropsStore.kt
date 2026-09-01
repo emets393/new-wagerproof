@@ -63,8 +63,8 @@ class PropsStore(
     var matchups by mutableStateOf<List<MLBPropMatchup>>(emptyList()); private set
     var nflPlayers by mutableStateOf<List<NFLPropPlayer>>(emptyList()); private set
 
-    /** When true, NFL props load from `nfl_dryrun_*` staging tables. */
-    var dryRunPreviewEnabled by mutableStateOf(false)
+    /** When true, NFL props load from `nfl_slate_*` staging tables. */
+    var slatePreviewEnabled by mutableStateOf(false)
 
     // Snapshot-observable so the MLB/NFL-specific getters recompose the game
     // sheet + search hydrate paths.

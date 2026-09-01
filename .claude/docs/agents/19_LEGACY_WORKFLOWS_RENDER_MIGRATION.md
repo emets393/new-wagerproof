@@ -8,7 +8,7 @@
 
 ## Why we keep ANY legacy NFL jobs
 
-The new frozen model writes the `nfl_dryrun_*` tables (agents already read them). But **two
+The new frozen model writes the `nfl_slate_*` tables (agents already read them). But **two
 consumers still depend on the legacy NFL prediction chain**, so it must keep running until the
 final app-switchover:
 

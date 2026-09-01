@@ -3,7 +3,7 @@
 # Weekly CFB production runner — the day-one orchestration the season runs on.
 #
 # Pulls live CFBD + odds, rebuilds the opponent-adjusted feature frame, then runs
-# the locked model + writes the `cfb_dryrun_*` tables the app reads. Idempotent:
+# the locked model + writes the `cfb_slate_*` tables the app reads. Idempotent:
 # the generators delete-then-insert per (season, week), so re-running a week is safe.
 #
 # Build order is authoritative per LOCKED_MODELS.md §5:
@@ -71,13 +71,13 @@ step "materialize FG odds history (DB -> parquet)"; python3 materialize_odds_his
 step "build Odds-API game frame (open/close consensus)"; python3 build_odds_frame.py
 step "build team style profiles (archetypes, leak-safe)";  python3 build_football_profiles.py || true
 # Weeks 1-3: the early display blend (preseason priors + roster + CORE) -> out/cfb_early_preds CSV.
-# gen_cfb_dryrun_games/picks REQUIRE this CSV early. Best-effort: on an ephemeral disk without
+# gen_cfb_slate_games/picks REQUIRE this CSV early. Best-effort: on an ephemeral disk without
 # training history the committed CSV (frozen weekly from the last local run) stays in place.
 if [ "$WEEK" -le 3 ]; then
   step "early-week display model (wk1-3, best-effort)"; python3 cfb_early_week.py || true
 fi
 # run the LOCKED model AS A SCRIPT so it WRITES out/cfb_{predictions,bets,team_totals,h1_model}_$SEASON.csv —
-# the slate generators (gen_cfb_dryrun_games/picks/flags) read these; harness_week() alone does NOT write them.
+# the slate generators (gen_cfb_slate_games/picks/flags) read these; harness_week() alone does NOT write them.
 step "run locked CFB model -> prediction/spot/TT/1H CSVs (frozen ${SEASON} .pkl)"
 python3 cfb_forecast.py --season "$SEASON" --week "$WEEK"
 
@@ -90,13 +90,13 @@ python3 gen_cfb_sportsbooks.py
 # Weekly slate (order matters: games first; picks writes conviction onto games;
 # flags back-fills n_flags counts onto games; trends are independent).
 # ORDER (fixed 2026-08-27): flags BEFORE picks — gen_cfb_picks reads
-# cfb_dryrun_flags for per-card conviction (conv_for), so picks-first ran every
+# cfb_slate_flags for per-card conviction (conv_for), so picks-first ran every
 # fresh week against the PREVIOUS week's flags.
-step "slate: dryrun games";  python3 gen_cfb_dryrun_games.py
+step "slate: slate games";  python3 gen_cfb_slate_games.py
 # covers.com injuries -> backup-QB pregame trigger (live 2026-08-27). Guarded:
 # a scrape failure must never block the slate — the flags block skips silently.
 step "injuries (covers.com)"; python3 covers_cfb_injuries.py "$SEASON" "$WEEK" || true
-step "slate: bet flags";     python3 gen_cfb_dryrun_flags.py
+step "slate: bet flags";     python3 gen_cfb_slate_flags.py
 step "slate: pick cards";    python3 gen_cfb_picks.py
 step "slate: team trends";   python3 gen_cfb_team_trends.py
 # Outliers trends (team splits/matchups + coach career trends). Both no-op safely if the
@@ -105,4 +105,4 @@ step "outliers: coach trends"; python3 gen_cfb_coach_trends.py
 step "outliers: trend cards";  python3 gen_cfb_outliers_trend_cards.py
 
 echo
-echo "=== DONE :: cfb_dryrun_games/_picks/_flags + cfb_team_trends/_coach_trends/_outliers_trend_cards loaded for $SEASON wk$WEEK ==="
+echo "=== DONE :: cfb_slate_games/_picks/_flags + cfb_team_trends/_coach_trends/_outliers_trend_cards loaded for $SEASON wk$WEEK ==="

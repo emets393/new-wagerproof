@@ -8,10 +8,10 @@ Franchise relocations are folded into current abbreviations (OAK->LV, SD->LAC,
 STL->LA) so the series joins to today's teams. matchup_key is the two current
 abbreviations sorted and joined with '|', matching public.nfl_matchup_last5().
 
-closing_spread_home uses the dryrun convention (negative = home favored), i.e.
+closing_spread_home uses the slate convention (negative = home favored), i.e.
 -(nflverse spread_line, which is positive when home is favored).
 
-Usage:  python3 dryrun_wk12_matchups.py [--no-load]
+Usage:  python3 nfl_slate_matchups.py [--no-load]
 """
 import argparse
 import json
@@ -26,8 +26,8 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-# Parameterized like dryrun_wk12_trends.py: env overrides, defaults keep the
-# original 2025 wk12 dry-run byte-for-byte.
+# Parameterized like nfl_slate_trends.py: env overrides, defaults keep the
+# original 2025 wk12 slate byte-for-byte.
 SEASON = int(os.environ.get("NFL_SEASON", 2025))
 WEEK = int(os.environ.get("NFL_WEEK", 12))
 N_LAST = 5
@@ -65,14 +65,14 @@ def build():
     key = load_key()
     hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
     slate = requests.get(
-        f"{BASE_URL}/nfl_dryrun_games?select=game_id,kickoff&season=eq.{SEASON}&week=eq.{WEEK}",
+        f"{BASE_URL}/nfl_slate_games?select=game_id,kickoff&season=eq.{SEASON}&week=eq.{WEEK}",
         headers=hdr, timeout=60).json()
     if isinstance(slate, list) and slate:
         cutoff = pd.to_datetime([r["kickoff"] for r in slate if r.get("kickoff")]).tz_localize(None).min()
         parts = [str(r["game_id"]).split("_") for r in slate]
         matchups = [(cur(p[3]), cur(p[2])) for p in parts if len(p) == 4]
     else:
-        # legacy fallback: the original 2025 wk12 dry-run path
+        # legacy fallback: the original 2025 wk12 slate path
         f = pd.read_parquet(DATA / "h1tt_frame.parquet")
         wk = f[(f.season == SEASON) & (f.week == WEEK)].copy()
         cutoff = pd.to_datetime(wk.gameday).min()

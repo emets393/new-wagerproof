@@ -231,7 +231,7 @@ public enum AgentPicksService {
     public static func requestTriggerV3Generation(
         agentId: String,
         idempotencyKey: String? = nil,
-        dryRun: Bool? = nil,
+        simulateOnly: Bool? = nil,
         modelName: String? = nil,
         window: String? = nil
     ) async throws -> GenerationRequestResult {
@@ -256,7 +256,7 @@ public enum AgentPicksService {
                 body: Body(
                     avatar_id: agentId,
                     idempotency_key: idempotencyKey,
-                    dry_run: dryRun,
+                    dry_run: simulateOnly,
                     model_name: modelName,
                     window: window
                 )

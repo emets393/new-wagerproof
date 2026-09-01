@@ -44,7 +44,7 @@ Leak-safe (only prior games' actuals feed the delta). Clean dose-response, mecha
 - Conviction: **T3** (game total, well-sampled), **T2 when delta ≤ −0.15**. Grade at close.
 - **WIRED 2026-07-18** (signal_key `style_offense_under`): `cfb_style_delta.py` computes the leak-safe pregame
   delta (self-test: 474 fires, 53.6% under with the live latest-completed-archetype proxy) →
-  `gen_cfb_dryrun_flags.py` emits a game-total UNDER + the underperforming team's team-total UNDER →
+  `gen_cfb_slate_flags.py` emits a game-total UNDER + the underperforming team's team-total UNDER →
   `cfb_signal_defs` card loaded. `build_football_profiles.py` runs in `run_cfb_week.sh` before flags (new
   weekly dependency). Fires once teams have ≥2 prior meetings vs an archetype (~week 4+).
 
@@ -67,7 +67,7 @@ Preseason-known (leak-safe). `phase_returning_study.py`, `data/cfbd/returning_pr
   might live — future build.) **Portal-churn interaction underpowered** (2021-25, n=51 cells — set aside).
 - Conviction **T2** (elite 9/9-season consistency, mechanism-backed; modest ROI).
 - **WIRED 2026-08-01** as signal `ret_prod_edge`: `cfb_early_roster_signals.py` (self-test 53.7% ATS wk1-3
-  2021-25) → `gen_cfb_dryrun_flags.py` emits a wk1-3 spread flag backing the higher-returning team;
+  2021-25) → `gen_cfb_slate_flags.py` emits a wk1-3 spread flag backing the higher-returning team;
   `fetch_cfbd_roster.py` (in `run_cfb_week.sh`) refreshes `/player/returning`; def in `cfb_signal_defs`.
 
 ## VALIDATED (track-plus candidate) — CFB portal talent influx, weeks 1-3 ATS (S-CFB3)
@@ -85,7 +85,7 @@ this adds new ones; both = early lines undervalue current-roster reality, both d
   (market watches the portal). New-QB → mild fade/under but confounded with continuity. OL-light→under and
   LB-heavy→cover are the same "portal-aggression" signal in disguise / partly team-type confounds (tracking).
 - **WIRED 2026-08-01** as signal `portal_talent_influx` (T3): `cfb_early_roster_signals.py` →
-  `gen_cfb_dryrun_flags.py` wk1-3 spread flag; `fetch_cfbd_roster.py` refreshes `/player/portal`.
+  `gen_cfb_slate_flags.py` wk1-3 spread flag; `fetch_cfbd_roster.py` refreshes `/player/portal`.
 
 ## VALIDATED (scouting/model input, NOT a standalone bet) — Coaching scheme transfer
 > When a head coach moves school A→B, team B's STYLE shifts toward how A played under him — fast/slow especially.
@@ -109,7 +109,7 @@ this adds new ones; both = early lines undervalue current-roster reality, both d
   (the study's own dose-response rung: 66.7% under, n=21; the >=+8 mechanism cell = -5.0 vs the close, baseline
   -4.2) -> game-total UNDER flag at 0.5u paper. `fetch_preseason_ratings.tr_and_coaches` now writes
   `coach_moves_{season}.parquet` weekly (prev school via coach_seasons, pace from game_advanced season-1);
-  `gen_cfb_dryrun_flags` emits the flag. 2026 wk1: 7 fires incl. OSU@Tulsa U60.5 (Morris +4.7, the original
+  `gen_cfb_slate_flags` emits the flag. 2026 wk1: 7 fires incl. OSU@Tulsa U60.5 (Morris +4.7, the original
   motivating case), Clemson@LSU U50.5 (Kiffin +9.8), WMU@Michigan U47.5 (Whittingham +8.6). The style-blend
   model input remains un-wired (separate work).
 
@@ -184,7 +184,7 @@ top-8% **64.5%/+23.2** (8/9) → top-5% 67.2. The top-8% is a strict SUBSET of >
 n=0), i.e., the current rule's early hits concentrate in its most extreme lines while the 60-64.5
 band is mediocre (54.7%, 5/9). Complement clean (bottom-10% closes -> over 48.8%). **RANK beats a
 fixed cut** because the totals environment drifts (top-8% threshold: 68.6 in 2016 → 60.5 in 2025).
-**WIRED:** `gen_cfb_dryrun_flags` upgrades fade_high_total to **T2** in weeks 1-3 when the game's
+**WIRED:** `gen_cfb_slate_flags` upgrades fade_high_total to **T2** in weeks 1-3 when the game's
 close ≥ max(slate p92, 60) — floor kept at 60 (sub-60 rank cells have zero historical sample). Wk4+
 unchanged (T3; the decay says early is where the meat is). 2026 wk1: OK State @ Tulsa 60.5 upgraded.
 
@@ -231,7 +231,7 @@ Style-underperformance **persists and is under-priced in CFB (→ under)** but i
 loosely, NFL tightly). Build style-delta signals in CFB; treat NFL as the sharp control.
 
 ## Next
-1. Wire S-CFB1 into `gen_cfb_dryrun_flags.py` + `cfb_signal_defs` (T3 UNDER, game + team total) — needs the
+1. Wire S-CFB1 into `gen_cfb_slate_flags.py` + `cfb_signal_defs` (T3 UNDER, game + team total) — needs the
    profile/delta computation productionized in the weekly pipeline.
 2. Add tempo/pace to the CFB total model (production_models / cfb_forecast total path).
 3. Revisit NFL with more PBP seasons (only 2023-25 cached) before concluding the reversal is structural.
@@ -302,7 +302,7 @@ stale-ratings artifact. Final cells (wk1-3, |implied−close| ≥ 2, close = Odd
 - regime_follow_hc: rating's side vs new-HC OPPONENT → follow = **62.2% / +18.7% (n=111)**.
 - qb-transfer fade 57.0% (n=128) — NOT wired yet (needs 2026 rosters to identify QB1).
 - qb-unknown follow 54.9%→61.4% w/ dose (n=91/44, 7/7 season-cells) — watch.
-WIRED: gen_cfb_dryrun_flags block (tracking tier, 0.5u paper) + signal defs; inputs
+WIRED: gen_cfb_slate_flags block (tracking tier, 0.5u paper) + signal defs; inputs
 (preseason_tr_{S}, coaches_{S} w/ new_hc) refresh weekly via fetch_preseason_ratings.
 2026 wk1: 13 fades + 5 follows live. STATUS: tracking until live season confirms (the
 discovery grid scanned 30 cells). Also found+fixed: **CFBD consensus lines corrupt for
@@ -329,7 +329,7 @@ Interaction of the true-preseason gap (|gap|≥2, wk1-3) with player-built retur
 - **POSITION SPLITS = NULL**: receivers/OL/DL-gutted cells scattered or inverted (OL-gutted
   fade 42.9%!), n=41-81, no season consistency. The regime effect is TEAM-level turnover,
   not positional — do not chase position cells (matches trench-study verdict).
-WIRED: teardown key + "FULL TEARDOWN" tier annotation in gen_cfb_dryrun_flags (ret_share
+WIRED: teardown key + "FULL TEARDOWN" tier annotation in gen_cfb_slate_flags (ret_share
 NaN for 2026 until CFBD posts rosters → tiers self-activate); def registered. All tracking
 tier, 0.5u paper, same promotion bar as the coach cells.
 
@@ -475,7 +475,7 @@ BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as alwa
   close: **55.1% (n=352), ALL FIVE seasons >=52** (59/52/55/55/54); >=6: **57.9% (n=209)**.
   vs the OPEN it is weaker (50.8/55.0) — the edge is a close-graded one. Coheres with
   core_total_edge (54.1% wks 5+): one construction, two windows.
-- **WIRED as `early_total_edge`** (gen_cfb_dryrun_flags, WEEK<=3): raw pre-anchor total
+- **WIRED as `early_total_edge`** (gen_cfb_slate_flags, WEEK<=3): raw pre-anchor total
   (the ±6 display cap truncates exactly the paying edges — pred_total_raw added to the
   early CSV), >=4 fires (tracking 0.5u), >=6 = T3 active. 2026 wk1: 9 fires, OSU@Tulsa
   U61.5 (-10.1) converging with coach_pace_under — independent-mechanism confluence.

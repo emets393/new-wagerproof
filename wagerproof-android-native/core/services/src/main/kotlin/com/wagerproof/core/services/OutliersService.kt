@@ -41,7 +41,7 @@ class OutliersService {
 
         // 1. NFL ----------------------------------------------------------
         runCatching {
-            val anchor = cfb.from("nfl_dryrun_games")
+            val anchor = cfb.from("nfl_slate_feed")
                 .select(columns = Columns.raw("season,week")) {
                     order("season", Order.DESCENDING)
                     order("week", Order.DESCENDING)
@@ -49,7 +49,7 @@ class OutliersService {
                 }
                 .decodeList<OutlierSlateWeekRow>()
             val slate = anchor.firstOrNull() ?: return@runCatching
-            val nflRows = cfb.from("nfl_dryrun_games")
+            val nflRows = cfb.from("nfl_slate_feed")
                 .select(
                     columns = Columns.raw(
                         "game_id,home_team,away_team,gameday,kickoff,fg_spread_close,fg_total_close,fg_ml_home_close,fg_ml_away_close"
@@ -61,7 +61,7 @@ class OutliersService {
                     }
                     order("kickoff", Order.ASCENDING)
                 }
-                .decodeList<OutlierNFLDryrunRow>()
+                .decodeList<OutlierNFLSlateRow>()
 
             for (game in nflRows) {
                 val date = game.gameday ?: game.kickoff?.take(10) ?: continue
@@ -84,7 +84,7 @@ class OutliersService {
 
         // 2. CFB ----------------------------------------------------------
         runCatching {
-            val anchor = cfb.from("cfb_dryrun_games")
+            val anchor = cfb.from("cfb_slate_feed")
                 .select(columns = Columns.raw("season,week")) {
                     order("season", Order.DESCENDING)
                     order("week", Order.DESCENDING)
@@ -92,7 +92,7 @@ class OutliersService {
                 }
                 .decodeList<OutlierSlateWeekRow>()
             val slate = anchor.firstOrNull() ?: return@runCatching
-            val rows = cfb.from("cfb_dryrun_games")
+            val rows = cfb.from("cfb_slate_feed")
                 .select(
                     columns = Columns.raw(
                         "game_id,home_team,away_team,kickoff,fg_spread_close,fg_total_close,fg_ml_home_close,fg_ml_away_close"
@@ -104,7 +104,7 @@ class OutliersService {
                     }
                     order("kickoff", Order.ASCENDING)
                 }
-                .decodeList<OutlierCFBDryrunRow>()
+                .decodeList<OutlierCFBSlateRow>()
             for (game in rows) {
                 val raw = game.kickoff ?: continue
                 val etDate = formatETDate(raw) ?: continue
@@ -349,7 +349,7 @@ class OutliersService {
         val nflIds = games.filter { it.sport == SportLeague.NFL }.map { it.gameId }
         if (nflIds.isNotEmpty()) {
             val preds = runCatching {
-                cfb.from("nfl_dryrun_games")
+                cfb.from("nfl_slate_feed")
                     .select(columns = Columns.raw("game_id,fg_home_win_prob,fg_home_cover_prob,fg_spread_edge,fg_total_edge")) {
                         filter { isIn("game_id", nflIds) }
                     }
@@ -371,7 +371,7 @@ class OutliersService {
         val cfbIds = games.filter { it.sport == SportLeague.CFB }.map { it.gameId }
         if (cfbIds.isNotEmpty()) {
             val preds = runCatching {
-                cfb.from("cfb_dryrun_games")
+                cfb.from("cfb_slate_feed")
                     .select(columns = Columns.raw("game_id,fg_home_win_prob,fg_home_cover_prob,fg_spread_edge,fg_total_edge")) {
                         filter { isIn("game_id", cfbIds) }
                     }
@@ -540,7 +540,7 @@ private data class OutlierSlateWeekRow(
 )
 
 @Serializable
-private data class OutlierNFLDryrunRow(
+private data class OutlierNFLSlateRow(
     @SerialName("game_id") val gameId: String,
     @SerialName("home_team") val homeTeam: String? = null,
     @SerialName("away_team") val awayTeam: String? = null,
@@ -553,7 +553,7 @@ private data class OutlierNFLDryrunRow(
 )
 
 @Serializable
-private data class OutlierCFBDryrunRow(
+private data class OutlierCFBSlateRow(
     @SerialName("game_id") val gameId: String,
     @SerialName("home_team") val homeTeam: String? = null,
     @SerialName("away_team") val awayTeam: String? = null,

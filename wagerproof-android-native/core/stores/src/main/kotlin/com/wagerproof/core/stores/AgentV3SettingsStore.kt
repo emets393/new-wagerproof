@@ -20,22 +20,22 @@ class AgentV3SettingsStore {
     }
 
     /** Dry run: server runs the full loop + records the trace but writes NO picks. */
-    private var _dryRun by mutableStateOf(false)
-    val dryRun: Boolean get() = _dryRun
+    private var _simulateOnly by mutableStateOf(false)
+    val simulateOnly: Boolean get() = _simulateOnly
     private var _model by mutableStateOf(models[0])
     val model: String get() = _model
 
     init {
         val d = StorePrefs.standard
-        _dryRun = d.getBoolean(Key.DRY_RUN, false)
+        _simulateOnly = d.getBoolean(Key.DRY_RUN, false)
         // Stored value may be a retired id — snap back to the current default
         // rather than sending a dead model name.
         val stored = d.getString(Key.MODEL, null)
         _model = stored?.takeIf { models.contains(it) } ?: models[0]
     }
 
-    fun setDryRun(value: Boolean) {
-        _dryRun = value
+    fun setSimulateOnly(value: Boolean) {
+        _simulateOnly = value
         StorePrefs.standard.edit().putBoolean(Key.DRY_RUN, value).apply()
     }
 
@@ -45,7 +45,7 @@ class AgentV3SettingsStore {
     }
 
     val snapshot: Map<String, String>
-        get() = mapOf("dry_run" to if (dryRun) "true" else "false", "model" to model)
+        get() = mapOf("dry_run" to if (simulateOnly) "true" else "false", "model" to model)
 
     companion object {
         /**

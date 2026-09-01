@@ -38,7 +38,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 
 /**
- * Fetches NFL trend snapshots + dry-run slate from CFB Supabase.
+ * Fetches NFL trend snapshots + slate from CFB Supabase.
  * Queries are scoped to the current slate and slim columns only — full-table
  * coach/ref pulls were ~4MB and timed out on device.
  */
@@ -67,7 +67,7 @@ class OutliersTrendsService {
         return rows.map { it.model() }
     }
 
-    /** Current dry-run slate — latest season/week for the sport. */
+    /** Current slate — latest season/week for the sport. */
     suspend fun fetchSlateGames(sport: OutliersTrendsSport): List<OutliersTrendsGame> =
         when (sport) {
             OutliersTrendsSport.NFL -> fetchNFLSlateGames()
@@ -80,12 +80,12 @@ class OutliersTrendsService {
     suspend fun fetchPrecomputedCards(season: Int, week: Int): List<OutliersTrendsCard> =
         fetchPrecomputedCards(OutliersTrendsSport.NFL, season, week)
 
-    /** Current NFL dry-run slate — latest season/week only. */
+    /** Current NFL slate — latest season/week only. */
     suspend fun fetchSlateGames(): List<OutliersTrendsGame> = fetchNFLSlateGames()
 
     private suspend fun fetchNFLSlateGames(): List<OutliersTrendsGame> {
         val cfb = SupabaseClients.cfb
-        val anchor = cfb.from("nfl_dryrun_games")
+        val anchor = cfb.from("nfl_slate_feed")
             .select(Columns.raw("season,week")) {
                 order("season", Order.DESCENDING)
                 order("week", Order.DESCENDING)
@@ -93,7 +93,7 @@ class OutliersTrendsService {
             }
             .decodeList<SlateWeekRow>()
         val slate = anchor.firstOrNull() ?: return emptyList()
-        val rows = cfb.from("nfl_dryrun_games")
+        val rows = cfb.from("nfl_slate_feed")
             .select(Columns.raw(GAME_COLUMNS)) {
                 filter {
                     eq("season", slate.season)
@@ -107,7 +107,7 @@ class OutliersTrendsService {
 
     private suspend fun fetchCFBSlateGames(): List<OutliersTrendsGame> {
         val cfb = SupabaseClients.cfb
-        val anchor = cfb.from("cfb_dryrun_games")
+        val anchor = cfb.from("cfb_slate_feed")
             .select(Columns.raw("season,week")) {
                 order("season", Order.DESCENDING)
                 order("week", Order.DESCENDING)
@@ -115,7 +115,7 @@ class OutliersTrendsService {
             }
             .decodeList<SlateWeekRow>()
         val slate = anchor.firstOrNull() ?: return emptyList()
-        val rows = cfb.from("cfb_dryrun_games")
+        val rows = cfb.from("cfb_slate_feed")
             .select(Columns.raw(CFB_GAME_COLUMNS)) {
                 filter {
                     eq("season", slate.season)

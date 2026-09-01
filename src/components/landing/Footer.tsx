@@ -97,9 +97,9 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <a href="/guides/" className="text-gray-400 hover:text-honeydew-400 transition-colors">
-                  Guides
-                </a>
+                <Link to="/blog" className="text-gray-400 hover:text-honeydew-400 transition-colors">
+                  Blog
+                </Link>
               </li>
             </ul>
           </div>

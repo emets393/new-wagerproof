@@ -1,5 +1,5 @@
 """
-2025 PORTFOLIO DRY-RUN — conviction-weighted staking across ALL bet types (walk-forward, no leakage; reads the
+2025 PORTFOLIO SLATE — conviction-weighted staking across ALL bet types (walk-forward, no leakage; reads the
 harness output CSVs which were generated train<2025). Stake scales with each bet's VALIDATED hit-rate:
   MAMMOTH 5u | >=62% 3u | 58-62% 2u | 55-58% 1.5u | 53-55% 1u | model-lean-only 0.5u
 Grade honestly (signal-line == grade-line): sides/totals @ open, team-totals @ best posted, 1H @ posted close.
@@ -86,7 +86,7 @@ def line(label, d):
     n = len(d); st = d.stake.sum(); pnl = d.pnl_u.sum()
     roi = 100 * pnl / st if st else 0
     print(f"  {label:<18} bets {n:<4} staked {st*UNIT:>9,.0f}  P&L {pnl*UNIT:>+9,.0f}  ROI {roi:>+6.1f}%  win {100*d.won.mean() if n else 0:4.1f}%")
-print("=" * 86); print("2025 PORTFOLIO DRY-RUN (flat unit = $100, walk-forward, no leakage)"); print("=" * 86)
+print("=" * 86); print("2025 PORTFOLIO SLATE (flat unit = $100, walk-forward, no leakage)"); print("=" * 86)
 print("\nBY BET TYPE:")
 for m in ["SIDES", "SIDES-MAMMOTH", "TOTALS", "TEAM-TOTAL", "1H-SPREAD", "1H-TOTAL", "1H-ML"]:
     d = R[R.market == m]

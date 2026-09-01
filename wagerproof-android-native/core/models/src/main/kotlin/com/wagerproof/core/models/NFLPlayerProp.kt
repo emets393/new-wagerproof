@@ -8,7 +8,7 @@ import kotlin.math.floor
 import kotlin.math.round
 import kotlin.math.sign
 
-// MARK: - Raw table rows (NFL dry-run data contract)
+// MARK: - Raw table rows (NFL slate data contract)
 
 /**
  * One entry of a prop row's `recent_games` JSON array — the player's actual
@@ -43,7 +43,7 @@ data class NFLPropBestQuote(
 }
 
 /**
- * One row of `nfl_dryrun_props` (CFB/research Supabase): a single
+ * One row of `nfl_slate_props` (CFB/research Supabase): a single
  * player × market with the consensus close line/prices (median across books),
  * season game-log trends, defense-matchup context, and fired P-flags.
  * See the "NFL Week 12 2025 Dry Run — App Data Contract" doc — the 2026
@@ -51,7 +51,7 @@ data class NFLPropBestQuote(
  * matching Swift's synthesized Decodable.
  */
 @Serializable
-data class NFLDryrunPropRow(
+data class NFLSlatePropRow(
     @SerialName("game_id") val gameId: String? = null,
     @SerialName("event_id") val eventId: String? = null,
     val season: Int? = null,
@@ -110,7 +110,7 @@ data class NFLDryrunPropRow(
 }
 
 /**
- * Matchup context joined from `nfl_dryrun_games` (kickoff day + slot) —
+ * Matchup context joined from `nfl_slate_feed` (kickoff day + slot) —
  * props rows only carry the `game_id`.
  */
 data class NFLPropGameContext(
@@ -218,13 +218,13 @@ data class NFLPropPlayer(
     val position: String?,
     val gameId: String,
     val eventId: String?,
-    /** `gameday` from `nfl_dryrun_games`; empty when the join misses. */
+    /** `gameday` from `nfl_slate_feed`; empty when the join misses. */
     val gameDate: String,
     /** Schedule slot key (thu_fri / sun_early / sun_late_sat / snf / monday). */
     val slot: String?,
     val kickoff: String? = null,
     val week: Int?,
-    /** Slate season from `nfl_dryrun_props` (e.g. 2025 dry-run week). */
+    /** Slate season from `nfl_slate_props` (e.g. 2025 slate week). */
     val season: Int? = null,
     val reportStatus: String?,
     val practiceStatus: String?,
@@ -272,7 +272,7 @@ data class NFLPropPlayer(
 
 object NFLPlayerProps {
     /**
-     * Display order for the markets the dry-run publishes; unknown keys sort
+     * Display order for the markets the slate publishes; unknown keys sort
      * after, alphabetically, so new server-side markets degrade gracefully.
      */
     internal val marketOrder: List<String> = listOf(
@@ -413,7 +413,7 @@ object NFLPlayerProps {
 
     /**
      * Build feed players from `nfl_prop_player_pages` + optional trend
-     * game-logs. This is the live 2026 path — no dry-run tables.
+     * game-logs. This is the live 2026 path — no slate tables.
      */
     fun players(
         from: List<NFLPropPlayerPage>,
@@ -470,7 +470,7 @@ object NFLPlayerProps {
      * slot → name (feed-ready). `games` joins kickoff context by `game_id`.
      */
     fun group(
-        rows: List<NFLDryrunPropRow>,
+        rows: List<NFLSlatePropRow>,
         games: Map<String, NFLPropGameContext> = emptyMap(),
         bestBooksFallback: Map<String, NFLPropBestBooksFallback> = emptyMap(),
         recentGamesFallback: Map<String, List<NFLPropRecentGame>> = emptyMap(),

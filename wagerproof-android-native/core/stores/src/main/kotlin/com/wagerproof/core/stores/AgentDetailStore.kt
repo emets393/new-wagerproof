@@ -625,7 +625,7 @@ class AgentDetailStore(agentId: String) {
             val priorWeeklyIds = weeklyParlays.mapTo(mutableSetOf()) { it.id }
             val trigger = AgentPicksService.requestTriggerV3Generation(
                 agentId = agentId,
-                dryRun = v3.dryRun,
+                dryRun = v3.simulateOnly,
                 modelName = v3.model,
                 window = if (window == GenerationWindow.Week) "week" else null,
             )

@@ -12,12 +12,12 @@ will be:
 
 | Table | Rows | One row per |
 |---|---|---|
-| `nfl_dryrun_games` | 14 | game — every prediction the app displays |
-| `nfl_dryrun_flags` | 51 | fired bet signal (the badge layer) |
-| `nfl_dryrun_props` | 1086 | (player, market) — line + trends + P-flags |
+| `nfl_slate_games` | 14 | game — every prediction the app displays |
+| `nfl_slate_flags` | 51 | fired bet signal (the badge layer) |
+| `nfl_slate_props` | 1086 | (player, market) — line + trends + P-flags |
 | `nfl_teams` | 32 | team — logos, wordmarks, colors (static reference) |
 
-**Generators**: `dryrun_wk12_games.py` (games + flags), `dryrun_wk12_props.py` (props).
+**Generators**: `nfl_slate_games_build.py` (games + flags), `nfl_slate_props_build.py` (props).
 Both are idempotent (delete-then-insert for season=2025, week=12).
 
 ## 0. How to connect
@@ -36,13 +36,13 @@ Example queries:
 const sb = createClient(URL, ANON_KEY);
 
 // all game cards for the slate
-await sb.from('nfl_dryrun_games').select('*').order('gameday');
+await sb.from('nfl_slate_games').select('*').order('gameday');
 
 // active bet signals (the picks the app surfaces)
-await sb.from('nfl_dryrun_flags').select('*').eq('tier', 'active');
+await sb.from('nfl_slate_flags').select('*').eq('tier', 'active');
 
 // props for one game, flagged players first
-await sb.from('nfl_dryrun_props').select('*')
+await sb.from('nfl_slate_props').select('*')
   .eq('game_id', '2025_12_BUF_HOU')
   .order('flags', { ascending: false, nullsFirst: false });
 ```
@@ -59,7 +59,7 @@ rebrands).
 
 ---
 
-## 1. `nfl_dryrun_games` — game cards
+## 1. `nfl_slate_games` — game cards
 
 Key: `game_id` (nflverse id, e.g. `2025_12_BUF_HOU`). Meta: `season, week, gameday,
 slot` (thu_fri / sun_early / sun_late_sat / snf / monday), `home_ab/away_ab`,
@@ -95,7 +95,7 @@ All prices stored as American odds. Spreads are home-relative (negative = home f
 
 ---
 
-## 2. `nfl_dryrun_flags` — the bet-signal layer
+## 2. `nfl_slate_flags` — the bet-signal layer
 
 One row per fired rule. `tier='active'` = validated bet flags the app surfaces as
 picks; `tier='tracking'` = paper-trade 2026 (show in a "watch" section or hide).
@@ -120,7 +120,7 @@ Week 12 output: 51 flags (25 active / 26 tracking) across 14 games.
 
 ---
 
-## 3. `nfl_dryrun_props` — player prop cards
+## 3. `nfl_slate_props` — player prop cards
 
 One row per (player, market); 1086 rows, 387 players. The original 6 markets
 (`player_pass_yds`, `player_pass_tds`, `player_rush_yds`, `player_receptions`,
@@ -161,7 +161,7 @@ displayed card but fires no flag (no validated edge).
 | P17 | **volume model** projects rush yds ≥10 below line (existing rush_yds market) | UNDER | 12 |
 | P18 | **volume model** projects pass TDs ≥0.5 above line (existing pass_tds market) | OVER | 3 |
 
-P11 is game-level → `nfl_dryrun_flags`.
+P11 is game-level → `nfl_slate_flags`.
 
 **P14-P16 (attempts volume model)**: a walk-forward HistGBR predicts pass/rush attempts from
 team-offense pace/pass-rate + opponent defense + game script (`attempts_predict.predict_slate`,
@@ -174,12 +174,12 @@ Validated 2024-25: P14 rush 59%/+7%, pass 56%/+5%; P15 rush 60%/+8%, pass 57%/+5
 
 ## 4. What the app screens map to
 
-- **Games tab / game card**: `nfl_dryrun_games` — FG spread pick + cover %, ML win
+- **Games tab / game card**: `nfl_slate_games` — FG spread pick + cover %, ML win
   prob, total pick + tier, both team totals, full 1H strip (spread/ML/total
   predictions). Every game has every number.
-- **Bet signals / value finds**: `nfl_dryrun_flags` where tier='active'
+- **Bet signals / value finds**: `nfl_slate_flags` where tier='active'
   (mammoth=true → 3-unit styling). Tracking tier optionally as "watching".
-- **Player props tab**: `nfl_dryrun_props` filtered by game or market — headshot,
+- **Player props tab**: `nfl_slate_props` filtered by game or market — headshot,
   consensus line/prices, L5/L10 trend bars + sparkline from `recent_games`,
   matchup index, flag badges.
 - **Matchup page**: join all three on `game_id`.

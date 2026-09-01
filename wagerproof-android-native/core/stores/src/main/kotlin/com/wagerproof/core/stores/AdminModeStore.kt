@@ -90,8 +90,8 @@ class AdminModeStore {
 
     val canEnableAdminMode: Boolean get() = isAdmin
 
-    /** NFL/CFB dry-run staging tables — requires both admin role and the Secret Settings toggle. */
-    val dryRunPreviewEnabled: Boolean get() = isAdmin && adminModeEnabled
+    /** NFL/CFB slate staging tables — requires both admin role and the Secret Settings toggle. */
+    val slatePreviewEnabled: Boolean get() = isAdmin && adminModeEnabled
 
     // MARK: - DEBUG
 

@@ -118,7 +118,7 @@ def tr_and_coaches():
             print(f"[preseason] CORE snapshot: {len(snap)} teams "
                   f"(thru {snap.throughSeasonType.iloc[0]} wk{snap.throughWeek.iloc[0]}); "
                   f"archive {len(allx)} rows")
-            # Live as-of feed for the core_total_edge signal (gen_cfb_dryrun_flags): the
+            # Live as-of feed for the core_total_edge signal (gen_cfb_slate_flags): the
             # endpoint always reflects all COMPLETED games, so an in-season fetch IS the
             # as-of snapshot — no reconstruction needed on Render's fresh disk. Written in
             # core_asof.parquet's schema (off/dfn keep the endpoint sign: dfn low = good D).

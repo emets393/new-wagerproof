@@ -23,9 +23,9 @@ export default function LiveScoreDiagnostics() {
       .eq('is_live', true);
     setLiveScoresRaw(liveScoresData || []);
 
-    const nflAnchor = await resolveLatestSlate('nfl_dryrun_games');
+    const nflAnchor = await resolveLatestSlate('nfl_slate_feed');
     const { data: nflPreds } = await collegeFootballSupabase
-      .from('nfl_dryrun_games')
+      .from('nfl_slate_feed')
       .select('*')
       .eq('season', nflAnchor.season)
       .eq('week', nflAnchor.week)
@@ -45,9 +45,9 @@ export default function LiveScoreDiagnostics() {
     });
     setNflPredictions(merged);
 
-    const cfbAnchor = await resolveLatestSlate('cfb_dryrun_games');
+    const cfbAnchor = await resolveLatestSlate('cfb_slate_feed');
     const { data: cfbPreds } = await collegeFootballSupabase
-      .from('cfb_dryrun_games')
+      .from('cfb_slate_feed')
       .select('*')
       .eq('season', cfbAnchor.season)
       .eq('week', cfbAnchor.week)
@@ -122,7 +122,7 @@ export default function LiveScoreDiagnostics() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{nflPredictions.length}</p>
-            <p className="text-sm text-muted-foreground">nfl_dryrun_games (current week)</p>
+            <p className="text-sm text-muted-foreground">nfl_slate_feed (current week)</p>
           </CardContent>
         </Card>
         <Card>
@@ -131,7 +131,7 @@ export default function LiveScoreDiagnostics() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{cfbPredictions.length}</p>
-            <p className="text-sm text-muted-foreground">cfb_dryrun_games (current week)</p>
+            <p className="text-sm text-muted-foreground">cfb_slate_feed (current week)</p>
           </CardContent>
         </Card>
       </div>

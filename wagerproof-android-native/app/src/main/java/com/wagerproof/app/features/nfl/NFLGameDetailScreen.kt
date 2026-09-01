@@ -105,13 +105,13 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * NFL game-detail page — port of iOS `NFLGameBottomSheet` (dry-run contract).
+ * NFL game-detail page — port of iOS `NFLGameBottomSheet` (slate contract).
  * Section order: Market Odds → spread → Total Prediction → Player Props →
  * team_total / moneyline / 1H → Public Betting → Matchup History →
  * Line Movement → Agent rationale.
  *
- * Data loads only when `runId` contains "dryrun" (parity with iOS) from
- * `nfl_dryrun_picks` / `nfl_signal_defs` / `nfl_team_trends` /
+ * Data loads only when `runId` contains "slate" (parity with iOS) from
+ * `nfl_slate_picks` / `nfl_signal_defs` / `nfl_team_trends` /
  * `nfl_matchup_history` + `SignalPerformanceService`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,7 +129,7 @@ fun NFLGameDetailPage(
     val awayAbbr = game.awayAb ?: NFLTeamAssets.abbr(game.awayTeam)
     val homeAbbr = game.homeAb ?: NFLTeamAssets.abbr(game.homeTeam)
 
-    var picks by remember { mutableStateOf<List<NFLDryrunPickRow>>(emptyList()) }
+    var picks by remember { mutableStateOf<List<NFLSlatePickRow>>(emptyList()) }
     var signalsByKey by remember { mutableStateOf<Map<String, NFLSignalDefinition>>(emptyMap()) }
     var perfByKey by remember { mutableStateOf<Map<String, SignalPerformance>>(emptyMap()) }
     var trendsByAbbr by remember { mutableStateOf<Map<String, NFLTeamTrendRow>>(emptyMap()) }
@@ -156,12 +156,12 @@ fun NFLGameDetailPage(
     }
 
     LaunchedEffect(game.gameId) {
-        // iOS gates ALL detail data on the dry-run pipeline; legacy rows show
+        // iOS gates ALL detail data on the slate pipeline; legacy rows show
         // the empty-picks state instead.
-        if (!(game.runId ?: "").contains("dryrun", ignoreCase = true)) return@LaunchedEffect
+        if (!(game.runId ?: "").contains("slate", ignoreCase = true)) return@LaunchedEffect
         NFLTeamsService.ensureLoaded()
         coroutineScope {
-            val picksTask = async { loadNFLDryrunPicks(game.gameId) }
+            val picksTask = async { loadNFLSlateDetailPicks(game.gameId) }
             val signalsTask = async { loadNFLSignalDefs() }
             val trendsTask = async { loadNFLTeamTrends(awayAbbr, homeAbbr) }
             val historyTask = async { loadNFLMatchupHistory(awayAbbr, homeAbbr) }
@@ -175,7 +175,7 @@ fun NFLGameDetailPage(
     }
 
     // NFL matchup parlays are intentionally built only from the matching
-    // live/dry-run player-prop rows. Prediction game ids and props game ids are
+    // live/slate player-prop rows. Prediction game ids and props game ids are
     // not guaranteed to share a format, so match both team and opponent by
     // abbreviation first, then assemble against the props row's own game id.
     LaunchedEffect(game.gameId, awayAbbr, homeAbbr) {
@@ -725,7 +725,7 @@ private fun ProjectedTeam(team: String, abbreviation: String, score: Double, mod
 @Composable
 private fun PickRow(
     game: NFLPrediction,
-    pick: NFLDryrunPickRow,
+    pick: NFLSlatePickRow,
     group: NFLPickGroup,
     awayAbbr: String,
     homeAbbr: String,
@@ -802,7 +802,7 @@ private fun PickRow(
 }
 
 @Composable
-private fun PickHeaderLabel(game: NFLPrediction, pick: NFLDryrunPickRow) {
+private fun PickHeaderLabel(game: NFLPrediction, pick: NFLSlatePickRow) {
     val team = pick.pickTeam
     when {
         shouldShowTeamHeader(pick) && team != null -> {
@@ -839,7 +839,7 @@ private fun PickHeaderLabel(game: NFLPrediction, pick: NFLDryrunPickRow) {
 }
 
 @Composable
-private fun RecommendationBadge(pick: NFLDryrunPickRow) {
+private fun RecommendationBadge(pick: NFLSlatePickRow) {
     val tint = if (pick.hasPlay == true) nflConvictionColor(pick.conviction) else AppColors.appTextSecondary
     Text(
         pick.recommendation ?: "No Bet",
@@ -858,7 +858,7 @@ private fun RecommendationBadge(pick: NFLDryrunPickRow) {
  * two-box [MetricGrid] rather than rendering an empty chart.
  */
 @Composable
-private fun PickEdgeVisual(game: NFLPrediction, pick: NFLDryrunPickRow, awayAbbr: String, homeAbbr: String) {
+private fun PickEdgeVisual(game: NFLPrediction, pick: NFLSlatePickRow, awayAbbr: String, homeAbbr: String) {
     val pickAbbrev = when (pick.pickTeam) {
         game.awayTeam -> awayAbbr
         game.homeTeam -> homeAbbr
@@ -919,16 +919,16 @@ private fun PickEdgeVisual(game: NFLPrediction, pick: NFLDryrunPickRow, awayAbbr
     }
 }
 
-private fun projectionValue(pick: NFLDryrunPickRow): Double? =
+private fun projectionValue(pick: NFLSlatePickRow): Double? =
     (pick.modelLine ?: pick.modelNumber)?.takeIf { it.isFinite() }
 
-private fun marketValue(game: NFLPrediction, pick: NFLDryrunPickRow): Double? = when {
+private fun marketValue(game: NFLPrediction, pick: NFLSlatePickRow): Double? = when {
     isMoneylineCard(pick) -> (pick.vegasPrice ?: pick.bestOdds)?.takeIf { it.isFinite() }
     pick.cardGroup == "team_total" -> nflTeamTotalMarket(game, pick)?.takeIf { it.isFinite() }
     else -> (pick.bestLine ?: pick.vegasLine)?.takeIf { it.isFinite() }
 }
 
-private fun nflTeamTotalMarket(game: NFLPrediction, pick: NFLDryrunPickRow): Double? {
+private fun nflTeamTotalMarket(game: NFLPrediction, pick: NFLSlatePickRow): Double? {
     (pick.bestLine ?: pick.vegasLine)?.let { return it }
     val team = pick.pickTeam ?: return null
     val home = team == game.homeTeam || NFLTeamAssets.abbr(team) == NFLTeamAssets.abbr(game.homeTeam)
@@ -942,7 +942,7 @@ private fun nflTeamTotalMarket(game: NFLPrediction, pick: NFLDryrunPickRow): Dou
 }
 
 @Composable
-private fun PendingMarketState(pick: NFLDryrunPickRow) {
+private fun PendingMarketState(pick: NFLSlatePickRow) {
     Row(
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -981,7 +981,7 @@ private fun PendingMarketState(pick: NFLDryrunPickRow) {
  * because the win % IS the reason for an ML pick; showing only best odds hides it.
  */
 @Composable
-private fun MetricGrid(game: NFLPrediction, pick: NFLDryrunPickRow) {
+private fun MetricGrid(game: NFLPrediction, pick: NFLSlatePickRow) {
     val moneyline = isMoneylineCard(pick)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.weight(1f)) {
@@ -1033,14 +1033,14 @@ private fun MetricBox(label: String, value: String, tint: Color, highlighted: Bo
     }
 }
 
-private fun sportsbookBoard(odds: SportsbookGameOdds?, pick: NFLDryrunPickRow): SportsbookMarketQuotes? {
+private fun sportsbookBoard(odds: SportsbookGameOdds?, pick: NFLSlatePickRow): SportsbookMarketQuotes? {
     val market = footballSportsbookMarket(pick.cardGroup, pick.pickSide, "nfl") ?: return null
     val board = odds?.quotes(market) ?: return null
     return board.takeIf { it.quotes.isNotEmpty() }
 }
 
 @Composable
-private fun BestBookRow(pick: NFLDryrunPickRow) {
+private fun BestBookRow(pick: NFLSlatePickRow) {
     val shape = RoundedCornerShape(12.dp)
     Row(
         Modifier
@@ -1076,7 +1076,7 @@ private fun BestBookRow(pick: NFLDryrunPickRow) {
 @Composable
 private fun SignalGroups(
     game: NFLPrediction,
-    pick: NFLDryrunPickRow,
+    pick: NFLSlatePickRow,
     awayAbbr: String,
     homeAbbr: String,
     signalsByKey: Map<String, NFLSignalDefinition>,
@@ -1116,7 +1116,7 @@ private fun signalContextDefinition(signal: NFLSignalDisplay): NFLSignalDefiniti
 
 private fun signalDisplays(
     game: NFLPrediction,
-    pick: NFLDryrunPickRow,
+    pick: NFLSlatePickRow,
     awayAbbr: String,
     homeAbbr: String,
     signalsByKey: Map<String, NFLSignalDefinition>,
@@ -1172,7 +1172,7 @@ private fun signalDisplays(
 private fun signalSupportsPick(
     game: NFLPrediction,
     signal: NFLSignalDefinition,
-    pick: NFLDryrunPickRow,
+    pick: NFLSlatePickRow,
     awayAbbr: String,
     homeAbbr: String,
 ): Boolean {
@@ -1424,7 +1424,7 @@ private fun TableValueCell(text: String, modifier: Modifier, color: Color = AppC
  * Per-market summary sentence — port of iOS `predictionHeadline(for:)`.
  *
  * NFL's `nfl_predictions_epa` is a CLASSIFIER with no model fair line, but the
- * dry-run pick rows DO carry `model_line` / `model_number`, so spread and total
+ * slate pick rows DO carry `model_line` / `model_number`, so spread and total
  * cards quote a real model-vs-market gap when those columns are populated and
  * fall back to naming the selection (moneyline quotes win probability) when they
  * are not. Never invent a fair line from the classifier's probabilities.
@@ -1562,7 +1562,7 @@ internal fun matchupHistoryHeadline(history: List<NFLMatchupHistoryRow>): String
 
 // MARK: - Grouping / formatting logic (mirrors iOS helpers 1:1)
 
-private fun groupedPicks(picks: List<NFLDryrunPickRow>): List<NFLPickGroup> {
+private fun groupedPicks(picks: List<NFLSlatePickRow>): List<NFLPickGroup> {
     val order = listOf("spread", "total", "team_total", "moneyline", "h1_spread", "h1_total", "h1_ml")
     return order.mapNotNull { group ->
         val rows = picks.filter { it.cardGroup == group }.sortedBy { it.sortOrder ?: 0 }
@@ -1570,17 +1570,17 @@ private fun groupedPicks(picks: List<NFLDryrunPickRow>): List<NFLPickGroup> {
     }
 }
 
-private fun isMoneylineCard(pick: NFLDryrunPickRow): Boolean =
+private fun isMoneylineCard(pick: NFLSlatePickRow): Boolean =
     pick.cardGroup == "moneyline" || pick.cardGroup == "h1_ml"
 
-private fun modelLabel(pick: NFLDryrunPickRow): String = when (pick.cardGroup) {
+private fun modelLabel(pick: NFLSlatePickRow): String = when (pick.cardGroup) {
     "spread", "h1_spread" -> "Model Line"
     "moneyline", "h1_ml" -> "Win Prob"
     "team_total" -> "Proj Pts"
     else -> "Model"
 }
 
-private fun modelMetricValue(pick: NFLDryrunPickRow): String {
+private fun modelMetricValue(pick: NFLSlatePickRow): String {
     if (pick.cardGroup == "spread" || pick.cardGroup == "h1_spread") {
         return formatPickLine(pick.modelLine ?: pick.modelNumber, pick)
     }
@@ -1588,7 +1588,7 @@ private fun modelMetricValue(pick: NFLDryrunPickRow): String {
     return if (isMoneylineCard(pick)) "${(value * 100).roundToInt()}%" else roundedStr(value)
 }
 
-private fun displayPickLabel(pick: NFLDryrunPickRow): String {
+private fun displayPickLabel(pick: NFLSlatePickRow): String {
     if (pick.cardGroup != "spread" && pick.cardGroup != "h1_spread") {
         return pick.pickLabel ?: pick.recommendation ?: "No Bet"
     }
@@ -1597,15 +1597,15 @@ private fun displayPickLabel(pick: NFLDryrunPickRow): String {
     return "$prefix ${formatPickLine(pick.bestLine ?: pick.vegasLine, pick)}"
 }
 
-private fun shouldShowTeamHeader(pick: NFLDryrunPickRow): Boolean = when (pick.cardGroup) {
+private fun shouldShowTeamHeader(pick: NFLSlatePickRow): Boolean = when (pick.cardGroup) {
     "spread", "h1_spread", "team_total", "moneyline", "h1_ml" -> pick.pickTeam != null
     else -> false
 }
 
-private fun isTotalHeader(pick: NFLDryrunPickRow): Boolean =
+private fun isTotalHeader(pick: NFLSlatePickRow): Boolean =
     pick.cardGroup == "total" || pick.cardGroup == "h1_total"
 
-private fun overUnderDirection(pick: NFLDryrunPickRow): String? {
+private fun overUnderDirection(pick: NFLSlatePickRow): String? {
     val side = (pick.pickSide ?: pick.pickLabel ?: "").uppercase(Locale.US)
     return when {
         side.contains("UNDER") -> "UNDER"
@@ -1614,7 +1614,7 @@ private fun overUnderDirection(pick: NFLDryrunPickRow): String? {
     }
 }
 
-private fun teamPickHeaderText(pick: NFLDryrunPickRow, team: String): String {
+private fun teamPickHeaderText(pick: NFLSlatePickRow, team: String): String {
     val name = teamNickname(team)
     return when (pick.cardGroup) {
         "spread" -> "$name ${formatPickLine(pick.bestLine ?: pick.vegasLine, pick)}"
@@ -1639,7 +1639,7 @@ private fun teamNickname(team: String): String {
     return team.split(" ").lastOrNull { it.isNotEmpty() } ?: team
 }
 
-private fun formatPickLine(value: Double?, pick: NFLDryrunPickRow): String {
+private fun formatPickLine(value: Double?, pick: NFLSlatePickRow): String {
     value ?: return "—"
     if (pick.cardGroup == "spread" || pick.cardGroup == "h1_spread") {
         return GameCardFormatting.formatSpread(value)
@@ -1655,7 +1655,7 @@ private fun formatSigned(value: Double?): String {
     return "${if (value >= 0) "+" else ""}${String.format(Locale.US, "%.1f", value)}"
 }
 
-private fun bestBookValue(pick: NFLDryrunPickRow): String {
+private fun bestBookValue(pick: NFLSlatePickRow): String {
     if (isMoneylineCard(pick)) {
         return GameCardFormatting.formatMoneyline(pick.bestOdds?.roundToInt())
     }
@@ -1664,7 +1664,7 @@ private fun bestBookValue(pick: NFLDryrunPickRow): String {
     return "$line $odds"
 }
 
-private fun hasBestBook(pick: NFLDryrunPickRow): Boolean =
+private fun hasBestBook(pick: NFLSlatePickRow): Boolean =
     pick.bestBook != null || pick.bestBookName != null || pick.bestBookLogo != null ||
         pick.bestLine != null || pick.bestOdds != null
 

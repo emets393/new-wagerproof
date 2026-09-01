@@ -2,7 +2,7 @@ package com.wagerproof.core.models
 
 /**
  * Strict bridge between the Odds API's school+mascot names and the short
- * school names stored by `cfb_dryrun_games`. Port of iOS `CFBSportsbookTeamAliases`.
+ * school names stored by `cfb_slate_feed`. Port of iOS `CFBSportsbookTeamAliases`.
  *
  * Every supported school+mascot string is mapped explicitly. A caller still
  * supplies the two teams on the requested game, so even a valid alias cannot

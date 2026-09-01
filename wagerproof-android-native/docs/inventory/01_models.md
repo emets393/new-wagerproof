@@ -325,7 +325,7 @@ Helpers: `decided(forSport key)` = sport's wins+losses; `winRate(forSport)` = wi
 
 ---
 
-## 9. CFBPrediction.swift — CFB dry-run game contract (`cfb_dryrun_games` + `cfb_dryrun_flags` + `cfb_signal_defs`)
+## 9. CFBPrediction.swift — CFB slate game contract (`cfb_slate_feed` + `cfb_slate_flags` + `cfb_signal_defs`)
 
 **`enum CFBConvictionTier`**: rawValues `mammoth, high, med, low, lean, none`. `sortRank` 0…5 in that order. `label`: MAMMOTH/High/Medium/Low/Lean/"Score Only". `badge`: MAMMOTH/T1/T2/T3/Lean/None. `init(raw: String?)`: lowercased rawValue lookup, fallback `.none`.
 
@@ -333,7 +333,7 @@ Helpers: `decided(forSport key)` = sport's wins+losses; `winRate(forSport)` = wi
 
 **`struct CFBTeamReference`** — `cfb_teams` row (Codable with **synthesized** keys = camelCase JSON! Fields: `teamName, abbr?, conference?, classification?, color?, altColor?, logo?, logoDark?` — all String except teamName). ⚠️ No CodingKeys: the JSON keys are literally `teamName`, `altColor`, `logoDark` etc. — this type is (re)encoded client-side and embedded as `home_team_ref`/`away_team_ref` in CFBPrediction; confirm the service layer builds it in camelCase before assuming snake_case.
 
-**`struct CFBDryRunFlag`** — Codable, synthesized camelCase keys (`gameId`, `stakeUnits`, `gradeLine`, `signalDefinition`, …); assembled client-side from DB rows. Fields: `id, gameId: String`, `season, week: Int?`, `game: String?`, `source, market, side: String`, `line: Double?`, `price: Int?`, `edge: Double?`, `conviction, tier: String`, `stakeUnits: Double?`, `gradeLine: String?`, `mammoth: Bool?`, `signalDefinition: CFBSignalDefinition?`. Computed: `convictionTier = CFBFlagConviction(raw: conviction)`; `isActive = tier.lowercased() == "active"`; `withSignalDefinition(_)` copy-with.
+**`struct CFBSlateFlag`** — Codable, synthesized camelCase keys (`gameId`, `stakeUnits`, `gradeLine`, `signalDefinition`, …); assembled client-side from DB rows. Fields: `id, gameId: String`, `season, week: Int?`, `game: String?`, `source, market, side: String`, `line: Double?`, `price: Int?`, `edge: Double?`, `conviction, tier: String`, `stakeUnits: Double?`, `gradeLine: String?`, `mammoth: Bool?`, `signalDefinition: CFBSignalDefinition?`. Computed: `convictionTier = CFBFlagConviction(raw: conviction)`; `isActive = tier.lowercased() == "active"`; `withSignalDefinition(_)` copy-with.
 
 **`struct CFBSignalDefinition`** — synthesized camelCase keys: `signalKey: String?` (join key for `signal_performance.signal_key`), `sourceKey, displayName: String`, `oneLiner, definition, whyItWorks, betDirection, typicalHit: String?`.
 
@@ -341,11 +341,11 @@ Helpers: `decided(forSport key)` = sport's wins+losses; `winRate(forSport)` = wi
 
 Legacy/live fields: `awayTeam→away_team`, `homeTeam→home_team`, `homeMl→home_ml Int?`, `awayMl→away_ml Int?`, `homeSpread→home_spread D?`, `awaySpread→away_spread D?`, `overLine→over_line D?`, `gameDate→game_date`, `gameTime→game_time`, `trainingKey→training_key`, `uniqueId→unique_id`, `homeAwayMlProb→home_away_ml_prob D?`, `homeAwaySpreadCoverProb→home_away_spread_cover_prob D?`, `ouResultProb→ou_result_prob D?`, `runId→run_id S?`, `temperature D?`, `precipitation D?`, `windSpeed→wind_speed D?`, `icon S?`, weather v2 `wxTempF→wx_temp_f`, `wxWindMph→wx_wind_mph`, `wxPrecipMm→wx_precip_mm` (D?), `wxIndoors→wx_indoors B?`, `wxIcon→wx_icon`, `wxSummary→wx_summary` (S?), splits labels `spreadSplitsLabel→spread_splits_label`, `totalSplitsLabel→total_splits_label`, `mlSplitsLabel→ml_splits_label` (S?), `conference S?`; legacy prediction joins `predAwayScore→pred_away_score`, `predHomeScore→pred_home_score`, `predAwayPoints→pred_away_points`, `predHomePoints→pred_home_points`, `predSpread→pred_spread`, `homeSpreadDiff→home_spread_diff`, `predTotal→pred_total`, `totalDiff→total_diff`, `predOverLine→pred_over_line`, `overLineDiff→over_line_diff` (all D?); `openingSpread→opening_spread D?`, `openingTotal→opening_total D?`.
 
-Dry-run identity: `gameId→game_id S`, `season/week Int?`, `kickoff S?`, `neutralSite→neutral_site B?`, `homeConf→home_conf`, `awayConf→away_conf` (S?), `homeRank/awayRank→home_rank/away_rank Int?`, `homeClassification/awayClassification→home_classification/away_classification S?`, `homeTeamRef→home_team_ref CFBTeamReference?`, `awayTeamRef→away_team_ref`.
+Slate identity: `gameId→game_id S`, `season/week Int?`, `kickoff S?`, `neutralSite→neutral_site B?`, `homeConf→home_conf`, `awayConf→away_conf` (S?), `homeRank/awayRank→home_rank/away_rank Int?`, `homeClassification/awayClassification→home_classification/away_classification S?`, `homeTeamRef→home_team_ref CFBTeamReference?`, `awayTeamRef→away_team_ref`.
 
-Dry-run market/model: `fgSpreadOpen/fgSpreadClose/fgTotalOpen/fgTotalClose→fg_spread_open/…close/fg_total_open/…close D?`, `fgMlHomeClose/fgMlAwayClose→fg_ml_home_close/fg_ml_away_close Int?`, team totals `ttHomeClose/ttAwayClose/ttHomeBestUnder/ttHomeBestOver/ttAwayBestUnder/ttAwayBestOver→tt_home_close/tt_away_close/tt_home_best_under/tt_home_best_over/tt_away_best_under/tt_away_best_over D?`, 1H `h1SpreadClose/h1TotalClose→h1_spread_close/h1_total_close D?`, `h1MlHomeClose/h1MlAwayClose→h1_ml_home_close/h1_ml_away_close Int?`; model outputs `fgPredMargin/fgPredSpread/fgSpreadEdge→fg_pred_margin/fg_pred_spread/fg_spread_edge D?`, `fgSpreadPick→fg_spread_pick S?`, `fgSpreadCapped→fg_spread_capped B?`, `fgPredTotal/fgTotalEdge→fg_pred_total/fg_total_edge D?`, `fgTotalPick→fg_total_pick S?`, `ttHomePred/ttAwayPred→tt_home_pred/tt_away_pred D?`, `ttHomePick/ttAwayPick→tt_home_pick/tt_away_pick S?`, `h1PredMargin/h1PredTotal→h1_pred_margin/h1_pred_total D?`, `h1SpreadPick/h1TotalPick/h1MlPick→h1_spread_pick/h1_total_pick/h1_ml_pick S?`, `fgHomeCoverProb/fgHomeWinProb→fg_home_cover_prob/fg_home_win_prob D?`.
+Slate market/model: `fgSpreadOpen/fgSpreadClose/fgTotalOpen/fgTotalClose→fg_spread_open/…close/fg_total_open/…close D?`, `fgMlHomeClose/fgMlAwayClose→fg_ml_home_close/fg_ml_away_close Int?`, team totals `ttHomeClose/ttAwayClose/ttHomeBestUnder/ttHomeBestOver/ttAwayBestUnder/ttAwayBestOver→tt_home_close/tt_away_close/tt_home_best_under/tt_home_best_over/tt_away_best_under/tt_away_best_over D?`, 1H `h1SpreadClose/h1TotalClose→h1_spread_close/h1_total_close D?`, `h1MlHomeClose/h1MlAwayClose→h1_ml_home_close/h1_ml_away_close Int?`; model outputs `fgPredMargin/fgPredSpread/fgSpreadEdge→fg_pred_margin/fg_pred_spread/fg_spread_edge D?`, `fgSpreadPick→fg_spread_pick S?`, `fgSpreadCapped→fg_spread_capped B?`, `fgPredTotal/fgTotalEdge→fg_pred_total/fg_total_edge D?`, `fgTotalPick→fg_total_pick S?`, `ttHomePred/ttAwayPred→tt_home_pred/tt_away_pred D?`, `ttHomePick/ttAwayPick→tt_home_pick/tt_away_pick S?`, `h1PredMargin/h1PredTotal→h1_pred_margin/h1_pred_total D?`, `h1SpreadPick/h1TotalPick/h1MlPick→h1_spread_pick/h1_total_pick/h1_ml_pick S?`, `fgHomeCoverProb/fgHomeWinProb→fg_home_cover_prob/fg_home_win_prob D?`.
 
-Portfolio: `convictionTierRaw→conviction_tier S` (default "none" in init), `stakeUnits→stake_units D?`, `nFlagsActive/nFlagsTracking→n_flags_active/n_flags_tracking Int?`, `mammoth Bool` (default false), `flags: [CFBDryRunFlag]` (`flags`, var — mutated after fetch).
+Portfolio: `convictionTierRaw→conviction_tier S` (default "none" in init), `stakeUnits→stake_units D?`, `nFlagsActive/nFlagsTracking→n_flags_active/n_flags_tracking Int?`, `mammoth Bool` (default false), `flags: [CFBSlateFlag]` (`flags`, var — mutated after fetch).
 
 Computed:
 - `convictionTier`: `.mammoth` if `mammoth` else `CFBConvictionTier(raw: convictionTierRaw)`.
@@ -736,13 +736,13 @@ Regression-report payload types (all Codable, snake_case CodingKeys, synthesized
 
 ---
 
-## 28. NFLPlayerProp.swift — NFL dry-run props contract (`nfl_dryrun_props` + `nfl_dryrun_games` join) + NFLTeams identity map
+## 28. NFLPlayerProp.swift — NFL slate props contract (`nfl_slate_props` + `nfl_slate_feed` join) + NFLTeams identity map
 
 **`struct NFLPropRecentGame`** — element of `recent_games` JSONB: `opp: String?, week: Int?, actual: Double?` (plain keys, synthesized).
 
 **`struct NFLPropBestQuote`** — NOT Codable: `bookKey/bookName/bookLogoUrl: String?, line: Double?, price: Int?`; `isEmpty` = all nil.
 
-**`struct NFLDryrunPropRow`** — Decodable (synthesized; **non-tolerant**), one row per player × market:
+**`struct NFLSlatePropRow`** — Decodable (synthesized; **non-tolerant**), one row per player × market:
 
 | Property | Type | JSON key |
 |---|---|---|
@@ -771,7 +771,7 @@ Regression-report payload types (all Codable, snake_case CodingKeys, synthesized
 | bestOverLine / bestOverPrice | Double? | `best_over_line` / `best_over_price` |
 | bestUnderBook / Name / Logo / Line / Price | as above | `best_under_*` |
 
-**`struct NFLPropGameContext`** — join from `nfl_dryrun_games`: `gameDate: String, slot: String?`.
+**`struct NFLPropGameContext`** — join from `nfl_slate_feed`: `gameDate: String, slot: String?`.
 
 **`struct NFLPropMarket`** — client-grouped per-market view (NOT Codable). Fields mirror the row (prices as Int after rounding), plus `flags: [String]`, `recentGames` (oldest→newest as stored), `bestOver/bestUnder: NFLPropBestQuote`. Computed: `id = market`; `label`; `isYesNo = closeLine == nil`; `hasBestBooks`; `clearThreshold = closeLine ?? 0.5`; `miniStrip` = last 10 recentGames with non-nil actual → `(cleared: actual > clearThreshold, value)`; `l10Hits = (hits, n)` computed from the game log (deliberately NOT server `over_rate_l10` — that's line-at-snapshot and can drift from close); `l10HitRate`.
 
@@ -789,7 +789,7 @@ Regression-report payload types (all Codable, snake_case CodingKeys, synthesized
 
 ---
 
-## 29. NFLPrediction.swift — NFL game row (legacy live join OR dry-run contract)
+## 29. NFLPrediction.swift — NFL game row (legacy live join OR slate contract)
 
 **`NFLPrediction.ConvictionPlay`** (nested): `cardGroup→card_group S`, `conviction S?`, `recommendation S?`, `pickLabel→pick_label S`; `id = "\(cardGroup)-\(pickLabel)"`.
 **`NFLPrediction.ConvictionSummary`**: `topCard→top_card S?`, `topConviction→top_conviction S?`, `plays: [ConvictionPlay]`.
@@ -799,7 +799,7 @@ Regression-report payload types (all Codable, snake_case CodingKeys, synthesized
 Core: `away_team, home_team` (def ""), `away_ab, home_ab S?`, `home_ml, away_ml Int?`, `home_spread, away_spread, over_line D?`, `game_date, game_time` (def ""), `training_key, unique_id`, probs `home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob D?`, `pred_total D?` (model fair total; nil on legacy pipeline), `run_id S?`.
 Weather legacy: `temperature, precipitation, wind_speed D?`, `icon S?`. Weather v2: `wx_temp_f, wx_wind_mph, wx_precip_mm D?`, `wx_indoors B?`, `wx_icon, wx_summary S?`.
 Splits labels: `spread_splits_label, total_splits_label, ml_splits_label S?`. Raw split percentages (⚠️ **decimal strings** like "0.61", kept as String?): `home_ml_handle, away_ml_handle, home_ml_bets, away_ml_bets, home_spread_handle, away_spread_handle, home_spread_bets, away_spread_bets, over_handle, under_handle, over_bets, under_bets`.
-Dry-run identity: `game_id S`, `season, week Int?`, `gameday, kickoff, slot S?`.
+Slate identity: `game_id S`, `season, week Int?`, `gameday, kickoff, slot S?`.
 Market closes: `fg_spread_open, fg_spread_close, fg_total_open, fg_total_close D?`, `fg_ml_home_close, fg_ml_away_close Int?`; team totals `tt_home_close, tt_away_close, tt_home_best_over, tt_home_best_under, tt_away_best_over, tt_away_best_under D?`, `tt_home_pick, tt_away_pick S?`, `tt_home_edge, tt_away_edge, tt_home_pred, tt_away_pred D?`; 1H `h1_spread_close, h1_total_close D?`, `h1_ml_home_close, h1_ml_away_close Int?`, `h1_spread_pick, h1_total_pick, h1_ml_pick S?`.
 Model: `fg_pred_margin, fg_pred_spread, fg_pred_home_pts, fg_pred_away_pts, fg_spread_edge D?`, `fg_spread_pick S?`, `fg_spread_confluence Int?`, `fg_total_edge D?`, `fg_total_pick S?`, `fg_total_tier S?`, `h1_pred_total, h1_pred_margin, h1_total_edge, h1_cover_tilt, h1_home_win_prob D?`.
 Portfolio: `conviction_tier S` (def "none"), `stake_units D?`, `conviction_summary ConvictionSummary?`, `flags_active, flags_tracking Int?`, `mammoth Bool` (def false).
@@ -1042,7 +1042,7 @@ All types here use **camelCase** field names on the wire (synthesized keys, "bre
 7. **JSONValue** — do NOT port the enum; use `kotlinx.serialization.json.JsonElement` everywhere Swift uses `JSONValue` (`ai_decision_trace`, `ai_audit_payload`, `raw_game`, `fields`, `data`). Port the JSONValue.swift accessors as JsonElement extension props (`stringValue`, `intValue` accepting int-or-double, subscript, prettyPrinted).
 8. **Data-wrapped JSON envelopes** (WagerBotAppComponent.fieldsJSON/rawGameJSON, WagerBotChatGameCard.rawGameJSON, WagerBotChatWidget.dataJSON) — Swift stores re-encoded `Data`; Kotlin should simply hold `JsonElement?` fields serialized under the original keys (`fields`, `raw_game`, `data`).
 9. **Dates** — Only `Profile.createdAt` is a `Date`; everything else keeps timestamps as ISO `String` (deliberate — formatting happens in view layer). Recommend keeping String everywhere and `Instant` only for Profile (custom ISO8601 serializer tolerant of missing fractional seconds — Supabase emits both).
-10. **camelCase wire formats** — most models are snake_case (`@SerialName` per field), but these are camelCase (no renames needed): CFBTeamReference, CFBDryRunFlag, CFBSignalDefinition, NBAGame, NCAABGame, NCAABTeamMappingEntry, PlaceholderGames types, WidgetDataPayload family, MLBSignalItem, NFLPropRecentGame (`opp/week/actual`), PolymarketPricePoint (`t/p`), NFLTrendSplitCell (`h/l/p/n/pct`), NFLTrendH2HCell, NBAAccuracyBucket/NCAABAccuracyBucket, TeamColors. For NBAGame/NCAABGame confirm how the Android service builds rows — on iOS the store selects/aliases columns before decode.
+10. **camelCase wire formats** — most models are snake_case (`@SerialName` per field), but these are camelCase (no renames needed): CFBTeamReference, CFBSlateFlag, CFBSignalDefinition, NBAGame, NCAABGame, NCAABTeamMappingEntry, PlaceholderGames types, WidgetDataPayload family, MLBSignalItem, NFLPropRecentGame (`opp/week/actual`), PolymarketPricePoint (`t/p`), NFLTrendSplitCell (`h/l/p/n/pct`), NFLTrendH2HCell, NBAAccuracyBucket/NCAABAccuracyBucket, TeamColors. For NBAGame/NCAABGame confirm how the Android service builds rows — on iOS the store selects/aliases columns before decode.
 11. **Swift tuples** → small data classes: `predictedScore (home, away)`, `fullGameRuns (home, away, margin)`, `f5Runs`, `l10Hits (hits, n)`, `miniStrip [(cleared, value)]`, `colors (primary, secondary)`, `combined (w,l,p,units,roi)`.
 12. **UInt32 color hexes** → Kotlin `Long`/`Int` (0x22C55E etc.) feeding Compose `Color(0xFF22C55E)`.
 13. **@MainActor caches** (CFBTeamAssets, NFLTeamAssets) → singleton objects with thread-safe maps or repository classes injected via DI; the "install once, read sync" pattern maps to a `StateFlow<Map<...>>` or plain `@Volatile var`.
@@ -1062,7 +1062,7 @@ All types here use **camelCase** field names on the wire (synthesized keys, "bre
 | 6 | AgentPersonalityParams.swift | `agent/AgentPersonalityParams.kt` | + AgentCustomInsights, AgentArchetype, AgentSport |
 | 7 | AgentPick.swift | `agent/AgentPick.kt` | + PickResultStatus, TopAgentPickFeedRow, lossy decode helpers |
 | 8 | AgentStatDatum.swift | `agent/AgentStatDatum.kt` | + BinAgent |
-| 9 | CFBPrediction.swift | `cfb/CFBPrediction.kt` | + tiers, CFBTeamReference, CFBDryRunFlag, CFBSignalDefinition |
+| 9 | CFBPrediction.swift | `cfb/CFBPrediction.kt` | + tiers, CFBTeamReference, CFBSlateFlag, CFBSignalDefinition |
 | 10 | CFBTeamAssets.swift | `cfb/CFBTeamAssets.kt` | singleton cache, not a model |
 | 11 | DistributionStatistics.swift | `stats/DistributionStatistics.kt` | pure math + unit tests |
 | 12 | EditorPick.swift | `editor/EditorPick.kt` | + GameType, PickResult, ArchivedGameData (dual-casing serializer), TeamColors, EditorPickGameData |
@@ -1081,7 +1081,7 @@ All types here use **camelCase** field names on the wire (synthesized keys, "bre
 | 25 | MatchupInsightCore.swift | `insights/MatchupInsightCore.kt` | shared vocab + InsightThresholds |
 | 26 | NBAGame.swift | `nba/NBAGame.kt` | camelCase wire; + injuries, trends, accuracy |
 | 27 | NCAABGame.swift | `ncaab/NCAABGame.kt` | camelCase wire; + trends, accuracy, team mapping |
-| 28 | NFLPlayerProp.swift | `nfl/NFLPlayerProp.kt` | dry-run rows + grouping + NFLTeams identity map |
+| 28 | NFLPlayerProp.swift | `nfl/NFLPlayerProp.kt` | slate rows + grouping + NFLTeams identity map |
 | 28b | NFLPropPlayerPage.swift / NFLPropTrendsDetail.swift / NFLPropSchemeCompare.swift / NFLPropVerdicts.swift (added 2026-08-15) | `NFLPropPlayerPage.kt` / `NFLPropTrendsDetail.kt` / `NFLPropSchemeCompare.kt` / `NFLPropVerdicts.kt` | NFL player-ANALYSIS contract (`nfl_prop_player_pages` + `nfl_player_prop_trends` + game-log enrichment); defensive JsonElement decode of drifting jsonb; scheme-compare + verdict-headline logic mirrors web `propBreakdown` |
 | 29 | NFLPrediction.swift | `nfl/NFLPrediction.kt` | fully tolerant decode; id fallback chain |
 | 30 | NFLPropSignalDefinitions.swift | `nfl/NFLPropSignalDefinitions.kt` | static catalog, copy strings verbatim |
@@ -1102,7 +1102,7 @@ All types here use **camelCase** field names on the wire (synthesized keys, "bre
 | 45 | WidgetDataPayload.swift | `widget/WidgetDataPayload.kt` | camelCase wire; widget storage may differ on Android |
 | 46 | MLBTrendsRecords / (numbering) | — | see rows 24 & 25; table covers all 46 files in rows 1–45 + JSONValue folded into common |
 
-Supabase table/RPC quick map: `avatar_profiles`(Agent) · `avatar_performance_cache`(AgentPerformance) · `avatar_picks`(AgentPick) · `avatar_parlays`/`avatar_parlay_legs`(AgentParlay) · `agent_generation_runs` · `agent_chat_messages` · RPCs `get_leaderboard_v2`, `get_top_agent_picks_feed_v2`, `get_agent_performance_distribution`, `get_distribution_bin_agents`, `get_mlb_player_props_l10` · edge fn `agent-authorized-action-v1` · `editors_picks` · `feature_requests`/`feature_request_votes` · `live_scores` · `mv_mlb_f5_team_splits` · `mlb_games_today`/`mlb_predictions_current`/`mlb_team_mapping`/`mlb_game_signals`/`mlb_game_lineups`/`v_mlb_pitcher_archetypes`/`mlb_situational_trends_today`/`mlb_model_breakdown_accuracy`/`mlb_model_bucket_accuracy`/`mlb_graded_picks` · `nba_input_values_view`/`nba_predictions`/`nba_injury_report`/`nba_game_situational_trends_today`/`nba_todays_games_predictions_with_accuracy` · `v_cbb_input_values`/`ncaab_predictions`/`ncaab_team_mapping`/`ncaab_game_situational_trends_today`/`ncaab_todays_games_predictions_with_accuracy` · `nfl_dryrun_games`/`nfl_dryrun_props`/`nfl_teams` + legacy `v_input_values_with_epa`/`nfl_predictions_epa`/`nfl_betting_lines`/`production_weather` · `cfb_dryrun_games`/flags/`cfb_teams`/`cfb_signal_defs` · `signal_performance` · `polymarket_markets` · `chat_messages` (WagerBot).
+Supabase table/RPC quick map: `avatar_profiles`(Agent) · `avatar_performance_cache`(AgentPerformance) · `avatar_picks`(AgentPick) · `avatar_parlays`/`avatar_parlay_legs`(AgentParlay) · `agent_generation_runs` · `agent_chat_messages` · RPCs `get_leaderboard_v2`, `get_top_agent_picks_feed_v2`, `get_agent_performance_distribution`, `get_distribution_bin_agents`, `get_mlb_player_props_l10` · edge fn `agent-authorized-action-v1` · `editors_picks` · `feature_requests`/`feature_request_votes` · `live_scores` · `mv_mlb_f5_team_splits` · `mlb_games_today`/`mlb_predictions_current`/`mlb_team_mapping`/`mlb_game_signals`/`mlb_game_lineups`/`v_mlb_pitcher_archetypes`/`mlb_situational_trends_today`/`mlb_model_breakdown_accuracy`/`mlb_model_bucket_accuracy`/`mlb_graded_picks` · `nba_input_values_view`/`nba_predictions`/`nba_injury_report`/`nba_game_situational_trends_today`/`nba_todays_games_predictions_with_accuracy` · `v_cbb_input_values`/`ncaab_predictions`/`ncaab_team_mapping`/`ncaab_game_situational_trends_today`/`ncaab_todays_games_predictions_with_accuracy` · `nfl_slate_feed`/`nfl_slate_props`/`nfl_teams` + legacy `v_input_values_with_epa`/`nfl_predictions_epa`/`nfl_betting_lines`/`production_weather` · `cfb_slate_feed`/flags/`cfb_teams`/`cfb_signal_defs` · `signal_performance` · `polymarket_markets` · `chat_messages` (WagerBot).
 
 ## Post-snapshot additions (not in the 2026-07-06 iOS inventory)
 

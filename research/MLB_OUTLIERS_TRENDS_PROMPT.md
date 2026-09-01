@@ -5,7 +5,7 @@ NFL/CFB so one app code path renders all sports. **TEAMS ONLY** for MLB — no m
 (can add later). **Current season only** (MLB has ~162 games, so a single season is plenty of sample).
 
 **Template to mirror (same data warehouse, NFL repo):**
-`research/nfl-extreme-outcomes/dryrun_wk12_trends.py` — copy its `splits`/`matchups` mechanics
+`research/nfl-extreme-outcomes/nfl_slate_trends.py` — copy its `splits`/`matchups` mechanics
 (`_dim_ok`, `compute_splits`, `compute_matchups`); only the markets, dimensions, and data source change.
 
 ---

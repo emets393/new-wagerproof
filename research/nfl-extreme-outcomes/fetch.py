@@ -29,7 +29,7 @@ DATA = os.path.join(HERE, "data")
 os.makedirs(DATA, exist_ok=True)
 
 SUPA = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-# Read-only anon key (public by design — same project as the dryrun tables + the CFB
+# Read-only anon key (public by design — same project as the slate tables + the CFB
 # research pull). Overridable via env so a service key can be injected in production.
 KEY = os.environ.get(
     "CFB_SUPABASE_ANON_KEY",

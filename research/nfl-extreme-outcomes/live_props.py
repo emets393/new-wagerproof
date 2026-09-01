@@ -14,7 +14,7 @@ PRE-GAME ONLY: any event with commence_time <= now is skipped (no in-play prop l
 COST GUARD: per-event endpoint bills per market; the free /events list is checked first and
   if nothing qualifies this hour, zero per-event calls are made.
 
-Run:  python3 live_props.py             # dry-run: pull + parse + print, no write
+Run:  python3 live_props.py             # slate: pull + parse + print, no write
       python3 live_props.py --write     # insert the snapshot rows
       python3 live_props.py --parse-test data/props_snapshots/2025/<file>.json   # offline parse check
 """
@@ -305,7 +305,7 @@ def main():
         return
 
     if not WRITE and len(todo) > 2:
-        print(f"[dry-run] sampling 2/{len(todo)} events (each per-event call spends quota)")
+        print(f"[slate] sampling 2/{len(todo)} events (each per-event call spends quota)")
         todo = todo[:2]
 
     rosters = build_rosters_profiles(_env("SUPABASE_SERVICE_KEY"))
@@ -328,7 +328,7 @@ def main():
             print("  sample:", {k: v for k, v in rows[0].items() if v is not None})
         if unmatched:
             print("  top unmatched:", sorted(unmatched.items(), key=lambda x: -x[1])[:8])
-        print("[dry-run] no write. Re-run with --write to insert.")
+        print("[slate] no write. Re-run with --write to insert.")
         return
 
     sk = _env("SUPABASE_SERVICE_KEY")

@@ -5,7 +5,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.wagerproof.core.models.CFBDryRunFlag
+import com.wagerproof.core.models.CFBSlateFlag
 import com.wagerproof.core.models.CFBPredictedScore
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBTeamAssets
@@ -67,8 +67,8 @@ import kotlin.math.roundToInt
  * RN: `Date.now() - cached.lastFetch < 5 * 60 * 1000`).
  *
  * `refresh(sport, force)` runs the matching per-sport query against the CFB
- * (sports-data) Supabase project. NFL is a dryrun-first path (`nfl_dryrun_games`)
- * falling back to a 4-way legacy merge; CFB is dryrun-only (`cfb_dryrun_games` +
+ * (sports-data) Supabase project. NFL is a slate-first path (`nfl_slate_feed`)
+ * falling back to a 4-way legacy merge; CFB is slate-only (`cfb_slate_feed` +
  * flags, hardcoded week 7); NBA/NCAAB/MLB are per-sport merges. All queries are
  * byte-identical to RN — do NOT change select strings / table names.
  *
@@ -146,11 +146,11 @@ class GamesStore {
     var searchTexts: Map<Sport, String> by mutableStateOf(Sport.entries.associateWith { "" })
 
     /**
-     * When true, NFL/CFB load from dry-run staging tables. Set by the tab shell
-     * from `AdminModeStore.dryRunPreviewEnabled`. (Kept for parity; the fetch
-     * paths already prefer dry-run tables when present.)
+     * When true, NFL/CFB load from slate staging tables. Set by the tab shell
+     * from `AdminModeStore.slatePreviewEnabled`. (Kept for parity; the fetch
+     * paths already prefer slate tables when present.)
      */
-    var dryRunPreviewEnabled: Boolean by mutableStateOf(false)
+    var slatePreviewEnabled: Boolean by mutableStateOf(false)
 
     private val cacheTTL: Long = 5 * 60 * 1000
 
@@ -340,14 +340,14 @@ class GamesStore {
         SortMode.OU -> list.sortedByDescending { abs(it.ouEdge ?: 0.0) }
     }
 
-    // MARK: - NFL fetch (dryrun-first, then legacy 4-way merge)
+    // MARK: - NFL fetch (slate-first, then legacy 4-way merge)
 
     private suspend fun fetchNFL() {
         val cfb = SupabaseClients.cfb
 
-        val dryrun = fetchNFLDryrun(cfb)
-        if (dryrun.isNotEmpty()) {
-            games = games.copy(nfl = dryrun)
+        val slate = fetchNFLSlate(cfb)
+        if (slate.isNotEmpty()) {
+            games = games.copy(nfl = slate)
             return
         }
 
@@ -446,13 +446,13 @@ class GamesStore {
         "sun_late_sat" to "Sun Late", "snf" to "SNF", "monday" to "MNF",
     )
 
-    /** Dry-run slate mapped onto the card model. Spreads are home-relative. */
-    private suspend fun fetchNFLDryrun(cfb: io.github.jan.supabase.SupabaseClient): List<NFLPrediction> {
+    /** Slate mapped onto the card model. Spreads are home-relative. */
+    private suspend fun fetchNFLSlate(cfb: io.github.jan.supabase.SupabaseClient): List<NFLPrediction> {
         // Team logos/abbrs come from `nfl_teams` — warm the cache first.
         NFLTeamsService.ensureLoaded()
-        val slate = resolveFootballCurrentWeek(cfb, "nfl_dryrun_games") ?: return emptyList()
+        val slate = resolveFootballCurrentWeek(cfb, "nfl_slate_feed") ?: return emptyList()
         val rows: List<JsonObject> = runCatchingCancellable {
-            cfb.from("nfl_dryrun_games")
+            cfb.from("nfl_slate_feed")
                 .select {
                     filter {
                         eq("season", slate.first)
@@ -462,7 +462,7 @@ class GamesStore {
                 }
                 .decodeList<JsonObject>()
         }.getOrDefault(emptyList())
-        return rows.map { nflPredictionFromDryrun(it) }
+        return rows.map { nflPredictionFromSlate(it) }
             .sortedWith(compareBy({ it.topConvictionRank }, { it.kickoff ?: it.gameDate }))
     }
 
@@ -501,7 +501,7 @@ class GamesStore {
         return season to week
     }
 
-    private fun nflPredictionFromDryrun(row: JsonObject): NFLPrediction {
+    private fun nflPredictionFromSlate(row: JsonObject): NFLPrediction {
         val gameId = jsonString(row, "game_id") ?: ""
         val season = jsonInt(row, "season")
         val week = jsonInt(row, "week")
@@ -532,9 +532,9 @@ class GamesStore {
         m["unique_id"] = JsonPrimitive(gameId)
         jsonDouble(row, "fg_home_win_prob")?.let { m["home_away_ml_prob"] = JsonPrimitive(it) }
         jsonDouble(row, "fg_home_cover_prob")?.let { m["home_away_spread_cover_prob"] = JsonPrimitive(it) }
-        m.remove("ou_result_prob") // iOS sets nil for the dryrun path.
+        m.remove("ou_result_prob") // iOS sets nil for the slate path.
         jsonDouble(row, "fg_pred_total")?.let { m["pred_total"] = JsonPrimitive(it) }
-        m["run_id"] = JsonPrimitive("nfl-dryrun-${season ?: 2026}-${week ?: 1}")
+        m["run_id"] = JsonPrimitive("nfl-slate-${season ?: 2026}-${week ?: 1}")
         jsonDouble(row, "wx_temp_f")?.let { m["temperature"] = JsonPrimitive(it) }
         jsonDouble(row, "wx_precip_mm")?.let { m["precipitation"] = JsonPrimitive(it) }
         jsonDouble(row, "wx_wind_mph")?.let { m["wind_speed"] = JsonPrimitive(it) }
@@ -542,35 +542,35 @@ class GamesStore {
         return WagerproofJson.decodeFromJsonElement(NFLPrediction.serializer(), JsonObject(m))
     }
 
-    // MARK: - CFB fetch (dryrun-only; legacy kept but unreferenced)
+    // MARK: - CFB fetch (slate-only; legacy kept but unreferenced)
 
-    private suspend fun fetchCFB() = fetchCFBDryrun()
+    private suspend fun fetchCFB() = fetchCFBSlate()
 
-    private suspend fun fetchCFBDryrun() {
+    private suspend fun fetchCFBSlate() {
         val cfb = SupabaseClients.cfb
         CFBTeamsService.ensureLoaded()
         coroutineScope {
-            val slate = resolveFootballCurrentWeek(cfb, "cfb_dryrun_games")
+            val slate = resolveFootballCurrentWeek(cfb, "cfb_slate_feed")
                 ?: run {
                     games = games.copy(cfb = emptyList())
                     return@coroutineScope
                 }
             val (season, week) = slate
             val gameRowsD = async {
-                cfb.from("cfb_dryrun_games").select {
+                cfb.from("cfb_slate_feed").select {
                     filter {
                         eq("season", season)
                         eq("week", week)
                     }
-                }.decodeList<CFBDryrunGameRow>()
+                }.decodeList<CFBSlateGameRow>()
             }
             val flagRowsD = async {
-                cfb.from("cfb_dryrun_flags").select {
+                cfb.from("cfb_slate_flags").select {
                     filter {
                         eq("season", season)
                         eq("week", week)
                     }
-                }.decodeList<CFBDryrunFlagRow>()
+                }.decodeList<CFBSlateFlagRow>()
             }
             val defsD = async { CFBSignalDefinitionsService.shared.definitionsBySource() }
 
@@ -583,13 +583,13 @@ class GamesStore {
                 flag.withSignalDefinition(CFBSignalDefinitionsService.definition(flag.source, definitionsBySource))
             }
             val flagsByGame = flagModels.groupBy { it.gameId }
-            games = games.copy(cfb = rows.map { mapCFBDryrun(it, flagsByGame, season, week) })
+            games = games.copy(cfb = rows.map { mapCFBSlate(it, flagsByGame, season, week) })
         }
     }
 
-    private fun mapCFBDryrun(
-        row: CFBDryrunGameRow,
-        flagsByGame: Map<String, List<CFBDryRunFlag>>,
+    private fun mapCFBSlate(
+        row: CFBSlateGameRow,
+        flagsByGame: Map<String, List<CFBSlateFlag>>,
         season: Int,
         week: Int,
     ): CFBPrediction {
@@ -597,7 +597,7 @@ class GamesStore {
         val away = row.awayTeam ?: "Away"
         val home = row.homeTeam ?: "Home"
         val attachedFlags = (flagsByGame[gameId] ?: emptyList()).sortedWith(
-            compareByDescending<CFBDryRunFlag> { it.isActive }
+            compareByDescending<CFBSlateFlag> { it.isActive }
                 .thenBy { it.convictionTier.sortRank }
                 .thenByDescending { it.stakeUnits ?: 0.0 },
         )
@@ -618,7 +618,7 @@ class GamesStore {
             homeAwayMlProb = row.fgHomeWinProb,
             homeAwaySpreadCoverProb = row.fgHomeCoverProb,
             ouResultProb = null,
-            runId = "cfb-dryrun-$season-$week",
+            runId = "cfb-slate-$season-$week",
             temperature = row.wxTempF,
             precipitation = row.wxPrecipMm,
             windSpeed = row.wxWindMph,
@@ -1094,7 +1094,7 @@ class GamesStore {
             return null
         }
 
-        // JSON coercion helpers (raw rows for NFL dryrun + MLB signals).
+        // JSON coercion helpers (raw rows for NFL slate + MLB signals).
         private fun jsonPrimitive(o: JsonObject, key: String): JsonPrimitive? {
             val el = o[key] ?: return null
             if (el is JsonNull) return null
@@ -1237,7 +1237,7 @@ class GamesStore {
 
 
     @Serializable
-    private data class CFBDryrunGameRow(
+    private data class CFBSlateGameRow(
         @SerialName("game_id") @Serializable(with = FlexibleStringSerializer::class) val gameId: String? = null,
         val season: Int? = null,
         val week: Int? = null,
@@ -1301,7 +1301,7 @@ class GamesStore {
     )
 
     @Serializable
-    private data class CFBDryrunFlagRow(
+    private data class CFBSlateFlagRow(
         @Serializable(with = FlexibleStringSerializer::class) val id: String? = null,
         @SerialName("game_id") @Serializable(with = FlexibleStringSerializer::class) val gameId: String? = null,
         val season: Int? = null,
@@ -1319,7 +1319,7 @@ class GamesStore {
         @SerialName("grade_line") val gradeLine: String? = null,
         val mammoth: Boolean? = null,
     ) {
-        fun toModel(): CFBDryRunFlag = CFBDryRunFlag(
+        fun toModel(): CFBSlateFlag = CFBSlateFlag(
             id = id.orEmpty(),
             gameId = gameId.orEmpty(),
             season = season,

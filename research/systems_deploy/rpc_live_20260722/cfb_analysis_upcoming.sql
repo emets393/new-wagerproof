@@ -14,7 +14,7 @@ BEGIN
       g.tt_home_close AS tt_line, g.h1_spread_close AS h1_spread, g.h1_total_close AS h1_total,
       (g.home_conf = g.away_conf) AS conf_game,
       (EXTRACT(hour FROM g.kickoff AT TIME ZONE 'America/New_York') >= 19) AS primetime
-    FROM cfb_dryrun_games g WHERE g.kickoff > now()
+    FROM cfb_slate_games g WHERE g.kickoff > now()
     UNION ALL
     SELECT g.game_id, g.season, g.week, g.kickoff, g.neutral_site,
       false, g.away_team, g.home_team, g.away_conf, g.home_conf,
@@ -22,7 +22,7 @@ BEGIN
       g.tt_away_close, -g.h1_spread_close, g.h1_total_close,
       (g.home_conf = g.away_conf),
       (EXTRACT(hour FROM g.kickoff AT TIME ZONE 'America/New_York') >= 19)
-    FROM cfb_dryrun_games g WHERE g.kickoff > now()
+    FROM cfb_slate_games g WHERE g.kickoff > now()
   ),
   f AS (
     SELECT *, (team_spread < 0) AS is_favorite FROM ex

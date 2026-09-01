@@ -5,7 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-import dryrun_wk12_games as dg
+import nfl_slate_games_build as dg
 from nfl_outliers_trend_engine import market_label
 
 PICK_GROUP = {

@@ -1,7 +1,7 @@
 """Load nflverse teams_colors_logos into nfl_teams (32 current teams).
 
 Logo URLs are ESPN-CDN hosted; abbreviations match nflverse game_ids
-(LA / WAS / JAX scheme) so they join directly to the dryrun tables'
+(LA / WAS / JAX scheme) so they join directly to the slate tables'
 home_ab / away_ab and props team / opponent.
 
 Usage:  python3 nfl_teams_load.py

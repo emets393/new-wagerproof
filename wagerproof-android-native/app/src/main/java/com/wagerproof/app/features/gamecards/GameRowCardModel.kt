@@ -53,7 +53,7 @@ data class GameRowCardModel(
     )
 
     /**
-     * NFL/CFB dry-run slate picks rendered on the bottom row — total + spread
+     * NFL/CFB slate picks rendered on the bottom row — total + spread
      * and nothing else, matching iOS `GameRowCard.SlatePicks`. Conviction
      * counts and signal counts deliberately do NOT live here: they're a
      * detail-page concern, and carrying them made the feed cards markedly

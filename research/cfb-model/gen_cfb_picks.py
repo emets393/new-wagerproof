@@ -1,8 +1,8 @@
-"""Generate cfb_dryrun_picks — one row per bet-type per game (the prediction cards). Everything precomputed:
+"""Generate cfb_slate_picks — one row per bet-type per game (the prediction cards). Everything precomputed:
 model number, fair line, vegas consensus line, edge, BEST book line+odds+logo, conviction, signals, has_play.
 Best line rule: spread/h1_spread -> max line for the pick side (fewer to lay / more to take); total/team_total/
 h1_total -> OVER=lowest line, UNDER=highest line; ties + moneyline -> highest American odds (best price).
-Also writes conviction_summary onto cfb_dryrun_games for the slate pills."""
+Also writes conviction_summary onto cfb_slate_games for the slate pills."""
 import os
 import numpy as np, pandas as pd, warnings, requests, json
 import dry_common as C
@@ -23,7 +23,7 @@ gm, te, S = C.harness_week(SEASON, WEEK)
 
 # ⛔ Lines rule: te's CFBD-sourced close lines are corrupt for some games (sign flips /
 # zero-fills — Miami@Stanford arrived as Stanford -22.5). Override from the Odds-API
-# game frame, mirroring gen_cfb_dryrun_flags, and recompute the edges the side pick
+# game frame, mirroring gen_cfb_slate_flags, and recompute the edges the side pick
 # derives from. No Odds-API line -> NaN (card shows no line, no play).
 _ogf = pd.read_parquet("data/odds_game_frame.parquet")
 _ogf = _ogf[_ogf.season == SEASON][["home", "away", "close_spread", "close_total"]]
@@ -136,7 +136,7 @@ def h1t_cons(gid):
     s = ev_rows(gid, "totals_h1", "Over"); return float(s.point.median()) if len(s) else None
 
 # ---- flags (conviction + signals per card) from the loaded table ----
-fl = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_flags?week=eq.{WEEK}&select=*", headers={**C.H, "Prefer": ""}).json()
+fl = requests.get(f"{C.URL}/rest/v1/cfb_slate_flags?week=eq.{WEEK}&select=*", headers={**C.H, "Prefer": ""}).json()
 flags = pd.DataFrame(fl)
 CG = {"spread": "spread", "total": "total", "team_total": "team_total", "h1_spread": "h1_spread", "h1_total": "h1_total", "h1_ml": "h1_ml"}
 def counter_keys(gid, card_group, side, team=None):
@@ -169,7 +169,7 @@ rows = []
 EARLY = WEEK <= 3   # opponent-adjusted model is COLD in Weeks 1-3 -> contextual signals drive the pick, not the model
 
 # Weeks 1-3 the harness has no played games, so its per-game pred_margin/pred_total collapse toward
-# the league mean (every matchup lands near -4 / 53). gen_cfb_dryrun_games.py swaps in the preseason
+# the league mean (every matchup lands near -4 / 53). gen_cfb_slate_games.py swaps in the preseason
 # priors blend for exactly this reason; mirror it or every card contradicts the game row it sits on.
 if EARLY:
     _ep_path = f"out/cfb_early_preds_{SEASON}.csv"
@@ -199,7 +199,7 @@ for _, r in te.iterrows():
     # ---- SPREAD ----
     if side_edge is not None:
         # >= : edge exactly 0 (pred lands on the line) breaks to HOME, matching
-        # gen_cfb_dryrun_games' "AWAY if edge < 0 else HOME" — Stanford-Hawai'i 2026-wk1
+        # gen_cfb_slate_games' "AWAY if edge < 0 else HOME" — Stanford-Hawai'i 2026-wk1
         # tied at 0.0 and the sign guard killed the run on the mismatch.
         ph = side_edge >= 0; pteam = H if ph else A; pside = "HOME" if ph else "AWAY"
         # EARLY: contextual signals no longer OVERRIDE the pick side. That rule predates the
@@ -397,13 +397,13 @@ _fb = df.best_line.isna() & df.vegas_line.notna() & ~df.card_group.isin(["moneyl
 df.loc[_fb, "best_line"] = df.loc[_fb, "vegas_line"]; df.loc[_fb, "best_odds"] = -110
 df["best_book_name"] = df.best_book.map(lambda k: book_meta(k)[0] if k else None)
 df["best_book_logo"] = df.best_book.map(lambda k: book_meta(k)[1] if k else None)
-print(f"cfb_dryrun_picks rows: {len(df)} | cards/game avg {len(df)/te.game_id.nunique():.1f}")
+print(f"cfb_slate_picks rows: {len(df)} | cards/game avg {len(df)/te.game_id.nunique():.1f}")
 print(f"  has_play: {int(df.has_play.sum())} | by card_group: {df.card_group.value_counts().to_dict()}")
 print(f"  best_book coverage: {int(df.best_book.notna().sum())}/{len(df)}")
 
 # SIGN GUARD (mandatory, per the sign-conventions law): a pick card must NEVER contradict
 # the games row it renders under — UTEP@OU 2026-wk1 shipped "Oklahoma -39.5" while the game
-# row correctly said AWAY. Cross-check spread + total sides against cfb_dryrun_games and
+# row correctly said AWAY. Cross-check spread + total sides against cfb_slate_games and
 # refuse to write on ANY mismatch (hard fail stops the runner before users see it).
 _g = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
                   f"&select=game_id,fg_spread_pick,fg_total_pick", headers={**C.H, "Prefer": ""}).json()
@@ -416,13 +416,13 @@ for _, r in df[df.pick_side.notna()].iterrows():
     if want and r.pick_side != want:
         _bad.append((int(r.game_id), r.bet_type, r.pick_side, f"games={want}"))
 if _bad:
-    raise SystemExit(f"[SIGN GUARD] {len(_bad)} pick(s) contradict cfb_dryrun_games — REFUSING TO WRITE: {_bad[:6]}")
+    raise SystemExit(f"[SIGN GUARD] {len(_bad)} pick(s) contradict cfb_slate_games — REFUSING TO WRITE: {_bad[:6]}")
 print(f"  sign guard: {len(df[(df.bet_type == 'spread') & df.pick_side.notna()])} spread + "
       f"{len(df[(df.bet_type == 'total') & df.pick_side.notna()])} total sides agree with games table")
 
-C.wipe("cfb_dryrun_picks", f"season=eq.{SEASON}&week=eq.{WEEK}")
+C.wipe("cfb_slate_picks", f"season=eq.{SEASON}&week=eq.{WEEK}")
 df["season"] = SEASON; df["week"] = WEEK
-C.insert("cfb_dryrun_picks", df)
+C.insert("cfb_slate_picks", df)
 
 # conviction_summary onto games (slate pills)
 summ = {}

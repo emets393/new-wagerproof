@@ -25,7 +25,7 @@ WagerProof provides game predictions, live scores, and betting analytics for fiv
 | Sport | Input Data | Predictions |
 |-------|------------|-------------|
 | **NFL** | `v_input_values_with_epa` | `nfl_predictions_epa` |
-| **CFB** | `cfb_dryrun_games` | `cfb_dryrun_picks` |
+| **CFB** | `cfb_slate_feed` | `cfb_slate_picks` |
 | **NBA** | `nba_input_values_view` | `nba_predictions` |
 | **NCAAB** | `v_cbb_input_values` | `ncaab_predictions` |
 
@@ -51,8 +51,8 @@ WagerProof provides game predictions, live scores, and betting analytics for fiv
 
 ### Key Components
 - `NFLGameCard.tsx` - With Aurora/ShineBorder effects
-- `CFBDryRunSlateCardContent.tsx` - CFB dry-run slate content using NFL-style card hierarchy
-- `CFBDryRunGameDetailsModal.tsx` - CFB 7-card prediction detail modal from `cfb_dryrun_picks`
+- `CFBSlateSlateCardContent.tsx` - CFB slate slate content using NFL-style card hierarchy
+- `CFBSlateGameDetailsModal.tsx` - CFB 7-card prediction detail modal from `cfb_slate_picks`
 - `GameDetailsModal.tsx` (119KB) - Full details
 - `LiveScoreTicker.tsx` - Marquee ticker
 - `PolymarketWidget.tsx` - Prediction markets

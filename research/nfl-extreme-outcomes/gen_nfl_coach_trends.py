@@ -10,7 +10,7 @@ Dimensions: overall, home, away, favorite, underdog, division, non_division,
 Plus matchups: the coach's CAREER record vs each opponent TEAM.
 
 Point-in-time: includes only games BEFORE the target slate (NFL_SEASON/NFL_WEEK;
-defaults to the Wk12-2025 dry-run = everything through 2025 wk11).
+defaults to the Wk12-2025 slate = everything through 2025 wk11).
 
 Usage:  python3 gen_nfl_coach_trends.py [--no-load]
 """

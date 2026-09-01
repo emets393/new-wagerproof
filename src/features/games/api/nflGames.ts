@@ -7,17 +7,17 @@ import {
   lookupNflTeam,
 } from '@/utils/nflTeamAssets';
 import type { GameFeedItem, SportFeed, TeamRef } from '../types';
-import { resolveNflCurrentWeek, signalCountFromDryrunGame } from './footballSlate';
+import { resolveNflCurrentWeek, signalCountFromSlateGame } from './footballSlate';
 
 /**
  * NFL adapter for the /games feed.
- * Reads the NEW model's weekly output: nfl_dryrun_games (the locked totals/sides/1H model numbers +
+ * Reads the NEW model's weekly output: nfl_slate_feed (the locked totals/sides/1H model numbers +
  * Odds-API lines) + nfl_teams (logos/abbrs via home_ab/away_ab). The current week is resolved
  * dynamically from kickoffs (resolveNflCurrentWeek), so the slate rolls Week 1 -> Week 2
  * automatically. The legacy path (v_input_values_with_epa + nfl_predictions_epa classifier +
  * nfl_betting_lines as card lines + production_weather) is retired. Line Movement reads the
- * game-keyed nfl_line_movement consensus view. (nfl_dryrun_games keeps its test-era name but
- * now holds the live current-week slate.)
+ * game-keyed nfl_line_movement consensus view. (nfl_slate_feed is a filtered view over the
+ * weekly slate table that hides already-played games.)
  */
 
 export interface NFLPrediction {
@@ -304,11 +304,11 @@ function formatKickoffLabel(kickoff: string | null | undefined): string {
 
 /**
  * Derive a display-side over/under probability from the new model's total pick.
- * The dryrun table publishes `fg_total_pick` (OVER/UNDER/NEUTRAL) + edge, not a
+ * The slate table publishes `fg_total_pick` (OVER/UNDER/NEUTRAL) + edge, not a
  * classifier `ou_result_prob`. Soften NEUTRAL to null so the Total widget can
  * still render from model/vegas when a directional pick exists.
  */
-function ouProbFromDryrunPick(
+function ouProbFromSlatePick(
   pick: string | null | undefined,
   edge: number | null | undefined,
 ): number | null {
@@ -321,8 +321,8 @@ function ouProbFromDryrunPick(
 }
 
 export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
-  // The NEW NFL model's weekly output lives in nfl_dryrun_games (legacy test-era name; it now holds the
-  // real current-week slate — Odds-API lines + the locked totals/sides/1H model numbers). The current
+  // The NEW NFL model's weekly output lives in nfl_slate_feed (a view over the weekly slate table
+  // that hides played games — Odds-API lines + the locked totals/sides/1H model numbers). The current
   // week resolves dynamically from kickoffs so the board rolls Week 1 -> Week 2 on its own. The old
   // legacy path (v_input_values_with_epa + nfl_predictions_epa classifier + nfl_betting_lines as card
   // lines) is retired; nfl_betting_lines remains only for Line-Movement history.
@@ -333,7 +333,7 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
     { data: nflTeams, error: teamsError },
   ] = await Promise.all([
     collegeFootballSupabase
-      .from('nfl_dryrun_games')
+      .from('nfl_slate_feed')
       .select('*')
       .eq('season', season)
       .eq('week', week)
@@ -359,7 +359,7 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
     logo_url: getNFLTeamLogo(team.team_abbr || team.team_name),
   }));
 
-  // Map nfl_dryrun_games rows onto the NFLPrediction shape the cards + detail widgets read.
+  // Map nfl_slate_feed rows onto the NFLPrediction shape the cards + detail widgets read.
   const merged: NFLPrediction[] = (nflGames || []).map((r: any) => {
     const homeSpread = r.fg_spread_close ?? null;
     const total = r.fg_total_close ?? null;
@@ -379,7 +379,7 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
       // model numbers — the new model has a fair line + edges the legacy classifier never had
       home_away_ml_prob: r.fg_home_win_prob ?? null,
       home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
-      ou_result_prob: ouProbFromDryrunPick(r.fg_total_pick, totalEdge),
+      ou_result_prob: ouProbFromSlatePick(r.fg_total_pick, totalEdge),
       fg_total_pick: r.fg_total_pick ?? null,
       pred_spread: r.fg_pred_spread ?? null,
       pred_total: r.fg_pred_total ?? null,
@@ -423,7 +423,7 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
       mlProb: row.home_away_ml_prob,
     },
     // Prefer slate flag counts (excludes blanket sides_model); never count signals[].key.
-    signalCount: signalCountFromDryrunGame('nfl', row),
+    signalCount: signalCountFromSlateGame('nfl', row),
     raw: row,
   }));
 

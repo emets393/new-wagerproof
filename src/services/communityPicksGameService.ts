@@ -17,14 +17,14 @@ export interface GameOption {
 }
 
 /**
- * Fetch active NFL games from nfl_dryrun_games (current week resolved dynamically).
+ * Fetch active NFL games from nfl_slate_feed (current week resolved dynamically).
  */
 async function fetchNFLGames(): Promise<GameOption[]> {
   try {
-    debug.log('📊 Fetching NFL games from nfl_dryrun_games...');
+    debug.log('📊 Fetching NFL games from nfl_slate_feed...');
     const { season, week } = await resolveNflCurrentWeek();
     const { data, error } = await collegeFootballSupabase
-      .from('nfl_dryrun_games')
+      .from('nfl_slate_feed')
       .select('game_id, away_team, home_team, gameday, kickoff, fg_spread_close, fg_ml_home_close, fg_ml_away_close, fg_total_close')
       .eq('season', season)
       .eq('week', week)
@@ -36,7 +36,7 @@ async function fetchNFLGames(): Promise<GameOption[]> {
     }
 
     if (!data || data.length === 0) {
-      debug.log('⚠️ No NFL games found in nfl_dryrun_games');
+      debug.log('⚠️ No NFL games found in nfl_slate_feed');
       return [];
     }
 
@@ -66,14 +66,14 @@ async function fetchNFLGames(): Promise<GameOption[]> {
 }
 
 /**
- * Fetch active CFB games from cfb_dryrun_games (current week resolved dynamically).
+ * Fetch active CFB games from cfb_slate_feed (current week resolved dynamically).
  */
 async function fetchCFBGames(): Promise<GameOption[]> {
   try {
-    debug.log('📊 Fetching CFB games from cfb_dryrun_games...');
+    debug.log('📊 Fetching CFB games from cfb_slate_feed...');
     const { season, week } = await resolveCfbCurrentWeek();
     const { data, error } = await collegeFootballSupabase
-      .from('cfb_dryrun_games')
+      .from('cfb_slate_feed')
       .select('game_id, away_team, home_team, kickoff, fg_spread_close, fg_ml_home_close, fg_ml_away_close, fg_total_close')
       .eq('season', season)
       .eq('week', week)
@@ -85,7 +85,7 @@ async function fetchCFBGames(): Promise<GameOption[]> {
     }
 
     if (!data || data.length === 0) {
-      debug.log('⚠️ No CFB games found in cfb_dryrun_games');
+      debug.log('⚠️ No CFB games found in cfb_slate_feed');
       return [];
     }
 

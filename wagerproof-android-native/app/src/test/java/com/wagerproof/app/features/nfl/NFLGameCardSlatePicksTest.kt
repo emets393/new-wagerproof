@@ -10,14 +10,14 @@ class NFLGameCardSlatePicksTest {
     @Test
     fun `authoritative rows drive best lines`() {
         val rows = listOf(
-            NFLDryrunPickRow(
+            NFLSlatePickRow(
                 cardGroup = "total",
                 pickSide = "UNDER",
                 bestLine = 43.5,
                 hasPlay = false,
                 signalKeys = listOf("pace", "weather"),
             ),
-            NFLDryrunPickRow(
+            NFLSlatePickRow(
                 cardGroup = "spread",
                 pickTeam = "Buffalo Bills",
                 bestLine = -2.5,
@@ -25,7 +25,7 @@ class NFLGameCardSlatePicksTest {
                 hasPlay = true,
                 signalKeys = listOf("weather", "trenches"),
             ),
-            NFLDryrunPickRow(
+            NFLSlatePickRow(
                 cardGroup = "moneyline",
                 conviction = "mammoth",
                 isMammoth = true,
@@ -48,7 +48,7 @@ class NFLGameCardSlatePicksTest {
     @Test
     fun `mammoth detection survives the badge removal`() {
         val rows = listOf(
-            NFLDryrunPickRow(cardGroup = "moneyline", conviction = "mammoth", isMammoth = true, hasPlay = true),
+            NFLSlatePickRow(cardGroup = "moneyline", conviction = "mammoth", isMammoth = true, hasPlay = true),
         )
 
         assertTrue(nflHasMammothPlay(NFLPrediction(), rows))

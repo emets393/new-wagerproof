@@ -86,7 +86,7 @@ Notes on the consensus port:
 - NFL detail includes public betting and head-to-head data; head-to-head is sourced from
   `nfl_matchup_history`. Line movement is a separate source — see the next note.
 - NFL and CFB line-movement charts read the game-keyed `nfl_line_movement` / `cfb_line_movement`
-  consensus views by dry-run `game_id`. The slate's `fg_*_open` is the labelled opener — slate close
+  consensus views by slate `game_id`. The slate's `fg_*_open` is the labelled opener — slate close
   is used only as an explicitly relabelled fallback — and a series with fewer than 2 distinct values
   is not charted at all. Android is **ahead of iOS** on this widget: iOS still ships the waiver-#033
   stub.

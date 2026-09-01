@@ -5,7 +5,7 @@ import WagerproofServices
 
 /// NFL player-prop card. Mirrors `PropPlayerCard`'s chrome (rounded lifted
 /// surface, avatar-with-team-glow, O/U pills, L10 trend strip, bottom info
-/// row) — the dry-run contract carries a season game log per market, so the
+/// row) — the slate contract carries a season game log per market, so the
 /// NFL card sells the same trend story the MLB card does.
 struct NFLPropPlayerCard: View {
     let item: NFLPropFeedItem

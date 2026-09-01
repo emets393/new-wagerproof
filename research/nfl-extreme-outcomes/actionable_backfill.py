@@ -7,7 +7,7 @@ Resumable: raw JSON cached under data/actionable_snapshots/<cutoff>/. Reads
 ODDS_API_KEY from .env.local (never printed).
 
 Usage:
-  python3 actionable_backfill.py --dry-run        # game/credit estimate
+  python3 actionable_backfill.py --slate        # game/credit estimate
   python3 actionable_backfill.py --test           # one game, both cutoffs
   python3 actionable_backfill.py                  # full run, then writes parquets
 """
@@ -184,7 +184,7 @@ def parse_snapshot(payload, season, comm, home_team, away_team, home_ab, away_ab
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--slate", action="store_true")
     ap.add_argument("--test", action="store_true")
     args = ap.parse_args()
 

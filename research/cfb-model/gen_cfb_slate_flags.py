@@ -1,4 +1,4 @@
-"""Generate cfb_dryrun_flags — one row per fired bet signal, Week-7 2025. Spread/total flags come from the
+"""Generate cfb_slate_flags — one row per fired bet signal, Week-7 2025. Spread/total flags come from the
 AUTHORITATIVE spot_library (each flag carries ITS OWN side — fixes the conflicting-spots bug where the net
 sides_bet mislabeled games like Ohio State@Illinois). Team-total + 1H flags from the harness CSVs.
 Each flag: market, side, line (its grade_line), edge, conviction, active/tracking, stake. Back-fills game counts."""
@@ -88,7 +88,7 @@ for _, r in (te.iterrows() if WEEK >= 4 else iter(())):
 _h1p = f"out/cfb_h1_model_{SEASON}.csv"
 h1 = pd.read_csv(_h1p) if os.path.exists(_h1p) else pd.DataFrame(columns=["game_id"])
 h1 = h1[h1.game_id.isin(g7)]
-# EARLY gate (2026-08-28): the 1H model is COLD weeks 1-3 (gen_cfb_dryrun_games
+# EARLY gate (2026-08-28): the 1H model is COLD weeks 1-3 (gen_cfb_slate_games
 # blanks this CSV then; this block was only protected by the file not existing —
 # a wk1 forecast rerun wrote it and 7 cold 1H flags leaked through).
 if WEEK <= 3:
@@ -483,7 +483,7 @@ if WEEK >= 5 and os.path.exists(_cap):
         print(f"  [core_total_edge] using as-of CORE thru wk{_tw} ({len(_ca)} teams)")
         # TT AWAY UNDER companion (2026-08-17 battery): the away team-total line for
         # each slate game, straight from the slate table the games generator just wrote.
-        _ttq = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_games?season=eq.{SEASON}&week=eq.{WEEK}"
+        _ttq = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
                             f"&select=game_id,tt_away_close,tt_away_best_under", headers=C.H, timeout=30)
         _ttmap = {int(x["game_id"]): (x.get("tt_away_close"), x.get("tt_away_best_under"))
                   for x in (_ttq.json() if _ttq.ok else [])}
@@ -665,10 +665,10 @@ if WEEK <= 3 and len(df) and (df.signal_key == "fade_high_total").any():
         df.loc[hi, "source"] = df.loc[hi, "source"] + " (extreme, wk1-3)"
         print(f"  [extremity tier] fade_high_total upgraded to T2 on {int(hi.sum())} games (slate p92={slate_p92:.1f})")
 
-print(f"cfb_dryrun_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
+print(f"cfb_slate_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
 print(f"  conviction {df.conviction.value_counts().to_dict()} | mammoth flags {int(df.mammoth.sum())}")
-C.wipe("cfb_dryrun_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")
-C.insert("cfb_dryrun_flags", df)
+C.wipe("cfb_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")
+C.insert("cfb_slate_flags", df)
 act = df[df.tier == "active"].groupby("game_id").size(); trk = df[df.tier == "tracking"].groupby("game_id").size()
 for gid in g7:
     requests.patch(f"{C.URL}/rest/v1/cfb_slate_games?game_id=eq.{gid}", headers=C.H,

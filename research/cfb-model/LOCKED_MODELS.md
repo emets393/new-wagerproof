@@ -6,7 +6,7 @@ rule: signal-line == grade-line** (a spot bet at the close is graded at the clos
 graded at DK, etc.). Everything is wired into `cfb_forecast.py` and runs each week.
 
 ```
-python3 cfb_forecast.py                       # 2025 dry-run (train <2025), prints per-spot grades
+python3 cfb_forecast.py                       # 2025 slate (train <2025), prints per-spot grades
 python3 cfb_forecast.py --season 2026 --week 6  # weekly production (needs 2026 data + odds pulled)
 ```
 Outputs: `out/cfb_predictions_<season>.csv` (every game — website display) and
@@ -183,7 +183,7 @@ Sweep (exp_a1_a2/a3_a4.py, identical walk-forward folds, product-style grade @ o
 nets = 12 cross-team features, SUM semantics (hexp = home_off_X + away_def_allowed_X; net = hexp − aexp).
 PRE-REGISTERED CONFIRMATION (exp_confirm_a2.py, 5-seed): beats BASE at ALL gates 3/4/5; 2025 holdout 50.8 vs 48.8;
 CLV intact → **UPGRADE CONFIRMED**. Sides model now FEATS+nets; TOTALS stays BASE (+0.2pp only, not adopted).
-Ledgers regenerated from scratch (out/ backed up to out_backup_pre_nets_upgrade/). Dry-run reproduces.
+Ledgers regenerated from scratch (out/ backed up to out_backup_pre_nets_upgrade/). Slate reproduces.
 NEGATIVES from sweep: A1 spot-flags-in-model (fire 1.4-3.9%, +0.6pp within CI = noise; overlay architecture
 stands). A3 architectures: 5-seed ensemble identical; ridge 50.9% (worse); blend +1.2pp but fewer picks &
 unconfirmed — GBM stands. A4 calibration: sides edge-buckets weakly monotonic 48→57 with flat 6-14 zone (no
@@ -194,7 +194,7 @@ fantasy tail like NFL, but confidence alone cannot gate big plays); totals clean
 (close-cover HistGB, independent layer) agrees AND >=1 non-model spot (RvR/SunBelt/BigTen/padded-road) same dir.
 Dose-response (textbook): control (no confirm, no spot) 50.0% → confirm-only 54.5% → **MAMMOTH 70.0% (n=30,
 CI[52,83], CLV+0.62, per-season 57/71/86/62/100)** ≈ 6/season. Mirrors NFL (ingredients 49-54 alone, ~70 together).
-Wired: `mammoth` column in cfb_predictions CSV (2025 dry-run: 7 flagged). Small-n stated: 2026 live = true test.
+Wired: `mammoth` column in cfb_predictions CSV (2025 slate: 7 flagged). Small-n stated: 2026 live = true test.
 **TOTALS MAMMOTH: NOT REAL** — big-edge+struct 53.7% vs control-without-struct 54.5% (control better), >=2-struct
 28.6%(n7); no monotonic dose-response → per pre-registration, rejected. **MULTI-RULE MAMMOTH: n=0** (non-model
 spots never co-fire 2+ same direction in CFB) — not feasible with current spot set.
@@ -215,7 +215,7 @@ matched 111 (was 115, 4 dups), movement n=88 (was 94). Findings SURVIVE slightly
 | TOTALS model = GBM on FEATS (unanchored) | LOCKED (over-edge>=6 -> 55%, calibrated monotonic) |
 | TEAM-TOTAL models = anchored (UNDER<=-3) + unanchored (OVER>=+6) | LOCKED (54-56%, mutually exclusive) |
 | Confirm-classifier (close-cover) | LOCKED (mammoth ingredient) |
-| MAMMOTH tier (sides) | LOCKED (70% backtest, 5-2 2025 dry-run, ~6-7/season, auto-flagged) |
+| MAMMOTH tier (sides) | LOCKED (70% backtest, 5-2 2025 slate, ~6-7/season, auto-flagged) |
 
 ### LIVE — spots (all in cfb_forecast.py; tiers in STRATEGY.md)
 T1: model x soft-book STACK (gap>=1 72.7%) · padded-road fade w/ market-trust (62-74%) · G5 fade-after-loss
@@ -242,7 +242,7 @@ narratives (P5) · shootout recipe 2expl+2uptempo (noise on 2x sample) · totals
 ## 11. TT/1H REFINED SPOTS WIRED (test_deriv2 -> cfb_forecast)
 TT graded/gated vs POSTED BEST line when event-odds archive exists (fallback contrived). OVER = P5 ONLY (G5 dead
 51.3%); UNDER both (P5 59.9/G5 56.6); form_stack col = OVER + team over-cold (61.2%). 1H spot: posted 1H total
->=31 & both-P5 -> UNDER (63.4%; G5 dead). Outputs: cfb_team_totals_<yr>.csv, cfb_h1_<yr>.csv. 2025 dry-run:
+>=31 & both-P5 -> UNDER (63.4%; G5 dead). Outputs: cfb_team_totals_<yr>.csv, cfb_h1_<yr>.csv. 2025 slate:
 UNDER 58.6% (P5 62) / OVER-P5 73.2% / 15 1H unders. Movement in TT/1H = dead (all windows, follow+fade).
 PRODUCTION NOTE: TT/1H spots need current-season event-odds pulls (fetch_event_odds.py weekly in 2026).
 
@@ -262,7 +262,7 @@ FROZEN COMPONENTS:
 - SPOT LIBRARY + VETOES as in sections 2-9. MONEYLINE = spot-conversion only (RvR home-dog +15.4%).
 
 STAKING (backtest_portfolio_2025.py): stake by validated hit% -> mammoth 5u / >=62% 3u / 58-62% 2u /
-55-58% 1.5u / 53-55% 1u / lean .5u. 2025 DRY-RUN (walk-forward, no leak): 2157 bets, 56.1% win, +10.2% ROI,
+55-58% 1.5u / 53-55% 1u / lean .5u. 2025 SLATE (walk-forward, no leak): 2157 bets, 56.1% win, +10.2% ROI,
 +341u. Conviction ladder MONOTONIC: 3u tier 67.2%/+28%, mammoth 57%, leans ~breakeven. CAVEAT: 2025 strong
 spot year (sides 59 vs ~56-57 multi-yr); typical season ~+6-8% portfolio ROI.
 

@@ -50,9 +50,9 @@ export default function SupportLayout({ children, title, description, canonicalP
             <Link to="/" className="text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
               Home
             </Link>
-            <a href="/guides/" className="text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-              Guides
-            </a>
+            <Link to="/blog" className="text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+              Blog
+            </Link>
             <Link to="/support" className="text-emerald-600 dark:text-emerald-400 font-semibold">
               Support
             </Link>

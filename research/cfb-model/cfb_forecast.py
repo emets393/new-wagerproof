@@ -6,7 +6,7 @@ target season generates, for EVERY game: a predicted total + spread (website dis
 validated SPOT flags (the high-confidence bets). Grades vs OPEN + computes CLV when results exist.
 
 Usage:
-  python3 cfb_forecast.py                 # 2025 dry-run (train on <2025)
+  python3 cfb_forecast.py                 # 2025 slate (train on <2025)
   python3 cfb_forecast.py --season 2026 --week 6   # weekly production (needs 2026 data pulled)
 Outputs:
   out/cfb_predictions_<season>.csv  — every game (display)
@@ -410,7 +410,7 @@ def main():
     def tline_for(b, gl): return b.total_close if gl == "close" else b.total_open
     graded = te[te.actual_total.notna()].copy()
     if len(graded):
-        print(f"=== {a.season} dry-run — per-spot (graded on each spot's own line) ===")
+        print(f"=== {a.season} slate — per-spot (graded on each spot's own line) ===")
         print(f"{'spot':<36}{'line':>6}{'n':>5}{'hit%':>7}{'roi%':>8}")
         for name, (mask, side, mkt, gl) in S.items():
             b = graded[mask.reindex(graded.index, fill_value=False)].copy()

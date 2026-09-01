@@ -717,7 +717,7 @@ export default function CFBPreview() {
       setTeamMappings(cfbMappings || []);
 
       const { data: cfbPreds } = await collegeFootballSupabase
-        .from('cfb_dryrun_games')
+        .from('cfb_slate_feed')
         .select('*')
         .eq('season', season)
         .eq('week', week)

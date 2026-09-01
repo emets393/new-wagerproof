@@ -12,7 +12,7 @@ week) + a kickoff-5min stamp per distinct kickoff. Raw JSON cached under
 data/fg_snapshots/<season>/ so the run is resumable and never re-spends credits.
 
 Usage:
-  python3 nfl_fg_backfill.py --dry-run      # stamp count + credit estimate
+  python3 nfl_fg_backfill.py --slate      # stamp count + credit estimate
   python3 nfl_fg_backfill.py --test         # one week end-to-end
   python3 nfl_fg_backfill.py                # full 2021+2022 run, then append parquet
 """
@@ -132,7 +132,7 @@ def parse_snapshot(payload, season, valid_pairs):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--slate", action="store_true")
     ap.add_argument("--test", action="store_true", help="one week only")
     args = ap.parse_args()
 

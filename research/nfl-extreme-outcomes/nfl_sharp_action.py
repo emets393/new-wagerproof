@@ -72,7 +72,7 @@ def run(now=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     sk = _key()
     hdr = {"apikey": sk, "Authorization": f"Bearer {sk}", "Content-Type": "application/json"}
-    g = requests.get(f"{SUPA}/nfl_dryrun_games", headers=hdr, timeout=30, params={
+    g = requests.get(f"{SUPA}/nfl_slate_games", headers=hdr, timeout=30, params={
         "select": "game_id,season,week,home_team,away_team,home_ab,away_ab,kickoff,flags_active",
         "kickoff": f"gt.{now.isoformat()}", "order": "kickoff", "limit": 40})
     games = g.json() if g.ok else []
@@ -83,7 +83,7 @@ def run(now=None):
         key = next((k for k, (lo, hi, *_) in SIGNALS.items() if lo < hrs <= hi), None)
         if not key:
             continue
-        ex = requests.get(f"{SUPA}/nfl_dryrun_flags?game_id=eq.{gm['game_id']}&signal_key=eq.{key}&select=id",
+        ex = requests.get(f"{SUPA}/nfl_slate_flags?game_id=eq.{gm['game_id']}&signal_key=eq.{key}&select=id",
                           headers=hdr, timeout=30)
         if ex.ok and ex.json():
             continue
@@ -113,10 +113,10 @@ def run(now=None):
                "bet_line": round(line, 1),
                "source": f"SHARP ACTION ({when}): BetOnline/LowVig lead the market and {n_moved} books "
                          f"just moved to {team} {line:+.1f} — the close follows {clv} of the time; {rec} historically"}
-        ins = requests.post(f"{SUPA}/nfl_dryrun_flags", headers={**hdr, "Prefer": "return=minimal"}, json=row, timeout=30)
+        ins = requests.post(f"{SUPA}/nfl_slate_flags", headers={**hdr, "Prefer": "return=minimal"}, json=row, timeout=30)
         if ins.ok:
             fired += 1
-            requests.patch(f"{SUPA}/nfl_dryrun_games?game_id=eq.{gm['game_id']}", headers=hdr,
+            requests.patch(f"{SUPA}/nfl_slate_games?game_id=eq.{gm['game_id']}", headers=hdr,
                            json={"flags_active": int(gm.get("flags_active") or 0) + 1}, timeout=30)
             print(f"[sharp-action] {key}: {team} {line:+.1f}")
     print(f"[sharp-action] checked {len(games)} upcoming games, fired {fired}")

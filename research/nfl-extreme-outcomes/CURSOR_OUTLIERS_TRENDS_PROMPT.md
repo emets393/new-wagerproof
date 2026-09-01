@@ -12,12 +12,12 @@ is just wiring its tables.
 
 ---
 
-## 1. Data sources (Supabase — the SAME project the app reads `nfl_dryrun_*` from: `jpxnjuwglavsjbgbasnl`)
+## 1. Data sources (Supabase — the SAME project the app reads `nfl_slate_*` from: `jpxnjuwglavsjbgbasnl`)
 
 All trend tables have **public-read RLS**. Each is a **point-in-time snapshot**; read the most
-recent one for the slate's season (dry-run = season 2025, the `through_week = 11` snapshot).
+recent one for the slate's season (slate = season 2025, the `through_week = 11` snapshot).
 
-### Upcoming games (the slate) — `nfl_dryrun_games`
+### Upcoming games (the slate) — `nfl_slate_games`
 Columns you need: `season, week, home_ab, away_ab, fg_spread_close` (signed; **negative = home
 favored**), `slot`, `kickoff`, **`assigned_referee`**. One row per upcoming game.
 
@@ -128,7 +128,7 @@ note on those rows/cards (e.g. a "2023–25" chip) so users know the history is 
 ## 6. Filtering UX (4 layers, top of page, clean + easy)
 
 1. **Sport:** NFL · NCAAF · MLB · NBA · NCAAB. Non-NFL → empty state for now.
-2. **Matchup:** dropdown/segmented list of upcoming games for the sport (from `nfl_dryrun_games`,
+2. **Matchup:** dropdown/segmented list of upcoming games for the sport (from `nfl_slate_games`,
    e.g. "PHI @ DAL"), plus **"All games"** (default). 
 3. **Subject:** All · Teams · Coaches · Refs · Players.
 4. **Bet type — DYNAMIC on subject:**
@@ -148,9 +148,9 @@ the player receiving-yards cards for that game, sorted by strongest trend.
 
 ## 7. Notes / dependencies
 - **Point-in-time:** read the latest snapshot per table (`nfl_team_trends`: max `through_week` for the
-  season; coach/ref/player: max `through_week` for `through_season`). Dry-run = 2025 / week 11.
+  season; coach/ref/player: max `through_week` for `through_season`). Slate = 2025 / week 11.
 - **Other sports** tables (`cfb_*`, `mlb_*`, etc.) don't exist yet → guard for missing tables / empty
   results and show the empty state. The schema will mirror NFL when added.
-- **Referee assignments:** `nfl_dryrun_games.assigned_referee` is backfilled for the Wk12 dry-run. In
+- **Referee assignments:** `nfl_slate_games.assigned_referee` is backfilled for the Wk12 slate. In
   production the slate builder populates it from the weekly ref-assignment feed; handle null gracefully.
 - Everything is read-only from the app; no writes.

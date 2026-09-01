@@ -391,11 +391,11 @@ chip, in `AppColors`), never inline hex.
   caller. Android has neither the Outliers tile nor the detail widget.
 - **MLB-only in practice today.** NFL/CFB feeds are empty and NBA/NCAAB are
   stale (offseason as of 2026-07-26), so only MLB exercises this path. On iOS
-  the NFL/CFB feeds additionally serve the **2025-dated dry-run slates**, so
+  the NFL/CFB feeds additionally serve the **2025-dated slate slates**, so
   their consensus call asks for 2025 dates and correctly returns nothing —
   expect no strip there until the live 2026 feeds are back.
 - **Web and iOS derive the CFB key differently — resolve before CFB go-live.**
-  Web uses `cfb_dryrun_games.game_id` (`cfbGames.ts:563`); iOS prefers
+  Web uses `cfb_slate_feed.game_id` (`cfbGames.ts:563`); iOS prefers
   `trainingKey`, falling back to `uniqueId`/`gameId` (`GameConsensusKey.cfb`),
   mirroring V3's `formatCFBGame` write side. Note `cfb_api_predictions` has
   none of `training_key` / `unique_id` / `game_id`, so which field actually

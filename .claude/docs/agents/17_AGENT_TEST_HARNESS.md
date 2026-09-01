@@ -2,7 +2,7 @@
 
 **Status:** Internal runbook. How to test the V3 agent pick-generation engine
 **end-to-end WITHOUT touching the live worker or real users.** Used throughout the
-2026-06 V3 work to validate fixes against the dryrun slate + live MLB.
+2026-06 V3 work to validate fixes against the slate slate + live MLB.
 
 ## What it is (plain English)
 
@@ -19,10 +19,10 @@ exactly what it did.
   never modified.
 - **Fake test agent** — a row inserted straight into `avatar_profiles` (name `ZZZ_…`),
   with a hand-written personality that forces the feature under test.
-- **Stand-in data** — football comes from the frozen **dryrun** tables (no live
+- **Stand-in data** — football comes from the frozen **slate** tables (no live
   football off-season); baseball comes from the **live** feed (MLB is in season). The
   agent treats whatever the slate returns as "today's games."
-- **Dry-run mode** — `dry_run=true` on the run: the engine does all its work but the
+- **Slate mode** — `dry_run=true` on the run: the engine does all its work but the
   final database write is skipped, so nothing real is created.
 - **The trigger** — the engine is "poked" exactly the way the live dispatcher does it:
   a `net.http_post` from Postgres using the real keys stored in `public._internal_config`.
@@ -31,8 +31,8 @@ exactly what it did.
 
 - **Main** `gnjrklxotmbvnxbnnqgq` — the edge functions, the `avatar_*` tables,
   `_internal_config` (auth keys), and the cron jobs.
-- **Research** `jpxnjuwglavsjbgbasnl` — the dryrun tables (`nfl_dryrun_games` = Wk12,
-  `cfb_dryrun_games` = Wk7) + live MLB (`mlb_games_today`, keyed by `official_date`).
+- **Research** `jpxnjuwglavsjbgbasnl` — the slate tables (`nfl_slate_feed` = Wk12,
+  `cfb_slate_feed` = Wk7) + live MLB (`mlb_games_today`, keyed by `official_date`).
 
 ## Runbook
 
@@ -53,9 +53,9 @@ of submitted picks (not a summary), widen the trace capture in the copy's
 `personality_params`, and a `custom_insights.betting_philosophy` nudge that exercises
 the target feature (e.g. "bet NFL and MLB, lean into parlays").
 
-**3. Queue a dry-run** — insert into `agent_generation_runs`: `avatar_id`, `user_id`,
+**3. Queue a slate** — insert into `agent_generation_runs`: `avatar_id`, `user_id`,
 `generation_type='manual'`, `target_date` (use **today** if you want live MLB; the
-dryrun football fetch ignores the date and grabs the newest saved week),
+slate football fetch ignores the date and grabs the newest saved week),
 `engine_version='v3'`, `dry_run=true`, `status='queued'`, `next_attempt_at=now()`.
 
 **4. Pause the dispatcher, fire the test, re-enable** (main project SQL):
@@ -98,6 +98,6 @@ Then confirm **cron 54 is active**: `SELECT active FROM cron.job WHERE jobid=54;
 - Never deploy to or modify the live `process-agent-generation-job-v3` — only the `-test` copy.
 - Always `dry_run=true` (no real picks written). A real-write test would additionally
   require the V3 branch migrations applied to prod (`avatar_parlays` + the prop/h1/
-  team_total columns) — dry-run needs none of that.
+  team_total columns) — slate needs none of that.
 - The cron-54 pause is brief (pause → fire → re-enable once the run is leased); never leave it paused.
 - The auth keys are read from `_internal_config` inline — never print them.

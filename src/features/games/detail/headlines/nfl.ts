@@ -313,7 +313,7 @@ export const NO_LINE_MOVEMENT_ERROR = 'No line movement data available';
 export interface NflLineMovementHeadlineInput {
   loading: boolean;
   error: string | null;
-  /** False when the dryrun game_id is missing, so the consensus view cannot be queried. */
+  /** False when the slate game_id is missing, so the consensus view cannot be queried. */
   hasTrainingKey: boolean;
   /** Number of snapshots charted (or 1 when only open/close scalars exist). */
   pointCount: number;
@@ -326,7 +326,7 @@ export interface NflLineMovementHeadlineInput {
    * `isTotal` (unsigned vs signed) for backward compatibility with tests.
    */
   valueFormat?: 'signed' | 'unsigned' | 'american';
-  /** True opening value from the dryrun game row. */
+  /** True opening value from the slate game row. */
   openValue: number | null;
   /** Last non-null value of the SELECTED series (current). */
   currentValue: number | null;

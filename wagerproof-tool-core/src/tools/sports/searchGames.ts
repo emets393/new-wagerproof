@@ -31,10 +31,10 @@ export const searchGames: Tool = {
     const [nba, nfl, cfbRes, ncaab, mlb] = await Promise.allSettled([
       cfb.from("nba_input_values_view").select("away_team, home_team, game_date").eq("game_date", date),
       (async () => {
-        // NFL reads the new model's weekly table nfl_dryrun_games; latest
+        // NFL reads the new model's weekly table nfl_slate_feed; latest
         // (season, week) = current slate. game_date → gameday.
         const { data: anchor } = await cfb
-          .from("nfl_dryrun_games")
+          .from("nfl_slate_feed")
           .select("season, week")
           .order("season", { ascending: false })
           .order("week", { ascending: false })
@@ -42,16 +42,16 @@ export const searchGames: Tool = {
           .maybeSingle();
         if (!anchor) return { data: null, error: null };
         return cfb
-          .from("nfl_dryrun_games")
+          .from("nfl_slate_feed")
           .select("home_team, away_team, gameday, kickoff, game_id")
           .eq("season", (anchor as Record<string, unknown>).season)
           .eq("week", (anchor as Record<string, unknown>).week);
       })(),
       (async () => {
-        // CFB reads the new model's weekly table cfb_dryrun_games; latest
+        // CFB reads the new model's weekly table cfb_slate_feed; latest
         // (season, week) = current slate. game_date → kickoff.
         const { data: anchor } = await cfb
-          .from("cfb_dryrun_games")
+          .from("cfb_slate_feed")
           .select("season, week")
           .order("season", { ascending: false })
           .order("week", { ascending: false })
@@ -59,7 +59,7 @@ export const searchGames: Tool = {
           .maybeSingle();
         if (!anchor) return { data: null, error: null };
         return cfb
-          .from("cfb_dryrun_games")
+          .from("cfb_slate_feed")
           .select("away_team, home_team, kickoff")
           .eq("season", (anchor as Record<string, unknown>).season)
           .eq("week", (anchor as Record<string, unknown>).week);

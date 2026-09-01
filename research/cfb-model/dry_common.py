@@ -1,4 +1,4 @@
-"""Shared helpers for the CFB Week-7 dry-run generators: Supabase PostgREST loader (delete-then-insert,
+"""Shared helpers for the CFB Week-7 slate generators: Supabase PostgREST loader (delete-then-insert,
 idempotent on filters) + team-name -> logo/conference maps. Never prints the service key."""
 import os, json, requests, warnings
 import pandas as pd
@@ -17,7 +17,7 @@ H = {"apikey": KEY, "Authorization": f"Bearer {KEY}", "Content-Type": "applicati
 
 def season_week(default_season=2025, default_week=7):
     """Target (season, week) for a generator run. Override via env CFB_SEASON / CFB_WEEK,
-    or argv `gen_x.py <season> <week>`. Defaults preserve the Week-7-2025 dry-run, so an
+    or argv `gen_x.py <season> <week>`. Defaults preserve the Week-7-2025 slate, so an
     unparameterized run stays byte-for-byte the original."""
     import sys
     s = int(os.environ.get("CFB_SEASON", default_season))

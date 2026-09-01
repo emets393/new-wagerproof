@@ -9,7 +9,7 @@ import WagerproofModels
 /// id its own source table publishes, and for NFL/CFB that is the training key,
 /// not the input view's own primary key.
 enum GameConsensusKey {
-    /// NFL picks key off the nflverse `game_id` on the dry-run path and
+    /// NFL picks key off the nflverse `game_id` on the slate path and
     /// `nfl_predictions_epa.training_key` on the legacy path — `trainingKey`
     /// carries both. `id` does not: the legacy fetch prefers the input view's
     /// own `id` column when it is present.
@@ -18,7 +18,7 @@ enum GameConsensusKey {
     }
 
     /// CFB mirrors the V3 formatter's `training_key || unique_id` fallback
-    /// chain; on the dry-run path all three collapse to the CFBD game id.
+    /// chain; on the slate path all three collapse to the CFBD game id.
     static func cfb(_ game: CFBPrediction) -> String {
         firstNonBlank(game.trainingKey, game.uniqueId, game.gameId, game.id)
     }

@@ -1,5 +1,5 @@
-"""Generate cfb_dryrun_games — one row per current-week FBS game (every game gets a number).
-This is the NEW model's live weekly output table (the "dryrun" name is legacy from the 2025 display
+"""Generate cfb_slate_games — one row per current-week FBS game (every game gets a number).
+This is the NEW model's live weekly output table (the "slate" name is legacy from the 2025 display
 test; it now holds the real current-week slate). Assembles model_games (identity) + games (kickoff) +
 odds_game_frame (Odds-API lines: FG spread/total + ML — the SINGLE source for displayed lines) +
 event-odds archive (team totals + 1H) + predictions.
@@ -237,7 +237,7 @@ df["n_flags_active"] = 0; df["n_flags_tracking"] = 0   # filled by flags gen via
 # coerce nullable int columns (NaN forces float -> '16.0' which PostgREST rejects for int cols)
 for col in ["home_rank", "away_rank", "final_home", "final_away", "h1_home", "h1_away"]:
     df[col] = pd.Series([int(v) if pd.notna(v) else None for v in df[col]], dtype=object, index=df.index)
-print(f"cfb_dryrun_games rows: {len(df)} | tiers: {df.conviction_tier.value_counts().to_dict()}")
+print(f"cfb_slate_games rows: {len(df)} | tiers: {df.conviction_tier.value_counts().to_dict()}")
 print(f"  with TT close: {df.tt_home_close.notna().sum()} | 1H total: {df.h1_total_close.notna().sum()} | ML: {df.fg_ml_home_close.notna().sum()}")
 C.wipe("cfb_slate_games", f"season=eq.{SEASON}&week=eq.{WEEK}")
 C.insert("cfb_slate_games", df)

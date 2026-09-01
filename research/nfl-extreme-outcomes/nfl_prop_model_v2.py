@@ -1,4 +1,4 @@
-"""NFL player-props model v2 — RESEARCH ONLY (does not touch production / dryrun / P-flags / RPCs).
+"""NFL player-props model v2 — RESEARCH ONLY (does not touch production / slate / P-flags / RPCs).
 
 Redo of prop_model.py after the NBA post-mortem found the same two structural defects here:
   DEFECT 1: the close LINE is merged only for grading, never a feature. Predicting a RAW quantity

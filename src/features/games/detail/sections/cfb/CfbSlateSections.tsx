@@ -59,7 +59,7 @@ import {
   type FootballSport,
   type FootballTeamTrend,
 } from './FootballTeamTrends';
-import { cfbDryRunPickHeadline, cfbDryRunSummaryHeadline } from '../../headlines/cfb';
+import { cfbSlatePickHeadline, cfbSlateSummaryHeadline } from '../../headlines/cfb';
 import type { CFBPrediction } from '../../../api/cfbGames';
 import type { NFLPrediction } from '../../../api/nflGames';
 import type { GameFeedItem, TeamRef } from '../../../types';
@@ -87,7 +87,7 @@ type SignalDefinition = {
   typical_hit?: string | null;
 };
 
-type FootballDryRunPick = {
+type FootballSlatePick = {
   id?: string | number;
   game_id: string;
   card_group?: string | null;
@@ -134,7 +134,7 @@ type ConvictionSummaryEntry = {
 };
 
 /** Raw fields both sports expose on the feed row for the summary card. */
-type FootballDryRunRaw = {
+type FootballSlateRaw = {
   game_id?: string | number | null;
   season?: number | null;
   mammoth?: boolean | null;
@@ -153,7 +153,7 @@ type FootballDryRunRaw = {
 };
 
 function normalizeConvictionSummary(
-  value: FootballDryRunRaw['conviction_summary'],
+  value: FootballSlateRaw['conviction_summary'],
 ): ConvictionSummaryEntry[] {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -198,7 +198,7 @@ const SIGNAL_DEFS_TABLE: Record<FootballSport, string> = {
 };
 
 /** Game-level bet flag from `{sport}_slate_flags` (feed badge source of truth). */
-type DryRunFlag = {
+type SlateFlag = {
   game_id?: string | number | null;
   signal_key?: string | null;
   rule?: string | null;
@@ -215,7 +215,7 @@ type DryRunFlag = {
   bet_line?: number | string | null;
 };
 
-function flagSignalKey(flag: DryRunFlag): string {
+function flagSignalKey(flag: SlateFlag): string {
   return String(flag.signal_key || flag.rule || '').trim();
 }
 
@@ -234,8 +234,8 @@ function normalizeFlagMarket(market?: string | null): string {
  * no explicit signal_keys / embedded stance (projection-only NFL cards).
  */
 function flagSupportsPick(
-  flag: DryRunFlag,
-  row: FootballDryRunPick,
+  flag: SlateFlag,
+  row: FootballSlatePick,
   away: TeamRef,
   home: TeamRef,
 ): boolean {
@@ -421,7 +421,7 @@ function parseSignalHomeAway(hay?: string | null): boolean | null {
   return null;
 }
 
-function pickRowIsHome(row: FootballDryRunPick, away: TeamRef, home: TeamRef): boolean | null {
+function pickRowIsHome(row: FootballSlatePick, away: TeamRef, home: TeamRef): boolean | null {
   const side = String(row.pick_side || '').toUpperCase();
   if (side === 'HOME') return true;
   if (side === 'AWAY') return false;
@@ -432,7 +432,7 @@ function pickRowIsHome(row: FootballDryRunPick, away: TeamRef, home: TeamRef): b
 }
 
 function orientedSpreadLine(
-  row: FootballDryRunPick,
+  row: FootballSlatePick,
   signalIsHome: boolean | null,
   away: TeamRef,
   home: TeamRef,
@@ -470,7 +470,7 @@ function resolveSignalDirectionDisplay({
   betOU?: string | null;
   betLine?: number | string | null;
   flagMarket?: string | null;
-  row?: FootballDryRunPick | null;
+  row?: FootballSlatePick | null;
   away?: TeamRef | null;
   home?: TeamRef | null;
 }): string | null {
@@ -551,9 +551,9 @@ function resolveSignalDirectionDisplay({
   return null;
 }
 
-/** Match a dry-run pick to home/away (native sheet team header parity). */
+/** Match a slate pick to home/away (native sheet team header parity). */
 function resolvePickTeam(
-  row: FootballDryRunPick,
+  row: FootballSlatePick,
   away: TeamRef,
   home: TeamRef,
 ): TeamRef | null {
@@ -609,7 +609,7 @@ function resolvePickTeam(
 }
 
 /** Over / Under direction for totals (and TT labels that carry O/U). */
-function resolveOuDirection(row: FootballDryRunPick): 'over' | 'under' | null {
+function resolveOuDirection(row: FootballSlatePick): 'over' | 'under' | null {
   const hay = `${row.pick_side || ''} ${row.pick_label || ''}`.toUpperCase();
   if (/\bUNDER\b/.test(hay)) return 'under';
   if (/\bOVER\b/.test(hay)) return 'over';
@@ -617,7 +617,7 @@ function resolveOuDirection(row: FootballDryRunPick): 'over' | 'under' | null {
 }
 
 /** Native-style TT header: "KC Over 24.5" instead of a bare Over/Under or full name. */
-function teamTotalDisplayLabel(row: FootballDryRunPick, team: TeamRef): string {
+function teamTotalDisplayLabel(row: FootballSlatePick, team: TeamRef): string {
   const sideHay = `${row.pick_side || ''} ${row.pick_label || ''}`.toUpperCase();
   const direction = sideHay.includes('UNDER')
     ? 'Under'
@@ -639,15 +639,15 @@ function teamTotalDisplayLabel(row: FootballDryRunPick, team: TeamRef): string {
 }
 
 /**
- * When `*_dryrun_picks` is empty (CFB Weeks 1–3 by design; occasional NFL gaps),
+ * When `*_slate_picks` is empty (CFB Weeks 1–3 by design; occasional NFL gaps),
  * still surface FG spread/total from the slate row — same source of truth as the
  * native sheet's marketRows built from `fg_*`.
  */
 function synthesizeFgMarketPicks(
-  game: GameFeedItem<FootballDryRunRaw>,
-): FootballDryRunPick[] {
+  game: GameFeedItem<FootballSlateRaw>,
+): FootballSlatePick[] {
   const raw = game.raw;
-  const picks: FootballDryRunPick[] = [];
+  const picks: FootballSlatePick[] = [];
   const homeSpread = toNum(raw.home_spread ?? raw.fg_spread_close);
   const modelSpread = toNum(raw.pred_spread ?? raw.fg_pred_spread);
   const spreadEdge = toNum(raw.home_spread_diff ?? raw.fg_spread_edge);
@@ -750,7 +750,7 @@ type SlateMarketLines = {
   vegasTotal: number | null;
 };
 
-function slateMarketLines(game: GameFeedItem<FootballDryRunRaw>): SlateMarketLines {
+function slateMarketLines(game: GameFeedItem<FootballSlateRaw>): SlateMarketLines {
   const raw = game.raw;
   const predAway = toNum(raw.pred_away_score);
   const predHome = toNum(raw.pred_home_score);
@@ -841,7 +841,7 @@ const CONVICTION_LABEL: Record<string, string> = {
  * markets, NFL totals/1H/TT without a priced play) still publish model + Vegas
  * lines, and the Disagreement bar is the whole point of showing both.
  */
-function resolveRowGap(row: FootballDryRunPick | undefined): number | null {
+function resolveRowGap(row: FootballSlatePick | undefined): number | null {
   if (!row) return null;
   const model = toNum(row.model_line) ?? toNum(row.model_number);
   const vegas = toNum(row.vegas_line);
@@ -851,7 +851,7 @@ function resolveRowGap(row: FootballDryRunPick | undefined): number | null {
   if (group === 'moneyline' || group === 'h1_ml') {
     const ml = moneylineRowOutcome(row);
     // Percentage POINTS of win probability, not points of line. The card that
-    // reads this must say so — see `leadGapKind` on cfbDryRunPickHeadline.
+    // reads this must say so — see `leadGapKind` on cfbSlatePickHeadline.
     return ml ? ml.edge : toNum(row.edge);
   }
   if (model !== null && vegas !== null) return model - vegas;
@@ -867,7 +867,7 @@ function resolveRowGap(row: FootballDryRunPick | undefined): number | null {
  * plots `vegas_line`: the card's headline is written against the CLOSE, and a
  * best-shopped price would make the bar and the sentence quote different edges.
  */
-function moneylineRowOutcome(row: FootballDryRunPick) {
+function moneylineRowOutcome(row: FootballSlatePick) {
   const price = toNum(row.vegas_price) ?? toNum(row.best_odds);
   const probability = toNum(row.model_number);
   if (price === null || price === 0) return null;
@@ -916,11 +916,11 @@ function ConvictionChip({
  * charts live on the market cards below — same split as the native sheet's
  * Score Prediction widget vs. the pick cards.
  */
-export function FootballDryRunSummarySection({
+export function FootballSlateSummarySection({
   game,
   sport,
 }: {
-  game: GameFeedItem<FootballDryRunRaw>;
+  game: GameFeedItem<FootballSlateRaw>;
   sport: FootballSport;
 }) {
   const prediction = game.raw;
@@ -950,7 +950,7 @@ export function FootballDryRunSummarySection({
       icon={<Trophy />}
       title="Slate Summary"
       headline={
-        cfbDryRunSummaryHeadline({
+        cfbSlateSummaryHeadline({
           hasScore,
           predAway,
           predHome,
@@ -1026,12 +1026,12 @@ export function FootballDryRunSummarySection({
   );
 }
 
-export function CfbDryRunSummarySection({ game }: { game: GameFeedItem<CFBPrediction> }) {
-  return <FootballDryRunSummarySection game={game as GameFeedItem<FootballDryRunRaw>} sport="cfb" />;
+export function CfbSlateSummarySection({ game }: { game: GameFeedItem<CFBPrediction> }) {
+  return <FootballSlateSummarySection game={game as GameFeedItem<FootballSlateRaw>} sport="cfb" />;
 }
 
-export function NflDryRunSummarySection({ game }: { game: GameFeedItem<NFLPrediction> }) {
-  return <FootballDryRunSummarySection game={game as GameFeedItem<FootballDryRunRaw>} sport="nfl" />;
+export function NflSlateSummarySection({ game }: { game: GameFeedItem<NFLPrediction> }) {
+  return <FootballSlateSummarySection game={game as GameFeedItem<FootballSlateRaw>} sport="nfl" />;
 }
 
 /**
@@ -1093,22 +1093,22 @@ function ProjectedScore({
 }
 
 /**
- * Grouped prediction cards from `*_dryrun_picks` with signal convictions and
+ * Grouped prediction cards from `*_slate_picks` with signal convictions and
  * per-market team season trends. When picks are empty (CFB Weeks 1–3), FG
  * spread/total are synthesized from the slate row so the board still matches
  * the native sheet.
  */
-export function FootballDryRunPicksSection({
+export function FootballSlatePicksSection({
   game,
   sport,
 }: {
-  game: GameFeedItem<FootballDryRunRaw>;
+  game: GameFeedItem<FootballSlateRaw>;
   sport: FootballSport;
 }) {
   const prediction = game.raw;
   const gameId = prediction?.game_id != null ? String(prediction.game_id) : '';
-  const [picks, setPicks] = useState<FootballDryRunPick[]>([]);
-  const [gameFlags, setGameFlags] = useState<DryRunFlag[]>([]);
+  const [picks, setPicks] = useState<FootballSlatePick[]>([]);
+  const [gameFlags, setGameFlags] = useState<SlateFlag[]>([]);
   const [signalDefs, setSignalDefs] = useState<Record<string, SignalDefinition>>({});
   const [signalPerformance, setSignalPerformance] = useState<Record<string, SignalPerformanceRow>>({});
   const [teamTrends, setTeamTrends] = useState<Record<string, FootballTeamTrend>>({});
@@ -1203,7 +1203,7 @@ export function FootballDryRunPicksSection({
         // Only picks are required for the market board. Flags/defs/perf must
         // soft-fail — otherwise we wipe the same signals the feed ⚡ badge shows.
         if (picksError) throw picksError;
-        if (flagsError) debug.warn(`Error loading ${sport} dry-run flags:`, flagsError.message);
+        if (flagsError) debug.warn(`Error loading ${sport} slate flags:`, flagsError.message);
         if (defsError) debug.warn(`Error loading ${sport} signal defs:`, defsError.message);
         if (perfError) debug.warn(`Error loading ${sport} signal performance:`, perfError.message);
 
@@ -1218,12 +1218,12 @@ export function FootballDryRunPicksSection({
         }, {});
 
         // Same non-blanket set the feed badge counts from flags_* / n_flags_*.
-        const loadedFlags = ((flagRows || []) as DryRunFlag[]).filter((flag) => {
+        const loadedFlags = ((flagRows || []) as SlateFlag[]).filter((flag) => {
           const key = flagSignalKey(flag);
           return key.length > 0 && !isBlanketSignalKey(sport, key);
         });
 
-        const loaded = (pickRows || []) as FootballDryRunPick[];
+        const loaded = (pickRows || []) as FootballSlatePick[];
         setPicks(loaded.length > 0 ? loaded : synthesizeFgMarketPicks(game));
         setGameFlags(loadedFlags);
         setSignalDefs(defsByKey);
@@ -1231,7 +1231,7 @@ export function FootballDryRunPicksSection({
         setTeamTrends(trends);
       } catch (err) {
         if (cancelled) return;
-        debug.error(`Error loading ${sport} dry-run picks:`, err);
+        debug.error(`Error loading ${sport} slate picks:`, err);
         setError(err instanceof Error ? err.message : `Unable to load ${sport.toUpperCase()} picks`);
         // Still try to show FG markets + empty trend shells on hard failure.
         // Keep any flags already set — don't erase feed-badge parity.
@@ -1250,7 +1250,7 @@ export function FootballDryRunPicksSection({
   }, [gameId, sport, prediction?.season, prediction?.week, game.awayTeam.abbrev, game.homeTeam.abbrev, game.awayTeam.name, game.homeTeam.name]);
 
   const groupedPicks = useMemo(() => {
-    const groups = picks.reduce<Record<string, FootballDryRunPick[]>>((acc, pick) => {
+    const groups = picks.reduce<Record<string, FootballSlatePick[]>>((acc, pick) => {
       const group = normalizeCardGroup(pick.card_group);
       acc[group] = acc[group] || [];
       acc[group].push(pick);
@@ -1282,7 +1282,7 @@ export function FootballDryRunPicksSection({
   }, [gameFlags, gameHasFlagSignals, pickSignalKeySet]);
 
   const flagsByMarket = useMemo(() => {
-    const map = new Map<string, DryRunFlag[]>();
+    const map = new Map<string, SlateFlag[]>();
     for (const flag of orphanFlags) {
       const market = normalizeFlagMarket(flag.market);
       if (!market) continue;
@@ -1411,12 +1411,12 @@ export function FootballDryRunPicksSection({
   );
 }
 
-export function CfbDryRunPicksSection({ game }: { game: GameFeedItem<CFBPrediction> }) {
-  return <FootballDryRunPicksSection game={game as GameFeedItem<FootballDryRunRaw>} sport="cfb" />;
+export function CfbSlatePicksSection({ game }: { game: GameFeedItem<CFBPrediction> }) {
+  return <FootballSlatePicksSection game={game as GameFeedItem<FootballSlateRaw>} sport="cfb" />;
 }
 
-export function NflDryRunPicksSection({ game }: { game: GameFeedItem<NFLPrediction> }) {
-  return <FootballDryRunPicksSection game={game as GameFeedItem<FootballDryRunRaw>} sport="nfl" />;
+export function NflSlatePicksSection({ game }: { game: GameFeedItem<NFLPrediction> }) {
+  return <FootballSlatePicksSection game={game as GameFeedItem<FootballSlateRaw>} sport="nfl" />;
 }
 
 
@@ -1437,14 +1437,14 @@ function PredictionGroupCard({
   slateLines,
 }: {
   group: string;
-  rows: FootballDryRunPick[];
+  rows: FootballSlatePick[];
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
   /** Game-level flags for this market when pick.signal_keys are empty. */
-  fallbackFlags: DryRunFlag[];
+  fallbackFlags: SlateFlag[];
   /** ALL game flags — the structured bet_* lookup. fallbackFlags is orphans-only
       (flags no pick references), so keyed signals never matched it (2026-08-10). */
-  lookupFlags?: DryRunFlag[];
+  lookupFlags?: SlateFlag[];
   /** Weeks 1-3: display model is a preseason blend — headline explains why no play. */
   earlyWeek?: boolean;
   away: TeamRef;
@@ -1477,7 +1477,7 @@ function PredictionGroupCard({
       icon={<Icon />}
       title={CARD_LABELS[group] || group}
       headline={
-        cfbDryRunPickHeadline({
+        cfbSlatePickHeadline({
           marketLabel: CARD_LABELS[group] || group,
           rowCount: rows.length,
           playCount,
@@ -1546,13 +1546,13 @@ function PickRow({
   selectedBookKeys,
   slateLines,
 }: {
-  row: FootballDryRunPick;
+  row: FootballSlatePick;
   sport: FootballSport;
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
-  fallbackFlags: DryRunFlag[];
+  fallbackFlags: SlateFlag[];
   /** ALL game flags for the structured bet_* lookup (fallbackFlags = orphans only). */
-  lookupFlags?: DryRunFlag[];
+  lookupFlags?: SlateFlag[];
   away: TeamRef;
   home: TeamRef;
   bookOdds: SportsbookGameOdds | null;
@@ -1830,11 +1830,11 @@ type ResolvedSignal = {
 
 function resolvePickSignals(
   signalKeys: string[],
-  row: FootballDryRunPick,
+  row: FootballSlatePick,
   away: TeamRef,
   home: TeamRef,
   signalDefs: Record<string, SignalDefinition>,
-  flagsByKey?: Record<string, DryRunFlag>,
+  flagsByKey?: Record<string, SlateFlag>,
   counterKeys?: string[],
 ): ResolvedSignal[] {
   const counters: ResolvedSignal[] = (counterKeys || []).map((key) => {
@@ -1920,8 +1920,8 @@ function normalizedBetOU(v: string | null | undefined): 'over' | 'under' | undef
 }
 
 function resolveFlagSignals(
-  flags: DryRunFlag[],
-  row: FootballDryRunPick,
+  flags: SlateFlag[],
+  row: FootballSlatePick,
   away: TeamRef,
   home: TeamRef,
   signalDefs: Record<string, SignalDefinition>,
@@ -1976,16 +1976,16 @@ function PickSignalGroups({
   signalKeys: string[];
   /** Signals that fired against the pick — rendered under Contradicts. */
   counterKeys?: string[];
-  row: FootballDryRunPick;
+  row: FootballSlatePick;
   away: TeamRef;
   home: TeamRef;
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
   /** Flag rows for this game — carry the structured bet_* fields per signal key. */
-  flags?: DryRunFlag[];
+  flags?: SlateFlag[];
 }) {
   const flagsByKey = useMemo(() => {
-    const map: Record<string, DryRunFlag> = {};
+    const map: Record<string, SlateFlag> = {};
     for (const f of flags || []) {
       const k = flagSignalKey(f);
       if (k && !map[k]) map[k] = f;
@@ -2009,8 +2009,8 @@ function FlagSignalGroups({
   signalDefs,
   signalPerformance,
 }: {
-  flags: DryRunFlag[];
-  row: FootballDryRunPick;
+  flags: SlateFlag[];
+  row: FootballSlatePick;
   away: TeamRef;
   home: TeamRef;
   signalDefs: Record<string, SignalDefinition>;
@@ -2080,7 +2080,7 @@ function GameLevelSignalList({
   signalDefs,
   signalPerformance,
 }: {
-  flags: DryRunFlag[];
+  flags: SlateFlag[];
   away: TeamRef;
   home: TeamRef;
   signalDefs: Record<string, SignalDefinition>;

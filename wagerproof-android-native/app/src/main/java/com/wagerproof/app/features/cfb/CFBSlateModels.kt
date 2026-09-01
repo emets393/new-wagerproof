@@ -27,12 +27,12 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 
 /**
- * Tolerant `cfb_dryrun_picks` row shared by the feed card and game detail.
+ * Tolerant `cfb_slate_picks` row shared by the feed card and game detail.
  * Numeric ids/lines and JSON-array/string signal-key variants mirror the iOS
  * `FlexibleText` / `FlexibleStringList` decoding contract.
  */
 @Serializable
-data class CFBDryrunPickRow(
+data class CFBSlatePickRow(
     @Serializable(with = FlexibleStringSerializer::class) val id: String? = null,
     @SerialName("game_id") @Serializable(with = FlexibleStringSerializer::class) val gameId: String? = null,
     @SerialName("card_group") val cardGroup: String? = null,
@@ -66,20 +66,20 @@ data class CFBDryrunPickRow(
 }
 
 /** Full detail payload. Result preserves the caller's cached rows on failure. */
-suspend fun loadCFBDryrunPicksResult(gameId: String): Result<List<CFBDryrunPickRow>> = runCatching {
+suspend fun loadCFBSlateDetailPicksResult(gameId: String): Result<List<CFBSlatePickRow>> = runCatching {
     SupabaseClients.cfb
-        .from("cfb_dryrun_picks")
+        .from("cfb_slate_picks")
         .select {
             filter { eq("game_id", gameId) }
             order("sort_order", Order.ASCENDING)
         }
-        .decodeList<CFBDryrunPickRow>()
+        .decodeList<CFBSlatePickRow>()
 }
 
 /** Slim feed-card payload, matching iOS `CFBSlatePickRow`. */
-suspend fun loadCFBSlatePicksResult(gameId: String): Result<List<CFBDryrunPickRow>> = runCatching {
+suspend fun loadCFBSlatePicksResult(gameId: String): Result<List<CFBSlatePickRow>> = runCatching {
     SupabaseClients.cfb
-        .from("cfb_dryrun_picks")
+        .from("cfb_slate_picks")
         .select(
             Columns.raw(
                 "game_id,card_group,pick_team,pick_side,pick_label,best_line,vegas_line," +
@@ -89,7 +89,7 @@ suspend fun loadCFBSlatePicksResult(gameId: String): Result<List<CFBDryrunPickRo
             filter { eq("game_id", gameId) }
             order("sort_order", Order.ASCENDING)
         }
-        .decodeList<CFBDryrunPickRow>()
+        .decodeList<CFBSlatePickRow>()
 }
 
 fun normalizeCFBCardGroup(group: String?): String {

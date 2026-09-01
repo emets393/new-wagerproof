@@ -1,7 +1,7 @@
 """Load per-game META (coach + normalized playing surface, nflverse schedules, all seasons)
 + 1H half scores (quarter_scores, 2023-25) into the _nab_patch staging table, keyed on nflverse
 game_id. refresh_nfl_analysis_base() LEFT JOINs this to fill coach/opp_coach/surface on the
-exploded rows (those aren't in nfl_dryrun_games), so the live-season append gets them too.
+exploded rows (those aren't in nfl_slate_games), so the live-season append gets them too.
 Idempotent (delete-all + insert). Run before the refresh RPC (wired into grade_week.sh)."""
 import io
 import json

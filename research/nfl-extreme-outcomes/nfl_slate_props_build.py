@@ -2,10 +2,10 @@
 
 One row per (player, market): consensus close line/price (median across the
 4 US books), point-in-time L5/L10 trends through Week 11, P-flags fired
-(PROPS_BRIEF1 P1-P10; the game-level P11 lives in nfl_dryrun_flags), and the
-headshot join via nfl_player_profiles. Loads nfl_dryrun_props.
+(PROPS_BRIEF1 P1-P10; the game-level P11 lives in nfl_slate_flags), and the
+headshot join via nfl_player_profiles. Loads nfl_slate_props.
 
-Usage:  python3 dryrun_wk12_props.py [--no-load]
+Usage:  python3 nfl_slate_props_build.py [--no-load]
 """
 import argparse
 import json
@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
 # Target slate — override per week via env NFL_SEASON / NFL_WEEK; defaults to the
-# Wk12-2025 dry-run so an unparameterized run stays byte-for-byte the original.
+# Wk12-2025 slate so an unparameterized run stays byte-for-byte the original.
 SEASON = int(os.environ.get("NFL_SEASON", 2025))
 WEEK = int(os.environ.get("NFL_WEEK", 12))
 BATCH = 500
@@ -430,7 +430,7 @@ def main():
     ap.add_argument("--no-load", action="store_true")
     args = ap.parse_args()
 
-    from dryrun_wk12_games import book_meta as fetch_book_meta
+    from nfl_slate_games_build import book_meta as fetch_book_meta
     from nfl_outliers_betting_lines import best_prop_pick, index_props_books
 
     pf = pd.read_parquet(DATA / "props_frame.parquet")
@@ -447,7 +447,7 @@ def main():
         a = attempts_flags(a)
         c = pd.concat([c, a], ignore_index=True)
 
-    # map to dry-run game ids via home team
+    # map to slate game ids via home team
     tm = pd.read_parquet(DATA / "team_mapping.parquet")
     name_ab = dict(zip(tm.city_and_name, tm["Team Abbrev"].replace({"LAR": "LA"})))
     hp = pd.read_parquet(DATA / "h1m_preds.parquet")
@@ -485,7 +485,11 @@ def main():
             player_id=r.player_id, player_name=r.player_name, position=r.position,
             team=r.team, opponent=r.opp, is_home=bool(r.is_home),
             market=r.market,
-            close_line=r.close_line, over_price=r.over_price, under_price=r.under_price,
+            close_line=r.close_line,
+            # median of American prices is a float (118.0, even 115.5) and the DB
+            # columns are integer — 22P02 killed the first 2026 load (2026-09-01)
+            over_price=int(round(float(r.over_price))) if pd.notna(r.over_price) else None,
+            under_price=int(round(float(r.under_price))) if pd.notna(r.under_price) else None,
             open_line=r.open_line, line_delta=r.line_delta, line_range=r.book_line_spread,
             n_books=int(r.n_books),
             close_yes_prob=round(float(r.close_yes_prob), 4) if pd.notna(r.close_yes_prob) else None,
@@ -508,7 +512,7 @@ def main():
 
     hdr = {"apikey": key, "Authorization": f"Bearer {key}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
-    resp = requests.delete(f"{BASE_URL}/nfl_dryrun_props?season=eq.{SEASON}&week=eq.{WEEK}",
+    resp = requests.delete(f"{BASE_URL}/nfl_slate_props?season=eq.{SEASON}&week=eq.{WEEK}",
                            headers=hdr, timeout=60)
     if resp.status_code not in (200, 204):
         sys.exit(f"delete: {resp.status_code} {resp.text[:300]}")
@@ -542,7 +546,7 @@ def main():
 
     recs = json.loads(df.to_json(orient="records"))
     probe = requests.get(
-        f"{BASE_URL}/nfl_dryrun_props?select=best_over_book&limit=1",
+        f"{BASE_URL}/nfl_slate_props?select=best_over_book&limit=1",
         headers={"apikey": key, "Authorization": f"Bearer {key}"},
         timeout=30,
     )
@@ -556,12 +560,12 @@ def main():
             for k in best_keys:
                 rec.pop(k, None)
     for i in range(0, len(recs), BATCH):
-        resp = requests.post(f"{BASE_URL}/nfl_dryrun_props", headers=hdr,
+        resp = requests.post(f"{BASE_URL}/nfl_slate_props", headers=hdr,
                              json=recs[i:i + BATCH], timeout=120)
         if resp.status_code != 201:
             sys.exit(f"batch {i}: {resp.status_code} {resp.text[:300]}")
         print(f"  loaded {min(i + BATCH, len(recs))}/{len(recs)}", end="\r")
-    print(f"\nloaded {len(recs)} rows -> nfl_dryrun_props")
+    print(f"\nloaded {len(recs)} rows -> nfl_slate_props")
 
 
 def export_prop_best_books_json(c, props_books_idx, book_meta):
@@ -573,7 +577,7 @@ def export_prop_best_books_json(c, props_books_idx, book_meta):
             out[f"{pid}|{mkt}"] = fields
     dest = (
         ROOT.parent.parent / "wagerproof-ios-native" / "WagerproofKit"
-        / "Sources" / "WagerproofServices" / "Resources" / "nfl_dryrun_prop_best_books.json"
+        / "Sources" / "WagerproofServices" / "Resources" / "nfl_slate_prop_best_books.json"
     )
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(out))

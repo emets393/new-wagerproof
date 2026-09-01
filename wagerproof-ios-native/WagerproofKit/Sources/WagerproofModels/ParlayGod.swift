@@ -100,7 +100,7 @@ public struct ParlayLeg: Identifiable, Hashable, Sendable {
     public let category: ParlayGodCategory
     /// `String(game_pk)` — matches both `OutliersTrendsGame.id` (MLB) and
     /// `String(MLBPropMatchup.gamePk)`, so same-game rules join cleanly.
-    /// NFL team legs use `nfl_dryrun_games.game_id` ("2025_12_CLE_LV").
+    /// NFL team legs use `nfl_slate_feed.game_id` ("2025_12_CLE_LV").
     public let gameKey: String
     public let matchupLabel: String
     public let gameTimeEt: String?

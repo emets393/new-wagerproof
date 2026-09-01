@@ -1,5 +1,5 @@
 """LIVE props_frame builder — the missing bridge from nfl_player_props (DB captures) to
-the per-book frame dryrun_wk12_props consumes (owner escalation 2026-08-15: the generator
+the per-book frame nfl_slate_props_build consumes (owner escalation 2026-08-15: the generator
 read only the frozen June research frame, so live-season captures never reached staging).
 
 For (SEASON, WEEK): pull all captured rows, aggregate per (event, player, market, book) to

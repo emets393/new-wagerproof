@@ -10,7 +10,7 @@ import WagerproofModels
 /// - `nfl_player_prop_trends` — prior-season game log (grades + lines).
 /// - `nfl_player_game_logs` — real stat totals merged into that log.
 ///
-/// Dry-run staging tables are not read.
+/// Slate staging tables are not read.
 public actor NFLPlayerPropsService {
     public static let shared = NFLPlayerPropsService()
     public init() {}

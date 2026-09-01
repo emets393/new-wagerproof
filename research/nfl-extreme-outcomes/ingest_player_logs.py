@@ -6,8 +6,8 @@ Fetches nflverse weekly player stats (offense) -> nfl_player_game_logs. The grad
 provides natively, so no id mapping is needed. Idempotent per (season[,week]): delete
 + insert. Run next-morning during the season so Thursday-night props grade by Friday AM.
 
-Run:  python3 ingest_player_logs.py 2025        # dry-run, whole season
-      python3 ingest_player_logs.py 2025 12     # dry-run, one week
+Run:  python3 ingest_player_logs.py 2025        # slate, whole season
+      python3 ingest_player_logs.py 2025 12     # slate, one week
       python3 ingest_player_logs.py 2025 12 --write
 """
 import sys
@@ -98,7 +98,7 @@ def main():
     print(cmp.to_string())
 
     if not WRITE:
-        print("\n[dry-run] no writes. Re-run with --write once counts line up.")
+        print("\n[slate] no writes. Re-run with --write once counts line up.")
         return
 
     k = service_key()

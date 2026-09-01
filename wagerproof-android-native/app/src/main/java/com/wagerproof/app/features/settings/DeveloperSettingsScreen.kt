@@ -155,8 +155,8 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
                 iconColor = Color(0xFF0EA5E9),
                 iconBackground = Color(0xFFE6F6FE),
                 title = "Dry Run",
-                subtitle = if (v3.dryRun) "Runs the loop + records trace, writes NO picks" else "Writes picks normally",
-                trailing = { AppSwitch(v3.dryRun) { v3.setDryRun(it) } },
+                subtitle = if (v3.simulateOnly) "Runs the loop + records trace, writes NO picks" else "Writes picks normally",
+                trailing = { AppSwitch(v3.simulateOnly) { v3.setSimulateOnly(it) } },
             )
             ModelPicker(v3)
 

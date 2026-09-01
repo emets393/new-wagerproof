@@ -101,12 +101,12 @@ Two guards worth copying when you add one:
 | `nflH2HHeadline` | `nfl.ts:266` | `nfl/NflH2HSection.tsx:126` |
 | `nflLineMovementHeadline` | `nfl.ts:329` | `nfl/NflLineMovementSection.tsx:158` |
 | `cfbWeatherHeadline` | `cfb.ts:64` | `cfb/CfbWeatherSection.tsx:124` |
-| `cfbDryRunSummaryHeadline` | `cfb.ts:152` | `cfb/CfbDryRunSections.tsx:908` |
-| `cfbDryRunPickHeadline` | `cfb.ts:262` | `cfb/CfbDryRunSections.tsx:1435` |
+| `cfbSlateSummaryHeadline` | `cfb.ts:152` | `cfb/CfbSlateSections.tsx:908` |
+| `cfbSlatePickHeadline` | `cfb.ts:262` | `cfb/CfbSlateSections.tsx:1435` |
 
 ### Units have to match the chart under the sentence
 
-`cfbDryRunPickHeadline` takes `leadGapKind`. Moneyline cards compare a PRICE to a
+`cfbSlatePickHeadline` takes `leadGapKind`. Moneyline cards compare a PRICE to a
 PROBABILITY, so their gap is percentage points of win rate, and the sentence says
 "its win rate N points clear of the price's break-even" rather than borrowing the
 spread card's "fair line ... clear of the market close". The `MoneylineEdgeBar`

@@ -379,7 +379,7 @@ struct InsightWidgetSkeleton: View {
     }
 }
 
-// MARK: - Signal performance stats (NFL / CFB dry-run signal cards)
+// MARK: - Signal performance stats (NFL / CFB slate signal cards)
 
 /// Backtest + live season record grouped in one readable card on signal detail sheets.
 struct SignalPerformanceStatsSection: View {

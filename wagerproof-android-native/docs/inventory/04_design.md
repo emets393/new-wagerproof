@@ -409,7 +409,7 @@ Tile = **32 px** → grid **27 cols × 25 rows**. Collision bitmap ('1' walkable
 - `AppIcon.appiconset` (+ two `.icon` bundles `AppIcon.icon` / `AppIcon 2.icon` at repo root for the iOS 26 icon format).
 - `WagerproofLogo.imageset` — single universal `wagerproofrawlogo.png`, `preserves-vector-representation`. Used in the ticket brand footer + share cards.
 - **No color sets, no named colors, no other image sets.** No custom fonts anywhere in the repo.
-- `WagerproofServices/Resources/nfl_dryrun_prop_best_books.json` — data fixture, not design.
+- `WagerproofServices/Resources/nfl_slate_prop_best_books.json` — data fixture, not design.
 
 ---
 

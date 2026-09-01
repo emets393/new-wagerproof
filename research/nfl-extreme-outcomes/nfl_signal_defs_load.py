@@ -1,6 +1,6 @@
 """Load the NFL signal dictionary into nfl_signal_defs (research Supabase).
 
-One row per rule that can appear in nfl_dryrun_flags.rule / nfl_dryrun_picks.signal_keys.
+One row per rule that can appear in nfl_slate_flags.rule / nfl_slate_picks.signal_keys.
 Mirrors cfb_signal_defs so the same Swift "what is this signal" sheet renders both
 sports. default_conviction uses the shared CFB enum: mammoth|high|med|low|lean|none.
 

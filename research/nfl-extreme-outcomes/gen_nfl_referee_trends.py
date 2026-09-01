@@ -10,7 +10,7 @@ often does the HOME team cover / win, and how often does the game go OVER.
 NO team totals, NO matchups (per spec). away% is just the inverse of home%.
 
 Dimensions: overall, division, non_division, primetime (kickoff >= 19:00 ET), regular.
-Windows: last 5/10/15. Point-in-time via NFL_SEASON/NFL_WEEK (dry-run = through 2025 wk11).
+Windows: last 5/10/15. Point-in-time via NFL_SEASON/NFL_WEEK (slate = through 2025 wk11).
 
 Usage:  python3 gen_nfl_referee_trends.py [--no-load]
 """

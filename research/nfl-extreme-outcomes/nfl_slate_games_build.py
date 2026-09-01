@@ -3,10 +3,10 @@
 Pretend it's Wednesday of Week 12, 2025: every model number is walk-forward
 (FG models trained <2025, 1H model trained 2023-24), every signal is
 point-in-time (K1/P11 ranked within the Week 12 slate only), every line is the
-real consensus close snapshot. Loads nfl_dryrun_games + nfl_dryrun_flags on the
-research Supabase project. See DRYRUN_WK12_SPEC.md for the data contract.
+real consensus close snapshot. Loads nfl_slate_games + nfl_slate_flags on the
+research Supabase project. See SLATE_WK12_SPEC.md for the data contract.
 
-Usage:  python3 dryrun_wk12_games.py [--no-load]
+Usage:  python3 nfl_slate_games_build.py [--no-load]
 """
 import argparse
 import json
@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
 # Target slate — override per week via env NFL_SEASON / NFL_WEEK; defaults to the
-# Wk12-2025 dry-run so an unparameterized run stays byte-for-byte the original.
+# Wk12-2025 slate so an unparameterized run stays byte-for-byte the original.
 SEASON = int(os.environ.get("NFL_SEASON", 2025))
 WEEK = int(os.environ.get("NFL_WEEK", 12))
 
@@ -408,7 +408,7 @@ def build_flags(g):
     flags = []
 
     def bet_fields(market, side, line):
-        """Structured direction for the UI (parity with gen_cfb_dryrun_flags 2026-08-15):
+        """Structured direction for the UI (parity with gen_cfb_slate_flags 2026-08-15):
         bet_team -> logo, bet_direction over/under -> green arrow, bet_line signed for THAT
         bet. Parsed from the side string, whose formats the emitters own:
         spread/h1_spread 'KC -3' | total/h1_total 'UNDER 44.5' | team_total 'KC UNDER 21.5'
@@ -718,7 +718,7 @@ def sig_objs(sub, pick_side, market, home_ab):
 
 def build_picks(g, fl, books, kickoff, meta):
     """Eight normalized prediction rows per game (7 card groups; team_total = 2 rows).
-    Mirrors cfb_dryrun_picks. team_total / moneyline / 1H cards are display-only for
+    Mirrors cfb_slate_picks. team_total / moneyline / 1H cards are display-only for
     NFL (TT bets come only from tracking K-signals; the 1H model is paper-traded)."""
     picks = []
 
@@ -1065,7 +1065,7 @@ def main():
     hdr = {"apikey": key, "Authorization": f"Bearer {key}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
     # idempotent reload: children first (FK), then games.
-    # Props have their own loader (dryrun_wk12_props.py) — don't delete them here
+    # Props have their own loader (nfl_slate_props_build.py) — don't delete them here
     # or a games-only reload leaves the Props tab empty until props are re-run.
     # SIGN GUARD (parity with gen_cfb_picks 2026-08-15): a non-NEUTRAL games-table header
     # must name the SAME team as the spread card's pick. Refuse the whole write on mismatch
@@ -1084,13 +1084,13 @@ def main():
         raise SystemExit(f"[SIGN GUARD] {len(_bad)} spread pick(s) contradict the games header — REFUSING TO WRITE: {_bad}")
     print(f"  sign guard: {len(_hdr)} non-neutral spread headers agree with pick cards")
 
-    for t in ("nfl_dryrun_picks", "nfl_dryrun_flags", "nfl_slate_games"):
+    for t in ("nfl_slate_picks", "nfl_slate_flags", "nfl_slate_games"):
         resp = requests.delete(f"{BASE_URL}/{t}?season=eq.{SEASON}&week=eq.{WEEK}",
                                headers=hdr, timeout=60)
         if resp.status_code not in (200, 204):
             sys.exit(f"delete {t}: {resp.status_code} {resp.text[:300]}")
-    for t, df in (("nfl_slate_games", games), ("nfl_dryrun_flags", fl),
-                  ("nfl_dryrun_picks", picks)):
+    for t, df in (("nfl_slate_games", games), ("nfl_slate_flags", fl),
+                  ("nfl_slate_picks", picks)):
         recs = json.loads(df.to_json(orient="records"))   # to_json handles numpy types
         resp = requests.post(f"{BASE_URL}/{t}", headers=hdr, json=recs, timeout=60)
         if resp.status_code != 201:

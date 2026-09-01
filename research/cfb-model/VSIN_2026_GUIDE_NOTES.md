@@ -16,7 +16,7 @@ higher returning-production team, ret_diff ≥ +0.20, wk1-3):**
 | Non-conf + \|spread\|<30 (his cap) | 522 | 54.8% | +4.6 | **9/9** |
 
 **WIRED 2026-08-03:** `ret_prod_edge` now fires in non-conference games only
-(`cfb_early_roster_signals.py` takes an `is_conf` flag from `gen_cfb_dryrun_flags.py`). The spread<30
+(`cfb_early_roster_signals.py` takes an `is_conf` flag from `gen_cfb_slate_flags.py`). The spread<30
 cap not wired (n cost > consistency gain; revisit if 2026 adds data). S-CFB3 (`portal_talent_influx`)
 left unchanged — split not yet tested for it (small n).
 

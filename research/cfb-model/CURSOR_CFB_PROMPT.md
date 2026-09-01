@@ -8,7 +8,7 @@ this tells you the data and the layout.
 ## ⚠️ First: the current CFB page reads the WRONG data
 `src/pages/CollegeFootball.tsx` + `src/components/CFBGameCard.tsx` currently read the legacy
 `cfb_live_weekly_inputs` / `cfb_api_predictions` tables — that's why CFB looks nothing like NFL. **Switch CFB
-to the dry-run tables below** and mirror the NFL card layout in `src/pages/NFL.tsx` / `src/components/NFLGameCard.tsx`.
+to the slate tables below** and mirror the NFL card layout in `src/pages/NFL.tsx` / `src/components/NFLGameCard.tsx`.
 
 ## Connect
 ```
@@ -17,8 +17,8 @@ anon key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 ```
 | Table | Use | Cardinality |
 |---|---|---|
-| `cfb_dryrun_games` | **Slate cards** — game lines + conviction pills | 1 / game (56) |
-| `cfb_dryrun_picks` | **Detail cards** — the 7 prediction cards | ~7 / game (398) |
+| `cfb_slate_games` | **Slate cards** — game lines + conviction pills | 1 / game (56) |
+| `cfb_slate_picks` | **Detail cards** — the 7 prediction cards | ~7 / game (398) |
 | `cfb_signal_defs` | Signal definitions (tap a signal → read it) | static (31) — cache |
 | `cfb_teams` | Team logos (`logo`, `logo_dark`), `abbr`, `color`, `conference` | static (137) — cache |
 | `cfb_sportsbooks` | Book logos (`book_key`→`logo_url`,`display_name`) | static (12) — cache |
@@ -32,7 +32,7 @@ Joins: `picks.game_id = games.game_id`; `picks.signal_keys[] → signal_defs.sig
 Mirror `NFLGameCard`: date/time top, **Away  @  Home** with team logos (from `cfb_teams.logo`), each team's
 **spread + moneyline**, **total** in the middle. CFB additions:
 - **AP rank badge** ("#7") when `home_rank`/`away_rank` is non-null.
-- Fields from `cfb_dryrun_games`: `kickoff, home_team, away_team, home_rank, away_rank, fg_spread_close,
+- Fields from `cfb_slate_games`: `kickoff, home_team, away_team, home_rank, away_rank, fg_spread_close,
   fg_total_close, fg_ml_home_close, fg_ml_away_close`. **Weather chip:** `wx_icon` + `wx_summary` (like the NFL card).
 - **Conviction pills under the lines** — read `conviction_summary` (jsonb array of
   `{card:"spread"|"total"|"team_total"|"moneyline"|"h1_spread"|"h1_total"|"h1_ml", conviction:"mammoth|high|med|low|lean", mammoth:bool}`).
@@ -41,14 +41,14 @@ Mirror `NFLGameCard`: date/time top, **Away  @  Home** with team logos (from `cf
   If a game has a `mammoth:true` entry, give the whole card the rare mammoth treatment.
 - **Sort the slate by top conviction** (mammoth → high → med → low → lean → none), then kickoff.
 
-**Predicted score (everywhere it appears):** use the precomputed `cfb_dryrun_games.fg_pred_home_pts` /
+**Predicted score (everywhere it appears):** use the precomputed `cfb_slate_games.fg_pred_home_pts` /
 `fg_pred_away_pts` columns. **Do NOT re-derive from total/margin.** These are the *single source of truth* for
-team points and are byte-identical to the team-total cards' `cfb_dryrun_picks.model_number` — so the headline
+team points and are byte-identical to the team-total cards' `cfb_slate_picks.model_number` — so the headline
 "HOU 32.3 · OKST 17.0" and the team-total card "Houston 32.3" always match. (This was previously inconsistent
 because two different models were used; now everything derives from one full-game model.)
 
-## SCREEN 2 — Game detail. Render the 7 prediction cards from `cfb_dryrun_picks`.
-Query `cfb_dryrun_picks where game_id = ? order by sort_order`. Group by `card_group` into **7 cards**:
+## SCREEN 2 — Game detail. Render the 7 prediction cards from `cfb_slate_picks`.
+Query `cfb_slate_picks where game_id = ? order by sort_order`. Group by `card_group` into **7 cards**:
 `spread, total, team_total (two rows: home+away), moneyline, h1_spread, h1_total, h1_ml`.
 
 **Every pick row carries the same fields — render them identically per card:**
@@ -150,7 +150,7 @@ has, filter by `best_book`, but the default is the true best available.
 ## Honesty rules (enforce in UI — these are product features)
 - `display_only=true` (moneyline, capped spread) → never style as a confident "bet".
 - Moneyline has no edge — show the winner + price only.
-- `cfb_dryrun_games.fg_home_win_prob` is **display-only/uncalibrated** — prefer `fg_home_cover_prob` or the
+- `cfb_slate_games.fg_home_win_prob` is **display-only/uncalibrated** — prefer `fg_home_cover_prob` or the
   predicted score (`(fg_pred_total ± fg_pred_margin)/2`). Don't present win-prob as a hard number.
 - Actuals (`final_*`, `h1_*` on games) are for our validation — **never render pregame**.
 - There are **no CFB player props** — no props screen.
@@ -161,7 +161,7 @@ has, filter by `best_book`, but the default is the true best available.
 - `src/utils/sportsbookConfig.ts` (book keys; logos now provided via `cfb_sportsbooks`/`best_book_logo`)
 
 ## Acceptance
-- CFB slate cards visually match NFL (logos, lines), reading `cfb_dryrun_games`, with conviction pills that
+- CFB slate cards visually match NFL (logos, lines), reading `cfb_slate_games`, with conviction pills that
   name the bet type.
 - Ohio State @ Illinois shows a 🔶 Mammoth pill for Spread on the slate; in detail, the Spread card = Ohio
   State −14.5 (best book LowVig) with the Big Ten road-fav + premium-lay-fav signals tappable.
@@ -173,7 +173,7 @@ has, filter by `best_book`, but the default is the true best available.
 # COLUMN DICTIONARY — every column, explicit. DO NOT GUESS.
 Spread/total lines are HOME perspective (−7 = home favored by 7). Odds are American. "rate %" columns are 0–100.
 
-## `cfb_dryrun_games` (1 row per game; slate + headline)
+## `cfb_slate_games` (1 row per game; slate + headline)
 - `game_id` bigint — PK, join key to picks/flags.
 - `season` int (2025), `week` int (7).
 - `kickoff` timestamptz — game start.
@@ -209,7 +209,7 @@ Spread/total lines are HOME perspective (−7 = home favored by 7). Odds are Ame
 - `conviction_summary` jsonb — array `[{card, conviction, mammoth}]` for the slate pills (which bet types carry plays).
 - `final_home`/`final_away`/`h1_home`/`h1_away` int — ACTUAL scores. VALIDATION ONLY — never show pregame.
 
-## `cfb_dryrun_picks` (~8 rows per game; the prediction cards)
+## `cfb_slate_picks` (~8 rows per game; the prediction cards)
 - `id` bigint PK. `game_id` bigint (join to games). `season`/`week`.
 - `card_group` text — `spread|total|team_total|moneyline|h1_spread|h1_total|h1_ml` (group rows into 7 cards).
 - `bet_type` text — like card_group but team totals split into `team_total_home`/`team_total_away`.
@@ -263,6 +263,6 @@ FIGURES = season-to-date (use these columns). GRAPHS/last-5 = `game_log.slice(0,
 ## `cfb_sportsbooks` (static; 12; cache)
 - `book_key` text PK (matches picks.best_book). `display_name` text. `logo_url` text. `domain` text.
 
-## `cfb_dryrun_flags` (193; the picks feed — secondary to picks)
+## `cfb_slate_flags` (193; the picks feed — secondary to picks)
 - `game_id`, `season`, `week`, `game` ("Away @ Home"), `source` (internal name — DON'T show), `signal_key` (join to defs),
   `market`, `side`, `line`, `price`, `edge`, `conviction`, `tier` ("active"/"tracking"), `stake_units`, `grade_line`, `mammoth`.

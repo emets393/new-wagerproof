@@ -547,17 +547,17 @@ async function fetchFootballGameResults(
 }
 
 // =============================================================================
-// NFL Player-Prop Grading Data (nfl_dryrun_props + nfl_player_game_logs, RESEARCH)
+// NFL Player-Prop Grading Data (nfl_slate_props + nfl_player_game_logs, RESEARCH)
 // =============================================================================
 
 /**
  * Fetch the two tables needed to grade NFL player props, both on the RESEARCH
  * project (read via the same cfbClient as fetchFootballGameResults).
  *
- * 1. BRIDGE — `nfl_dryrun_props` carries `player_id` alongside the verbatim
+ * 1. BRIDGE — `nfl_slate_props` carries `player_id` alongside the verbatim
  *    `(game_id, player_name, market)` the agent copied into the pick. Direct
  *    name→stat matching is only ~74% reliable, so we resolve the agent pick to
- *    its dryrun-props row by `(game_id, lower(player_name), market)` (unique) to
+ *    its slate-props row by `(game_id, lower(player_name), market)` (unique) to
  *    get a stable `player_id`. Keyed `${game_id}::${player.toLowerCase()}::${market}`.
  * 2. STATS — `nfl_player_game_logs` holds the realized stat columns keyed by
  *    `(player_id, season, week)` (parsed from the pick's game_id). Keyed
@@ -584,14 +584,14 @@ async function fetchPropGradingData(
     const gameIds = [...new Set(propPicks.map(p => p.game_id).filter(Boolean))];
     if (gameIds.length === 0) return { bridge, stats, voids };
 
-    // 1. Bridge: nfl_dryrun_props → player_id, keyed by (game_id, player, market).
+    // 1. Bridge: nfl_slate_props → player_id, keyed by (game_id, player, market).
     const { data: bridgeRows, error: bridgeErr } = await cfbClient
-      .from('nfl_dryrun_props')
+      .from('nfl_slate_props')
       .select('game_id, player_name, market, player_id')
       .in('game_id', gameIds);
 
     if (bridgeErr) {
-      console.error('[grade-avatar-picks] Error fetching nfl_dryrun_props (prop bridge):', bridgeErr);
+      console.error('[grade-avatar-picks] Error fetching nfl_slate_props (prop bridge):', bridgeErr);
       return { bridge, stats, voids };
     }
 
@@ -661,7 +661,7 @@ async function fetchPropGradingData(
  *
  * Returns the SAME shape as gradePickFromView. Returns null (pick stays pending)
  * whenever the bridge row or the stats row is missing — NEVER false-grade a
- * player we can't positively resolve. Coverage ceiling is ~77% for the dryrun
+ * player we can't positively resolve. Coverage ceiling is ~77% for the slate
  * week (game-log completeness), so misses are expected and must stay pending.
  *
  * - anytime_td: graded against the boolean `anytime_td`. over → won if true;
@@ -1232,7 +1232,7 @@ async function gradeParlays(
     cfb: { map: footballResults, all: footballAll },
   };
 
-  // 2b. Prop legs grade off the player_id bridge (nfl_dryrun_props) +
+  // 2b. Prop legs grade off the player_id bridge (nfl_slate_props) +
   //     nfl_player_game_logs, NOT football_game_results — same path straight
   //     prop picks use. Fetch that data ONCE across every pending parlay's prop
   //     legs (fetchPropGradingData only reads .game_id, so a leg-shaped view is
@@ -1495,7 +1495,7 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     // 1. Fetch pending picks — NBA, NCAAB, MLB (by date) and NFL/CFB (by
     //    game_id via football_game_results). Football finals only populate
-    //    when the dryrun build runs live, so off-season football picks just
+    //    when the slate build runs live, so off-season football picks just
     //    stay pending — no harm in including them in the filter.
     // -------------------------------------------------------------------------
     const { data: pendingPicks, error: fetchError } = await supabase
@@ -1576,7 +1576,7 @@ serve(async (req) => {
     const affectedAvatars = new Set<string>();
 
     // Prop picks don't live in football_game_results — they grade off the
-    // player_id bridge (nfl_dryrun_props) + nfl_player_game_logs. Fetch that
+    // player_id bridge (nfl_slate_props) + nfl_player_game_logs. Fetch that
     // data ONCE up front, only when there's at least one pending prop pick.
     const propPicks = straightPicks.filter(p => p.bet_type === 'prop');
     const hasProps = propPicks.length > 0;

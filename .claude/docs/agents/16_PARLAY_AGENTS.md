@@ -118,5 +118,5 @@ straight ROI). **Segment them** in any ranking/leaderboard rather than comparing
 - **Engine — slate**: a **window mode** (`day` | `week`) on the slate fetch; the **not-started filter** vs trigger time (+ buffer, ET); `week` = football-only + "now → Mon night."
 - **Engine — pricing**: cross-game (exact, hard floor) vs SGP (estimate + disclaimer, soft floor) tiers in `submit_parlay`; the combined-odds check.
 - **Trigger**: the manual-trigger flow carries `{ window, triggeredAt }`; the cron enqueue **excludes** parlay agents.
-- **Testing**: dryrun football is 2025-dated → the not-started filter excludes everything → add a **dry-run override** (treat dryrun games as upcoming) so the window/filter is testable before live.
+- **Testing**: slate football is 2025-dated → the not-started filter excludes everything → add a **slate override** (treat slate games as upcoming) so the window/filter is testable before live.
 - **Prereq**: the MLB game-id fix (day parlay agents that include MLB depend on it — the slate must surface real MLB game_pks, not let the agent guess NFL-pattern ids).

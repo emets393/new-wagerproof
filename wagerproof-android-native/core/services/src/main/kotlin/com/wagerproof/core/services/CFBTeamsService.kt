@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * Hydrates the CFB team reference cache (`cfb_teams`) once per process. The
- * dry-run slate uses this for AP-rank rows, logos, conferences, and CFBD
+ * slate uses this for AP-rank rows, logos, conferences, and CFBD
  * colors. Silent failure — cards degrade to name-derived fallbacks.
  */
 object CFBTeamsService {

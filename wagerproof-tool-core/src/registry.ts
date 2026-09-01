@@ -12,6 +12,7 @@ import { getSportPredictions } from "./tools/sports/getSportPredictions.js";
 import { getGameDetail } from "./tools/sports/getGameDetail.js";
 import { searchGames } from "./tools/sports/searchGames.js";
 import { getMarketOdds } from "./tools/sports/getMarketOdds.js";
+import { getPlayerProps } from "./tools/sports/getPlayerProps.js";
 import { getEditorPicks } from "./tools/sports/getEditorPicks.js";
 import { agentTools } from "./tools/user/agents.js";
 import { communityTools } from "./tools/user/community.js";
@@ -24,6 +25,7 @@ export const sportsTools: Tool[] = [
   getGameDetail,
   searchGames,
   getMarketOdds,
+  getPlayerProps,
   getEditorPicks,
 ];
 

@@ -7,7 +7,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Moneyline + first-half closes for the NFL dry-run slate, keyed by `game_id`.
+ * Moneyline + first-half closes for the NFL slate, keyed by `game_id`.
  *
  * iOS gets these for free: `OutliersTrendsService`'s NFL game select carries
  * the `fg_ml_*` / `h1_*` columns and hands them to every consumer on
@@ -23,13 +23,13 @@ import kotlinx.serialization.Serializable
 class ParlayGodNflOddsService {
 
     /**
-     * [gameIds] is the current slate's `nfl_dryrun_games.game_id` list — the
+     * [gameIds] is the current slate's `nfl_slate_feed.game_id` list — the
      * caller already has it from the NFL trends bundle, so no season/week
      * anchor round-trip is needed here.
      */
     suspend fun fetchSlateOdds(gameIds: List<String>): Map<String, ParlayGodNFLContext> {
         if (gameIds.isEmpty()) return emptyMap()
-        val rows = SupabaseClients.cfb.from("nfl_dryrun_games")
+        val rows = SupabaseClients.cfb.from("nfl_slate_feed")
             .select(Columns.raw(ODDS_COLUMNS)) {
                 filter { isIn("game_id", gameIds) }
             }

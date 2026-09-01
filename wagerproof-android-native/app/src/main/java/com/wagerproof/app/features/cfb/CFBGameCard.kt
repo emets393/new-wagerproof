@@ -20,8 +20,8 @@ import kotlin.math.floor
 
 /**
  * CFB game row for the home Games feed — a thin adapter over the shared
- * [GameRowCard], mirroring iOS `CFBGameCard`. Dry-run cards hydrate the
- * authoritative `cfb_dryrun_picks` rows; merged game fields remain the loading,
+ * [GameRowCard], mirroring iOS `CFBGameCard`. Slate cards hydrate the
+ * authoritative `cfb_slate_picks` rows; merged game fields remain the loading,
  * legacy, and missing-row fallback.
  */
 @Composable
@@ -31,9 +31,9 @@ fun CFBGameCard(
     modifier: Modifier = Modifier,
     consensus: GameAgentConsensus? = null,
 ) {
-    var picks by remember(game.gameId) { mutableStateOf<List<CFBDryrunPickRow>>(emptyList()) }
+    var picks by remember(game.gameId) { mutableStateOf<List<CFBSlatePickRow>>(emptyList()) }
     LaunchedEffect(game.gameId, game.runId) {
-        if ((game.runId ?: "").contains("dryrun", ignoreCase = true)) {
+        if ((game.runId ?: "").contains("slate", ignoreCase = true)) {
             loadCFBSlatePicksResult(game.gameId).onSuccess { picks = it }
         }
     }
@@ -82,14 +82,14 @@ fun CFBGameCard(
     GameRowCard(model = model, onPress = onPress, modifier = modifier)
 }
 
-internal fun cfbHasMammothPlay(game: CFBPrediction, picks: List<CFBDryrunPickRow>): Boolean =
+internal fun cfbHasMammothPlay(game: CFBPrediction, picks: List<CFBSlatePickRow>): Boolean =
     game.mammoth || picks.any { pick ->
         pick.hasPlay == true && (pick.isMammoth == true || pick.conviction.equals("mammoth", ignoreCase = true))
     }
 
 internal fun cfbSlatePicks(
     game: CFBPrediction,
-    picks: List<CFBDryrunPickRow>,
+    picks: List<CFBSlatePickRow>,
 ): GameRowCardModel.SlatePicks {
     val totalPick = picks.firstOrNull { it.normalizedCardGroup == "total" }
     val totalDir = pickDirection(totalPick?.pickSide ?: totalPick?.pickLabel ?: game.fgTotalPick)

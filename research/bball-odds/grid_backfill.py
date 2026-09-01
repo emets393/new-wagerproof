@@ -9,7 +9,7 @@ re-spends credits.
 
 Usage:
   python3 grid_backfill.py --test                      # one snapshot, show cost
-  python3 grid_backfill.py --dry-run                   # planned calls + credit ceiling
+  python3 grid_backfill.py --slate                   # planned calls + credit ceiling
   python3 grid_backfill.py --sport nba --season 2025-26
 """
 import argparse, gzip, json, sys, time as _time
@@ -140,7 +140,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sport", choices=["nba", "ncaab"])
     ap.add_argument("--season")
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--slate", action="store_true")
     ap.add_argument("--test", action="store_true")
     a = ap.parse_args()
     f = Fetcher(load_key())

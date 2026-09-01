@@ -1,21 +1,21 @@
 # 23 — NFL/CFB 2026 New-Model Data Map (for the web/native repoint)
 
 **Purpose:** the 2026 NFL + CFB season now runs on a NEW model whose output lives in a different set of
-tables than the old "dry-run test" (2025 Week 12) and the retired legacy model. This doc is the single
+tables than the old "slate test" (2025 Week 12) and the retired legacy model. This doc is the single
 source of truth for *where every piece of NFL/CFB data lives now*, so any surface that's blank can be
 pointed at the right table + key.
 
 ## 0. The one rule
-Slate identity, model output, and true opening lines read from the **`*_dryrun_*` family** on the **CFB Supabase project
+Slate identity, model output, and true opening lines read from the **`*_slate_*` family** on the **CFB Supabase project
 `jpxnjuwglavsjbgbasnl`** (web client: `collegeFootballSupabase` / `src/integrations/supabase/college-football-client.ts`,
-env `VITE_CFB_SUPABASE_URL`). The name says "dryrun" but these are the **live current-week production
+env `VITE_CFB_SUPABASE_URL`). The name says "slate" but these are the **live current-week production
 tables** — the name is just leftover from the 2025 test.
 
 Current live spread/total consensus and its timeline are the explicit exception:
-`nfl_line_movement` / `cfb_line_movement`, filtered by the same dryrun `game_id`.
+`nfl_line_movement` / `cfb_line_movement`, filtered by the same slate `game_id`.
 
 **Resolve the current (season, week) DYNAMICALLY. Never hardcode `season=2025`, `week=12`, or `week=7`.**
-Those were the dry-run pins and are the #1 cause of blank/stale surfaces.
+Those were the slate pins and are the #1 cause of blank/stale surfaces.
 
 ### Current-week resolution (two patterns already used in the codebase)
 - **Games feed** (`nflGames.ts` / `cfbGames.ts` → `resolveNflCurrentWeek` / `resolveCfbCurrentWeek`):
@@ -28,19 +28,19 @@ Those were the dry-run pins and are the #1 cause of blank/stale surfaces.
 ## 1. RETIRED — do NOT read these for NFL/CFB anymore
 | Sport | Retired table | Replaced by |
 |---|---|---|
-| NFL | `v_input_values_with_epa`, `nfl_predictions_epa` | `nfl_dryrun_games` |
-| NFL | `nfl_betting_lines` (as a card/current-line source) | `nfl_dryrun_games.fg_*_open` + `nfl_line_movement` |
-| CFB | `cfb_live_weekly_inputs`, `cfb_api_predictions`, `cfb_team_mapping` | `cfb_dryrun_games`, `cfb_teams` |
+| NFL | `v_input_values_with_epa`, `nfl_predictions_epa` | `nfl_slate_feed` |
+| NFL | `nfl_betting_lines` (as a card/current-line source) | `nfl_slate_feed.fg_*_open` + `nfl_line_movement` |
+| CFB | `cfb_live_weekly_inputs`, `cfb_api_predictions`, `cfb_team_mapping` | `cfb_slate_feed`, `cfb_teams` |
 
 **Exception (keep):** `cfb_team_mapping` is still read by the `/cfb-analytics` trends workbench (a
 separate page) — leave that path. Line Movement does **not** use a retired-table exception: it reads
-`nfl_line_movement` / `cfb_line_movement` directly by the dryrun row's `game_id`.
+`nfl_line_movement` / `cfb_line_movement` directly by the slate row's `game_id`.
 
 ## 2. The tables (project `jpxnjuwglavsjbgbasnl`), join key `game_id`
 
 ### Game cards — the slate
-- **`nfl_dryrun_games`** — one row per NFL game. **✅ 16 rows for 2026 Wk1.**
-- **`cfb_dryrun_games`** — one row per CFB game. **✅ 51 rows for 2026 Wk1.**
+- **`nfl_slate_feed`** — one row per NFL game. **✅ 16 rows for 2026 Wk1.**
+- **`cfb_slate_feed`** — one row per CFB game. **✅ 51 rows for 2026 Wk1.**
 Both are keyed `(game_id, season, week)`. Columns (the important ones):
   - Identity/time: `game_id, season, week, kickoff, home_team, away_team` (display names), `home_ab/away_ab`
     (NFL) / `home_conf/away_conf, home_rank/away_rank, neutral_site` (CFB), `gameday`.
@@ -68,23 +68,23 @@ Both are keyed `(game_id, season, week)`. Columns (the important ones):
   chart sources. They may be used for a deliberately selected-book or implied-probability ML path.
 
 ### Bet-signal badges (the flag layer on cards)
-- **`nfl_dryrun_flags`** — **✅ 30 rows 2026 Wk1** (20 `tier='active'`). Key `game_id`. Cols:
+- **`nfl_slate_flags`** — **✅ 30 rows 2026 Wk1** (20 `tier='active'`). Key `game_id`. Cols:
   `game_id, season, week, source, rule, tier, market, side, line, price, edge, mammoth, signal_key,
   conviction, stake_units, grade_line`.
-- **`cfb_dryrun_flags`** — **⚠ 0 rows** (correct: CFB betting spots are cold in Weeks 1–3; they populate
+- **`cfb_slate_flags`** — **⚠ 0 rows** (correct: CFB betting spots are cold in Weeks 1–3; they populate
   from ~Week 4). Same shape (`signal_key`, `conviction`, `tier`, …). Empty is EXPECTED, not a bug.
 - Signal metadata for both: **`nfl_signal_defs` / `cfb_signal_defs`** (`signal_key, display_name, market,
   one_liner, definition, why_it_works, bet_direction, typical_hit, default_conviction`) — join flags →
   defs on `signal_key` to render the human-readable card.
 
 ### CFB picks list
-- **`cfb_dryrun_picks`** — **⚠ 0 rows** (cold Weeks 1–3, same as flags). Key `game_id`. Cols include
+- **`cfb_slate_picks`** — **⚠ 0 rows** (cold Weeks 1–3, same as flags). Key `game_id`. Cols include
   `card_group, bet_type, pick_side, pick_team, pick_label, model_number, model_line, vegas_line,
   vegas_price, edge, best_book*, conviction, is_mammoth, stake_units, has_play, display_only,
-  signal_keys, recommendation`. (NFL's equivalent bet list is derived from `nfl_dryrun_flags`.)
+  signal_keys, recommendation`. (NFL's equivalent bet list is derived from `nfl_slate_flags`.)
 
 ### Player props
-- **`nfl_dryrun_props`** — **⚠ 0 rows for 2026** (player-prop ODDS are captured in-season, ~game week,
+- **`nfl_slate_props`** — **⚠ 0 rows for 2026** (player-prop ODDS are captured in-season, ~game week,
   not 6 weeks out). Key `(game_id, player_id, market)`. Rich cols: `close_line, over/under_price,
   open_line, line_delta, l3/l5/l10/szn_avg, over_rate_l5/l10, def_allowed_pos, def_matchup_idx, flags,
   headshot_url`, etc. Empty now = EXPECTED. (CFB has no props — no CFB prop data exists, ever.)
@@ -120,8 +120,8 @@ Both are keyed `(game_id, season, week)`. Columns (the important ones):
 - **`football_game_results`** — shared NFL+CFB finals view, keyed by `game_id`. Empty in the offseason;
   populates as games go final. Grading + the game_log actuals read from here.
 
-## 3. Column cheat-sheet (old dry-run field → what to read now)
-| The card wants… | Read from `*_dryrun_games` |
+## 3. Column cheat-sheet (old slate field → what to read now)
+| The card wants… | Read from `*_slate_games` |
 |---|---|
 | opening home spread / total | `fg_spread_open` / `fg_total_open` |
 | current home spread | latest `*_line_movement.fg_spread_home` (away = negated) |
@@ -138,9 +138,9 @@ Both are keyed `(game_id, season, week)`. Columns (the important ones):
 | conviction / play | `conviction_tier`, `stake_units`, `mammoth` |
 
 ## 4. What's LEGITIMATELY EMPTY right now (do NOT chase these — expected preseason)
-- `nfl_dryrun_props`, `nfl_player_prop_trends` display cards → **player-prop odds are captured in-season**;
+- `nfl_slate_props`, `nfl_player_prop_trends` display cards → **player-prop odds are captured in-season**;
   the trend *table* has 681 historical rows but game-week prop lines don't exist 6 weeks out.
-- `cfb_dryrun_flags`, `cfb_dryrun_picks` → CFB betting spots are **cold in Weeks 1–3** (the LEAN
+- `cfb_slate_flags`, `cfb_slate_picks` → CFB betting spots are **cold in Weeks 1–3** (the LEAN
   opponent-adjusted model needs games played); they fill from ~Week 4.
 - Weather (`wx_*`) → forecasts only exist ~10–14 days out; null now.
 - 1H (`h1_*`) → live 1H odds captured in-season; blank now.
@@ -148,7 +148,7 @@ Both are keyed `(game_id, season, week)`. Columns (the important ones):
 These are correct offseason states. A blank prop tab or CFB signal badge right now is NOT a bug.
 
 ## 5. What TO fix (the audit for Cursor)
-Grep the web (`src/`) and native for these and repoint each to the `*_dryrun_*` tables + the dynamic
+Grep the web (`src/`) and native for these and repoint each to the `*_slate_*` tables + the dynamic
 current-week resolver above:
 1. Any hardcoded **`season=2025`**, **`week=12`**, or **`week=7`** on an NFL/CFB read → replace with the
    resolved current week.
@@ -159,8 +159,8 @@ current-week resolver above:
    not the old `home_spread`/`pred_total`/etc.).
 
 ## 6. 2026 Week-1 population snapshot (as of the cutover)
-✅ populated: nfl_dryrun_games 16 · nfl_dryrun_flags 30 · cfb_dryrun_games 51 · nfl_team_trends 32 ·
+✅ populated: nfl_slate_feed 16 · nfl_slate_flags 30 · cfb_slate_feed 51 · nfl_team_trends 32 ·
 nfl_coach_trends 173 · nfl_referee_trends 91 · nfl_player_prop_trends 681 · nfl_outliers_trend_cards 192 ·
 cfb_team_trends 137 · cfb_coach_trends 290 · cfb_outliers_trend_cards 1200 · nfl_teams · cfb_teams ·
 nfl/cfb_signal_defs.
-⚠ empty-by-design: nfl_dryrun_props · cfb_dryrun_flags · cfb_dryrun_picks · football_game_results.
+⚠ empty-by-design: nfl_slate_props · cfb_slate_flags · cfb_slate_picks · football_game_results.

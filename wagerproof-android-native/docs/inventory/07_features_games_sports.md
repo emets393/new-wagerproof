@@ -132,7 +132,7 @@ Conventions used below:
 - **Bottom row** (below hairline divider), two modes:
   - Model-edge pills: `ouEdgeBlock` ("O/U OVER +2.5 63%" — direction colored, delta mono,
     probability appTextSecondary) + `mlEdgeBlock` ("ML BAL +4.2%") using edge-tier colors.
-  - **SlatePicks** (NFL/CFB dry-run): `slateTotalPill` ("O/U OVER 47.5", UNDER=appAccentRed,
+  - **SlatePicks** (NFL/CFB slate): `slateTotalPill` ("O/U OVER 47.5", UNDER=appAccentRed,
     OVER=appPrimary, 13pt black) and `slateSpreadPill` ("Spread [22pt logo] −3.5") — that is the
     whole row.
     > **Superseded since this 2026-07-06 snapshot (AND-090).** The MAMMOTH PLAY / "N High
@@ -266,10 +266,10 @@ Conventions used below:
 ### 3.1 `Components/NFLGameCard.swift` (255 ln)
 - Wrapper adapting `NFLPrediction` → `GameRowCard.Model`. league "nfl"; abbr/logo from
   `game.awayAb/homeAb` ?? `NFLTeamAssets`; colors `NFLTeamColors.colorPair`; `mlEdge: nil`
-  (NFL card intentionally omits ML edge); `ouEdge` from `predTotal` (dry-run fair total) vs
+  (NFL card intentionally omits ML edge); `ouEdge` from `predTotal` (slate fair total) vs
   `overLine` + `ouResultProb`; full `oddsBreakdown` (O/U convention O/U prefix); `slatePicks` +
-  mammoth. **Own fetch**: `.task(id: gameId)` — when `runId` contains "dryrun", queries Supabase
-  (`CFBSupabase.shared.client`) table **`nfl_dryrun_picks`** (columns game_id, card_group, pick_team,
+  mammoth. **Own fetch**: `.task(id: gameId)` — when `runId` contains "slate", queries Supabase
+  (`CFBSupabase.shared.client`) table **`nfl_slate_picks`** (columns game_id, card_group, pick_team,
   pick_side, pick_label, best_line, vegas_line, conviction, is_mammoth, signal_keys, has_play,
   sort_order). Total pick = `card_group=="total"` row (fallback `game.fgTotalPick/fgTotalClose`);
   spread pick = `card_group=="spread"` row (fallback `fgSpreadPick/fgSpreadClose`, sign-flipped for
@@ -318,7 +318,7 @@ Conventions used below:
      into their Spread/O-U sections (gated on the model-fair-value fields, not the classifier
      probability fallback); MLB wires `MoneylineEdgeBar` + `ModelEdgeRail` into its Moneyline/Total
      sections. Every path degrades to the old two-box comparison when a raw number is missing
-     (team_total everywhere, and CFB rows with no loaded `cfb_dryrun_picks` row, have no chart spec
+     (team_total everywhere, and CFB rows with no loaded `cfb_slate_picks` row, have no chart spec
      and always use the box fallback).
      Every other group falls through to **metricGrid** — ML cards: single "Best Odds" box;
      others: `Vegas/Best Line box → arrow → Model box` (labels: spread "Model Line",
@@ -350,8 +350,8 @@ Conventions used below:
   `.sheet(item: $selectedTrendDetail)` → **trendDetailSheet** — team header + season game-log table
   (Date/Opp/line/result/margin columns, per-kind headers: Spread→ATS/Cover±, Total→O-U±, TT, 1H
   variants, ML→SU/Margin; margins green/red).
-- **Data** (`loadDryrunData`, guarded by runId contains "dryrun", parallel async lets):
-  `nfl_dryrun_picks` (full row: model_number/model_line/vegas_line/vegas_price/edge/best_book*/
+- **Data** (`loadSlateData`, guarded by runId contains "slate", parallel async lets):
+  `nfl_slate_picks` (full row: model_number/model_line/vegas_line/vegas_price/edge/best_book*/
   best_line/best_odds/conviction/recommendation/is_mammoth/stake_units/has_play/display_only/
   signals[]/signal_keys), `nfl_signal_defs` (signal_key, display_name, one_liner, definition,
   why_it_works, bet_direction, typical_hit), `nfl_team_trends` (su/ats/ou/tt/h1 aggregate cols +
@@ -383,7 +383,7 @@ Conventions used below:
 
 ### 4.1 `Components/CFBGameCard.swift` (264 ln)
 - Same adapter shape as NFL card: abbr/logo `CFBTeamAssets`, colors `CFBTeamColors`, ouEdge from
-  `fgPredTotal ?? predTotal`; slate picks from Supabase **`cfb_dryrun_picks`** (same columns;
+  `fgPredTotal ?? predTotal`; slate picks from Supabase **`cfb_slate_picks`** (same columns;
   `game_id` decoded via `FlexibleText` — string|int|double). Mammoth logic identical.
 
 ### 4.2 `Components/CFBPredictionCard.swift` (83 ln)
@@ -416,7 +416,7 @@ Conventions used below:
 - **Content**: `marketOddsSection` (PolymarketWidget league:"cfb") → **7 marketSections** (fixed
   `marketRows` array) → `honestySection` → `AgentPickRationaleWidget(gameKeys: gameId, trainingKey,
   uniqueId, away_home)`.
-- **The 7 market rows** (bet board from `cfb_dryrun_games` fields on `CFBPrediction` + picks table):
+- **The 7 market rows** (bet board from `cfb_slate_feed` fields on `CFBPrediction` + picks table):
   1. `spread` "Spread Prediction" (target, appPrimary) — vegas/model lines side-oriented via
      `fgSpreadPick`; `fgSpreadCapped == true` ⇒ "No Play"/off-market copy, signals suppressed.
   2. `total` "Over/Under Prediction" (up/down circle icon by `fgTotalPick`) — fgTotalClose vs fgPredTotal.
@@ -448,13 +448,13 @@ Conventions used below:
   mono tinted ≥55% green / ≤45% red, L5 chips 17pt, "Tap to expand ↗").
 - **honestySection** "Display Notes" (checkmark.shield.fill, blue): 3 info notes (ML context-only;
   capped spread = no play; tracking flags are paper-trade).
-- **Sheets**: `selectedSignal: CFBDryRunFlag?` → signalDefinitionSheet (bolt icon tile, display name
+- **Sheets**: `selectedSignal: CFBSlateFlag?` → signalDefinitionSheet (bolt icon tile, display name
   20pt, oneLiner or "Market · SIDE line", What it means / Why it works / Bet direction +
   `SignalPerformanceStatsSection`; xmark close; detents medium/large).
   `selectedTrendDetail` → trendDetailSheet — per-rowId column schema (spread: Spread/ATS/Cover±;
   total: Total/O-U/O-U±/Final; tt: TT/O-U/Pts/TT±; h1 variants; ML: Score/SU), fixed table widths
   334–376pt, result chips 30×24 capsules, margins green/red, location markers "@"/"(n)".
-- **Data**: `loadDryRunPicks` (dryrun-gated) → `cfb_dryrun_picks` + `CFBSignalDefinitionsService
+- **Data**: `loadSlatePicks` (slate-gated) → `cfb_slate_picks` + `CFBSignalDefinitionsService
   .definitionsBySource()`; `loadTeamTrends` → **`cfb_team_trends`** (season 2025 hardcoded,
   team_name in [away,home]; su/ats/ou/tt/h1 aggregates + last5 + game_log);
   `SignalPerformanceService.performances(for: .cfb, season:)`. Signals for a row merge
@@ -836,7 +836,7 @@ Conventions used below:
 2. **Every detail page** = CollapsingWidgetScroll + team-aura background + collapsing hero +
    `WidgetCollapsingSection` cards; carousel mode: transparent page, shared fixed glow, insets passed in.
 3. **Section inventory per sport** (order matters):
-   - NFL: Market Odds · per-market dry-run pick cards (spread/total/team_total/ML/1H×3) w/ signals +
+   - NFL: Market Odds · per-market slate pick cards (spread/total/team_total/ML/1H×3) w/ signals +
      team trends · Matchup History · Agent rationale.
    - CFB: Market Odds · 7-market bet board (spread/total/TT-home/TT-away/1H-spread/1H-total/ML-display)
      w/ signals + team trends · Display Notes · Agent rationale.
@@ -851,7 +851,7 @@ Conventions used below:
    history, MLB regression/signals, NBA injuries/trends.
 5. **Direction color language**: OVER/model-side = appPrimary green; UNDER = appAccentRed in pick
    cards BUT blue 0x3B82F6 in insight-widget badges (legacy convention — keep both).
-6. **Dry-run tables** (Supabase via `CFBSupabase` client): `nfl_dryrun_picks`, `cfb_dryrun_picks`,
+6. **Slate tables** (Supabase via `CFBSupabase` client): `nfl_slate_picks`, `cfb_slate_picks`,
    `nfl_signal_defs`, `nfl_team_trends`, `nfl_matchup_history`, `cfb_team_trends` (season 2025
    hardcoded), plus `SignalPerformanceService`. All decoders tolerate flexible types
    (FlexibleStringList / FlexibleText) — replicate leniency in kotlinx.serialization.
@@ -903,7 +903,7 @@ Conventions used below:
   TeamCircleView neutral), #032 H2H data, #033 line-movement charts, #007 scoreboard terminal
   empty state, #100 MLB Pro gates, #110 regression model-alignment.
 - Hardcoded values to lift into config: `cfb_team_trends` season 2025, NFL signal-performance season
-  fallback 2025, dry-run gating on `runId.contains("dryrun")`.
+  fallback 2025, slate gating on `runId.contains("slate")`.
 
 ### File → Kotlin mapping checklist
 
@@ -940,7 +940,7 @@ Package root: `com.wagerproof.app.features.*`
 **nfl/**
 - [ ] `NFLGameCard.swift` → `nfl/NFLGameCard.kt` (+ `NFLSlatePickRow.kt` DTO)
 - [ ] `NFLPublicBettingBars.swift` → `nfl/NFLPublicBettingBars.kt` (+ `SemiGauge.kt`, `NFLTeamColors.kt`)
-- [ ] `NFLGameBottomSheet.swift` → `nfl/NFLGameDetailScreen.kt` (+ `NFLDryrunModels.kt` DTOs,
+- [ ] `NFLGameBottomSheet.swift` → `nfl/NFLGameDetailScreen.kt` (+ `NFLSlateModels.kt` DTOs,
       `NFLSignalSheet.kt`, `NFLTrendDetailSheet.kt`, `NFLGameDetailViewModel.kt`)
 - [ ] `NFLGameCarousel.swift` → `nfl/NFLGameCarousel.kt`
 
@@ -951,7 +951,7 @@ Package root: `com.wagerproof.app.features.*`
 - [ ] `PublicBettingBars.swift` → `cfb/CFBPublicBettingBars.kt`
 - [ ] `CFBGameCarousel.swift` → `cfb/CFBGameCarousel.kt`
 - [ ] `CFBGameBottomSheet.swift` → `cfb/CFBGameDetailScreen.kt` (+ `CFBMarketRows.kt`,
-      `CFBTrendDetailSheet.kt`, `CFBSignalSheet.kt`, `CFBDryrunModels.kt`, `CFBGameDetailViewModel.kt`)
+      `CFBTrendDetailSheet.kt`, `CFBSignalSheet.kt`, `CFBSlateModels.kt`, `CFBGameDetailViewModel.kt`)
 
 **mlb/**
 - [ ] `MLBGameCard.swift` → `mlb/MLBGameCard.kt`

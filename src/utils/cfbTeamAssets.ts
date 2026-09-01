@@ -50,7 +50,7 @@ const EXTRA_ALIASES: Record<string, string> = {
   'miami ohio': 'miami (oh)',
   'san jose state': 'san jose state',
   hawaii: 'hawaii',
-  // FCS opponents on the FBS dry-run slate — not in the 137-team cfb_teams table.
+  // FCS opponents on the FBS slate — not in the 137-team cfb_teams table.
   ndsu: 'north dakota state',
   'n dakota state': 'north dakota state',
   'n dakota st': 'north dakota state',
@@ -60,7 +60,7 @@ const EXTRA_ALIASES: Record<string, string> = {
 };
 
 /**
- * FCS / non-FBS schools that appear on the dry-run slate as opponents but are
+ * FCS / non-FBS schools that appear on the slate as opponents but are
  * absent from `cfb_teams` (FBS-only). Seeded from `cfb_team_mapping` ESPN ids
  * so logos resolve everywhere the assets cache is installed.
  */

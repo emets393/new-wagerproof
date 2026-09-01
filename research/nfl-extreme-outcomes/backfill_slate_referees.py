@@ -1,12 +1,12 @@
-"""Populate nfl_dryrun_games.assigned_referee for the slate.
+"""Populate nfl_slate_games.assigned_referee for the slate.
 
 Ref trends attach to a matchup via the assigned head referee, but the slate builder
-doesn't carry it. For the dry-run we source assignments from nflverse (completed-game
+doesn't carry it. For the slate we source assignments from nflverse (completed-game
 referees). In production this should be replaced by the weekly NFL ref-assignment feed
 (released ~Wednesday) — same target column.
 
 Run AFTER the slate is built (it PATCHes existing rows). Idempotent.
-Usage:  python3 backfill_dryrun_referees.py
+Usage:  python3 backfill_slate_referees.py
 """
 import io
 import os
@@ -45,7 +45,7 @@ def main():
     n = 0
     for r in g.itertuples():
         resp = requests.patch(
-            f"{BASE_URL}/nfl_dryrun_games?season=eq.{SEASON}&week=eq.{WEEK}"
+            f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
             f"&home_ab=eq.{r.home_ab}&away_ab=eq.{r.away_ab}",
             headers=hdr, json={"assigned_referee": r.referee}, timeout=60)
         if resp.status_code in (200, 204):

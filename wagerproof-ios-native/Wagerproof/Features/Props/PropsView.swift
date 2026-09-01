@@ -88,7 +88,7 @@ private final class PropsPresentationCache {
 /// toolbar) but the feed items are player-prop matchup cards.
 ///
 /// Player props exist for MLB (game-log trends + line ladder) and NFL
-/// (consensus close + season trends, per the dry-run data contract);
+/// (consensus close + season trends, per the slate data contract);
 /// remaining sports show a "coming soon" state. Tapping an MLB card pushes
 /// `PlayerPropDetailView` (trend chart + line slider); tapping an NFL card
 /// pushes `NFLPropDetailView` (per-market trend board).

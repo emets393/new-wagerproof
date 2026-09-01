@@ -3,7 +3,7 @@ import Supabase
 import WagerproofModels
 
 /// Read-only warehouse RPCs for Historical Analysis.
-/// Backend lives on CFBSupabase (`jpxnjuwglavsjbgbasnl`) — same project as dry-run tables.
+/// Backend lives on CFBSupabase (`jpxnjuwglavsjbgbasnl`) — same project as slate tables.
 public actor HistoricalAnalysisService {
     public static let shared = HistoricalAnalysisService()
     public init() {}

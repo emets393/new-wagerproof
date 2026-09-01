@@ -56,7 +56,7 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
   const bySport: { sport: Sport; count: number }[] = [];
   // Week runs: never offer a game that has already kicked off (+10 min buffer)
   // — a week-long parlay must be built from the REMAINING games of the football
-  // week. Dry runs skip this (dryrun football is 2025-dated; the filter would
+  // week. Dry runs skip this (slate football is 2025-dated; the filter would
   // drop everything). See .claude/docs/agents/16_PARLAY_AGENTS.md.
   const notStartedCutoff = ctx.window === "week" && !ctx.dryRun
     ? getDateTimeInET(new Date(Date.now() + 10 * 60 * 1000))
@@ -64,10 +64,10 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
   let startedDropped = 0;
   for (const sport of ctx.steering.preferredSports as Sport[]) {
     try {
-      // NFL + CFB read the NEW model's weekly table (nfl/cfb_dryrun_games) via source='dryrun' — same
+      // NFL + CFB read the NEW model's weekly table (nfl/cfb_slate_feed) via source='slate' — same
       // tables the /games web feed now reads (both populated for the live season). NBA/NCAAB/MLB stay
       // on their production ('legacy') tables.
-      const source = sport === 'cfb' || sport === 'nfl' ? 'dryrun' : 'legacy';
+      const source = sport === 'cfb' || sport === 'nfl' ? 'slate' : 'legacy';
       const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate, source);
       let n = 0;
       let kept: { id: string; fg: FormattedGame }[] = [];

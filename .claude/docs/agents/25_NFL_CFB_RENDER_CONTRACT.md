@@ -10,18 +10,18 @@ All NFL/CFB data is on the **CFB Supabase project** (`jpxnjuwglavsjbgbasnl`), we
 `VITE_CFB_SUPABASE_URL`). **The Odds API is the only source of betting lines** — never CFBD/ESPN/nflverse
 for odds (those are schedules/scores/ratings only).
 
-## 1. Table names — use `*_slate_*`, not `*_dryrun_*`
+## 1. Table names — use `*_slate_*`, not `*_slate_*`
 
-The production tables were renamed off the misleading "dryrun" name (that name was leftover from the
+The production tables were renamed off the misleading "slate" name (that name was leftover from the
 2025 test slate). Current tables:
 
 `nfl_slate_games` · `nfl_slate_flags` · `nfl_slate_picks` · `nfl_slate_props`
 `cfb_slate_games` · `cfb_slate_flags` · `cfb_slate_picks`
 
-The old `*_dryrun_*` names still exist as **auto-updatable compat views** over the new tables, so
+The old `*_slate_*` names still exist as **auto-updatable compat views** over the new tables, so
 un-migrated code keeps working. **Use the `*_slate_*` names in all new/edited code; never reintroduce
-`dryrun`.** A repo-wide code rename is pending (compat views drop once the native apps ship on the new
-names). See memory `dryrun-to-slate-rename`.
+`slate`.** A repo-wide code rename is pending (compat views drop once the native apps ship on the new
+names). See memory `slate-to-slate-rename`.
 
 ## 2. Two sources per game — they MUST agree
 
@@ -84,7 +84,7 @@ must read the **game's own season** (dynamically), and render **"No games yet"**
 **Do NOT hardcode or fall back to `season = 2025`.** Known offenders to fix:
 `wagerproof-android-native/.../cfb/CFBMarketBoard.kt` (`eq("season", 2025)`),
 `wagerproof-ios-native/.../NFLGameBottomSheet.swift` + `CFBGameBottomSheet.swift`
-(`season: game.season ?? 2025`). 2025 was the dry-run test season — its rows have been deleted, so
+(`season: game.season ?? 2025`). 2025 was the slate test season — its rows have been deleted, so
 hardcoding it now shows empty, and once real 2026 games play it would still miss them. Pass the live
 game's `season` through. (Web `FootballTeamTrends.tsx` already takes `season` as a prop + handles the
 empty shell — mirror that on native.)

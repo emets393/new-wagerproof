@@ -22,7 +22,7 @@ import kotlinx.serialization.Serializable
  * - `nfl_player_prop_trends` — prior-season game log (grades + lines).
  * - `nfl_player_game_logs` — real stat totals merged into that log.
  *
- * Dry-run staging tables are not read.
+ * Slate staging tables are not read.
  */
 class NFLPlayerPropsService {
 

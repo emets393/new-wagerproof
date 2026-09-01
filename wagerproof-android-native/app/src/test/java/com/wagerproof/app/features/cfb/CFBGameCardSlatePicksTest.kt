@@ -24,13 +24,13 @@ class CFBGameCardSlatePicksTest {
     @Test
     fun `authoritative rows drive posted team lines`() {
         val rows = listOf(
-            CFBDryrunPickRow(
+            CFBSlatePickRow(
                 cardGroup = "total",
                 pickSide = "OVER",
                 bestLine = 51.5,
                 signalKeys = listOf("tempo", "weather"),
             ),
-            CFBDryrunPickRow(
+            CFBSlatePickRow(
                 cardGroup = "spread",
                 pickTeam = "Texas",
                 bestLine = 3.5,
@@ -38,7 +38,7 @@ class CFBGameCardSlatePicksTest {
                 hasPlay = true,
                 signalKeys = listOf("tempo", "road_dog"),
             ),
-            CFBDryrunPickRow(
+            CFBSlatePickRow(
                 cardGroup = "moneyline",
                 conviction = "mammoth",
                 isMammoth = true,
@@ -61,7 +61,7 @@ class CFBGameCardSlatePicksTest {
     @Test
     fun `mammoth detection survives the badge removal`() {
         val rows = listOf(
-            CFBDryrunPickRow(cardGroup = "moneyline", conviction = "mammoth", isMammoth = true, hasPlay = true),
+            CFBSlatePickRow(cardGroup = "moneyline", conviction = "mammoth", isMammoth = true, hasPlay = true),
         )
 
         assertTrue(cfbHasMammothPlay(game(), rows))
@@ -70,7 +70,7 @@ class CFBGameCardSlatePicksTest {
 
     @Test
     fun `pick decoder tolerates numeric ids and string encoded signal keys`() {
-        val row = Json.decodeFromString<CFBDryrunPickRow>(
+        val row = Json.decodeFromString<CFBSlatePickRow>(
             """{"id":42,"game_id":1001,"best_line":"-2.5","is_mammoth":true,"signal_keys":"[\"pace\",\"weather\"]"}""",
         )
 

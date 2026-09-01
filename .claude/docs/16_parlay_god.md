@@ -26,16 +26,16 @@ A leg is a concrete bet (side + line + odds) whose supporting trend went N-of-N:
 - **Team legs** (NFL): from the Outliers NFL bundle — `nfl_team_trends` splits
   (overall / home-away / fav-dog; markets moneyline / spread / total, plus
   h1_spread / h1_total → the First Half category) and H2H `matchups`, same
-  join-to-today rules. Odds come from `nfl_dryrun_games` via
+  join-to-today rules. Odds come from `nfl_slate_feed` via
   `OutliersTrendsNFLContext`: real ML closes and fully-priced H1 markets; FG
   spread/total juice isn't stored there so those legs price at the standard
   −110 (`nflDefaultJuice`).
 - **Prop legs** (MLB): from the props slate (`get_mlb_player_props_l10` RPC) —
   L10 recent form (over or under), day/night split, vs-arm-type split, and
   alternate-line current streaks (deeper gate: ≥ 7 straight).
-- **Prop legs** (NFL): from `nfl_dryrun_props` via PropsStore — L10 recent form
+- **Prop legs** (NFL): from `nfl_slate_props` via PropsStore — L10 recent form
   and vs-opponent, at the close line with consensus prices. Built per-game only
-  (dry-run slate dates would pollute the live rails).
+  (slate slate dates would pollute the live rails).
 
 Guards: sample ≥ 3 (`minSample`), juice floor −350 (`oddsFloor`), alternate
 lines need a ≥ 7 streak (`altLineMinStreak`). All tunables sit at the top of
@@ -53,7 +53,7 @@ Every leg is sport-tagged (`ParlaySport`); tickets carry a `sports` array.
 Sports whose slates are concurrently **live** (any game not long started —
 6h grace, `ParlayGodEngine.liveSports`) merge into ONE cross-sport card per
 category — cross-sport parlays are placeable, and one deep pool beats two thin
-cards. A **stale** slate (entirely past dates, e.g. the NFL dry-run) keeps its
+cards. A **stale** slate (entirely past dates, e.g. the NFL slate) keeps its
 own per-sport card after the merged one, so a merged ticket is never a
 fictional bet pairing tonight's games with a months-old slate. The rail header
 shows a right-aligned "Supports ⚾🏈" overlapping-icon cluster
@@ -111,9 +111,9 @@ responsible-gambling note).
 - `mlb_team_trends.through_date` lags the season (data-ops job) — team-form
   evidence reflects that snapshot date, same as the Outliers tab.
 - NFL *prop* legs stay out of the cross-game rails until the in-season props
-  cutover replaces the dry-run tables; NFL *team* legs are on the rails now —
-  as separate tickets while the dry-run slate is stale, merging into the
+  cutover replaces the slate tables; NFL *team* legs are on the rails now —
+  as separate tickets while the slate slate is stale, merging into the
   cross-sport cards automatically once the NFL slate has live dates.
 - NFL FG spread/total legs price at −110 (real juice isn't in
-  `nfl_dryrun_games`); ML and H1 legs use real closes.
+  `nfl_slate_feed`); ML and H1 legs use real closes.
 - NFL team trends also ship `team_total` splits — not yet turned into legs.

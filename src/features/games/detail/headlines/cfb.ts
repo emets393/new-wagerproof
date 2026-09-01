@@ -22,7 +22,7 @@ const PRECIP_NOTABLE_PCT = 30;
 /** Sentence-case the icon phrase ("rain" → "Rain") without touching the rest. */
 const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 
-/** Mirrors CfbDryRunSections' formatNumber: integers bare, otherwise 1 decimal. */
+/** Mirrors CfbSlateSections' formatNumber: integers bare, otherwise 1 decimal. */
 const formatPoints = (value: number): string =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
 
@@ -107,11 +107,11 @@ export function cfbWeatherHeadline(v: CfbWeatherHeadlineInput): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Dry-run slate summary
+// Slate summary
 // ---------------------------------------------------------------------------
 
-export type CfbDryRunSummaryHeadlineInput = {
-  /** Both pred_away_score and pred_home_score parsed (CfbDryRunSections.tsx:195). */
+export type CfbSlateSummaryHeadlineInput = {
+  /** Both pred_away_score and pred_home_score parsed (CfbSlateSections.tsx:195). */
   hasScore: boolean;
   /** Model projected points. Null unless hasScore. */
   predAway: number | null;
@@ -149,7 +149,7 @@ export type CfbDryRunSummaryHeadlineInput = {
   playMarketCount: number;
 };
 
-export function cfbDryRunSummaryHeadline(v: CfbDryRunSummaryHeadlineInput): string | null {
+export function cfbSlateSummaryHeadline(v: CfbSlateSummaryHeadlineInput): string | null {
   const markets = v.mammothMarkets.length > 0 ? v.mammothMarkets.join(', ') : null;
 
   if (!v.hasScore || v.predAway === null || v.predHome === null) {
@@ -210,10 +210,10 @@ export function cfbDryRunSummaryHeadline(v: CfbDryRunSummaryHeadlineInput): stri
 }
 
 // ---------------------------------------------------------------------------
-// Dry-run prediction cards (one per market group)
+// Slate prediction cards (one per market group)
 // ---------------------------------------------------------------------------
 
-export type CfbDryRunPickHeadlineInput = {
+export type CfbSlatePickHeadlineInput = {
   /** CARD_LABELS[group] — e.g. 'Spread', '1H Total'. Never a side. */
   marketLabel: string;
   /** rows.length for this market group. */
@@ -261,7 +261,7 @@ export type CfbDryRunPickHeadlineInput = {
  * while the gap is model vs the CONSENSUS close, so the copy attaches the gap to
  * "its fair line" explicitly.
  */
-export function cfbDryRunPickHeadline(v: CfbDryRunPickHeadlineInput): string | null {
+export function cfbSlatePickHeadline(v: CfbSlatePickHeadlineInput): string | null {
   if (v.rowCount === 0) return null;
 
   const label = v.leadPickLabel?.trim() ? v.leadPickLabel.trim() : null;

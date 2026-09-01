@@ -1,4 +1,4 @@
-"""S-CFB1 style-delta — pregame, leak-safe computation used by gen_cfb_dryrun_flags.py.
+"""S-CFB1 style-delta — pregame, leak-safe computation used by gen_cfb_slate_flags.py.
 A team's ACTUAL offensive EPA/play vs an opponent's DEFENSE archetype minus its own season baseline, from
 PRIOR completed same-season games only. delta ≤ -0.10 (T3) / ≤ -0.15 (T2) with ≥2 prior meetings vs the
 archetype → bet the UNDER (game total + that team's team total). Validated in FOOTBALL_PROFILES.md.

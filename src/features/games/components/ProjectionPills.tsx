@@ -40,7 +40,7 @@ function MiniTeamLogo({ team, size = 14 }: { team: TeamRef; size?: number }) {
  * Model projection chips under the matchup on GameListCard.
  * SPREAD + O/U only (owner rule 2026-08-24: no ML pill) — spread shows the
  * favored team's logo; totals use ↑ green / ↓ red.
- * NFL/CFB also surface dryrun signal count from slate flags_* / n_flags_* (hidden at 0).
+ * NFL/CFB also surface slate signal count from slate flags_* / n_flags_* (hidden at 0).
  */
 export function ProjectionPills({
   edges,
@@ -52,7 +52,7 @@ export function ProjectionPills({
   edges: GameEdges;
   awayTeam: TeamRef;
   homeTeam: TeamRef;
-  /** Unique non-blanket dryrun signals for this game (`flags_*` / `n_flags_*`). */
+  /** Unique non-blanket slate signals for this game (`flags_*` / `n_flags_*`). */
   signalCount?: number;
   className?: string;
 }) {

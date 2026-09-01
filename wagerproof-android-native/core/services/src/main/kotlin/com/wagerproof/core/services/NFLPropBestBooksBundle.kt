@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * Backend-precomputed best-shop fields keyed by `player_id|market`.
- * Shipped in the app assets until `nfl_dryrun_props` carries these columns.
+ * Shipped in the app assets until `nfl_slate_props` carries these columns.
  */
 @Serializable
 internal data class NFLPropBestBooksRecord(
@@ -30,7 +30,7 @@ internal object NFLPropBestBooksBundle {
 
     private fun load(): Map<String, NFLPropBestBooksRecord> = runCatching {
         AppGroup.context.assets
-            .open("nfl_dryrun_prop_best_books.json")
+            .open("nfl_slate_prop_best_books.json")
             .use { it.readBytes().decodeToString() }
             .let { WagerproofJson.decodeFromString<Map<String, NFLPropBestBooksRecord>>(it) }
     }.getOrDefault(emptyMap())

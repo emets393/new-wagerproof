@@ -69,7 +69,7 @@ public struct NFLPrediction: Identifiable, Codable, Hashable, Sendable {
     public let homeAwaySpreadCoverProb: Double?
     /// Probability the total goes Over. Below 0.5 → Under.
     public let ouResultProb: Double?
-    /// Model fair total (`fg_pred_total` in the dry-run contract). The legacy
+    /// Model fair total (`fg_pred_total` in the slate contract). The legacy
     /// pipeline doesn't publish one — nil there, and the card falls back to
     /// `ouResultProb` for O/U direction.
     public let predTotal: Double?
@@ -96,7 +96,7 @@ public struct NFLPrediction: Identifiable, Codable, Hashable, Sendable {
     public let underHandle: String?
     public let overBets: String?
     public let underBets: String?
-    // NFL dry-run identity / model contract
+    // NFL slate identity / model contract
     public let gameId: String
     public let season: Int?
     public let week: Int?

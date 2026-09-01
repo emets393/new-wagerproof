@@ -1,6 +1,6 @@
 """Third-season (2023) revalidation of the movement/form prop signals + attempts price QC.
 
-Part 1 — P10/P12/P13/P15/P16 at FROZEN production thresholds (dryrun_wk12_props.py):
+Part 1 — P10/P12/P13/P15/P16 at FROZEN production thresholds (nfl_slate_props_build.py):
   P12: rec_yds, close <= player's L3 actual avg AND NGS L3 separation >= 3.6335 -> OVER
   P13: rush_yds, close <= L3 avg AND NGS L3 rush efficiency >= 4.8384 -> OVER
   P10: receptions, close line raised two straight prop-weeks -> UNDER

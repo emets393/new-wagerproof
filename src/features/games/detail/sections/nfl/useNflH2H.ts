@@ -7,7 +7,7 @@ import debug from '@/utils/debug';
  * Normalized H2H meeting for the NFL detail widget.
  *
  * `nfl_training_data` is the live results table (includes full 2025).
- * `nfl_matchup_history` is a Week-12-2025 dry-run snapshot for only 14
+ * `nfl_matchup_history` is a Week-12-2025 slate snapshot for only 14
  * matchups — cut off before that week's kickoffs — so preferring it alone
  * hides later 2025 meetings (e.g. BUF@HOU Wk12). We merge both and keep the
  * newest 5.
@@ -281,7 +281,7 @@ async function fetchTrainingHistory(
 
 /**
  * Last 5 head-to-head meetings. Merges `nfl_training_data` (city keys, full
- * 2025) with `nfl_matchup_history` (abbr keys, dry-run snapshot) so stale
+ * 2025) with `nfl_matchup_history` (abbr keys, slate snapshot) so stale
  * history rows cannot hide newer training meetings.
  */
 export function useNflH2H(homeAbbr: string | undefined, awayAbbr: string | undefined) {

@@ -8,7 +8,7 @@ are abbreviations.
 
 game_log is newest-first (index 0 = most recent game); last5_* take the first up-to-5.
 
-Usage:  python3 dryrun_wk12_trends.py [--no-load]
+Usage:  python3 nfl_slate_trends.py [--no-load]
 """
 import argparse
 import json
@@ -23,7 +23,7 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-# Season/week parametrized for production (env), defaulting to the Wk12-2025 dry-run so
+# Season/week parametrized for production (env), defaulting to the Wk12-2025 slate so
 # an unparameterized run stays byte-for-byte the original. THROUGH_WEEK = completed weeks.
 SEASON = int(os.environ.get("NFL_SEASON", 2025))
 THROUGH_WEEK = int(os.environ.get("NFL_WEEK", 12)) - 1
