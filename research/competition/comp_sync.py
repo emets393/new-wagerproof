@@ -5,7 +5,7 @@ Self-contained hourly job (Render cron `competition-sync-hourly`):
      (spreads+totals, us books) — the SAME source as everything else per the
      lines policy. One call per sport.
   2. Derives competition weeks: deadline = Friday 12:00 PM ET, eligible window
-     = deadline .. +4 days (resets Tuesday morning). Only the *current* deadline
+     = deadline .. Tuesday 6:00 AM ET (the reset). Only the *current* deadline
      (plus the just-ended week for grading) is materialized — never future
      weeks early (that used to create CFB-only future slates before NFL Sundays
      entered the odds horizon). Pre-week-0 August Fridays are skipped; until
@@ -39,7 +39,12 @@ HERE = Path(__file__).resolve().parent
 ET = ZoneInfo("America/New_York")
 MAIN_REF = "gnjrklxotmbvnxbnnqgq"
 SPORTS = {"nfl": "americanfootball_nfl", "cfb": "americanfootball_ncaaf"}
-WINDOW_DAYS = 4          # deadline (Fri 12pm ET) .. Tue 12pm ET — week resets Tuesday morning
+# Week window: deadline (Fri 12pm ET) .. Tue 6:00 AM ET — the earliest reset that
+# still lets the hourly /scores pulls document MNF finals first (late doubleheader
+# games can end ~1:30 AM ET). Wall-clock timedelta on ET-aware datetimes, so the
+# boundary stays 6:00 AM across DST transitions. No NFL/CFB game kicks off between
+# Tue midnight and 6 AM, so shrinking the window from +4d loses no eligible games.
+WINDOW = timedelta(days=3, hours=18)
 # Horizon only needs to cover the *current* week's last kickoff (Mon night ≈
 # deadline+3.5d). We no longer materialize future weeks early (that created
 # CFB-only future slates before NFL Sundays entered the old 9-day window).
@@ -105,7 +110,7 @@ def round_half(v: float) -> float:
 
 
 def comp_deadline_for(kick_utc: datetime) -> datetime | None:
-    """The Friday-12:00-ET deadline whose 4-day window contains this kickoff."""
+    """The Friday-12:00-ET deadline whose eligible window contains this kickoff."""
     k_et = kick_utc.astimezone(ET)
     d = k_et.date()
     # walk back to the most recent Friday (could be today if kick is after noon)
@@ -113,7 +118,7 @@ def comp_deadline_for(kick_utc: datetime) -> datetime | None:
         cand = d - timedelta(days=back)
         if cand.weekday() == 4:  # Friday
             dl = datetime(cand.year, cand.month, cand.day, 12, 0, tzinfo=ET)
-            if dl < k_et <= dl + timedelta(days=WINDOW_DAYS):
+            if dl < k_et <= dl + WINDOW:
                 return dl
             return None  # most recent Friday-noon window misses it -> ineligible
     return None
@@ -143,9 +148,9 @@ def current_comp_deadline(now_et: datetime) -> datetime:
     """The single competition week that should exist as 'current'.
 
     Timeline for deadline Friday F:
-      - Tue morning (after prior window_end) → Fri noon F: picking open
-      - Fri noon F → Tue noon: locked, games play
-      - Tue morning: week resets to next Friday
+      - Tue 6:00 AM ET (prior window_end) → Fri noon F: picking open
+      - Fri noon F → Tue 6:00 AM ET: locked, games play (incl. MNF finals landing overnight)
+      - Tue 6:00 AM ET: week resets to next Friday
 
     Before week 0's calendar open (early August), jump forward to week 0 so the
     practice slate is the only current week — never materialize Aug 8/15/22
@@ -158,7 +163,7 @@ def current_comp_deadline(now_et: datetime) -> datetime:
         if cand.weekday() != 4:
             continue
         cand_dl = datetime(cand.year, cand.month, cand.day, 12, 0, tzinfo=ET)
-        if now_et <= cand_dl + timedelta(days=WINDOW_DAYS):
+        if now_et <= cand_dl + WINDOW:
             dl = cand_dl
         break
     if dl is None:
@@ -174,7 +179,7 @@ def current_comp_deadline(now_et: datetime) -> datetime:
     _, week_no, _, _ = season_and_week(dl)
     if week_no < 0:
         w0 = week0_deadline(season)
-        if now_et <= w0 + timedelta(days=WINDOW_DAYS):
+        if now_et <= w0 + WINDOW:
             return w0
     return dl
 
@@ -221,7 +226,7 @@ def main() -> None:
     # Cover the full eligible window for the target week (important when week 0
     # is shown early — opener kickoffs can be weeks away). Cap keeps us from
     # pulling the *next* week's NFL Sunday into an earlier CFB-only slate.
-    window_end_utc = (target_dl + timedelta(days=WINDOW_DAYS)).astimezone(timezone.utc)
+    window_end_utc = (target_dl + WINDOW).astimezone(timezone.utc)
     horizon = max(now + timedelta(days=HORIZON_DAYS), window_end_utc)
 
     print(f"current deadline={target_dl.isoformat()} | horizon={horizon.isoformat()}")
@@ -292,7 +297,7 @@ def main() -> None:
     if weeks:
         rows = ",".join(
             f"({s}, {w}, {q(lab)}, {q(dl.isoformat())}::timestamptz, "
-            f"{q((dl + timedelta(days=WINDOW_DAYS)).isoformat())}::timestamptz, {prac})"
+            f"{q((dl + WINDOW).isoformat())}::timestamptz, {prac})"
             for (s, w), (dl, lab, prac) in sorted(weeks.items()))
         run_sql(f"""
             insert into comp_weeks (season, week_no, label, deadline, window_end, is_practice)
