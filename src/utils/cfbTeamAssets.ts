@@ -126,6 +126,16 @@ const SUPPLEMENTAL_TEAMS: readonly CfbTeamRow[] = [
     alt_color: '#ded090',
   },
   {
+    // Slate feeds say both "The Citadel" and bare "Citadel" — register both
+    // names so the prefix matcher hits either form.
+    team_name: 'Citadel',
+    abbr: 'CIT',
+    logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2643.png',
+    logo_dark: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/2643.png',
+    color: '#3975B7',
+    alt_color: '#FFC72C',
+  },
+  {
     team_name: 'The Citadel',
     abbr: 'CIT',
     logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2643.png',
