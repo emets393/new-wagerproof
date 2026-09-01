@@ -33,7 +33,9 @@ def key():
 def main():
     # coach + surface — all seasons from nflverse schedules (games.csv carries both, incl. the
     # upcoming season once the schedule posts, so 2026 coach/surface fill as games are added)
-    g = pd.read_csv(io.StringIO(requests.get(GAMES_CSV, timeout=90).text))
+    resp = requests.get(GAMES_CSV, timeout=90)
+    resp.raise_for_status()   # an error page would otherwise parse into a coach-less frame
+    g = pd.read_csv(io.StringIO(resp.text))
     g = g[g.season >= 2018][["game_id", "home_coach", "away_coach", "surface"]].dropna(subset=["game_id"])
     g["surface"] = g["surface"].map(norm_surface)
     # 1H half scores — 2023-25 (null for older games; coach/surface still apply).

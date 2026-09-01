@@ -102,9 +102,20 @@ def fetch_table(table, select="*", order=None, page=1000):
 
 
 def nflverse_games():
-    """Schedule + results from nflverse (direct pull, not Supabase)."""
-    r = requests.get("https://github.com/nflverse/nfldata/raw/master/data/games.csv", timeout=120)
-    return pd.read_csv(io.StringIO(r.text))
+    """Schedule + results from nflverse (direct pull, not Supabase).
+
+    Status-checked + retried: an unchecked GitHub error page used to parse into a
+    frame with no home_score column and crash callers with a bare KeyError."""
+    url = "https://github.com/nflverse/nfldata/raw/master/data/games.csv"
+    for attempt in range(4):
+        try:
+            r = requests.get(url, timeout=120)
+            r.raise_for_status()
+            return pd.read_csv(io.StringIO(r.text))
+        except Exception:
+            if attempt == 3:
+                raise
+            time.sleep(3 * (attempt + 1))
 
 
 def player_stats_def():
