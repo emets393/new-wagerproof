@@ -10,7 +10,7 @@ Mirrors `.claude/docs/16_parlay_god.md` and the Swift sources
 `WagerproofKit/Sources/WagerproofServices/ParlayGodEngine.swift`). **Web ships
 MLB-only** this phase — the NFL prop-leg path is intentionally not ported (it's a
 matchup-widget-only surface on iOS and would pollute the cross-game rails with the
-slate's dates).
+slate slate's dates).
 
 ## What qualifies as a leg
 

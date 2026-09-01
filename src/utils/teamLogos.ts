@@ -1,262 +1,176 @@
-import {
-  getCfbTeamColorsFromAssets,
-  getCfbTeamLogo,
-  lookupCfbTeam,
-  searchCfbTeam,
-  searchCfbTeamColors,
-  searchCfbTeamLogo,
-} from '@/utils/cfbTeamAssets';
-import { getNflTeamLogo } from '@/utils/nflTeamAssets';
-import { getCFBTeamColors, getNFLTeamColors } from '@/utils/teamColors';
-import type { CompSport } from './types';
+import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import debug from '@/utils/debug';
 
-/** Odds-API full names → ESPN NFL slugs (works before nfl_teams cache loads). */
-const NFL_ODDS_NAME_TO_SLUG: Record<string, string> = {
-  'arizona cardinals': 'ari',
-  'atlanta falcons': 'atl',
-  'baltimore ravens': 'bal',
-  'buffalo bills': 'buf',
-  'carolina panthers': 'car',
-  'chicago bears': 'chi',
-  'cincinnati bengals': 'cin',
-  'cleveland browns': 'cle',
-  'dallas cowboys': 'dal',
-  'denver broncos': 'den',
-  'detroit lions': 'det',
-  'green bay packers': 'gb',
-  'houston texans': 'hou',
-  'indianapolis colts': 'ind',
-  'jacksonville jaguars': 'jax',
-  'kansas city chiefs': 'kc',
-  'las vegas raiders': 'lv',
-  'los angeles chargers': 'lac',
-  'los angeles rams': 'lar',
-  'miami dolphins': 'mia',
-  'minnesota vikings': 'min',
-  'new england patriots': 'ne',
-  'new orleans saints': 'no',
-  'new york giants': 'nyg',
-  'new york jets': 'nyj',
-  'philadelphia eagles': 'phi',
-  'pittsburgh steelers': 'pit',
-  'san francisco 49ers': 'sf',
-  'seattle seahawks': 'sea',
-  'tampa bay buccaneers': 'tb',
-  'tennessee titans': 'ten',
-  'washington commanders': 'wsh',
-  'la chargers': 'lac',
-  'la rams': 'lar',
-  'ny giants': 'nyg',
-  'ny jets': 'nyj',
-};
+// Cache for team mappings to avoid repeated fetches
+let nbaTeamMappingsCache: any[] | null = null;
+let ncaabTeamMappingsCache: Map<number, { espn_team_url: string; team_abbrev: string | null }> | null = null;
 
-/** Odds-API full name → short city/brand used by getNFLTeamColors. */
-const NFL_ODDS_NAME_TO_COLOR_KEY: Record<string, string> = {
-  'arizona cardinals': 'Arizona',
-  'atlanta falcons': 'Atlanta',
-  'baltimore ravens': 'Baltimore',
-  'buffalo bills': 'Buffalo',
-  'carolina panthers': 'Carolina',
-  'chicago bears': 'Chicago',
-  'cincinnati bengals': 'Cincinnati',
-  'cleveland browns': 'Cleveland',
-  'dallas cowboys': 'Dallas',
-  'denver broncos': 'Denver',
-  'detroit lions': 'Detroit',
-  'green bay packers': 'Green Bay',
-  'houston texans': 'Houston',
-  'indianapolis colts': 'Indianapolis',
-  'jacksonville jaguars': 'Jacksonville',
-  'kansas city chiefs': 'Kansas City',
-  'las vegas raiders': 'Las Vegas',
-  'los angeles chargers': 'Los Angeles Chargers',
-  'los angeles rams': 'Los Angeles Rams',
-  'miami dolphins': 'Miami',
-  'minnesota vikings': 'Minnesota',
-  'new england patriots': 'New England',
-  'new orleans saints': 'New Orleans',
-  'new york giants': 'NY Giants',
-  'new york jets': 'NY Jets',
-  'philadelphia eagles': 'Philadelphia',
-  'pittsburgh steelers': 'Pittsburgh',
-  'san francisco 49ers': 'San Francisco',
-  'seattle seahawks': 'Seattle',
-  'tampa bay buccaneers': 'Tampa Bay',
-  'tennessee titans': 'Tennessee',
-  'washington commanders': 'Washington',
-};
+// Fetch NBA team mappings (cached)
+export async function getNBATeamMappings(): Promise<any[]> {
+  if (nbaTeamMappingsCache) {
+    return nbaTeamMappingsCache;
+  }
 
-function nflEspnUrl(slug: string): string {
-  return `https://a.espncdn.com/i/teamlogos/nfl/500/${slug}.png`;
-}
+  try {
+    const { data, error } = await collegeFootballSupabase
+      .from('nba_teams_master')
+      .select('*');
 
-/** Resolve ESPN logo for Odds-API style full team names. */
-export function compTeamLogo(sport: CompSport, teamName: string): string | null {
-  const raw = teamName?.trim();
-  if (!raw) return null;
-
-  if (sport === 'nfl') {
-    const fromAssets = getNflTeamLogo(raw);
-    if (fromAssets) return fromAssets;
-
-    const lower = raw.toLowerCase();
-    const slug = NFL_ODDS_NAME_TO_SLUG[lower];
-    if (slug) return nflEspnUrl(slug);
-
-    for (const [name, s] of Object.entries(NFL_ODDS_NAME_TO_SLUG)) {
-      if (lower.includes(name) || name.includes(lower)) return nflEspnUrl(s);
+    if (error) {
+      debug.error('Error fetching NBA team mappings:', error);
+      return [];
     }
-    return null;
-  }
 
-  const direct = getCfbTeamLogo(raw);
-  if (direct) return direct;
-  // ONLY the guarded matcher — the old word-stripping loop turned "Indiana
-  // State Sycamores" into Indiana's logo (2026-09-01 Competition incident).
-  return searchCfbTeamLogo(raw);
+    nbaTeamMappingsCache = data || [];
+    return nbaTeamMappingsCache;
+  } catch (error) {
+    debug.error('Error fetching NBA team mappings:', error);
+    return [];
+  }
 }
 
-/** Short display name — school / brand, not full Odds-API mascot string. */
-export function compTeamShortName(sport: CompSport, teamName: string): string {
-  const raw = teamName?.trim();
-  if (!raw) return '';
-
-  if (sport === 'cfb') {
-    const direct = lookupCfbTeam(raw);
-    if (direct?.teamName) return direct.teamName;
-    // Guarded matcher only — no word-stripping ("Indiana State" must never
-    // shorten to "Indiana").
-    const searched = searchCfbTeam(raw);
-    if (searched?.teamName) return searched.teamName;
+// Fetch NCAAB team mappings (cached)
+export async function getNCAABTeamMappings(): Promise<Map<number, { espn_team_url: string; team_abbrev: string | null }>> {
+  if (ncaabTeamMappingsCache) {
+    return ncaabTeamMappingsCache;
   }
 
-  if (sport === 'nfl') {
-    const lower = raw.toLowerCase();
-    const key = NFL_ODDS_NAME_TO_COLOR_KEY[lower];
-    if (key) return key;
-  }
+  try {
+    const { data, error } = await collegeFootballSupabase
+      .from('ncaab_team_mapping')
+      .select('api_team_id, espn_team_id, team_abbrev');
 
-  const parts = raw.split(/\s+/);
-  if (parts.length <= 1) return raw;
-  const first = parts[0]!;
-  if (first.length <= 4 && first === first.toUpperCase()) return first;
-  if (parts.length >= 3) return parts.slice(0, -1).join(' ');
-  return first;
-}
-
-export function compTeamColors(
-  sport: CompSport,
-  teamName: string
-): { primary: string; secondary: string } {
-  const raw = teamName?.trim();
-  const fallback = { primary: '#6B7280', secondary: '#9CA3AF' };
-  if (!raw) return fallback;
-
-  if (sport === 'cfb') {
-    const direct = getCfbTeamColorsFromAssets(raw);
-    if (direct) return direct;
-    const parts = raw.split(/\s+/);
-    for (let i = parts.length - 1; i >= 1; i--) {
-      const candidate = parts.slice(0, i).join(' ');
-      const hit = getCfbTeamColorsFromAssets(candidate);
-      if (hit) return hit;
+    if (error) {
+      debug.error('Error fetching NCAAB team mappings:', error);
+      return new Map();
     }
-    const searched = searchCfbTeamColors(raw);
-    if (searched) return { primary: searched.primary, secondary: searched.secondary };
-    return getCFBTeamColors(compTeamShortName(sport, raw));
-  }
 
-  const lower = raw.toLowerCase();
-  const colorKey = NFL_ODDS_NAME_TO_COLOR_KEY[lower];
-  if (colorKey) return getNFLTeamColors(colorKey);
-  for (const [name, key] of Object.entries(NFL_ODDS_NAME_TO_COLOR_KEY)) {
-    if (lower.includes(name) || name.includes(lower)) return getNFLTeamColors(key);
-  }
-  return getNFLTeamColors(compTeamShortName(sport, raw));
-}
-
-function parseHex(hex: string): { r: number; g: number; b: number } | null {
-  const h = hex.trim().replace('#', '');
-  if (h.length !== 3 && h.length !== 6) return null;
-  const full =
-    h.length === 3
-      ? h
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : h;
-  const n = Number.parseInt(full, 16);
-  if (Number.isNaN(n)) return null;
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-}
-
-function colorDistance(a: string, b: string): number {
-  const pa = parseHex(a);
-  const pb = parseHex(b);
-  if (!pa || !pb) return 999;
-  return Math.sqrt((pa.r - pb.r) ** 2 + (pa.g - pb.g) ** 2 + (pa.b - pb.b) ** 2);
-}
-
-function isVeryDark(hex: string): boolean {
-  const p = parseHex(hex);
-  if (!p) return false;
-  return (0.299 * p.r + 0.587 * p.g + 0.114 * p.b) / 255 < 0.18;
-}
-
-function colorsClash(a: string, b: string): boolean {
-  if (colorDistance(a, b) < 70) return true;
-  if (isVeryDark(a) && isVeryDark(b)) return true;
-  return false;
-}
-
-/**
- * Away/left + home/right bar colors from team primaries.
- * If primaries clash, swap in a secondary that still contrasts.
- */
-export function resolveMatchupBarColors(
-  sport: CompSport,
-  awayName: string,
-  homeName: string
-): { left: string; right: string } {
-  const away = compTeamColors(sport, awayName);
-  const home = compTeamColors(sport, homeName);
-  let left = away.primary;
-  let right = home.primary;
-
-  if (colorsClash(left, right)) {
-    if (!colorsClash(left, home.secondary) && home.secondary.toLowerCase() !== right.toLowerCase()) {
-      right = home.secondary;
-    } else if (
-      !colorsClash(away.secondary, right) &&
-      away.secondary.toLowerCase() !== left.toLowerCase()
-    ) {
-      left = away.secondary;
-    } else if (!colorsClash(away.secondary, home.secondary)) {
-      left = away.secondary;
-      right = home.secondary;
+    const teamMappingsMap = new Map<number, { espn_team_url: string; team_abbrev: string | null }>();
+    
+    if (data) {
+      data.forEach((team: any) => {
+        if (team.api_team_id !== null && team.api_team_id !== undefined) {
+          const numericId = typeof team.api_team_id === 'string' ? parseInt(team.api_team_id, 10) : team.api_team_id;
+          
+          let logoUrl = '/placeholder.svg';
+          if (team.espn_team_id !== null && team.espn_team_id !== undefined) {
+            const espnTeamId = typeof team.espn_team_id === 'string' ? parseInt(team.espn_team_id, 10) : team.espn_team_id;
+            logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa/500/${espnTeamId}.png`;
+          }
+          
+          teamMappingsMap.set(numericId, {
+            espn_team_url: logoUrl,
+            team_abbrev: team.team_abbrev || null
+          });
+        }
+      });
     }
-  }
 
-  const ensureVisible = (c: string, fallback: string) => {
-    const p = parseHex(c);
-    if (!p) return fallback;
-    const lum = (0.299 * p.r + 0.587 * p.g + 0.114 * p.b) / 255;
-    return lum > 0.88 ? fallback : c;
+    ncaabTeamMappingsCache = teamMappingsMap;
+    return teamMappingsMap;
+  } catch (error) {
+    debug.error('Error fetching NCAAB team mappings:', error);
+    return new Map();
+  }
+}
+
+// Get NBA team logo by team name
+export async function getNBATeamLogo(teamName: string): Promise<string> {
+  if (!teamName) return '/placeholder.svg';
+
+  const mappings = await getNBATeamMappings();
+  
+  // Try database mapping with flexible matching
+  const mapping = mappings.find((t: any) => {
+    const tName = t.team_name || t.name || t.full_name || '';
+    return tName === teamName || 
+      teamName.includes(tName) ||
+      tName.includes(teamName);
+  });
+  
+  if (mapping?.logo_url && mapping.logo_url !== '/placeholder.svg' && mapping.logo_url.trim() !== '') {
+    return mapping.logo_url;
+  }
+  if (mapping?.logo && mapping.logo !== '/placeholder.svg' && mapping.logo.trim() !== '') {
+    return mapping.logo;
+  }
+  
+  // Fallback to ESPN logo URLs
+  const espnLogoMap: { [key: string]: string } = {
+    'Atlanta Hawks': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
+    'Boston Celtics': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
+    'Brooklyn Nets': 'https://a.espncdn.com/i/teamlogos/nba/500/bkn.png',
+    'Charlotte Hornets': 'https://a.espncdn.com/i/teamlogos/nba/500/cha.png',
+    'Chicago Bulls': 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png',
+    'Cleveland Cavaliers': 'https://a.espncdn.com/i/teamlogos/nba/500/cle.png',
+    'Dallas Mavericks': 'https://a.espncdn.com/i/teamlogos/nba/500/dal.png',
+    'Denver Nuggets': 'https://a.espncdn.com/i/teamlogos/nba/500/den.png',
+    'Detroit Pistons': 'https://a.espncdn.com/i/teamlogos/nba/500/det.png',
+    'Golden State Warriors': 'https://a.espncdn.com/i/teamlogos/nba/500/gs.png',
+    'Houston Rockets': 'https://a.espncdn.com/i/teamlogos/nba/500/hou.png',
+    'Indiana Pacers': 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png',
+    'LA Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+    'Los Angeles Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+    'LA Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
+    'Los Angeles Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
+    'Memphis Grizzlies': 'https://a.espncdn.com/i/teamlogos/nba/500/mem.png',
+    'Miami Heat': 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png',
+    'Milwaukee Bucks': 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png',
+    'Minnesota Timberwolves': 'https://a.espncdn.com/i/teamlogos/nba/500/min.png',
+    'New Orleans Pelicans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
+    'New York Knicks': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
+    'Oklahoma City Thunder': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+    'Oklahoma City': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+    'Okla City': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+    'Orlando Magic': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
+    'Philadelphia 76ers': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
+    'Phoenix Suns': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
+    'Portland Trail Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
+    'Sacramento Kings': 'https://a.espncdn.com/i/teamlogos/nba/500/sac.png',
+    'San Antonio Spurs': 'https://a.espncdn.com/i/teamlogos/nba/500/sa.png',
+    'Toronto Raptors': 'https://a.espncdn.com/i/teamlogos/nba/500/tor.png',
+    'Utah Jazz': 'https://a.espncdn.com/i/teamlogos/nba/500/utah.png',
+    'Washington Wizards': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png',
   };
-
-  return {
-    left: ensureVisible(left, '#7BAFD4'),
-    right: ensureVisible(right, '#4D1979'),
-  };
+  
+  // Try exact match first
+  if (espnLogoMap[teamName]) {
+    return espnLogoMap[teamName];
+  }
+  
+  // Try case-insensitive match
+  const lowerTeamName = teamName.toLowerCase();
+  const matchedKey = Object.keys(espnLogoMap).find(key => key.toLowerCase() === lowerTeamName);
+  if (matchedKey) {
+    return espnLogoMap[matchedKey];
+  }
+  
+  // Try partial match
+  for (const [key, url] of Object.entries(espnLogoMap)) {
+    if (teamName.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(teamName.toLowerCase())) {
+      return url;
+    }
+  }
+  
+  return '/placeholder.svg';
 }
 
-export function teamInitials(teamName: string): string {
-  const parts = teamName.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
-  return parts
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 3);
+// Get NCAAB team logo by team ID
+export async function getNCAABTeamLogo(teamId: number | null | undefined): Promise<string> {
+  if (teamId === null || teamId === undefined) {
+    return '/placeholder.svg';
+  }
+
+  const mappings = await getNCAABTeamMappings();
+  const numericId = typeof teamId === 'string' ? parseInt(teamId, 10) : teamId;
+  
+  if (mappings.has(numericId)) {
+    const mapping = mappings.get(numericId);
+    if (mapping?.espn_team_url && mapping.espn_team_url !== '/placeholder.svg' && mapping.espn_team_url.trim() !== '') {
+      return mapping.espn_team_url;
+    }
+  }
+  
+  return '/placeholder.svg';
 }
+
