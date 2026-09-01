@@ -175,9 +175,18 @@ export function getCfbTeamLogo(nameOrAbbr: string, dark = false): string | null 
   return dark ? team.logoDark ?? team.logo : team.logo ?? team.logoDark;
 }
 
+// Words that turn "<school> X" into a DIFFERENT school: "Indiana State" must
+// never fall back to Indiana's logo (FCS opponents poisoned Competition cards
+// with FBS logos, 2026-09-01). A wrong logo is worse than no logo.
+const SCHOOL_SUFFIXES = new Set([
+  'state', 'st', 'tech', 'a&m', 'am', 'southern', 'central',
+  'international', 'wesleyan', 'christian',
+]);
+
 /**
- * Loose match for Odds-API style names ("North Carolina Tar Heels" → North Carolina).
- * Prefers the longest team_name that is contained in the query (or vice versa).
+ * Loose match for Odds-API style names ("North Carolina Tar Heels" → North
+ * Carolina). A team matches only on exact key or word-boundary PREFIX whose
+ * next word doesn't form a different school — never bare substring.
  */
 export function searchCfbTeamLogo(nameOrAbbr: string, dark = false): string | null {
   const key = normalizeCfbTeamKey(nameOrAbbr);
@@ -187,11 +196,14 @@ export function searchCfbTeamLogo(nameOrAbbr: string, dark = false): string | nu
   let bestLen = 0;
   for (const [teamKey, ref] of byName) {
     if (!teamKey) continue;
-    if (key === teamKey || key.includes(teamKey) || teamKey.includes(key)) {
-      if (teamKey.length > bestLen) {
-        best = ref;
-        bestLen = teamKey.length;
-      }
+    let ok = key === teamKey;
+    if (!ok && key.startsWith(teamKey + ' ')) {
+      const nextWord = key.slice(teamKey.length + 1).split(' ')[0];
+      ok = !SCHOOL_SUFFIXES.has(nextWord);
+    }
+    if (ok && teamKey.length > bestLen) {
+      best = ref;
+      bestLen = teamKey.length;
     }
   }
   if (!best) return null;
