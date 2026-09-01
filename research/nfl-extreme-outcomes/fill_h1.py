@@ -18,6 +18,7 @@ Usage:  python3 fill_h1.py 2026            # dry-run: compute + report coverage
 """
 import os
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -69,10 +70,21 @@ def cfb_h1(season):
     if not key:
         print("[CFB] CFBD_API_KEY not set — skipping CFB 1H")
         return pd.DataFrame(columns=["game_id", "h1_home", "h1_away"])
-    r = requests.get("https://api.collegefootballdata.com/games",
-                     params={"year": season, "seasonType": "both"},
-                     headers={"Authorization": f"Bearer {key}", "Accept": "application/json"}, timeout=90)
-    r.raise_for_status()
+    # Degrade, don't crash (same as the NFL side): a transient CFBD failure used to
+    # exit-1 the whole daily grade run; a missed day self-heals on tomorrow's run.
+    for attempt in range(3):
+        try:
+            r = requests.get("https://api.collegefootballdata.com/games",
+                             params={"year": season, "seasonType": "both"},
+                             headers={"Authorization": f"Bearer {key}", "Accept": "application/json"},
+                             timeout=90)
+            r.raise_for_status()
+            break
+        except Exception as e:
+            if attempt == 2:
+                print(f"[CFB] CFBD /games failed ({type(e).__name__}) — no CFB 1H this run")
+                return pd.DataFrame(columns=["game_id", "h1_home", "h1_away"])
+            time.sleep(5 * (attempt + 1))
     recs = []
     for g in r.json():
         hl, al = g.get("homeLineScores"), g.get("awayLineScores")

@@ -42,10 +42,13 @@ echo; echo ">>> 2b) NFL game meta (coach + surface) -> _nab_patch (refresh_nfl_a
 python3 load_nab_patch.py
 
 echo; echo ">>> 3-4) grade NFL props + grade picks + refresh signal_performance"
-# psycopg2 over DATABASE_URL (no psql binary). Idempotent; skips with a note if DATABASE_URL unset.
-# This ALSO appends completed games into {nfl,cfb}_analysis_base (Stage 1 of the historical-
-# trends warehouse refresh) via the refresh_{nfl,cfb}_analysis_base RPCs.
-python3 run_grade_rpcs.py "$SEASON"
+# NON-FATAL since 2026-09-01: the AUTHORITATIVE grader is now pg_cron job
+# 'football-grade-daily' (13:30 UTC) running run_football_daily_grading() inside the
+# CFB instance — no Render credentials involved (see migrations/
+# run_football_daily_grading_pg_cron.sql). This step is a best-effort early pass
+# (idempotent, so double-running is harmless); its failure must not fail the run.
+python3 run_grade_rpcs.py "$SEASON" \
+  || echo "[warn] RPC step failed (non-fatal — pg_cron 'football-grade-daily' grades at 13:30 UTC)"
 echo; echo ">>> 4b) grade SHARP ACTION flags at their detection line (appends to signal_performance)"
 python3 grade_nfl_sharp_flags.py "$SEASON" || true
 
