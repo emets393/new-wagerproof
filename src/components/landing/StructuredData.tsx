@@ -63,7 +63,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
         url: baseUrl,
         logo: {
           '@type': 'ImageObject',
-          url: `${baseUrl}/wagerproofGreenLight.png`,
+          url: `${baseUrl}/guides/brand/wagerproof-app-icon-v1.png`,
           width: 1024,
           height: 1024,
         },
@@ -85,11 +85,6 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
           contactType: 'Customer Service',
           availableLanguage: 'English',
         },
-        aggregateRating: {
-          '@type': 'AggregateRating',
-          ratingValue: '4.8',
-          reviewCount: '127',
-        },
       };
     }
 
@@ -100,14 +95,6 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
         name: 'WagerProof',
         description: 'Professional sports betting analytics powered by real data',
         url: baseUrl,
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: {
-            '@type': 'EntryPoint',
-            urlTemplate: `${baseUrl}/blog?search={search_term_string}`,
-          },
-          'query-input': 'required name=search_term_string',
-        },
       };
     }
 
@@ -123,7 +110,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
           name: 'WagerProof',
           logo: {
             '@type': 'ImageObject',
-            url: `${baseUrl}/wagerproofGreenLight.png`,
+            url: `${baseUrl}/guides/brand/wagerproof-app-icon-v1.png`,
           },
         },
         inLanguage: 'en-US',
@@ -187,9 +174,9 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
           {
             '@type': 'SiteNavigationElement',
             position: 4,
-            name: 'Blog',
-            description: 'Sports betting insights, strategy guides, and analytics breakdowns.',
-            url: `${baseUrl}/blog`,
+            name: 'Guides',
+            description: 'Sourced sports research guides, product methodology, and release notes.',
+            url: `${baseUrl}/guides/`,
           },
           {
             '@type': 'SiteNavigationElement',
@@ -213,7 +200,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
       // Use array format for images (Google prefers this)
       const imageArray = Array.isArray(props.image) 
         ? props.image 
-        : (props.image ? [props.image] : [`${baseUrl}/wagerproofGreenLight.png`]);
+        : (props.image ? [props.image] : [`${baseUrl}/guides/wagerproof-3-5-9/wagerproof-3-5-9-social-v1.webp`]);
       
       return {
         '@context': 'https://schema.org',
@@ -232,7 +219,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
           name: 'WagerProof',
           logo: {
             '@type': 'ImageObject',
-            url: `${baseUrl}/wagerproofGreenLight.png`,
+            url: `${baseUrl}/guides/brand/wagerproof-app-icon-v1.png`,
           },
         },
         mainEntityOfPage: {
