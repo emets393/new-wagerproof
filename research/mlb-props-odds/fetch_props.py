@@ -11,7 +11,7 @@ Raw gz JSON is cached per event so the run is fully resumable and never re-spend
 
 Usage:
   python3 fetch_props.py --test                 # one events + one odds call
-  python3 fetch_props.py --slate              # count events + credit ceiling, spend nothing
+  python3 fetch_props.py --simulate              # count events + credit ceiling, spend nothing
   python3 fetch_props.py                        # all seasons
   python3 fetch_props.py --season 2024          # one season
 """
@@ -143,7 +143,7 @@ def run(fetcher, season, dry=False):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--season", choices=list(SEASONS))
-    ap.add_argument("--slate", action="store_true")
+    ap.add_argument("--simulate", action="store_true")
     ap.add_argument("--test", action="store_true")
     a = ap.parse_args()
     f = Fetcher(load_key())
@@ -160,7 +160,7 @@ def main():
         return
     seasons = [a.season] if a.season else list(SEASONS)
     for s in seasons:
-        run(f, s, dry=a.dry_run)
+        run(f, s, dry=a.simulate)
 
 
 if __name__ == "__main__":

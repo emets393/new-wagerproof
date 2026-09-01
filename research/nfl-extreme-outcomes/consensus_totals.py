@@ -39,11 +39,11 @@ DATA DEPENDENCIES (refresh during 2026 season):
   data/b54_feature_importance.csv — FROZEN snapshot (don't re-rank; use as-is for 2026)
 
 USAGE (production = no flag needed)
-  python3 consensus_totals.py --slate 2025                   # validate strict-open vs 2025
+  python3 consensus_totals.py --simulate 2025                   # validate strict-open vs 2025
   python3 consensus_totals.py --season 2026 --week 4           # weekly live picks (strict-open is default)
   python3 consensus_totals.py --grade 2026                     # fill results + CLV after games
   python3 consensus_totals.py --report 2026                    # summary
-  python3 consensus_totals.py --slate 2025 --include-injuries  # RESEARCH/BACKTEST only
+  python3 consensus_totals.py --simulate 2025 --include-injuries  # RESEARCH/BACKTEST only
 
 FILE OUTPUTS
   out/predictions_totals_<season>.csv               — EVERY game (for website DISPLAY)
@@ -426,15 +426,15 @@ def report(target):
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser()
-    ap.add_argument("--slate",type=int)
+    ap.add_argument("--simulate",type=int)
     ap.add_argument("--season",type=int); ap.add_argument("--week",type=int)
     ap.add_argument("--grade",type=int); ap.add_argument("--report",type=int)
     ap.add_argument("--include-injuries",action="store_true",
                     help="RESEARCH/BACKTEST ONLY: include injury features (NOT live-usable, line moves first)")
     a=ap.parse_args()
     strict=not a.include_injuries  # production default = strict-open
-    if a.dry_run:
-        led,path=generate(a.dry_run, strict_open=strict); grade(a.dry_run); report(a.dry_run)
+    if a.simulate:
+        led,path=generate(a.simulate, strict_open=strict); grade(a.simulate); report(a.simulate)
         L(f"\n[slate] ledger -> {path}")
     elif a.season:
         led,path=generate(a.season, a.week, strict_open=strict)

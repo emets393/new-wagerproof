@@ -544,6 +544,12 @@ def main():
     n_a = int((df.rank_tier == "A-validated").sum()); n_b = int((df.rank_tier == "B-context").sum())
     print(f"shortlist rank: {n_a} A-validated + {n_b} B-context of {len(df)} props")
 
+    # Integer DB columns must not serialize as floats: rank_pos/gp_prior are
+    # nullable so pandas holds them as float64 and to_json emits 118.0 -> 22P02
+    # (killed the first two 2026 loads). Nullable Int64 emits int or null.
+    for _ic in ("rank_pos", "gp_prior", "n_books", "season", "week"):
+        if _ic in df.columns:
+            df[_ic] = pd.to_numeric(df[_ic], errors="coerce").round().astype("Int64")
     recs = json.loads(df.to_json(orient="records"))
     probe = requests.get(
         f"{BASE_URL}/nfl_slate_props?select=best_over_book&limit=1",

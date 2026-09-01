@@ -14,7 +14,7 @@ Every pick is logged at the OPENER with the model edge; grade() later fills resu
 summarizes hit%, ROI, CLV by market/rule. Validated here with a 2025 slate (train 2018-2024).
 
 USAGE
-  python3 forecast_harness.py --slate 2025      # validate against the held-out year
+  python3 forecast_harness.py --simulate 2025      # validate against the held-out year
   python3 forecast_harness.py --season 2026 --week 3   # weekly live use (once 2026 data is loaded)
   python3 forecast_harness.py --grade 2026        # fill results/close/CLV for finished games
   python3 forecast_harness.py --report 2026
@@ -1070,16 +1070,16 @@ def report(target):
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser()
-    ap.add_argument("--slate",type=int); ap.add_argument("--season",type=int); ap.add_argument("--week",type=int)
+    ap.add_argument("--simulate",type=int); ap.add_argument("--season",type=int); ap.add_argument("--week",type=int)
     ap.add_argument("--grade",type=int); ap.add_argument("--report",type=int)
     ap.add_argument("--teasers",type=int,help="generate+grade+report teasers for season")
     a=ap.parse_args()
-    if a.dry_run:
-        m,BASE=build(); led,path=generate(m,BASE,a.dry_run); grade(m,a.dry_run); report(a.dry_run)
+    if a.simulate:
+        m,BASE=build(); led,path=generate(m,BASE,a.simulate); grade(m,a.simulate); report(a.simulate)
         # Teaser pipeline runs after the standard pick grading so it has graded outcomes available
-        generate_teasers(a.dry_run); grade_teasers(m, a.dry_run); report_teasers(a.dry_run)
+        generate_teasers(a.simulate); grade_teasers(m, a.simulate); report_teasers(a.simulate)
         # CFB-replication survivors (b77-b83) — independent UNDER signals
-        generate_cfb_picks(a.dry_run); grade_cfb_picks(m, a.dry_run); report_cfb_picks(a.dry_run)
+        generate_cfb_picks(a.simulate); grade_cfb_picks(m, a.simulate); report_cfb_picks(a.simulate)
         L(f"\n[slate] ledger written to {path}")
     elif a.season:
         m,BASE=build(); led,path=generate(m,BASE,a.season,a.week)
