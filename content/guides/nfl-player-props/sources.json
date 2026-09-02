@@ -1,0 +1,16 @@
+[
+  {
+    "title": "WagerProof: Sports Research AI",
+    "publisher": "Apple and WagerProof, LLC",
+    "url": "https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957",
+    "accessedAt": "2026-09-02",
+    "usedFor": "Current public scope for AI Agents, NFL props, Parlay God, graded records, and product limitations"
+  },
+  {
+    "title": "Official latest NFL injury report for players",
+    "publisher": "NFL",
+    "url": "https://www.nfl.com/injuries/",
+    "accessedAt": "2026-09-02",
+    "usedFor": "Official player availability check in the weekly research workflow"
+  }
+]

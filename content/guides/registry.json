@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "expectedCount": 10,
+  "expectedCount": 11,
   "entries": [
     {
       "slug": "best-sports-betting-research-apps",
@@ -31,6 +31,11 @@
       "slug": "player-prop-research-guide",
       "canonicalPath": "/guides/player-prop-research-guide/",
       "intent": "research player props with a repeatable checklist"
+    },
+    {
+      "slug": "nfl-player-props",
+      "canonicalPath": "/guides/nfl-player-props/",
+      "intent": "find and research NFL player props quickly with WagerProof"
     },
     {
       "slug": "how-wagerproof-analysis-works",
