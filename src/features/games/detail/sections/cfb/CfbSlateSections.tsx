@@ -483,12 +483,24 @@ function resolveSignalDirectionDisplay({
   if (structTeam || structOU === 'over' || structOU === 'under') {
     const mkt = String(flagMarket || '').toLowerCase();
     const pre = mkt.startsWith('h1_') ? '1H ' : '';
-    const ouWord = structOU === 'over' ? 'Over' : structOU === 'under' ? 'Under' : '';
+    let ouWord = structOU === 'over' ? 'Over' : structOU === 'under' ? 'Under' : '';
+    let line = structLine;
+    // Total-market row with a team but no structured direction (older NFL flags
+    // wrote bet_direction NULL): recover Over/Under + line from the side text so
+    // a team-total NEVER renders as a bare team name.
+    if (structTeam && !ouWord && mkt.includes('total')) {
+      const hay = `${sideLabel || ''} ${action || ''} ${betDirection || ''}`.toUpperCase();
+      ouWord = hay.includes('UNDER') ? 'Under' : hay.includes('OVER') ? 'Over' : '';
+      if (ouWord && line === null) {
+        const m = String(sideLabel || '').match(/(\d+(?:\.\d+)?)\s*$/);
+        line = m ? Number(m[1]) : (toNum(row?.best_line) ?? toNum(row?.vegas_line));
+      }
+    }
     if (structTeam && ouWord) {
-      return `${structTeam} ${ouWord}${structLine !== null ? ` ${formatNumber(structLine)}` : ''}`;
+      return `${structTeam} ${ouWord}${line !== null ? ` ${formatNumber(line)}` : ''}`;
     }
     if (ouWord) {
-      return `${pre}${ouWord}${structLine !== null ? ` ${formatNumber(structLine)}` : ''}`;
+      return `${pre}${ouWord}${line !== null ? ` ${formatNumber(line)}` : ''}`;
     }
     if (mkt === 'moneyline') return `${structTeam} ML`;
     return `${pre}${structTeam}${structLine !== null ? ` ${formatSigned(structLine)}` : ''}`;

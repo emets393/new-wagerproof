@@ -424,6 +424,10 @@ def build_flags(g):
         team = AB_NAME.get(tok[0])
         if team is None:
             return None, None, None
+        # team_total sides read 'CAR TT UNDER 22.5' — drop the literal TT marker
+        # or direction/line parse as None and the UI shows a bare team name.
+        if len(tok) > 1 and tok[1].upper() == "TT":
+            tok = [tok[0]] + tok[2:]
         if len(tok) > 1 and tok[1].upper() in ("OVER", "UNDER"):
             return team, tok[1].lower(), num(tok[2]) if len(tok) > 2 else (float(line) if pd.notna(line) else None)
         if len(tok) > 1 and tok[1].upper() == "ML":
