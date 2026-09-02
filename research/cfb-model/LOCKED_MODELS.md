@@ -121,6 +121,14 @@ The exploitable totals error is one-directional (books shade totals UP → publi
 
 ---
 
+## 2g. OPENER CALIBRATION (owner-approved 2026-09-02)
+Weeks 1-2 games land UNDER the close by −1.45/−1.66 pts (54-56% under rate, n=842,
+2016-25) — even the market doesn't fully discount opener sloppiness, and the early
+blend sat ABOVE the close (picked OVER in 7/8 week-0 2026 games, went 1-7). The
+DISPLAYED early-blend total is now shifted −1.5 in weeks 1-2 (`cfb_early_week.py`,
+OPENER_CAL). `pred_total_raw` is NOT calibrated — `early_total_edge` was validated
+on the raw blend-vs-close gap and keeps its backtested inputs.
+
 ## 3. REVERSAL VETO
 A late spread reversal (open→24h and 24h→close move in opposite directions, each ≥1 pt) that
 **contradicts** the model drops the model to 40% (`combo_model_lines.py`). The harness sets

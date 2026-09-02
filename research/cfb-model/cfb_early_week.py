@@ -164,6 +164,16 @@ def main():
     te.loc[ht, "pred_total"] = (te.total_close + (LAM * (te.pred_total - te.total_close))
                                 .clip(-CAP_T, CAP_T)).round(1)[ht]
     L(f"[anchor] λ={LAM} cap ±{CAP_S}/±{CAP_T}: {int(hs.sum())} spreads, {int(ht.sum())} totals anchored to the Odds-API close")
+    # OPENER CALIBRATION (owner-approved 2026-09-02): weeks 1-2 games land UNDER the
+    # close by -1.45/-1.66 pts (54-56% under, n=842, 2016-25) — sloppy openers that
+    # even books don't fully discount. The blend sat ABOVE the close and picked OVER
+    # in 7/8 week-0 games (went 1-7). Shift the DISPLAYED total down by the measured
+    # bias. pred_total_raw is deliberately NOT calibrated: early_total_edge was
+    # backtested on the raw blend-vs-close gap and must keep its validated inputs.
+    OPENER_CAL = 1.5
+    if WEEK <= 2:
+        te["pred_total"] = (te.pred_total - OPENER_CAL).round(1)
+        L(f"[opener-cal] week {WEEK} <= 2: displayed totals shifted -{OPENER_CAL} (2016-25 opener under-bias)")
     L(f"[predict] {len(te)} {SEASON} wk{WEEK} games | prior-SP+ present on both sides for "
       f"{int((te.h_prior_sp.notna() & te.a_prior_sp.notna()).sum())}")
     out = os.path.join(HERE, "out", f"cfb_early_preds_{SEASON}.csv")
