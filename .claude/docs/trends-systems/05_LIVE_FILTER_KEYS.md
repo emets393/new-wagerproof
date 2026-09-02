@@ -155,6 +155,17 @@ never headline the forced ~50%; they lead with the real home/away + fav/dog spli
 gained the FULL as-of Systems filter UI (previously schema/RPC-only). (The per-sport `NFLAnalytics`/
 `CFBAnalytics`/`MLBAnalytics` pages have since been merged into the unified `HistoricalTrends.tsx`.)
 
+## Upcoming RPCs ignore the season window (2026-09-02)
+`nfl/cfb/mlb_analysis_upcoming` no longer apply `season_min`/`season_max` — those keys scope the
+BACKTEST, and applying them to the live slate (always the current season) meant any system saved
+with an upper bound below the current year matched zero upcoming games. Migration
+`upcoming_rpcs_ignore_season_window` neutralized both predicates in all three functions; every
+other filter still applies to upcoming games. Clients keep sending the keys unchanged.
+Related: web `SEASON_MAX` bumped to 2026 (NFL default [2023, 2026], CFB [2025, 2026] — identical
+RPC cost to the old defaults since `season_max` was never sent at the cap), iOS
+`HistoricalAnalysisSport.seasonMax` bumped to match. 2026 rows accrue in `*_analysis_base` daily
+via `refresh_{nfl,cfb}_analysis_base` (see `research/systems_deploy/README_analysis_base_refresh.md`).
+
 ## Not yet done
 - `*_analysis_upcoming` does NOT yet expose these columns for scheduled games (so today's-matches can't be
   filtered by as-of stats yet). Deferred — see the "completed vs upcoming" note in `04_...SPEC.md`.

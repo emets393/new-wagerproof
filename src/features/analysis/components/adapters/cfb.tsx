@@ -48,14 +48,16 @@ import { emitFootballLines, emitFootballLastGame, emitFootballAsOf } from './foo
 
 type S = CfbWebFilterSnapshot;
 
-const SEASON_MAX = 2025;
+const SEASON_MAX = 2026;
 const WEEK_MAX = 16;
 /**
  * Warehouse `cfb_analysis` is slower than NFL — under the ~3s statement_timeout only
- * season_min=2025 completes reliably. Wider defaults time out and the UI shows empty
+ * a ~1-season window completes reliably. Wider defaults time out and the UI shows empty
  * splits. Absolute floor stays on the slider for users who narrow other dims.
+ * 2026 rows are appended by refresh_cfb_analysis_base as games complete, so the live
+ * season costs almost nothing early and the default keeps 2025 as the real backtest body.
  */
-const DEFAULT_SEASON_LOOKBACK = 0; // inclusive → [2025, 2025]
+const DEFAULT_SEASON_LOOKBACK = 1; // inclusive → [2025, 2026]
 const BET_GROUPS = [
   {
     group: 'Full Game',

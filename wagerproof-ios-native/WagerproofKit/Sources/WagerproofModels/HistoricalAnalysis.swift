@@ -61,7 +61,10 @@ public enum HistoricalAnalysisSport: String, Codable, Sendable, Hashable, CaseIt
 
     public var seasonMax: Int {
         switch self {
-        case .nfl, .cfb: return 2025
+        // 2026 rows accrue in *_analysis_base via refresh_{nfl,cfb}_analysis_base as
+        // games complete. Seasons scope the backtest only — the *_upcoming RPCs ignore
+        // season_min/max server-side, so this cap never gates today's-matches.
+        case .nfl, .cfb: return 2026
         case .mlb: return 2026
         }
     }
@@ -1951,9 +1954,9 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         case .nfl, .cfb:
             return HistoricalAnalysisUISnapshot(
                 betType: HistoricalAnalysisBetType.fgSpread.rawValue,
-                // Web-parity default windows (NFL last 3 seasons, CFB current) —
+                // Web-parity default windows (NFL 2023–live, CFB last full season + live) —
                 // deep-history default scans are the statement-timeout risk.
-                seasonMin: sport == .nfl ? max(sport.defaultSeasonFloor, sport.seasonMax - 2) : sport.seasonMax,
+                seasonMin: sport == .nfl ? max(sport.defaultSeasonFloor, sport.seasonMax - 3) : sport.seasonMax - 1,
                 seasonMax: sport.seasonMax,
                 weekMin: 1,
                 weekMax: sport == .nfl ? 18 : 16,

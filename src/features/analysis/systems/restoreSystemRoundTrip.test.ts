@@ -95,6 +95,10 @@ const ANDY_REID_PLAYOFFS_FILTERS: Record<string, unknown> = {
 const ANDY_REID_RPC = {
   coach: 'Andy Reid',
   season_min: 2018,
+  // Saved before the 2026 cap bump: upper bound 2025 is now below SEASON_MAX, so it
+  // emits explicitly. Backtests honor the saved window; upcoming-game matching
+  // ignores seasons server-side, so restored systems still surface live matches.
+  season_max: 2025,
   season_type: 'postseason',
 };
 
