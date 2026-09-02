@@ -58,9 +58,41 @@ for _, r in fg.iterrows():
 # Preseason (e.g. Week 1 before books post event props), events_{SEASON}.parquet may not exist yet.
 # Fall back to an empty frame so full-game picks still generate — TT/1H just won't have per-book lines.
 _ev_path = f"data/event_odds/events_{SEASON}.parquet"
+_ev_parts = []
 if os.path.exists(_ev_path) and not (_e := pd.read_parquet(_ev_path)).empty and "game_id" in _e.columns:
-    ev = _e[_e.game_id.isin(g7)].copy()
-    ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True); ev["description"] = ev.description.fillna("_")
+    _ev_parts.append(_e[_e.game_id.isin(g7)].copy())
+# ALWAYS merge the live DB capture (ncaaf_event_odds, refreshed by the 15-min cron):
+# the local parquet went stale on Aug 24 with only 8 wk-0 games, so 1H/TT cards
+# vanished for the whole wk-1 slate while the games table (fed from the DB) had
+# lines. The DB is the always-fresh source; the parquet is just a bonus history.
+try:
+    _dbr = []
+    _gid_list = ",".join(str(int(x)) for x in g7)
+    _off = 0
+    while True:
+        _chunk = requests.get(
+            f"{C.URL}/rest/v1/ncaaf_event_odds?season=eq.{SEASON}&game_id=in.({_gid_list})"
+            f"&select=season,game_id,home,away,book,market,name,description,price,point,snap_ts"
+            f"&limit=1000&offset={_off}", headers=C.H, timeout=60).json()
+        if not isinstance(_chunk, list) or not _chunk:
+            break
+        _dbr.extend(_chunk)
+        if len(_chunk) < 1000:
+            break
+        _off += 1000
+    if _dbr:
+        _dbf = pd.DataFrame(_dbr).rename(columns={"snap_ts": "snap"})
+        _dbf["game_id"] = _dbf.game_id.astype(int)   # PostgREST returns strings; ev matches on int
+        _ev_parts.append(_dbf)
+        print(f"  [event-odds] merged {len(_dbf)} live DB rows ({_dbf.game_id.nunique()} games) with local parquet")
+except Exception as _ee:
+    print(f"  [event-odds] DB merge skipped: {_ee}")
+if _ev_parts:
+    ev = pd.concat(_ev_parts, ignore_index=True)
+    # no format= kwarg: local pandas 1.x has no "mixed" and Render's pandas 3
+    # infers ISO strings fine either way
+    ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True, errors="coerce")
+    ev["description"] = ev.description.fillna("_") if "description" in ev.columns else "_"
     ev = ev.sort_values("snap_dt").groupby(["game_id", "market", "book", "name", "description"], as_index=False).last()
 else:
     # Full events schema so downstream ev slices (which reference .home/.away/.description) stay column-complete.
