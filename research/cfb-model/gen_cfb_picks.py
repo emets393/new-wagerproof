@@ -306,7 +306,12 @@ for _, r in te.iterrows():
         bm = best_ml(gid, pside); vml = r.get("close_home_ml") if ph else r.get("close_away_ml")
         mlsig = conv_for(gid, "moneyline", side=pside)[2]   # generic: empty unless an ML signal exists
         rows.append(dict(game_id=gid, card_group="moneyline", bet_type="moneyline", sort_order=4, pick_side=pside, pick_team=pteam,
-            pick_label=f"{pteam} ML", model_number=round(float(1/(1+np.exp(-r.pred_margin/9.5))), 3), model_line=None,
+            # probability OF THE PICKED TEAM — the sigmoid alone is the HOME prob, and
+            # attaching it to an away favorite showed OSU at 17.7% vs a -535 price
+            # ("strong fade" on an ~84% favorite; owner 2026-09-02).
+            pick_label=f"{pteam} ML",
+            model_number=round(float(_p if ph else 1 - _p), 3) if (_p := 1/(1+np.exp(-r.pred_margin/9.5))) is not None else None,
+            model_line=None,
             vegas_line=None, vegas_price=round(float(vml), 0) if pd.notna(vml) else None, edge=None,
             best_book=bm[1] if bm else None, best_line=None, best_odds=bm[0] if bm else None,
             conviction="none", is_mammoth=False, has_play=False, display_only=True, signal_keys=mlsig, stake_units=0))
@@ -405,7 +410,9 @@ for _, r in te.iterrows():
         bhm = best_h1_ml(gid, pside2)
         play_m = inrow is not None and isinstance(inrow.h1_ml_bet, str) and bool(inrow.h1_ml_bet) and (pside2 in inrow.h1_ml_bet)
         rows.append(dict(game_id=gid, card_group="h1_ml", bet_type="h1_ml", sort_order=7, pick_side=pside2, pick_team=pteam2,
-            pick_label=f"{pteam2} 1H ML", model_number=round(float(1/(1+np.exp(-h1pm/5.5))), 3), model_line=None,
+            pick_label=f"{pteam2} 1H ML",
+            model_number=round(float(_hp if ph2 else 1 - _hp), 3) if (_hp := 1/(1+np.exp(-h1pm/5.5))) else None,  # prob of the PICKED side
+            model_line=None,
             vegas_line=None, vegas_price=None, edge=None,
             best_book=bhm[1] if bhm else None, best_line=None, best_odds=bhm[0] if bhm else None,
             conviction="none", is_mammoth=False, has_play=bool(play_m), display_only=not play_m,
