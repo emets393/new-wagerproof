@@ -14,6 +14,7 @@ import com.wagerproof.app.features.gamecards.GameRowCardModel
 import com.wagerproof.app.features.gamecards.TeamColorPair
 import com.wagerproof.app.features.props.nflTeamColors
 import com.wagerproof.core.models.GameAgentConsensus
+import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.NFLPrediction
 import com.wagerproof.core.models.NFLTeamAssets
 import java.util.Locale
@@ -78,6 +79,7 @@ fun NFLGameCard(
         oddsBreakdown = oddsBreakdown(game),
         isMammoth = nflHasMammothPlay(game, picks),
         consensus = consensus,
+        signalCount = nflSignalCount(picks),
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)
@@ -93,6 +95,10 @@ internal fun nflHasMammothPlay(game: NFLPrediction, picks: List<NFLSlatePickRow>
     game.mammoth || picks.any { pick ->
         pick.hasPlay == true && (pick.isMammoth == true || pick.conviction.equals("mammoth", ignoreCase = true))
     }
+
+/** Same blanket strip the detail screen uses, so the feed pill never counts scaffolding keys like `sides_model`. */
+internal fun nflSignalCount(picks: List<NFLSlatePickRow>): Int =
+    FootballBlanketSignals.displayKeys("nfl", picks.flatMap { it.signalKeys }).size
 
 internal fun nflSlatePicks(game: NFLPrediction, picks: List<NFLSlatePickRow>): GameRowCardModel.SlatePicks {
     val totalPick = picks.firstOrNull { it.cardGroup == "total" }
@@ -115,10 +121,9 @@ internal fun nflSlatePicks(game: NFLPrediction, picks: List<NFLSlatePickRow>): G
         GameCardFormatting.formatSpread(line)
     }
 
-    // High-conviction and signal counts are deliberately NOT computed here —
-    // they're detail-page data on iOS and the feed-card badges that used them
-    // were removed. `nflHasMammothPlay` survives: the top-level model still
-    // reads it for the card's orange electric border.
+    // High-conviction counts are deliberately NOT computed here — they're
+    // detail-page data on iOS. `nflHasMammothPlay` / `nflSignalCount` feed
+    // the top-level model (electric border, signal pill) instead.
     return GameRowCardModel.SlatePicks(
         totalIsOver = totalDir?.let { it == "OVER" },
         totalLabel = totalLabel,

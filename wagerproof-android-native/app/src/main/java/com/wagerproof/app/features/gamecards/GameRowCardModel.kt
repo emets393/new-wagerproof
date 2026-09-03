@@ -31,6 +31,11 @@ data class GameRowCardModel(
      * .claude/docs/18_agent_consensus.md.
      */
     val consensus: GameAgentConsensus? = null,
+    /**
+     * Game-level signal count for the amber icon+count pill on NFL/CFB feed
+     * cards (iOS `GameRowCard.signalCount`). Null/0 hides the pill.
+     */
+    val signalCount: Int? = null,
 ) {
     data class TeamSide(
         val abbr: String,
@@ -55,9 +60,8 @@ data class GameRowCardModel(
     /**
      * NFL/CFB slate picks rendered on the bottom row — total + spread
      * and nothing else, matching iOS `GameRowCard.SlatePicks`. Conviction
-     * counts and signal counts deliberately do NOT live here: they're a
-     * detail-page concern, and carrying them made the feed cards markedly
-     * taller than iOS's.
+     * counts deliberately do NOT live here — they're a detail-page concern.
+     * The signal count rides on the top-level model (`signalCount`) instead.
      */
     data class SlatePicks(
         val totalIsOver: Boolean?,
