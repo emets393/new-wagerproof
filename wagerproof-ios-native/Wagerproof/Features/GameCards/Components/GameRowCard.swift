@@ -426,26 +426,31 @@ struct GameRowCard: View {
 
     @ViewBuilder
     private var extraInfoRow: some View {
-        if let slatePicks = model.slatePicks {
-            HStack(spacing: 6) {
-                slateTotalPill(slatePicks.total)
-                slateSpreadPill(slatePicks.spread)
-                signalPill
-                Spacer(minLength: 0)
-                if model.oddsBreakdown != nil {
-                    timePill
+        // The pills are all `fixedSize`, so on narrow widths a plain HStack
+        // had nowhere to give but the time pill — which then wrapped one
+        // character per line and stretched the card. Now the pills scroll
+        // horizontally behind a pinned, single-line time pill instead.
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    if let slatePicks = model.slatePicks {
+                        slateTotalPill(slatePicks.total)
+                        slateSpreadPill(slatePicks.spread)
+                        signalPill
+                    } else {
+                        ouEdgeBlock
+                        mlEdgeBlock
+                    }
                 }
             }
-        } else {
-            HStack(spacing: 6) {
-                ouEdgeBlock
-                mlEdgeBlock
-                Spacer(minLength: 0)
-                // Time relocates here when the breakdown table takes over the
-                // main row's upper-right corner.
-                if model.oddsBreakdown != nil {
-                    timePill
-                }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Time relocates here when the breakdown table takes over the
+            // main row's upper-right corner.
+            if model.oddsBreakdown != nil {
+                timePill
+                    .lineLimit(1)
+                    .fixedSize()
             }
         }
     }
@@ -567,16 +572,16 @@ struct GameRowCard: View {
 
     /// Game-level signal count belongs beside the actual model picks, before
     /// the user opens the card. Orange keeps it distinct from a green OVER /
-    /// red UNDER verdict.
+    /// red UNDER verdict. Icon + count only: the "SIGNALS" word was what
+    /// pushed the row past the card width and wrapped the time pill.
     @ViewBuilder
     private var signalPill: some View {
         if let count = model.signalCount, count > 0 {
             HStack(spacing: 3) {
                 Image(systemName: "waveform.path.ecg")
                     .font(.system(size: 9, weight: .black))
-                Text("\(count) \(count == 1 ? "SIGNAL" : "SIGNALS")")
-                    .font(.system(size: 9, weight: .black))
-                    .tracking(0.35)
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .black, design: .monospaced))
             }
             .foregroundStyle(Color.appAccentAmber)
             .lineLimit(1)

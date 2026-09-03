@@ -9,11 +9,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -56,7 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.app.features.shared.RemoteImage
 import com.wagerproof.core.design.components.LiquidGlassCapsule
 import com.wagerproof.core.design.tokens.AppColors
@@ -168,7 +170,7 @@ private fun StandardLayout(model: GameRowCardModel) {
             )
         }
         BottomRow(model)
-        // Own row, never folded into the slate-pick FlowRow — see AgentConsensusStrip.
+        // Own row, never folded into the scrolling slate-pick row — see AgentConsensusStrip.
         model.consensus?.let { AgentConsensusStrip(it) }
     }
 }
@@ -268,7 +270,7 @@ private fun BreakdownLayout(model: GameRowCardModel) {
     Column {
         BreakdownScanRegion(model, bd)
         BottomRow(model)
-        // Own row, never folded into the slate-pick FlowRow — see AgentConsensusStrip.
+        // Own row, never folded into the scrolling slate-pick row — see AgentConsensusStrip.
         model.consensus?.let { AgentConsensusStrip(it) }
     }
 }
@@ -445,7 +447,6 @@ private object BreakdownMetrics {
 // MARK: - Bottom row (edge pills OR slate picks)
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 private fun BottomRow(model: GameRowCardModel) {
     Spacer(Modifier.height(8.dp))
     Box(Modifier.fillMaxWidth().height(0.5.dp).background(AppColors.appBorder.copy(alpha = 0.4f)))
@@ -453,19 +454,20 @@ private fun BottomRow(model: GameRowCardModel) {
 
     val slate = model.slatePicks
     if (slate != null) {
-        // iOS reserves the trailing time first, then gives the picks a leading
-        // stack. The old flattened Row let the pills consume every pixel;
-        // TimePill then wrapped character-by-character and inflated some NFL
-        // cards to almost 300dp tall.
+        // iOS reserves the trailing time first, then lets the picks scroll
+        // horizontally in the remaining width. The old FlowRow wrapped a
+        // third pill onto a second line, and before that a flattened Row let
+        // the pills consume every pixel so TimePill wrapped character-by-
+        // character and inflated some NFL cards to almost 300dp tall.
         Row(
             Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FlowRow(
-                Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+            Row(
+                Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 slate.totalLabel?.let { label ->
                     val color = when (slate.totalIsOver) {
@@ -485,11 +487,21 @@ private fun BottomRow(model: GameRowCardModel) {
                         Text(label, color = AppColors.appTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
                     }
                 }
+                model.signalCount?.takeIf { it > 0 }?.let { SignalPill(it) }
             }
             if (model.oddsBreakdown != null) TimePill(model.timeLabel)
         }
     } else {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
             EdgePill("O/U") {
                 val ou = model.ouEdge
                 if (ou == null) {
@@ -504,7 +516,6 @@ private fun BottomRow(model: GameRowCardModel) {
                     }
                 }
             }
-            Spacer(Modifier.width(6.dp))
             EdgePill("ML") {
                 val ml = model.mlEdge
                 if (ml == null) {
@@ -514,9 +525,34 @@ private fun BottomRow(model: GameRowCardModel) {
                     Text("+${String.format("%.1f", abs(ml.edgePoints))}%", color = ml.color, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 }
             }
-            Spacer(Modifier.weight(1f))
+            }
             if (model.oddsBreakdown != null) TimePill(model.timeLabel)
         }
+    }
+}
+
+/**
+ * Game-level signal count beside the model picks (iOS `signalPill`). Icon +
+ * count only — the "SIGNALS" word is what overflowed the row on iOS. Amber
+ * keeps it distinct from a green OVER / red UNDER verdict.
+ */
+@Composable
+private fun SignalPill(count: Int) {
+    val amber = AppColors.appAccentAmber
+    Row(
+        Modifier
+            .clip(CircleShape)
+            .background(amber.copy(alpha = 0.14f))
+            .border(0.5.dp, amber.copy(alpha = 0.42f), CircleShape)
+            .padding(horizontal = 7.dp, vertical = 5.dp)
+            .semantics { contentDescription = "$count attached ${if (count == 1) "signal" else "signals"}" },
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppIcon.fromSystemName("waveform")?.let {
+            Icon(it.imageVector, null, tint = amber, modifier = Modifier.size(10.dp))
+        }
+        Text("$count", color = amber, fontSize = 10.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, maxLines = 1, softWrap = false)
     }
 }
 
@@ -568,11 +604,11 @@ private fun TimePill(label: String, modifier: Modifier = Modifier) {
     )
 }
 
-// The MAMMOTH PLAY / "N High Conviction" / "⚡ N Signals" badges that used to
-// live here were removed: iOS carries only total + spread on a feed card
-// (GameRowCard.swift:735-751) and surfaces conviction on the game-detail page
-// instead. Mammoth still reads on the feed — as the orange electric border
-// driven by `model.isMammoth` — it just doesn't get a pill.
+// The MAMMOTH PLAY / "N High Conviction" badges that used to live here were
+// removed: iOS carries total + spread + the compact signal count on a feed
+// card and surfaces conviction on the game-detail page instead. Mammoth still
+// reads on the feed — as the orange electric border driven by
+// `model.isMammoth` — it just doesn't get a pill.
 
 // MARK: - Glass avatar (with luminance contrast plate)
 
