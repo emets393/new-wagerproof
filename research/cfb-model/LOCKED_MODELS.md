@@ -309,6 +309,10 @@ TIMING (windows open->h72->h24->h6->close, h6 = the densified Sat-AM window):
   informed money; early money that the market stops following is a warning, not a confirm.
 - Morning window alone 52.5% (n=202) — the fill-in data mattered for measurement, not as
   its own signal.
-CANDIDATE PRODUCTION REFINEMENT (not yet wired): demote ladder tiers whose toward-steam
-fully arrived before h24 with nothing after; late-window steam >=0.5 as an explicit T2+
-confirm. Live-computable from ncaaf_odds_history hourly capture.
+★ WIRED 2026-09-03 (`gen_cfb_slate_flags.py` core_total_edge ladder): tiers earned by total
+steam are DEMOTED to tracking when the toward-move fully arrived before h24 with nothing
+after (head-fake profile, 40-47%); a final-6h toward-move >=0.5 UPGRADES tracking to T2
+active (late steam confirm, 60.0% 5/5 seasons). Computed live per game from the
+`cfb_line_movement` snapshot series vs kickoff; judged only once each window has opened;
+any missing snapshot leaves the tier exactly as the pre-refinement ladder set it. Fires
+from week 5 with the rest of core_total_edge.

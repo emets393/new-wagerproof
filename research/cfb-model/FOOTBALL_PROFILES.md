@@ -197,10 +197,16 @@ OVER 5.5 wins, Mestemaker Heisman piece); (4) the early-week blend projects 52.5
 −0.8 on a −12.5 spread (OK State Stability Score 2/19 — the blend won't pay for an all-new roster).
 Hierarchy: the T2 flag is the VALIDATED bet; (2)-(4) are converging context, not standalone edges.
 - **DEPLOYMENT DECISION: EARLY_SUPPRESS STAYS** (model-edge spots earned no wk1-3 track record).
-  Display predictions continue from `cfb_early_week`. The carryover is validated + ready but NOT
-  wired into the live harness: filling model_games changes the training distribution, which
-  invalidates the FROZEN 2026 pkls — wire it at the next pkl refresh (fill in build_features for
-  ALL seasons, refit, refreeze), i.e., the in-season wk4+ refresh or 2027 preseason.
+  Display predictions continue from `cfb_early_week`.
+- **CARRYOVER WIRING: KILLED by pre-registered confirmation (2026-09-03, `exp_confirm_carryover_wk4.py`).**
+  Run against the FULL production harness (feats + A2 nets + QB, production HP, folds 2021-25):
+  (1) the production model is NOT cold early — wk1-3 corr-with-market is already 0.869 / MAE 14.1
+  (talent + ELO + returning-prod cover it); the 17.6→15.2 transformation above was an artifact of
+  the reduced 33-stem feature set. Carryover's marginal early gain in production: MAE 14.14→13.89,
+  corr .869→.890 — real but small. (2) It DEGRADES wk4+: totals under-edge≤−6 hit 57.1%→51.5%
+  (−5.6pp — the under-edge family feeds tt_away_under), sides gate≥4 −0.78pp pooled with 3/5
+  seasons worse. GATES FAILED → do NOT fill model_games, do NOT wire at any refresh. The frozen
+  pkls stand. Do not revisit without a materially different construction.
 
 ## MODEL FEATURES (Phase 4) — walk-forward MAE, keep-what-lowers
 Shape features (orthogonal to the efficiency the market prices), test seasons 2021-25:

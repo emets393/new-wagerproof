@@ -484,9 +484,36 @@ if WEEK >= 5 and os.path.exists(_cap):
         # TT AWAY UNDER companion (2026-08-17 battery): the away team-total line for
         # each slate game, straight from the slate table the games generator just wrote.
         _ttq = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
-                            f"&select=game_id,tt_away_close,tt_away_best_under", headers=C.H, timeout=30)
-        _ttmap = {int(x["game_id"]): (x.get("tt_away_close"), x.get("tt_away_best_under"))
-                  for x in (_ttq.json() if _ttq.ok else [])}
+                            f"&select=game_id,tt_away_close,tt_away_best_under,kickoff", headers=C.H, timeout=30)
+        _ttrows = _ttq.json() if _ttq.ok else []
+        _ttmap = {int(x["game_id"]): (x.get("tt_away_close"), x.get("tt_away_best_under")) for x in _ttrows}
+        # STEAM TIMING (LOCKED §10, wired 2026-09-03): per-game total snapshots from the
+        # 15-min capture, to decompose WHEN the steam arrived. Guarded — no snapshots ->
+        # the ladder behaves exactly as before.
+        _komap = {int(x["game_id"]): pd.to_datetime(x["kickoff"], utc=True) for x in _ttrows if x.get("kickoff")}
+        _mvsnap = {}
+        try:
+            _gidcsv = ",".join(str(g) for g in _komap)
+            _mvq = requests.get(f"{C.URL}/rest/v1/cfb_line_movement?game_id=in.({_gidcsv})&season=eq.{SEASON}"
+                                f"&select=game_id,snap_ts,fg_total&order=snap_ts.asc", headers=C.H, timeout=60)
+            for x in (_mvq.json() if _mvq.ok else []):
+                if x.get("fg_total") is not None:
+                    _mvsnap.setdefault(int(x["game_id"]), []).append(
+                        (pd.to_datetime(x["snap_ts"], utc=True), float(x["fg_total"])))
+        except Exception as _e:
+            print(f"  [steam_timing] snapshot fetch skipped: {_e}")
+
+        def _total_at(gid, before_ts):
+            """Last captured consensus total at or before `before_ts` (None if no snap yet)."""
+            best = None
+            for ts, v in _mvsnap.get(gid, []):
+                if ts <= before_ts:
+                    best = v
+                else:
+                    break
+            return best
+
+        _nowts = pd.Timestamp.now(tz="UTC")
         B_OFF, B_DEF, B0 = 0.2285, 0.2547, 53.95   # frozen lstsq betas (2021-25, n=2708)
         for _, r in te.iterrows():
             if pd.isna(r.total_close):
@@ -516,6 +543,29 @@ if WEEK >= 5 and os.path.exists(_cap):
             else:
                 conv, tier, stake = "track", "tracking", 0.5
             stx = f", steam {steam:+.1f} toward us" if pd.notna(steam) else ""
+            # STEAM TIMING refinement (cfb_steam_timing.py, 5/5 seasons, LOCKED §10): HOW the
+            # move arrived matters. Early-only steam (all of it before h24, nothing after) is
+            # a head-fake profile (40-47% vs 55-66% ladder) -> demote to tracking. Late-window
+            # steam (final 6h toward us >=0.5) is the sharpest confirm (60.0%) -> at least T2.
+            # Judgeable only once the window has opened; missing snapshots leave the tier as-is.
+            try:
+                _gid, _ko = int(r.game_id), _komap.get(int(r.game_id))
+                if _ko is not None and pd.notna(steam):
+                    _sgn = 1.0 if side == "OVER" else -1.0
+                    if steam >= 0.5 and _nowts >= _ko - pd.Timedelta(hours=24):
+                        _h24 = _total_at(_gid, _ko - pd.Timedelta(hours=24))
+                        if _h24 is not None:
+                            _post24 = _sgn * (float(r.total_close) - _h24)
+                            if _post24 <= 0.1:
+                                conv, tier, stake = "track", "tracking", 0.5
+                                stx += ", early-only steam (head-fake profile) — demoted"
+                    if tier == "tracking" and _nowts >= _ko - pd.Timedelta(hours=6):
+                        _h6 = _total_at(_gid, _ko - pd.Timedelta(hours=6))
+                        if _h6 is not None and _sgn * (float(r.total_close) - _h6) >= 0.5:
+                            conv, tier, stake = "T2", "active", 1.0
+                            stx += ", late steam confirm (final-6h move toward us)"
+            except Exception:
+                pass
             rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
                          "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "total",
                          "side": side, "line": round(float(r.total_close), 1), "price": -110,
