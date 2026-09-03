@@ -1095,9 +1095,23 @@ def main():
         raise SystemExit(f"[SIGN GUARD] {len(_bad)} spread pick(s) contradict the games header — REFUSING TO WRITE: {_bad}")
     print(f"  sign guard: {len(_hdr)} non-neutral spread headers agree with pick cards")
 
-    for t in ("nfl_slate_picks", "nfl_slate_flags", "nfl_slate_games"):
-        resp = requests.delete(f"{BASE_URL}/{t}?season=eq.{SEASON}&week=eq.{WEEK}",
-                               headers=hdr, timeout=60)
+    # COMPLETED games keep their existing pick rows — a full wipe+reinsert nulls the
+    # grader's results every regen (CFB had the same bug, health_sweep 2026-09-03) and
+    # re-derives cards from post-game odds. Games/flags still rebuild (games carry the
+    # finals forward; flags hold no results).
+    _finq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                         f"&final_home=not.is.null&select=game_id", headers=hdr, timeout=30)
+    _fin_ids = {str(x["game_id"]) for x in (_finq.json() if _finq.ok else [])}
+    if _fin_ids:
+        picks = picks[~picks.game_id.astype(str).isin(_fin_ids)]
+        print(f"  skipping picks for {len(_fin_ids)} completed games (grades preserved)")
+    _pick_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
+    if _fin_ids:
+        _pick_scope += "&game_id=not.in.(" + ",".join(sorted(_fin_ids)) + ")"
+    for t, scope in (("nfl_slate_picks", _pick_scope),
+                     ("nfl_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}"),
+                     ("nfl_slate_games", f"season=eq.{SEASON}&week=eq.{WEEK}")):
+        resp = requests.delete(f"{BASE_URL}/{t}?{scope}", headers=hdr, timeout=60)
         if resp.status_code not in (200, 204):
             sys.exit(f"delete {t}: {resp.status_code} {resp.text[:300]}")
     for t, df in (("nfl_slate_games", games), ("nfl_slate_flags", fl),

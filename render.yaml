@@ -239,3 +239,16 @@ services:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
         value: "3.11.9"
+
+  # --- Football pipeline watchdog: probes DATA freshness (line feeds alive, slates
+  # present, picks regenerated, lines posted on imminent games, grading not stale)
+  # and exits non-zero only when something is silently wrong — Render's failure
+  # email is the alert. Catches the failures a green cron can hide.
+  - type: cron
+    name: football-health-sweep
+    runtime: python
+    schedule: "45 10 * 8-12,1-2 *"        # daily 6:45am ET, football season
+    buildCommand: pip install requests
+    startCommand: cd research && python3 health_sweep.py
+    envVars:
+      - fromGroup: wagerproof-model-secrets

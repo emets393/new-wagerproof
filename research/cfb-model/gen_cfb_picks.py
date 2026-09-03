@@ -459,7 +459,20 @@ if _bad:
 print(f"  sign guard: {len(df[(df.bet_type == 'spread') & df.pick_side.notna()])} spread + "
       f"{len(df[(df.bet_type == 'total') & df.pick_side.notna()])} total sides agree with games table")
 
-C.wipe("cfb_slate_picks", f"season=eq.{SEASON}&week=eq.{WEEK}")
+# COMPLETED games keep their existing pick rows: the 3x-daily regen was wiping the
+# grader's results back to NULL every afternoon (found by health_sweep 2026-09-03 —
+# 12 played wk1 picks ungraded), and re-deriving a card from post-game odds is wrong
+# anyway. Wipe + reinsert only the games still to be played.
+_fin = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                    f"&final_home=not.is.null&select=game_id", headers={**C.H, "Prefer": ""}).json()
+_fin_ids = {int(x["game_id"]) for x in _fin}
+if _fin_ids:
+    df = df[~df.game_id.astype(int).isin(_fin_ids)]
+    print(f"  skipping {len(_fin_ids)} completed games (grades preserved)")
+_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
+if _fin_ids:
+    _scope += f"&game_id=not.in.({','.join(str(i) for i in sorted(_fin_ids))})"
+C.wipe("cfb_slate_picks", _scope)
 df["season"] = SEASON; df["week"] = WEEK
 C.insert("cfb_slate_picks", df)
 
