@@ -201,7 +201,7 @@ def load_key():
 
 def amer(pay):
     """Decimal profit-per-1 -> American odds."""
-    if pd.isna(pay) or pay <= 0:
+    if pd.isna(pay) or pay <= 0 or not np.isfinite(pay):
         return None
     return int(round(pay * 100)) if pay >= 1 else int(round(-100 / pay))
 
@@ -308,6 +308,9 @@ def build_games():
     # odds_hist prices are AMERICAN; frame pay_* columns are decimal profit-per-1 (amer()
     # converts back at emit time), so convert here.
     def _a2p(a):
+        # a==0 is a placeholder/bad odds row, not a price — NaN it or 100/0 -> inf
+        # crashes amer() at emit time (OverflowError, 2026-09-03 slate-refresh).
+        a = np.where(np.asarray(a, dtype=float) == 0, np.nan, a)
         return np.where(a > 0, a / 100.0, 100.0 / np.abs(a))
     _oh = pd.read_parquet(DATA / "odds_hist.parquet")
     _oh = _oh[_oh.season == SEASON].copy()
@@ -335,9 +338,13 @@ def build_games():
     # posting only FG must not null out another book's 1H line), then median across books.
     _lb = (_oh.sort_values("snap_ts")
            .groupby(["home_ab", "away_ab", "book"])[_src].last())
-    _live = _lb.groupby(["home_ab", "away_ab"]).median().reset_index()
+    # Convert American -> decimal PER BOOK, THEN median: a cross-book median of American
+    # prices straddling +/-100 is meaningless and can land at exactly 0 (-102 & +102),
+    # which _a2p turned into inf and crashed amer() (2026-09-03 slate-refresh failure).
+    # Same law as the closing-line warehouse: medians happen in decimal space.
     for sc in set(_pay.values()):
-        _live[sc] = _a2p(pd.to_numeric(_live[sc], errors="coerce"))
+        _lb[sc] = _a2p(pd.to_numeric(_lb[sc], errors="coerce"))
+    _live = _lb.groupby(["home_ab", "away_ab"]).median().reset_index()
     _live = _live.rename(columns={v: k for k, v in {**_pts, **_pay}.items()})
     g = g.merge(_live, on=["home_ab", "away_ab"], how="left", suffixes=("", "_lv"))
     for gc in list(_pts) + list(_pay):
