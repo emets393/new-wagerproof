@@ -23,7 +23,7 @@ wrong one is wasted work, so confirm your target before starting.
 | Codebase | Status | Stack | Ships via |
 |---|---|---|---|
 | `src/` | **SHIPPING** — web | React 18.3 + Vite | Netlify → wagerproof.bet |
-| `wagerproof-ios-native/` | **SHIPPING** — iOS (3.6.0) | SwiftUI | Xcode Cloud on push to `main` |
+| `wagerproof-ios-native/` | **SHIPPING** — iOS (3.6.1) | SwiftUI | Xcode Cloud on push to `main` |
 | `wagerproof-android-native/` | **SHIPPING** — Android (3.6.0 / versionCode 94) | Kotlin / Compose | `.github/workflows/android-release.yml` → Play |
 | `wagerproof-mobile/` | **DEPRECATED — phasing out** | React Native + Expo | nothing; no CI path |
 
