@@ -67,11 +67,20 @@ def main():
     for sport, hist, tscol, slate, picks in (
             ("CFB", "ncaaf_odds_history", "snapshot", "cfb_slate_games", "cfb_slate_picks"),
             ("NFL", "nfl_historical_odds", "snap_ts", "nfl_slate_games", "nfl_slate_picks")):
-        # 1. odds freshness — collectors write every 15 min in season
+        # 1. odds freshness. The collectors snapshot today's games hourly but future-day
+        # games only 3x/day (8/14/20 ET), so on no-game days the overnight gap is ~12h BY
+        # DESIGN — a 3h alarm there is a false positive (fired 2026-09-04, NFL off-week).
+        # Threshold: 3h when that sport has a game within +/-24h, else 13h (covers the
+        # set-hour gap; a dead collector still trips within a day).
         try:
+            near = q(f"{slate}?select=game_id&season=eq.{season}"
+                     f"&kickoff=gte.{(NOW - dt.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')}"
+                     f"&kickoff=lte.{(NOW + dt.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')}", count=True)
+            limit_h = 3 if near else 13
             snap = q(f"{hist}?select={tscol}&season=eq.{season}&order={tscol}.desc&limit=1")
             age_h = (NOW - ts(snap[0][tscol])).total_seconds() / 3600 if snap else 999
-            check(f"{sport} odds feed", age_h < 3, f"latest snapshot {age_h:.1f}h old")
+            check(f"{sport} odds feed", age_h < limit_h,
+                  f"latest snapshot {age_h:.1f}h old (limit {limit_h}h, {near} game(s) within 24h)")
         except Exception as e:
             check(f"{sport} odds feed", False, f"probe failed: {e}")
 
