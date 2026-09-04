@@ -70,10 +70,14 @@ end $$;
 
 revoke all on function public.run_football_daily_grading() from public, anon, authenticated;
 
--- Daily 13:30 UTC in football months — 30 min after the Render fill run (13:00 UTC)
--- so finals + player logs land first.
+-- 13:30 + 16:30 UTC in football months — 30 min after each Render fill pass (13:00 /
+-- 16:00 UTC) so finals + player logs land first. The second pass exists because the
+-- CFBD snapshot can land finals after 13:00 (seen 2026-09-04: Thu-night finals hit
+-- cfb_games ~14:00 UTC, so the single 13:00 fill missed them and grading slipped a
+-- day). Schedule widened via `select cron.alter_job(36, schedule => '30 13,16 * 8-12,1-2 *')`
+-- on 2026-09-04.
 select cron.schedule(
   'football-grade-daily',
-  '30 13 * 8-12,1-2 *',
+  '30 13,16 * 8-12,1-2 *',
   'select public.run_football_daily_grading();'
 );
