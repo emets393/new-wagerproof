@@ -214,6 +214,38 @@ def main():
             n_line += r.status_code in (200, 204)
     print(f"picks: {n_line} lines refreshed, {n_flip} side flip(s)")
 
+    # ---- line-band signal hygiene (owner 2026-09-04, mirrors the CFB refresher) ----
+    # Pure current-number band conditions re-checked every run; a flag whose line
+    # left its band is dropped (the 3x-daily rebuild re-fires it if it returns).
+    def _band_ok(key, row):
+        sp = row.get("fg_spread_home")
+        tth = row.get("tt_home")
+        if key == "K9_home_tt_high_over":
+            return tth is None or float(tth) >= 24
+        if key == "K2_bigfav_home_tt_over":
+            return sp is None or float(sp) <= -7
+        return True
+    try:
+        BAND_KEYS = "K9_home_tt_high_over,K2_bigfav_home_tt_over"
+        fl = requests.get(f"{SUPA}/nfl_slate_flags?select=id,game_id,signal_key,game"
+                          f"&season=eq.{season}&week=eq.{week}&signal_key=in.({BAND_KEYS})"
+                          f"&game_id=in.({gids})", headers=hdr, timeout=30).json()
+        killed = 0
+        for f_ in (fl if isinstance(fl, list) else []):
+            if f_["game_id"] not in fills.index:
+                continue
+            row = fills.loc[f_["game_id"]].to_dict()
+            row = {k: (None if v is None or (isinstance(v, float) and v != v) else v) for k, v in row.items()}
+            if not _band_ok(f_["signal_key"], row):
+                r = requests.delete(f"{SUPA}/nfl_slate_flags?id=eq.{f_['id']}", headers=hdr, timeout=30)
+                if r.status_code in (200, 204):
+                    killed += 1
+                    print(f"  [band hygiene] dropped {f_['signal_key']} on {f_['game']} — line left the band")
+        if killed:
+            print(f"band hygiene: {killed} stale flag(s) removed")
+    except Exception as e:
+        print(f"band hygiene skipped: {e}")
+
 
 if __name__ == "__main__":
     main()

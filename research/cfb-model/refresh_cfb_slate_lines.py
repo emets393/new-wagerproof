@@ -400,6 +400,44 @@ def flip_stale_sides(hdr, season, week, gids):
                        json={"conviction_summary": list(seen.values())}, timeout=30)
     print(f"side flips: {flips} pick(s), {len(gpatch)} game row(s) re-sided")
 
+    # ---- line-band signal hygiene (owner 2026-09-04) --------------------------
+    # Flags whose CONDITION is purely "the current number sits in a band" must die
+    # when the number leaves the band — they were only re-evaluated at the 3x-daily
+    # rebuilds, so a line drifting out of range kept a stale signal up for hours
+    # (worst case through kickoff for evening games). Model/history-conditioned
+    # signals still refresh at rebuilds; this covers only the pure-band keys.
+    # Deleted flags re-fire at the next rebuild if the line comes back.
+    def _band_ok(key, sp, tot):
+        if key == "key_dog":
+            return sp is None or 2.5 <= abs(float(sp)) <= 3.5
+        if key == "key_lay_fav":
+            return sp is None or 6.5 <= abs(float(sp)) <= 7.5
+        if key == "fade_high_total":
+            return tot is None or float(tot) >= 60
+        if key == "fade_low_total":
+            return tot is None or float(tot) <= 50
+        return True
+    try:
+        BAND_KEYS = "key_dog,key_lay_fav,fade_high_total,fade_low_total"
+        fl = requests.get(f"{SUPA}/cfb_slate_flags?select=id,game_id,signal_key,game"
+                          f"&season=eq.{season}&week=eq.{week}&signal_key=in.({BAND_KEYS})"
+                          f"&game_id=in.({gids})", headers=hdr, timeout=30).json()
+        killed = 0
+        for f_ in (fl if isinstance(fl, list) else []):
+            if f_["game_id"] not in fills.index:
+                continue
+            row = fills.loc[f_["game_id"]]
+            sp, tot = val(row, "fg_spread_home"), val(row, "fg_total")
+            if not _band_ok(f_["signal_key"], sp, tot):
+                r = requests.delete(f"{SUPA}/cfb_slate_flags?id=eq.{f_['id']}", headers=hdr, timeout=30)
+                if r.status_code in (200, 204):
+                    killed += 1
+                    print(f"  [band hygiene] dropped {f_['signal_key']} on {f_['game']} — line left the band")
+        if killed:
+            print(f"band hygiene: {killed} stale flag(s) removed")
+    except Exception as e:
+        print(f"band hygiene skipped: {e}")
+
 
 if __name__ == "__main__":
     main()
