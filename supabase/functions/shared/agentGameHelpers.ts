@@ -18,12 +18,12 @@ export interface GameFetchResult {
 }
 
 // Which underlying tables the formatted slate is sourced from. 'legacy' = the
-// in-season live tables every existing caller (incl. V2) reads. 'dryrun' = the
-// 2026 dryrun staging tables (nfl_dryrun_games / cfb_dryrun_games), the
+// in-season live tables every existing caller (incl. V2) reads. 'slate' = the
+// 2026 slate staging tables (nfl_slate_feed / cfb_slate_feed), the
 // production data contract. ADDITIVE + opt-in: only V3's gameSource.ts passes
-// 'dryrun'; the default keeps legacy/V2 byte-for-byte unchanged. NFL + CFB only
+// 'slate'; the default keeps legacy/V2 byte-for-byte unchanged. NFL + CFB only
 // — every other sport ignores `source` and reads its legacy table.
-export type GameSource = 'legacy' | 'dryrun';
+export type GameSource = 'legacy' | 'slate';
 
 /** Pipeline scaffolding — never treat as selective per-game betting signals. */
 const NFL_BLANKET_SIGNAL_KEYS = new Set(['sides_model']);
@@ -54,7 +54,7 @@ function filterDisplaySignalKeys(sport: 'nfl' | 'cfb', keys: unknown): string[] 
   return out;
 }
 
-function dryrunFlagSignalKey(row: Record<string, unknown>): string {
+function slateFlagSignalKey(row: Record<string, unknown>): string {
   return String(row.signal_key ?? row.rule ?? '').trim();
 }
 
@@ -94,7 +94,7 @@ async function fetchNFLGames(
   mainClient: SupabaseClient,
   source: GameSource = 'legacy'
 ): Promise<GameFetchResult> {
-  if (source === 'dryrun') return fetchNFLGamesFromDryrun(cfbClient, mainClient);
+  if (source === 'slate') return fetchNFLGamesFromSlate(cfbClient, mainClient);
 
   const { data: latestRun } = await cfbClient
     .from('nfl_predictions_epa')
@@ -118,8 +118,8 @@ async function fetchNFLGames(
 
   // Slate game_ids are whatever formatNFLGame assigns (training_key today; the
   // 2026 contract migrates this to the nflverse id, e.g. 2025_12_BUF_HOU). Props
-  // join on that same id — see DRYRUN_WK12_SPEC.md "Join key … game_id". When the
-  // feed's game_id and nfl_dryrun_props.game_id share a scheme, props light up.
+  // join on that same id — see the wk12 slate spec "Join key … game_id". When the
+  // feed's game_id and nfl_slate_props.game_id share a scheme, props light up.
   const gameIds = [...new Set(games.map(g => String(g.training_key || `${g.away_team}_${g.home_team}`)).filter(Boolean))];
 
   const [polymarketByGameKey, lineMovementByTrainingKey, h2hByGameKey, propsByGameId] = await Promise.all([
@@ -147,7 +147,7 @@ async function fetchCFBGames(
   mainClient: SupabaseClient,
   source: GameSource = 'legacy'
 ): Promise<GameFetchResult> {
-  if (source === 'dryrun') return fetchCFBGamesFromDryrun(cfbClient, mainClient);
+  if (source === 'slate') return fetchCFBGamesFromSlate(cfbClient, mainClient);
 
   const { data: games } = await cfbClient
     .from('cfb_live_weekly_inputs')
@@ -173,20 +173,20 @@ async function fetchCFBGames(
 }
 
 // =============================================================================
-// Dryrun Game Fetchers (V3-only, source='dryrun')
+// Slate Game Fetchers (V3-only, source='slate')
 // Reads the 2026 production-contract staging tables on the research (cfb)
 // project instead of the legacy live tables. Emits the SAME formatted-game
 // shape as formatNFLGame/formatCFBGame so V3's tools + prompt are unchanged.
-// See research/nfl-extreme-outcomes/DRYRUN_WK12_SPEC.md for the table contract.
+// See the wk12 slate spec (research/nfl-extreme-outcomes/) for the table contract.
 // =============================================================================
 
-async function fetchNFLGamesFromDryrun(
+async function fetchNFLGamesFromSlate(
   cfbClient: SupabaseClient,
   mainClient: SupabaseClient
 ): Promise<GameFetchResult> {
   // "Latest slate" = newest (season, week), mirroring the legacy latest-run idea.
   const { data: latestSlate } = await cfbClient
-    .from('nfl_dryrun_games')
+    .from('nfl_slate_feed')
     .select('season, week')
     .order('season', { ascending: false })
     .order('week', { ascending: false })
@@ -198,7 +198,7 @@ async function fetchNFLGamesFromDryrun(
   }
 
   const { data: games } = await cfbClient
-    .from('nfl_dryrun_games')
+    .from('nfl_slate_feed')
     .select('*')
     .eq('season', latestSlate.season)
     .eq('week', latestSlate.week);
@@ -208,18 +208,18 @@ async function fetchNFLGamesFromDryrun(
   }
 
   // game_id is the nflverse id verbatim (e.g. 2025_12_BUF_HOU) — this is what
-  // makes props (nfl_dryrun_props) and results join cleanly. See DRYRUN spec §0.
+  // makes props (nfl_slate_props) and results join cleanly. See the wk12 slate spec §0.
   const gameIds = [...new Set(games.map(g => String(g.game_id || '')).filter(Boolean))];
 
   // season/week are uniform across the slate (it's one (season, week) pull), so
-  // read them off the first row to scope the one-shot injury fetch. The dryrun
+  // read them off the first row to scope the one-shot injury fetch. The slate
   // game rows carry these columns directly (e.g. 2025/12).
   const slateSeason = Number(games[0]?.season);
   const slateWeek = Number(games[0]?.week);
 
   // Polymarket is keyable off team display names (same as legacy). Pick cards
-  // (nfl_dryrun_picks) and signal flags (nfl_dryrun_flags) join on game_id.
-  // No line-movement source: dryrun games carry no training_key, so the legacy
+  // (nfl_slate_picks) and signal flags (nfl_slate_flags) join on game_id.
+  // No line-movement source: slate games carry no training_key, so the legacy
   // nfl_betting_lines join key doesn't exist here → line_movement stays [].
   // signal_performance (RESEARCH project, same cfbClient) carries each signal's
   // LIVE season-to-date record; {sport}_signal_defs carries the STATIC all-time
@@ -229,8 +229,8 @@ async function fetchNFLGamesFromDryrun(
   // keyed by nflverse abbr (same scheme as game_id) — fetched once per slate.
   const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId, perfMap, defMap, injuryMap] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nfl', games),
-    fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_picks', gameIds),
-    fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_flags', gameIds),
+    fetchSlateChildByGameId(cfbClient, 'nfl_slate_picks', gameIds),
+    fetchSlateChildByGameId(cfbClient, 'nfl_slate_flags', gameIds),
     fetchNFLPropsByGameId(cfbClient, gameIds),
     fetchSignalPerformanceMap(cfbClient, 'nfl'),
     fetchSignalDefsMap(cfbClient, 'nfl'),
@@ -239,7 +239,7 @@ async function fetchNFLGamesFromDryrun(
 
   const formattedGames = games.map(game => {
     const gameId = String(game.game_id || '');
-    return formatNFLGameFromDryrun(
+    return formatNFLGameFromSlate(
       game,
       polymarketByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || null,
       propsByGameId.get(gameId) || [],
@@ -253,12 +253,12 @@ async function fetchNFLGamesFromDryrun(
   return { games, formattedGames };
 }
 
-async function fetchCFBGamesFromDryrun(
+async function fetchCFBGamesFromSlate(
   cfbClient: SupabaseClient,
   mainClient: SupabaseClient
 ): Promise<GameFetchResult> {
   const { data: latestSlate } = await cfbClient
-    .from('cfb_dryrun_games')
+    .from('cfb_slate_feed')
     .select('season, week')
     .order('season', { ascending: false })
     .order('week', { ascending: false })
@@ -270,7 +270,7 @@ async function fetchCFBGamesFromDryrun(
   }
 
   const { data: games } = await cfbClient
-    .from('cfb_dryrun_games')
+    .from('cfb_slate_feed')
     .select('*')
     .eq('season', latestSlate.season)
     .eq('week', latestSlate.week);
@@ -289,8 +289,8 @@ async function fetchCFBGamesFromDryrun(
   // see the NFL fetcher. One row-set per run each; both keyed by signal_key.
   const [polymarketByGameKey, picksByGameId, flagsByGameId, trendsByTeam, perfMap, defMap] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'cfb', games),
-    fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_picks', gameIds),
-    fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_flags', gameIds),
+    fetchSlateChildByGameId(cfbClient, 'cfb_slate_picks', gameIds),
+    fetchSlateChildByGameId(cfbClient, 'cfb_slate_flags', gameIds),
     fetchCFBTeamTrendsByTeam(cfbClient, teamNames),
     fetchSignalPerformanceMap(cfbClient, 'cfb'),
     fetchSignalDefsMap(cfbClient, 'cfb'),
@@ -298,7 +298,7 @@ async function fetchCFBGamesFromDryrun(
 
   const formattedGames = games.map(game => {
     const gameId = String(game.game_id ?? '');
-    return formatCFBGameFromDryrun(
+    return formatCFBGameFromSlate(
       game,
       polymarketByGameKey.get(toGameKey('cfb', game.away_team, game.home_team)) || null,
       picksByGameId.get(gameId) || [],
@@ -312,10 +312,10 @@ async function fetchCFBGamesFromDryrun(
   return { games, formattedGames };
 }
 
-// Generic child-table fetcher for the dryrun pick/flag tables: one `.in` query,
+// Generic child-table fetcher for the slate pick/flag tables: one `.in` query,
 // grouped by game_id. game_id is text (NFL) or bigint (CFB) — we stringify both
 // sides so the map keys line up with the parent's String(game.game_id).
-async function fetchDryrunChildByGameId(
+async function fetchSlateChildByGameId(
   cfbClient: SupabaseClient,
   tableName: string,
   gameIds: string[]
@@ -330,7 +330,7 @@ async function fetchDryrunChildByGameId(
       .in('game_id', gameIds);
 
     if (error || !data) {
-      console.warn(`[agentGameHelpers] dryrun child fetch failed (${tableName}):`, error?.message || 'No data');
+      console.warn(`[agentGameHelpers] slate child fetch failed (${tableName}):`, error?.message || 'No data');
       return result;
     }
 
@@ -341,14 +341,14 @@ async function fetchDryrunChildByGameId(
       result.get(gameId)!.push(row);
     }
   } catch (error) {
-    console.warn(`[agentGameHelpers] dryrun child fetch threw (${tableName}):`, (error as Error).message);
+    console.warn(`[agentGameHelpers] slate child fetch threw (${tableName}):`, (error as Error).message);
   }
 
   return result;
 }
 
 // nfl_injuries_raw.team is the nflverse abbr scheme (ARI, LA=Rams, LAC=Chargers,
-// NYG, NYJ) — same as the dryrun game_id, so that table joins by abbr directly.
+// NYG, NYJ) — same as the slate game_id, so that table joins by abbr directly.
 // nfl_pregame_injuries_team_week.team is a CITY string ("Arizona", "NY Jets",
 // "LA Rams"); this static map bridges abbr→city so the team-week digest can be
 // reverse-looked-up per abbr. All 32 verified against the live distinct values.
@@ -371,9 +371,9 @@ interface NFLInjuryEntry {
   players: Record<string, unknown>[];
 }
 
-// NFL injury map for one dryrun slate (RESEARCH project, same cfbClient as the
-// dryrun games). Pulls both injury tables filtered by season+week and keys the
-// result by nflverse ABBR — the same scheme the dryrun game_id uses, so the
+// NFL injury map for one slate (RESEARCH project, same cfbClient as the
+// slate games). Pulls both injury tables filtered by season+week and keys the
+// result by nflverse ABBR — the same scheme the slate game_id uses, so the
 // formatter can look up home/away directly off the parsed game_id. Mirrors
 // fetchSignalPerformanceMap: one fetch per run, try/catch → empty map on error.
 //   - nfl_injuries_raw joins by abbr (team col is already abbr) → per-team
@@ -477,7 +477,7 @@ async function fetchNFLInjuryMap(
 // keyed by (sport, signal_key, season). One row-set per sport per run — fetch
 // once and index by signal_key, keeping the highest (latest) season per key so
 // a firing flag surfaces its most recent record. signal_key here aligns with
-// the dryrun flags' signal_key (most match; tracking signals may have no row).
+// the slate flags' signal_key (most match; tracking signals may have no row).
 async function fetchSignalPerformanceMap(
   cfbClient: SupabaseClient,
   sport: string
@@ -1411,10 +1411,10 @@ async function fetchNFLH2HByGameKey(
   return result;
 }
 
-// Player props for the slate, keyed by game_id (the dryrun nflverse id, e.g.
+// Player props for the slate, keyed by game_id (the slate nflverse id, e.g.
 // 2025_12_BUF_HOU). Mirrors the other per-game fetchers: one `.in` query, then
 // group rows by game_id. Lives on the research (cfb) client alongside
-// nfl_dryrun_games. NFL-only — no other sport has nfl_dryrun_props.
+// nfl_slate_feed. NFL-only — no other sport has nfl_slate_props.
 async function fetchNFLPropsByGameId(
   cfbClient: SupabaseClient,
   gameIds: string[]
@@ -1424,7 +1424,7 @@ async function fetchNFLPropsByGameId(
 
   try {
     const { data, error } = await cfbClient
-      .from('nfl_dryrun_props')
+      .from('nfl_slate_props')
       .select('game_id, player_name, position, team, opponent, is_home, market, close_line, over_price, under_price, l3_avg, l5_avg, l10_avg, szn_avg, over_rate_l5, over_rate_l10, def_matchup_idx, report_status, flags')
       .in('game_id', gameIds);
 
@@ -1456,7 +1456,7 @@ const GRADEABLE_PROP_MARKETS = new Set([
   'player_reception_yds', 'player_receptions', 'player_anytime_td',
 ]);
 
-// Project one nfl_dryrun_props row to the agent-facing prop shape. is_bettable
+// Project one nfl_slate_props row to the agent-facing prop shape. is_bettable
 // is the signal gate: a non-empty `flags` array means a validated P-flag fired
 // AND the market is gradeable; everything else is read-only form context.
 function formatNFLProp(row: Record<string, unknown>): Record<string, unknown> {
@@ -1660,7 +1660,7 @@ function formatNFLGame(
     },
     // Player props are SIGNAL-GATED: only props with a non-empty `flags` array
     // (a validated P-flag fired) are bettable. is_bettable carries that gate to
-    // the agent + the submit grounding check. See nfl_dryrun_props.flags.
+    // the agent + the submit grounding check. See nfl_slate_props.flags.
     props: props.length > 0 ? props : null,
     game_data_complete: {
       source_table: 'nfl_predictions_epa',
@@ -1726,17 +1726,17 @@ function formatCFBGame(
 }
 
 // =============================================================================
-// Dryrun Game Formatters (V3-only)
-// Map nfl_dryrun_games / cfb_dryrun_games columns onto the EXACT formatted-game
+// Slate Game Formatters (V3-only)
+// Map nfl_slate_feed / cfb_slate_feed columns onto the EXACT formatted-game
 // shape that formatNFLGame / formatCFBGame emit (same top-level keys + nesting),
 // so V3's deep tools (DEEP_TOOLS group projections) and prompt consume them
-// identically. Legacy keys are reproduced 1:1; richer dryrun-only data (FG/TT/1H
+// identically. Legacy keys are reproduced 1:1; richer slate-only data (FG/TT/1H
 // blocks, conviction, flag rows) is added under additive sub-keys that don't
-// collide with any legacy key. Columns the dryrun table lacks are set null/[]
+// collide with any legacy key. Columns the slate table lacks are set null/[]
 // (never fabricated). Column map documented in the task return.
 // =============================================================================
 
-function formatNFLGameFromDryrun(
+function formatNFLGameFromSlate(
   game: Record<string, unknown>,
   polymarket: Record<string, unknown> | null,
   props: Record<string, unknown>[] = [],
@@ -1756,14 +1756,14 @@ function formatNFLGameFromDryrun(
   const awayAbbr = idParts[2] ?? '';
   const homeAbbr = idParts[3] ?? '';
 
-  // Dryrun spreads are home-relative (negative = home favored), same convention
+  // Slate spreads are home-relative (negative = home favored), same convention
   // as the legacy formatter's home_spread/away_spread pair.
   const homeSpread = game.fg_spread_close as number | null;
   const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
   const homeML = game.fg_ml_home_close as number | null;
   const awayML = game.fg_ml_away_close as number | null;
 
-  // Model cover prob → predicted side. ou_prob has no dryrun equivalent (the
+  // Model cover prob → predicted side. ou_prob has no slate equivalent (the
   // total model emits a pick/edge/tier, not a probability) → null, and the OU
   // direction is surfaced as predicted_ou_direction + via fg_total_pick.
   const coverProb = game.fg_home_cover_prob as number | null;
@@ -1798,8 +1798,8 @@ function formatNFLGameFromDryrun(
       home_ml: fmtML(homeML),
       away_ml: fmtML(awayML),
       total: game.fg_total_close ?? null,
-      // Additive dryrun blocks: full-game open, team totals, and the 1H strip.
-      // These let the agent reason about TT/1H markets the dryrun product ships.
+      // Additive slate blocks: full-game open, team totals, and the 1H strip.
+      // These let the agent reason about TT/1H markets the slate product ships.
       full_game: {
         spread_open: game.fg_spread_open ?? null,
         spread_close: game.fg_spread_close ?? null,
@@ -1833,11 +1833,11 @@ function formatNFLGameFromDryrun(
       wind_speed: game.wx_wind_mph ?? null,
       precipitation: game.wx_precip_mm ?? null,
       icon: game.wx_icon ?? null,
-      // Additive dryrun extras.
+      // Additive slate extras.
       indoors: game.wx_indoors ?? null,
       summary: game.wx_summary ?? null,
     },
-    // No public-betting splits in the dryrun contract → same key shape, null
+    // No public-betting splits in the slate contract → same key shape, null
     // values (the lens/tool reads these keys; nulls keep the projection valid).
     public_betting: {
       spread_split: null,
@@ -1852,7 +1852,7 @@ function formatNFLGameFromDryrun(
       over_handle: null, under_handle: null,
       over_bets: null, under_bets: null,
     },
-    // Dryrun games carry no training_key → the legacy nfl_betting_lines join key
+    // Slate games carry no training_key → the legacy nfl_betting_lines join key
     // is absent, so there's no line-movement series. Opening lines DO exist on
     // the game row (fg_spread_open / fg_total_open).
     line_movement: [],
@@ -1863,12 +1863,12 @@ function formatNFLGameFromDryrun(
     h2h_recent: [],
     polymarket,
     model_predictions: {
-      // Legacy keys (1:1). ou_prob has no dryrun probability → null.
+      // Legacy keys (1:1). ou_prob has no slate probability → null.
       spread_cover_prob: coverProb,
       ml_prob: game.fg_home_win_prob ?? null,
       ou_prob: null,
       predicted_team: predictedTeam,
-      // Additive dryrun model detail (FG pred/edge/pick, TT, 1H, win prob).
+      // Additive slate model detail (FG pred/edge/pick, TT, 1H, win prob).
       predicted_ou_direction: ouDirection,
       full_game: {
         pred_total: game.fg_pred_total ?? null,
@@ -1924,7 +1924,7 @@ function formatNFLGameFromDryrun(
       flags_tracking: game.flags_tracking ?? null,
       mammoth: game.mammoth ?? false,
     },
-    // Signal flags for the game (nfl_dryrun_flags rows) projected to a compact,
+    // Signal flags for the game (nfl_slate_flags rows) projected to a compact,
     // agent-readable shape under the `signals` group (matches the deep-tool
     // group name used elsewhere). Each carries its own grade_line + tier, plus
     // season_to_date (perfMap, live record) and all_time (defMap, validated
@@ -1932,14 +1932,14 @@ function formatNFLGameFromDryrun(
     // conflated.
     signals: flags.length > 0
       ? flags
-          .filter((f) => !isBlanketSignalKey('nfl', dryrunFlagSignalKey(f)))
-          .map((f) => formatDryrunFlag(f, perfMap, defMap))
+          .filter((f) => !isBlanketSignalKey('nfl', slateFlagSignalKey(f)))
+          .map((f) => formatSlateFlag(f, perfMap, defMap))
       : null,
-    // Pick cards (nfl_dryrun_picks) — the per-bet-type cards the app shows.
-    pick_cards: picks.length > 0 ? picks.map((p) => formatDryrunPick(p, 'nfl')) : null,
+    // Pick cards (nfl_slate_picks) — the per-bet-type cards the app shows.
+    pick_cards: picks.length > 0 ? picks.map((p) => formatSlatePick(p, 'nfl')) : null,
     // Player props — SIGNAL-GATED exactly as in the legacy formatter:
     // is_bettable carries the gate (non-empty flags array) to the agent +
-    // the submit grounding check. See nfl_dryrun_props.flags. Each flagged prop
+    // the submit grounding check. See nfl_slate_props.flags. Each flagged prop
     // also gets `signals` = its flag codes RESOLVED to meanings (name, stance,
     // all-time + season-to-date record) so the agent knows what P14/P17/etc. mean.
     props: props.length > 0
@@ -1951,13 +1951,13 @@ function formatNFLGameFromDryrun(
         })
       : null,
     game_data_complete: {
-      source_table: 'nfl_dryrun_games',
+      source_table: 'nfl_slate_feed',
       raw_game_data: game,
     },
   };
 }
 
-function formatCFBGameFromDryrun(
+function formatCFBGameFromSlate(
   game: Record<string, unknown>,
   polymarket: Record<string, unknown> | null,
   picks: Record<string, unknown>[] = [],
@@ -1975,7 +1975,7 @@ function formatCFBGameFromDryrun(
   const homeML = game.fg_ml_home_close as number | null;
   const awayML = game.fg_ml_away_close as number | null;
 
-  // CFB dryrun spread model: fg_home_cover_prob is frequently null (the CFB
+  // CFB slate spread model: fg_home_cover_prob is frequently null (the CFB
   // model leads with margin/edge, not a cover probability). Fall back to the
   // spread pick text for predicted_team when the prob is absent.
   const coverProb = game.fg_home_cover_prob as number | null;
@@ -1996,7 +1996,7 @@ function formatCFBGameFromDryrun(
     matchup: `${game.away_team} @ ${game.home_team}`,
     away_team: game.away_team,
     home_team: game.home_team,
-    // CFB dryrun has only `kickoff` (tstz) — derive date + time from it.
+    // CFB slate has only `kickoff` (tstz) — derive date + time from it.
     game_date: typeof game.kickoff === 'string' && game.kickoff.includes('T')
       ? String(game.kickoff).split('T')[0]
       : null,
@@ -2052,7 +2052,7 @@ function formatCFBGameFromDryrun(
       ml_split: null,
       total_split: null,
     },
-    // No keyable line-movement (no training_key on dryrun rows).
+    // No keyable line-movement (no training_key on slate rows).
     line_movement: [],
     opening_lines: {
       opening_spread: game.fg_spread_open ?? null,
@@ -2104,10 +2104,10 @@ function formatCFBGameFromDryrun(
     // separate so the two records are never conflated.
     signals: flags.length > 0
       ? flags
-          .filter((f) => !isBlanketSignalKey('cfb', dryrunFlagSignalKey(f)))
-          .map((f) => formatDryrunFlag(f, perfMap, defMap))
+          .filter((f) => !isBlanketSignalKey('cfb', slateFlagSignalKey(f)))
+          .map((f) => formatSlateFlag(f, perfMap, defMap))
       : null,
-    pick_cards: picks.length > 0 ? picks.map((p) => formatDryrunPick(p, 'cfb')) : null,
+    pick_cards: picks.length > 0 ? picks.map((p) => formatSlatePick(p, 'cfb')) : null,
     // Season-to-date ATS/OU/TT + 1H trends per team (cfb_team_trends). Keyed by
     // team_name; surfaced under `trends` so it's a stable named group.
     trends: (homeTrends || awayTrends) ? {
@@ -2115,13 +2115,13 @@ function formatCFBGameFromDryrun(
       away_team: awayTrends ? filterCFBTrend(awayTrends) : null,
     } : null,
     game_data_complete: {
-      source_table: 'cfb_dryrun_games',
+      source_table: 'cfb_slate_feed',
       raw_game_data: game,
     },
   };
 }
 
-// Project one dryrun flag row (nfl_dryrun_flags / cfb_dryrun_flags) to a compact
+// Project one slate flag row (nfl_slate_flags / cfb_slate_flags) to a compact
 // agent-facing shape. grade_line is load-bearing: the line on the row is the
 // line the signal was computed from (open vs close vs best) — grade against it.
 // Two records ride along, kept STRICTLY separate so the model never conflates
@@ -2132,7 +2132,7 @@ function formatCFBGameFromDryrun(
 //   - all_time: the STATIC validated backtest from {sport}_signal_defs via
 //     defMap (validated_hit = typical_hit TEXT, plus the human one-liner /
 //     why-it-works / bet-direction). No def → null.
-function formatDryrunFlag(
+function formatSlateFlag(
   row: Record<string, unknown>,
   perfMap?: Map<string, Record<string, unknown>>,
   defMap?: Map<string, Record<string, unknown>>
@@ -2172,7 +2172,7 @@ function formatDryrunFlag(
 }
 
 // Resolve a PROP flag CODE (e.g. "P14") to its signal meaning + records, mirroring
-// formatDryrunFlag for game signals. nfl_dryrun_props.flags stores the SHORT code, but
+// formatSlateFlag for game signals. nfl_slate_props.flags stores the SHORT code, but
 // nfl_signal_defs / signal_performance key on the full signal_key
 // ("P14_attempts_model_under"), so match by "<code>_" prefix — the underscore
 // disambiguates P1 from P14 (same rule as the DB rollup's split_part). Gives the agent
@@ -2200,10 +2200,10 @@ function formatPropSignalLine(
   return `${code} ${name}${dir}${validated}${szn}`;
 }
 
-// Project one dryrun pick-card row (nfl_dryrun_picks / cfb_dryrun_picks). These
+// Project one slate pick-card row (nfl_slate_picks / cfb_slate_picks). These
 // are the per-bet-type cards the app renders. has_play / display_only mark
 // whether the card is an actual recommendation vs display-only context.
-function formatDryrunPick(
+function formatSlatePick(
   row: Record<string, unknown>,
   sport: 'nfl' | 'cfb' = 'nfl',
 ): Record<string, unknown> {

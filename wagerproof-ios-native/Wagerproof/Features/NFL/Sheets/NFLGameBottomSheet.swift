@@ -21,7 +21,7 @@ struct NFLGameBottomSheet: View {
     // previews/harness contexts that don't hoist the props slate.
     @Environment(PropsStore.self) private var propsStore: PropsStore?
 
-    @State private var picks: [NFLDryrunPickRow] = []
+    @State private var picks: [NFLSlatePickRow] = []
     /// Same-game perfect-streak parlays built from this matchup's props.
     @State private var matchupParlayTickets: [ParlayTicket] = []
     @State private var selectedParlay: ParlayTicket?
@@ -126,9 +126,9 @@ struct NFLGameBottomSheet: View {
             // Seed the hero text cache so subsequent scroll frames reuse it
             // instead of re-parsing the kickoff and re-building the stat rows.
             heroTextCache = HeroText(game)
-            async let dryrun: () = loadDryrunData()
+            async let slate: () = loadSlateData()
             async let props: () = loadMatchupParlays()
-            _ = await (dryrun, props)
+            _ = await (slate, props)
         }
         .sheet(item: $selectedSignal) { signal in
             signalDefinitionSheet(signal)
@@ -418,7 +418,7 @@ struct NFLGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func pickRow(_ pick: NFLDryrunPickRow) -> some View {
+    private func pickRow(_ pick: NFLSlatePickRow) -> some View {
         let board = quotes(for: pick)
 
         VStack(alignment: .leading, spacing: 10) {
@@ -586,7 +586,7 @@ struct NFLGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func pickHeaderLabel(_ pick: NFLDryrunPickRow) -> some View {
+    private func pickHeaderLabel(_ pick: NFLSlatePickRow) -> some View {
         if shouldShowTeamHeader(for: pick), let team = pick.pickTeam {
             HStack(spacing: 8) {
                 GameCardTeamAvatar(teamName: team, sport: "nfl", size: 28, colors: NFLTeamColors.colorPair(for: team))
@@ -617,7 +617,7 @@ struct NFLGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func recommendationBadge(_ pick: NFLDryrunPickRow) -> some View {
+    private func recommendationBadge(_ pick: NFLSlatePickRow) -> some View {
         Text(pick.recommendation ?? "No Bet")
             .font(.system(size: 10, weight: .heavy))
             .foregroundStyle(pick.hasPlay == true ? convictionColor(pick.conviction) : Color.appTextSecondary)
@@ -644,7 +644,7 @@ struct NFLGameBottomSheet: View {
     /// Every number here comes from the same fields the card's headline reads,
     /// so the sentence at the top and the graphic below it can't disagree.
     @ViewBuilder
-    private func edgeVisual(_ pick: NFLDryrunPickRow) -> some View {
+    private func edgeVisual(_ pick: NFLSlatePickRow) -> some View {
         if projectionValue(for: pick) == nil && marketValue(for: pick) == nil {
             pendingMarketState(pick)
         } else if isTotalHeader(for: pick),
@@ -693,18 +693,18 @@ struct NFLGameBottomSheet: View {
         }
     }
 
-    private func projectionValue(for pick: NFLDryrunPickRow) -> Double? {
+    private func projectionValue(for pick: NFLSlatePickRow) -> Double? {
         guard let value = pick.modelLine ?? pick.modelNumber, value.isFinite else { return nil }
         return value
     }
 
-    private func marketValue(for pick: NFLDryrunPickRow) -> Double? {
+    private func marketValue(for pick: NFLSlatePickRow) -> Double? {
         if isMoneylineCard(pick) { return moneylinePrice(for: pick).map(Double.init) }
         if isTeamTotalCard(pick) { return teamTotalMarket(for: pick) }
         return preferredMarketLine(for: pick)
     }
 
-    private func pendingMarketState(_ pick: NFLDryrunPickRow) -> some View {
+    private func pendingMarketState(_ pick: NFLSlatePickRow) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "clock")
                 .font(.system(size: 12, weight: .bold))
@@ -724,15 +724,15 @@ struct NFLGameBottomSheet: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func isSpreadCard(_ pick: NFLDryrunPickRow) -> Bool {
+    private func isSpreadCard(_ pick: NFLSlatePickRow) -> Bool {
         pick.cardGroup == "spread" || pick.cardGroup == "h1_spread"
     }
 
-    private func isTeamTotalCard(_ pick: NFLDryrunPickRow) -> Bool {
+    private func isTeamTotalCard(_ pick: NFLSlatePickRow) -> Bool {
         pick.cardGroup == "team_total"
     }
 
-    private func isMoneylineCard(_ pick: NFLDryrunPickRow) -> Bool {
+    private func isMoneylineCard(_ pick: NFLSlatePickRow) -> Bool {
         pick.cardGroup == "moneyline" || pick.cardGroup == "h1_ml"
     }
 
@@ -740,7 +740,7 @@ struct NFLGameBottomSheet: View {
     /// the model was measured against; `best_odds` is what a bettor could get.
     /// Same precedence as `metricGrid`, so swapping in the bar can't change
     /// which price the card is talking about.
-    private func moneylinePrice(for pick: NFLDryrunPickRow) -> Int? {
+    private func moneylinePrice(for pick: NFLSlatePickRow) -> Int? {
         if let price = preferredQuote(for: pick)?.price, abs(price) >= 100 {
             return price
         }
@@ -752,9 +752,9 @@ struct NFLGameBottomSheet: View {
 
     /// Team-total market number, which the pick row never carries — `vegas_line`
     /// and `best_line` are both null on `team_total` rows for every game in the
-    /// dryrun capture. Falls back through the game row's best over/under for the
+    /// slate capture. Falls back through the game row's best over/under for the
     /// side actually being bet, then the close.
-    private func teamTotalMarket(for pick: NFLDryrunPickRow) -> Double? {
+    private func teamTotalMarket(for pick: NFLSlatePickRow) -> Double? {
         if let line = pick.bestLine ?? pick.vegasLine, line.isFinite { return line }
         guard let team = pick.pickTeam else { return nil }
         let isHome = team == game.homeTeam || NFLTeamAssets.abbr(for: team) == homeAbbr
@@ -775,7 +775,7 @@ struct NFLGameBottomSheet: View {
     /// Conviction as a line under the pick instead of a corner pill, so the
     /// glass book chip can own the corner without the model's verdict being lost.
     @ViewBuilder
-    private func convictionLine(_ pick: NFLDryrunPickRow) -> some View {
+    private func convictionLine(_ pick: NFLSlatePickRow) -> some View {
         let plays = pick.hasPlay == true
         let tint = plays ? convictionColor(pick.conviction) : Color.appTextSecondary
         HStack(spacing: 5) {
@@ -795,7 +795,7 @@ struct NFLGameBottomSheet: View {
 
     /// The per-book board for this pick's market, or nil when the capture has no
     /// rows for the game (out of season, or a fixture it never covered).
-    private func quotes(for pick: NFLDryrunPickRow) -> SportsbookMarketQuotes? {
+    private func quotes(for pick: NFLSlatePickRow) -> SportsbookMarketQuotes? {
         guard let odds = bookOdds, let market = market(for: pick) else { return nil }
         let board = odds.quotes(for: market)
         return board.quotes.isEmpty ? nil : board
@@ -805,12 +805,12 @@ struct NFLGameBottomSheet: View {
         SportsbookPreference.decode(preferredBookKey)
     }
 
-    private func preferredQuote(for pick: NFLDryrunPickRow) -> SportsbookQuote? {
+    private func preferredQuote(for pick: NFLSlatePickRow) -> SportsbookQuote? {
         quotes(for: pick)?.preferred(selectedBookKeys)
     }
 
     /// The number the card quotes: the user's books first, then the pick row.
-    private func preferredMarketLine(for pick: NFLDryrunPickRow) -> Double? {
+    private func preferredMarketLine(for pick: NFLSlatePickRow) -> Double? {
         if let line = preferredQuote(for: pick)?.line, line.isFinite { return line }
         if let value = pick.bestLine ?? pick.vegasLine, value.isFinite { return value }
         return nil
@@ -818,7 +818,7 @@ struct NFLGameBottomSheet: View {
 
     /// Maps a card group + picked side onto the market the odds table stores.
     /// `pick_side` is AWAY/HOME on sides and OVER/UNDER on totals.
-    private func market(for pick: NFLDryrunPickRow) -> SportsbookMarket? {
+    private func market(for pick: NFLSlatePickRow) -> SportsbookMarket? {
         let side = (pick.pickSide ?? "").uppercased()
         let isHome = side == "HOME"
         switch pick.cardGroup {
@@ -832,25 +832,25 @@ struct NFLGameBottomSheet: View {
         }
     }
 
-    private func marketTitle(for pick: NFLDryrunPickRow) -> String {
+    private func marketTitle(for pick: NFLSlatePickRow) -> String {
         NFLPickGroup(cardGroup: pick.cardGroup ?? "", picks: []).title
     }
 
     /// The bar's axis runs "opponent wins by ← tie → pick team wins by", so it
     /// needs both ends named. `pick_team` is a full club name; the abbreviations
     /// come off the game so they match the hero and the feed card.
-    private func pickAbbrev(for pick: NFLDryrunPickRow) -> String? {
+    private func pickAbbrev(for pick: NFLSlatePickRow) -> String? {
         guard let team = pick.pickTeam else { return nil }
         return NFLTeamAssets.abbr(for: team)
     }
 
-    private func opponentAbbrev(for pick: NFLDryrunPickRow) -> String? {
+    private func opponentAbbrev(for pick: NFLSlatePickRow) -> String? {
         guard let picked = pickAbbrev(for: pick) else { return nil }
         return picked == homeAbbr ? awayAbbr : homeAbbr
     }
 
     @ViewBuilder
-    private func metricGrid(_ pick: NFLDryrunPickRow) -> some View {
+    private func metricGrid(_ pick: NFLSlatePickRow) -> some View {
         if pick.cardGroup == "moneyline" || pick.cardGroup == "h1_ml" {
             HStack(spacing: 10) {
                 metricBox(
@@ -900,7 +900,7 @@ struct NFLGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func bestBookRow(_ pick: NFLDryrunPickRow) -> some View {
+    private func bestBookRow(_ pick: NFLSlatePickRow) -> some View {
         HStack(spacing: 10) {
             SportsbookLogoView(
                 logoURL: pick.bestBookLogo,
@@ -928,7 +928,7 @@ struct NFLGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func signalGroups(keys: [String], pick: NFLDryrunPickRow) -> some View {
+    private func signalGroups(keys: [String], pick: NFLSlatePickRow) -> some View {
         let resolved = signalDisplays(keys: keys, pick: pick)
         // Supporting first, then counters, so the amber pills group at the end.
         let ordered = resolved.filter { $0.stance != "counter" }
@@ -1288,8 +1288,8 @@ struct NFLGameBottomSheet: View {
 
     // MARK: - Matchup parlays
 
-    /// Same-game Parlay God tickets from this matchup's player props (dry-run
-    /// slate until the in-season cutover). Pro-gated; hidden when nothing on
+    /// Same-game Parlay God tickets from this matchup's player props (the slate
+    /// until the in-season cutover). Pro-gated; hidden when nothing on
     /// the board is riding a perfect streak.
     @ViewBuilder
     private var matchupParlaysSection: some View {
@@ -1302,7 +1302,7 @@ struct NFLGameBottomSheet: View {
 
     /// Build the parlay tickets off the shared NFL props slate. Team-abbr
     /// matching (not game-id) — the props and prediction rows come from
-    /// different dry-run tables whose id formats aren't guaranteed to align.
+    /// different slate tables whose id formats aren't guaranteed to align.
     private func loadMatchupParlays() async {
         guard let propsStore else { return }
         await propsStore.refreshNFL()
@@ -1319,13 +1319,13 @@ struct NFLGameBottomSheet: View {
         matchupParlayTickets = ParlayGodEngine.gameTickets(from: legs, gameKey: gameKey)
     }
 
-    private func loadDryrunData() async {
-        guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else { return }
+    private func loadSlateData() async {
+        guard (game.runId ?? "").localizedCaseInsensitiveContains("slate") else { return }
         await NFLTeamsService.shared.ensureLoaded()
         await SportsbookCatalogService.shared.ensureLoaded()
         let cfb = await CFBSupabase.shared.client
 
-        // Independent of the dryrun tables — a miss just means the cards keep
+        // Independent of the slate tables — a miss just means the cards keep
         // the pick row's own best-book row, so it's fired and forgotten.
         Task {
             let kickoff = game.kickoff.flatMap { raw -> Date? in
@@ -1344,8 +1344,8 @@ struct NFLGameBottomSheet: View {
             await MainActor.run { bookOdds = odds }
         }
 
-        async let picksTask: [NFLDryrunPickRow] = ((try? await cfb
-            .from("nfl_dryrun_picks")
+        async let picksTask: [NFLSlatePickRow] = ((try? await cfb
+            .from("nfl_slate_picks")
             .select()
             .eq("game_id", value: game.gameId)
             .order("sort_order", ascending: true)
@@ -1632,7 +1632,7 @@ struct NFLGameBottomSheet: View {
 
     // MARK: - Formatting
 
-    private func modelLabel(for pick: NFLDryrunPickRow) -> String {
+    private func modelLabel(for pick: NFLSlatePickRow) -> String {
         switch pick.cardGroup {
         case "spread", "h1_spread": return "Model Line"
         case "moneyline", "h1_ml": return "Win Prob"
@@ -1641,19 +1641,19 @@ struct NFLGameBottomSheet: View {
         }
     }
 
-    private func lineLabel(for pick: NFLDryrunPickRow) -> String {
+    private func lineLabel(for pick: NFLSlatePickRow) -> String {
         if preferredQuote(for: pick) != nil { return "Sportsbook line" }
         return pick.bestLine == nil ? "Vegas Line" : "Best Line"
     }
 
-    private func modelMetricValue(for pick: NFLDryrunPickRow) -> String {
+    private func modelMetricValue(for pick: NFLSlatePickRow) -> String {
         if pick.cardGroup == "spread" || pick.cardGroup == "h1_spread" {
             return formatPickLine(pick.modelLine ?? pick.modelNumber, pick: pick)
         }
         return formatMetric(pick.modelNumber, suffix: modelSuffix(for: pick))
     }
 
-    private func displayPickLabel(_ pick: NFLDryrunPickRow) -> String {
+    private func displayPickLabel(_ pick: NFLSlatePickRow) -> String {
         guard pick.cardGroup == "spread" || pick.cardGroup == "h1_spread" else {
             return pick.pickLabel ?? pick.recommendation ?? "No Bet"
         }
@@ -1664,7 +1664,7 @@ struct NFLGameBottomSheet: View {
         return "\(prefix) \(formatPickLine(preferredMarketLine(for: pick), pick: pick))"
     }
 
-    private func shouldShowTeamHeader(for pick: NFLDryrunPickRow) -> Bool {
+    private func shouldShowTeamHeader(for pick: NFLSlatePickRow) -> Bool {
         switch pick.cardGroup {
         case "spread", "h1_spread", "team_total", "moneyline", "h1_ml":
             return pick.pickTeam != nil
@@ -1673,18 +1673,18 @@ struct NFLGameBottomSheet: View {
         }
     }
 
-    private func isTotalHeader(for pick: NFLDryrunPickRow) -> Bool {
+    private func isTotalHeader(for pick: NFLSlatePickRow) -> Bool {
         pick.cardGroup == "total" || pick.cardGroup == "h1_total"
     }
 
-    private func overUnderDirection(for pick: NFLDryrunPickRow) -> String? {
+    private func overUnderDirection(for pick: NFLSlatePickRow) -> String? {
         let side = (pick.pickSide ?? pick.pickLabel ?? "").uppercased()
         if side.contains("UNDER") { return "UNDER" }
         if side.contains("OVER") { return "OVER" }
         return nil
     }
 
-    private func teamPickHeaderText(_ pick: NFLDryrunPickRow, team: String) -> String {
+    private func teamPickHeaderText(_ pick: NFLSlatePickRow, team: String) -> String {
         let name = teamNickname(for: team)
         switch pick.cardGroup {
         case "spread":
@@ -1713,7 +1713,7 @@ struct NFLGameBottomSheet: View {
         return team.split(separator: " ").last.map(String.init) ?? team
     }
 
-    private func modelSuffix(for pick: NFLDryrunPickRow) -> String {
+    private func modelSuffix(for pick: NFLSlatePickRow) -> String {
         if pick.cardGroup == "moneyline" || pick.cardGroup == "h1_ml" { return "%" }
         return ""
     }
@@ -1726,7 +1726,7 @@ struct NFLGameBottomSheet: View {
         return rounded(value)
     }
 
-    private func formatPickLine(_ value: Double?, pick: NFLDryrunPickRow) -> String {
+    private func formatPickLine(_ value: Double?, pick: NFLSlatePickRow) -> String {
         guard let value else { return "—" }
         if pick.cardGroup == "spread" || pick.cardGroup == "h1_spread" {
             return GameCardFormatting.formatSpread(value)
@@ -1748,7 +1748,7 @@ struct NFLGameBottomSheet: View {
         return "\(value >= 0 ? "+" : "")\(String(format: "%.1f", value))"
     }
 
-    private func bestBookValue(_ pick: NFLDryrunPickRow) -> String {
+    private func bestBookValue(_ pick: NFLSlatePickRow) -> String {
         if pick.cardGroup == "moneyline" || pick.cardGroup == "h1_ml" {
             return GameCardFormatting.formatMoneyline(pick.bestOdds.map { Int($0.rounded()) })
         }
@@ -1757,7 +1757,7 @@ struct NFLGameBottomSheet: View {
         return "\(line) \(odds)"
     }
 
-    private func hasBestBook(_ pick: NFLDryrunPickRow) -> Bool {
+    private func hasBestBook(_ pick: NFLSlatePickRow) -> Bool {
         pick.bestBook != nil || pick.bestBookName != nil || pick.bestBookLogo != nil || pick.bestLine != nil || pick.bestOdds != nil
     }
 
@@ -1771,7 +1771,7 @@ struct NFLGameBottomSheet: View {
         }
     }
 
-    private func signalSupportsPick(_ signal: NFLSignalDefinition, pick: NFLDryrunPickRow) -> Bool {
+    private func signalSupportsPick(_ signal: NFLSignalDefinition, pick: NFLSlatePickRow) -> Bool {
         let pickSide = (pick.pickSide ?? "").uppercased()
         let pickLabel = (pick.pickLabel ?? "").uppercased()
         let pickTeam = (pick.pickTeam ?? "").uppercased()
@@ -1805,7 +1805,7 @@ struct NFLGameBottomSheet: View {
         return true
     }
 
-    private func signalDisplays(keys: [String], pick: NFLDryrunPickRow) -> [NFLSignalDisplay] {
+    private func signalDisplays(keys: [String], pick: NFLSlatePickRow) -> [NFLSignalDisplay] {
         // Chips from pick.signal_keys (blankets stripped). NFL `signals` jsonb
         // includes blanket sides_model on nearly every spread — do not prefer it.
         let displayKeys = FootballBlanketSignals.displayKeys(sport: "nfl", keys: keys)
@@ -2046,7 +2046,7 @@ struct NFLGameBottomSheet: View {
 private struct NFLPickGroup: Identifiable {
     var id: String { cardGroup }
     let cardGroup: String
-    let picks: [NFLDryrunPickRow]
+    let picks: [NFLSlatePickRow]
 
     var title: String {
         switch cardGroup {
@@ -2081,7 +2081,7 @@ private struct NFLPickGroup: Identifiable {
     }
 }
 
-private struct NFLDryrunPickRow: Decodable, Identifiable, Sendable {
+private struct NFLSlatePickRow: Decodable, Identifiable, Sendable {
     let id: Int
     let gameId: String?
     let cardGroup: String?

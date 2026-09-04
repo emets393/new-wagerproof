@@ -10,21 +10,21 @@ import type { GameFeedItem } from '../../../types';
 import type { SportSectionsProps } from '../index';
 import { MarketOddsSection } from '../MarketOddsSection';
 import {
-  NflDryRunPicksSection,
-  NflDryRunSummarySection,
-} from '../cfb/CfbDryRunSections';
+  NflSlatePicksSection,
+  NflSlateSummarySection,
+} from '../cfb/CfbSlateSections';
 import { NflBettingSplitsSection } from './NflBettingSplitsSection';
 import { NflH2HSection } from './NflH2HSection';
 import { NflLineMovementSection } from './NflLineMovementSection';
 
 /**
  * NFL detail-pane widget stack — mirrors the native sheet after the 2026
- * dryrun cutover:
+ * slate cutover:
  *   score prediction (slate summary) → multi-market picks (with team season trends per market) →
  *   market odds → betting splits → line movement → matchup history.
  *
  * Legacy EPA spread/total cards are intentionally omitted: FG lines + picks
- * come only from `nfl_dryrun_*` so spread/total never render twice.
+ * come only from `nfl_slate_*` so spread/total never render twice.
  */
 export function NflSections({ game, extras, onCompletionGenerated }: SportSectionsProps) {
   const raw = game.raw as NFLPrediction;
@@ -34,8 +34,8 @@ export function NflSections({ game, extras, onCompletionGenerated }: SportSectio
 
   return (
     <>
-      <NflDryRunSummarySection game={nflGame} />
-      <NflDryRunPicksSection game={nflGame} />
+      <NflSlateSummarySection game={nflGame} />
+      <NflSlatePicksSection game={nflGame} />
       <MarketOddsSection game={game} />
       <NflBettingSplitsSection game={game} />
       <NflLineMovementSection game={game} extras={extras} />

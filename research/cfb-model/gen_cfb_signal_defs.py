@@ -1,5 +1,5 @@
-"""Populate cfb_signal_defs — user-facing plain-English definition for every signal_key in cfb_dryrun_flags.
-The app joins cfb_dryrun_flags.signal_key = cfb_signal_defs.signal_key to render a readable card on tap."""
+"""Populate cfb_signal_defs — user-facing plain-English definition for every signal_key in cfb_slate_flags.
+The app joins cfb_slate_flags.signal_key = cfb_signal_defs.signal_key to render a readable card on tap."""
 import pandas as pd
 import dry_common as C
 

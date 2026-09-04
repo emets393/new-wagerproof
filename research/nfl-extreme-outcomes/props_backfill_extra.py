@@ -10,7 +10,7 @@ movement analysis. Resumable — raw JSON cached to data/props_snapshots_extra/;
 is cached too so we never re-spend. Reads ODDS_API_KEY from .env.local (never printed).
 
 Usage:
-  python3 props_backfill_extra.py --dry-run     # count snapshots + credit estimate
+  python3 props_backfill_extra.py --simulate     # count snapshots + credit estimate
   python3 props_backfill_extra.py --test        # fetch a single snapshot end-to-end
   python3 props_backfill_extra.py               # full run
 """
@@ -77,7 +77,7 @@ def get(key, url, params):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--simulate", action="store_true")
     ap.add_argument("--test", action="store_true")
     args = ap.parse_args()
 
@@ -90,7 +90,7 @@ def main():
     print(f"existing snapshots: {len(snaps)} | already fetched: {len(snaps)-len(todo)} | "
           f"to fetch: {len(todo)} | est credits ~{len(todo)*30:,} (~30/call, 3 markets; empties=0)",
           flush=True)
-    if args.dry_run:
+    if args.simulate:
         return
     if args.test:
         todo = todo[:1]

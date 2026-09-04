@@ -527,7 +527,7 @@ export default function AISettings() {
         const { resolveNflCurrentWeek } = await import('@/features/games/api/footballSlate');
         const { season, week } = await resolveNflCurrentWeek();
         const { data: nflGames } = await collegeFootballSupabase
-          .from('nfl_dryrun_games')
+          .from('nfl_slate_feed')
           .select('*')
           .eq('season', season)
           .eq('week', week)
@@ -546,7 +546,7 @@ export default function AISettings() {
         const { resolveCfbCurrentWeek } = await import('@/features/games/api/footballSlate');
         const { season, week } = await resolveCfbCurrentWeek();
         const { data: cfbGames } = await collegeFootballSupabase
-          .from('cfb_dryrun_games')
+          .from('cfb_slate_feed')
           .select('*')
           .eq('season', season)
           .eq('week', week)

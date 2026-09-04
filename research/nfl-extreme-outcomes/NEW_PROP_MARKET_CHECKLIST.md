@@ -23,8 +23,8 @@ grades). This is the list. Worked example = the attempts/completions markets (20
       Missing market → silently grades as false 'push'. **Shared warehouse RPC → needs owner
       auth to apply** (see `migrations/grade_nfl_props_add_attempts_markets.sql`).
 
-## 4. The prop card + its graphs — `dryrun_wk12_props.py` (→ live props generator)
-- [ ] Emit a card row per (player, market) into `nfl_dryrun_props`. If the market isn't in
+## 4. The prop card + its graphs — `nfl_slate_props_build.py` (→ live props generator)
+- [ ] Emit a card row per (player, market) into `nfl_slate_props`. If the market isn't in
       `props_frame` (the original 6), build a parallel consensus frame from `props_rows_extra`
       (see `attempts_consensus`).
 - [ ] **The season graphs** = these fields MUST be populated or the card renders empty:
@@ -49,13 +49,13 @@ grades). This is the list. Worked example = the attempts/completions markets (20
       AND the Players bet-type list (§6).
 
 ## 7. Docs
-- [ ] `DRYRUN_WK12_SPEC.md`: row count, §3 markets list, P-flag table.
+- [ ] `SLATE_WK12_SPEC.md`: row count, §3 markets list, P-flag table.
 - [ ] This checklist + the relevant memory (`nfl-game-script-analysis`, `nfl-player-props-infra`).
 
 ## Quick verify (DB)
 ```sql
 -- card + graphs present
-SELECT market, count(*), count(recent_games) FROM nfl_dryrun_props
+SELECT market, count(*), count(recent_games) FROM nfl_slate_props
 WHERE market='player_xxx' GROUP BY market;
 -- outliers trend present
 SELECT count(*) FROM nfl_player_prop_trends WHERE 'player_xxx'=ANY(markets);

@@ -10,7 +10,7 @@ import com.wagerproof.core.models.NFLPrediction
  * The id a feed game joins to `avatar_picks.game_id` on. Port of iOS
  * `Features/Games/GameConsensusKey.swift`; see .claude/docs/18_agent_consensus.md.
  *
- * NFL and CFB use `trainingKey` FIRST, not the model's `id`: on the dry-run path
+ * NFL and CFB use `trainingKey` FIRST, not the model's `id`: on the slate path
  * the two are the same value, but the legacy merge sets `id` from the input
  * view's own primary key while `trainingKey` stays the nflverse / CFBD id the
  * agents actually wrote. Joining on `id` would silently return zero matches

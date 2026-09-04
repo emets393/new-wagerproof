@@ -1,5 +1,5 @@
 """
-Finals writer (task #10) — NFL + CFB. Post-game, UPDATE {nfl,cfb}_dryrun_games.final_home/away
+Finals writer (task #10) — NFL + CFB. Post-game, UPDATE {nfl,cfb}_slate_games.final_home/away
 from the canonical full-game sources:
   NFL <- nflverse_games (home_score/away_score)
   CFB <- cfb_games       (home_points/away_points, the CFBD cron table)
@@ -11,7 +11,7 @@ reads final_*, so this unblocks live grading.
 1H (h1_home/away) is filled by the companion fill_h1.py (NFL nflverse PBP end-of-Q2, CFB
 CFBD /games line scores). This script is full-game only; grade_week.sh runs both.
 
-Run:  python3 fill_finals.py            # dry-run: match + validate vs existing finals
+Run:  python3 fill_finals.py            # slate: match + validate vs existing finals
       python3 fill_finals.py --write    # PATCH final_home/away for matched games
 """
 import sys
@@ -19,6 +19,14 @@ import requests
 import pandas as pd
 from pathlib import Path
 from fetch import fetch_table, nflverse_games
+
+
+def _gid(v):
+    """URL-safe game_id: collapse float64 CFB ids (401864570.0 -> 401864570); NFL string ids pass through."""
+    if isinstance(v, float) and v == int(v):
+        return int(v)
+    return v
+
 
 ROOT = Path(__file__).resolve().parent
 BASE = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
@@ -50,7 +58,7 @@ def _report_and_write(label, table, dg, m, keycols, hdr):
     if WRITE and hdr is not None:
         n = 0
         for _, r in matched.iterrows():
-            resp = requests.patch(f"{BASE}/{table}?game_id=eq.{r.game_id}", headers=hdr,
+            resp = requests.patch(f"{BASE}/{table}?game_id=eq.{_gid(r.game_id)}", headers=hdr,
                                   json={"final_home": int(r.sh), "final_away": int(r.sa)}, timeout=30)
             resp.raise_for_status()
             n += 1
@@ -89,7 +97,7 @@ def main():
     print()
     fill_cfb(hdr)
     if not WRITE:
-        print("\n[dry-run] no writes. Re-run with --write once match + validate are clean.")
+        print("\n[slate] no writes. Re-run with --write once match + validate are clean.")
 
 
 if __name__ == "__main__":

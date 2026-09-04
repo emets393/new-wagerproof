@@ -119,7 +119,7 @@ data class ParlayLeg(
     /**
      * `game_pk.toString()` — matches both `OutliersTrendsGame.id` (MLB) and
      * `MLBPropMatchup.gamePk.toString()`, so same-game rules join cleanly.
-     * NFL team legs use `nfl_dryrun_games.game_id` ("2025_12_CLE_LV").
+     * NFL team legs use `nfl_slate_feed.game_id` ("2025_12_CLE_LV").
      */
     val gameKey: String,
     val matchupLabel: String,

@@ -35,12 +35,12 @@ import UIKit
 public struct SpreadCoverOutcome {
 
     /// The pick team's line from ITS OWN perspective: `+4.5` = receiving 4.5,
-    /// `-10` = laying 10. This is `best_line ?? vegas_line` on an NFL dryrun
+    /// `-10` = laying 10. This is `best_line ?? vegas_line` on an NFL slate
     /// pick row, which is already stored pick-side.
     public let line: Double
 
     /// The pick team's projected final margin — positive means the model has
-    /// them winning. On a dryrun row this is `-model_line`, because `model_line`
+    /// them winning. On a slate row this is `-model_line`, because `model_line`
     /// is the team's fair *spread*.
     public let modelMargin: Double
 

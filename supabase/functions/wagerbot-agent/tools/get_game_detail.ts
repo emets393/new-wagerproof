@@ -53,11 +53,11 @@ export const tool: ToolDefinition = {
         break;
       }
       case "nfl": {
-        // NFL reads the new model's weekly table nfl_dryrun_games (lines from The
+        // NFL reads the new model's weekly table nfl_slate_feed (lines from The
         // Odds API; predictions + lines in one row). Latest (season, week) =
         // current slate — anchor then filter.
         const { data: anchor } = await ctx.cfbSupabase
-          .from("nfl_dryrun_games")
+          .from("nfl_slate_feed")
           .select("season, week")
           .order("season", { ascending: false })
           .order("week", { ascending: false })
@@ -65,7 +65,7 @@ export const tool: ToolDefinition = {
           .maybeSingle();
         if (anchor) {
           const { data } = await ctx.cfbSupabase
-            .from("nfl_dryrun_games")
+            .from("nfl_slate_feed")
             .select("*")
             .eq("season", anchor.season)
             .eq("week", anchor.week);
@@ -74,10 +74,10 @@ export const tool: ToolDefinition = {
         break;
       }
       case "cfb": {
-        // CFB reads the new model's weekly table cfb_dryrun_games (lines from The
+        // CFB reads the new model's weekly table cfb_slate_feed (lines from The
         // Odds API). Latest (season, week) = current slate — anchor then filter.
         const { data: anchor } = await ctx.cfbSupabase
-          .from("cfb_dryrun_games")
+          .from("cfb_slate_feed")
           .select("season, week")
           .order("season", { ascending: false })
           .order("week", { ascending: false })
@@ -85,7 +85,7 @@ export const tool: ToolDefinition = {
           .maybeSingle();
         if (anchor) {
           const { data } = await ctx.cfbSupabase
-            .from("cfb_dryrun_games")
+            .from("cfb_slate_feed")
             .select("*")
             .eq("season", anchor.season)
             .eq("week", anchor.week);

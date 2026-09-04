@@ -1,7 +1,7 @@
 # NFL player-props model — v2 verdict (RESEARCH ONLY)
 
 Redo of `prop_model.py` after the NBA post-mortem, applying the same two structural fixes and the
-same grading guardrails. **Production untouched** — no dryrun tables, P-flags, grading RPCs, or other
+same grading guardrails. **Production untouched** — no slate tables, P-flags, grading RPCs, or other
 sports were modified. Scripts: `nfl_prop_model_v2.py` (frame + positional-allowed + leak screen),
 `nfl_prop_grade_v2.py` (decomposition + product test + ladder + oracle). Eval = 2024–25 (the only
 seasons with T-60 prop lines), graded at the T-60 close with American→decimal prices.

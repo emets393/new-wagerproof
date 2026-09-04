@@ -5,8 +5,8 @@
 # SEASON-SCOPED + idempotent: grades whatever is now gradeable, so it doesn't matter which
 # day it runs or where the week boundary falls. The slate runner writes picks/flags/props
 # PRE-game; this fills finals + player stats and grades them POST-game. Sequence:
-#   1) finals       -> {nfl,cfb}_dryrun_games.final_home/away   (fill_finals.py)
-#   1b) 1H finals   -> {nfl,cfb}_dryrun_games.h1_home/h1_away   (fill_h1.py: NFL PBP + CFB line scores)
+#   1) finals       -> {nfl,cfb}_slate_games.final_home/away   (fill_finals.py)
+#   1b) 1H finals   -> {nfl,cfb}_slate_games.h1_home/h1_away   (fill_h1.py: NFL PBP + CFB line scores)
 #   2) player logs  -> nfl_player_game_logs (nflverse, all weeks)  (ingest_player_logs.py)
 #   3) grade props  -> nfl_player_props.actual_value/result, all weeks (grade_nfl_props)
 #   4) grade picks + roll up signals (refresh_all_signal_performance: game AND prop signals)

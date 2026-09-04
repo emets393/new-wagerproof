@@ -535,7 +535,7 @@ public final class AgentDetailStore {
         }
         do {
             // This client is V3-only: generation always runs on the Trigger.dev
-            // agentic engine. `model`/`dryRun` are DEBUG tuning knobs (Secret
+            // agentic engine. `model`/`simulateOnly` are DEBUG tuning knobs (Secret
             // Settings); defaults are used when unset.
             let v3 = AgentV3SettingsStore()
             // Generation runs ASYNC on the server (enqueue → Trigger.dev queue →
@@ -548,7 +548,7 @@ public final class AgentDetailStore {
             let priorWeeklyIds = Set(weeklyParlays.map(\.id))
             let trigger = try await AgentPicksService.requestTriggerV3Generation(
                 agentId: agentId,
-                dryRun: v3.dryRun,
+                simulateOnly: v3.simulateOnly,
                 modelName: v3.model,
                 window: window == .week ? "week" : nil
             )

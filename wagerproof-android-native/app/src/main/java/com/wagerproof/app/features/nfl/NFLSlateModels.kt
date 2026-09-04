@@ -29,8 +29,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 
 /**
- * NFL dry-run detail-page data contract — port of the private row structs in
- * iOS `NFLGameBottomSheet.swift` (`nfl_dryrun_picks`, `nfl_signal_defs`,
+ * NFL slate detail-page data contract — port of the private row structs in
+ * iOS `NFLGameBottomSheet.swift` (`nfl_slate_picks`, `nfl_signal_defs`,
  * `nfl_team_trends`, `nfl_matchup_history`). Everything decodes tolerantly:
  * one corrupt row/field must never blank the whole board.
  */
@@ -38,7 +38,7 @@ import kotlinx.serialization.json.booleanOrNull
 // MARK: - Rows
 
 @Serializable
-data class NFLDryrunPickRow(
+data class NFLSlatePickRow(
     @Serializable(with = FlexibleIntSerializer::class) val id: Int? = null,
     @SerialName("game_id") val gameId: String? = null,
     @SerialName("card_group") val cardGroup: String? = null,
@@ -189,7 +189,7 @@ data class NFLSignalDisplay(
 }
 
 /** One card-group section (spread / total / …) with its ordered pick rows. */
-data class NFLPickGroup(val cardGroup: String, val picks: List<NFLDryrunPickRow>) {
+data class NFLPickGroup(val cardGroup: String, val picks: List<NFLSlatePickRow>) {
     val id: String get() = cardGroup
 
     val title: String
@@ -274,20 +274,20 @@ data class NFLTrendGameDetailRow(
 
 // MARK: - Supabase loaders
 
-suspend fun loadNFLDryrunPicks(gameId: String): List<NFLDryrunPickRow> = runCatching {
+suspend fun loadNFLSlateDetailPicks(gameId: String): List<NFLSlatePickRow> = runCatching {
     SupabaseClients.cfb
-        .from("nfl_dryrun_picks")
+        .from("nfl_slate_picks")
         .select {
             filter { eq("game_id", gameId) }
             order("sort_order", Order.ASCENDING)
         }
-        .decodeList<NFLDryrunPickRow>()
+        .decodeList<NFLSlatePickRow>()
 }.getOrDefault(emptyList())
 
 /** Slim column set the feed card needs for slate pills (mirrors iOS `NFLSlatePickRow`). */
-suspend fun loadNFLSlatePicks(gameId: String): List<NFLDryrunPickRow> = runCatching {
+suspend fun loadNFLSlatePicks(gameId: String): List<NFLSlatePickRow> = runCatching {
     SupabaseClients.cfb
-        .from("nfl_dryrun_picks")
+        .from("nfl_slate_picks")
         .select(
             Columns.raw(
                 "game_id,card_group,pick_team,pick_side,pick_label,best_line,vegas_line," +
@@ -297,16 +297,16 @@ suspend fun loadNFLSlatePicks(gameId: String): List<NFLDryrunPickRow> = runCatch
             filter { eq("game_id", gameId) }
             order("sort_order", Order.ASCENDING)
         }
-        .decodeList<NFLDryrunPickRow>()
+        .decodeList<NFLSlatePickRow>()
 }.getOrDefault(emptyList())
 
 /**
  * Failure-aware variant used by feed cards. Callers update observable rows only
  * on success, so a transient network/decode error never clears a cached card.
  */
-suspend fun loadNFLSlatePicksResult(gameId: String): Result<List<NFLDryrunPickRow>> = runCatching {
+suspend fun loadNFLSlatePicksResult(gameId: String): Result<List<NFLSlatePickRow>> = runCatching {
     SupabaseClients.cfb
-        .from("nfl_dryrun_picks")
+        .from("nfl_slate_picks")
         .select(
             Columns.raw(
                 "game_id,card_group,pick_team,pick_side,pick_label,best_line,vegas_line," +
@@ -316,7 +316,7 @@ suspend fun loadNFLSlatePicksResult(gameId: String): Result<List<NFLDryrunPickRo
             filter { eq("game_id", gameId) }
             order("sort_order", Order.ASCENDING)
         }
-        .decodeList<NFLDryrunPickRow>()
+        .decodeList<NFLSlatePickRow>()
 }
 
 suspend fun loadNFLSignalDefs(): Map<String, NFLSignalDefinition> = runCatching {

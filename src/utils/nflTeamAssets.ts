@@ -2,7 +2,7 @@
  * Process-wide cache of the `nfl_teams` reference table — web port of iOS/Android
  * NFLTeamAssets. Cards and detail resolve logos/abbrs from `home_ab`/`away_ab` (or
  * full display names) instead of the old city-only LOGO_MAP, which breaks on
- * dryrun rows like "Seattle Seahawks".
+ * slate rows like "Seattle Seahawks".
  */
 
 export interface NflTeamReference {
@@ -209,7 +209,7 @@ export function getNflLinesCity(nameOrAbbr: string): string | null {
 }
 
 /**
- * Build the legacy betting-lines training_key for a dryrun game.
+ * Build the legacy betting-lines training_key for a slate game.
  * Format: `{homeCity}{awayCity}{season}{week}` (no separators).
  */
 export function buildNflBettingLinesKey(

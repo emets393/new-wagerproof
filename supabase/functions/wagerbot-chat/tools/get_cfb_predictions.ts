@@ -18,11 +18,11 @@ export const tool: ToolDefinition = {
     },
   },
   async execute(input: { team?: string }, ctx: ToolContext) {
-    // CFB reads the new model's weekly table cfb_dryrun_games (lines from The Odds
+    // CFB reads the new model's weekly table cfb_slate_feed (lines from The Odds
     // API). The pipeline delete-then-inserts per (season, week), so the latest
     // (season, week) = current week. Resolve that anchor, then filter to it.
     const { data: anchor } = await ctx.cfbSupabase
-      .from("cfb_dryrun_games")
+      .from("cfb_slate_feed")
       .select("season, week")
       .order("season", { ascending: false })
       .order("week", { ascending: false })
@@ -30,7 +30,7 @@ export const tool: ToolDefinition = {
       .maybeSingle();
     if (!anchor) return { games: [], message: "No CFB games found" };
     const { data: games, error } = await ctx.cfbSupabase
-      .from("cfb_dryrun_games")
+      .from("cfb_slate_feed")
       .select("*")
       .eq("season", anchor.season)
       .eq("week", anchor.week);
@@ -51,7 +51,7 @@ export const tool: ToolDefinition = {
       }
     }
 
-    // Remap onto the cfb_dryrun_games columns (fg_* = full-game markets from The
+    // Remap onto the cfb_slate_feed columns (fg_* = full-game markets from The
     // Odds API). Fields with no equivalent in the new table are set to null.
     const formatted = filtered.map((game: any) => ({
       game_id: game.game_id || `${game.away_team}_${game.home_team}`,
@@ -74,7 +74,7 @@ export const tool: ToolDefinition = {
         spread_pick: game.fg_spread_pick,
         spread_confidence: game.fg_home_cover_prob,
         ou_pick: game.fg_total_pick,
-        ou_confidence: null, // no OU confidence column in cfb_dryrun_games
+        ou_confidence: null, // no OU confidence column in cfb_slate_feed
         model_fair_spread: game.fg_pred_spread,
         model_fair_total: game.fg_pred_total,
       },
@@ -85,7 +85,7 @@ export const tool: ToolDefinition = {
       },
     }));
 
-    // Build compact game cards directly from cfb_dryrun_games (the old
+    // Build compact game cards directly from cfb_slate_feed (the old
     // normalizeCFB read legacy column names absent from the new table).
     const gameCards = filtered
       .map((g: any) => {

@@ -6,7 +6,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Conviction ladder for the CFB dry-run portfolio. The sort order is a
+ * Conviction ladder for the CFB slate portfolio. The sort order is a
  * product rule: conviction ranks the slate ahead of edge size.
  */
 enum class CFBConvictionTier(val raw: String) {
@@ -105,9 +105,9 @@ data class CFBTeamReference(
     val logoDark: String? = null,
 )
 
-/** Dry-run bet flag, assembled client-side from `cfb_dryrun_flags`. ⚠️ camelCase wire keys. */
+/** Slate bet flag, assembled client-side from `cfb_slate_flags`. ⚠️ camelCase wire keys. */
 @Serializable
-data class CFBDryRunFlag(
+data class CFBSlateFlag(
     val id: String,
     val gameId: String,
     val season: Int? = null,
@@ -129,7 +129,7 @@ data class CFBDryRunFlag(
     val convictionTier: CFBFlagConviction get() = CFBFlagConviction.fromRaw(conviction)
     val isActive: Boolean get() = tier.lowercase(Locale.US) == "active"
 
-    fun withSignalDefinition(definition: CFBSignalDefinition?): CFBDryRunFlag =
+    fun withSignalDefinition(definition: CFBSignalDefinition?): CFBSlateFlag =
         copy(signalDefinition = definition)
 }
 
@@ -151,8 +151,8 @@ data class CFBSignalDefinition(
 data class CFBPredictedScore(val home: Double, val away: Double)
 
 /**
- * CFB game prediction row. The active Games tab uses the dry-run contract
- * (`cfb_dryrun_games` + flags + `cfb_teams`), while legacy live-pipeline fields
+ * CFB game prediction row. The active Games tab uses the slate contract
+ * (`cfb_slate_feed` + flags + `cfb_teams`), while legacy live-pipeline fields
  * remain optional so older fixtures/services keep working. Wire is snake_case.
  */
 @Serializable
@@ -201,7 +201,7 @@ data class CFBPrediction(
     // Opening line snapshot
     @SerialName("opening_spread") val openingSpread: Double? = null,
     @SerialName("opening_total") val openingTotal: Double? = null,
-    // Dry-run identity / team metadata. Swift's memberwise init defaults gameId to id —
+    // Slate identity / team metadata. Swift's memberwise init defaults gameId to id —
     // the wire always carries game_id; the default only matters for client construction.
     @SerialName("game_id") val gameId: String = id,
     val season: Int? = null,
@@ -216,7 +216,7 @@ data class CFBPrediction(
     @SerialName("away_classification") val awayClassification: String? = null,
     @SerialName("home_team_ref") val homeTeamRef: CFBTeamReference? = null,
     @SerialName("away_team_ref") val awayTeamRef: CFBTeamReference? = null,
-    // Dry-run market/model contract
+    // Slate market/model contract
     @SerialName("fg_spread_open") val fgSpreadOpen: Double? = null,
     @SerialName("fg_spread_close") val fgSpreadClose: Double? = null,
     @SerialName("fg_total_open") val fgTotalOpen: Double? = null,
@@ -252,14 +252,14 @@ data class CFBPrediction(
     @SerialName("h1_ml_pick") val h1MlPick: String? = null,
     @SerialName("fg_home_cover_prob") val fgHomeCoverProb: Double? = null,
     @SerialName("fg_home_win_prob") val fgHomeWinProb: Double? = null,
-    // Dry-run portfolio (required in JSON; Swift memberwise defaults are client-construction only)
+    // Slate portfolio (required in JSON; Swift memberwise defaults are client-construction only)
     @SerialName("conviction_tier") val convictionTierRaw: String,
     @SerialName("stake_units") val stakeUnits: Double? = null,
     @SerialName("n_flags_active") val nFlagsActive: Int? = null,
     @SerialName("n_flags_tracking") val nFlagsTracking: Int? = null,
     val mammoth: Boolean,
     // var: the service merges flag rows in after the games fetch.
-    var flags: List<CFBDryRunFlag>,
+    var flags: List<CFBSlateFlag>,
 ) {
     val convictionTier: CFBConvictionTier
         get() = if (mammoth) CFBConvictionTier.MAMMOTH else CFBConvictionTier.fromRaw(convictionTierRaw)
@@ -285,7 +285,7 @@ data class CFBPrediction(
             }
             val topFlag = flags.filter { it.isActive }
                 .sortedWith(
-                    compareBy<CFBDryRunFlag> { it.convictionTier.sortRank }
+                    compareBy<CFBSlateFlag> { it.convictionTier.sortRank }
                         .thenByDescending { it.stakeUnits ?: 0.0 }
                 )
                 .firstOrNull()
@@ -295,8 +295,8 @@ data class CFBPrediction(
             return null
         }
 
-    val activeFlags: List<CFBDryRunFlag> get() = flags.filter { it.isActive }
-    val trackingFlags: List<CFBDryRunFlag> get() = flags.filter { !it.isActive }
+    val activeFlags: List<CFBSlateFlag> get() = flags.filter { it.isActive }
+    val trackingFlags: List<CFBSlateFlag> get() = flags.filter { !it.isActive }
 
     companion object {
         private fun formatSpread(value: Double?): String {

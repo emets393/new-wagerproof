@@ -6,7 +6,7 @@ import WagerproofServices
 
 @Observable
 @MainActor
-public final class CFBDryRunPicksStore {
+public final class CFBSlatePicksStore {
     public enum LoadState: Equatable, Sendable {
         case idle
         case loading
@@ -15,16 +15,16 @@ public final class CFBDryRunPicksStore {
     }
 
     public private(set) var games: [CFBPrediction] = []
-    public private(set) var flags: [CFBDryRunFlag] = []
+    public private(set) var flags: [CFBSlateFlag] = []
     public private(set) var loadState: LoadState = .idle
 
     public init() {}
 
-    public var activeFlags: [CFBDryRunFlag] {
+    public var activeFlags: [CFBSlateFlag] {
         flags.filter(\.isActive).sorted(by: flagSort)
     }
 
-    public var trackingFlags: [CFBDryRunFlag] {
+    public var trackingFlags: [CFBSlateFlag] {
         flags.filter { !$0.isActive }.sorted(by: flagSort)
     }
 
@@ -47,7 +47,7 @@ public final class CFBDryRunPicksStore {
             let grace = Date().addingTimeInterval(-6 * 60 * 60)
             let graceIso = ISO8601DateFormatter().string(from: grace)
             let upcoming: [SlateWeekRow] = (try? await cfb
-                .from("cfb_dryrun_games")
+                .from("cfb_slate_feed")
                 .select("season,week,kickoff")
                 .gte("kickoff", value: graceIso)
                 .order("kickoff", ascending: true)
@@ -56,7 +56,7 @@ public final class CFBDryRunPicksStore {
                 .value) ?? []
             let latest: [SlateWeekRow] = upcoming.isEmpty
                 ? ((try? await cfb
-                    .from("cfb_dryrun_games")
+                    .from("cfb_slate_feed")
                     .select("season,week")
                     .order("season", ascending: false)
                     .order("week", ascending: false)
@@ -72,14 +72,14 @@ public final class CFBDryRunPicksStore {
             }
 
             async let gamesRows: [GameRow] = cfb
-                .from("cfb_dryrun_games")
+                .from("cfb_slate_feed")
                 .select()
                 .eq("season", value: season)
                 .eq("week", value: week)
                 .execute()
                 .value
             async let flagRows: [FlagRow] = cfb
-                .from("cfb_dryrun_flags")
+                .from("cfb_slate_flags")
                 .select()
                 .eq("season", value: season)
                 .eq("week", value: week)
@@ -102,7 +102,7 @@ public final class CFBDryRunPicksStore {
         }
     }
 
-    private func flagSort(_ a: CFBDryRunFlag, _ b: CFBDryRunFlag) -> Bool {
+    private func flagSort(_ a: CFBSlateFlag, _ b: CFBSlateFlag) -> Bool {
         if a.convictionTier.sortRank != b.convictionTier.sortRank {
             return a.convictionTier.sortRank < b.convictionTier.sortRank
         }
@@ -115,7 +115,7 @@ public final class CFBDryRunPicksStore {
         let kickoff: String?
     }
 
-    private func prediction(from row: GameRow, flagsByGame: [String: [CFBDryRunFlag]]) -> CFBPrediction {
+    private func prediction(from row: GameRow, flagsByGame: [String: [CFBSlateFlag]]) -> CFBPrediction {
         let id = row.gameId.value
         let home = row.homeTeam ?? "Home"
         let away = row.awayTeam ?? "Away"
@@ -127,7 +127,7 @@ public final class CFBDryRunPicksStore {
         let homeRef: CFBTeamReference? = CFBTeamAssets.team(for: home)
         let awayRef: CFBTeamReference? = CFBTeamAssets.team(for: away)
         let mammoth = row.mammoth ?? false
-        let gameFlags: [CFBDryRunFlag] = flagsByGame[id] ?? []
+        let gameFlags: [CFBSlateFlag] = flagsByGame[id] ?? []
         let convictionTier = row.convictionTier ?? "none"
         return CFBPrediction(
             id: id,
@@ -363,8 +363,8 @@ public final class CFBDryRunPicksStore {
             case gradeLine = "grade_line"
         }
 
-        var model: CFBDryRunFlag {
-            CFBDryRunFlag(
+        var model: CFBSlateFlag {
+            CFBSlateFlag(
                 id: id.value,
                 gameId: gameId.value,
                 season: season,

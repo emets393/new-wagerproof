@@ -14,6 +14,7 @@ import com.wagerproof.app.features.gamecards.GameRowCardModel
 import com.wagerproof.app.features.gamecards.TeamColorPair
 import com.wagerproof.app.features.props.nflTeamColors
 import com.wagerproof.core.models.GameAgentConsensus
+import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.NFLPrediction
 import com.wagerproof.core.models.NFLTeamAssets
 import java.util.Locale
@@ -21,8 +22,8 @@ import kotlin.math.floor
 
 /**
  * NFL game row for the home Games feed — a thin adapter over the shared
- * [GameRowCard], mirroring iOS `NFLGameCard`. Dry-run cards hydrate the
- * authoritative `nfl_dryrun_picks` rows; merged game fields remain the loading,
+ * [GameRowCard], mirroring iOS `NFLGameCard`. Slate cards hydrate the
+ * authoritative `nfl_slate_picks` rows; merged game fields remain the loading,
  * legacy, and missing-row fallback.
  */
 @Composable
@@ -32,9 +33,9 @@ fun NFLGameCard(
     modifier: Modifier = Modifier,
     consensus: GameAgentConsensus? = null,
 ) {
-    var picks by remember(game.gameId) { mutableStateOf<List<NFLDryrunPickRow>>(emptyList()) }
+    var picks by remember(game.gameId) { mutableStateOf<List<NFLSlatePickRow>>(emptyList()) }
     LaunchedEffect(game.gameId, game.runId) {
-        if ((game.runId ?: "").contains("dryrun", ignoreCase = true)) {
+        if ((game.runId ?: "").contains("slate", ignoreCase = true)) {
             loadNFLSlatePicksResult(game.gameId).onSuccess { picks = it }
         }
     }
@@ -65,7 +66,7 @@ fun NFLGameCard(
         ),
         overLine = game.overLine,
         mlEdge = null,
-        // Dry-run pipeline publishes a fair total (pred_total); the legacy
+        // Slate pipeline publishes a fair total (pred_total); the legacy
         // pipeline publishes a direction probability instead.
         ouEdge = GameEdgeMath.ouEdge(
             modelFairTotal = game.predTotal,
@@ -78,6 +79,7 @@ fun NFLGameCard(
         oddsBreakdown = oddsBreakdown(game),
         isMammoth = nflHasMammothPlay(game, picks),
         consensus = consensus,
+        signalCount = nflSignalCount(picks),
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)
@@ -89,12 +91,16 @@ private fun nflColorPair(team: String): TeamColorPair {
     return TeamColorPair(primary, secondary)
 }
 
-internal fun nflHasMammothPlay(game: NFLPrediction, picks: List<NFLDryrunPickRow>): Boolean =
+internal fun nflHasMammothPlay(game: NFLPrediction, picks: List<NFLSlatePickRow>): Boolean =
     game.mammoth || picks.any { pick ->
         pick.hasPlay == true && (pick.isMammoth == true || pick.conviction.equals("mammoth", ignoreCase = true))
     }
 
-internal fun nflSlatePicks(game: NFLPrediction, picks: List<NFLDryrunPickRow>): GameRowCardModel.SlatePicks {
+/** Same blanket strip the detail screen uses, so the feed pill never counts scaffolding keys like `sides_model`. */
+internal fun nflSignalCount(picks: List<NFLSlatePickRow>): Int =
+    FootballBlanketSignals.displayKeys("nfl", picks.flatMap { it.signalKeys }).size
+
+internal fun nflSlatePicks(game: NFLPrediction, picks: List<NFLSlatePickRow>): GameRowCardModel.SlatePicks {
     val totalPick = picks.firstOrNull { it.cardGroup == "total" }
     val totalDir = pickDirection(totalPick?.pickSide ?: totalPick?.pickLabel ?: game.fgTotalPick)
     val totalLine = totalPick?.let { it.bestLine ?: it.vegasLine } ?: game.fgTotalClose
@@ -115,10 +121,9 @@ internal fun nflSlatePicks(game: NFLPrediction, picks: List<NFLDryrunPickRow>): 
         GameCardFormatting.formatSpread(line)
     }
 
-    // High-conviction and signal counts are deliberately NOT computed here —
-    // they're detail-page data on iOS and the feed-card badges that used them
-    // were removed. `nflHasMammothPlay` survives: the top-level model still
-    // reads it for the card's orange electric border.
+    // High-conviction counts are deliberately NOT computed here — they're
+    // detail-page data on iOS. `nflHasMammothPlay` / `nflSignalCount` feed
+    // the top-level model (electric border, signal pill) instead.
     return GameRowCardModel.SlatePicks(
         totalIsOver = totalDir?.let { it == "OVER" },
         totalLabel = totalLabel,

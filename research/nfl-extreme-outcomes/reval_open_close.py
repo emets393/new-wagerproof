@@ -2,7 +2,7 @@
 
 WHY: memory/nfl_signal_defs claim P11-P13 are "open-safe / worst-line robust",
 but the committed validation (props_signal_mine.py, props_p8_gamelines.py) and the
-dry-run loaders all TRIGGER + GRADE on the CLOSE line. This settles it empirically:
+slate loaders all TRIGGER + GRADE on the CLOSE line. This settles it empirically:
 re-run each signal's exact trigger on OPEN, PREGAME, and CLOSE side-by-side, self-
 grading vs actuals so the three line bases are directly comparable.
 
@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 
-# Locked production cutoffs (from props_signal_mine refinement; hardcoded in dryrun).
+# Locked production cutoffs (from props_signal_mine refinement; hardcoded in slate).
 P12_SEP_Q80 = 3.6335   # entering L3 avg_separation, receiving
 P13_EFF_Q80 = 4.8384   # entering L3 rush efficiency, rushing
 

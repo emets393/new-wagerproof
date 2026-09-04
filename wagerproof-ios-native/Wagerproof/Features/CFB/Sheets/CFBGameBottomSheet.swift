@@ -4,8 +4,8 @@ import WagerproofModels
 import WagerproofServices
 import WagerproofStores
 
-/// CFB Week 7 dry-run detail screen: a seven-market bet board from
-/// `cfb_dryrun_games`, plus fired flags split into active picks and tracking.
+/// CFB Week 7 slate detail screen: a seven-market bet board from
+/// `cfb_slate_feed`, plus fired flags split into active picks and tracking.
 struct CFBGameBottomSheet: View {
     let game: CFBPrediction
     var onClose: () -> Void = {}
@@ -14,8 +14,8 @@ struct CFBGameBottomSheet: View {
     var contentBottomInset: CGFloat = 0
 
     @Environment(AgentPickAuditStore.self) private var auditStore
-    @State private var selectedSignal: CFBDryRunFlag?
-    @State private var dryRunPicks: [CFBDryRunPickRow] = []
+    @State private var selectedSignal: CFBSlateFlag?
+    @State private var slatePicks: [CFBSlatePickRow] = []
     @State private var signalDefinitionsBySource: [String: CFBSignalDefinition] = [:]
     @State private var signalPerformanceByKey: [String: SignalPerformance] = [:]
     @State private var teamTrendsByTeam: [String: CFBTeamTrendRow] = [:]
@@ -102,7 +102,7 @@ struct CFBGameBottomSheet: View {
             // Seed the hero text cache so subsequent scroll frames reuse it
             // instead of re-parsing the kickoff and re-building the stat rows.
             heroTextCache = HeroText(game)
-            async let picks: () = loadDryRunPicks()
+            async let picks: () = loadSlatePicks()
             async let trends: () = loadTeamTrends()
             async let books: () = loadSportsbookOdds()
             async let performance = SignalPerformanceService.shared.performances(
@@ -313,7 +313,7 @@ struct CFBGameBottomSheet: View {
                     Text(game.headlinePick ?? "Top CFB play")
                         .font(.system(size: 18, weight: .black))
                         .foregroundStyle(Color.appTextPrimary)
-                    Text("Rare 5u dry-run signal. Conflicting flags can still appear below; the headline follows the model side and conviction tier.")
+                    Text("Rare 5u slate signal. Conflicting flags can still appear below; the headline follows the model side and conviction tier.")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.appTextSecondary)
                 }
@@ -348,7 +348,7 @@ struct CFBGameBottomSheet: View {
 
     private func marketRow(_ row: MarketRow) -> some View {
         let buckets = signalBuckets(for: row)
-        let pick = dryRunPick(for: row)
+        let pick = slatePick(for: row)
         let mammoth = isMammothPick(pick)
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
@@ -923,7 +923,7 @@ struct CFBGameBottomSheet: View {
     }
 
     private func marketRecommendationRow(_ row: MarketRow) -> some View {
-        let pick = dryRunPick(for: row)
+        let pick = slatePick(for: row)
         let comparisonPick = comparisonPick(for: row)
         let board = sportsbookQuotes(for: row, pick: comparisonPick)
         let selectedKeys = SportsbookPreference.decode(preferredBookKeysRaw)
@@ -981,7 +981,7 @@ struct CFBGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func detailMetaPills(row: MarketRow, pick: CFBDryRunPickRow?, buckets: SignalBuckets) -> some View {
+    private func detailMetaPills(row: MarketRow, pick: CFBSlatePickRow?, buckets: SignalBuckets) -> some View {
         let signalCount = buckets.supporting.count + buckets.contradicting.count
         let showConviction = pick?.hasPlay == true && isHighConviction(pick)
         if showConviction || signalCount > 0 {
@@ -1038,13 +1038,13 @@ struct CFBGameBottomSheet: View {
         )
     }
 
-    private func isMammothPick(_ pick: CFBDryRunPickRow?) -> Bool {
+    private func isMammothPick(_ pick: CFBSlatePickRow?) -> Bool {
         pick?.isMammoth == true
             || pick?.conviction?.lowercased() == "mammoth"
             || pick?.recommendation?.uppercased().contains("MAMMOTH") == true
     }
 
-    private func isHighConviction(_ pick: CFBDryRunPickRow?) -> Bool {
+    private func isHighConviction(_ pick: CFBSlatePickRow?) -> Bool {
         guard let pick else { return false }
         let conviction = pick.conviction?.lowercased()
         return isMammothPick(pick) || conviction == "high" || pick.recommendation?.lowercased().contains("high conviction") == true
@@ -1078,10 +1078,10 @@ struct CFBGameBottomSheet: View {
         case moneyline(price: Int, probability: Double, teamAbbrev: String?, teamName: String)
     }
 
-    /// The pick-team side for a row, as HOME/AWAY. Prefers the dryrun pick row
+    /// The pick-team side for a row, as HOME/AWAY. Prefers the slate pick row
     /// (which is already stored pick-side) and falls back to the game row's own
     /// pick column.
-    private func chartSide(for row: MarketRow, pick: CFBDryRunPickRow?) -> String? {
+    private func chartSide(for row: MarketRow, pick: CFBSlatePickRow?) -> String? {
         if let side = pick?.pickSide?.uppercased(), side.contains("HOME") || side.contains("AWAY") {
             return side.contains("HOME") ? "HOME" : "AWAY"
         }
@@ -1105,12 +1105,12 @@ struct CFBGameBottomSheet: View {
         side == "HOME" ? game.homeTeam : game.awayTeam
     }
 
-    private func marketChart(for row: MarketRow, pick: CFBDryRunPickRow?) -> MarketChart? {
+    private func marketChart(for row: MarketRow, pick: CFBSlatePickRow?) -> MarketChart? {
         switch row.id {
         case "spread", "h1-spread":
             guard let side = chartSide(for: row, pick: pick) else { return nil }
             let abbrevs = chartAbbrevs(side: side)
-            // Two shapes feed the same bar. A dryrun pick row stores the line and
+            // Two shapes feed the same bar. A slate pick row stores the line and
             // the fair spread ALREADY pick-side, so the fair spread is negated
             // once to become a margin. The game row stores everything
             // home-side, so it's flipped for an away pick and — for 1H — is
@@ -1205,7 +1205,7 @@ struct CFBGameBottomSheet: View {
     /// Totals keep `pickSubtitle`, which already quotes the projection the rail
     /// draws.
     private func chartHeadline(for row: MarketRow) -> String? {
-        guard let chart = marketChart(for: row, pick: dryRunPick(for: row)) else { return nil }
+        guard let chart = marketChart(for: row, pick: slatePick(for: row)) else { return nil }
         switch chart {
         case let .spread(line, modelMargin, pickAbbrev, _):
             let sentence = SpreadCoverOutcome(line: line, modelMargin: modelMargin)
@@ -1237,7 +1237,7 @@ struct CFBGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func bestBookRow(pick: CFBDryRunPickRow?, row: MarketRow) -> some View {
+    private func bestBookRow(pick: CFBSlatePickRow?, row: MarketRow) -> some View {
         if let board = sportsbookQuotes(for: row, pick: pick), board.best != nil {
             BestBookChip(
                 quotes: board,
@@ -1281,7 +1281,7 @@ struct CFBGameBottomSheet: View {
             + buckets.contradicting.map { signalPill($0, contradicts: true) }
     }
 
-    private func signalPill(_ flag: CFBDryRunFlag, contradicts: Bool) -> PickSignalPillModel {
+    private func signalPill(_ flag: CFBSlateFlag, contradicts: Bool) -> PickSignalPillModel {
         let definition = flag.signalDefinition ?? CFBSignalDefinitionsService.definition(
             for: flag.source,
             in: signalDefinitionsBySource
@@ -1316,7 +1316,7 @@ struct CFBGameBottomSheet: View {
 
     /// The team a signal is betting, when it names a side. Totals signals
     /// (OVER/UNDER) name no team, so the caller falls back to the bolt glyph.
-    private func signalTeam(_ flag: CFBDryRunFlag) -> String? {
+    private func signalTeam(_ flag: CFBSlateFlag) -> String? {
         let side = flag.side.trimmingCharacters(in: .whitespacesAndNewlines)
         let upper = side.uppercased()
         if upper.contains("HOME") { return game.homeTeam }
@@ -1333,7 +1333,7 @@ struct CFBGameBottomSheet: View {
 
     /// Concrete per-game pick copy — never raw HOME/AWAY.
     /// Mirrors web `resolveSignalDirectionDisplay` for the common cases.
-    private func signalDirectionLabel(_ flag: CFBDryRunFlag) -> String {
+    private func signalDirectionLabel(_ flag: CFBSlateFlag) -> String {
         let market = flag.market.lowercased()
         let side = flag.side.trimmingCharacters(in: .whitespacesAndNewlines)
         let upper = side.uppercased()
@@ -1381,7 +1381,7 @@ struct CFBGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func signalDefinitionSheet(_ flag: CFBDryRunFlag) -> some View {
+    private func signalDefinitionSheet(_ flag: CFBSlateFlag) -> some View {
         let resolvedDefinition = flag.signalDefinition ?? CFBSignalDefinitionsService.definition(for: flag.source, in: signalDefinitionsBySource)
         let team = signalTeam(flag)
         let direction = signalDirectionLabel(flag)
@@ -1480,7 +1480,7 @@ struct CFBGameBottomSheet: View {
             .accessibilityLabel("Signal")
     }
 
-    private func signalPerformance(for flag: CFBDryRunFlag) -> SignalPerformance? {
+    private func signalPerformance(for flag: CFBSlateFlag) -> SignalPerformance? {
         let def = flag.signalDefinition ?? CFBSignalDefinitionsService.definition(
             for: flag.source,
             in: signalDefinitionsBySource
@@ -1605,12 +1605,12 @@ struct CFBGameBottomSheet: View {
         let tint: Color
         let isNoPlay: Bool
         let isDisplayOnly: Bool
-        let signals: [CFBDryRunFlag]
+        let signals: [CFBSlateFlag]
     }
 
     private struct SignalBuckets {
-        let supporting: [CFBDryRunFlag]
-        let contradicting: [CFBDryRunFlag]
+        let supporting: [CFBSlateFlag]
+        let contradicting: [CFBSlateFlag]
 
         var isEmpty: Bool { supporting.isEmpty && contradicting.isEmpty }
     }
@@ -1977,12 +1977,12 @@ struct CFBGameBottomSheet: View {
         return GameCardFormatting.formatSpread(side.uppercased() == "HOME" ? homeValue : -homeValue)
     }
 
-    private func signalHeadline(_ flag: CFBDryRunFlag) -> String {
+    private func signalHeadline(_ flag: CFBSlateFlag) -> String {
         "\(marketLabel(flag.market)) · \(signalDirectionLabel(flag))"
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func signalsFor(market: String, side: String?, teamSide: String? = nil) -> [CFBDryRunFlag] {
+    private func signalsFor(market: String, side: String?, teamSide: String? = nil) -> [CFBSlateFlag] {
         let normalizedMarket = market.lowercased()
         let normalizedSide = side?.uppercased()
         let normalizedTeamSide = teamSide?.uppercased()
@@ -2023,19 +2023,19 @@ struct CFBGameBottomSheet: View {
         return SignalBuckets(supporting: supporting, contradicting: contradicting)
     }
 
-    private func relevantSignals(for row: MarketRow) -> [CFBDryRunFlag] {
+    private func relevantSignals(for row: MarketRow) -> [CFBSlateFlag] {
         // Game-detail chips come from picks.signal_keys + counter_signal_keys (joined to
         // defs), not flags. Counter keys carry the OPPOSITE side so signalSupportsPick
         // sorts them into "Contradicts this pick" (e.g. the regime fade taking Tulsa
         // rendered under an Oklahoma State pick card).
-        guard let pick = dryRunPick(for: row) else { return [] }
+        guard let pick = slatePick(for: row) else { return [] }
         let keys = FootballBlanketSignals.displayKeys(sport: "cfb", keys: pick.signalKeys)
         let counterKeys = FootballBlanketSignals.displayKeys(sport: "cfb", keys: pick.counterSignalKeys)
         guard !keys.isEmpty || !counterKeys.isEmpty else { return [] }
 
-        func pickFlag(_ key: String, side: String?) -> CFBDryRunFlag {
+        func pickFlag(_ key: String, side: String?) -> CFBSlateFlag {
             let definition = CFBSignalDefinitionsService.definition(for: key, in: signalDefinitionsBySource)
-            return CFBDryRunFlag(
+            return CFBSlateFlag(
                 id: "pick-\(pick.id.value)-\(signalIdentity(source: key, definition: definition))",
                 gameId: game.gameId,
                 source: key,
@@ -2059,7 +2059,7 @@ struct CFBGameBottomSheet: View {
         )
     }
 
-    private func relevantGameFlags(for row: MarketRow) -> [CFBDryRunFlag] {
+    private func relevantGameFlags(for row: MarketRow) -> [CFBSlateFlag] {
         let market = marketKey(for: row)
         return game.activeFlags
             .filter { $0.market.lowercased() == market }
@@ -2080,14 +2080,14 @@ struct CFBGameBottomSheet: View {
             }
     }
 
-    private func dedupedSignals(_ signals: [CFBDryRunFlag]) -> [CFBDryRunFlag] {
+    private func dedupedSignals(_ signals: [CFBSlateFlag]) -> [CFBSlateFlag] {
         var seen = Set<String>()
         return signals.filter { signal in
             seen.insert(signalIdentity(signal)).inserted
         }
     }
 
-    private func signalIdentity(_ signal: CFBDryRunFlag) -> String {
+    private func signalIdentity(_ signal: CFBSlateFlag) -> String {
         signalIdentity(source: signal.source, definition: signal.signalDefinition ?? CFBSignalDefinitionsService.definition(for: signal.source, in: signalDefinitionsBySource))
     }
 
@@ -2115,13 +2115,13 @@ struct CFBGameBottomSheet: View {
         }
     }
 
-    private func signalSupportsPick(_ flag: CFBDryRunFlag, row: MarketRow) -> Bool {
+    private func signalSupportsPick(_ flag: CFBSlateFlag, row: MarketRow) -> Bool {
         // Signal-driven plays leave the games-row pick empty ("No bet") while the card
         // displays the picks-row side — stance must compare against what the card shows,
         // or a supporting OVER chip renders amber (UNC@TCU TT, 2026 wk1).
         var pick = row.pick.uppercased()
         if normalizedOverUnder(pick) == nil, normalizedHomeAway(pick) == nil,
-           let side = dryRunPick(for: row)?.pickSide?.uppercased(), !side.isEmpty {
+           let side = slatePick(for: row)?.pickSide?.uppercased(), !side.isEmpty {
             pick = side
         }
 
@@ -2157,7 +2157,7 @@ struct CFBGameBottomSheet: View {
     }
 
     private func pickSide(for row: MarketRow) -> String? {
-        if let side = dryRunPick(for: row)?.pickSide,
+        if let side = slatePick(for: row)?.pickSide,
            !side.isEmpty,
            let normalized = normalizedHomeAway(side) ?? teamSideMentioned(in: side) {
             return normalized
@@ -2236,7 +2236,7 @@ struct CFBGameBottomSheet: View {
         return "@\(value)"
     }
 
-    private func signalColor(_ flag: CFBDryRunFlag) -> Color {
+    private func signalColor(_ flag: CFBSlateFlag) -> Color {
         tierColor(flag.convictionTier)
     }
 
@@ -2266,8 +2266,8 @@ struct CFBGameBottomSheet: View {
         return rounded > 0 ? "+\(rounded)" : "\(rounded)"
     }
 
-    private func dryRunPick(for row: MarketRow) -> CFBDryRunPickRow? {
-        dryRunPicks.first { pick in
+    private func slatePick(for row: MarketRow) -> CFBSlatePickRow? {
+        slatePicks.first { pick in
             let group = normalizeCardGroup(pick.cardGroup)
             switch row.id {
             case "spread":
@@ -2292,13 +2292,13 @@ struct CFBGameBottomSheet: View {
         }
     }
 
-    private func comparisonPick(for row: MarketRow) -> CFBDryRunPickRow? {
-        dryRunPick(for: row)
+    private func comparisonPick(for row: MarketRow) -> CFBSlatePickRow? {
+        slatePick(for: row)
     }
 
     private func sportsbookQuotes(
         for row: MarketRow,
-        pick: CFBDryRunPickRow?
+        pick: CFBSlatePickRow?
     ) -> SportsbookMarketQuotes? {
         guard let bookOdds, let market = sportsbookMarket(for: row, pick: pick) else { return nil }
         let quotes = bookOdds.quotes(for: market)
@@ -2307,7 +2307,7 @@ struct CFBGameBottomSheet: View {
 
     private func sportsbookMarket(
         for row: MarketRow,
-        pick: CFBDryRunPickRow?
+        pick: CFBSlatePickRow?
     ) -> SportsbookMarket? {
         let side = (pick?.pickSide ?? "").uppercased()
         switch row.id {
@@ -2328,8 +2328,8 @@ struct CFBGameBottomSheet: View {
         }
     }
 
-    private func projectionPick(forTeamTotal team: String) -> CFBDryRunPickRow? {
-        dryRunPicks.first { pick in
+    private func projectionPick(forTeamTotal team: String) -> CFBSlatePickRow? {
+        slatePicks.first { pick in
             normalizeCardGroup(pick.cardGroup) == "team_total" && pick.pickTeam == team
         }
     }
@@ -2342,27 +2342,27 @@ struct CFBGameBottomSheet: View {
         return key
     }
 
-    private func loadDryRunPicks() async {
-        guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else {
-            dryRunPicks = []
+    private func loadSlatePicks() async {
+        guard (game.runId ?? "").localizedCaseInsensitiveContains("slate") else {
+            slatePicks = []
             return
         }
         await SportsbookCatalogService.shared.ensureLoaded()
         let cfb = await CFBSupabase.shared.client
         let definitions = await CFBSignalDefinitionsService.shared.definitionsBySource()
         signalDefinitionsBySource = definitions
-        guard let rows: [CFBDryRunPickRow] = try? await cfb
-            .from("cfb_dryrun_picks")
+        guard let rows: [CFBSlatePickRow] = try? await cfb
+            .from("cfb_slate_picks")
             .select("id,game_id,card_group,bet_type,pick_team,pick_side,pick_label,model_number,model_line,vegas_line,vegas_price,edge,best_book,best_book_name,best_book_logo,best_line,best_odds,conviction,is_mammoth,stake_units,recommendation,display_only,signal_keys,counter_signal_keys,has_play")
             .eq("game_id", value: game.gameId)
             .order("sort_order", ascending: true)
             .execute()
             .value
         else {
-            dryRunPicks = []
+            slatePicks = []
             return
         }
-        dryRunPicks = rows
+        slatePicks = rows
     }
 
     private func loadSportsbookOdds() async {
@@ -2599,7 +2599,7 @@ struct CFBGameBottomSheet: View {
         }
     }
 
-    private struct CFBDryRunPickRow: Decodable, Sendable {
+    private struct CFBSlatePickRow: Decodable, Sendable {
         let id: FlexibleText
         let gameId: FlexibleText
         let cardGroup: String?

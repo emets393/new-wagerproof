@@ -2,7 +2,7 @@ import Foundation
 import WagerproofModels
 
 /// Backend-precomputed best-shop fields keyed by `player_id|market`.
-/// Shipped in the app bundle until `nfl_dryrun_props` carries these columns.
+/// Shipped in the app bundle until `nfl_slate_props` carries these columns.
 struct NFLPropBestBooksRecord: Decodable {
     let bestOverBook: String?
     let bestOverBookName: String?
@@ -34,7 +34,7 @@ enum NFLPropBestBooksBundle {
 
     private static func load() -> [String: NFLPropBestBooksRecord] {
         guard let url = Bundle.module.url(
-            forResource: "nfl_dryrun_prop_best_books",
+            forResource: "nfl_slate_prop_best_books",
             withExtension: "json"
         ) else { return [:] }
         return (try? Data(contentsOf: url))

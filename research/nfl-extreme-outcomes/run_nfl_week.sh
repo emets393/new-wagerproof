@@ -3,12 +3,12 @@
 # Weekly NFL production runner — the day-one orchestration the season runs on.
 #
 # Pulls live data, rebuilds the feature frame, scores the locked models, and writes
-# the nfl_dryrun_* tables the app reads. Idempotent: the generators delete-then-insert
+# the nfl_slate_* tables the app reads. Idempotent: the generators delete-then-insert
 # per (season, week), so re-running a week is safe.
 #
 # Build order (each step's output feeds the next):
 #   fetch (Supabase) + scheme (nflverse) -> master -> odds_consensus -> matchup
-#   -> engineered frames -> totals + sides models -> dryrun slate + props.
+#   -> engineered frames -> totals + sides models -> slate slate + props.
 #
 # Usage:  ./run_nfl_week.sh 2026 1          (season week)
 #     or  NFL_SEASON=2026 NFL_WEEK=1 ./run_nfl_week.sh
@@ -62,13 +62,13 @@ step "1H: model -> h1m_preds";       python3 h1m_models.py; python3 h1m_models2.
 
 # --- 4) WRITE THE APP DATA CONTRACT (idempotent per week) ----------------------
 # (filenames say "wk12" for historical reasons but are season/week-parameterized via env)
-step "dryrun slate: games + flags";  python3 dryrun_wk12_games.py
-step "assign referees to slate";     python3 backfill_dryrun_referees.py
+step "slate slate: games + flags";  python3 nfl_slate_games_build.py
+step "assign referees to slate";     python3 backfill_slate_referees.py
 step "live props frame (DB -> current-week frame)"; python3 live_props_frame.py
-step "dryrun slate: player props";   python3 dryrun_wk12_props.py
-step "h2h matchup history";           python3 dryrun_wk12_matchups.py
+step "slate slate: player props";   python3 nfl_slate_props_build.py
+step "h2h matchup history";           python3 nfl_slate_matchups.py
 step "sync MCP warehouse tables";     python3 load_nfl_mcp_tables.py || true
-step "team trends (Outliers tab)";    python3 dryrun_wk12_trends.py
+step "team trends (Outliers tab)";    python3 nfl_slate_trends.py
 step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
 step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py
 # Roster refresh MUST precede the prop builders: player->team assignment comes from
@@ -86,4 +86,4 @@ step "outliers trend cards (weekly)"; python3 gen_nfl_outliers_trend_cards.py
 step "outliers trend lines (live books)"; python3 refresh_nfl_outliers_trend_lines.py
 
 echo
-echo "=== DONE :: dryrun_* + nfl_{team,coach,referee,player_prop}_trends + outliers cards for $SEASON wk$WEEK ==="
+echo "=== DONE :: slate_* + nfl_{team,coach,referee,player_prop}_trends + outliers cards for $SEASON wk$WEEK ==="

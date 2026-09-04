@@ -1,6 +1,6 @@
 """Generate render-ready CFB Outliers trend cards into cfb_outliers_trend_cards.
 
-Trend stats are point-in-time (through week N-1). Betting lines come from cfb_dryrun_picks.
+Trend stats are point-in-time (through week N-1). Betting lines come from cfb_slate_picks.
 
 Usage:  python3 gen_cfb_outliers_trend_cards.py [--no-load] [--no-lines]
 """
@@ -113,7 +113,7 @@ def main():
     abbrs = abbr_map()
 
     games = fetch_all(
-        "cfb_dryrun_games",
+        "cfb_slate_games",
         f"season=eq.{SEASON}&week=eq.{WEEK}&select=*&order=kickoff.asc",
     )
     if not games:
@@ -154,7 +154,7 @@ def main():
     attached = 0
 
     if not args.no_lines:
-        picks = fetch_all("cfb_dryrun_picks", f"season=eq.{SEASON}&week=eq.{WEEK}&select=*")
+        picks = fetch_all("cfb_slate_picks", f"season=eq.{SEASON}&week=eq.{WEEK}&select=*")
         games_by_id = {str(g["game_id"]): g for g in games}
         picks_idx = index_picks(picks)
         odds_shop = load_odds_shop(SEASON, WEEK, games)

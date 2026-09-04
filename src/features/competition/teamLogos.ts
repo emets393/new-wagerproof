@@ -2,6 +2,7 @@ import {
   getCfbTeamColorsFromAssets,
   getCfbTeamLogo,
   lookupCfbTeam,
+  searchCfbTeam,
   searchCfbTeamColors,
   searchCfbTeamLogo,
 } from '@/utils/cfbTeamAssets';
@@ -110,14 +111,8 @@ export function compTeamLogo(sport: CompSport, teamName: string): string | null 
 
   const direct = getCfbTeamLogo(raw);
   if (direct) return direct;
-
-  const parts = raw.split(/\s+/);
-  for (let i = parts.length - 1; i >= 1; i--) {
-    const candidate = parts.slice(0, i).join(' ');
-    const logo = getCfbTeamLogo(candidate);
-    if (logo) return logo;
-  }
-
+  // ONLY the guarded matcher — the old word-stripping loop turned "Indiana
+  // State Sycamores" into Indiana's logo (2026-09-01 Competition incident).
   return searchCfbTeamLogo(raw);
 }
 
@@ -129,13 +124,9 @@ export function compTeamShortName(sport: CompSport, teamName: string): string {
   if (sport === 'cfb') {
     const direct = lookupCfbTeam(raw);
     if (direct?.teamName) return direct.teamName;
-    const parts = raw.split(/\s+/);
-    for (let i = parts.length - 1; i >= 1; i--) {
-      const candidate = parts.slice(0, i).join(' ');
-      const hit = lookupCfbTeam(candidate);
-      if (hit?.teamName) return hit.teamName;
-    }
-    const searched = searchCfbTeamColors(raw);
+    // Guarded matcher only — no word-stripping ("Indiana State" must never
+    // shorten to "Indiana").
+    const searched = searchCfbTeam(raw);
     if (searched?.teamName) return searched.teamName;
   }
 

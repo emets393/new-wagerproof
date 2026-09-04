@@ -154,13 +154,14 @@ function sideLabel(betType: string, side: string): string {
   return side;
 }
 
-const SEASON_MAX = 2025;
+const SEASON_MAX = 2026;
 /**
  * Warehouse `nfl_analysis` hits statement_timeout (~3s) on unrestricted / deep-history scans.
  * Default to a window that completes (season_min=2023 ≈ 1.6s; floor-2018 and `{}` both time out).
  * Absolute floor stays available on the slider for users who narrow other dims.
+ * 2026 rows accrue via refresh_nfl_analysis_base, so including the live season is ~free early.
  */
-const DEFAULT_SEASON_LOOKBACK = 2; // inclusive → [2023, 2025] when max is 2025
+const DEFAULT_SEASON_LOOKBACK = 3; // inclusive → [2023, 2026] when max is 2026
 
 function seasonFloorFor(betType: string) {
   return LIMITED.has(betType) ? 2023 : 2018;

@@ -3,10 +3,10 @@
 Pretend it's Wednesday of Week 12, 2025: every model number is walk-forward
 (FG models trained <2025, 1H model trained 2023-24), every signal is
 point-in-time (K1/P11 ranked within the Week 12 slate only), every line is the
-real consensus close snapshot. Loads nfl_dryrun_games + nfl_dryrun_flags on the
-research Supabase project. See DRYRUN_WK12_SPEC.md for the data contract.
+real consensus close snapshot. Loads nfl_slate_games + nfl_slate_flags on the
+research Supabase project. See SLATE_WK12_SPEC.md for the data contract.
 
-Usage:  python3 dryrun_wk12_games.py [--no-load]
+Usage:  python3 nfl_slate_games_build.py [--no-load]
 """
 import argparse
 import json
@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
 # Target slate — override per week via env NFL_SEASON / NFL_WEEK; defaults to the
-# Wk12-2025 dry-run so an unparameterized run stays byte-for-byte the original.
+# Wk12-2025 slate so an unparameterized run stays byte-for-byte the original.
 SEASON = int(os.environ.get("NFL_SEASON", 2025))
 WEEK = int(os.environ.get("NFL_WEEK", 12))
 
@@ -201,7 +201,7 @@ def load_key():
 
 def amer(pay):
     """Decimal profit-per-1 -> American odds."""
-    if pd.isna(pay) or pay <= 0:
+    if pd.isna(pay) or pay <= 0 or not np.isfinite(pay):
         return None
     return int(round(pay * 100)) if pay >= 1 else int(round(-100 / pay))
 
@@ -308,6 +308,9 @@ def build_games():
     # odds_hist prices are AMERICAN; frame pay_* columns are decimal profit-per-1 (amer()
     # converts back at emit time), so convert here.
     def _a2p(a):
+        # a==0 is a placeholder/bad odds row, not a price — NaN it or 100/0 -> inf
+        # crashes amer() at emit time (OverflowError, 2026-09-03 slate-refresh).
+        a = np.where(np.asarray(a, dtype=float) == 0, np.nan, a)
         return np.where(a > 0, a / 100.0, 100.0 / np.abs(a))
     _oh = pd.read_parquet(DATA / "odds_hist.parquet")
     _oh = _oh[_oh.season == SEASON].copy()
@@ -335,9 +338,13 @@ def build_games():
     # posting only FG must not null out another book's 1H line), then median across books.
     _lb = (_oh.sort_values("snap_ts")
            .groupby(["home_ab", "away_ab", "book"])[_src].last())
-    _live = _lb.groupby(["home_ab", "away_ab"]).median().reset_index()
+    # Convert American -> decimal PER BOOK, THEN median: a cross-book median of American
+    # prices straddling +/-100 is meaningless and can land at exactly 0 (-102 & +102),
+    # which _a2p turned into inf and crashed amer() (2026-09-03 slate-refresh failure).
+    # Same law as the closing-line warehouse: medians happen in decimal space.
     for sc in set(_pay.values()):
-        _live[sc] = _a2p(pd.to_numeric(_live[sc], errors="coerce"))
+        _lb[sc] = _a2p(pd.to_numeric(_lb[sc], errors="coerce"))
+    _live = _lb.groupby(["home_ab", "away_ab"]).median().reset_index()
     _live = _live.rename(columns={v: k for k, v in {**_pts, **_pay}.items()})
     g = g.merge(_live, on=["home_ab", "away_ab"], how="left", suffixes=("", "_lv"))
     for gc in list(_pts) + list(_pay):
@@ -408,7 +415,7 @@ def build_flags(g):
     flags = []
 
     def bet_fields(market, side, line):
-        """Structured direction for the UI (parity with gen_cfb_dryrun_flags 2026-08-15):
+        """Structured direction for the UI (parity with gen_cfb_slate_flags 2026-08-15):
         bet_team -> logo, bet_direction over/under -> green arrow, bet_line signed for THAT
         bet. Parsed from the side string, whose formats the emitters own:
         spread/h1_spread 'KC -3' | total/h1_total 'UNDER 44.5' | team_total 'KC UNDER 21.5'
@@ -424,6 +431,10 @@ def build_flags(g):
         team = AB_NAME.get(tok[0])
         if team is None:
             return None, None, None
+        # team_total sides read 'CAR TT UNDER 22.5' — drop the literal TT marker
+        # or direction/line parse as None and the UI shows a bare team name.
+        if len(tok) > 1 and tok[1].upper() == "TT":
+            tok = [tok[0]] + tok[2:]
         if len(tok) > 1 and tok[1].upper() in ("OVER", "UNDER"):
             return team, tok[1].lower(), num(tok[2]) if len(tok) > 2 else (float(line) if pd.notna(line) else None)
         if len(tok) > 1 and tok[1].upper() == "ML":
@@ -718,7 +729,7 @@ def sig_objs(sub, pick_side, market, home_ab):
 
 def build_picks(g, fl, books, kickoff, meta):
     """Eight normalized prediction rows per game (7 card groups; team_total = 2 rows).
-    Mirrors cfb_dryrun_picks. team_total / moneyline / 1H cards are display-only for
+    Mirrors cfb_slate_picks. team_total / moneyline / 1H cards are display-only for
     NFL (TT bets come only from tracking K-signals; the 1H model is paper-traded)."""
     picks = []
 
@@ -1065,7 +1076,7 @@ def main():
     hdr = {"apikey": key, "Authorization": f"Bearer {key}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
     # idempotent reload: children first (FK), then games.
-    # Props have their own loader (dryrun_wk12_props.py) — don't delete them here
+    # Props have their own loader (nfl_slate_props_build.py) — don't delete them here
     # or a games-only reload leaves the Props tab empty until props are re-run.
     # SIGN GUARD (parity with gen_cfb_picks 2026-08-15): a non-NEUTRAL games-table header
     # must name the SAME team as the spread card's pick. Refuse the whole write on mismatch
@@ -1084,13 +1095,27 @@ def main():
         raise SystemExit(f"[SIGN GUARD] {len(_bad)} spread pick(s) contradict the games header — REFUSING TO WRITE: {_bad}")
     print(f"  sign guard: {len(_hdr)} non-neutral spread headers agree with pick cards")
 
-    for t in ("nfl_dryrun_picks", "nfl_dryrun_flags", "nfl_slate_games"):
-        resp = requests.delete(f"{BASE_URL}/{t}?season=eq.{SEASON}&week=eq.{WEEK}",
-                               headers=hdr, timeout=60)
+    # COMPLETED games keep their existing pick rows — a full wipe+reinsert nulls the
+    # grader's results every regen (CFB had the same bug, health_sweep 2026-09-03) and
+    # re-derives cards from post-game odds. Games/flags still rebuild (games carry the
+    # finals forward; flags hold no results).
+    _finq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                         f"&final_home=not.is.null&select=game_id", headers=hdr, timeout=30)
+    _fin_ids = {str(x["game_id"]) for x in (_finq.json() if _finq.ok else [])}
+    if _fin_ids:
+        picks = picks[~picks.game_id.astype(str).isin(_fin_ids)]
+        print(f"  skipping picks for {len(_fin_ids)} completed games (grades preserved)")
+    _pick_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
+    if _fin_ids:
+        _pick_scope += "&game_id=not.in.(" + ",".join(sorted(_fin_ids)) + ")"
+    for t, scope in (("nfl_slate_picks", _pick_scope),
+                     ("nfl_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}"),
+                     ("nfl_slate_games", f"season=eq.{SEASON}&week=eq.{WEEK}")):
+        resp = requests.delete(f"{BASE_URL}/{t}?{scope}", headers=hdr, timeout=60)
         if resp.status_code not in (200, 204):
             sys.exit(f"delete {t}: {resp.status_code} {resp.text[:300]}")
-    for t, df in (("nfl_slate_games", games), ("nfl_dryrun_flags", fl),
-                  ("nfl_dryrun_picks", picks)):
+    for t, df in (("nfl_slate_games", games), ("nfl_slate_flags", fl),
+                  ("nfl_slate_picks", picks)):
         recs = json.loads(df.to_json(orient="records"))   # to_json handles numpy types
         resp = requests.post(f"{BASE_URL}/{t}", headers=hdr, json=recs, timeout=60)
         if resp.status_code != 201:

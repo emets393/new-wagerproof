@@ -77,8 +77,8 @@ Every number a card prints has to reconcile with every other one, so:
 
 | Sport | Spread | Total | Moneyline |
 |---|---|---|---|
-| NFL | dryrun pick rows | dryrun pick rows | dryrun pick rows |
-| CFB | same file (`sections/cfb/CfbDryRunSections.tsx`) | same | same |
+| NFL | slate pick rows | slate pick rows | slate pick rows |
+| CFB | same file (`sections/cfb/CfbSlateSections.tsx`) | same | same |
 | NBA | `NbaSpreadSection` | `NbaTotalSection` | — (no ML card) |
 | NCAAB | `CollegeModelCards` via `NcaabPredictionsSection` | same | — |
 | MLB | — (no spread card) | `FullTotalPanel` / `F5TotalPanel` | `FullMlPanel` |

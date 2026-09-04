@@ -116,7 +116,7 @@ Other URL handling: Meta SDK first, then Google Sign-In callback (`com.googleuse
 - Scoreboard tab was removed (code parked in `Features/Scoreboard/`); Settings removed from the bar (now a pushed page).
 - Games↔Props tab switches sync their sport pickers both directions (`onChange(of: tabStore.selected)`).
 - Shell-level modal hosts (single source of truth — chained sheets inside a sheet orphan on iOS): `.sheet` SideMenuSheet (`.large` detent + drag indicator), `.sheet` FeatureRequestsView, `.fullScreenCover` RoastView, `.sheet(item: learnStore.activeTopic)` LearnWagerProofBottomSheet.
-- Deep link consumption (see §2.2). `.task`: `syncDryRunPreviewEnabled()` (mirrors `adminMode.dryRunPreviewEnabled` into GamesStore+PropsStore) then eager `gamesStore.refreshAll()`. `onChange` of `adminMode.adminModeEnabled` / `adminMode.isAdmin` → force refresh games (+ NFL props); DEBUG: `debugDataMode.enabled` flips force a reload.
+- Deep link consumption (see §2.2). `.task`: `syncSlatePreviewEnabled()` (mirrors `adminMode.slatePreviewEnabled` into GamesStore+PropsStore) then eager `gamesStore.refreshAll()`. `onChange` of `adminMode.adminModeEnabled` / `adminMode.isAdmin` → force refresh games (+ NFL props); DEBUG: `debugDataMode.enabled` flips force a reload.
 
 ### 3.2 `MainTabToolbar.swift` — shared per-tab chrome
 - `WagerProofWordmark`: passive brand mark, top-leading on every main tab. "Wager" at `appTextPrimary` 55% + "Proof" at `#00E676` 55% with a **looping shimmer sweep** (white gradient stripe masked to the glyphs, 1.6s linear repeatForever, `scaleEffect(3)` trick because GeometryReader is unreliable in toolbar items). 15pt heavy, `.fixedSize()`, −8 leading inset. `WagerProofLeadingToolbarItem` hides the iOS 26 glass capsule via `.sharedBackgroundVisibility(.hidden)`.
@@ -421,7 +421,7 @@ App shell / navigation:
 - [ ] `Wagerproof/App/ScreenshotHarness.swift` → optional `ScreenshotActivity`/Paparazzi setup (skip initially)
 - [ ] `WagerproofKit/.../RootRouter.swift` → `RootRouter.kt` (phases + DeepLinkRoute parser + pending buffer)
 - [ ] `WagerproofKit/.../MainTabStore.swift` → `MainTabState.kt` (selected tab, modal flags, pendingAgentRoute, scrollToTop signal)
-- [ ] `Features/Navigation/MainTabView.swift` → `MainTabScaffold.kt` (NavigationBar + per-tab NavHosts + shell store scoping + deep-link consumer + dry-run sync)
+- [ ] `Features/Navigation/MainTabView.swift` → `MainTabScaffold.kt` (NavigationBar + per-tab NavHosts + shell store scoping + deep-link consumer + slate sync)
 - [ ] `Features/Navigation/MainTabToolbar.swift` → `WagerProofTopBar.kt` (wordmark w/ shimmer, WagerBot + Settings actions)
 - [ ] `Features/Navigation/SideMenuSheet.swift` → `SideMenuSheet.kt`
 - [ ] `Features/Navigation/OfflineBanner.swift` → `OfflineBanner.kt` + `ConnectivityObserver.kt`

@@ -12,7 +12,7 @@ import {
   nflSpreadHeadline,
   nflTotalHeadline,
 } from './nfl';
-import { cfbDryRunPickHeadline, cfbDryRunSummaryHeadline } from './cfb';
+import { cfbSlatePickHeadline, cfbSlateSummaryHeadline } from './cfb';
 import { collegeSpreadHeadline, marketOddsHeadline } from './shared';
 
 /** The real NFL shape: a cover/OU classifier with no model fair line to difference. */
@@ -317,16 +317,16 @@ describe('deterministic game-detail headlines', () => {
 
   // --- CFB dry run ----------------------------------------------------------
 
-  it('puts CFB dry-run spread value on the side the gap points to', () => {
+  it('puts CFB slate spread value on the side the gap points to', () => {
     // spreadGap < 0 => model has HOME favoured by more than the book => value HOME.
-    expect(cfbDryRunSummaryHeadline({ ...DRY_RUN_SUMMARY_BASE, spreadGap: -3 }))
+    expect(cfbSlateSummaryHeadline({ ...DRY_RUN_SUMMARY_BASE, spreadGap: -3 }))
       .toContain('3 points of spread value toward CLEM');
-    expect(cfbDryRunSummaryHeadline({ ...DRY_RUN_SUMMARY_BASE, spreadGap: 3 }))
+    expect(cfbSlateSummaryHeadline({ ...DRY_RUN_SUMMARY_BASE, spreadGap: 3 }))
       .toContain('3 points of spread value toward PITT');
   });
 
   it('suppresses any CFB spread direction when the model capped the edge', () => {
-    const sentence = cfbDryRunSummaryHeadline({
+    const sentence = cfbSlateSummaryHeadline({
       ...DRY_RUN_SUMMARY_BASE,
       spreadGap: -20,
       spreadCapped: true,
@@ -336,7 +336,7 @@ describe('deterministic game-detail headlines', () => {
   });
 
   it('takes the CFB pick side from pick_label verbatim, never from a sign', () => {
-    expect(cfbDryRunPickHeadline({
+    expect(cfbSlatePickHeadline({
       marketLabel: 'Spread',
       rowCount: 2,
       playCount: 1,
@@ -352,7 +352,7 @@ describe('deterministic game-detail headlines', () => {
   it('measures a moneyline gap in win rate, not in points of line', () => {
     // The bar under this sentence plots model% against the price's break-even,
     // so "points clear of the market close" would name the wrong quantity.
-    expect(cfbDryRunPickHeadline({
+    expect(cfbSlatePickHeadline({
       marketLabel: 'Moneyline',
       rowCount: 1,
       playCount: 1,
@@ -367,7 +367,7 @@ describe('deterministic game-detail headlines', () => {
   });
 
   it('does not word a projection-only CFB card as a play', () => {
-    expect(cfbDryRunPickHeadline({
+    expect(cfbSlatePickHeadline({
       marketLabel: '1H Total',
       rowCount: 1,
       playCount: 0,

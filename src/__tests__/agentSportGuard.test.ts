@@ -2,7 +2,7 @@
 // never be given a pick/parlay-leg for a sport it does not have selected. The
 // guard lives in agents-v3/src/loop/tools/{submitPicks,submitParlay}.ts (mirrored
 // in supabase/functions/process-agent-generation-job-v3/tools/). We drive the real
-// submit tools in dry-run mode with a slate game whose sport is NOT in the agent's
+// submit tools in slate mode with a slate game whose sport is NOT in the agent's
 // preferred_sports and assert the pick/leg is rejected.
 //
 // Lives in the root vitest suite (agents-v3 has no test runner); imports the real

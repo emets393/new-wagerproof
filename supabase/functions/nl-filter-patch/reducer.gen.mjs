@@ -608,7 +608,7 @@ var NFL_DIVISIONS = ["AFC East", "AFC North", "AFC South", "AFC West", "NFC East
 var NFL_LIMITED_BET_TYPES = ["h1_spread", "h1_ml", "h1_total", "team_total"];
 var DEFAULT_NFL_SNAPSHOT = {
   betType: "fg_spread",
-  seasons: [2023, 2025],
+  seasons: [2023, 2026],
   weeks: [1, 18],
   side: "any",
   seasonType: "any",
@@ -663,12 +663,12 @@ var NFL_FILTER_DIMENSIONS = {
     group: "Situation",
     kind: "numRange",
     min: 2018,
-    max: 2025,
+    max: 2026,
     step: 1,
     limitedFloor: 2023,
     label: "Seasons",
     aliases: ["year", "years", "season range", "since"],
-    rpcNote: "season_min always sent from the snapshot lower bound; season_max only if < 2025. Default window is last 3 seasons (2023\u20132025) so the warehouse RPC stays under statement_timeout \u2014 full-history `{}` scans time out."
+    rpcNote: "season_min always sent from the snapshot lower bound; season_max only if < 2026. Default window is 2023\u20132026 (three full seasons + live) so the warehouse RPC stays under statement_timeout \u2014 full-history `{}` scans time out. Seasons scope the backtest only; upcoming-game matching ignores them."
   },
   seasonType: {
     group: "Situation",
@@ -1514,7 +1514,7 @@ var CFB_CONFERENCES = [
 var ML_BT = ["fg_ml", "h1_ml"];
 var DEFAULT_CFB_SNAPSHOT = {
   betType: "fg_spread",
-  seasons: [2025, 2025],
+  seasons: [2025, 2026],
   weeks: [1, 16],
   side: "any",
   favDog: "any",
@@ -1564,7 +1564,7 @@ var DEFAULT_CFB_SNAPSHOT = {
 };
 var CFB_FILTER_DIMENSIONS = {
   // ── Situation ──
-  seasons: { group: "Situation", kind: "numRange", min: 2016, max: 2025, step: 1, limitedFloor: 2023, label: "Seasons", aliases: ["year", "years", "since"], rpcNote: "season_min always sent; season_max only if < 2025. Default is current season only (2025) \u2014 wider windows time out on the warehouse under ~3s statement_timeout." },
+  seasons: { group: "Situation", kind: "numRange", min: 2016, max: 2026, step: 1, limitedFloor: 2023, label: "Seasons", aliases: ["year", "years", "since"], rpcNote: "season_min always sent; season_max only if < 2026. Default is [2025, 2026] (last full season + live) \u2014 wider windows time out on the warehouse under ~3s statement_timeout. Seasons scope the backtest only; upcoming-game matching ignores them." },
   gameType: { group: "Situation", kind: "enum", label: "Game type", options: [["any", "All games"], ["regular", "Regular season"], ["bowl", "Bowl games"], ["playoff", "Playoff"], ["postseason", "All postseason"]], aliases: ["bowl", "playoff", "postseason", "regular season"], rpcNote: "f.game_type; 'postseason' = bowl+playoff." },
   weeks: { group: "Situation", kind: "numRange", min: 1, max: 16, step: 1, label: "Weeks", aliases: ["week", "early season", "late season"], rpcNote: "week_min/max \u2014 only applied for regular-season/any game types." },
   rankedMatchup: { group: "Situation", kind: "enum", label: "Ranked matchup", options: [["any", "Any"], ["both", "Both ranked"], ["neither", "Neither ranked"], ["home_ranked", "Home ranked only"], ["away_ranked", "Away ranked only"], ["either", "Either ranked"]], aliases: ["ranked", "top 25", "unranked"], rpcNote: "f.ranked_matchup (AP Top 25; full 2016+)." },

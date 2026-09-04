@@ -11,11 +11,11 @@ anon key:  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 ```
 All three tables are **public-read** (anon + authenticated `select`). Example:
 ```js
-const { data: games } = await supabase.from('cfb_dryrun_games').select('*').eq('week',7).order('kickoff')
-const { data: flags } = await supabase.from('cfb_dryrun_flags').select('*').eq('game_id', game.game_id)
+const { data: games } = await supabase.from('cfb_slate_games').select('*').eq('week',7).order('kickoff')
+const { data: flags } = await supabase.from('cfb_slate_flags').select('*').eq('game_id', game.game_id)
 const { data: teams } = await supabase.from('cfb_teams').select('*')   // fetch once, cache
 ```
-Join keys: `cfb_dryrun_flags.game_id = cfb_dryrun_games.game_id`; `cfb_teams.team_name = games.home_team / away_team`.
+Join keys: `cfb_slate_flags.game_id = cfb_slate_games.game_id`; `cfb_teams.team_name = games.home_team / away_team`.
 
 ## Honesty rules baked into the data (do not "fix" in the UI)
 - **Walk-forward / point-in-time:** every model number trained only on data before 2025 (2016–2024); as-of
@@ -27,7 +27,7 @@ Join keys: `cfb_dryrun_flags.game_id = cfb_dryrun_games.game_id`; `cfb_teams.tea
 
 ---
 
-## Table 1 — `cfb_dryrun_games` (56 rows; ONE per Week-7 FBS game, every game gets a number)
+## Table 1 — `cfb_slate_games` (56 rows; ONE per Week-7 FBS game, every game gets a number)
 Identity: `game_id, season, week, kickoff (tz), neutral_site, home_team, away_team, home_conf, away_conf,
 home_rank, away_rank` (rank is int 1–25 or **null = unranked**; show the AP # badge only when present).
 
@@ -66,7 +66,7 @@ OVER at the **lowest**), `h1_spread_close/h1_total_close/h1_ml_home_close/h1_ml_
 
 ---
 
-## Table 2 — `cfb_dryrun_flags` (193 rows; ONE per fired bet signal — the picks layer)
+## Table 2 — `cfb_slate_flags` (193 rows; ONE per fired bet signal — the picks layer)
 `id, game_id, season, week, game ("Away @ Home"), source (signal name), market
 (spread/total/team_total/h1_spread/h1_total/h1_ml), side, line, price (American; −110 default),
 edge, conviction (mammoth/T1/T2/T3/track), tier (active|tracking), stake_units, grade_line
@@ -98,7 +98,7 @@ URLs; light+dark both present. (The full 265-team `cfb_team_mapping` table also 
 
 ## Table 4 — `cfb_signal_defs` (31 rows; user-facing signal dictionary, fetch once + cache)
 Plain-English definition for every signal so a user can **tap a signal chip and read what it means**. Join
-`cfb_dryrun_flags.signal_key = cfb_signal_defs.signal_key`.
+`cfb_slate_flags.signal_key = cfb_signal_defs.signal_key`.
 Columns: `signal_key (PK), display_name (title), market, one_liner (chip subtitle), definition (what it means),
 why_it_works (the mechanism), bet_direction (how the side is chosen), typical_hit (honest validated rate),
 default_conviction (T1/T2/T3/track)`.
@@ -106,14 +106,14 @@ Render: the flag chip shows `display_name` + `one_liner`; on tap, a card shows `
 `bet_direction`, and `typical_hit`. Never show the raw `source` string to users — it's internal shorthand.
 
 ## App-screen mapping
-- **Slate / game-card list** → `cfb_dryrun_games` (sort by `conviction_tier`; predicted score + best pick +
+- **Slate / game-card list** → `cfb_slate_games` (sort by `conviction_tier`; predicted score + best pick +
   flag-count chips; logos from `cfb_teams`).
-- **Game detail / bet board** → `cfb_dryrun_games` row (7-market table: spread / total / team totals / 1H
-  spread / 1H total / 1H ML / full ML) + `cfb_dryrun_flags` where `game_id=` (the fired signals with tiers,
+- **Game detail / bet board** → `cfb_slate_games` row (7-market table: spread / total / team totals / 1H
+  spread / 1H total / 1H ML / full ML) + `cfb_slate_flags` where `game_id=` (the fired signals with tiers,
   lines, book routing, grade line).
-- **Picks feed** → `cfb_dryrun_flags where tier='active'` grouped by conviction; **Tracking/watch** →
+- **Picks feed** → `cfb_slate_flags where tier='active'` grouped by conviction; **Tracking/watch** →
   `tier='tracking'`.
-- **Mammoth banner** → `cfb_dryrun_games where mammoth=true` (top of app, rare highlight).
+- **Mammoth banner** → `cfb_slate_games where mammoth=true` (top of app, rare highlight).
 - **Signal definition card** → on tapping any flag, look up `cfb_signal_defs` by `signal_key`.
 
 ## Known gaps / caveats (state these honestly in-product)
@@ -133,7 +133,7 @@ Render: the flag chip shows `display_name` + `one_liner`; on tap, a card shows `
 
 ---
 
-## Table 5 — `cfb_dryrun_picks` (398 rows; ~7 per game — the prediction cards, all precomputed)
+## Table 5 — `cfb_slate_picks` (398 rows; ~7 per game — the prediction cards, all precomputed)
 One row per bet type per game (ALWAYS 8 cards/game = 448 rows; every game gets a model projection for every
 bet type even when no Vegas line is posted — then vegas_line/edge/best_* are null and display_only=true).
 Frontend renders cards with NO math. Query
@@ -153,12 +153,12 @@ Moneyline + capped spreads: `display_only=true`. Mammoth/conviction lives PER CA
 the 7 bets is the mammoth).
 
 ## Table 6 — `cfb_sportsbooks` (12 rows; static, cache)
-`book_key (PK), display_name, logo_url (Clearbit), domain`. `cfb_dryrun_picks.best_book` joins here;
+`book_key (PK), display_name, logo_url (Clearbit), domain`. `cfb_slate_picks.best_book` joins here;
 `best_book_logo` is also denormalized on the pick row for convenience.
 
-## `cfb_dryrun_games.conviction_summary` (jsonb)
+## `cfb_slate_games.conviction_summary` (jsonb)
 Array of `{card, conviction, mammoth}` for the slate pills — tells the card WHICH bet types carry plays
-without loading `cfb_dryrun_picks`.
+without loading `cfb_slate_picks`.
 
 ## Table 7 — `cfb_team_trends` (136 rows; per-team season-to-date trends, AS OF before Week 7)
 Point-in-time (2025 weeks 1-6 only, no look-ahead). Fetch 2 rows per game (home + away team_name).

@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - Raw table rows (NFL dry-run data contract)
+// MARK: - Raw table rows (NFL slate data contract)
 
 /// One entry of a prop row's `recent_games` JSON array — the player's actual
 /// stat in one prior game this season (walk-forward, point-in-time).
@@ -63,12 +63,12 @@ public struct NFLPropBestQuote: Hashable, Sendable {
     }
 }
 
-/// One row of `nfl_dryrun_props` (CFB/research Supabase): a single
+/// One row of `nfl_slate_props` (CFB/research Supabase): a single
 /// player × market with the consensus close line/prices (median across books),
 /// season game-log trends, defense-matchup context, and fired P-flags.
 /// See the "NFL Week 12 2025 Dry Run — App Data Contract" doc — the 2026
 /// in-season tables will follow this same shape.
-public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
+public struct NFLSlatePropRow: Decodable, Hashable, Sendable {
     public let gameId: String?
     public let eventId: String?
     public let season: Int?
@@ -251,7 +251,7 @@ public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
     }
 }
 
-/// Matchup context joined from `nfl_dryrun_games` (kickoff day + slot) —
+/// Matchup context joined from `nfl_slate_feed` (kickoff day + slot) —
 /// props rows only carry the `game_id`.
 public struct NFLPropGameContext: Hashable, Sendable {
     public let gameDate: String
@@ -397,14 +397,14 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
     public let position: String?
     public let gameId: String
     public let eventId: String?
-    /// `gameday` from `nfl_dryrun_games`; empty when the join misses.
+    /// `gameday` from `nfl_slate_feed`; empty when the join misses.
     public let gameDate: String
     /// Schedule slot key (thu_fri / sun_early / sun_late_sat / snf / monday).
     public let slot: String?
     /// Upcoming kickoff ISO timestamp from the latest player-page slate.
     public let kickoff: String?
     public let week: Int?
-    /// Slate season from `nfl_dryrun_props` (e.g. 2025 dry-run week).
+    /// Slate season from `nfl_slate_props` (e.g. 2025 slate week).
     public let season: Int?
     public let reportStatus: String?
     public let practiceStatus: String?
@@ -481,7 +481,7 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
 // MARK: - Helpers
 
 public enum NFLPlayerProps {
-    /// Display order for the markets the dry-run publishes; unknown keys sort
+    /// Display order for the markets the slate publishes; unknown keys sort
     /// after, alphabetically, so new server-side markets degrade gracefully.
     static let marketOrder: [String] = [
         "player_pass_yds", "player_pass_tds", "player_pass_attempts", "player_pass_completions",
@@ -655,7 +655,7 @@ public enum NFLPlayerProps {
     }
 
     /// Build feed players from `nfl_prop_player_pages` + optional trend
-    /// game-logs. This is the live 2026 path — no dry-run tables.
+    /// game-logs. This is the live 2026 path — no slate tables.
     public static func players(
         from pages: [NFLPropPlayerPage],
         recentGames: [String: [NFLPropRecentGame]] = [:]
@@ -717,7 +717,7 @@ public enum NFLPlayerProps {
     /// follow `marketOrder`; players come back sorted by gameday → schedule
     /// slot → name (feed-ready). `games` joins kickoff context by `game_id`.
     public static func group(
-        _ rows: [NFLDryrunPropRow],
+        _ rows: [NFLSlatePropRow],
         games: [String: NFLPropGameContext] = [:],
         bestBooksFallback: [String: NFLPropBestBooksFallback] = [:],
         recentGamesFallback: [String: [NFLPropRecentGame]] = [:],

@@ -18,7 +18,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-import dryrun_wk12_games as dg
+import nfl_slate_games_build as dg
 from nfl_outliers_betting_lines import index_picks, index_props, index_props_books, resolve_betting_lines
 from nfl_outliers_trend_engine import build_all_cards
 
@@ -152,7 +152,7 @@ def main():
         ensure_table(key)
 
     games = fetch_all(
-        key, "nfl_dryrun_games",
+        key, "nfl_slate_games",
         f"season=eq.{SEASON}&week=eq.{WEEK}&select=*&order=kickoff.asc",
     )
     if not games:
@@ -207,9 +207,9 @@ def main():
     attached = 0
 
     if not args.no_lines:
-        picks = fetch_all(key, "nfl_dryrun_picks", f"season=eq.{SEASON}&week=eq.{WEEK}&select=*")
+        picks = fetch_all(key, "nfl_slate_picks", f"season=eq.{SEASON}&week=eq.{WEEK}&select=*")
         props = fetch_all(
-            key, "nfl_dryrun_props",
+            key, "nfl_slate_props",
             f"season=eq.{SEASON}&week=eq.{WEEK}&select=game_id,player_id,market,close_line,"
             f"over_price,under_price,close_yes_prob,headshot_url",
         )

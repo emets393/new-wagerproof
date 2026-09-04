@@ -1,5 +1,5 @@
 // get_nfl_predictions — Fetch NFL model predictions for the current week.
-// Reads the new model's weekly table nfl_dryrun_games (lines from The Odds API).
+// Reads the new model's weekly table nfl_slate_feed (lines from The Odds API).
 
 import type { ToolDefinition, ToolContext } from "./registry.ts";
 
@@ -19,13 +19,13 @@ export const tool: ToolDefinition = {
     },
   },
   async execute(input: { team?: string }, ctx: ToolContext) {
-    // NFL reads the new model's weekly table nfl_dryrun_games (lines from The Odds
+    // NFL reads the new model's weekly table nfl_slate_feed (lines from The Odds
     // API; predictions + lines in one row — no join to nfl_betting_lines and no
     // nfl_predictions_epa run_id logic). The pipeline delete-then-inserts per
     // (season, week), so the latest (season, week) = current week. Resolve that
     // anchor, then filter to it.
     const { data: anchor } = await ctx.cfbSupabase
-      .from("nfl_dryrun_games")
+      .from("nfl_slate_feed")
       .select("season, week")
       .order("season", { ascending: false })
       .order("week", { ascending: false })
@@ -34,7 +34,7 @@ export const tool: ToolDefinition = {
     if (!anchor) return { games: [], message: "No NFL predictions available" };
 
     const { data: games, error } = await ctx.cfbSupabase
-      .from("nfl_dryrun_games")
+      .from("nfl_slate_feed")
       .select("*")
       .eq("season", anchor.season)
       .eq("week", anchor.week);
@@ -55,7 +55,7 @@ export const tool: ToolDefinition = {
       }
     }
 
-    // Remap onto the nfl_dryrun_games columns (fg_* = full-game markets from The
+    // Remap onto the nfl_slate_feed columns (fg_* = full-game markets from The
     // Odds API). Fields with no equivalent in the new table are set to null.
     const formatted = filtered.map((game: any) => ({
       game_id: game.game_id || `${game.away_team}_${game.home_team}`,
@@ -75,7 +75,7 @@ export const tool: ToolDefinition = {
         spread_pick: game.fg_spread_pick,
         spread_confidence: game.fg_home_cover_prob,
         ou_pick: game.fg_total_pick,
-        ou_confidence: null, // no OU confidence column in nfl_dryrun_games
+        ou_confidence: null, // no OU confidence column in nfl_slate_feed
         model_fair_spread: game.fg_pred_spread,
         model_fair_total: game.fg_pred_total,
         predicted_home_score: game.fg_pred_home_pts,
@@ -87,13 +87,13 @@ export const tool: ToolDefinition = {
         precipitation: null, // no precipitation column; wx_icon carries conditions
       },
       public_betting: {
-        spread_split: null, // no public-betting splits in nfl_dryrun_games
+        spread_split: null, // no public-betting splits in nfl_slate_feed
         ml_split: null,
         total_split: null,
       },
     }));
 
-    // Build compact game cards directly from nfl_dryrun_games (the old
+    // Build compact game cards directly from nfl_slate_feed (the old
     // normalizeNFL read legacy column names absent from the new table).
     const gameCards = filtered
       .map((g: any) => {

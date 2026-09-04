@@ -4,7 +4,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.wagerproof.core.models.CFBDryRunFlag
+import com.wagerproof.core.models.CFBSlateFlag
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBTeamAssets
 import com.wagerproof.core.models.serialization.FlexibleStringSerializer
@@ -21,23 +21,23 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.intOrNull
 
 /**
- * Port of iOS `CFBDryRunPicksStore.swift`. Admin CFB dry-run picks screen. Resolves
+ * Port of iOS `CFBSlatePicksStore.swift`. Admin CFB slate picks screen. Resolves
  * the current (season, week) dynamically (soonest upcoming kickoff with 6h grace),
- * then loads `cfb_dryrun_games` + `cfb_dryrun_flags` + the signal glossary in parallel.
+ * then loads `cfb_slate_feed` + `cfb_slate_flags` + the signal glossary in parallel.
  */
 @Stable
-class CFBDryRunPicksStore {
+class CFBSlatePicksStore {
 
     var games by mutableStateOf<List<CFBPrediction>>(emptyList()); private set
-    var flags by mutableStateOf<List<CFBDryRunFlag>>(emptyList()); private set
+    var flags by mutableStateOf<List<CFBSlateFlag>>(emptyList()); private set
     var loadState by mutableStateOf<LoadState>(LoadState.Idle); private set
 
     /** Active flags, sorted conviction rank asc → stakeUnits desc. */
-    val activeFlags: List<CFBDryRunFlag>
+    val activeFlags: List<CFBSlateFlag>
         get() = flags.filter { it.isActive }.sortedWith(FLAG_ORDER)
 
     /** Tracking (non-active) flags, same sort. */
-    val trackingFlags: List<CFBDryRunFlag>
+    val trackingFlags: List<CFBSlateFlag>
         get() = flags.filter { !it.isActive }.sortedWith(FLAG_ORDER)
 
     val mammothGames: List<CFBPrediction>
@@ -54,7 +54,7 @@ class CFBDryRunPicksStore {
                 val cfb = SupabaseClients.cfb
                 val graceIso = java.time.Instant.now().minusSeconds(6 * 60 * 60).toString()
                 val upcoming = runCatching {
-                    cfb.from("cfb_dryrun_games")
+                    cfb.from("cfb_slate_feed")
                         .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("season,week,kickoff")) {
                             filter { gte("kickoff", graceIso) }
                             order("kickoff", io.github.jan.supabase.postgrest.query.Order.ASCENDING)
@@ -63,7 +63,7 @@ class CFBDryRunPicksStore {
                         .decodeList<kotlinx.serialization.json.JsonObject>()
                 }.getOrDefault(emptyList())
                 val slateRow = upcoming.firstOrNull() ?: runCatching {
-                    cfb.from("cfb_dryrun_games")
+                    cfb.from("cfb_slate_feed")
                         .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("season,week")) {
                             order("season", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
                             order("week", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
@@ -87,7 +87,7 @@ class CFBDryRunPicksStore {
                 }
 
                 val gamesRowsDeferred = async {
-                    cfb.from("cfb_dryrun_games")
+                    cfb.from("cfb_slate_feed")
                         .select {
                             filter {
                                 eq("season", season)
@@ -97,7 +97,7 @@ class CFBDryRunPicksStore {
                         .decodeList<GameRow>()
                 }
                 val flagRowsDeferred = async {
-                    cfb.from("cfb_dryrun_flags")
+                    cfb.from("cfb_slate_flags")
                         .select {
                             filter {
                                 eq("season", season)
@@ -128,11 +128,11 @@ class CFBDryRunPicksStore {
             loadState = LoadState.Idle
             throw cancellation
         } catch (e: Exception) {
-            loadState = LoadState.Failed(e.message ?: "Failed to load CFB dry-run picks")
+            loadState = LoadState.Failed(e.message ?: "Failed to load CFB slate picks")
         }
     }
 
-    private fun prediction(row: GameRow, flagsByGame: Map<String, List<CFBDryRunFlag>>): CFBPrediction {
+    private fun prediction(row: GameRow, flagsByGame: Map<String, List<CFBSlateFlag>>): CFBPrediction {
         val id = row.gameId.orEmpty()
         val home = row.homeTeam ?: "Home"
         val away = row.awayTeam ?: "Away"
@@ -309,7 +309,7 @@ class CFBDryRunPicksStore {
         @SerialName("grade_line") val gradeLine: String? = null,
         val mammoth: Boolean? = null,
     ) {
-        fun toModel(): CFBDryRunFlag = CFBDryRunFlag(
+        fun toModel(): CFBSlateFlag = CFBSlateFlag(
             id = id.orEmpty(),
             gameId = gameId.orEmpty(),
             season = season,
@@ -331,8 +331,8 @@ class CFBDryRunPicksStore {
 
     private companion object {
         // Conviction rank asc, then stakeUnits desc (Swift `flagSort`).
-        val FLAG_ORDER: Comparator<CFBDryRunFlag> =
-            compareBy<CFBDryRunFlag> { it.convictionTier.sortRank }
+        val FLAG_ORDER: Comparator<CFBSlateFlag> =
+            compareBy<CFBSlateFlag> { it.convictionTier.sortRank }
                 .thenByDescending { it.stakeUnits ?: 0.0 }
     }
 }

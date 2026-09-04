@@ -12,7 +12,7 @@ PRE-GAME ONLY: any event with commence_time <= now is skipped — we never recor
 COST GUARD: the per-event endpoint bills per market; if nothing qualifies this hour, no event
   calls are made (the free /events list is checked first).
 
-Run:  python3 live_odds.py            # dry-run: pull + parse + print, no write
+Run:  python3 live_odds.py            # slate: pull + parse + print, no write
       python3 live_odds.py --write     # insert the snapshot rows
 """
 import os
@@ -144,7 +144,7 @@ def main():
         return
 
     if not WRITE and len(todo) > 2:
-        print(f"[dry-run] sampling 2/{len(todo)} events (each per-event call spends quota)")
+        print(f"[slate] sampling 2/{len(todo)} events (each per-event call spends quota)")
         todo = todo[:2]
 
     # 3) per-event odds -> book-rows
@@ -160,7 +160,7 @@ def main():
     if not WRITE:
         if rows:
             print("  sample row:", {k: v for k, v in rows[0].items() if v is not None})
-        print("[dry-run] no write. Re-run with --write to insert.")
+        print("[slate] no write. Re-run with --write to insert.")
         return
 
     # 4) append the snapshot (new snap_ts rows; the models derive open/close/movement from the series)

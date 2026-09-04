@@ -45,7 +45,7 @@ slate["day"] = slate.kick.dt.strftime("%Y-%m-%d")
 ncalls = len(slate) * len(SNAPS)
 print(f"{YEAR}: {len(slate)} games x {len(SNAPS)} snaps = {ncalls} calls ~ {ncalls*40 + slate.day.nunique()} credits")
 if "--go" not in sys.argv:
-    print("dry-run. add --go."); sys.exit(0)
+    print("slate. add --go."); sys.exit(0)
 
 mp = os.path.join(OUTD, f"manifest_{YEAR}.json")
 man = json.load(open(mp)) if os.path.exists(mp) else {"events": {}, "done": {}}

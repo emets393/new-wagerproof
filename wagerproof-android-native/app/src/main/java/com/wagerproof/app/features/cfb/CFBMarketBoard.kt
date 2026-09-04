@@ -3,7 +3,7 @@ package com.wagerproof.app.features.cfb
 import androidx.compose.ui.graphics.Color
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.core.design.tokens.AppColors
-import com.wagerproof.core.models.CFBDryRunFlag
+import com.wagerproof.core.models.CFBSlateFlag
 import com.wagerproof.core.models.CFBFlagConviction
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBSignalDefinition
@@ -197,8 +197,8 @@ private fun moneylineRow(game: CFBPrediction): CFBMarketRow {
 // ============================================================================
 
 data class SignalBuckets(
-    val supporting: List<CFBDryRunFlag>,
-    val contradicting: List<CFBDryRunFlag>,
+    val supporting: List<CFBSlateFlag>,
+    val contradicting: List<CFBSlateFlag>,
 ) {
     val isEmpty: Boolean get() = supporting.isEmpty() && contradicting.isEmpty()
 }
@@ -207,7 +207,7 @@ fun signalBuckets(
     game: CFBPrediction,
     row: CFBMarketRow,
     defs: Map<String, CFBSignalDefinition>,
-    pick: CFBDryrunPickRow? = null,
+    pick: CFBSlatePickRow? = null,
 ): SignalBuckets {
     val effectiveRow = if (pick == null) row else row.copy(
         pick = pick.pickSide ?: pick.pickLabel ?: row.pick,
@@ -219,9 +219,9 @@ fun signalBuckets(
     val keys = FootballBlanketSignals.displayKeys("cfb", pick?.signalKeys.orEmpty())
     val counterKeys = FootballBlanketSignals.displayKeys("cfb", pick?.counterSignalKeys.orEmpty())
         .filterNot { it in keys }
-    fun pickFlag(key: String, side: String?): CFBDryRunFlag {
+    fun pickFlag(key: String, side: String?): CFBSlateFlag {
         val definition = CFBSignalDefinitionsService.definition(key, defs)
-        return CFBDryRunFlag(
+        return CFBSlateFlag(
             id = "pick-${pick?.id ?: game.gameId}-${signalIdentity(key, definition, defs)}",
             gameId = game.gameId,
             source = key,
@@ -265,11 +265,11 @@ private fun pickConvictionForFlag(conviction: String?): String = when (convictio
     else -> conviction ?: "track"
 }
 
-fun cfbDryRunPickForRow(
+fun cfbSlatePickForRow(
     game: CFBPrediction,
     row: CFBMarketRow,
-    picks: List<CFBDryrunPickRow>,
-): CFBDryrunPickRow? = picks.firstOrNull { pick ->
+    picks: List<CFBSlatePickRow>,
+): CFBSlatePickRow? = picks.firstOrNull { pick ->
     when (row.id) {
         "spread" -> pick.normalizedCardGroup == "spread"
         "total" -> pick.normalizedCardGroup == "total"
@@ -285,7 +285,7 @@ fun cfbDryRunPickForRow(
     }
 }
 
-private fun relevantGameFlags(game: CFBPrediction, row: CFBMarketRow): List<CFBDryRunFlag> {
+private fun relevantGameFlags(game: CFBPrediction, row: CFBMarketRow): List<CFBSlateFlag> {
     val market = marketKey(row.id)
     return game.activeFlags
         .filter { it.market.lowercase(Locale.US) == market }
@@ -298,7 +298,7 @@ private fun relevantGameFlags(game: CFBPrediction, row: CFBMarketRow): List<CFBD
                 hay.contains(if (row.id == "tt-home") "HOME" else "AWAY")
         }
         .sortedWith(
-            compareBy<CFBDryRunFlag> { it.convictionTier.sortRank }
+            compareBy<CFBSlateFlag> { it.convictionTier.sortRank }
                 .thenByDescending { it.stakeUnits ?: 0.0 },
         )
 }
@@ -311,7 +311,7 @@ private fun marketKey(rowId: String): String = when (rowId) {
     else -> rowId
 }
 
-private fun signalSupportsPick(flag: CFBDryRunFlag, row: CFBMarketRow, game: CFBPrediction): Boolean {
+private fun signalSupportsPick(flag: CFBSlateFlag, row: CFBMarketRow, game: CFBPrediction): Boolean {
     val pick = row.pick.uppercase(Locale.US)
     if (pick == "OVER" || pick == "UNDER") {
         normalizedOverUnder(flag.side)?.let { return it == pick }
@@ -364,7 +364,7 @@ private fun normalizedOverUnder(value: String): String? {
 }
 
 fun signalPerformanceFor(
-    flag: CFBDryRunFlag,
+    flag: CFBSlateFlag,
     defs: Map<String, CFBSignalDefinition>,
     perfByKey: Map<String, SignalPerformance>,
 ): SignalPerformance? {

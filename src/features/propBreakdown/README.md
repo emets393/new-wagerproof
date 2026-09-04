@@ -12,7 +12,7 @@ client (`jpxnjuwglavsjbgbasnl`):
 | `nfl_player_prop_trends` | Career `recent_game_log`, `matchups`, situational `splits` |
 
 No client math (percentiles / identities / highlights are precomputed). No
-`*_dryrun_*` references. Market toggles come strictly from each player's
+`*_slate_*` references. Market toggles come strictly from each player's
 `markets[]` — a WR only sees Rushing Yards if that key is in the array.
 
 ## Layout

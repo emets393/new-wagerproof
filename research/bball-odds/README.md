@@ -91,7 +91,7 @@ balldontlie: 600 req/min tier, `BALLDONTLIE_API_KEY`, BDL `date` = ET date and
 BDL `season` = start year. CBBD stats endpoints need the same month/week
 chunking as games (season-level responses silently truncate).
 
-Both scripts: `--dry-run` (planned calls + credit ceiling), `--test` (single
+Both scripts: `--slate` (planned calls + credit ceiling), `--test` (single
 call with live cost printout). Hard abort if `x-requests-remaining` drops
 below 2.3M (protects MLB's in-month usage). API key read from repo-root
 `.env.local` (`ODDS_API_KEY`).

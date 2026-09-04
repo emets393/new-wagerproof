@@ -7,7 +7,7 @@ Simulates the live-season fetch schedule against The Odds API historical endpoin
 game_id + snapshot time so the run is resumable and never re-spends credits.
 
 Usage:
-  python3 props_backfill.py --dry-run          # snapshot counts + credit estimate, no API calls
+  python3 props_backfill.py --simulate          # snapshot counts + credit estimate, no API calls
   python3 props_backfill.py --test             # fetch a single game end-to-end
   python3 props_backfill.py                    # full run
 """
@@ -139,7 +139,7 @@ def map_event_ids(fetcher, games):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--simulate", action="store_true")
     ap.add_argument("--test", action="store_true", help="fetch only the first game")
     ap.add_argument("--seasons", default="2023", help="comma list, e.g. 2023")
     args = ap.parse_args()
@@ -153,7 +153,7 @@ def main():
     est = total_snaps * 90 + g.gameday.nunique()  # 9 markets x 10 credits, empty snaps cost 0
     print(f"games={len(g)} snapshots={total_snaps} (avg {total_snaps/len(g):.1f}/game) "
           f"est credits ~{est:,} (90/snap worst case; empty snaps cost 0)", flush=True)
-    if args.dry_run:
+    if args.simulate:
         return
 
     fetcher = Fetcher(load_key())

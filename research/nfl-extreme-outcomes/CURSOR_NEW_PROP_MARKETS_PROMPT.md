@@ -1,7 +1,7 @@
 # Cursor build prompt — surface the 3 new NFL prop markets + new prop signals (iOS native)
 
 We added **3 new NFL player-prop markets** and **7 new prop signal badges** to the data warehouse.
-They already flow into the app's tables (`nfl_dryrun_props`, `nfl_player_prop_trends`) — the props
+They already flow into the app's tables (`nfl_slate_props`, `nfl_player_prop_trends`) — the props
 feed and detail pages render them with **no change** (the data path is market-agnostic). But a few
 **hardcoded maps/enums** need the new keys, and — most importantly — the **prop-signal badge
 catalog is hardcoded and silently drops unknown flags**, so the new signals won't show until added.

@@ -98,7 +98,7 @@ public final class PropsStore {
     }
 
     /// Players in this matchup — team-abbr matching, not `game_id`. Player
-    /// pages synthesize a game key that may not match `nfl_dryrun_games`.
+    /// pages synthesize a game key that may not match `nfl_slate_feed`.
     public func nflPlayers(matchingAway away: String, home: String) -> [NFLPropPlayer] {
         let teams: Set<String> = [
             NFLTeams.abbr(for: away).uppercased(),
@@ -211,8 +211,8 @@ public final class PropsStore {
     public var isLoadingNFL: Bool { loadState[.nfl] == .loading }
     public var hasLoadedNFL: Bool { lastFetched[.nfl] != nil }
 
-    /// Unused — NFL props read `nfl_prop_player_pages`, not dry-run tables.
-    public var dryRunPreviewEnabled: Bool = false
+    /// Unused — NFL props read `nfl_prop_player_pages`, not slate tables.
+    public var slatePreviewEnabled: Bool = false
 
     /// Matchups ordered by game time (the service already orders by date then
     /// time; this keeps a stable secondary sort if the API order drifts).

@@ -1,10 +1,10 @@
 # Football Betting Markets — The Rulebook (NFL + CFB)
 
-> Verified against live generator code 2026-08-24 (`dryrun_wk12_games.py`, `gen_cfb_picks.py`,
-> `gen_cfb_dryrun_flags.py`, `cfb_forecast.py`, `consensus_totals.py`, `nfl_sharp_action.py`,
+> Verified against live generator code 2026-08-24 (`nfl_slate_games_build.py`, `gen_cfb_picks.py`,
+> `gen_cfb_slate_flags.py`, `cfb_forecast.py`, `consensus_totals.py`, `nfl_sharp_action.py`,
 > `live_odds*.py`, `render.yaml`). Every threshold below is quoted from code, not memory.
 > Companion docs: `SIGNALS_PRODUCTION_AUDIT_2026.md` (per-signal records),
-> `cfb-model/LOCKED_MODELS.md`, `nfl-extreme-outcomes/DRYRUN_WK12_SPEC.md`.
+> `cfb-model/LOCKED_MODELS.md`, `nfl-extreme-outcomes/SLATE_WK12_SPEC.md`.
 
 ---
 
@@ -65,7 +65,7 @@ the line it's *graded* against — no CLV-inflated records.
 ### 3.1 Full-game spread — CAN be a bet
 - **Side**: the regression margin model vs the **opening** spread (`reg_edge`). The
   classification cover model rides along as the `sides_model` signal.
-- **Conviction ladder** (code, `dryrun_wk12_games.py`):
+- **Conviction ladder** (code, `nfl_slate_games_build.py`):
   - models disagree (margin side ≠ classifier side) → **none** (projection only) —
     walk-forward validated: AGREE 53.5%/+2.1%, DISAGREE 46%/−12%
   - agree, |edge| > 0 → **lean** (0.25u)

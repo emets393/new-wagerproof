@@ -77,16 +77,16 @@ def main():
     now_utc = now.astimezone(dt.timezone.utc)
     season = now.year if now.month >= 3 else now.year - 1
 
-    # Our modeled slate lives in cfb_dryrun_games (DB) — persistent across Render jobs, unlike a
+    # Our modeled slate lives in cfb_slate_games (DB) — persistent across Render jobs, unlike a
     # local model_games.parquet (the hourly odds cron has no build step to produce it).
     sk = _env("SUPABASE_SERVICE_KEY")
     sr = requests.get(
-        f"{SUPA}/cfb_dryrun_games?select=game_id,home_team,away_team&season=eq.{season}",
+        f"{SUPA}/cfb_slate_games?select=game_id,home_team,away_team&season=eq.{season}",
         headers={"apikey": sk, "Authorization": f"Bearer {sk}"}, timeout=30)
     sr.raise_for_status()
     sg = sr.json()
     if not sg:
-        print(f"[idle] no cfb_dryrun_games slate for {season} yet — nothing to capture.")
+        print(f"[idle] no cfb_slate_games slate for {season} yet — nothing to capture.")
         return
     teams = sorted({g["home_team"] for g in sg} | {g["away_team"] for g in sg})
 
@@ -116,7 +116,7 @@ def main():
         print("[idle] nothing qualifies — no per-event calls.")
         return
     if not WRITE and len(todo) > 2:
-        print(f"[dry-run] sampling 2/{len(todo)} (each per-event call spends quota)")
+        print(f"[slate] sampling 2/{len(todo)} (each per-event call spends quota)")
         todo = todo[:2]
 
     snap_iso = now_utc.isoformat()
@@ -138,7 +138,7 @@ def main():
     if not WRITE:
         if rows:
             print("  sample row:", rows[0])
-        print("[dry-run] no write. Re-run with --write to insert.")
+        print("[slate] no write. Re-run with --write to insert.")
         return
     if not rows:
         print("[idle] no 1H/TT lines posted for these games yet.")

@@ -114,7 +114,7 @@ close:
 Per-season honesty (wks 1-3): hammer = 50/62/73/54/50 — ≥50% in 5/5, modest but consistent.
 Mercy = 73/64/37/33/33 — **regime-flipped**: it covered in 2021-22 and only became fade-able
 2023+. Verdict: `coach_hammer_fav` (back hammer-tier favs ≥14, wks 1-3) is **WIRED as a
-TRACKING flag 2026-08-26** (0.5u paper, `gen_cfb_dryrun_flags.py`, frozen lookup
+TRACKING flag 2026-08-26** (0.5u paper, `gen_cfb_slate_flags.py`, frozen lookup
 `coach_blowout/out/hammer_2026_teams.csv`, 7 wk1 games flagged); the mercy fade is unstable and stays research-only. Neither ships as
 an active flag without a 2026 paper season.
 

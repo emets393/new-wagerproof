@@ -4,7 +4,7 @@ Parity contract for porting `wagerproof-ios-native/WagerproofKit/Sources/Wagerpr
 Android (`com.wagerproof.core.services`, Kotlin + supabase-kt + OkHttp).
 
 **File count: 38 Swift files** — 35 top-level service files + 3 in `DummyData/` (DEBUG-only fixtures),
-plus 1 bundled JSON resource (`Resources/nfl_dryrun_prop_best_books.json`). Verified 2026-07-06.
+plus 1 bundled JSON resource (`Resources/nfl_slate_prop_best_books.json`). Verified 2026-07-06.
 
 Related iOS files documented here because the parity contract requires them (they live outside
 `WagerproofServices` but the Android services layer must absorb their behavior):
@@ -56,8 +56,8 @@ Two projects, two clients. Defined in `SupabaseConfig.swift` + `SupabaseClients.
   `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5qdXdnbGF2c2piZ2Jhc25sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTc4NjEsImV4cCI6MjA2ODI3Mzg2MX0.BjOHMysQh3wST-_UR6bJxHngRThlAmOOx4FfSVKRzWo`
 - **No auth ever** — anon-role RLS exposes all prediction/sports views.
 - Owns: all sports/prediction data — `nfl_predictions_epa`, `nfl_betting_lines`, `nfl_teams`,
-  `nfl_dryrun_*`, `cfb_live_weekly_inputs`, `cfb_api_predictions`, `cfb_teams`, `cfb_signal_defs`,
-  `cfb_dryrun_games`, `nba_predictions`, `nba_input_values_view`, `ncaab_predictions`,
+  `nfl_slate_*`, `cfb_live_weekly_inputs`, `cfb_api_predictions`, `cfb_teams`, `cfb_signal_defs`,
+  `cfb_slate_feed`, `nba_predictions`, `nba_input_values_view`, `ncaab_predictions`,
   `v_cbb_input_values`, `ncaab_team_mapping`, `mlb_*`, `signal_performance`, `*_trends`,
   `*_outliers_trend_cards`, `v_input_values_with_epa`.
 
@@ -302,13 +302,13 @@ with a session → phase `.authenticated(userId)` + loads profile; on `signedOut
 - Port as a pure Kotlin object with unit tests against captured fixtures.
 
 ### NFLPlayerPropsService.swift
-- Purpose: NFL player-props board (CFB project, dry-run tables = the 2026 production data contract;
+- Purpose: NFL player-props board (CFB project, slate tables = the 2026 production data contract;
   only table names change at cutover).
-- `fetchPlayers()` — warms `NFLTeamsService`, then `nfl_dryrun_props` select all order
-  `player_name` asc (~950 rows, one curated week, no date filter); `nfl_dryrun_games` select
+- `fetchPlayers()` — warms `NFLTeamsService`, then `nfl_slate_props` select all order
+  `player_name` asc (~950 rows, one curated week, no date filter); `nfl_slate_feed` select
   `game_id, gameday, slot` (best-effort — miss degrades to undated cards). Grouping/shaping is
   delegated to `NFLPlayerProps.group(rows, games, bestBooksFallback)` in Models.
-- Best-shop fallback: bundled JSON `nfl_dryrun_prop_best_books.json` keyed `player_id|market`
+- Best-shop fallback: bundled JSON `nfl_slate_prop_best_books.json` keyed `player_id|market`
   (see NFLPropBestBooksBundle) until the table carries those columns.
 
 ### NFLPropPageService.swift (post-port addition, 2026-08-15)
@@ -402,7 +402,7 @@ with a session → phase `.authenticated(userId)` + loads profile; on `signedOut
   (±fractional), bare `yyyy-MM-dd` (trusted as-is), and space-separated ISO.
 
 ### OutliersTrendsService.swift
-- Purpose: trends snapshots + dry-run slates (CFB project). Queries are slim-column & slate-scoped
+- Purpose: trends snapshots + slates (CFB project). Queries are slim-column & slate-scoped
   (full-table coach/ref pulls were ~4MB and timed out — keep this discipline on Android).
 - `fetchPrecomputedCards(sport, season, week)` — table `nfl_outliers_trend_cards` or
   `cfb_outliers_trend_cards`, eq season+week, order `sort_rank` desc, select 16-col card projection
@@ -411,9 +411,9 @@ with a session → phase `.authenticated(userId)` + loads profile; on `signedOut
   betting_lines, is_player_overflow`). `rows` / `betting_lines` are JSONB arrays with their own
   shapes (`{id,text,coverage_note,dominant_pct,sample_n}` / `{id,label,line_text,odds_text,
   book_name,book_logo_url,team_abbr}`).
-- `fetchSlateGames(sport)` — NFL: anchor = latest (season,week) from `nfl_dryrun_games`, then rows
+- `fetchSlateGames(sport)` — NFL: anchor = latest (season,week) from `nfl_slate_feed`, then rows
   for that slate (cols incl. `home_ab/away_ab, fg_spread_close, fg_total_close, kickoff, slot,
-  assigned_referee`), order kickoff asc. CFB: same over `cfb_dryrun_games` (no abbr/slot/ref cols).
+  assigned_referee`), order kickoff asc. CFB: same over `cfb_slate_feed` (no abbr/slot/ref cols).
   MLB: today-ET rows from `mlb_games_today` (ML/spread/total + f5_* cols), filter postponed, then
   enrich: `mlb_signal_features_pregame` (`game_pk, series_game_number`, prefer home rows),
   `mlb_odds_snapshots` (spread/total odds + f5 variants, latest per pk by fetched_at),
@@ -764,7 +764,7 @@ on Android). Notification taps stash a route in `last_notification_route`.
 | 31 | CFBTeamsService.swift | `CFBTeamsService.kt` | object | asset cache warm |
 | 32 | CFBSignalDefinitionsService.swift | `CFBSignalDefinitionsService.kt` | class | normalization + legacy aliases |
 | 33 | SignalPerformanceService.swift | `SignalPerformanceService.kt` | class | cached |
-| 34 | NFLPlayerPropsService.swift | `NFLPlayerPropsService.kt` | class | dryrun tables |
+| 34 | NFLPlayerPropsService.swift | `NFLPlayerPropsService.kt` | class | slate tables |
 | 35 | NFLPropBestBooksBundle.swift | `NFLPropBestBooksBundle.kt` | object | bundle JSON in assets |
 | 36 | MLBPlayerPropsService.swift | `MLBPlayerPropsService.kt` | class | RPC fan-out |
 | 37 | MLBPlayerPropPicksService.swift | `MLBPlayerPropPicksService.kt` | class | lenient decode |

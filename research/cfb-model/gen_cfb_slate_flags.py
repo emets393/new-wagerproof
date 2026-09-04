@@ -1,4 +1,4 @@
-"""Generate cfb_dryrun_flags — one row per fired bet signal, Week-7 2025. Spread/total flags come from the
+"""Generate cfb_slate_flags — one row per fired bet signal, Week-7 2025. Spread/total flags come from the
 AUTHORITATIVE spot_library (each flag carries ITS OWN side — fixes the conflicting-spots bug where the net
 sides_bet mislabeled games like Ohio State@Illinois). Team-total + 1H flags from the harness CSVs.
 Each flag: market, side, line (its grade_line), edge, conviction, active/tracking, stake. Back-fills game counts."""
@@ -88,7 +88,7 @@ for _, r in (te.iterrows() if WEEK >= 4 else iter(())):
 _h1p = f"out/cfb_h1_model_{SEASON}.csv"
 h1 = pd.read_csv(_h1p) if os.path.exists(_h1p) else pd.DataFrame(columns=["game_id"])
 h1 = h1[h1.game_id.isin(g7)]
-# EARLY gate (2026-08-28): the 1H model is COLD weeks 1-3 (gen_cfb_dryrun_games
+# EARLY gate (2026-08-28): the 1H model is COLD weeks 1-3 (gen_cfb_slate_games
 # blanks this CSV then; this block was only protected by the file not existing —
 # a wk1 forecast rerun wrote it and 7 cold 1H flags leaked through).
 if WEEK <= 3:
@@ -483,10 +483,37 @@ if WEEK >= 5 and os.path.exists(_cap):
         print(f"  [core_total_edge] using as-of CORE thru wk{_tw} ({len(_ca)} teams)")
         # TT AWAY UNDER companion (2026-08-17 battery): the away team-total line for
         # each slate game, straight from the slate table the games generator just wrote.
-        _ttq = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_games?season=eq.{SEASON}&week=eq.{WEEK}"
-                            f"&select=game_id,tt_away_close,tt_away_best_under", headers=C.H, timeout=30)
-        _ttmap = {int(x["game_id"]): (x.get("tt_away_close"), x.get("tt_away_best_under"))
-                  for x in (_ttq.json() if _ttq.ok else [])}
+        _ttq = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                            f"&select=game_id,tt_away_close,tt_away_best_under,kickoff", headers=C.H, timeout=30)
+        _ttrows = _ttq.json() if _ttq.ok else []
+        _ttmap = {int(x["game_id"]): (x.get("tt_away_close"), x.get("tt_away_best_under")) for x in _ttrows}
+        # STEAM TIMING (LOCKED §10, wired 2026-09-03): per-game total snapshots from the
+        # 15-min capture, to decompose WHEN the steam arrived. Guarded — no snapshots ->
+        # the ladder behaves exactly as before.
+        _komap = {int(x["game_id"]): pd.to_datetime(x["kickoff"], utc=True) for x in _ttrows if x.get("kickoff")}
+        _mvsnap = {}
+        try:
+            _gidcsv = ",".join(str(g) for g in _komap)
+            _mvq = requests.get(f"{C.URL}/rest/v1/cfb_line_movement?game_id=in.({_gidcsv})&season=eq.{SEASON}"
+                                f"&select=game_id,snap_ts,fg_total&order=snap_ts.asc", headers=C.H, timeout=60)
+            for x in (_mvq.json() if _mvq.ok else []):
+                if x.get("fg_total") is not None:
+                    _mvsnap.setdefault(int(x["game_id"]), []).append(
+                        (pd.to_datetime(x["snap_ts"], utc=True), float(x["fg_total"])))
+        except Exception as _e:
+            print(f"  [steam_timing] snapshot fetch skipped: {_e}")
+
+        def _total_at(gid, before_ts):
+            """Last captured consensus total at or before `before_ts` (None if no snap yet)."""
+            best = None
+            for ts, v in _mvsnap.get(gid, []):
+                if ts <= before_ts:
+                    best = v
+                else:
+                    break
+            return best
+
+        _nowts = pd.Timestamp.now(tz="UTC")
         B_OFF, B_DEF, B0 = 0.2285, 0.2547, 53.95   # frozen lstsq betas (2021-25, n=2708)
         for _, r in te.iterrows():
             if pd.isna(r.total_close):
@@ -516,6 +543,29 @@ if WEEK >= 5 and os.path.exists(_cap):
             else:
                 conv, tier, stake = "track", "tracking", 0.5
             stx = f", steam {steam:+.1f} toward us" if pd.notna(steam) else ""
+            # STEAM TIMING refinement (cfb_steam_timing.py, 5/5 seasons, LOCKED §10): HOW the
+            # move arrived matters. Early-only steam (all of it before h24, nothing after) is
+            # a head-fake profile (40-47% vs 55-66% ladder) -> demote to tracking. Late-window
+            # steam (final 6h toward us >=0.5) is the sharpest confirm (60.0%) -> at least T2.
+            # Judgeable only once the window has opened; missing snapshots leave the tier as-is.
+            try:
+                _gid, _ko = int(r.game_id), _komap.get(int(r.game_id))
+                if _ko is not None and pd.notna(steam):
+                    _sgn = 1.0 if side == "OVER" else -1.0
+                    if steam >= 0.5 and _nowts >= _ko - pd.Timedelta(hours=24):
+                        _h24 = _total_at(_gid, _ko - pd.Timedelta(hours=24))
+                        if _h24 is not None:
+                            _post24 = _sgn * (float(r.total_close) - _h24)
+                            if _post24 <= 0.1:
+                                conv, tier, stake = "track", "tracking", 0.5
+                                stx += ", early-only steam (head-fake profile) — demoted"
+                    if tier == "tracking" and _nowts >= _ko - pd.Timedelta(hours=6):
+                        _h6 = _total_at(_gid, _ko - pd.Timedelta(hours=6))
+                        if _h6 is not None and _sgn * (float(r.total_close) - _h6) >= 0.5:
+                            conv, tier, stake = "T2", "active", 1.0
+                            stx += ", late steam confirm (final-6h move toward us)"
+            except Exception:
+                pass
             rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
                          "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "total",
                          "side": side, "line": round(float(r.total_close), 1), "price": -110,
@@ -665,10 +715,10 @@ if WEEK <= 3 and len(df) and (df.signal_key == "fade_high_total").any():
         df.loc[hi, "source"] = df.loc[hi, "source"] + " (extreme, wk1-3)"
         print(f"  [extremity tier] fade_high_total upgraded to T2 on {int(hi.sum())} games (slate p92={slate_p92:.1f})")
 
-print(f"cfb_dryrun_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
+print(f"cfb_slate_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
 print(f"  conviction {df.conviction.value_counts().to_dict()} | mammoth flags {int(df.mammoth.sum())}")
-C.wipe("cfb_dryrun_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")
-C.insert("cfb_dryrun_flags", df)
+C.wipe("cfb_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")
+C.insert("cfb_slate_flags", df)
 act = df[df.tier == "active"].groupby("game_id").size(); trk = df[df.tier == "tracking"].groupby("game_id").size()
 for gid in g7:
     requests.patch(f"{C.URL}/rest/v1/cfb_slate_games?game_id=eq.{gid}", headers=C.H,

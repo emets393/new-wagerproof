@@ -23,7 +23,7 @@ with no filters (which shows the clean full-history headline immediately).
 ## Backend — two RPCs per sport (already live)
 
 On the **warehouse / college-football Supabase project** (`jpxnjuwglavsjbgbasnl`), public-read via
-the anon key — the same project the app already uses for CFB inputs and the dry-run tables. Call the
+the anon key — the same project the app already uses for CFB inputs and the slate tables. Call the
 RPCs; do not build data.
 
 - NFL: `nfl_analysis(p_bet_type, p_filters)` + `nfl_analysis_upcoming(p_bet_type, p_filters)`

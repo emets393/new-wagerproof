@@ -261,16 +261,16 @@ function calculatePredictionStatus(
 }
 
 /**
- * Fetch NFL predictions from the NEW model's weekly table (nfl_dryrun_games; Odds-API lines + model
+ * Fetch NFL predictions from the NEW model's weekly table (nfl_slate_feed; Odds-API lines + model
  * probabilities), resolving the latest slate = current week. Legacy nfl_predictions_epa + nfl_betting_lines retired.
  */
 async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
   try {
-    // NEW model's weekly output (nfl_dryrun_games). Latest slate = current week in-season.
-    const anchor = await resolveLatestSlate('nfl_dryrun_games');
+    // NEW model's weekly output (nfl_slate_feed). Latest slate = current week in-season.
+    const anchor = await resolveLatestSlate('nfl_slate_feed');
 
     const { data, error } = await collegeFootballSupabase
-      .from('nfl_dryrun_games')
+      .from('nfl_slate_feed')
       .select('*')
       .eq('season', anchor.season)
       .eq('week', anchor.week);
@@ -300,7 +300,7 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
       } as NFLPredictionWithLines;
     });
 
-    debug.log(`📊 Fetched ${merged.length} NFL predictions from nfl_dryrun_games (S${anchor.season} W${anchor.week})`);
+    debug.log(`📊 Fetched ${merged.length} NFL predictions from nfl_slate_feed (S${anchor.season} W${anchor.week})`);
     return merged;
   } catch (error) {
     debug.error('Error in fetchNFLPredictions:', error);
@@ -309,16 +309,16 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
 }
 
 /**
- * Fetch CFB predictions from the NEW model's weekly table (cfb_dryrun_games; Odds-API lines + model
+ * Fetch CFB predictions from the NEW model's weekly table (cfb_slate_feed; Odds-API lines + model
  * preds). Resolves the latest slate written (= current week in-season, since the pipeline
  * delete-then-inserts per season/week). Legacy cfb_live_weekly_inputs + cfb_api_predictions retired.
  */
 async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
   try {
-    const anchor = await resolveLatestSlate('cfb_dryrun_games');
+    const anchor = await resolveLatestSlate('cfb_slate_feed');
 
     const { data, error } = await collegeFootballSupabase
-      .from('cfb_dryrun_games')
+      .from('cfb_slate_feed')
       .select('*')
       .eq('season', anchor.season)
       .eq('week', anchor.week);
@@ -328,7 +328,7 @@ async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
       return [];
     }
 
-    debug.log(`📊 Fetched ${(data || []).length} CFB predictions from cfb_dryrun_games (S${anchor.season} W${anchor.week})`);
+    debug.log(`📊 Fetched ${(data || []).length} CFB predictions from cfb_slate_feed (S${anchor.season} W${anchor.week})`);
 
     const predictions = (data || []).map((row: any) => {
       const predTotal = Number(row.fg_pred_total);

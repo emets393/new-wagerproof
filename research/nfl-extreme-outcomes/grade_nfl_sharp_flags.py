@@ -28,12 +28,12 @@ def main():
     season = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
     sk = _key()
     hdr = {"apikey": sk, "Authorization": f"Bearer {sk}", "Content-Type": "application/json"}
-    fl = requests.get(f"{SUPA}/nfl_dryrun_flags?season=eq.{season}&signal_key=in.({','.join(KEYS)})"
+    fl = requests.get(f"{SUPA}/nfl_slate_flags?season=eq.{season}&signal_key=in.({','.join(KEYS)})"
                       f"&select=game_id,week,signal_key,market,side,bet_team,bet_direction,bet_line,line", headers=hdr, timeout=60).json()
     if not fl:
         print("[sharp-grade] no sharp flags yet"); return
     gids = ",".join(sorted({f["game_id"] for f in fl}))
-    gm = requests.get(f"{SUPA}/nfl_dryrun_games?game_id=in.({gids})&select=game_id,home_team,final_home,final_away",
+    gm = requests.get(f"{SUPA}/nfl_slate_games?game_id=in.({gids})&select=game_id,home_team,final_home,final_away",
                       headers=hdr, timeout=60).json()
     finals = {g["game_id"]: g for g in gm if g.get("final_home") is not None}
     out = []

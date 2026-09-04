@@ -105,7 +105,7 @@ enum PropsFixtures {
 
     // MARK: - NFL trend board (harness `nflPropsLoaded` / `nflPropDetail`)
 
-    /// Compact `nfl_dryrun_props`-shaped board: two players × a few markets
+    /// Compact `nfl_slate_props`-shaped board: two players × a few markets
     /// with consensus close lines and season game logs so the trend surfaces
     /// render. Screenshot-parity only — the app itself always fetches the
     /// live tables.
@@ -117,8 +117,8 @@ enum PropsFixtures {
             }
         }
 
-        let rows: [NFLDryrunPropRow] = [
-            NFLDryrunPropRow(
+        let rows: [NFLSlatePropRow] = [
+            NFLSlatePropRow(
                 gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
                 playerId: "00-0034857", playerName: "Josh Allen", position: "QB",
                 team: "BUF", opponent: "KC", isHome: true,
@@ -134,7 +134,7 @@ enum PropsFixtures {
                 bestUnderBook: "fanduel", bestUnderBookName: "FanDuel",
                 bestUnderLine: 262.5, bestUnderPrice: -105
             ),
-            NFLDryrunPropRow(
+            NFLSlatePropRow(
                 gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
                 playerId: "00-0034857", playerName: "Josh Allen", position: "QB",
                 team: "BUF", opponent: "KC", isHome: true,
@@ -149,7 +149,7 @@ enum PropsFixtures {
                 bestUnderBook: "draftkings", bestUnderBookName: "DraftKings",
                 bestUnderLine: 39.5, bestUnderPrice: -105
             ),
-            NFLDryrunPropRow(
+            NFLSlatePropRow(
                 gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
                 playerId: "00-0033873", playerName: "Patrick Mahomes", position: "QB",
                 team: "KC", opponent: "BUF", isHome: false,
@@ -160,7 +160,7 @@ enum PropsFixtures {
                 overRateL5: 0.4, overRateL10: 0.5,
                 recentGames: log([291, 246, 331, 262, 210, 305, 286, 254, 269, 269])
             ),
-            NFLDryrunPropRow(
+            NFLSlatePropRow(
                 gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
                 playerId: "00-0033873", playerName: "Patrick Mahomes", position: "QB",
                 team: "KC", opponent: "BUF", isHome: false,

@@ -13,8 +13,8 @@ import WagerproofServices
 /// `refresh(sport:force:)` runs the matching per-sport query against the
 /// CFB Supabase project. NFL is the most complex: a 4-way merge of
 /// `v_input_values_with_epa` + `nfl_predictions_epa` + `nfl_betting_lines`
-/// + `production_weather`. CFB reads the slate tables (`cfb_dryrun_games`
-/// + `cfb_dryrun_flags`). NCAAB ported in B11 — a 3-way merge of
+/// + `production_weather`. CFB reads the slate tables (`cfb_slate_feed`
+/// + `cfb_slate_flags`). NCAAB ported in B11 — a 3-way merge of
 /// `v_cbb_input_values` + `ncaab_predictions` + `ncaab_team_mapping`.
 /// NBA / MLB still placeholder pending B10/B12.
 ///
@@ -88,9 +88,9 @@ public final class GamesStore {
     /// Per-sport search text. Mirrors RN `searchTexts` record.
     public var searchTexts: [Sport: String] = Dictionary(uniqueKeysWithValues: Sport.allCases.map { ($0, "") })
 
-    /// When true, NFL/CFB load from dry-run staging tables. Set by the tab
-    /// shell from `AdminModeStore.dryRunPreviewEnabled`.
-    public var dryRunPreviewEnabled: Bool = false
+    /// When true, NFL/CFB load from slate staging tables. Set by the tab
+    /// shell from `AdminModeStore.slatePreviewEnabled`.
+    public var slatePreviewEnabled: Bool = false
 
     private let cacheTTL: TimeInterval = 5 * 60
     /// MainTabView owns the canonical eager hydrate. This still protects
@@ -141,8 +141,8 @@ public final class GamesStore {
         // Dummy Data Mode: serve a captured real slate so the offseason-empty
         // Games tab populates for UI development. Checked before the TTL guard
         // so toggling takes effect on the next tab appear / pull-to-refresh.
-        // MLB is in-season (live data works) and NFL serves the dry-run
-        // contract slate year-round (see fetchNFLDryrun) — both stay on the
+        // MLB is in-season (live data works) and NFL serves the slate
+        // contract slate year-round (see fetchNFLSlate) — both stay on the
         // real path.
         if DummyDataMode.isEnabled, sport != .mlb, sport != .nfl {
             loadDummy(sport: sport)
@@ -563,10 +563,10 @@ public final class GamesStore {
         }
     }
 
-    /// One row of `nfl_dryrun_games` — the new app data contract (consensus
+    /// One row of `nfl_slate_feed` — the new app data contract (consensus
     /// close lines + locked-model predictions). See the "NFL Week 12 2025 Dry
     /// Run" doc; the 2026 in-season tables will follow this shape.
-    private struct NFLDryrunGameRow: Decodable, Sendable {
+    private struct NFLSlateGameRow: Decodable, Sendable {
         let gameId: String
         let season: Int?
         let week: Int?
@@ -703,19 +703,19 @@ public final class GamesStore {
         "sun_late_sat": "Sun Late", "snf": "SNF", "monday": "MNF",
     ]
 
-    /// Dry-run slate mapped onto the card model. Spreads in the contract are
+    /// Slate mapped onto the card model. Spreads in the contract are
     /// home-relative (negative = home favored) — same convention as the card.
     /// Current (season, week) = soonest upcoming kickoff with a 6h grace.
-    private func fetchNFLDryrun(_ cfb: SupabaseClient) async -> [NFLPrediction] {
+    private func fetchNFLSlate(_ cfb: SupabaseClient) async -> [NFLPrediction] {
         // Team logos/abbrs come from the `nfl_teams` reference table — warm
         // the cache so the cards can read it synchronously.
         await NFLTeamsService.shared.ensureLoaded()
         await SportsbookCatalogService.shared.ensureLoaded()
-        guard let slate = await Self.resolveFootballCurrentWeek(cfb, table: "nfl_dryrun_games") else {
+        guard let slate = await Self.resolveFootballCurrentWeek(cfb, table: "nfl_slate_feed") else {
             return []
         }
-        let rows: [NFLDryrunGameRow] = (try? await cfb
-            .from("nfl_dryrun_games")
+        let rows: [NFLSlateGameRow] = (try? await cfb
+            .from("nfl_slate_feed")
             .select()
             .eq("season", value: slate.season)
             .eq("week", value: slate.week)
@@ -767,7 +767,7 @@ public final class GamesStore {
         let kickoff: String?
     }
 
-    private func nflPrediction(from row: NFLDryrunGameRow) -> NFLPrediction {
+    private func nflPrediction(from row: NFLSlateGameRow) -> NFLPrediction {
             let gameDate = row.kickoff ?? row.gameday ?? ""
             let homeMl = row.fgMlHomeClose.map { Int($0.rounded()) }
             let awayMl = row.fgMlAwayClose.map { Int($0.rounded()) }
@@ -790,7 +790,7 @@ public final class GamesStore {
                 homeAwaySpreadCoverProb: row.fgHomeCoverProb,
                 ouResultProb: nil,
                 predTotal: row.fgPredTotal,
-                runId: "nfl-dryrun-\(row.season ?? 2026)-\(row.week ?? 1)",
+                runId: "nfl-slate-\(row.season ?? 2026)-\(row.week ?? 1)",
                 temperature: row.wxTempF,
                 precipitation: row.wxPrecipMm,
                 windSpeed: row.wxWindMph,
@@ -859,9 +859,9 @@ public final class GamesStore {
     private func fetchNFL() async throws {
         let cfb = await CFBSupabase.shared.client
 
-        let dryrun = await fetchNFLDryrun(cfb)
-        if !dryrun.isEmpty {
-            games.nfl = dryrun
+        let slate = await fetchNFLSlate(cfb)
+        if !slate.isEmpty {
+            games.nfl = slate
             return
         }
 
@@ -992,7 +992,7 @@ public final class GamesStore {
         }
     }
 
-    private struct CFBDryrunGameRow: Decodable, Sendable {
+    private struct CFBSlateGameRow: Decodable, Sendable {
         let gameId: FlexibleString
         let season: Int?
         let week: Int?
@@ -1116,7 +1116,7 @@ public final class GamesStore {
         }
     }
 
-    private struct CFBDryrunFlagRow: Decodable, Sendable {
+    private struct CFBSlateFlagRow: Decodable, Sendable {
         let id: FlexibleString
         let gameId: FlexibleString
         let season: Int?
@@ -1142,8 +1142,8 @@ public final class GamesStore {
             case gradeLine = "grade_line"
         }
 
-        var model: CFBDryRunFlag {
-            CFBDryRunFlag(
+        var model: CFBSlateFlag {
+            CFBSlateFlag(
                 id: id.value,
                 gameId: gameId.value,
                 season: season,
@@ -1165,29 +1165,29 @@ public final class GamesStore {
     }
 
     private func fetchCFB() async throws {
-        try await fetchCFBDryrun()
+        try await fetchCFBSlate()
     }
 
-    private func fetchCFBDryrun() async throws {
+    private func fetchCFBSlate() async throws {
         let cfb = await CFBSupabase.shared.client
         await CFBTeamsService.shared.ensureLoaded()
         await SportsbookCatalogService.shared.ensureLoaded()
 
-        guard let slate = await Self.resolveFootballCurrentWeek(cfb, table: "cfb_dryrun_games") else {
+        guard let slate = await Self.resolveFootballCurrentWeek(cfb, table: "cfb_slate_feed") else {
             games.cfb = []
             return
         }
 
-        async let gameRows: [CFBDryrunGameRow] = cfb
-            .from("cfb_dryrun_games")
+        async let gameRows: [CFBSlateGameRow] = cfb
+            .from("cfb_slate_feed")
             .select()
             .eq("season", value: slate.season)
             .eq("week", value: slate.week)
             .order("kickoff", ascending: true)
             .execute()
             .value
-        async let flagRows: [CFBDryrunFlagRow] = cfb
-            .from("cfb_dryrun_flags")
+        async let flagRows: [CFBSlateFlagRow] = cfb
+            .from("cfb_slate_flags")
             .select()
             .eq("season", value: slate.season)
             .eq("week", value: slate.week)
@@ -1231,7 +1231,7 @@ public final class GamesStore {
                 homeAwayMlProb: row.fgHomeWinProb,
                 homeAwaySpreadCoverProb: row.fgHomeCoverProb,
                 ouResultProb: nil,
-                runId: "cfb-dryrun-\(slate.season)-\(slate.week)",
+                runId: "cfb-slate-\(slate.season)-\(slate.week)",
                 temperature: row.wxTempF,
                 precipitation: row.wxPrecipMm,
                 windSpeed: row.wxWindMph,

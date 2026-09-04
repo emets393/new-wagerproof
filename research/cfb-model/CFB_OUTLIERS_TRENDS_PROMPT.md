@@ -6,7 +6,7 @@ Same betting markets and the same `splits`/`matchups` jsonb shapes so one app co
 both sports.
 
 **Templates to mirror (same repo):**
-- Team: `research/nfl-extreme-outcomes/dryrun_wk12_trends.py` (the `splits` + `matchups` it now produces)
+- Team: `research/nfl-extreme-outcomes/nfl_slate_trends.py` (the `splits` + `matchups` it now produces)
 - Coach: `research/nfl-extreme-outcomes/gen_nfl_coach_trends.py`
 
 This SUPERSEDES the earlier `CFB_TEAM_TRENDS_SPLITS_PROMPT.md` (that one was team-only and predates coaches).

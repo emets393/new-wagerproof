@@ -124,7 +124,7 @@ class LiveScoresService {
 
     private suspend fun fetchNFLPredictions(): List<NFLLivePrediction> = runCatching {
         val client = SupabaseClients.cfb
-        val anchor = client.from("nfl_dryrun_games")
+        val anchor = client.from("nfl_slate_feed")
             .select(columns = Columns.raw("season,week")) {
                 order("season", Order.DESCENDING)
                 order("week", Order.DESCENDING)
@@ -133,7 +133,7 @@ class LiveScoresService {
             .decodeList<SlateWeekRow>()
         val slate = anchor.firstOrNull() ?: return@runCatching emptyList()
 
-        client.from("nfl_dryrun_games")
+        client.from("nfl_slate_feed")
             .select(
                 columns = Columns.raw(
                     "game_id, home_team, away_team, fg_home_win_prob, fg_home_cover_prob, fg_spread_close, fg_total_close"
@@ -144,7 +144,7 @@ class LiveScoresService {
                     eq("week", slate.week)
                 }
             }
-            .decodeList<NFLDryrunRow>()
+            .decodeList<NFLSlateRow>()
             .map { row ->
                 val homeSpread = row.fgSpreadClose
                 NFLLivePrediction(
@@ -167,7 +167,7 @@ class LiveScoresService {
 
     private suspend fun fetchCFBPredictions(): List<CFBLivePrediction> = runCatching {
         val client = SupabaseClients.cfb
-        val anchor = client.from("cfb_dryrun_games")
+        val anchor = client.from("cfb_slate_feed")
             .select(columns = Columns.raw("season,week")) {
                 order("season", Order.DESCENDING)
                 order("week", Order.DESCENDING)
@@ -176,7 +176,7 @@ class LiveScoresService {
             .decodeList<SlateWeekRow>()
         val slate = anchor.firstOrNull() ?: return@runCatching emptyList()
 
-        client.from("cfb_dryrun_games")
+        client.from("cfb_slate_feed")
             .select(
                 columns = Columns.raw(
                     "home_team, away_team, fg_home_win_prob, fg_home_cover_prob, fg_spread_close, " +
@@ -189,7 +189,7 @@ class LiveScoresService {
                     eq("week", slate.week)
                 }
             }
-            .decodeList<CFBDryrunRow>()
+            .decodeList<CFBSlateRow>()
             .map { row ->
                 val predTotal = row.fgPredTotal
                 val predMargin = row.fgPredMargin
@@ -570,7 +570,7 @@ private data class SlateWeekRow(
 )
 
 @Serializable
-private data class NFLDryrunRow(
+private data class NFLSlateRow(
     @SerialName("game_id") val gameId: String,
     @SerialName("home_team") val homeTeam: String,
     @SerialName("away_team") val awayTeam: String,
@@ -594,7 +594,7 @@ private data class NFLLivePrediction(
 )
 
 @Serializable
-private data class CFBDryrunRow(
+private data class CFBSlateRow(
     @SerialName("home_team") val homeTeam: String,
     @SerialName("away_team") val awayTeam: String,
     @SerialName("fg_home_win_prob") val fgHomeWinProb: Double? = null,

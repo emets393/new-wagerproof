@@ -270,7 +270,7 @@ Private: `streamTask: Task?` → `Job?`, `currentUserId: UUID?`.
 - `enum SortMode: String { time, spread, ou }`
 - `enum LoadState { idle, loading, loaded, refreshing, failed(String) }`
 - `struct SportFeed { nfl: [NFLPrediction], cfb: [CFBPrediction], nba: [NBAGame], ncaab: [NCAABGame], mlb: [MLBGame] }` — all `[]`.
-- ~15 private Decodable row structs (NFLViewRow, NFLPredictionRow, NFLBettingRow, WeatherRow, NFLDryrunGameRow, CFBInputRow, CFBAPIRow, CFBDryrunGameRow, CFBDryrunFlagRow, FlexibleString, NBAInputRow, NBAPredictionRow, NCAABInputRow, NCAABPredictionRow, NCAABMappingRow, MLBGamesTodayRow, MLBPredictionsCurrentRow, MLBSignalsRow, SignalPayloadItem) — port as Kotlin `@Serializable` DTOs with identical `SerialName`s. `FlexibleString` (string-or-number id) and the MLB signal decoding (jsonb array | text[] of JSON strings | JSON string, with case-variant keys `category/Category/type` etc.) need custom serializers.
+- ~15 private Decodable row structs (NFLViewRow, NFLPredictionRow, NFLBettingRow, WeatherRow, NFLSlateGameRow, CFBInputRow, CFBAPIRow, CFBSlateGameRow, CFBSlateFlagRow, FlexibleString, NBAInputRow, NBAPredictionRow, NCAABInputRow, NCAABPredictionRow, NCAABMappingRow, MLBGamesTodayRow, MLBPredictionsCurrentRow, MLBSignalsRow, SignalPayloadItem) — port as Kotlin `@Serializable` DTOs with identical `SerialName`s. `FlexibleString` (string-or-number id) and the MLB signal decoding (jsonb array | text[] of JSON strings | JSON string, with case-variant keys `category/Category/type` etc.) need custom serializers.
 
 **Observable properties:**
 
@@ -282,7 +282,7 @@ Private: `streamTask: Task?` → `Job?`, `currentUserId: UUID?`.
 | `selectedSport` | `Sport` | `displayOrder().first ?? .mlb` | mutable |
 | `sortModes` | `[Sport: SortMode]` | all `.time` | mutable |
 | `searchTexts` | `[Sport: String]` | all `""` | mutable |
-| `dryRunPreviewEnabled` | `Bool` | `false` | set by tab shell from `AdminModeStore.dryRunPreviewEnabled` |
+| `slatePreviewEnabled` | `Bool` | `false` | set by tab shell from `AdminModeStore.slatePreviewEnabled` |
 
 Private: `cacheTTL = 5 * 60` seconds.
 
@@ -296,8 +296,8 @@ Private: `cacheTTL = 5 * 60` seconds.
   - `sortedNBA()` / `sortedNCAAB()` — time: gameTime string asc (fallback gameDate); spread: confidence(homeAwaySpreadCoverProb); ou: confidence(ouResultProb).
   - `sortedMLB()` — time: epoch(gameTimeEt ?? officialDate) asc; spread: max |ml edge| desc; ou: |ouEdge| desc.
   - `parseEpoch` helper: ISO8601 (with/without fractional seconds) then `"yyyy-MM-dd HH:mm:ss"` then `"yyyy-MM-dd"` (POSIX/UTC).
-- **fetchNFL:** (1) try `fetchNFLDryrun` — warm `NFLTeamsService` cache, read ALL of `nfl_dryrun_games` ordered by kickoff, map to `NFLPrediction` (huge field mapping incl. fg/tt/h1 markets, conviction, weather; spreads home-relative; ML doubles rounded to Int; `runId = "nfl-dryrun-{season}-{week}"`; slot labels `thu_fri→Thu/Fri, sun_early→Sun Early, sun_late_sat→Sun Late, snf→SNF, monday→MNF`), sorted by `topConvictionRank` then kickoff. If non-empty → done. (2) Legacy path: 5 steps — `v_input_values_with_epa` (all rows; empty → return), `nfl_predictions_epa` (keep only rows with the lexicographically-largest `run_id`), `nfl_betting_lines` (explicit 23-column select; keep most-recent `as_of_ts` per `training_key`), `production_weather` (key by training_key), merge on `game.home_away_unique == prediction.training_key` (awaySpread = −homeSpread).
-- **fetchCFB:** currently `fetchCFBDryrun()` ONLY (legacy `fetchCFBLegacy` kept but unreferenced). Dryrun: warm `CFBTeamsService`; parallel `cfb_dryrun_games` + `cfb_dryrun_flags` both `.eq("week", 7)` (**hardcoded week 7**) + `CFBSignalDefinitionsService.definitionsBySource()`; attach signal definitions to flags; group flags by gameId; per-game flags sorted active-first → conviction rank → stakeUnits desc; map to `CFBPrediction` (predicted score derived from home/away pts or `(total±margin)/2`; team refs/classification from `CFBTeamAssets`; `runId="cfb-dryrun-wk7-2025"`). Legacy: `cfb_live_weekly_inputs` + `cfb_api_predictions` matched by `id` with a long chain of `??` field fallbacks.
+- **fetchNFL:** (1) try `fetchNFLSlate` — warm `NFLTeamsService` cache, read ALL of `nfl_slate_feed` ordered by kickoff, map to `NFLPrediction` (huge field mapping incl. fg/tt/h1 markets, conviction, weather; spreads home-relative; ML doubles rounded to Int; `runId = "nfl-slate-{season}-{week}"`; slot labels `thu_fri→Thu/Fri, sun_early→Sun Early, sun_late_sat→Sun Late, snf→SNF, monday→MNF`), sorted by `topConvictionRank` then kickoff. If non-empty → done. (2) Legacy path: 5 steps — `v_input_values_with_epa` (all rows; empty → return), `nfl_predictions_epa` (keep only rows with the lexicographically-largest `run_id`), `nfl_betting_lines` (explicit 23-column select; keep most-recent `as_of_ts` per `training_key`), `production_weather` (key by training_key), merge on `game.home_away_unique == prediction.training_key` (awaySpread = −homeSpread).
+- **fetchCFB:** currently `fetchCFBSlate()` ONLY (legacy `fetchCFBLegacy` kept but unreferenced). Slate: warm `CFBTeamsService`; parallel `cfb_slate_feed` + `cfb_slate_flags` both `.eq("week", 7)` (**hardcoded week 7**) + `CFBSignalDefinitionsService.definitionsBySource()`; attach signal definitions to flags; group flags by gameId; per-game flags sorted active-first → conviction rank → stakeUnits desc; map to `CFBPrediction` (predicted score derived from home/away pts or `(total±margin)/2`; team refs/classification from `CFBTeamAssets`; `runId="cfb-slate-wk7-2025"`). Legacy: `cfb_live_weekly_inputs` + `cfb_api_predictions` matched by `id` with a long chain of `??` field fallbacks.
 - **fetchNBA:** `nba_input_values_view` (all) + `nba_predictions` (explicit select; keep latest `as_of_ts_utc` per game_id). Client-side derivations: spreadCoverProb = `0.5 ± min(|modelFairHomeSpread − homeSpread| * 0.05, 0.35)` (+ if model fair < vegas), fallback homeWinProb; ouProb = `0.5 ± min(|fairTotal − line| * 0.02, 0.35)`. `calculateAwayML(homeML)` = `homeML > 0 ? -(homeML+100) : 100-homeML`.
 - **fetchNCAAB:** `v_cbb_input_values` + `ncaab_predictions` (latest run: prefer newest `as_of_ts_utc` pair, fallback lexicographic max run_id) + `ncaab_team_mapping` (espn_team_id Int-or-String → logo URL `https://a.espncdn.com/i/teamlogos/ncaa/500/{id}.png`).
 - **fetchMLB:** date window = today..today+2d formatted `yyyy-MM-dd` in ET. (1) `mlb_games_today` gte/lte `official_date`; (2) `mlb_predictions_current` `.in("game_pk", pks)`; (3) `mlb_team_mapping` (index by normalized name AND `mlb_api_id`; fallback to static `MLBTeams`; last-ditch `fallbackMLBAbbrev` = first letters of up to 3 words); (4) `mlb_game_signals` — combined per game in order game → home → away signals.
@@ -324,7 +324,7 @@ Private: `cacheTTL = 5 * 60` seconds.
 
 **Nested types:** `enum Sport: String { mlb, nfl, cfb, nba, ncaab }` (MLB first) with `hasProps` (`mlb||nfl`), and bridges `matching(gamesSport:)` / `gamesSport` to mirror the Games tab's selection. `enum LoadState { idle, loading, loaded, failed(String) }`.
 
-**Observable properties:** `selectedSport: Sport = .mlb` (mutable); `matchups: [MLBPropMatchup] = []`, `nflPlayers: [NFLPropPlayer] = []` (private(set)); private `loadState: [Sport: LoadState]`, `lastFetched: [Sport: Date]`; `ttl = 300s`; `dryRunPreviewEnabled: Bool = false` (public var).
+**Observable properties:** `selectedSport: Sport = .mlb` (mutable); `matchups: [MLBPropMatchup] = []`, `nflPlayers: [NFLPropPlayer] = []` (private(set)); private `loadState: [Sport: LoadState]`, `lastFetched: [Sport: Date]`; `ttl = 300s`; `slatePreviewEnabled: Bool = false` (public var).
 
 **Methods:** derived `isLoading` / `errorMessage` / `hasCachedMatchups` (selected-sport keyed); `matchup(for gamePk:)`; MLB-specific `isLoadingMLB/hasLoadedMLB` + `refreshMLB(force:)` and NFL-specific `isLoadingNFL/hasLoadedNFL` + `refreshNFL(force:)` (sheet/search hydrate paths that ignore `selectedSport`); `sortedMatchups()` (officialDate then gameTimeEt asc); `refresh(force:)` — TTL-guarded fetch of the selected sport via `MLBPlayerPropsService.fetchMatchups()` / `NFLPlayerPropsService.fetchPlayers()`. **Skeleton rule:** only set `.loading` when the cache is empty (silent background refresh over populated cache). On error keep cached data (`.loaded`) if any, else `.failed(friendlyError)` (`NSURLErrorDomain → "No connection. Pull to retry."`). Constructor takes both services (defaults `.shared`) — keep injectable. DEBUG `debugSet` overloads.
 
@@ -731,7 +731,7 @@ Session cache of `ncaab_team_mapping` (4-column select). Indexes: `byName: [Stri
 
 - Properties: `isAdmin=false`, `isCheckingRole=false`, `lastError` (private(set)); `roleResolved=false` (private(set) — views avoid flashing dev rows mid-RPC); `adminModeEnabled` (PUBLIC var, `didSet` persists to `AppGroupKey.adminModeEnabled`, loaded in init).
 - `checkRole(for userId: UUID) async` — RPC `has_role(_user_id, _role: "admin")`; decode the raw body string == "true"; errors → non-admin (non-fatal) + `roleResolved=true` either way; **if no longer admin, force `adminModeEnabled=false`**.
-- `reset()` (sign-out): all false. `toggleAdminMode()` (guard isAdmin). `canEnableAdminMode`. `dryRunPreviewEnabled = isAdmin && adminModeEnabled` (gates NFL/CFB dry-run staging tables). DEBUG `debugSet`.
+- `reset()` (sign-out): all false. `toggleAdminMode()` (guard isAdmin). `canEnableAdminMode`. `slatePreviewEnabled = isAdmin && adminModeEnabled` (gates NFL/CFB slate staging tables). DEBUG `debugSet`.
 
 ### 13.2 DebugDataModeStore (`DebugDataModeStore.swift`) — **entire file `#if DEBUG`**
 
@@ -777,11 +777,11 @@ Voice "Roast" session (Gemini Live). The AUDIO DRIVER is a protocol seam — the
 - `protocol RoastSessionDriving { connect(intensity) throws; disconnect(); startListening(); stopListening(); send(text:history:); cancelPlayback() }` → Kotlin interface.
 - DEBUG `debugSet(...)`.
 
-### 13.8 CFBDryRunPicksStore (`CFBDryRunPicksStore.swift`)
+### 13.8 CFBSlatePicksStore (`CFBSlatePicksStore.swift`)
 
-Admin CFB dry-run picks screen. Properties (private(set)): `games: [CFBPrediction]`, `flags: [CFBDryRunFlag]`, `loadState`.
+Admin CFB slate picks screen. Properties (private(set)): `games: [CFBPrediction]`, `flags: [CFBSlateFlag]`, `loadState`.
 - Computed: `activeFlags` / `trackingFlags` (partition on `isActive`, sorted conviction rank asc → stakeUnits desc), `mammothGames`, `game(for id:)` (matches gameId OR id).
-- `refresh()` — same trio as GamesStore's CFB dryrun path: `cfb_dryrun_games` + `cfb_dryrun_flags` both `.eq("week", 7)` + signal definitions, in parallel; attach definitions; group by game; map rows to `CFBPrediction` (own private GameRow/FlagRow/FlexibleString decoders — slightly smaller column set than GamesStore's). Predicted score = pts or `(total±margin)/2`.
+- `refresh()` — same trio as GamesStore's CFB slate path: `cfb_slate_feed` + `cfb_slate_flags` both `.eq("week", 7)` + signal definitions, in parallel; attach definitions; group by game; map rows to `CFBPrediction` (own private GameRow/FlagRow/FlexibleString decoders — slightly smaller column set than GamesStore's). Predicted score = pts or `(total±margin)/2`.
 
 ---
 
@@ -870,7 +870,7 @@ Swift `didSet { Task { await refresh() } }` ⇒ explicit setter launching `scope
 ### 14.6 Async streams
 
 - Supabase auth events, RevenueCat customer info, WagerBot SSE ⇒ `Flow` collections in store-scoped Jobs; every event handler hops to main (already implied by the scope's dispatcher).
-- Swift `async let` pairs (AgentDetailStore history+parlays, OutliersStore value+fade, MLBPlayerPropPicksStore triple, CFB dryrun trio) ⇒ `coroutineScope { val a = async {...}; val b = async {...}; ... }` with per-branch `runCatching` where iOS uses `try?` (parlay failures must not blank pick history).
+- Swift `async let` pairs (AgentDetailStore history+parlays, OutliersStore value+fade, MLBPlayerPropPicksStore triple, CFB slate trio) ⇒ `coroutineScope { val a = async {...}; val b = async {...}; ... }` with per-branch `runCatching` where iOS uses `try?` (parlay failures must not blank pick history).
 - `withTaskGroup` parallel refreshes (GamesStore.refreshAll, NBAMatchupOverviewStore.load) ⇒ `coroutineScope { listOf(async{}, async{}).awaitAll() }`.
 
 ### 14.7 Persistence keys (must stay byte-identical)
@@ -912,7 +912,7 @@ App Group defaults exist on iOS for widget sharing — on Android a single `Shar
 | 8 | AgentV3SettingsStore.swift | AgentV3SettingsStore.kt | prefs-backed debug knobs |
 | 9 | AgentsStore.swift | AgentsStore.kt | optimistic mutations + rollback |
 | 10 | AuthStore.swift | AuthStore.kt | auth Flow listener Job |
-| 11 | CFBDryRunPicksStore.swift | CFBDryRunPicksStore.kt | week-7 dryrun trio |
+| 11 | CFBSlatePicksStore.swift | CFBSlatePicksStore.kt | week-7 slate trio |
 | 12 | CFBGameSheetStore.swift | CFBGameSheetStore.kt | trivial sheet holder |
 | 13 | DebugDataModeStore.swift | — (not ported, AND-088) | fixtures never ported; store + flag removed |
 | 14 | FavoriteAgentsStore.swift | FavoriteAgentsStore.kt | prefs set |

@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Line-movement access layer for the app (NFL + CFB), keyed by the SAME game_id
--- the game cards already use (nfl/cfb_dryrun_games.game_id).
+-- the game cards already use (nfl/cfb_slate_games.game_id).
 --
 -- The raw archive is captured hourly by the Odds-API jobs:
 --   NFL -> nfl_historical_odds   (one row per game/book/market per snap_ts)
@@ -18,7 +18,7 @@
 -- ============================================================================
 
 -- NFL history is keyed by city-style team names (Odds-API to_city) + season, NOT game_id,
--- so we attach game_id by mapping dryrun abbrs -> the same city names.
+-- so we attach game_id by mapping slate abbrs -> the same city names.
 CREATE OR REPLACE VIEW public.nfl_line_movement AS
 WITH tm(ab, loc) AS (VALUES
   ('ARI','Arizona'),('ATL','Atlanta'),('BAL','Baltimore'),('BUF','Buffalo'),

@@ -159,7 +159,7 @@ describe('betType spine + side effects', () => {
     expect(r.snapshot.spreadSize).toEqual([0, 20]);
     expect(r.snapshot.lineRange).toEqual([30, 60]);
     expect(r.snapshot.ttLineRange).toEqual([10, 40]);
-    expect(r.snapshot.seasons).toEqual([2023, 2025]); // limited-market floor
+    expect(r.snapshot.seasons).toEqual([2023, 2026]); // limited-market floor
   });
   it('rejects an invalid bet type', () => {
     expect(applyFilterPatch(base(), P({ op: 'set', dimension: 'betType', value: 'nonsense' })).rejected).toHaveLength(1);

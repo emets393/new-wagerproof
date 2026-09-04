@@ -1,8 +1,8 @@
 # CFB Team-Trends Splits + Matchups — build prompt (mirror of the NFL work)
 
 Paste this into the CFB thread. It mirrors what was just built for NFL
-(commit `309c1b9` on `preview/dry-run-agents-ios`, file
-`research/nfl-extreme-outcomes/dryrun_wk12_trends.py`). Goal: extend
+(commit `309c1b9` on `preview/slate-agents-ios`, file
+`research/nfl-extreme-outcomes/nfl_slate_trends.py`). Goal: extend
 `cfb_team_trends` so the filterable Outliers trend page has pre-aggregated
 situational splits + head-to-head matchup records (app reads, never computes).
 
@@ -44,7 +44,7 @@ situational splits + head-to-head matchup records (app reads, never computes).
 
 ## Exact builder changes (`gen_cfb_team_trends.py`)
 - Add the `MKT` / `DIMS` / `WINDOWS` constants and a `compute_splits(game_log)`
-  function — copy the logic from `dryrun_wk12_trends.py` (`_dim_ok` + `compute_splits`).
+  function — copy the logic from `nfl_slate_trends.py` (`_dim_ok` + `compute_splits`).
   Pass the **newest-first** game_log (the same list stored as `game_log` = `log[::-1]`).
 - Add `"splits": compute_splits(log[::-1])` (and `"matchups": ...` or `None`) to each
   row dict before the DataFrame is built.

@@ -3,24 +3,24 @@ CREATE OR REPLACE FUNCTION public.nfl_analysis_upcoming(p_bet_type text, p_filte
  LANGUAGE sql
  STABLE
 AS $function$
--- "This week's games that match" for /nfl-analytics. Reads nfl_dryrun_games, which IS the
--- in-season games table (per DRYRUN_WK12_SPEC.md the 2026 weekly pipeline delete-then-inserts
+-- "This week's games that match" for /nfl-analytics. Reads nfl_slate_games, which IS the
+-- in-season games table (per SLATE_WK12_SPEC.md the 2026 weekly pipeline delete-then-inserts
 -- each real slate here). PRODUCTION: only games whose kickoff is still in the FUTURE are shown,
--- so the retired Week-12-2025 dry-run slate (all past) no longer appears, and Week 1 2026 lights
+-- so the retired Week-12-2025 slate slate (all past) no longer appears, and Week 1 2026 lights
 -- up the moment its games are populated. No point-in-time simulation anymore.
 WITH ex AS (
   SELECT g.season, g.week, g.gameday, g.kickoff, g.slot, g.assigned_referee AS referee,
     true AS is_home, g.home_ab AS team, g.away_ab AS opponent, g.home_team AS team_name, g.away_team AS opp_name,
     g.fg_spread_close AS team_spread, g.fg_total_close AS total,
     g.tt_home_close AS tt_line, g.h1_spread_close AS h1_spread, g.h1_total_close AS h1_total
-  FROM nfl_dryrun_games g
+  FROM nfl_slate_games g
   WHERE g.kickoff > now()
   UNION ALL
   SELECT g.season, g.week, g.gameday, g.kickoff, g.slot, g.assigned_referee,
     false, g.away_ab, g.home_ab, g.away_team, g.home_team,
     (-g.fg_spread_close), g.fg_total_close,
     g.tt_away_close, (-g.h1_spread_close), g.h1_total_close
-  FROM nfl_dryrun_games g
+  FROM nfl_slate_games g
   WHERE g.kickoff > now()
 ),
 m AS (

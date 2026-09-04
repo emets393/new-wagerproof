@@ -3,7 +3,7 @@ package com.wagerproof.app.features.props
 import com.wagerproof.core.models.MLBPlayerPropGameEntry
 import com.wagerproof.core.models.MLBPlayerPropLineEntry
 import com.wagerproof.core.models.MLBPlayerPropRow
-import com.wagerproof.core.models.NFLDryrunPropRow
+import com.wagerproof.core.models.NFLSlatePropRow
 import com.wagerproof.core.models.NFLPlayerProps
 import com.wagerproof.core.models.NFLPropGameContext
 import com.wagerproof.core.models.NFLPropPlayer
@@ -11,7 +11,7 @@ import com.wagerproof.core.models.NFLPropRecentGame
 
 /**
  * Debug-only sample data for the player-prop parity screenshots. Mirrors the
- * shape `get_mlb_player_props_l10` / `nfl_dryrun_props` return so the detail
+ * shape `get_mlb_player_props_l10` / `nfl_slate_props` return so the detail
  * views compute a real chart, hit-rate, and context splits without a network
  * round-trip. Seed via [PropsStore.debugSetNflPlayers]. Port of iOS
  * `PropsFixtures.swift`.
@@ -115,7 +115,7 @@ object PropsFixtures {
                 return values.mapIndexed { i, v -> NFLPropRecentGame(opp = opps[i % opps.size], week = i + 1, actual = v) }
             }
             val rows = listOf(
-                NFLDryrunPropRow(
+                NFLSlatePropRow(
                     gameId = "2025_12_KC_BUF", eventId = "nfl-fixture-1", season = 2025, week = 12,
                     playerId = "00-0034857", playerName = "Josh Allen", position = "QB",
                     team = "BUF", opponent = "KC", isHome = true,
@@ -131,7 +131,7 @@ object PropsFixtures {
                     bestUnderBook = "fanduel", bestUnderBookName = "FanDuel",
                     bestUnderLine = 262.5, bestUnderPrice = -105.0,
                 ),
-                NFLDryrunPropRow(
+                NFLSlatePropRow(
                     gameId = "2025_12_KC_BUF", eventId = "nfl-fixture-1", season = 2025, week = 12,
                     playerId = "00-0034857", playerName = "Josh Allen", position = "QB",
                     team = "BUF", opponent = "KC", isHome = true,
@@ -146,7 +146,7 @@ object PropsFixtures {
                     bestUnderBook = "draftkings", bestUnderBookName = "DraftKings",
                     bestUnderLine = 39.5, bestUnderPrice = -105.0,
                 ),
-                NFLDryrunPropRow(
+                NFLSlatePropRow(
                     gameId = "2025_12_KC_BUF", eventId = "nfl-fixture-1", season = 2025, week = 12,
                     playerId = "00-0033873", playerName = "Patrick Mahomes", position = "QB",
                     team = "KC", opponent = "BUF", isHome = false,
@@ -157,7 +157,7 @@ object PropsFixtures {
                     overRateL5 = 0.4, overRateL10 = 0.5,
                     recentGames = log(listOf(291.0, 246.0, 331.0, 262.0, 210.0, 305.0, 286.0, 254.0, 269.0, 269.0)),
                 ),
-                NFLDryrunPropRow(
+                NFLSlatePropRow(
                     gameId = "2025_12_KC_BUF", eventId = "nfl-fixture-1", season = 2025, week = 12,
                     playerId = "00-0033873", playerName = "Patrick Mahomes", position = "QB",
                     team = "KC", opponent = "BUF", isHome = false,

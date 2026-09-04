@@ -9,7 +9,7 @@ validated ROI because it only ever trains on completed games).
 Signal markets: player_pass_attempts, player_rush_attempts (completions predicted too, for the
 card's context, but it fires no flag — no validated edge).
 
-Data sources (dry-run reads the parquets; production reads the mirrored DB tables — identical
+Data sources (slate reads the parquets; production reads the mirrored DB tables — identical
 construction): player form = player_offense / nfl_player_game_logs; team+opp features =
 team_week / nfl_pregame_advanced_team_week; game script = games_enriched / the slate.
 """

@@ -65,8 +65,13 @@ Notes on the consensus port:
   `GamesStore` reads the CFB project, consensus reads MAIN, and the merge is a client-side left
   join on `game_id`.
 - The strip is its own row after `BottomRow` in both `StandardLayout` and `BreakdownLayout`. It is
-  deliberately **not** in the `ConvictionBadges` FlowRow — MAMMOTH is a model signal and BET is a
+  deliberately **not** in the bottom pill row — MAMMOTH is a model signal and BET is a
   crowd signal, and that bottom row is the one that previously blew cards up to ~300dp tall.
+- The NFL/CFB bottom pill row (O/U · SPREAD · amber signal count) scrolls horizontally behind a
+  pinned single-line time pill (2026-09-02, mirrors iOS `extraInfoRow`). It used to be a FlowRow
+  that wrapped the third pill; the signal pill is icon + count only, no "SIGNALS" word, because
+  that word is what overflowed the row on iOS. `signalCount` lives on `GameRowCardModel`, computed
+  by `cfbSignalCount` / `nflSignalCount` through `FootballBlanketSignals.displayKeys`.
 - `AgentOverlapFooter.kt`'s avatar stack was promoted to a public `AgentAvatarStack` +
   `AgentAvatarChip` so the footer and the strip share one renderer at different sizes/rings.
 - Search reuses the same `*GameCard` composables but passes no consensus (the parameter defaults
@@ -86,7 +91,7 @@ Notes on the consensus port:
 - NFL detail includes public betting and head-to-head data; head-to-head is sourced from
   `nfl_matchup_history`. Line movement is a separate source — see the next note.
 - NFL and CFB line-movement charts read the game-keyed `nfl_line_movement` / `cfb_line_movement`
-  consensus views by dry-run `game_id`. The slate's `fg_*_open` is the labelled opener — slate close
+  consensus views by slate `game_id`. The slate's `fg_*_open` is the labelled opener — slate close
   is used only as an explicitly relabelled fallback — and a series with fewer than 2 distinct values
   is not charted at all. Android is **ahead of iOS** on this widget: iOS still ships the waiver-#033
   stub.

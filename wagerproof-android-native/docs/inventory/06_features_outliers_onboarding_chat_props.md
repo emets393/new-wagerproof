@@ -458,7 +458,7 @@ Carousel (steps 1–18, one shared shell, button-driven slides) → generation c
 - Sheets: `selectedSignal` → signal sheet; `metricHelp` → help sheet.
 
 ## 4.16 `PropsFixtures.swift` (179 ln) — DEBUG only
-- Aaron Judge hits/total-bases MLB rows (line ladders + 15-game logs) + `sampleSelection`; NFL `nflBoard` (Josh Allen pass/rush yds w/ flags P1, Mahomes pass yds + anytime TD w/ P5, best-book quotes) shaped like `nfl_dryrun_props`. Port as screenshot-test fixtures.
+- Aaron Judge hits/total-bases MLB rows (line ladders + 15-game logs) + `sampleSelection`; NFL `nflBoard` (Josh Allen pass/rush yds w/ flags P1, Mahomes pass yds + anytime TD w/ P5, best-book quotes) shaped like `nfl_slate_props`. Port as screenshot-test fixtures.
 
 ---
 

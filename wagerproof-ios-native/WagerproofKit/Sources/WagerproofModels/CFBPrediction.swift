@@ -1,6 +1,6 @@
 import Foundation
 
-/// Conviction ladder for the CFB Week 7 dry-run portfolio. The sort order is a
+/// Conviction ladder for the CFB Week 7 slate portfolio. The sort order is a
 /// product rule: conviction ranks the slate ahead of edge size.
 public enum CFBConvictionTier: String, Codable, Hashable, Sendable, CaseIterable {
     case mammoth
@@ -112,7 +112,7 @@ public struct CFBTeamReference: Codable, Hashable, Sendable {
     }
 }
 
-public struct CFBDryRunFlag: Identifiable, Codable, Hashable, Sendable {
+public struct CFBSlateFlag: Identifiable, Codable, Hashable, Sendable {
     public let id: String
     public let gameId: String
     public let season: Int?
@@ -172,8 +172,8 @@ public struct CFBDryRunFlag: Identifiable, Codable, Hashable, Sendable {
     public var convictionTier: CFBFlagConviction { CFBFlagConviction(raw: conviction) }
     public var isActive: Bool { tier.lowercased() == "active" }
 
-    public func withSignalDefinition(_ definition: CFBSignalDefinition?) -> CFBDryRunFlag {
-        CFBDryRunFlag(
+    public func withSignalDefinition(_ definition: CFBSignalDefinition?) -> CFBSlateFlag {
+        CFBSlateFlag(
             id: id,
             gameId: gameId,
             season: season,
@@ -227,8 +227,8 @@ public struct CFBSignalDefinition: Codable, Hashable, Sendable {
     }
 }
 
-/// CFB game prediction row. The active Games tab now uses the Week 7 2025 dry
-/// run contract (`cfb_dryrun_games` + flags + `cfb_teams`), while the legacy
+/// CFB game prediction row. The active Games tab now uses the Week 7 2025 slate
+/// contract (`cfb_slate_feed` + flags + `cfb_teams`), while the legacy
 /// live-pipeline fields remain optional so older fixtures/services keep working.
 public struct CFBPrediction: Identifiable, Codable, Hashable, Sendable {
     public let id: String
@@ -275,7 +275,7 @@ public struct CFBPrediction: Identifiable, Codable, Hashable, Sendable {
     // Opening line snapshot
     public let openingSpread: Double?
     public let openingTotal: Double?
-    // Dry-run identity / team metadata
+    // Slate identity / team metadata
     public let gameId: String
     public let season: Int?
     public let week: Int?
@@ -289,7 +289,7 @@ public struct CFBPrediction: Identifiable, Codable, Hashable, Sendable {
     public let awayClassification: String?
     public let homeTeamRef: CFBTeamReference?
     public let awayTeamRef: CFBTeamReference?
-    // Dry-run market/model contract
+    // Slate market/model contract
     public let fgSpreadOpen: Double?
     public let fgSpreadClose: Double?
     public let fgTotalOpen: Double?
@@ -325,13 +325,13 @@ public struct CFBPrediction: Identifiable, Codable, Hashable, Sendable {
     public let h1MlPick: String?
     public let fgHomeCoverProb: Double?
     public let fgHomeWinProb: Double?
-    // Dry-run portfolio
+    // Slate portfolio
     public let convictionTierRaw: String
     public let stakeUnits: Double?
     public let nFlagsActive: Int?
     public let nFlagsTracking: Int?
     public let mammoth: Bool
-    public var flags: [CFBDryRunFlag]
+    public var flags: [CFBSlateFlag]
 
     public init(
         id: String,
@@ -429,7 +429,7 @@ public struct CFBPrediction: Identifiable, Codable, Hashable, Sendable {
         nFlagsActive: Int? = nil,
         nFlagsTracking: Int? = nil,
         mammoth: Bool = false,
-        flags: [CFBDryRunFlag] = []
+        flags: [CFBSlateFlag] = []
     ) {
         self.id = id
         self.awayTeam = awayTeam
@@ -663,8 +663,8 @@ public extension CFBPrediction {
         return nil
     }
 
-    var activeFlags: [CFBDryRunFlag] { flags.filter(\.isActive) }
-    var trackingFlags: [CFBDryRunFlag] { flags.filter { !$0.isActive } }
+    var activeFlags: [CFBSlateFlag] { flags.filter(\.isActive) }
+    var trackingFlags: [CFBSlateFlag] { flags.filter { !$0.isActive } }
 
     private static func formatSpread(_ value: Double?) -> String {
         guard let value else { return "" }

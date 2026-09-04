@@ -242,7 +242,7 @@ fade-home-backup(bet away). TIER2 (lean at open): over week13(WEAK-2025 fail), u
 PT-letdown/backup-QB.
 *** 2025 OUT-OF-SAMPLE (trained on 2016-2024, model never saw 2025): TOTALS 363 bets 59.5%/+13.6%;
 SIDES 260 bets 57.7%/+10.1%. *** Strong honest forward-test.
-USAGE: dry-run `python3 cfb_forecast.py`; weekly `python3 cfb_forecast.py --season 2026 --week N`
+USAGE: slate `python3 cfb_forecast.py`; weekly `python3 cfb_forecast.py --season 2026 --week N`
 (after pulling that week: fetch_cfbd.py/_extra/_extra2/_qb -> build_ratings -> build_features).
 WEEK13 over is a weak spot (failed 2025) -> demote/watch. QB spots need pregame starter feed for live 2026.
 REMAINING PRODUCTION: Supabase write-path (predictions to site) + weekly orchestration + CLV ledger persistence.

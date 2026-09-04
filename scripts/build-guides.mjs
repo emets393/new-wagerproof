@@ -344,7 +344,7 @@ function tableOfContents(guide) {
   if (guide.layout === 'release') extra.push({ id: 'what-shipped', label: 'What shipped' }, { id: 'release-screens', label: 'Product screens' })
   if (guide.howTo) extra.push({ id: 'step-by-step', label: guide.howTo.name })
   if (guide.faqs?.length) extra.push({ id: 'frequently-asked-questions', label: 'Frequently asked questions' })
-  if (guide.layout !== 'feature') extra.push({ id: 'sources', label: 'Sources' })
+  if (guide.layout !== 'feature' && guide.showSourcesSection !== false) extra.push({ id: 'sources', label: 'Sources' })
   const headings = [...guide.headings, ...extra]
   return `<aside class="article-toc" aria-label="On this page"><p>On this page</p><ol>${headings.map((heading) => `<li><a href="#${escapeHtml(heading.id)}">${escapeHtml(heading.label)}</a></li>`).join('')}</ol></aside>`
 }
@@ -371,9 +371,9 @@ function disclosure(guide) {
 }
 
 function bottomLine(guide) {
-  const title = guide.slug === 'best-sports-betting-research-apps'
+  const title = guide.bottomLineTitle || (guide.slug === 'best-sports-betting-research-apps'
     ? 'WagerProof is our best overall pick.'
-    : 'A useful result keeps its limits attached.'
+    : 'A useful result keeps its limits attached.')
   return `<section class="bottom-line" aria-labelledby="bottom-line-title"><p class="eyebrow">The bottom line</p><h2 id="bottom-line-title">${title}</h2><p>${escapeHtml(guide.verdict)}</p></section>`
 }
 
@@ -426,10 +426,11 @@ function authorCard() {
 function articleCta(guide) {
   const responsible = guide.slug === 'responsible-sports-betting-research'
   const comparison = guide.slug === 'best-sports-betting-research-apps'
-  const eyebrow = responsible ? 'Keep the boundary visible' : comparison ? 'Build your research desk' : 'Research inside WagerProof'
-  const title = responsible ? 'If the process feels hard to stop, stop the process.' : comparison ? 'Put your agents, Systems, records, and AI in one place.' : 'Put the model, market, and record on the same screen.'
-  const copy = responsible ? 'Free, confidential U.S. support is available at any time. Limits and time-outs are valid research decisions.' : comparison ? 'Start with a free agent, inspect the public records, and see how WagerProof fits the way you already research.' : 'WagerProof organizes model probabilities, current lines, agents, trends, and graded records. It does not guarantee an outcome.'
-  return `<section class="article-cta"><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2><p>${copy}</p></div><a class="button" href="${responsible ? 'https://1800myreset.org/' : APP_STORE_URL}">${responsible ? 'Visit MY-RESET' : comparison ? 'Try WagerProof' : 'View WagerProof'}</a></section>`
+  const eyebrow = guide.cta?.eyebrow || (responsible ? 'Keep the boundary visible' : comparison ? 'Build your research desk' : 'Research inside WagerProof')
+  const title = guide.cta?.title || (responsible ? 'If the process feels hard to stop, stop the process.' : comparison ? 'Put your agents, Systems, records, and AI in one place.' : 'Put the model, market, and record on the same screen.')
+  const copy = guide.cta?.copy || (responsible ? 'Free, confidential U.S. support is available at any time. Limits and time-outs are valid research decisions.' : comparison ? 'Start with a free agent, inspect the public records, and see how WagerProof fits the way you already research.' : 'WagerProof organizes model probabilities, current lines, agents, trends, and graded records. It does not guarantee an outcome.')
+  const buttonLabel = guide.cta?.buttonLabel || (responsible ? 'Visit MY-RESET' : comparison ? 'Try WagerProof' : 'View WagerProof')
+  return `<section class="article-cta"><div><p class="eyebrow">${escapeHtml(eyebrow)}</p><h2>${escapeHtml(title)}</h2><p>${escapeHtml(copy)}</p></div><a class="button" href="${responsible ? 'https://1800myreset.org/' : APP_STORE_URL}">${escapeHtml(buttonLabel)}</a></section>`
 }
 
 function readMore(guide, guideMap) {
@@ -438,7 +439,8 @@ function readMore(guide, guideMap) {
 }
 
 function renderArticle(guide, guideMap) {
-  const bodyContent = `${bottomLine(guide)}${guide.contentHtml}${guide.layout === 'feature' ? renderComparison(guide) : ''}${guide.layout === 'release' ? renderRelease(guide) : ''}${renderHowTo(guide)}${renderFaqs(guide)}${guide.layout === 'feature' ? '' : renderSources(guide)}${authorCard()}${articleCta(guide)}<p class="corrections">Have a correction or a newer first-party source? <a href="mailto:support@wagerproof.bet?subject=${encodeURIComponent(`Guide correction: ${guide.shortTitle}`)}">Email the editorial team</a>.</p>`
+  const sourcesSection = guide.layout !== 'feature' && guide.showSourcesSection !== false ? renderSources(guide) : ''
+  const bodyContent = `${bottomLine(guide)}${guide.contentHtml}${guide.layout === 'feature' ? renderComparison(guide) : ''}${guide.layout === 'release' ? renderRelease(guide) : ''}${renderHowTo(guide)}${renderFaqs(guide)}${sourcesSection}${authorCard()}${articleCta(guide)}<p class="corrections">Have a correction or a newer first-party source? <a href="mailto:support@wagerproof.bet?subject=${encodeURIComponent(`Guide correction: ${guide.shortTitle}`)}">Email the editorial team</a>.</p>`
   const body = `<main id="main-content" class="article-page">
   ${articleHeader(guide)}
   <div class="article-layout section-shell">${tableOfContents(guide)}<article class="article-body">${disclosure(guide)}${bodyContent}</article></div>

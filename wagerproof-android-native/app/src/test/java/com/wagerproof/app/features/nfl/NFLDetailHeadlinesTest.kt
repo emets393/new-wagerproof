@@ -8,7 +8,7 @@ import kotlin.test.assertNull
 /**
  * NFL detail headlines.
  *
- * `nfl_predictions_epa` is a CLASSIFIER — no model fair line — but the dry-run
+ * `nfl_predictions_epa` is a CLASSIFIER — no model fair line — but the slate
  * pick rows do carry `model_line`, so the spread/total cards quote a real
  * model-vs-market gap when the column is populated and name the selection when
  * it is not. These tests pin both branches so a future data change can't turn
@@ -191,7 +191,7 @@ class NFLDetailHeadlinesTest {
         modelNumber: Double? = null,
         bestLine: Double? = null,
         hasPlay: Boolean? = null,
-    ) = NFLDryrunPickRow(
+    ) = NFLSlatePickRow(
         cardGroup = cardGroup,
         pickTeam = pickTeam,
         pickSide = pickSide,

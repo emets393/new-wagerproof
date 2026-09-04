@@ -39,7 +39,7 @@ export function NflSpreadSection({ game }: NflPredictionSectionProps) {
   const confidencePct = Math.round((isHome ? coverProb : 1 - coverProb) * 100);
 
   // home_spread_diff = vegas home spread − model fair home spread on the new
-  // dryrun model (fg_spread_edge). Positive = value on the HOME side. Flip when
+  // slate model (fg_spread_edge). Positive = value on the HOME side. Flip when
   // the pick is the road team so the number always reads from the picked side.
   const homeDiff = raw.home_spread_diff ?? null;
   const pickEdge = homeDiff === null || Number.isNaN(homeDiff) ? null : isHome ? homeDiff : -homeDiff;
@@ -101,7 +101,7 @@ export function NflSpreadSection({ game }: NflPredictionSectionProps) {
  * Total pick. Same shape as the spread card — one question, recommendation
  * first — with OVER/UNDER carrying green+up / blue+down on the word itself.
  *
- * After the 2026 dryrun cutover the model publishes `fg_total_pick` +
+ * After the 2026 slate cutover the model publishes `fg_total_pick` +
  * `fg_total_edge` / `fg_pred_total` rather than a classifier `ou_result_prob`.
  * Prefer the pick when present; fall back to model-vs-Vegas edge.
  */

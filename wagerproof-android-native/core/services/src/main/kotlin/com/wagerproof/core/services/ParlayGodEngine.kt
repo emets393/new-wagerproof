@@ -62,7 +62,7 @@ object ParlayGodEngine {
     const val MARKET_CAP = 2
 
     /**
-     * FG spread/total juice isn't stored on `nfl_dryrun_games` — legs on those
+     * FG spread/total juice isn't stored on `nfl_slate_feed` — legs on those
      * markets price at the book-standard -110. ML and all H1 markets use real closes.
      */
     const val NFL_DEFAULT_JUICE = -110.0
@@ -743,11 +743,11 @@ object ParlayGodEngine {
         return legs
     }
 
-    // MARK: - NFL prop legs (nfl_dryrun_props via PropsStore)
+    // MARK: - NFL prop legs (nfl_slate_props via PropsStore)
 
     /**
      * Legs for one NFL matchup's props. NFL legs are built per-game for the
-     * matchup widget only — the dry-run slate's dates would pollute the live
+     * matchup widget only — the slate's dates would pollute the live
      * cross-game rails until the in-season cutover.
      */
     fun nflPropLegs(players: List<NFLPropPlayer>): List<ParlayLeg> {
@@ -902,7 +902,7 @@ object ParlayGodEngine {
      * NFL ML/spread/totals/H1); player props are Props Cheats territory on the
      * Props tab. Sports whose slates are concurrently LIVE merge into one
      * cross-sport card per category (cross-sport parlays are placeable); stale
-     * slates — e.g. the NFL dry-run's past dates — keep their own per-sport card
+     * slates — e.g. the NFL slate's past dates — keep their own per-sport card
      * so a merged ticket is never a fictional bet. Categories that can't field
      * [MIN_LEGS] today are dropped — thin days shrink the rail.
      */
@@ -937,7 +937,7 @@ object ParlayGodEngine {
     /**
      * A sport's slate is live when any of its legs' games hasn't long started
      * (6h grace keeps the day's slate merged through the last first pitch).
-     * Dry-run slates — entirely past dates — fail, as do legs with no parseable
+     * Slates — entirely past dates — fail, as do legs with no parseable
      * kickoff.
      */
     internal fun liveSports(pool: List<ParlayLeg>, now: Instant): Set<ParlaySport> {

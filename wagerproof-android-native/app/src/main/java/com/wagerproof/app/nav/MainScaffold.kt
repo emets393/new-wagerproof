@@ -135,19 +135,19 @@ fun MainScaffold(modifier: Modifier = Modifier) {
     // other caller (Games tab, Search) a no-op instead of a second full run of
     // all five multi-query pipelines.
     LaunchedEffect(Unit) {
-        syncDryRunPreview(graph)
+        syncSlatePreview(graph)
         graph.games.refreshAll()
     }
 
     // force=true belongs to an ACTUAL admin transition — the Secret Settings
-    // toggle, or the has_role RPC resolving — because dry-run flips which
+    // toggle, or the has_role RPC resolving — because slate flips which
     // tables the slate reads. drop(1) skips the value that is already live at
     // subscribe time so first composition doesn't redo the hydrate above.
     LaunchedEffect(Unit) {
         snapshotFlow { graph.adminMode.adminModeEnabled to graph.adminMode.isAdmin }
             .drop(1)
             .collect { (_, isAdmin) ->
-                syncDryRunPreview(graph)
+                syncSlatePreview(graph)
                 graph.games.refreshAll(force = true)
                 if (isAdmin) graph.props.refreshNFL(force = true)
             }
@@ -331,11 +331,11 @@ fun MainScaffold(modifier: Modifier = Modifier) {
     }
 }
 
-/** Keep dry-run table routing in sync with Secret Settings admin mode. */
-private fun syncDryRunPreview(graph: AppGraph) {
-    val enabled = graph.adminMode.dryRunPreviewEnabled
-    graph.games.dryRunPreviewEnabled = enabled
-    graph.props.dryRunPreviewEnabled = enabled
+/** Keep slate table routing in sync with Secret Settings admin mode. */
+private fun syncSlatePreview(graph: AppGraph) {
+    val enabled = graph.adminMode.slatePreviewEnabled
+    graph.games.slatePreviewEnabled = enabled
+    graph.props.slatePreviewEnabled = enabled
 }
 
 /** Renders one tab's back stack, animating push (forward slide) vs pop (back slide). */

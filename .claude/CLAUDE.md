@@ -367,7 +367,7 @@ Four generations of the engine exist in the repo. Get this right before touching
 | Sport | Input Table | Predictions Table |
 |-------|-------------|-------------------|
 | NFL | `v_input_values_with_epa` | `nfl_predictions_epa` |
-| CFB | `cfb_slate_games` (+ `_flags`/`_picks`; compat view `cfb_dryrun_games`) | same — model output IS the slate row |
+| CFB | `cfb_slate_games` (+ `_flags`/`_picks`; clients read the `cfb_slate_feed` view, which hides played games) | same — model output IS the slate row |
 | NBA | `nba_input_values_view` | `nba_predictions` |
 | NCAAB | `v_cbb_input_values` | `ncaab_predictions` |
 | MLB | Statcast pregame tables | `mlb_training_snapshots` + model predictions |

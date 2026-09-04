@@ -45,11 +45,11 @@ export const getGameDetail: Tool = {
         break;
       }
       case "nfl": {
-        // NFL reads the new model's weekly table nfl_dryrun_games (lines from The
+        // NFL reads the new model's weekly table nfl_slate_feed (lines from The
         // Odds API; predictions + lines in one row). Latest (season, week) =
         // current slate — anchor then filter.
         const { data: anchor } = await cfb
-          .from("nfl_dryrun_games")
+          .from("nfl_slate_feed")
           .select("season, week")
           .order("season", { ascending: false })
           .order("week", { ascending: false })
@@ -57,7 +57,7 @@ export const getGameDetail: Tool = {
           .maybeSingle();
         if (anchor) {
           const { data } = await cfb
-            .from("nfl_dryrun_games")
+            .from("nfl_slate_feed")
             .select("*")
             .eq("season", (anchor as Record<string, unknown>).season)
             .eq("week", (anchor as Record<string, unknown>).week);
@@ -66,10 +66,10 @@ export const getGameDetail: Tool = {
         break;
       }
       case "cfb": {
-        // CFB reads the new model's weekly table cfb_dryrun_games (lines from The
+        // CFB reads the new model's weekly table cfb_slate_feed (lines from The
         // Odds API). Latest (season, week) = current slate — anchor then filter.
         const { data: anchor } = await cfb
-          .from("cfb_dryrun_games")
+          .from("cfb_slate_feed")
           .select("season, week")
           .order("season", { ascending: false })
           .order("week", { ascending: false })
@@ -77,7 +77,7 @@ export const getGameDetail: Tool = {
           .maybeSingle();
         if (anchor) {
           const { data } = await cfb
-            .from("cfb_dryrun_games")
+            .from("cfb_slate_feed")
             .select("*")
             .eq("season", (anchor as Record<string, unknown>).season)
             .eq("week", (anchor as Record<string, unknown>).week);

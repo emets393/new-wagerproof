@@ -279,7 +279,7 @@ export async function submitPicks(
         const f5Ou = vegasLines?.f5_ou as Record<string, unknown> | undefined;
         vegasTotalRaw = f5Ou?.line ?? gameSnapshot.f5_total_line;
       } else if (effectivePeriod === "h1") {
-        // 1H total (NFL/CFB). Dryrun key: vegas_lines.first_half.total_close.
+        // 1H total (NFL/CFB). Slate key: vegas_lines.first_half.total_close.
         const firstHalf = vegasLines?.first_half as Record<string, unknown> | undefined;
         vegasTotalRaw = firstHalf?.total_close;
       } else {
@@ -296,7 +296,7 @@ export async function submitPicks(
 
     // team_total line rewrite (NFL/CFB). Resolve which side the selection names,
     // pull THAT team's posted team-total line from vegas_lines.team_totals
-    // (home_close / away_close — same key on both the NFL + CFB dryrun formatters),
+    // (home_close / away_close — same key on both the NFL + CFB slate formatters),
     // and rewrite to "{Team} {Over|Under} {line}". period stays 'full'. If the
     // team or line can't be resolved we keep the model's verbatim selection (the
     // team-in-selection validator above already confirmed a team is named).

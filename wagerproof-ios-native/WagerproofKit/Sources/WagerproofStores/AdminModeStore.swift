@@ -81,9 +81,9 @@ public final class AdminModeStore {
 
     public var canEnableAdminMode: Bool { isAdmin }
 
-    /// NFL/CFB dry-run staging tables — requires both admin role and the
+    /// NFL/CFB slate staging tables — requires both admin role and the
     /// Secret Settings toggle. Non-admins always see the legacy slates.
-    public var dryRunPreviewEnabled: Bool {
+    public var slatePreviewEnabled: Bool {
         isAdmin && adminModeEnabled
     }
 

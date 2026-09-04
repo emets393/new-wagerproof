@@ -78,7 +78,7 @@ if __name__ == "__main__":
     ta, th = fetch(away, k), fetch(home, k)
     if not ta or not th:
         sys.exit(f"missing trends row for {away} or {home}")
-    print(f"\n### Week 12 dry-run trend cards: {away} @ {home} ###")
+    print(f"\n### Week 12 slate trend cards: {away} @ {home} ###")
     render(th, away)   # home team, H2H vs away
     render(ta, home)   # away team, H2H vs home
     verify(th)

@@ -15,7 +15,7 @@ g = pd.read_parquet("data/model_games.parquet")
 
 # Ephemeral disk (Render): before any current-season games are played, build_tendencies has
 # nothing to compute and the as-of columns don't exist in the frame at all -> the lambdas
-# below KeyError. Skip (don't write) so gen_cfb_dryrun_flags degrades to "signal skipped";
+# below KeyError. Skip (don't write) so gen_cfb_slate_flags degrades to "signal skipped";
 # the style signal needs >=2 in-season priors anyway, so nothing fireable is lost.
 _req = ["home_poss_secs_pg", "home_adj_epa", "home_off_ppo", "home_def_havoc",
         "home_adj_line_yards", "home_talent"]

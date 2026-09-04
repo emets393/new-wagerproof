@@ -7,7 +7,7 @@ import WagerproofModels
 /// BOOK per game per snapshot.
 ///
 /// ## Why this isn't the pick row's `best_book`
-/// A dryrun pick row already carries `best_book` / `best_line` / `best_odds`,
+/// A slate pick row already carries `best_book` / `best_line` / `best_odds`,
 /// but that's one pre-chosen winner drawn from a wider book set than this table
 /// covers (it credits Fanatics, which the capture doesn't collect). Showing that
 /// chip above a board sourced from here would put two different books on the
@@ -75,8 +75,8 @@ public actor SportsbookOddsService {
     // MARK: - Fetch
 
     /// - Parameters:
-    ///   - gameId: dryrun `game_id`, used only as the cache key.
-    ///   - awayTeam / homeTeam: FULL club names as stored on `nfl_dryrun_games`.
+    ///   - gameId: slate `game_id`, used only as the cache key.
+    ///   - awayTeam / homeTeam: FULL club names as stored on `nfl_slate_feed`.
     ///   - kickoff: used to pick the right meeting when two clubs play twice.
     public func odds(
         gameId: String,

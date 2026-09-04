@@ -87,7 +87,7 @@ last-game flags, opponent mirrors, and H2H are computed live from `mlb_analysis_
 at query time (source: `research/systems_deploy/rpc_extended/mlb_analysis_upcoming_v2.sql`).
 `day_of_week` is array-typed (parity with base). **NFL/CFB `*_analysis_upcoming` still
 lack the as-of keys** — they silently ignore them; extend them the same way at 2026
-football go-live (they're off-season/dry-run today).
+football go-live (they're off-season/slate today).
 
 ## Known data quirks
 

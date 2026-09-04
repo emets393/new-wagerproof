@@ -43,7 +43,7 @@ The parity contract lives in `docs/inventory/` (11 docs, exhaustively derived fr
 - Android intentionally removed iOS's May 2026 temporary onboarding bypass. An authenticated account
   must finish the 24-step Android flow before `.ready`; Secret Settings can reset/replay it and force
   one post-onboarding paywall presentation.
-- CFB dryrun fetches hardcoded `week == 7`; CFB team trends hardcode season 2025. Port as-is.
+- CFB slate fetches hardcoded `week == 7`; CFB team trends hardcode season 2025. Port as-is.
 - Three date-zone regimes coexist (agents device-local, outliers/MLB America/New_York, LiveScores NFL UTC) — do not unify.
 - Chat `blocks` JSONB sometimes arrives as a JSON string → re-parse; lossy per-row decoding everywhere.
 - `AgentSpriteIndex` FNV-1a hash must match iOS byte-for-byte; `UnitsCalculation` must match the SQL (`recalculate_avatar_performance`, Formula B, -110 fallback).

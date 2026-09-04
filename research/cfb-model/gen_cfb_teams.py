@@ -1,6 +1,6 @@
 """Generate cfb_teams (static reference: logos + conference + colors) covering EVERY FBS
 program plus any team appearing in the model frames (FCS opponents included), so
-home_team/away_team in cfb_dryrun_games always join. Public-read; full wipe + reload.
+home_team/away_team in cfb_slate_games always join. Public-read; full wipe + reload.
 
 Team list = CFBD /teams FBS (owner 2026-08-11: 94 rows was a Render-era regression —
 model_games on a fresh disk holds only the current week's slate, so any team not playing

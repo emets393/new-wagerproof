@@ -3,7 +3,7 @@ import Supabase
 import WagerproofModels
 
 /// Hydrates the CFB team reference cache (`cfb_teams`) once per launch. The
-/// dry-run slate uses this for AP-rank rows, logos, conferences, and CFBD colors.
+/// slate uses this for AP-rank rows, logos, conferences, and CFBD colors.
 public actor CFBTeamsService {
     public static let shared = CFBTeamsService()
     public init() {}

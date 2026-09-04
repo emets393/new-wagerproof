@@ -42,7 +42,7 @@ export interface SpreadCoverOutcome {
   line: number;
   /**
    * The pick team's projected final margin — positive means the model has them
-   * winning. On a dryrun row this is `-model_line`, because `model_line` is the
+   * winning. On a slate row this is `-model_line`, because `model_line` is the
    * team's fair *spread*.
    */
   modelMargin: number;

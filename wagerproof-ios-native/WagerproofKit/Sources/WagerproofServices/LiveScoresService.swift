@@ -131,7 +131,7 @@ public actor LiveScoresService {
         }
     }
 
-    private struct NFLDryrunRow: Decodable, Sendable {
+    private struct NFLSlateRow: Decodable, Sendable {
         let gameId: String
         let homeTeam: String
         let awayTeam: String
@@ -160,7 +160,7 @@ public actor LiveScoresService {
         do {
             let client = await CFBSupabase.shared.client
             let anchor: [SlateWeekRow] = try await client
-                .from("nfl_dryrun_games")
+                .from("nfl_slate_feed")
                 .select("season,week")
                 .order("season", ascending: false)
                 .order("week", ascending: false)
@@ -169,8 +169,8 @@ public actor LiveScoresService {
                 .value
             guard let slate = anchor.first, let season = slate.season, let week = slate.week else { return [] }
 
-            let rows: [NFLDryrunRow] = try await client
-                .from("nfl_dryrun_games")
+            let rows: [NFLSlateRow] = try await client
+                .from("nfl_slate_feed")
                 .select("game_id,home_team,away_team,fg_home_win_prob,fg_home_cover_prob,fg_spread_close,fg_total_close")
                 .eq("season", value: season)
                 .eq("week", value: week)
@@ -198,7 +198,7 @@ public actor LiveScoresService {
 
     // MARK: - CFB
 
-    private struct CFBDryrunRow: Decodable, Sendable {
+    private struct CFBSlateRow: Decodable, Sendable {
         let homeTeam: String
         let awayTeam: String
         let fgHomeWinProb: Double?
@@ -246,7 +246,7 @@ public actor LiveScoresService {
         do {
             let client = await CFBSupabase.shared.client
             let anchor: [SlateWeekRow] = try await client
-                .from("cfb_dryrun_games")
+                .from("cfb_slate_feed")
                 .select("season,week")
                 .order("season", ascending: false)
                 .order("week", ascending: false)
@@ -255,8 +255,8 @@ public actor LiveScoresService {
                 .value
             guard let slate = anchor.first, let season = slate.season, let week = slate.week else { return [] }
 
-            let rows: [CFBDryrunRow] = try await client
-                .from("cfb_dryrun_games")
+            let rows: [CFBSlateRow] = try await client
+                .from("cfb_slate_feed")
                 .select("home_team,away_team,fg_home_win_prob,fg_home_cover_prob,fg_spread_close,fg_total_close,fg_spread_edge,fg_total_edge,fg_pred_home_pts,fg_pred_away_pts,fg_pred_total,fg_pred_margin")
                 .eq("season", value: season)
                 .eq("week", value: week)

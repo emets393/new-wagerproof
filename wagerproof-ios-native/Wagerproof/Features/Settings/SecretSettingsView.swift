@@ -284,15 +284,15 @@ struct SecretSettingsView: View {
             // This client is V3-only; these are just DEBUG tuning knobs for the
             // agentic engine (no on/off — generation always runs on V3).
             Toggle(isOn: Binding(
-                get: { v3Settings.dryRun },
-                set: { v3Settings.setDryRun($0) }
+                get: { v3Settings.simulateOnly },
+                set: { v3Settings.setSimulateOnly($0) }
             )) {
                 rowLabel(
                     icon: "eye.fill",
                     iconColor: Color(hex: 0x0EA5E9),
                     iconBackground: Color(hex: 0xE6F6FE),
                     title: "Dry Run",
-                    subtitle: v3Settings.dryRun
+                    subtitle: v3Settings.simulateOnly
                         ? "Runs the loop + records trace, writes NO picks"
                         : "Writes picks normally"
                 )

@@ -15,9 +15,9 @@ anon key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 ```
 | Table | Use | Cardinality |
 |---|---|---|
-| `nfl_dryrun_games` | **Slate cards** — game lines + conviction pills | 1 / game (14) |
-| `nfl_dryrun_picks` | **Detail cards** — the 8 rows / 7 cards | 8 / game (112) |
-| `nfl_dryrun_flags` | Fired-signal feed (secondary to picks) | (51) |
+| `nfl_slate_games` | **Slate cards** — game lines + conviction pills | 1 / game (14) |
+| `nfl_slate_picks` | **Detail cards** — the 8 rows / 7 cards | 8 / game (112) |
+| `nfl_slate_flags` | Fired-signal feed (secondary to picks) | (51) |
 | `nfl_signal_defs` | Signal definitions (tap a signal → read it) | static (32) — cache |
 | `nfl_teams` | Team logos (`logo_espn`,`logo_squared`), colors, conf | static (32) — cache |
 | `nfl_sportsbooks` | Book logos (`book_key`→`logo_url`,`display_name`) | static — cache |
@@ -38,7 +38,7 @@ Joins (NFL keys on **abbreviations**, not full names):
 ## SCREEN 1 — Slate (game list)
 Mirror `NFLGameCard`: date/time top, **Away @ Home** with team logos (`nfl_teams.logo_espn`), each team's
 **spread + moneyline**, **total** in the middle.
-- Fields from `nfl_dryrun_games`: `kickoff, home_ab, away_ab, home_team, away_team, fg_spread_close,
+- Fields from `nfl_slate_games`: `kickoff, home_ab, away_ab, home_team, away_team, fg_spread_close,
   fg_total_close, fg_ml_home_close, fg_ml_away_close`.
 - **Weather chip:** `wx_icon` (`indoor|wind|cold|clear`) + `wx_summary` (ready string, e.g. "41°F, wind 18 mph"
   or "Indoors (closed)"). For indoor games show the indoor icon, skip temp/wind.
@@ -50,8 +50,8 @@ Mirror `NFLGameCard`: date/time top, **Away @ Home** with team logos (`nfl_teams
 **Predicted score:** use `fg_pred_home_pts` / `fg_pred_away_pts` — the single source of truth, byte-identical
 to the team-total cards' `model_number`. Do **NOT** re-derive from total/margin.
 
-## SCREEN 2 — Game detail. Render 7 cards from `nfl_dryrun_picks`.
-Query `nfl_dryrun_picks where game_id = ? order by sort_order`. Group `card_group` into **7 cards**:
+## SCREEN 2 — Game detail. Render 7 cards from `nfl_slate_picks`.
+Query `nfl_slate_picks where game_id = ? order by sort_order`. Group `card_group` into **7 cards**:
 `spread (1), total (2), team_total (3+4: home & away rows), moneyline (5), h1_spread (6), h1_total (7), h1_ml (8)`.
 
 **Every pick row carries the same fields — render identically per card:**
@@ -178,7 +178,7 @@ Show `best_book_logo` next to `best_line` (`best_odds` for ML).
 - `src/utils/sportsbookConfig.ts` (logos now also provided via `nfl_sportsbooks`/`best_book_logo`)
 
 ## Acceptance
-- Slate cards read `nfl_dryrun_games`, sorted by conviction, with pills that name the bet type + weather chip.
+- Slate cards read `nfl_slate_games`, sorted by conviction, with pills that name the bet type + weather chip.
 - BUF@HOU detail: Spread card = Houston Texans +5.5 (High Conviction, best book BetRivers) with `legacy_primetime` +
   `sides_model` + `top_vs_top_pt_home` signals tappable; Total card = Over 43.5 (Lean); team totals / ML / all 1H
   cards display-only; head-to-head series card shows prior BUF/HOU meetings newest-first.
@@ -188,7 +188,7 @@ Show `best_book_logo` next to `best_line` (`best_odds` for ML).
 # COLUMN DICTIONARY — every column, explicit. DO NOT GUESS.
 Spread/total lines are HOME perspective (−7 = home favored by 7). Odds are American. Joins use abbreviations.
 
-## `nfl_dryrun_games` (1 row per game; slate + headline)
+## `nfl_slate_games` (1 row per game; slate + headline)
 - `game_id` text — PK, join key to picks/flags.
 - `season` int (2025), `week` int (12). `gameday` date. `kickoff` timestamptz (UTC start).
 - `slot` text — `sunday_early|sunday_late|snf|monday|thursday` etc (NFL time slot).
@@ -234,7 +234,7 @@ Spread/total lines are HOME perspective (−7 = home favored by 7). Odds are Ame
   `wx_indoors` bool, `wx_icon` (`indoor|wind|cold|clear`), `wx_summary` (ready string).
 - `final_home`/`final_away`/`h1_home`/`h1_away` int — ACTUAL scores. VALIDATION ONLY — never show pregame.
 
-## `nfl_dryrun_picks` (8 rows per game; the prediction cards)
+## `nfl_slate_picks` (8 rows per game; the prediction cards)
 - `id` bigint PK. `game_id` text (join to games). `season`/`week`.
 - `card_group` text — `spread|total|team_total|moneyline|h1_spread|h1_total|h1_ml` (group into 7 cards).
 - `bet_type` text — like card_group but team totals split into `team_total_home`/`team_total_away`.
@@ -265,7 +265,7 @@ Spread/total lines are HOME perspective (−7 = home favored by 7). Odds are Ame
 - `signal_keys` text[] — flat keys (same set; join helper). Prefer `signals` for rendering.
 - `result` text — win/loss/push. VALIDATION ONLY (null on display-only cards).
 
-## `nfl_dryrun_flags` (the fired-signal feed; secondary to picks)
+## `nfl_slate_flags` (the fired-signal feed; secondary to picks)
 - `game_id`/`season`/`week`. `game` text ("AWAY@HOME"). `source` text (internal — DON'T show).
 - `rule`/`signal_key` text — join to `nfl_signal_defs.signal_key`. `tier` text (`active`/`tracking`).
 - `market`/`side`/`line`/`price`/`edge`. `mammoth` bool. `conviction` text. `stake_units` numeric.
@@ -311,31 +311,31 @@ Query via `rpc('nfl_matchup_last5', { team_a, team_b })` (newest-first, capped 5
 ```sql
 -- 0. row counts (expect 14 games / 112 picks / 23 plays / 51 flags)
 select
- (select count(*) from nfl_dryrun_games  where season=2025 and week=12) games,
- (select count(*) from nfl_dryrun_picks  where season=2025 and week=12) picks,
- (select count(*) from nfl_dryrun_picks  where season=2025 and week=12 and has_play) plays,
- (select count(*) from nfl_dryrun_flags  where season=2025 and week=12) flags;
+ (select count(*) from nfl_slate_games  where season=2025 and week=12) games,
+ (select count(*) from nfl_slate_picks  where season=2025 and week=12) picks,
+ (select count(*) from nfl_slate_picks  where season=2025 and week=12 and has_play) plays,
+ (select count(*) from nfl_slate_flags  where season=2025 and week=12) flags;
 
 -- 1. one game's headline (slate)
 select home_ab, away_ab, kickoff, fg_spread_close, fg_total_close,
        fg_pred_home_pts, fg_pred_away_pts, conviction_tier, mammoth,
        wx_icon, wx_summary, conviction_summary
-from nfl_dryrun_games
+from nfl_slate_games
 where season=2025 and week=12 and home_ab='HOU' and away_ab='BUF';
 
 -- 2. that game's 7 cards (detail), in display order
 select sort_order, card_group, bet_type, pick_label, model_number, model_line,
        vegas_line, vegas_price, edge, best_book, best_line, best_odds,
        conviction, recommendation, has_play, display_only, signal_keys, result
-from nfl_dryrun_picks p
-join nfl_dryrun_games g using (game_id)
+from nfl_slate_picks p
+join nfl_slate_games g using (game_id)
 where g.season=2025 and g.week=12 and g.home_ab='BUF' and g.away_ab='HOU'
 order by p.sort_order;
 
 -- 3. resolve the signal pills on that game's cards
 select distinct d.signal_key, d.display_name, d.definition, d.bet_direction, d.typical_hit
-from nfl_dryrun_picks p
-join nfl_dryrun_games g using (game_id)
+from nfl_slate_picks p
+join nfl_slate_games g using (game_id)
 join nfl_signal_defs d on d.signal_key = any(p.signal_keys)
 where g.season=2025 and g.week=12 and g.home_ab='BUF' and g.away_ab='HOU';
 
@@ -350,7 +350,7 @@ select * from nfl_matchup_last5('BUF','HOU');
 
 -- 6. best-book join sanity (logo denormalized + resolvable)
 select p.bet_type, p.best_book, p.best_book_name, p.best_book_logo, s.logo_url
-from nfl_dryrun_picks p
+from nfl_slate_picks p
 left join nfl_sportsbooks s on s.book_key = p.best_book
 where p.season=2025 and p.week=12 and p.best_book is not null
 limit 10;

@@ -14,14 +14,15 @@ import com.wagerproof.app.features.gamecards.GameRowCardModel
 import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBTeamAssets
+import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.GameAgentConsensus
 import java.util.Locale
 import kotlin.math.floor
 
 /**
  * CFB game row for the home Games feed — a thin adapter over the shared
- * [GameRowCard], mirroring iOS `CFBGameCard`. Dry-run cards hydrate the
- * authoritative `cfb_dryrun_picks` rows; merged game fields remain the loading,
+ * [GameRowCard], mirroring iOS `CFBGameCard`. Slate cards hydrate the
+ * authoritative `cfb_slate_picks` rows; merged game fields remain the loading,
  * legacy, and missing-row fallback.
  */
 @Composable
@@ -31,9 +32,9 @@ fun CFBGameCard(
     modifier: Modifier = Modifier,
     consensus: GameAgentConsensus? = null,
 ) {
-    var picks by remember(game.gameId) { mutableStateOf<List<CFBDryrunPickRow>>(emptyList()) }
+    var picks by remember(game.gameId) { mutableStateOf<List<CFBSlatePickRow>>(emptyList()) }
     LaunchedEffect(game.gameId, game.runId) {
-        if ((game.runId ?: "").contains("dryrun", ignoreCase = true)) {
+        if ((game.runId ?: "").contains("slate", ignoreCase = true)) {
             loadCFBSlatePicksResult(game.gameId).onSuccess { picks = it }
         }
     }
@@ -77,19 +78,31 @@ fun CFBGameCard(
         oddsBreakdown = oddsBreakdown(game, awayAbbr, homeAbbr),
         isMammoth = cfbHasMammothPlay(game, picks),
         consensus = consensus,
+        signalCount = cfbSignalCount(game, picks),
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)
 }
 
-internal fun cfbHasMammothPlay(game: CFBPrediction, picks: List<CFBDryrunPickRow>): Boolean =
+internal fun cfbHasMammothPlay(game: CFBPrediction, picks: List<CFBSlatePickRow>): Boolean =
     game.mammoth || picks.any { pick ->
         pick.hasPlay == true && (pick.isMammoth == true || pick.conviction.equals("mammoth", ignoreCase = true))
     }
 
+/**
+ * Prefer already-loaded game flags; during the async pick fetch, use the
+ * distinct signal keys attached to its market rows. Blanket keys are stripped
+ * so the feed pill matches what the detail sheet shows (iOS `signalCount`).
+ */
+internal fun cfbSignalCount(game: CFBPrediction, picks: List<CFBSlatePickRow>): Int {
+    val pickSignals = FootballBlanketSignals.displayKeys("cfb", picks.flatMap { it.signalKeys }).size
+    val flagSignals = FootballBlanketSignals.displayKeys("cfb", game.activeFlags.map { it.source }).size
+    return maxOf(flagSignals, pickSignals)
+}
+
 internal fun cfbSlatePicks(
     game: CFBPrediction,
-    picks: List<CFBDryrunPickRow>,
+    picks: List<CFBSlatePickRow>,
 ): GameRowCardModel.SlatePicks {
     val totalPick = picks.firstOrNull { it.normalizedCardGroup == "total" }
     val totalDir = pickDirection(totalPick?.pickSide ?: totalPick?.pickLabel ?: game.fgTotalPick)
@@ -111,10 +124,9 @@ internal fun cfbSlatePicks(
         GameCardFormatting.formatSpread(line)
     }
 
-    // High-conviction and signal counts are deliberately NOT computed here —
-    // they're detail-page data on iOS and the feed-card badges that used them
-    // were removed. `cfbHasMammothPlay` survives: the top-level model still
-    // reads it for the card's orange electric border.
+    // High-conviction counts are deliberately NOT computed here — they're
+    // detail-page data on iOS. `cfbHasMammothPlay` / `cfbSignalCount` feed
+    // the top-level model (electric border, signal pill) instead.
     return GameRowCardModel.SlatePicks(
         totalIsOver = totalDir?.let { it == "OVER" },
         totalLabel = totalLabel,

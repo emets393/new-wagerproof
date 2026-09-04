@@ -11,7 +11,7 @@ run is resumable and never re-spends credits.
 
 Usage:
   python3 event_backfill.py --test                          # one h1tt + one props call
-  python3 event_backfill.py --dry-run
+  python3 event_backfill.py --simulate
   python3 event_backfill.py --sport nba --set props         # all 3 seasons
   python3 event_backfill.py --sport ncaab --set h1tt --season 2024-25
 """
@@ -153,7 +153,7 @@ def main():
     ap.add_argument("--sport", choices=["nba", "ncaab"])
     ap.add_argument("--set", dest="mset", choices=["h1tt", "props"])
     ap.add_argument("--season")
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--simulate", action="store_true")
     ap.add_argument("--test", action="store_true")
     a = ap.parse_args()
     f = Fetcher(load_key())
@@ -173,7 +173,7 @@ def main():
             print(f"test {mset}: {ev.get('away_team')} @ {ev.get('home_team')} "
                   f"markets={mk} cost={f.spent - before} remaining={f.remaining:,}")
         return
-    if a.dry_run:
+    if a.simulate:
         for sport in (["nba", "ncaab"] if not a.sport else [a.sport]):
             for season in SEASONS[sport]:
                 for mset in (["h1tt", "props"] if not a.mset else [a.mset]):

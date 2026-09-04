@@ -72,7 +72,7 @@ have changed.
 - **Option B:** make it append-only too (unique on `training_key, as_of_ts`, skip the insert when
   every market is unchanged from the latest row).
 
-Either way the app's movement chart should read `nfl_line_movement` by dryrun `game_id`, not this
+Either way the app's movement chart should read `nfl_line_movement` by slate `game_id`, not this
 table or a client-side median of `nfl_historical_odds`. Note that in the DB the historical
 (Jan 2026) rows carry real hourly per-book series plus VSiN bets/handle splits, so whatever you
 choose must not delete those older seasons.
@@ -82,21 +82,21 @@ choose must not delete those older seasons.
 `ncaaf_event_odds` is empty. `live_odds_cfb_1h.py` requests
 `MARKETS = "team_totals,spreads_h1,totals_h1,h2h_h1"` and writes to that table, and it is wired into
 the `cfb-live-odds-hourly` cron's start command, so it has presumably never had a successful run.
-Investigate: run it with `--force` in dry-run first, confirm the parse, check for a schema mismatch
+Investigate: run it with `--force` in slate first, confirm the parse, check for a schema mismatch
 or a silently swallowed error, then do a real `--write` and verify rows land.
 
 ### Gap 4 — the true opener is overwritten
 
-`nfl_dryrun_games.fg_spread_open` / `fg_total_open` and the `cfb_dryrun_games` equivalents currently
+`nfl_slate_feed.fg_spread_open` / `fg_total_open` and the `cfb_slate_feed` equivalents currently
 equal their `_close` counterparts for **100%** of 2026 games. The slate builders recompute both from
 the same current pull each run, so the real opening number is lost.
 
 Set `fg_*_open` **once**, on first sighting of a game, from the earliest archived snapshot
 (`MIN(snap_ts)` / `MIN(snapshot)` for that game in the odds archive), and only ever update the
 `_close` side on later runs. Backfill the existing 2026 rows from the archive where a genuinely
-earlier snapshot exists. Relevant builders: `research/nfl-extreme-outcomes/dryrun_wk12_games.py`
+earlier snapshot exists. Relevant builders: `research/nfl-extreme-outcomes/nfl_slate_games.py`
 (writes `fg_spread_open=r.open_spread, fg_spread_close=...`) and
-`research/cfb-model/gen_cfb_dryrun_games.py`.
+`research/cfb-model/gen_cfb_slate_feed.py`.
 
 ### Gap 5 — archive hygiene
 

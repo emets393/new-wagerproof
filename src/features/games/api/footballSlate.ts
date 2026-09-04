@@ -2,7 +2,7 @@ import { collegeFootballSupabase } from '@/integrations/supabase/college-footbal
 import debug from '@/utils/debug';
 
 /**
- * Shared (season, week) resolvers for the NFL/CFB `*_dryrun_*` tables.
+ * Shared (season, week) resolvers for the NFL/CFB `*_slate_*` tables.
  * See `.claude/docs/agents/23_NFL_CFB_2026_DATA_MAP.md`.
  *
  * - Games feed: soonest upcoming kickoff with a 6h grace (rolls Week N → N+1).
@@ -14,7 +14,7 @@ export interface FootballSlateAnchor {
   week: number;
 }
 
-export type FootballDryrunSport = 'nfl' | 'cfb';
+export type FootballSlateSport = 'nfl' | 'cfb';
 
 /**
  * Pipeline "blanket" keys — fire on nearly every game as model lean / week
@@ -27,7 +27,7 @@ export const CFB_BLANKET_SIGNAL_KEYS = new Set([
   'rivalry_week_over',
 ]);
 
-export function isBlanketSignalKey(sport: FootballDryrunSport, key: string): boolean {
+export function isBlanketSignalKey(sport: FootballSlateSport, key: string): boolean {
   const normalized = key.trim();
   if (!normalized) return true;
   return sport === 'nfl'
@@ -35,7 +35,7 @@ export function isBlanketSignalKey(sport: FootballDryrunSport, key: string): boo
     : CFB_BLANKET_SIGNAL_KEYS.has(normalized);
 }
 
-/** Normalize `signal_keys` from dryrun picks (array, JSON string, or CSV). */
+/** Normalize `signal_keys` from slate picks (array, JSON string, or CSV). */
 export function normalizeSignalKeys(value: unknown): string[] {
   if (!value) return [];
   if (Array.isArray(value)) {
@@ -60,7 +60,7 @@ export function normalizeSignalKeys(value: unknown): string[] {
 
 /** Displayable chip keys from a pick's `signal_keys` (blankets stripped). */
 export function displaySignalKeysFromPick(
-  sport: FootballDryrunSport,
+  sport: FootballSlateSport,
   value: unknown,
 ): string[] {
   return Array.from(
@@ -71,10 +71,10 @@ export function displaySignalKeysFromPick(
 /**
  * Feed-card signal count from the slate row.
  * NFL: `flags_active` + `flags_tracking`; CFB: `n_flags_active` + `n_flags_tracking`.
- * These columns already exclude blanket scaffolding (matches `*_dryrun_flags`).
+ * These columns already exclude blanket scaffolding (matches `*_slate_flags`).
  */
-export function signalCountFromDryrunGame(
-  sport: FootballDryrunSport,
+export function signalCountFromSlateGame(
+  sport: FootballSlateSport,
   row: {
     flags_active?: number | null;
     flags_tracking?: number | null;
@@ -93,12 +93,12 @@ export function signalCountFromDryrunGame(
  * Do NOT union NFL `signals[].key` — that column includes blanket `sides_model`
  * on nearly every spread card.
  */
-export async function fetchDryrunSignalCounts(
-  table: 'nfl_dryrun_picks' | 'cfb_dryrun_picks',
+export async function fetchSlateSignalCounts(
+  table: 'nfl_slate_picks' | 'cfb_slate_picks',
   season: number,
   week: number,
 ): Promise<Map<string, number>> {
-  const sport: FootballDryrunSport = table.startsWith('nfl') ? 'nfl' : 'cfb';
+  const sport: FootballSlateSport = table.startsWith('nfl') ? 'nfl' : 'cfb';
   const { data, error } = await collegeFootballSupabase
     .from(table)
     .select('game_id,signal_keys')
@@ -135,7 +135,7 @@ export async function fetchDryrunSignalCounts(
 
 const FALLBACK: FootballSlateAnchor = { season: 2026, week: 1 };
 
-async function resolveUpcomingWeek(table: 'nfl_dryrun_games' | 'cfb_dryrun_games'): Promise<FootballSlateAnchor> {
+async function resolveUpcomingWeek(table: 'nfl_slate_feed' | 'cfb_slate_feed'): Promise<FootballSlateAnchor> {
   const grace = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
   const { data: upcoming } = await collegeFootballSupabase
     .from(table)
@@ -150,7 +150,7 @@ async function resolveUpcomingWeek(table: 'nfl_dryrun_games' | 'cfb_dryrun_games
 }
 
 export async function resolveLatestSlate(
-  table: 'nfl_dryrun_games' | 'cfb_dryrun_games',
+  table: 'nfl_slate_feed' | 'cfb_slate_feed',
 ): Promise<FootballSlateAnchor> {
   const { data: latest } = await collegeFootballSupabase
     .from(table)
@@ -166,10 +166,10 @@ export async function resolveLatestSlate(
 
 /** Games-feed pattern — soonest upcoming with 6h grace. */
 export function resolveNflCurrentWeek(): Promise<FootballSlateAnchor> {
-  return resolveUpcomingWeek('nfl_dryrun_games');
+  return resolveUpcomingWeek('nfl_slate_feed');
 }
 
 /** Games-feed pattern — soonest upcoming with 6h grace. */
 export function resolveCfbCurrentWeek(): Promise<FootballSlateAnchor> {
-  return resolveUpcomingWeek('cfb_dryrun_games');
+  return resolveUpcomingWeek('cfb_slate_feed');
 }

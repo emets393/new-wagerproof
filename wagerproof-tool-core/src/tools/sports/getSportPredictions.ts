@@ -110,13 +110,13 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
   let rows: Record<string, unknown>[] = [];
 
   if (sport === "nfl") {
-    // NFL now reads the new model's weekly table nfl_dryrun_games (lines from The
+    // NFL now reads the new model's weekly table nfl_slate_feed (lines from The
     // Odds API; predictions + lines live in one row — no join to nfl_betting_lines
     // and no nfl_predictions_epa run_id logic). The pipeline delete-then-inserts per
     // (season, week), so the latest (season, week) is the current slate — resolve
     // that anchor, then filter to it.
     const { data: anchor } = await cfb
-      .from("nfl_dryrun_games")
+      .from("nfl_slate_feed")
       .select("season, week")
       .order("season", { ascending: false })
       .order("week", { ascending: false })
@@ -124,18 +124,18 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
       .maybeSingle();
     if (!anchor) return { games: [], message: "No NFL predictions available" };
     const { data, error } = await cfb
-      .from("nfl_dryrun_games")
+      .from("nfl_slate_feed")
       .select("*")
       .eq("season", (anchor as Record<string, unknown>).season)
       .eq("week", (anchor as Record<string, unknown>).week);
     if (error) throw new Error(`NFL predictions query failed: ${error.message}`);
     rows = data ?? [];
   } else {
-    // CFB now reads the new model's weekly table cfb_dryrun_games (lines from The
+    // CFB now reads the new model's weekly table cfb_slate_feed (lines from The
     // Odds API). The pipeline delete-then-inserts per (season, week), so the latest
     // (season, week) is the current slate — resolve that anchor, then filter to it.
     const { data: anchor } = await cfb
-      .from("cfb_dryrun_games")
+      .from("cfb_slate_feed")
       .select("season, week")
       .order("season", { ascending: false })
       .order("week", { ascending: false })
@@ -143,7 +143,7 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
       .maybeSingle();
     if (!anchor) return { games: [], message: "No CFB games found" };
     const { data, error } = await cfb
-      .from("cfb_dryrun_games")
+      .from("cfb_slate_feed")
       .select("*")
       .eq("season", (anchor as Record<string, unknown>).season)
       .eq("week", (anchor as Record<string, unknown>).week);
@@ -159,7 +159,7 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
   }
 
   if (sport === "cfb") {
-    // Remap onto the cfb_dryrun_games columns (fg_* = full-game markets from The
+    // Remap onto the cfb_slate_feed columns (fg_* = full-game markets from The
     // Odds API). Fields with no equivalent in the new table are set to null.
     const games = filtered.map((g) => ({
       game_id: g.game_id ?? `${g.away_team}_${g.home_team}`,
@@ -182,7 +182,7 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
         spread_pick: g.fg_spread_pick,
         spread_confidence: g.fg_home_cover_prob,
         ou_pick: g.fg_total_pick,
-        ou_confidence: null, // no OU confidence column in cfb_dryrun_games
+        ou_confidence: null, // no OU confidence column in cfb_slate_feed
         model_fair_spread: g.fg_pred_spread,
         model_fair_total: g.fg_pred_total,
         predicted_home_score: g.fg_pred_home_pts,
@@ -199,7 +199,7 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
     return { sport, games, count: games.length };
   }
 
-  // Remap onto the nfl_dryrun_games columns (fg_* = full-game markets from The Odds
+  // Remap onto the nfl_slate_feed columns (fg_* = full-game markets from The Odds
   // API). Fields with no equivalent in the new table are set to null.
   const games = filtered.map((g) => ({
     game_id: g.game_id ?? `${g.away_team}_${g.home_team}`,
@@ -219,7 +219,7 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
       spread_pick: g.fg_spread_pick,
       spread_confidence: g.fg_home_cover_prob,
       ou_pick: g.fg_total_pick,
-      ou_confidence: null, // no OU confidence column in nfl_dryrun_games
+      ou_confidence: null, // no OU confidence column in nfl_slate_feed
       model_fair_spread: g.fg_pred_spread,
       model_fair_total: g.fg_pred_total,
       predicted_home_score: g.fg_pred_home_pts,
@@ -233,7 +233,7 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
       precipitation: null, // no precipitation column; wx_icon carries conditions
     },
     public_betting: {
-      spread_split: null, // no public-betting splits in nfl_dryrun_games
+      spread_split: null, // no public-betting splits in nfl_slate_feed
       ml_split: null,
       total_split: null,
     },

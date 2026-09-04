@@ -1,4 +1,4 @@
-"""Resolve betting lines for pre-rendered CFB Outliers trend cards from cfb_dryrun_picks + odds shop."""
+"""Resolve betting lines for pre-rendered CFB Outliers trend cards from cfb_slate_picks + odds shop."""
 from __future__ import annotations
 
 from collections import defaultdict

@@ -9,7 +9,7 @@ import Observation
 @MainActor
 public final class AgentV3SettingsStore {
     private enum Key {
-        static let dryRun = "agent_v3.dry_run"
+        static let simulateOnly = "agent_v3.dry_run"
         static let model = "agent_v3.model"
     }
 
@@ -19,21 +19,21 @@ public final class AgentV3SettingsStore {
     public static let models = ["deepseek-v4-flash", "deepseek-v4-pro"]
 
     /// Dry run: server runs the full loop + records the trace but writes NO picks.
-    public private(set) var dryRun: Bool
+    public private(set) var simulateOnly: Bool
     public private(set) var model: String
 
     public init() {
         let d = UserDefaults.standard
-        self.dryRun = d.bool(forKey: Key.dryRun)
+        self.simulateOnly = d.bool(forKey: Key.simulateOnly)
         // Stored value may be a retired id (e.g. deepseek-reasoner) — snap back
         // to the current default rather than sending a dead model name.
         let stored = d.string(forKey: Key.model)
         self.model = (stored.flatMap { Self.models.contains($0) ? $0 : nil }) ?? Self.models[0]
     }
 
-    public func setDryRun(_ value: Bool) {
-        dryRun = value
-        UserDefaults.standard.set(value, forKey: Key.dryRun)
+    public func setSimulateOnly(_ value: Bool) {
+        simulateOnly = value
+        UserDefaults.standard.set(value, forKey: Key.simulateOnly)
     }
 
     public func setModel(_ value: String) {
@@ -42,6 +42,6 @@ public final class AgentV3SettingsStore {
     }
 
     public var snapshot: [String: String] {
-        ["dry_run": dryRun ? "true" : "false", "model": model]
+        ["dry_run": simulateOnly ? "true" : "false", "model": model]
     }
 }

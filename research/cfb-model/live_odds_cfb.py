@@ -114,13 +114,13 @@ def parse(events, snap_iso, now, season):
 def retier_steam_timing(season, now):
     sk = _env("SUPABASE_SERVICE_KEY")
     hdr = {"apikey": sk, "Authorization": f"Bearer {sk}", "Content-Type": "application/json"}
-    fl = requests.get(f"{SUPA}/cfb_dryrun_flags?signal_key=eq.core_total_edge&season=eq.{season}"
+    fl = requests.get(f"{SUPA}/cfb_slate_flags?signal_key=eq.core_total_edge&season=eq.{season}"
                       f"&select=id,game_id,side,conviction,tier,stake_units,source", headers=hdr, timeout=30)
     flags = fl.json() if fl.ok else []
     if not flags:
         return
     gids = ",".join(str(f["game_id"]) for f in flags)
-    gq = requests.get(f"{SUPA}/cfb_dryrun_games?game_id=in.({gids})"
+    gq = requests.get(f"{SUPA}/cfb_slate_games?game_id=in.({gids})"
                       f"&select=game_id,home_team,away_team,kickoff", headers=hdr, timeout=30)
     games = {g["game_id"]: g for g in (gq.json() if gq.ok else [])}
     now_utc = now.astimezone(dt.timezone.utc)
@@ -175,7 +175,7 @@ def retier_steam_timing(season, now):
         base_src = f["source"].split(" | STEAM:")[0]
         src = f"{base_src} | STEAM: {note} (open {open_tot:g} -> T24 {t24_tot:g} -> now {cur_tot:g})"
         if (conv, tier, src) != (f["conviction"], f["tier"], f["source"]):
-            requests.patch(f"{SUPA}/cfb_dryrun_flags?id=eq.{f['id']}", headers=hdr,
+            requests.patch(f"{SUPA}/cfb_slate_flags?id=eq.{f['id']}", headers=hdr,
                            json={"conviction": conv, "tier": tier, "stake_units": stake, "source": src},
                            timeout=30)
             changed += 1
@@ -199,7 +199,7 @@ def main():
     if not WRITE:
         if rows:
             print("  sample row:", {k: v for k, v in rows[0].items() if v is not None})
-        print("[dry-run] no write. Re-run with --write to insert.")
+        print("[slate] no write. Re-run with --write to insert.")
         return
     if not rows:
         print("[idle] nothing qualifies this hour — no rows written.")

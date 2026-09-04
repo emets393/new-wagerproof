@@ -1,8 +1,8 @@
 """Refresh betting lines on pre-rendered Outliers trend cards.
 
 Trend stats are point-in-time (run once per week via gen_nfl_outliers_trend_cards.py).
-Lines and best books move all week — run this whenever nfl_dryrun_games / nfl_dryrun_props
-/ odds_hist are updated (e.g. after fetch + dryrun_wk12_games + dryrun_wk12_props).
+Lines and best books move all week — run this whenever nfl_slate_games / nfl_slate_props
+/ odds_hist are updated (e.g. after fetch + nfl_slate_games_build + nfl_slate_props_build).
 
 Usage:  python3 refresh_nfl_outliers_trend_lines.py [--no-load]
 """
@@ -18,7 +18,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-import dryrun_wk12_games as dg
+import nfl_slate_games_build as dg
 from gen_nfl_outliers_trend_cards import BATCH, BASE_URL, SEASON, WEEK, fetch_all, hdr, load_key
 from nfl_outliers_betting_lines import (
     card_for_resolution,
@@ -60,12 +60,12 @@ def main():
         sys.exit(f"No cards for season={SEASON} week={WEEK} — run gen_nfl_outliers_trend_cards.py first")
 
     games = fetch_all(
-        key, "nfl_dryrun_games",
+        key, "nfl_slate_games",
         f"season=eq.{SEASON}&week=eq.{WEEK}&select=*",
     )
-    picks = fetch_all(key, "nfl_dryrun_picks", f"season=eq.{SEASON}&week=eq.{WEEK}&select=*")
+    picks = fetch_all(key, "nfl_slate_picks", f"season=eq.{SEASON}&week=eq.{WEEK}&select=*")
     props = fetch_all(
-        key, "nfl_dryrun_props",
+        key, "nfl_slate_props",
         f"season=eq.{SEASON}&week=eq.{WEEK}&select=game_id,player_id,market,close_line,"
         f"over_price,under_price,close_yes_prob,headshot_url",
     )

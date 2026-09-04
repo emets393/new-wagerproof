@@ -77,9 +77,9 @@ function toStr(value: unknown): string | null {
 // MARK: - NFL / NCAAF slates
 
 async function fetchNFLSlateGames(): Promise<OutliersTrendsGame[]> {
-  const anchor = await resolveLatestSlate('nfl_dryrun_games');
+  const anchor = await resolveLatestSlate('nfl_slate_feed');
   const { data, error } = await collegeFootballSupabase
-    .from('nfl_dryrun_games')
+    .from('nfl_slate_feed')
     .select(NFL_GAME_COLUMNS)
     .eq('season', anchor.season)
     .eq('week', anchor.week)
@@ -102,15 +102,15 @@ async function fetchNFLSlateGames(): Promise<OutliersTrendsGame[]> {
 }
 
 async function fetchCFBSlateGames(): Promise<OutliersTrendsGame[]> {
-  const anchor = await resolveLatestSlate('cfb_dryrun_games');
+  const anchor = await resolveLatestSlate('cfb_slate_feed');
   const { data, error } = await collegeFootballSupabase
-    .from('cfb_dryrun_games')
+    .from('cfb_slate_feed')
     .select(CFB_GAME_COLUMNS)
     .eq('season', anchor.season)
     .eq('week', anchor.week)
     .order('kickoff', { ascending: true });
   if (error) throw error;
-  // cfb_dryrun_games intentionally contains only slate/model data. Team art
+  // cfb_slate_feed intentionally contains only slate/model data. Team art
   // lives in cfb_teams, the same reference table used by the CFB games page
   // and iOS CFBTeamAssets cache.
   const { data: teamRows } = await collegeFootballSupabase

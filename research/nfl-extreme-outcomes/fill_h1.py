@@ -1,19 +1,19 @@
 """
 1H (halftime) finals writer — NFL + CFB. Companion to fill_finals.py (full game).
-Post-game, UPDATE {nfl,cfb}_dryrun_games.h1_home/h1_away from the per-quarter sources:
+Post-game, UPDATE {nfl,cfb}_slate_games.h1_home/h1_away from the per-quarter sources:
   NFL <- nflverse play-by-play (end-of-Q2 cumulative score; same derivation as quarter_scores.py)
   CFB <- CFBD /games homeLineScores/awayLineScores (Q1 + Q2), keyed by CFBD game id
 
 Once h1_* is set, ALL 1H grading unblocks with no further wiring — the pick/signal graders
-(grade_{nfl,cfb}_dryrun_picks), the agent grader (football_game_results view) and the trends
+(grade_{nfl,cfb}_slate_picks), the agent grader (football_game_results view) and the trends
 appender (refresh_{nfl,cfb}_analysis_base -> h1_covered/h1_won/h1_total_over) all read h1_* off
-dryrun_games. Idempotent PATCH by game_id; only writes rows where a source h1 exists.
+slate_games. Idempotent PATCH by game_id; only writes rows where a source h1 exists.
 
 Live source freshness: the current season's nflverse PBP file is force-refreshed each run
 (games appear as they're played); CFBD /games is always a live call. Run post-game, after
 fill_finals.py (wired into grade_week.sh).
 
-Usage:  python3 fill_h1.py 2026            # dry-run: compute + report coverage
+Usage:  python3 fill_h1.py 2026            # slate: compute + report coverage
         python3 fill_h1.py 2026 --write    # PATCH h1_home/h1_away
 """
 import os
@@ -25,6 +25,14 @@ import pandas as pd
 import requests
 
 from quarter_scores import season_pbp, PBP_CACHE
+
+
+def _gid(v):
+    """URL-safe game_id: collapse float64 CFB ids (401864570.0 -> 401864570); NFL string ids pass through."""
+    if isinstance(v, float) and v == int(v):
+        return int(v)
+    return v
+
 
 ROOT = Path(__file__).resolve().parent
 BASE = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
@@ -99,7 +107,7 @@ def apply_h1(label, table, dg, src, hdr):
         return
     m = dg.merge(src, on="game_id", how="left", suffixes=("", "_src"))
     have = m[m["h1_home_src"].notna()]
-    print(f"[{label}] {len(have)}/{len(dg)} dryrun games have a source 1H score")
+    print(f"[{label}] {len(have)}/{len(dg)} slate games have a source 1H score")
     chk = have[have["h1_home"].notna()]
     mism = chk[(chk["h1_home"] != chk["h1_home_src"]) | (chk["h1_away"] != chk["h1_away_src"])]
     if len(mism):
@@ -107,7 +115,7 @@ def apply_h1(label, table, dg, src, hdr):
     if WRITE and hdr is not None:
         n = 0
         for _, r in have.iterrows():
-            resp = requests.patch(f"{BASE}/{table}?game_id=eq.{r.game_id}", headers=hdr,
+            resp = requests.patch(f"{BASE}/{table}?game_id=eq.{_gid(r.game_id)}", headers=hdr,
                                   json={"h1_home": int(r.h1_home_src), "h1_away": int(r.h1_away_src)}, timeout=30)
             resp.raise_for_status()
             n += 1
@@ -120,7 +128,7 @@ def main():
         k = env("SUPABASE_SERVICE_KEY")
         hdr = {"apikey": k, "Authorization": f"Bearer {k}",
                "Content-Type": "application/json", "Prefer": "return=minimal"}
-    print(f"=== fill_h1 :: season={SEASON} {'(write)' if WRITE else '(dry-run)'} ===")
+    print(f"=== fill_h1 :: season={SEASON} {'(write)' if WRITE else '(slate)'} ===")
 
     ndg = fetch_table("nfl_slate_games", "game_id,season,week,h1_home,h1_away")
     ndg = ndg[ndg.season == SEASON]
@@ -136,7 +144,7 @@ def main():
     apply_h1("CFB", "cfb_slate_games", cdg, ch1, hdr)
 
     if not WRITE:
-        print("\n[dry-run] no writes. Re-run with --write once coverage looks right.")
+        print("\n[slate] no writes. Re-run with --write once coverage looks right.")
 
 
 if __name__ == "__main__":

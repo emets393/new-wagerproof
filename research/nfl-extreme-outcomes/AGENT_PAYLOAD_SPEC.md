@@ -6,7 +6,7 @@ generation pipeline must build and hand to the model. The prompt teaches the voc
 carries the per-game values.
 
 **Core principle:** the agent payload is a **pregame-safe projection of the precomputed display contract**
-(`nfl_dryrun_games` + `nfl_dryrun_picks`, documented in `CURSOR_NFL_PROMPT.md`), with each fired signal
+(`nfl_slate_games` + `nfl_slate_picks`, documented in `CURSOR_NFL_PROMPT.md`), with each fired signal
 enriched by its **definition** (`*_signal_defs`) and its **live season record** (`signal_performance`), plus
 **NFL props that have a signal attached**. We do not invent new model math here — we subset an existing,
 already-validated contract. Read `CURSOR_NFL_PROMPT.md` first; this doc only describes the *projection*.
@@ -17,11 +17,11 @@ already-validated contract. Read `CURSOR_NFL_PROMPT.md` first; this doc only des
 
 | Table | Role in payload |
 |---|---|
-| `nfl_dryrun_games` / `cfb_dryrun_games` | Per-game headline: lines for all 7 markets, model predictions, conviction, weather. |
-| `nfl_dryrun_picks` / `cfb_dryrun_picks` | Per-market rows (the 7 cards) with `signals` jsonb (`action`/`stance`/`tier`), edge, conviction, recommendation. |
+| `nfl_slate_games` / `cfb_slate_games` | Per-game headline: lines for all 7 markets, model predictions, conviction, weather. |
+| `nfl_slate_picks` / `cfb_slate_picks` | Per-market rows (the 7 cards) with `signals` jsonb (`action`/`stance`/`tier`), edge, conviction, recommendation. |
 | `nfl_signal_defs` / `cfb_signal_defs` | Signal definitions: `display_name`, `one_liner`, `definition`, `why_it_works`, `bet_direction`, `typical_hit` (STATIC backtest). |
 | `signal_performance` | LIVE season-to-date record per `signal_key` (`n`, `wins`, `losses`, `pushes`, `hit_rate`, `units`, `roi`, `last_week`). |
-| `nfl_dryrun_props` | NFL only: player props with `flags` (P-codes). Join realized value via `nfl_player_props`. |
+| `nfl_slate_props` | NFL only: player props with `flags` (P-codes). Join realized value via `nfl_player_props`. |
 | `nfl_team_trends` / (cfb equiv) | Season-to-date ATS/OU/TT/1H rates + last-5 + game_log. |
 | `nfl_matchup_history` | NFL only: last-5 head-to-head. |
 
@@ -114,7 +114,7 @@ redundant with the signal each feature fed into. The signal is the compression l
 
 ## 3. Signal object (the most important part)
 
-Each entry in `signals[]` is the per-game signal projection from `nfl_dryrun_picks.signals`, **enriched**
+Each entry in `signals[]` is the per-game signal projection from `nfl_slate_picks.signals`, **enriched**
 with the definition + live record. This is what lets an agent say "this signal fired, here's why, and it's
 hitting 64% / +18% ROI this season."
 
@@ -165,7 +165,7 @@ Agents must understand and be able to output all 7 game markets + player props. 
 | player_prop | "Player Over/Under X.X <market>" | prop over/under price |
 
 > **Honesty carryover from the display contract:** 1H markets, team totals, and moneyline are
-> **display/paper-trade tier** in the current dryrun — the prompt should let agents *reference* them but lean
+> **display/paper-trade tier** in the current slate — the prompt should let agents *reference* them but lean
 > their real bets on spread/total unless a high-conviction signal attaches. Mirror the `display_only` /
 > `has_play` distinction from `CURSOR_NFL_PROMPT.md`.
 
@@ -182,7 +182,7 @@ Agents must understand and be able to output all 7 game markets + player props. 
 ## 5. Player props (NFL only) — props WITH a signal only
 
 Do **not** ship every prop. Include a prop **only if it carries a curated P-flag** (from
-`nfl_dryrun_props.flags`). Curated set (approved):
+`nfl_slate_props.flags`). Curated set (approved):
 
 | Flag | Market | Trigger | Direction |
 |---|---|---|---|

@@ -8,7 +8,7 @@ markets. Raw JSON cached to disk so the run is resumable and never re-spends
 credits (worst case ~40 credits/call; empty responses cost 0).
 
 Usage:
-  python3 h1tt_backfill.py --dry-run            # pair counts + credit estimate
+  python3 h1tt_backfill.py --simulate            # pair counts + credit estimate
   python3 h1tt_backfill.py --test               # single game end-to-end
   python3 h1tt_backfill.py [--season 2023]      # full run (optionally one season)
 """
@@ -160,7 +160,7 @@ def map_event_ids(fetcher, games):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--simulate", action="store_true")
     ap.add_argument("--test", action="store_true", help="fetch only the first game")
     ap.add_argument("--season", type=int, default=None)
     args = ap.parse_args()
@@ -175,7 +175,7 @@ def main():
           f"(avg {pairs/len(g):.1f}/game) new event-days={new_evdays} "
           f"est credits ~{pairs*40 + new_evdays:,} (40/call worst case; empties cost 0)",
           flush=True)
-    if args.dry_run:
+    if args.simulate:
         return
 
     fetcher = Fetcher(load_key())

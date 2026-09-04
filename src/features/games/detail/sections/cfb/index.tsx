@@ -7,14 +7,14 @@ import { MarketOddsSection } from '../MarketOddsSection';
 import type { SportSectionsProps } from '../index';
 import type { CFBPrediction } from '../../../api/cfbGames';
 import type { GameFeedItem } from '../../../types';
-import { CfbDryRunPicksSection, CfbDryRunSummarySection } from './CfbDryRunSections';
+import { CfbSlatePicksSection, CfbSlateSummarySection } from './CfbSlateSections';
 import { CfbH2HSection } from './CfbH2HSection';
 import { CfbLineMovementSection } from './CfbLineMovementSection';
 import { CfbWeatherSection } from './CfbWeatherSection';
 
 /**
  * CFB detail stack for the /games split view — mirrors the native sheet:
- *   score prediction (slate summary) → multi-market picks (from dryrun_picks, or fg_* synthesis
+ *   score prediction (slate summary) → multi-market picks (from slate_picks, or fg_* synthesis
  *   when picks are cold Weeks 1–3) with team season trends → market odds →
  *   weather → open→close line move → head-to-head (cfb_games prior seasons).
  *
@@ -51,8 +51,8 @@ export function CfbSections(props: SportSectionsProps) {
 
   return (
     <>
-      <CfbDryRunSummarySection game={cfbGame} />
-      <CfbDryRunPicksSection game={cfbGame} />
+      <CfbSlateSummarySection game={cfbGame} />
+      <CfbSlatePicksSection game={cfbGame} />
       <MarketOddsSection game={game} />
       <CfbWeatherSection game={cfbGame} />
       <CfbLineMovementSection game={cfbGame} />

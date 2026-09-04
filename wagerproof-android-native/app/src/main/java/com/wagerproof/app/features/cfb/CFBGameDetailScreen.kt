@@ -62,7 +62,7 @@ import com.wagerproof.core.design.components.SignalBacktestChart
 import com.wagerproof.core.design.components.SpreadCoverBar
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
-import com.wagerproof.core.models.CFBDryRunFlag
+import com.wagerproof.core.models.CFBSlateFlag
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBSignalDefinition
 import com.wagerproof.core.models.CFBTeamAssets
@@ -87,8 +87,8 @@ private val MammothTint = Color(0xFFF97316)
 private val MammothGold = Color(0xFFFACC15)
 
 /**
- * CFB Week-7 dry-run detail page: custom collapsing hero + a seven-market bet
- * board enriched by `cfb_dryrun_picks` plus model flags. Port of iOS
+ * CFB Week-7 slate detail page: custom collapsing hero + a seven-market bet
+ * board enriched by `cfb_slate_picks` plus model flags. Port of iOS
  * `CFBGameBottomSheet`: posted recommendations, best-book lines, pick-level
  * conviction, and synthetic signal-key rows override the merged-game fallback.
  */
@@ -105,9 +105,9 @@ fun CFBGameDetailPage(
     var signalDefs by remember { mutableStateOf<Map<String, CFBSignalDefinition>>(emptyMap()) }
     var trendsByTeam by remember { mutableStateOf<Map<String, CFBTeamTrendRow>>(emptyMap()) }
     var perfByKey by remember { mutableStateOf<Map<String, SignalPerformance>>(emptyMap()) }
-    var dryRunPicks by remember(game.gameId) { mutableStateOf<List<CFBDryrunPickRow>>(emptyList()) }
+    var slatePicks by remember(game.gameId) { mutableStateOf<List<CFBSlatePickRow>>(emptyList()) }
 
-    var selectedSignal by remember { mutableStateOf<CFBDryRunFlag?>(null) }
+    var selectedSignal by remember { mutableStateOf<CFBSlateFlag?>(null) }
     // Polymarket pushes its own prose read up once price history lands.
     var marketOddsHeadline by remember(game.gameId) { mutableStateOf<String?>(null) }
     var selectedTrend by remember { mutableStateOf<TrendDetailSelection?>(null) }
@@ -128,14 +128,14 @@ fun CFBGameDetailPage(
             val trends = async { loadTeamTrends(game) }
             val performance = async { SignalPerformanceService.shared.performances(SignalSport.CFB, game.season ?: 2025) }
             val picks = async {
-                if ((game.runId ?: "").contains("dryrun", ignoreCase = true)) {
-                    loadCFBDryrunPicksResult(game.gameId)
+                if ((game.runId ?: "").contains("slate", ignoreCase = true)) {
+                    loadCFBSlateDetailPicksResult(game.gameId)
                 } else null
             }
             signalDefs = defs.await()
             trendsByTeam = trends.await()
             perfByKey = performance.await()
-            picks.await()?.onSuccess { dryRunPicks = it }
+            picks.await()?.onSuccess { slatePicks = it }
         }
     }
 
@@ -195,7 +195,7 @@ fun CFBGameDetailPage(
         }
 
         items(rows, key = { it.id }) { row ->
-            val pick = cfbDryRunPickForRow(game, row, dryRunPicks)
+            val pick = cfbSlatePickForRow(game, row, slatePicks)
             val buckets = signalBuckets(game, row, signalDefs, pick)
             WidgetCollapsingSection(
                 title = row.sectionTitle,
@@ -419,11 +419,11 @@ private fun WeatherChip(systemImage: String, text: String, tint: Color) {
 private fun MarketRowBody(
     game: CFBPrediction,
     row: CFBMarketRow,
-    pick: CFBDryrunPickRow?,
+    pick: CFBSlatePickRow?,
     buckets: SignalBuckets,
     trendsByTeam: Map<String, CFBTeamTrendRow>,
     bookOdds: SportsbookGameOdds?,
-    onSignalTap: (CFBDryRunFlag) -> Unit,
+    onSignalTap: (CFBSlateFlag) -> Unit,
     onTrendTap: (String, CFBTeamTrendRow) -> Unit,
 ) {
     val mammoth = isMammothPick(pick)
@@ -487,7 +487,7 @@ private fun MarketRowBody(
 private fun RecommendationCard(
     game: CFBPrediction,
     row: CFBMarketRow,
-    pick: CFBDryrunPickRow?,
+    pick: CFBSlatePickRow?,
     mammoth: Boolean,
     cardTint: Color,
     direction: String?,
@@ -530,7 +530,7 @@ private fun RecommendationCard(
 
 @Composable
 private fun BestBookRow(
-    pick: CFBDryrunPickRow?,
+    pick: CFBSlatePickRow?,
     row: CFBMarketRow,
     game: CFBPrediction,
     bookOdds: SportsbookGameOdds?,
@@ -579,7 +579,7 @@ private fun BestBookRow(
 private fun sportsbookQuotes(
     odds: SportsbookGameOdds?,
     row: CFBMarketRow,
-    pick: CFBDryrunPickRow?,
+    pick: CFBSlatePickRow?,
     game: CFBPrediction,
 ): SportsbookMarketQuotes? {
     val market = sportsbookMarket(row, pick, game) ?: return null
@@ -589,7 +589,7 @@ private fun sportsbookQuotes(
 
 private fun sportsbookMarket(
     row: CFBMarketRow,
-    pick: CFBDryrunPickRow?,
+    pick: CFBSlatePickRow?,
     game: CFBPrediction,
 ): SportsbookMarket? {
     val side = (pick?.pickSide ?: "").uppercase(Locale.US)
@@ -612,7 +612,7 @@ private fun sportsbookMarket(
     }
 }
 
-private fun isMammothPick(pick: CFBDryrunPickRow?): Boolean =
+private fun isMammothPick(pick: CFBSlatePickRow?): Boolean =
     pick?.isMammoth == true ||
         pick?.conviction.equals("mammoth", ignoreCase = true) ||
         pick?.recommendation?.contains("MAMMOTH", ignoreCase = true) == true
@@ -633,14 +633,14 @@ private fun formatOdds(value: Double?): String {
 }
 
 /**
- * Spread and total rows get the threshold-vs-model edge charts; a dryrun
+ * Spread and total rows get the threshold-vs-model edge charts; a slate
  * `pick` row is required because that's where the raw (unformatted) market
  * and model numbers live — the game-level fallback strings are pre-formatted
  * text with no reliable doubles behind them, so that case (and moneyline /
  * team_total, which have no chart spec) keeps the old two-box comparison.
  */
 @Composable
-private fun MarketVsModel(row: CFBMarketRow, pick: CFBDryrunPickRow?, game: CFBPrediction, cardTint: Color) {
+private fun MarketVsModel(row: CFBMarketRow, pick: CFBSlatePickRow?, game: CFBPrediction, cardTint: Color) {
     if (pick != null) {
         val marketLine = pick.bestLine ?: pick.vegasLine
         val modelLine = pick.resolvedModelLine
@@ -675,7 +675,7 @@ private fun MarketVsModel(row: CFBMarketRow, pick: CFBDryrunPickRow?, game: CFBP
 }
 
 @Composable
-private fun ComparisonRowFallback(row: CFBMarketRow, pick: CFBDryrunPickRow?, cardTint: Color) {
+private fun ComparisonRowFallback(row: CFBMarketRow, pick: CFBSlatePickRow?, cardTint: Color) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         ComparisonBox(
             row.vegasLabel,
@@ -870,7 +870,7 @@ private fun HonestyNote(text: String) {
 
 @Composable
 private fun SignalDefinitionSheet(
-    flag: CFBDryRunFlag,
+    flag: CFBSlateFlag,
     signalDefs: Map<String, CFBSignalDefinition>,
     perfByKey: Map<String, SignalPerformance>,
 ) {

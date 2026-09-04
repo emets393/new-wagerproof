@@ -47,8 +47,8 @@ describe('CFB engine behaviors', () => {
   });
   it('switching to a limited market keeps the safe default season window without resetting FG total lineRange', () => {
     const r = apply(base(), P({ op: 'set', dimension: 'betType', value: 'team_total' }));
-    // Default seasons are already [2025, 2025] (≥ limited floor 2023), so betType switch is a no-op on seasons.
-    expect(r.snapshot.seasons).toEqual([2025, 2025]);
+    // Default seasons are already [2025, 2026] (≥ limited floor 2023), so betType switch is a no-op on seasons.
+    expect(r.snapshot.seasons).toEqual([2025, 2026]);
     expect(r.snapshot.lineRange).toEqual([30, 80]);
     expect(r.snapshot.ttLineRange).toEqual([10, 55]);
   });

@@ -52,7 +52,7 @@ struct NFLGameCard: View {
             ),
             overLine: game.overLine,
             mlEdge: nil,
-            // Dry-run pipeline publishes a fair total (`fg_pred_total`); the
+            // Slate pipeline publishes a fair total (`fg_pred_total`); the
             // legacy pipeline publishes a direction probability instead.
             ouEdge: GameEdgeMath.ouEdge(
                 modelFairTotal: game.predTotal,
@@ -153,10 +153,10 @@ struct NFLGameCard: View {
     }
 
     private func loadSlatePicks() async {
-        guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else { return }
+        guard (game.runId ?? "").localizedCaseInsensitiveContains("slate") else { return }
         let cfb = await CFBSupabase.shared.client
         guard let rows: [NFLSlatePickRow] = try? await cfb
-            .from("nfl_dryrun_picks")
+            .from("nfl_slate_picks")
             .select("game_id,card_group,pick_team,pick_side,pick_label,best_line,vegas_line,conviction,is_mammoth,signal_keys,has_play,sort_order")
             .eq("game_id", value: game.gameId)
             .order("sort_order", ascending: true)

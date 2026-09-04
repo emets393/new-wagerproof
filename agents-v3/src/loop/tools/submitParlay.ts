@@ -289,7 +289,7 @@ export async function submitParlay(
           const f5Ou = vegasLines?.f5_ou as Record<string, unknown> | undefined;
           vtRaw = f5Ou?.line ?? gameSnapshot.f5_total_line;
         } else if (effectivePeriod === "h1") {
-          // 1H total (NFL/CFB). Dryrun key: vegas_lines.first_half.total_close.
+          // 1H total (NFL/CFB). Slate key: vegas_lines.first_half.total_close.
           const firstHalf = vegasLines?.first_half as Record<string, unknown> | undefined;
           vtRaw = firstHalf?.total_close;
         } else {
@@ -304,7 +304,7 @@ export async function submitParlay(
 
       // team_total→Vegas rewrite (identical to submit_picks): resolve the team the
       // leg names, pull THAT team's line from vegas_lines.team_totals.{side}_close
-      // (same key on NFL + CFB dryrun formatters), rewrite to "{Team} {O|U} {line}".
+      // (same key on NFL + CFB slate formatters), rewrite to "{Team} {O|U} {line}".
       if (effectiveBetType === "team_total") {
         const dirMatch = effectiveSelection.match(/\b(over|under)\b/i);
         const direction = dirMatch ? (dirMatch[1].toLowerCase() === "over" ? "Over" : "Under") : null;

@@ -54,7 +54,7 @@ each file here names the Swift file it ports.
 ## Data flow
 
 - **NFL / NCAAF**: slate anchor (latest season+week from
-  `nfl_dryrun_games` / `cfb_dryrun_games`) → server-pre-rendered cards from
+  `nfl_slate_feed` / `cfb_slate_feed`) → server-pre-rendered cards from
   `nfl_outliers_trend_cards` / `cfb_outliers_trend_cards`.
 - **MLB trends**: today's slate bundle (`mlb_games_today`,
   `mlb_signal_features_pregame`, `mlb_odds_snapshots`, `mlb_team_mapping`,

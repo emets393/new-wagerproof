@@ -233,7 +233,7 @@ class ParlayGodEngineTest {
     @Test
     fun slateTicketsKeepStaleSlatesSeparate() {
         // A slate with no parseable kickoffs — or entirely past dates, like the
-        // NFL dry-run — never merges: each sport fields its own card (MLB first)
+        // NFL slate — never merges: each sport fields its own card (MLB first)
         // so a merged ticket is always a placeable parlay.
         val now = isoDate("2026-07-20T12:00:00+00:00")
         val pool = listOf(

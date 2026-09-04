@@ -9,7 +9,7 @@ re-spends credits.
 
 Usage:
   python3 grid_backfill.py --test                      # one snapshot, show cost
-  python3 grid_backfill.py --dry-run                   # planned calls + credit ceiling
+  python3 grid_backfill.py --simulate                   # planned calls + credit ceiling
   python3 grid_backfill.py --sport nba --season 2025-26
 """
 import argparse, gzip, json, sys, time as _time
@@ -140,7 +140,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sport", choices=["nba", "ncaab"])
     ap.add_argument("--season")
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--simulate", action="store_true")
     ap.add_argument("--test", action="store_true")
     a = ap.parse_args()
     f = Fetcher(load_key())
@@ -152,7 +152,7 @@ def main():
         print(f"test snapshot 2026-01-15T23:00Z: {n} events, cost={f.spent}, "
               f"remaining={f.remaining:,}")
         return
-    if a.dry_run:
+    if a.simulate:
         for sport in (["nba", "ncaab"] if not a.sport else [a.sport]):
             for season in SEASONS[sport]:
                 run_season(f, sport, season, dry=True)

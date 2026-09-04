@@ -173,10 +173,10 @@ struct CFBGameCard: View {
     }
 
     private func loadSlatePicks() async {
-        guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else { return }
+        guard (game.runId ?? "").localizedCaseInsensitiveContains("slate") else { return }
         let cfb = await CFBSupabase.shared.client
         guard let rows: [CFBSlatePickRow] = try? await cfb
-            .from("cfb_dryrun_picks")
+            .from("cfb_slate_picks")
             .select("game_id,card_group,pick_team,pick_side,pick_label,best_line,vegas_line,conviction,is_mammoth,signal_keys,has_play,sort_order")
             .eq("game_id", value: game.gameId)
             .order("sort_order", ascending: true)

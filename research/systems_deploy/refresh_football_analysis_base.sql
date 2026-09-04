@@ -2,7 +2,7 @@
 -- In-season appenders for the NFL + CFB historical-trends warehouses.
 --
 -- Parallel to refresh_mlb_analysis_base(): as 2026 games COMPLETE, turn each
--- finished game in {nfl,cfb}_dryrun_games (final_home/away populated by
+-- finished game in {nfl,cfb}_slate_games (final_home/away populated by
 -- fill_finals.py) into the exploded team-per-game rows that /nfl-analytics,
 -- /cfb-analytics and the Systems workbench aggregate over.
 --
@@ -66,7 +66,7 @@ BEGIN
       (d.fg_spread_close < 0)                             AS home_fav,
       (d.final_home - d.final_away + d.fg_spread_close)   AS hc,       -- home spread cover value
       (COALESCE(d.h1_home,0) - COALESCE(d.h1_away,0) + d.h1_spread_close) AS hc_h1
-    FROM nfl_dryrun_games d
+    FROM nfl_slate_games d
     WHERE d.season = p_season AND d.final_home IS NOT NULL AND d.final_away IS NOT NULL
   ),
   ex AS (SELECT g.*, s.is_home FROM g CROSS JOIN (VALUES (true),(false)) s(is_home))
@@ -134,7 +134,7 @@ BEGIN
     (extract(hour FROM (ex.kickoff AT TIME ZONE 'America/New_York')) >= 19),
     to_char(ex.gameday, 'Dy'),
     CASE WHEN ex.week <= 18 THEN 'regular' ELSE 'postseason' END,
-    -- coach/opp_coach/surface: not in dryrun_games -> from the nflverse meta patch (load_nab_patch.py)
+    -- coach/opp_coach/surface: not in slate_games -> from the nflverse meta patch (load_nab_patch.py)
     CASE WHEN ex.is_home THEN p.home_coach ELSE p.away_coach END,
     CASE WHEN ex.is_home THEN p.away_coach ELSE p.home_coach END,
     p.surface
@@ -149,7 +149,7 @@ END
 $function$;
 
 -- ---------------------------------------------------------------------------
--- CFB  (conference / rank / neutral_site come straight from cfb_dryrun_games;
+-- CFB  (conference / rank / neutral_site come straight from cfb_slate_games;
 --        team names already match the base, so no location/division map needed)
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.refresh_cfb_analysis_base(p_season int)
@@ -169,7 +169,7 @@ BEGIN
       (d.fg_spread_close < 0)                           AS home_fav,
       (d.final_home - d.final_away + d.fg_spread_close) AS hc,
       (COALESCE(d.h1_home,0) - COALESCE(d.h1_away,0) + d.h1_spread_close) AS hc_h1
-    FROM cfb_dryrun_games d
+    FROM cfb_slate_games d
     WHERE d.season = p_season AND d.final_home IS NOT NULL AND d.final_away IS NOT NULL
   ),
   ex AS (SELECT g.*, s.is_home FROM g CROSS JOIN (VALUES (true),(false)) s(is_home))

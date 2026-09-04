@@ -15,7 +15,7 @@ export interface SportSectionsProps {
 
 /**
  * Per-sport widget stacks for the detail pane, ported from GameDetailsModal,
- * MatchupOverviewModal, the CFB dry-run modal, and the MLB inline detail.
+ * MatchupOverviewModal, the CFB slate modal, and the MLB inline detail.
  */
 export function SportSections(props: SportSectionsProps) {
   switch (props.game.sport) {

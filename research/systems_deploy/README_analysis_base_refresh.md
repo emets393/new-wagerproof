@@ -5,14 +5,14 @@ Keeps `nfl_analysis_base` / `cfb_analysis_base` (the exploded team-per-game tabl
 2026 games complete. Parallels MLB's `refresh_mlb_analysis_base()`.
 
 Warehouse: **`jpxnjuwglavsjbgbasnl`** (`collegeFootballSupabase`). Both base tables + the
-`*_dryrun_games` source live here.
+`*_slate_games` source live here.
 
 ## Two stages
 
 | Stage | What | Where | Runs |
 |-------|------|-------|------|
 | 0 — NFL meta | `load_nab_patch.py` stages coach + normalized surface (nflverse `games.csv`, all seasons) into `_nab_patch`. Stage 1 LEFT JOINs it. | `load_nab_patch.py` | daily, in `grade_week.sh` (before Stage 1) |
-| 1 — core facts | `refresh_nfl_analysis_base(season)` / `refresh_cfb_analysis_base(season)` turn every completed `*_dryrun_games` row (`final_home` set) into the 2 exploded rows with ATS/OU/TT/1H results, weather, referee + coach + surface (NFL), conference/rank/neutral-site (CFB). | `refresh_football_analysis_base.sql` (SQL fns) → called by `run_grade_rpcs.py` | daily, in `grade_week.sh` |
+| 1 — core facts | `refresh_nfl_analysis_base(season)` / `refresh_cfb_analysis_base(season)` turn every completed `*_slate_games` row (`final_home` set) into the 2 exploded rows with ATS/OU/TT/1H results, weather, referee + coach + surface (NFL), conference/rank/neutral-site (CFB). | `refresh_football_analysis_base.sql` (SQL fns) → called by `run_grade_rpcs.py` | daily, in `grade_week.sh` |
 | 2 — asof features | `asof_features_{nfl,cfb}.py` recompute the season-to-date / streak / h2h / opponent / prev-year family leak-safely and `deploy_asof.py` merges them back. | `refresh_analysis_asof.sh` | daily, in `grade_week.sh` (non-fatal; needs `SUPABASE_PAT`) |
 
 Stage 1 alone makes completed games queryable for the core filters (spread/total/ATS/OU/team-total/
@@ -33,7 +33,7 @@ correctness validated exactly against existing base rows: `2025_12_PHI_DAL` for 
 Brian Schottenheimer / Nick Sirianni + surface Turf), game `401762484` Temple/Navy for CFB.
 
 1H results (`h1_covered` / `h1_won` / `h1_total_over`) populate too: `fill_h1.py` (grade_week.sh
-step 1b) writes `*_dryrun_games.h1_home/h1_away` from nflverse PBP (NFL) and CFBD `/games` line
+step 1b) writes `*_slate_games.h1_home/h1_away` from nflverse PBP (NFL) and CFBD `/games` line
 scores (CFB), so the appender derives the 1H results just like the full game.
 
 ## Manual run

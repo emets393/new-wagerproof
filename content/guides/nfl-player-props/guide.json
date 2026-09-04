@@ -1,0 +1,62 @@
+{
+  "layout": "standard",
+  "slug": "nfl-player-props",
+  "canonicalPath": "/guides/nfl-player-props/",
+  "intent": "find and research NFL player props quickly with WagerProof",
+  "title": "How to find NFL player props quickly in 2026",
+  "shortTitle": "NFL player props in 2026",
+  "seoTitle": "NFL Player Props Research in 2026",
+  "description": "Find NFL player prop trends, signals, alternate lines, and parlay combinations faster with WagerProof Agents, Outliers, and player trend pages.",
+  "dek": "The fastest way to research NFL player props in 2026 is to stop rebuilding the same search every week. Set up an Agent, scan the strongest prop signals, then open the player trend page before making a decision.",
+  "category": "Player research",
+  "publishedAt": "2026-09-02",
+  "updatedAt": "2026-09-02",
+  "reviewedAt": "2026-09-02",
+  "nextReviewAt": "2026-12-02",
+  "lastTestedAt": "2026-09-02",
+  "readingTimeMinutes": 8,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/nfl-player-props/nfl-player-props-title-card-v1.webp",
+    "socialSrc": "/guides/nfl-player-props/nfl-player-props-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "A football connected to three research agents, player trend charts, alternate lines, and a three-leg parlay path",
+    "caption": "AI-assisted editorial illustration of the WagerProof research workflow. It is not a product screenshot or a performance claim.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "This is a first-party guide to WagerProof. Props, trends, model signals, and Agent picks are research inputs, not guarantees. WagerProof does not accept wagers or handle money.",
+  "showSourcesSection": false,
+  "bottomLineTitle": "Start with the Agent, then check the player.",
+  "verdict": "If you want to move faster, start with a WagerProof Agent built for NFL props. Use Outliers and Props to narrow the slate, check Parlay God for combinations, and open the individual player page before you trust any streak. That gets you from hundreds of markets to a short list without skipping the work that matters.",
+  "cta": {
+    "eyebrow": "Try it this week",
+    "title": "Build an Agent for NFL player props.",
+    "copy": "Choose NFL, emphasize player props, set your pick limit and parlay preferences, then let the Agent check each new slate for you.",
+    "buttonLabel": "Try WagerProof"
+  },
+  "relatedSlugs": [
+    "player-prop-research-guide",
+    "how-wagerproof-analysis-works",
+    "best-sports-betting-research-apps",
+    "accurate-betting-performance-tracking-checklist"
+  ],
+  "redirectAliases": [],
+  "howTo": {
+    "name": "How to research NFL player props with WagerProof",
+    "description": "A four-step weekly workflow for moving from the full NFL slate to a short list of props worth reviewing.",
+    "steps": [
+      {"name":"Build an NFL props Agent","text":"Select NFL, allow player props, emphasize props, and set the confidence, risk, pick-volume, and parlay preferences that match the way you research."},
+      {"name":"Start with the strongest signals","text":"Open Outliers and Props, filter the slate, and use recent hit-rate signals to create a short list instead of reading every available market."},
+      {"name":"Review parlay combinations","text":"Use Parlay God to inspect combinations assembled from legs on perfect tracked streaks, then review each leg on its own merits."},
+      {"name":"Verify the player trend page","text":"Open each player to compare the current line, alternate lines, L10 results, streaks, matchup history, and situational splits before making a decision."}
+    ]
+  },
+  "faqs": [
+    {"question":"What is the fastest way to find NFL player props in 2026?","answer":"Use a WagerProof Agent focused on NFL player props to narrow the slate, scan the Props and Outliers signals, then verify each candidate on its individual player trend page."},
+    {"question":"Can a WagerProof Agent specialize in NFL player props?","answer":"Yes. Agent setup lets you select NFL, allow player props, emphasize that market, control daily pick volume, skip weak slates, and adjust confidence, risk, and parlay preferences."},
+    {"question":"Does a perfect recent streak mean the next prop will hit?","answer":"No. A streak describes the tracked sample at a particular line. The next result can still lose, and a different line, role, opponent, or price can change the question."}
+  ]
+}
