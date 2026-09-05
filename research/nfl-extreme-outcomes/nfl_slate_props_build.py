@@ -102,9 +102,11 @@ def recent_form(c):
     l10_avg, rate5, rate10, recent = [], [], [], []
     hist = {pid: d.sort_values("week") for pid, d in po.groupby("player_id")}
     for _, r in c.iterrows():
-        stat = STAT_OF[r.market]
+        # Books add markets without warning (player_rush_attempts appeared 2026-09-05
+        # and KeyError'd the whole build). Unknown market -> no form stats, not a crash.
+        stat = STAT_OF.get(r.market) or EXTRA_STAT.get(r.market)
         d = hist.get(r.player_id)
-        if d is None or stat not in d.columns:
+        if stat is None or d is None or stat not in d.columns:
             l10_avg.append(None); rate5.append(None); rate10.append(None); recent.append([])
             continue
         s = d.dropna(subset=[stat]).tail(10)
