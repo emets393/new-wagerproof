@@ -133,15 +133,18 @@ def add_situational_flags(df):
 def spot_library(df):
     """Return ordered dict: spot_name -> (boolean mask, side, market). Each spot is curated &
     selective. Tiers: T1 = beats-close high conviction; T2 = bettable-at-open leans."""
-    ep = pd.to_numeric(df.get("expected_plays"), errors="coerce"); ep66 = ep.quantile(0.66)
+    # z default for every df.get: a DEGRADED frame (tendencies/pace stage skipped, e.g.
+    # CFBD hiccup mid-Saturday 2026-09-05) drops columns entirely, and a bare
+    # df.get(col) then returns scalar NaN whose .quantile AttributeError-kills the slate.
+    z = pd.Series(np.nan, index=df.index)
+    ep = pd.to_numeric(df.get("expected_plays", z), errors="coerce"); ep66 = ep.quantile(0.66)
     to = df["total_open"]
     df["tier"] = np.where(df.homeConference.isin(P5) & df.awayConference.isin(P5), "P5",
                   np.where(~df.homeConference.isin(P5) & ~df.awayConference.isin(P5), "G5", "mix"))
-    thr = pd.to_numeric(pd.concat([df.get("home_adj_passing_epa_allowed"), df.get("away_adj_passing_epa_allowed")]), errors="coerce").quantile(0.66)
-    both_weak = (pd.to_numeric(df.get("home_adj_passing_epa_allowed"), errors="coerce") >= thr) & \
-                (pd.to_numeric(df.get("away_adj_passing_epa_allowed"), errors="coerce") >= thr)
+    thr = pd.to_numeric(pd.concat([df.get("home_adj_passing_epa_allowed", z), df.get("away_adj_passing_epa_allowed", z)]), errors="coerce").quantile(0.66)
+    both_weak = (pd.to_numeric(df.get("home_adj_passing_epa_allowed", z), errors="coerce") >= thr) & \
+                (pd.to_numeric(df.get("away_adj_passing_epa_allowed", z), errors="coerce") >= thr)
     eb = lambda c: df.get(c, pd.Series(0, index=df.index)).fillna(0) == 1
-    z = pd.Series(np.nan, index=df.index)
     gap = pd.to_numeric(df.get("soft_gap", z), errors="coerce")        # sharp_close - soft_close (<0 sharp=home)
     dk = pd.to_numeric(df.get("dk_sp_close", z), errors="coerce")      # DraftKings close home-spread
     ec = pd.to_numeric(df.get("side_edge_close", z), errors="coerce")  # pred_margin + spread_close (model lean @ close)
