@@ -135,6 +135,10 @@ def build_logs():
     logs = {}   # player_id -> {game_key: game record}
     meta = {}
     for r in grp.itertuples():
+        # books add markets without warning (player_rush_attempts 2026-09-05) —
+        # a market this trends card doesn't model is skipped, never a KeyError.
+        if r.market not in PROP_MKT:
+            continue
         hit_l, loss_l = PROP_MKT[r.market]
         if r.market == "player_anytime_td":
             res = "Y" if r.result_close == "yes" else ("N" if r.result_close == "no" else None)

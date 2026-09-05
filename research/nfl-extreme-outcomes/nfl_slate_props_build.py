@@ -286,9 +286,9 @@ def attempts_form(d):
     cols = {k: [] for k in ("gp_prior", "last_game", "l3_avg", "l5_avg", "l10_avg",
                             "szn_avg", "szn_max", "szn_min", "over_rate_l5", "over_rate_l10", "recent_games")}
     for _, r in d.iterrows():
-        stat = EXTRA_STAT[r.market]
+        stat = EXTRA_STAT.get(r.market)
         g = hist.get(r.player_id)
-        if g is None or stat not in g.columns:
+        if stat is None or g is None or stat not in g.columns:
             for k in cols:
                 cols[k].append([] if k == "recent_games" else None)
             continue
@@ -356,7 +356,10 @@ def attempts_def_matchup(d):
 
     def_allowed, lg_allowed, idx = [], [], []
     for market, position, o in zip(d.market, d.position, opp):
-        stat = EXTRA_STAT[market]
+        stat = EXTRA_STAT.get(market)
+        if stat is None:
+            def_allowed.append(None); lg_allowed.append(None); idx.append(None)
+            continue
         def_avg, lg_avg = tables.get((stat, position), ({}, None))
         if o in def_avg and lg_avg:
             da = float(def_avg[o])
