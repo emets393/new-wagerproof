@@ -840,9 +840,12 @@ def generate(m, BASE, target, week=None):
         if pd.notna(g.open_spread) and g.get("a_div_dog_to_roadfav",0)==1:
             rows.append(dict(pick_id=gid+"-DDR",season=g.season,week=int(g.week),game=mtchp,rule="div_dog_to_roadfav",
                 market="spread",side=f"{g.away_ab} {-g.open_spread:+g}",bet_home=0,open_num=g.open_spread,close_num=g.close_spread,edge=1))
-        # LEGACY spread signals (vs opener): primetime -> FOLLOW the model; non-primetime extreme -> FADE it
+        # LEGACY spread signals (vs opener): primetime -> FOLLOW the model; non-primetime extreme -> FADE it.
+        # WEEKS 1-3 SUPPRESSED (owner 2026-09-06 + doc 14): the legacy model's s2d/last-3
+        # features need ~2 weeks of games, so its early output is shadow-validation noise —
+        # it fed 4 ACTIVE high-conviction wk1 flags off predictions computed on empty features.
         lsp=g.get("leg_sp",np.nan)
-        if pd.notna(lsp) and pd.notna(g.open_spread):
+        if pd.notna(lsp) and pd.notna(g.open_spread) and int(g.week)>=4:
             if int(g.primetime_i)==1:                                  # FOLLOW legacy in primetime (61.8% in 2025)
                 home_pick=lsp>=0.5
                 rows.append(dict(pick_id=gid+"-LPT",season=g.season,week=int(g.week),game=mtchp,rule="legacy_primetime",
