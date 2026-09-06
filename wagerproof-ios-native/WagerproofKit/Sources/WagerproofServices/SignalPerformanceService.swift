@@ -15,6 +15,12 @@ public actor SignalPerformanceService {
 
     public init() {}
 
+    /// Current football season: year, rolling over in March (matches the pipelines).
+    public static func currentFootballSeason(now: Date = Date()) -> Int {
+        let c = Calendar(identifier: .gregorian).dateComponents([.year, .month], from: now)
+        return (c.month ?? 1) >= 3 ? (c.year ?? 2026) : (c.year ?? 2026) - 1
+    }
+
     /// All performance rows for a sport + season, keyed by `signal_key`.
     public func performances(for sport: SignalSport, season: Int) async -> [String: SignalPerformance] {
         let cacheKey = "\(sport.rawValue)|\(season)"

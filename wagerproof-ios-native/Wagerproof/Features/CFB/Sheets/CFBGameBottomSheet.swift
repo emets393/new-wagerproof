@@ -107,7 +107,9 @@ struct CFBGameBottomSheet: View {
             async let books: () = loadSportsbookOdds()
             async let performance = SignalPerformanceService.shared.performances(
                 for: .cfb,
-                season: game.season ?? 2025
+                // Fallback = CURRENT football season, not a hardcoded year — a nil
+                // game.season quietly queried 2025 forever (no 2026 records shown).
+                season: game.season ?? SignalPerformanceService.currentFootballSeason()
             )
             _ = await (picks, trends, books)
             signalPerformanceByKey = await performance

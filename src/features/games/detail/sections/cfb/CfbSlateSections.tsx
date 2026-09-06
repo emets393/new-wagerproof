@@ -356,18 +356,25 @@ function isGenericBetDirection(value?: string | null): boolean {
 function matchTeamToken(token: string, away: TeamRef, home: TeamRef): TeamRef | null {
   const u = token.trim().toUpperCase();
   if (!u) return null;
+  // Exact FULL NAME outranks everything — "Washington State" must never resolve to
+  // "Washington" via the exact-abbrev or prefix branches (WSU@UW bug, 2026-09-06).
+  if (u === away.name.toUpperCase()) return away;
+  if (u === home.name.toUpperCase()) return home;
   // Prefer exact abbrev so short tokens like "NE" don't false-match inside "NEW YORK".
   if (u === home.abbrev.toUpperCase()) return home;
   if (u === away.abbrev.toUpperCase()) return away;
 
   const hit = (team: TeamRef) => {
     const name = team.name.toUpperCase();
-    return u === name || name.startsWith(`${u} `) || name.startsWith(`${u}-`);
+    return name.startsWith(`${u} `) || name.startsWith(`${u}-`);
   };
   const homeHit = hit(home);
   const awayHit = hit(away);
   if (homeHit && !awayHit) return home;
   if (awayHit && !homeHit) return away;
+  // Both prefix-match (e.g. token "Washington" with Washington vs Washington State):
+  // ambiguous by name — prefer the team whose name IS the token's next-word stop, i.e.
+  // the shorter (exact-ish) one was already handled above, so fall back to home.
   if (homeHit) return home;
   if (awayHit) return away;
   return null;
@@ -518,15 +525,15 @@ function resolveSignalDirectionDisplay({
   })();
 
   const group = row ? normalizeCardGroup(row.card_group) : '';
+  // Full name first — splitting "Washington State" to its first word exact-matched
+  // the OTHER Washington. Only fall back to the first token when the full string misses.
+  const signalTeam =
+    teamName && away && home
+      ? matchTeamToken(teamName, away, home) ?? matchTeamToken(teamName.split(/\s+/)[0] || teamName, away, home)
+      : null;
   const signalHome =
     parseSignalHomeAway(action) ??
-    (teamName && away && home
-      ? matchTeamToken(teamName.split(/\s+/)[0] || teamName, away, home) === home
-        ? true
-        : matchTeamToken(teamName.split(/\s+/)[0] || teamName, away, home) === away
-          ? false
-          : null
-      : null);
+    (signalTeam === home ? true : signalTeam === away ? false : null);
 
   if (row && away && home && teamName && (group === 'spread' || group === 'h1_spread')) {
     const line = orientedSpreadLine(row, signalHome, away, home);
@@ -569,28 +576,34 @@ function resolvePickTeam(
   away: TeamRef,
   home: TeamRef,
 ): TeamRef | null {
-  const matches = (team: TeamRef, raw: string) => {
+  // Score, not boolean: exact name/abbrev (2) must beat fuzzy containment (1), or
+  // "Washington State" resolves to "Washington" because the raw CONTAINS the home
+  // name and the tie-break preferred home (WSU@UW bug, 2026-09-06).
+  const matchScore = (team: TeamRef, raw: string): number => {
     const u = raw.toUpperCase().trim();
-    if (!u) return false;
+    if (!u) return 0;
     const name = team.name.toUpperCase();
     const abbrev = team.abbrev.toUpperCase();
+    if (u === name || u === abbrev) return 2;
     // "New England" must hit "New England Patriots"; avoid abbrev false
     // positives inside longer words by preferring word-boundary abbrev checks.
-    if (u === name || u === abbrev) return true;
     if (name.startsWith(u) || u.startsWith(name) || name.includes(u) || u.includes(name)) {
-      return true;
+      return 1;
     }
     const abbrevRe = new RegExp(`(^|[^A-Z0-9])${abbrev}([^A-Z0-9]|$)`);
-    return abbrevRe.test(u);
+    return abbrevRe.test(u) ? 1 : 0;
   };
 
   const pickFromCandidates = (raw: string): TeamRef | null => {
-    const homeHit = matches(home, raw);
-    const awayHit = matches(away, raw);
-    if (homeHit && !awayHit) return home;
-    if (awayHit && !homeHit) return away;
-    if (homeHit) return home;
-    if (awayHit) return away;
+    const hs = matchScore(home, raw);
+    const as_ = matchScore(away, raw);
+    if (hs > as_) return home;
+    if (as_ > hs) return away;
+    if (hs > 0) {
+      // Equal fuzzy scores: prefer the LONGER team name — the more specific school
+      // ("Washington State") should win a containment tie over its prefix twin.
+      return away.name.length > home.name.length ? away : home;
+    }
     return null;
   };
 
@@ -1913,17 +1926,24 @@ function resolvePickSignals(
 function betTeamLogo(betTeam: string | null | undefined, away: TeamRef | null, home: TeamRef | null): string | null {
   const t = (betTeam || '').trim().toUpperCase();
   if (!t) return null;
-  // Exact name, abbrev, or containment either way — NFL flags store the full
-  // "Kansas City Chiefs" while the TeamRef name may be city or nickname.
-  const hit = (team: TeamRef | null): boolean => {
-    if (!team) return false;
+  // Exact name/abbrev outranks containment, and a containment tie goes to the
+  // LONGER name — "Washington State" contains "Washington" and was getting the
+  // Huskies' logo because home was checked first (WSU@UW bug, 2026-09-06).
+  // NFL flags store the full "Kansas City Chiefs" while the TeamRef name may be
+  // city or nickname, so containment stays as the fuzzy tier.
+  const score = (team: TeamRef | null): number => {
+    if (!team) return 0;
     const name = team.name.toUpperCase();
     const ab = team.abbrev.toUpperCase();
-    return name === t || ab === t || t.includes(name) || name.includes(t);
+    if (name === t || ab === t) return 2;
+    return t.includes(name) || name.includes(t) ? 1 : 0;
   };
-  if (hit(home)) return home!.logoUrl;
-  if (hit(away)) return away!.logoUrl;
-  return null;
+  const hs = score(home);
+  const as_ = score(away);
+  if (hs === 0 && as_ === 0) return null;
+  if (hs > as_) return home!.logoUrl;
+  if (as_ > hs) return away!.logoUrl;
+  return (away!.name.length > home!.name.length ? away : home)!.logoUrl;
 }
 
 function normalizedBetOU(v: string | null | undefined): 'over' | 'under' | undefined {
