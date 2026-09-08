@@ -31,11 +31,58 @@ def load_key():
     sys.exit("SUPABASE_SERVICE_KEY not found in .env.local")
 
 
+NICK_AB = {"Patriots": "NE", "Seahawks": "SEA", "49ers": "SF", "Rams": "LA", "Bears": "CHI",
+           "Panthers": "CAR", "Buccaneers": "TB", "Bengals": "CIN", "Saints": "NO", "Lions": "DET",
+           "Bills": "BUF", "Texans": "HOU", "Ravens": "BAL", "Colts": "IND", "Browns": "CLE",
+           "Jaguars": "JAX", "Falcons": "ATL", "Steelers": "PIT", "Jets": "NYJ", "Titans": "TEN",
+           "Cardinals": "ARI", "Chargers": "LAC", "Dolphins": "MIA", "Raiders": "LV",
+           "Packers": "GB", "Vikings": "MIN", "Commanders": "WAS", "Eagles": "PHI",
+           "Cowboys": "DAL", "Giants": "NYG", "Broncos": "DEN", "Chiefs": "KC"}
+
+
+def fz_assignments():
+    """PREGAME crew assignments from Football Zebras (posted ~Tuesday for the week).
+    nflverse only carries referees for COMPLETED games, so without this the ref
+    trends could never light up before kickoff (owner, 2026-09-08). Returns a
+    frame shaped like the nflverse path (home_ab/away_ab/referee) or None."""
+    import re
+    import html as _html
+    ua = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+    try:
+        cat = requests.get("https://www.footballzebras.com/category/assignments/",
+                           headers=ua, timeout=30).text
+        m = re.search(rf'href="(https://www\.footballzebras\.com/\d{{4}}/\d{{2}}/'
+                      rf'week-{WEEK}-referee-assignments-{SEASON}/?)"', cat)
+        if not m:
+            return None
+        page = requests.get(m.group(1), headers=ua, timeout=30).text
+        art = re.search(r"<article.*?</article>", page, re.S)
+        txt = _html.unescape(re.sub(r"<[^>]+>", "\n", art.group(0) if art else page))
+        lines = [l.strip() for l in txt.split("\n") if l.strip()]
+        rows = []
+        for i, l in enumerate(lines[:-1]):
+            mm = re.match(r"^([A-Za-z49\s]+) at ([A-Za-z\s]+)$", l)
+            if not mm:
+                continue
+            away, home = NICK_AB.get(mm.group(1).strip()), NICK_AB.get(mm.group(2).strip())
+            ref = lines[i + 1].strip()
+            if away and home and re.match(r"^[A-Z][a-z]+ [A-Z][A-Za-z'.-]+", ref):
+                rows.append({"home_ab": home, "away_ab": away, "referee": ref})
+        return pd.DataFrame(rows) if rows else None
+    except Exception as e:
+        print(f"[refs] footballzebras fetch failed ({e}) — falling back to nflverse")
+        return None
+
+
 def main():
-    g = pd.read_csv(io.StringIO(requests.get(GAMES_CSV, timeout=90).text))
-    g = g[(g.season == SEASON) & (g.week == WEEK) & g.referee.notna()].copy()
-    g["home_ab"] = g.home_team.replace(NORM)
-    g["away_ab"] = g.away_team.replace(NORM)
+    g = fz_assignments()
+    if g is not None and len(g):
+        print(f"[refs] {len(g)} pregame crew assignments from Football Zebras")
+    else:
+        g = pd.read_csv(io.StringIO(requests.get(GAMES_CSV, timeout=90).text))
+        g = g[(g.season == SEASON) & (g.week == WEEK) & g.referee.notna()].copy()
+        g["home_ab"] = g.home_team.replace(NORM)
+        g["away_ab"] = g.away_team.replace(NORM)
     if not len(g):
         print(f"[refs] no referee assignments available for {SEASON} wk{WEEK} yet — skipping")
         return
