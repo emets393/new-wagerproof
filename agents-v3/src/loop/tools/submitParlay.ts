@@ -251,6 +251,62 @@ export async function submitParlay(
         if (!mA && !mH) { legFailure = `leg ${gameId}: team_not_in_matchup "${effectiveSelection}"`; break; }
       }
 
+      // ── Authoritative odds stamp (parlay legs) ─────────────────────────────
+      // Same rule as submit_picks: NEVER trust model-authored leg odds — they
+      // corrupt the COMBINED price too (incident 2026-09-08: a CFB ticket
+      // carried "USC -250" when the slate said -37500, overstating the payout).
+      // Resolve the picked side against the snapshot, handling BOTH shapes:
+      //   MLB:      full_ml/f5_ml.{home,away}, full_rl/f5_rl.{side}_odds, *_ou
+      //   NFL/CFB:  {home_ml,away_ml} / full_game.ml_{side}_close /
+      //             first_half.ml_{side}_close (no spread/total juice in the
+      //             football snapshot — those legs keep model odds, ~-110).
+      // Runs BEFORE the ML→RL swap and BEFORE combined-odds pricing, so both
+      // see real numbers. Missing data keeps the model's odds.
+      if (effectiveBetType === "moneyline" || effectiveBetType === "spread" || effectiveBetType === "total") {
+        const vl = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
+        const homeNameS = String(gameSnapshot.home_team || "");
+        const awayNameS = String(gameSnapshot.away_team || "");
+        const homeLastS = homeNameS.toLowerCase().split(/\s+/).pop() || "";
+        const awayLastS = awayNameS.toLowerCase().split(/\s+/).pop() || "";
+        const sLower = effectiveSelection.toLowerCase();
+        const sHitsHome = !!homeNameS && (sLower.includes(homeNameS.toLowerCase()) || (!!homeLastS && sLower.includes(homeLastS)));
+        const sHitsAway = !!awayNameS && (sLower.includes(awayNameS.toLowerCase()) || (!!awayLastS && sLower.includes(awayLastS)));
+        const stampSide: "home" | "away" | null = sHitsHome && !sHitsAway ? "home" : sHitsAway && !sHitsHome ? "away" : null;
+        const readOdds = (block: unknown, key: string): string | null => {
+          const v = (block as Record<string, unknown> | undefined)?.[key];
+          if (typeof v === "string" && v.trim() !== "") return v;
+          if (typeof v === "number" && Number.isFinite(v)) return v > 0 ? `+${v}` : String(v);
+          return null;
+        };
+        let slateOdds: string | null = null;
+        if (effectiveBetType === "moneyline" && stampSide) {
+          if (effectivePeriod === "f5") {
+            slateOdds = readOdds(vl?.["f5_ml"], stampSide);
+          } else if (effectivePeriod === "h1") {
+            slateOdds = readOdds(vl?.["h1_ml"], stampSide)
+              ?? readOdds(vl?.["first_half"], `ml_${stampSide}_close`);
+          } else {
+            slateOdds = readOdds(vl?.["full_ml"], stampSide)
+              ?? readOdds(vl, `${stampSide}_ml`)
+              ?? readOdds(vl?.["full_game"], `ml_${stampSide}_close`);
+          }
+          if (slateOdds) {
+            // Rewrite so a wrong model price can't survive in the display text.
+            effectiveSelection = `${stampSide === "home" ? homeNameS : awayNameS} ML`;
+          }
+        } else if (effectiveBetType === "spread" && stampSide) {
+          const rlKey = effectivePeriod === "f5" ? "f5_rl" : effectivePeriod === "h1" ? "h1_rl" : "full_rl";
+          slateOdds = readOdds(vl?.[rlKey], `${stampSide}_odds`);
+        } else if (effectiveBetType === "total") {
+          const dirMatch = sLower.match(/\b(over|under)\b/);
+          if (dirMatch) {
+            const ouKey = effectivePeriod === "f5" ? "f5_ou" : effectivePeriod === "h1" ? "h1_ou" : "full_ou";
+            slateOdds = readOdds(vl?.[ouKey], `${dirMatch[1]}_odds`);
+          }
+        }
+        if (slateOdds) effectiveOdds = slateOdds;
+      }
+
       // MLB ML→RL swap (identical to submit_picks)
       if (sportType === "mlb" && effectiveBetType === "moneyline") {
         const maxFav = (ctx.personalityParams as Record<string, unknown>)?.max_favorite_odds;
