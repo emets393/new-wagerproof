@@ -73,8 +73,11 @@ def main():
         # Threshold: 3h when that sport has a game within +/-24h, else 13h (covers the
         # set-hour gap; a dead collector still trips within a day).
         try:
+            # UPCOMING games only — a slate whose last game kicked hours ago has nothing
+            # pre-game to capture, and counting played games tightened the limit on the
+            # idle Monday-morning gap between weeks (false RED 2026-09-08).
             near = q(f"{slate}?select=game_id&season=eq.{season}"
-                     f"&kickoff=gte.{(NOW - dt.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')}"
+                     f"&kickoff=gte.{NOW.strftime('%Y-%m-%dT%H:%M:%SZ')}"
                      f"&kickoff=lte.{(NOW + dt.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')}", count=True)
             limit_h = 3 if near else 13
             snap = q(f"{hist}?select={tscol}&season=eq.{season}&order={tscol}.desc&limit=1")
