@@ -73,8 +73,16 @@ export async function fetchNflSportsbookOdds(input: {
       list.push(row);
       grouped.set(key, list);
     }
+    // Groups within 48h of kickoff are the SAME game — the Odds API corrects start
+    // times mid-week (opener moved 8:15→8:20 ET on Sep 2 and the old-time group
+    // "won" on proximity, freezing the board at 6-day-old prices). Among same-game
+    // groups, the one with the NEWEST capture is the books' current word; proximity
+    // only disambiguates genuinely different games (other weeks/seasons).
+    const SAME_GAME_MS = 48 * 3600 * 1000;
     let nearest: Array<Record<string, unknown>> | null = null;
     let nearestDelta = Number.POSITIVE_INFINITY;
+    let freshest: Array<Record<string, unknown>> | null = null;
+    let freshestStamp = '';
     for (const [stamp, rows] of grouped) {
       const ms = parseMs(stamp);
       const delta = ms == null ? Number.POSITIVE_INFINITY : Math.abs(ms - kickoffMs);
@@ -82,8 +90,16 @@ export async function fetchNflSportsbookOdds(input: {
         nearestDelta = delta;
         nearest = rows;
       }
+      if (delta <= SAME_GAME_MS) {
+        const snap = newestStamp(rows, 'snap_ts') ?? '';
+        if (snap > freshestStamp) {
+          freshestStamp = snap;
+          freshest = rows;
+        }
+      }
     }
-    if (nearest) candidates = nearest;
+    const chosen = freshest ?? nearest;
+    if (chosen) candidates = chosen;
   }
 
   const newest = newestStamp(candidates, 'snap_ts');
@@ -155,8 +171,14 @@ export async function fetchCfbSportsbookOdds(input: {
     list.push(row);
     eventGroups.set(key, list);
   }
+  // Same-game freshest-first selection as the NFL path above: the Odds API reissues
+  // event ids / corrects times mid-week, and proximity alone freezes the board on the
+  // retired event's last capture. Within 48h of kickoff, newest capture wins.
+  const SAME_GAME_MS = 48 * 3600 * 1000;
   let nearest: Array<Record<string, unknown>> | null = null;
   let nearestDelta = Number.POSITIVE_INFINITY;
+  let freshest: Array<Record<string, unknown>> | null = null;
+  let freshestStamp = '';
   for (const rows of eventGroups.values()) {
     const ms = parseMs(String(rows[0]?.commence_time ?? ''));
     const delta = ms == null ? Number.POSITIVE_INFINITY : Math.abs(ms - kickoffMs);
@@ -164,11 +186,19 @@ export async function fetchCfbSportsbookOdds(input: {
       nearestDelta = delta;
       nearest = rows;
     }
+    if (delta <= SAME_GAME_MS) {
+      const snap = newestStamp(rows, 'snapshot') ?? '';
+      if (snap > freshestStamp) {
+        freshestStamp = snap;
+        freshest = rows;
+      }
+    }
   }
-  if (!nearest) return null;
-  const newest = newestStamp(nearest, 'snapshot');
+  const chosenRows = freshest ?? nearest;
+  if (!chosenRows) return null;
+  const newest = newestStamp(chosenRows, 'snapshot');
   if (!newest) return null;
-  const latest = nearest.filter((row) => row.snapshot === newest);
+  const latest = chosenRows.filter((row) => row.snapshot === newest);
   const result: SportsbookGameOdds = {
     capturedAt: newest,
     rows: latest.map((row) => {
