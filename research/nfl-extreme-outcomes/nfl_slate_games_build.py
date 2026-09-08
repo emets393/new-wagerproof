@@ -192,6 +192,44 @@ def weather(r):
                 wx_precip_mm=None, wx_icon=icon, wx_summary=summary)
 
 
+_FC_CACHE = {}
+def forecast_wx(home_ab, away_ab):
+    """Pregame forecast for UPCOMING games, from the legacy nfl-weather feed
+    (production_weather, keyed HomeCity+AwayCity+season+week; dome flag from
+    team_mapping). weather() above reads REALIZED conditions out of historical
+    frames, which upcoming games cannot have — every 2026 wk1 card shipped
+    weather-blank (2026-09-08) while the forecast cron sat green and unread.
+    Returns None when no forecast exists (card stays blank, as before)."""
+    try:
+        if "map" not in _FC_CACHE:
+            key = load_key()
+            hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+            rws = requests.get(f"{BASE_URL}/production_weather?select=*", headers=hdr, timeout=30).json()
+            _FC_CACHE["map"] = {str(x.get("training_key")): x for x in rws} if isinstance(rws, list) else {}
+            tmw = pd.read_parquet(DATA / "team_mapping.parquet")
+            _FC_CACHE["city"] = {NORM.get(a, a): (n, bool(d)) for a, n, d in
+                                 zip(tmw["Team Abbrev"], tmw["team_name"], tmw["dome_stadium"])}
+        h = _FC_CACHE["city"].get(home_ab)
+        a = _FC_CACHE["city"].get(away_ab)
+        if not h or not a:
+            return None
+        if h[1]:
+            return dict(wx_indoors=True, wx_temp_f=None, wx_wind_mph=None,
+                        wx_precip_mm=None, wx_icon="indoor", wx_summary="Indoors (dome)")
+        row = _FC_CACHE["map"].get(f"{h[0]}{a[0]}{SEASON}{WEEK}")
+        if not row or row.get("temperature") is None:
+            return None
+        temp = float(row["temperature"])
+        wind = float(row.get("wind_speed") or 0)
+        icon = "wind" if wind >= 15 else ("cold" if temp <= 32 else "clear")
+        return dict(wx_indoors=False, wx_temp_f=temp, wx_wind_mph=wind,
+                    wx_precip_mm=None, wx_icon=icon,
+                    wx_summary=f"{int(temp)}\u00b0F, wind {int(wind)} mph")
+    except Exception as e:
+        print(f"[wx] forecast fill skipped: {e}")
+        return None
+
+
 def load_key():
     for line in (ROOT.parent.parent / ".env.local").read_text().splitlines():
         if line.startswith("SUPABASE_SERVICE_KEY="):
@@ -994,6 +1032,8 @@ def main():
         conv_tier, stake_u, summary = game_conviction(pk)
         bdf = books.get((r.home_ab, r.away_ab))
         wx = weather(r)
+        if wx.get("wx_temp_f") is None and not wx.get("wx_indoors"):
+            wx = forecast_wx(r.home_ab, r.away_ab) or wx
         rows.append(dict(
             game_id=r.game_id, season=SEASON, week=WEEK, gameday=r.gameday,
             kickoff=kickoff.get((r.home_ab, r.away_ab)) or r.get("_seed_kickoff"),
