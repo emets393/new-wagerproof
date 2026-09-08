@@ -96,7 +96,15 @@ def main():
             wk = max(x["week"] for x in g)
             cur = [x for x in g if x["week"] == wk]
             upc = [x for x in cur if x.get("kickoff") and ts(x["kickoff"]) > NOW]
-            check(f"{sport} slate", len(cur) > 0, f"week {wk}: {len(cur)} games, {len(upc)} upcoming")
+            # An exhausted newest week with no successor slate means the weekly build
+            # missed its window (2026-09-08: Monday's build ran before the Labor Day
+            # MNF game, re-resolved week 1, and week 2 never got built). Give the
+            # rebuild crons a 12h grace after the last kickoff, then alarm.
+            last_ko = max((ts(x["kickoff"]) for x in cur if x.get("kickoff")), default=None)
+            exhausted = not upc and last_ko is not None and NOW > last_ko + dt.timedelta(hours=12)
+            check(f"{sport} slate", len(cur) > 0 and not exhausted,
+                  f"week {wk}: {len(cur)} games, {len(upc)} upcoming"
+                  + (" — WEEK OVER, next week's slate NOT BUILT" if exhausted else ""))
 
             # 4. upcoming games inside 48h with no spread — the silent provider-drop case
             soon = [x for x in upc if ts(x["kickoff"]) < NOW + dt.timedelta(hours=48)]
