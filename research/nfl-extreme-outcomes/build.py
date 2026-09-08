@@ -27,6 +27,7 @@ def main():
     tm = load("team_mapping")
     ng = load("nflverse_games")
 
+
     # ---- 1. Patch SB mislabel (surgical: only the two real LA Rams Super Bowls) ----
     patch = {
         "LA ChargersNew England201821": ("home_team", "LA Rams"),  # SB LIII, Rams=home
@@ -48,6 +49,48 @@ def main():
     pg["home_ab"] = pg["home_team"].map(name2ab)
     pg["away_ab"] = pg["away_team"].map(name2ab)
     assert pg["home_ab"].notna().all() and pg["away_ab"].notna().all(), "unmapped team name"
+    # ---- 2b. current-week referee features from pregame ASSIGNMENTS -------------------
+    # The historical rows carry per-game ref tendencies via nfl_pregame_referee_stats,
+    # but the slate view has no crew (that table fills post-game), so the models scored
+    # upcoming games with ref features blank (owner, 2026-09-08). Assignments now land
+    # on nfl_slate_games.assigned_referee pregame (Football Zebras, ~Tuesday); fill the
+    # slate rows' ref_* from each assigned ref's LATEST career-to-date row in this same
+    # frame. Leak-safe: career stats through last completed game only. Guarded — no
+    # assignments or unknown ref leaves the row blank exactly as before.
+    try:
+        if "referee" in pg.columns:
+            _need = pg["referee"].isna() & (pg["season"] == pg["season"].max())
+            if _need.any():
+                import requests as _rq
+                _k = open(os.path.join(HERE, "..", "..", ".env.local")).read()
+                _k = [l.split("=", 1)[1].strip() for l in _k.splitlines()
+                      if l.startswith("SUPABASE_SERVICE_KEY=")][0]
+                _h = {"apikey": _k, "Authorization": f"Bearer {_k}"}
+                _a = _rq.get("https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1/nfl_slate_games"
+                             f"?season=eq.{int(pg['season'].max())}&select=game_id,home_ab,away_ab,assigned_referee"
+                             "&assigned_referee=not.is.null", headers=_h, timeout=30).json()
+                _amap = {(x["home_ab"], x["away_ab"]): x["assigned_referee"]
+                         for x in (_a if isinstance(_a, list) else [])}
+                _refc = ["ref_total_pts_avg", "ref_home_cover_pct", "ref_under_pct",
+                         "ref_avg_margin", "ref_fav_cover_pct", "ref_games_in_career"]
+                _refc = [c for c in _refc if c in pg.columns]
+                _hist = pg[pg["referee"].notna()].sort_values(["season", "week"])
+                _career = _hist.groupby("referee")[_refc].last()
+                _filled = 0
+                for _i in pg.index[_need]:
+                    _ref = _amap.get((pg.at[_i, "home_ab"], pg.at[_i, "away_ab"]))
+                    if _ref is None:
+                        continue
+                    pg.at[_i, "referee"] = _ref
+                    if _ref in _career.index:
+                        for _c in _refc:
+                            pg.at[_i, _c] = _career.at[_ref, _c]
+                    _filled += 1
+                if _filled:
+                    print(f"[refs] filled pregame ref features on {_filled} slate game(s) from assignments")
+    except Exception as _e:
+        print(f"[refs] pregame ref fill skipped: {_e}")
+
 
     # ---- 3. Target metrics ----
     pg["actual_margin"] = pg["home_score"] - pg["away_score"]      # home - away
