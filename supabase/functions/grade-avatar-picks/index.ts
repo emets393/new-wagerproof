@@ -1447,10 +1447,12 @@ serve(async (req) => {
   try {
     let dryRun = false;
     let recalcAll = false;
+    let chainDepth = 0;
     try {
       const body = await req.json();
       dryRun = Boolean((body as Record<string, unknown> | null)?.dry_run);
       recalcAll = Boolean((body as Record<string, unknown> | null)?.recalc_all);
+      chainDepth = Number((body as Record<string, unknown> | null)?.chain_depth ?? 0) || 0;
     } catch {
       // Allow empty or non-JSON cron requests.
     }
@@ -1497,13 +1499,27 @@ serve(async (req) => {
     //    game_id via football_game_results). Football finals only populate
     //    when the slate build runs live, so off-season football picks just
     //    stay pending — no harm in including them in the filter.
+    //
+    //    MEMORY-CRITICAL (incident 2026-09-05→08): select('*') dragged every
+    //    pending pick's ai_audit_payload / archived_personality / decision
+    //    trace (tens-to-hundreds of KB of jsonb each) into memory. At
+    //    football-season volume (>1,200 pending) the function died with
+    //    WORKER_RESOURCE_LIMIT (HTTP 546) before grading anything, and the
+    //    backlog compounded daily. Fetch ONLY the columns grading reads, in
+    //    a bounded batch; a self-chained invocation below drains the rest.
     // -------------------------------------------------------------------------
+    const GRADE_BATCH_SIZE = 400;
+    const GRADING_COLUMNS =
+      'id, avatar_id, game_id, sport, matchup, game_date, bet_type, period, pick_selection, ' +
+      'prop_player, prop_market, prop_line, prop_direction, odds, units, result, archived_game_data';
     const { data: pendingPicks, error: fetchError } = await supabase
       .from('avatar_picks')
-      .select('*')
+      .select(GRADING_COLUMNS)
       .eq('result', 'pending')
       .lte('game_date', today)
-      .in('sport', ['nba', 'ncaab', 'mlb', 'nfl', 'cfb']);
+      .in('sport', ['nba', 'ncaab', 'mlb', 'nfl', 'cfb'])
+      .order('game_date', { ascending: true })
+      .limit(GRADE_BATCH_SIZE);
 
     if (fetchError) {
       throw new Error(`Failed to fetch pending picks: ${fetchError.message}`);
@@ -1776,7 +1792,29 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 5. Return summary
+    // 5. Self-chain if this batch was full — more pending picks likely remain
+    //    (in-season backlog exceeds one batch). Fire-and-forget so this run
+    //    returns within its own compute budget; chain_depth caps runaway
+    //    recursion. Only chain when we actually GRADED something this run,
+    //    otherwise a stuck pick (results never final) would chain forever.
+    // -------------------------------------------------------------------------
+    const gradedThisRun = summary.won + summary.lost + summary.push;
+    if (!dryRun && straightPicks.length >= GRADE_BATCH_SIZE && gradedThisRun > 0 && chainDepth < 10) {
+      console.log(`[grade-avatar-picks] Batch full (${straightPicks.length}) — chaining run ${chainDepth + 1}`);
+      // Deliberately not awaited: the chained run continues after we respond.
+      fetch(`${supabaseUrl}/functions/v1/grade-avatar-picks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${supabaseServiceKey}`,
+          apikey: supabaseServiceKey,
+        },
+        body: JSON.stringify({ chain_depth: chainDepth + 1 }),
+      }).catch((chainError) => console.warn('[grade-avatar-picks] Chain invoke failed:', chainError));
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. Return summary
     // -------------------------------------------------------------------------
     const duration = Date.now() - startTime;
     console.log(`[grade-avatar-picks] Completed in ${duration}ms`);
@@ -1790,6 +1828,7 @@ serve(async (req) => {
         avatars_updated: avatarsUpdated,
         details: gradedDetails,
         dry_run: dryRun,
+        chain_depth: chainDepth,
         duration_ms: duration,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
