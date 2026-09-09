@@ -1,8 +1,56 @@
 {
   "families": [
     {
+      "family": "getting-started",
+      "bytes": 9190251,
+      "variants": [
+        {
+          "frame_prefix": "FirstAgent",
+          "source": "artifacts/achievements/first-agent/manifest.json",
+          "original_faces": 767124,
+          "runtime_faces": 46118,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "FirstFollow",
+          "source": "artifacts/achievements/first-follow/manifest.json",
+          "original_faces": 1530144,
+          "runtime_faces": 78458,
+          "contour_retessellated": true
+        },
+        {
+          "frame_prefix": "FirstPicks",
+          "source": "artifacts/achievements/first-picks/manifest.json",
+          "original_faces": 577584,
+          "runtime_faces": 45892,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "AgentSquad",
+          "source": "artifacts/achievements/getting-started/agent-squad/manifest.json",
+          "original_faces": 167602,
+          "runtime_faces": 52948,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "FullLineup",
+          "source": "artifacts/achievements/getting-started/full-lineup/manifest.json",
+          "original_faces": 167476,
+          "runtime_faces": 52836,
+          "contour_retessellated": false
+        }
+      ],
+      "checks": {
+        "y_up": true,
+        "material_bindings": true,
+        "corner_normals": true,
+        "no_studio": true,
+        "lod_closed_outward": true
+      }
+    },
+    {
       "family": "experience",
-      "bytes": 7478225,
+      "bytes": 9818032,
       "variants": [
         {
           "frame_prefix": "Experience10",
@@ -19,6 +67,20 @@
           "contour_retessellated": false
         },
         {
+          "frame_prefix": "Experience1000",
+          "source": "artifacts/achievements/experience/experience-1000/manifest.json",
+          "original_faces": 151464,
+          "runtime_faces": 96072,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Experience2500",
+          "source": "artifacts/achievements/experience/experience-2500/manifest.json",
+          "original_faces": 152028,
+          "runtime_faces": 96600,
+          "contour_retessellated": false
+        },
+        {
           "frame_prefix": "Experience50",
           "source": "artifacts/achievements/experience/experience-50/manifest.json",
           "original_faces": 160720,
@@ -30,6 +92,171 @@
           "source": "artifacts/achievements/experience/experience-500/manifest.json",
           "original_faces": 154742,
           "runtime_faces": 99150,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Experience5000",
+          "source": "artifacts/achievements/experience/experience-5000/manifest.json",
+          "original_faces": 151972,
+          "runtime_faces": 96548,
+          "contour_retessellated": false
+        }
+      ],
+      "checks": {
+        "y_up": true,
+        "material_bindings": true,
+        "corner_normals": true,
+        "no_studio": true,
+        "lod_closed_outward": true
+      }
+    },
+    {
+      "family": "streaks",
+      "bytes": 5935834,
+      "variants": [
+        {
+          "frame_prefix": "Streak10",
+          "source": "artifacts/achievements/streaks/streak-10/manifest.json",
+          "original_faces": 71488,
+          "runtime_faces": 48914,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Streak15",
+          "source": "artifacts/achievements/streaks/streak-15/manifest.json",
+          "original_faces": 70828,
+          "runtime_faces": 48348,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Streak20",
+          "source": "artifacts/achievements/streaks/streak-20/manifest.json",
+          "original_faces": 73504,
+          "runtime_faces": 50654,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Streak25",
+          "source": "artifacts/achievements/streaks/streak-25/manifest.json",
+          "original_faces": 72844,
+          "runtime_faces": 50084,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Streak3",
+          "source": "artifacts/achievements/streaks/streak-3/manifest.json",
+          "original_faces": 68126,
+          "runtime_faces": 46048,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Streak5",
+          "source": "artifacts/achievements/streaks/streak-5/manifest.json",
+          "original_faces": 67366,
+          "runtime_faces": 45406,
+          "contour_retessellated": false
+        }
+      ],
+      "checks": {
+        "y_up": true,
+        "material_bindings": true,
+        "corner_normals": true,
+        "no_studio": true,
+        "lod_closed_outward": true
+      }
+    },
+    {
+      "family": "performance",
+      "bytes": 7406914,
+      "variants": [
+        {
+          "frame_prefix": "Consistent",
+          "source": "artifacts/achievements/performance/consistent/manifest.json",
+          "original_faces": 67196,
+          "runtime_faces": 51866,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Consistent250",
+          "source": "artifacts/achievements/performance/consistent-250/manifest.json",
+          "original_faces": 67752,
+          "runtime_faces": 52360,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Consistent500",
+          "source": "artifacts/achievements/performance/consistent-500/manifest.json",
+          "original_faces": 67840,
+          "runtime_faces": 52438,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "FirstWin",
+          "source": "artifacts/achievements/performance/first-win/manifest.json",
+          "original_faces": 55514,
+          "runtime_faces": 41754,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Plus10Units",
+          "source": "artifacts/achievements/performance/plus-10-units/manifest.json",
+          "original_faces": 57516,
+          "runtime_faces": 43440,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Plus100Units",
+          "source": "artifacts/achievements/performance/plus-100-units/manifest.json",
+          "original_faces": 60506,
+          "runtime_faces": 46000,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Plus25Units",
+          "source": "artifacts/achievements/performance/plus-25-units/manifest.json",
+          "original_faces": 57364,
+          "runtime_faces": 43312,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Plus50Units",
+          "source": "artifacts/achievements/performance/plus-50-units/manifest.json",
+          "original_faces": 58704,
+          "runtime_faces": 44452,
+          "contour_retessellated": false
+        }
+      ],
+      "checks": {
+        "y_up": true,
+        "material_bindings": true,
+        "corner_normals": true,
+        "no_studio": true,
+        "lod_closed_outward": true
+      }
+    },
+    {
+      "family": "leaderboard",
+      "bytes": 5932673,
+      "variants": [
+        {
+          "frame_prefix": "NumberOne",
+          "source": "artifacts/achievements/leaderboard/number-one/manifest.json",
+          "original_faces": 124178,
+          "runtime_faces": 86670,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Top10",
+          "source": "artifacts/achievements/leaderboard/top-10/manifest.json",
+          "original_faces": 130726,
+          "runtime_faces": 92814,
+          "contour_retessellated": false
+        },
+        {
+          "frame_prefix": "Top100",
+          "source": "artifacts/achievements/leaderboard/top-100/manifest.json",
+          "original_faces": 134642,
+          "runtime_faces": 96506,
           "contour_retessellated": false
         }
       ],
@@ -95,162 +322,13 @@
         "no_studio": true,
         "lod_closed_outward": true
       }
-    },
-    {
-      "family": "getting-started",
-      "bytes": 5934269,
-      "variants": [
-        {
-          "frame_prefix": "FirstAgent",
-          "source": "artifacts/achievements/first-agent/manifest.json",
-          "original_faces": 767124,
-          "runtime_faces": 46118,
-          "contour_retessellated": false
-        },
-        {
-          "frame_prefix": "FirstFollow",
-          "source": "artifacts/achievements/first-follow/manifest.json",
-          "original_faces": 1530144,
-          "runtime_faces": 78458,
-          "contour_retessellated": true
-        },
-        {
-          "frame_prefix": "FirstPicks",
-          "source": "artifacts/achievements/first-picks/manifest.json",
-          "original_faces": 577584,
-          "runtime_faces": 45892,
-          "contour_retessellated": false
-        }
-      ],
-      "checks": {
-        "y_up": true,
-        "material_bindings": true,
-        "corner_normals": true,
-        "no_studio": true,
-        "lod_closed_outward": true
-      }
-    },
-    {
-      "family": "leaderboard",
-      "bytes": 5932673,
-      "variants": [
-        {
-          "frame_prefix": "NumberOne",
-          "source": "artifacts/achievements/leaderboard/number-one/manifest.json",
-          "original_faces": 124178,
-          "runtime_faces": 86670,
-          "contour_retessellated": false
-        },
-        {
-          "frame_prefix": "Top10",
-          "source": "artifacts/achievements/leaderboard/top-10/manifest.json",
-          "original_faces": 130726,
-          "runtime_faces": 92814,
-          "contour_retessellated": false
-        },
-        {
-          "frame_prefix": "Top100",
-          "source": "artifacts/achievements/leaderboard/top-100/manifest.json",
-          "original_faces": 134642,
-          "runtime_faces": 96506,
-          "contour_retessellated": false
-        }
-      ],
-      "checks": {
-        "y_up": true,
-        "material_bindings": true,
-        "corner_normals": true,
-        "no_studio": true,
-        "lod_closed_outward": true
-      }
-    },
-    {
-      "family": "performance",
-      "bytes": 4681678,
-      "variants": [
-        {
-          "frame_prefix": "Consistent",
-          "source": "artifacts/achievements/performance/consistent/manifest.json",
-          "original_faces": 62312,
-          "runtime_faces": 47566,
-          "contour_retessellated": false
-        },
-        {
-          "frame_prefix": "FirstWin",
-          "source": "artifacts/achievements/performance/first-win/manifest.json",
-          "original_faces": 55514,
-          "runtime_faces": 41754,
-          "contour_retessellated": false
-        },
-        {
-          "frame_prefix": "Plus10Units",
-          "source": "artifacts/achievements/performance/plus-10-units/manifest.json",
-          "original_faces": 57516,
-          "runtime_faces": 43440,
-          "contour_retessellated": false
-        },
-        {
-          "frame_prefix": "Plus25Units",
-          "source": "artifacts/achievements/performance/plus-25-units/manifest.json",
-          "original_faces": 57364,
-          "runtime_faces": 43312,
-          "contour_retessellated": false
-        }
-      ],
-      "checks": {
-        "y_up": true,
-        "material_bindings": true,
-        "corner_normals": true,
-        "no_studio": true,
-        "lod_closed_outward": true
-      }
-    },
-    {
-      "family": "streaks",
-      "bytes": 4811001,
-      "variants": [
-        {
-          "frame_prefix": "Streak10",
-          "source": "artifacts/achievements/streaks/streak-10/manifest.json",
-          "original_faces": 71028,
-          "runtime_faces": 54546,
-          "contour_retessellated": false
-        },
-        {
-          "frame_prefix": "Streak15",
-          "source": "artifacts/achievements/streaks/streak-15/manifest.json",
-          "original_faces": 54676,
-          "runtime_faces": 40406,
-          "contour_retessellated": false
-        },
-        {
-          "frame_prefix": "Streak3",
-          "source": "artifacts/achievements/streaks/streak-3/manifest.json",
-          "original_faces": 77842,
-          "runtime_faces": 39836,
-          "contour_retessellated": false
-        },
-        {
-          "frame_prefix": "Streak5",
-          "source": "artifacts/achievements/streaks/streak-5/manifest.json",
-          "original_faces": 52088,
-          "runtime_faces": 38296,
-          "contour_retessellated": false
-        }
-      ],
-      "checks": {
-        "y_up": true,
-        "material_bindings": true,
-        "corner_normals": true,
-        "no_studio": true,
-        "lod_closed_outward": true
-      }
     }
   ],
-  "family_usdz_bytes": 36998907,
-  "thumbnail_bytes": 2368207,
+  "family_usdz_bytes": 46444160,
+  "thumbnail_bytes": 6234938,
   "skybox_bytes": 67765,
-  "runtime_visual_review": "Six family representatives plus all three getting-started variants inspected; rejected coarse cutout/bevel LODs were replaced by original chassis geometry. Ticket reverse original topology preserved for rear-border clearance.",
-  "ios_testing": "Performed by parent task; inspect latest built bundle after replacing resources.",
-  "runtime_total_bytes": 39434879
+  "native_thumbnail_count": 70,
+  "thumbnail_pixels": 512,
+  "runtime_visual_review": "Expanded family exports and selected source renders verified; all native previews baked through the production renderer.",
+  "runtime_total_bytes": 52746863
 }

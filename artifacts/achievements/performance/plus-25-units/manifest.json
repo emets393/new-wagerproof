@@ -3,7 +3,7 @@
   "family": "performance",
   "title": "+25 UNITS",
   "label": "+25",
-  "tier": "gold",
+  "tier": "silver",
   "frame_prefix": "Plus25Units",
   "asset": "plus-25-units.usdz",
   "editable_master": "plus-25-units.blend",
@@ -103,11 +103,5 @@
       "angle"
     ]
   },
-  "usdz_bytes": 2696167,
-  "family_palette": {
-    "primary": "#763AB9",
-    "secondary": "#B47BE5",
-    "enamel": "#EBDDFF",
-    "name": "Amethyst / lilac"
-  }
+  "usdz_bytes": 2696159
 }

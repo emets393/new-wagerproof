@@ -1,6 +1,6 @@
 # WagerProof native achievements
 
-Implemented from Honeydew Swift's achievement experience, verified against origin/main `d426714` in an isolated checkout. The collection has 24 awards in six families. All four Experience ticket masters have smooth notch joins; approved contours and the stronger shared bow remain intact.
+Implemented from Honeydew Swift's achievement experience, verified against origin/main `d426714` in an isolated checkout. The collection has 35 awards in six families. All four Experience ticket masters have smooth notch joins; approved contours and the stronger shared bow remain intact.
 
 ## App flow
 
@@ -18,7 +18,7 @@ The app refreshes on login, foreground, tab changes, collection/detail entry, ag
 - `.../WagerproofServices/AchievementService.swift`: authenticated RPC transport.
 - `.../WagerproofStores/AchievementsStore.swift`: account lifecycle, snapshots, offline retries and celebrations.
 - `wagerproof-ios-native/Wagerproof/Features/Achievements`: library, shelf, detail, celebration and renderer.
-- `wagerproof-ios-native/Wagerproof/Resources/Achievements`: six family USDZs, 48 native earned/locked thumbnails and studio environment. The verification folder is excluded from the app bundle.
+- `wagerproof-ios-native/Wagerproof/Resources/Achievements`: six family USDZs, 70 native earned/locked thumbnails and studio environment. The verification folder is excluded from the app bundle.
 - `scripts/package-achievement-runtime.py`: reproducible runtime packaging. Editable review masters remain under `artifacts/achievements`.
 
 ## Validation
@@ -59,6 +59,37 @@ The later color-only pass updates all 24 authored medals, six runtime exports an
 
 The follow-up rendering pass copies Honeydew's 50-degree camera, 1.06 framing margin, 0.65-second smoothstep reveal, gentle idle rocking, front/back detents and role-specific PBR roughness/clearcoat. WagerProof retains the approved authored family colors and geometry. Detail uses the same 420-point hero size and spring grow-in.
 
-The collection now uses 48 earned/locked PNGs baked through the production RealityKit surface, replacing the Blender preview images and opacity-based locked treatment. To regenerate after an asset/material change, launch a Debug simulator build with `-achievementPreview -bakeAchievementThumbnails`. Wait for `Documents/AchievementBakes/complete.txt`, copy all 48 PNGs into the achievement resources and regenerate the Xcode project. Runtime packaging's Blender thumbnails are interim previews; perform this native bake afterward for release.
+The collection now uses 70 earned/locked PNGs baked through the production RealityKit surface, replacing the Blender preview images and opacity-based locked treatment. To regenerate after an asset/material change, launch a Debug simulator build with `-achievementPreview -bakeAchievementThumbnails`. Wait for `Documents/AchievementBakes/complete.txt`, copy all 70 PNGs into the achievement resources and regenerate the Xcode project. Runtime packaging's Blender thumbnails are interim previews; perform this native bake afterward for release.
 
 The unlock sheet initially shows a finger-swipe hint and “Swipe me to rotate.” Touching the medal dismisses the hint and stops automatic rotation. Reduce Motion suppresses the reveal, rocking and finger animation. `-achievementPreview -achievementCelebration` is the isolated Debug preview for this surface and does not grant a real award.
+
+## Milestone expansion
+
+Adds Agent Squad (3 created agents), Full Lineup (5), 1,000/2,500/5,000 graded picks, 20/25 straight-pick win streaks, +50/+100 net units and 55% consistency over 250/500 decided picks. All performance thresholds remain per-agent. Agent creation history persists after deletion, including before a milestone is reached; deleted agents from before tracking cannot be reconstructed.
+
+| Progression | Bronze | Silver | Gold |
+| --- | --- | --- | --- |
+| Created agents | First Agent | Agent Squad: 3 | Full Lineup: 5 |
+| Graded picks | 10, 50 | 100, 500 | 1,000, 2,500, 5,000 |
+| Winning streak | 3, 5 | 10, 15 | 20, 25 |
+| Net units | First Win, +10 | +25, +50 | +100 |
+| 55% consistency | 100 decided | 250 decided | 500 decided |
+
+Other families retain their existing finishes. These are visual tier changes, not unlock revocations. The newer consistency medals carry a small decided-pick count below 55%. Agent Squad and Full Lineup reuse the approved pixel head with a 3/5 numeral.
+
+Catalog version 2 recognizes newly introduced qualifying milestones quietly on the next read while preserving older pending celebrations. Migration `20260911120000` is deployed. The expanded SQL suite checks exact boundaries, per-agent evidence, lineup counts, history preservation and upgrade behavior; 13 native model/store tests pass.
+
+All 70 native thumbnails have been rebaked at 512 × 512 pixels after packaging the expanded assets. The completion marker counts catalog entries dynamically.
+
+Migration `20260911121000_achievement_agent_creation_history.sql` adds an owner-readable, server-written creation ledger, backfilled from currently existing agents. Source refreshes capture each agent ID once and preserve it after deletion. Tests cover deletion before a milestone, owner isolation and denied fabricated creation writes.
+
+
+## Onboarding, paywall and sharing
+
+Onboarding introduces the collection after the leaderboard with “Track skill with achievements!”, an interactive hero, a swipe demonstration and a picker for all 35 medals. Gold 25 Win Streak is selected initially. The same gold flame rocks side to side on the third of eight paywall slides. Reduce Motion disables the motion. Previewing medals never records achievement activity.
+
+Earned achievement details and unlock celebrations offer “Share with a Friend”, matching Honeydew's native ShareLink flow: the earned RealityKit thumbnail, achievement title and a short WagerProof caption. Locked achievements do not offer sharing. Opening or cancelling the share sheet does not acknowledge or unlock an achievement.
+
+Validation: 35-asset catalog and palette checks, SQL boundary/upgrade/history tests, 13 native model/store tests and the production onboarding navigation verifier pass. All 70 packaged thumbnails are 512-pixel native renders. Simulator and signed iPhone builds verify integration; onboarding, third paywall slide and sharing controls are visually checked separately.
+
+The final Debug build (3.6.1, build 326) was installed and launched normally on the selected iPhone 14 Pro. No App Store upload was performed. Share-sheet delivery to an external destination remains manual device UAT.

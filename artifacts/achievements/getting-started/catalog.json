@@ -1,0 +1,14 @@
+[
+  {
+    "slug": "agent-squad",
+    "title": "AGENT SQUAD",
+    "label": "3",
+    "tier": "silver"
+  },
+  {
+    "slug": "full-lineup",
+    "title": "FULL LINEUP",
+    "label": "5",
+    "tier": "gold"
+  }
+]

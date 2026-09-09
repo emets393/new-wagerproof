@@ -3,7 +3,7 @@
   "family": "streaks",
   "title": "5 WIN STREAK",
   "label": "5",
-  "tier": "silver",
+  "tier": "bronze",
   "frame_prefix": "Streak5",
   "asset": "streak-5.usdz",
   "editable_master": "streak-5.blend",
@@ -16,46 +16,46 @@
   "preview_text_in_export": false,
   "parts": {
     "satin_flame_reverse": {
-      "vertices": 11940,
-      "faces": 23876,
+      "vertices": 16306,
+      "faces": 32608,
       "nonmanifold_edges": 0,
-      "volume": 0.17066181029330127
+      "volume": 0.17065455094919532
     },
     "acrylic_center_cell": {
-      "vertices": 4432,
-      "faces": 8860,
+      "vertices": 5889,
+      "faces": 11774,
       "nonmanifold_edges": 0,
-      "volume": 0.03896520423381383
+      "volume": 0.03896939875562868
     },
     "acrylic_left_cell": {
-      "vertices": 884,
-      "faces": 1764,
+      "vertices": 1063,
+      "faces": 2122,
       "nonmanifold_edges": 0,
-      "volume": 0.006482311584050458
+      "volume": 0.006477290494432901
     },
     "acrylic_right_cell": {
-      "vertices": 670,
-      "faces": 1336,
+      "vertices": 706,
+      "faces": 1408,
       "nonmanifold_edges": 0,
-      "volume": 0.00379005639277519
+      "volume": 0.0037879802056031693
     },
     "metal_flame_chassis": {
-      "vertices": 5160,
-      "faces": 10328,
+      "vertices": 6272,
+      "faces": 12552,
       "nonmanifold_edges": 0,
-      "volume": 0.050960855735011204
+      "volume": 0.05096330684253998
     },
     "metal_number_5_0_0": {
-      "vertices": 1504,
-      "faces": 3004,
+      "vertices": 1770,
+      "faces": 3536,
       "nonmanifold_edges": 0,
-      "volume": 0.014888154679626859
+      "volume": 0.014888551289875335
     },
     "ivory_number_5_0_0": {
-      "vertices": 1462,
-      "faces": 2920,
+      "vertices": 1685,
+      "faces": 3366,
       "nonmanifold_edges": 0,
-      "volume": 0.005574424563164718
+      "volume": 0.005579183575576862
     }
   },
   "export_checks": {
@@ -73,11 +73,5 @@
       "angle"
     ]
   },
-  "usdz_bytes": 2443340,
-  "family_palette": {
-    "primary": "#E74712",
-    "secondary": "#FFAB25",
-    "enamel": "#FFF0CF",
-    "name": "Ember / amber"
-  }
+  "usdz_bytes": 3132377
 }

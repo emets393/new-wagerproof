@@ -3,28 +3,51 @@
     "slug": "first-win",
     "title": "FIRST WIN",
     "label": "1",
-    "tier": "bronze",
-    "fill": "#8BCD00"
+    "tier": "bronze"
   },
   {
     "slug": "plus-10-units",
     "title": "+10 UNITS",
     "label": "+10",
-    "tier": "silver",
-    "fill": "#8BCD00"
+    "tier": "bronze"
   },
   {
     "slug": "plus-25-units",
     "title": "+25 UNITS",
     "label": "+25",
-    "tier": "gold",
-    "fill": "#8BCD00"
+    "tier": "silver"
+  },
+  {
+    "slug": "plus-50-units",
+    "title": "+50 UNITS",
+    "label": "+50",
+    "tier": "silver"
+  },
+  {
+    "slug": "plus-100-units",
+    "title": "+100 UNITS",
+    "label": "+100",
+    "tier": "gold"
   },
   {
     "slug": "consistent",
     "title": "CONSISTENT",
     "label": "55%",
+    "tier": "bronze",
+    "decided": 100
+  },
+  {
+    "slug": "consistent-250",
+    "title": "PROVEN CONSISTENCY 250",
+    "label": "55%",
+    "tier": "silver",
+    "decided": 250
+  },
+  {
+    "slug": "consistent-500",
+    "title": "PROVEN CONSISTENCY 500",
+    "label": "55%",
     "tier": "gold",
-    "fill": "#8BCD00"
+    "decided": 500
   }
 ]

@@ -116,3 +116,11 @@ trial toggle, no delayed X. Production onboarding runs HARD (no X) by default
 — Log Out in the header is still available, so the gate never traps an account;
 ship App Review builds with `paywall_close_enabled: true` (soft) if review
 requires a visible dismiss control.
+
+## Achievement showcase
+
+The flow now has 26 pages: 23 carousel pages and three cinematic phases. The new achievement page sits after the leaderboard and before ATT priming. It uses stable step ID 26, while every existing step keeps its raw ID. Navigation and visual progress use declaration order; the shared 24-step analytics funnel continues to exclude the iOS-only ATT and achievement pages.
+
+The page follows Honeydew's `OnboardingTrustV2View`: one interactive 3D hero, an initial swipe demonstration, the selected title, and an interleaved picker for all 35 medals. The gold 25 Win Streak flame is selected first. Personalization is sample-only and never calls achievement RPCs or grants awards. Continue and Back remain in the shared onboarding shell.
+
+The custom paywall has eight feature slides, with achievements third with the same gold flame gently rocking side to side. It mounts the shared 3D renderer only on that active slide and pauses when backgrounded; Reduce Motion shows it still. Checkout and entitlement behavior are unchanged. QA entry: `-uiScreenshotMode onboardingPage -onboardingStep 26`; paywall: `-uiScreenshotMode customPaywall -paywallPage 2`.

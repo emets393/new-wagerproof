@@ -16,6 +16,7 @@ import medal_studio as studio
 
 def families():
     result={'getting-started':[ASSETS/s/'manifest.json' for s in ['first-agent','first-follow','first-picks']]}
+    result['getting-started'] += sorted((ASSETS/'getting-started').glob('*/manifest.json'))
     for family in ['experience','streaks','performance','leaderboard','exploration']:
         result[family]=sorted((ASSETS/family).glob('*/manifest.json'))
     return result

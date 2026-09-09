@@ -1,4 +1,4 @@
-"""Four approved Winning Streaks flame medals, using the shared curved studio."""
+"""Six Winning Streaks flame medals, using the shared curved studio."""
 import importlib.util
 from pathlib import Path
 import bpy
@@ -8,10 +8,12 @@ studio = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(studio)
 
 VARIANTS = [
-    {'slug':'streak-3','title':'3 WIN STREAK','label':'3','tier':'bronze','fill':'#FF7100'},
-    {'slug':'streak-5','title':'5 WIN STREAK','label':'5','tier':'silver','fill':'#FF7100'},
-    {'slug':'streak-10','title':'10 WIN STREAK','label':'10','tier':'gold','fill':'#FF7100'},
-    {'slug':'streak-15','title':'15 WIN STREAK','label':'15','tier':'gold','fill':'#FF7100'},
+    {'slug': 'streak-3', 'title': '3 WIN STREAK', 'label': '3', 'tier': 'bronze', 'fill': '#8BCD00'},
+    {'slug': 'streak-5', 'title': '5 WIN STREAK', 'label': '5', 'tier': 'bronze', 'fill': '#8BCD00'},
+    {'slug': 'streak-10', 'title': '10 WIN STREAK', 'label': '10', 'tier': 'silver', 'fill': '#8BCD00'},
+    {'slug': 'streak-15', 'title': '15 WIN STREAK', 'label': '15', 'tier': 'silver', 'fill': '#8BCD00'},
+    {'slug': 'streak-20', 'title': '20 WIN STREAK', 'label': '20', 'tier': 'gold', 'fill': '#8BCD00'},
+    {'slug': 'streak-25', 'title': '25 WIN STREAK', 'label': '25', 'tier': 'gold', 'fill': '#8BCD00'},
 ]
 
 

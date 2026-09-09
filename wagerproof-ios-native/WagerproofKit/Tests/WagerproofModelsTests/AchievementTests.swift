@@ -3,11 +3,11 @@ import XCTest
 @testable import WagerproofModels
 
 final class AchievementTests: XCTestCase {
-    func testCatalogHas24UniqueAssetsAcrossSixFamilies() {
+    func testCatalogHas35UniqueAssetsAcrossSixFamilies() {
         let entries = AchievementCatalog.definitions
-        XCTAssertEqual(entries.count, 24)
-        XCTAssertEqual(Set(entries.map(\.id)).count, 24)
-        XCTAssertEqual(Set(entries.map(\.variantRoot)).count, 24)
+        XCTAssertEqual(entries.count, 35)
+        XCTAssertEqual(Set(entries.map(\.id)).count, 35)
+        XCTAssertEqual(Set(entries.map(\.variantRoot)).count, 35)
         XCTAssertEqual(Set(entries.map(\.group)).count, 6)
         XCTAssertTrue(entries.allSatisfy { $0.target > 0 && !$0.requirement.isEmpty })
     }

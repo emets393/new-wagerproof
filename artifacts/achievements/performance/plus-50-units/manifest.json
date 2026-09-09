@@ -1,0 +1,107 @@
+{
+  "id": "plus-50-units",
+  "family": "performance",
+  "title": "+50 UNITS",
+  "label": "+50",
+  "tier": "silver",
+  "frame_prefix": "Plus50Units",
+  "asset": "plus-50-units.usdz",
+  "editable_master": "plus-50-units.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "satin_diamond_back": {
+      "vertices": 11398,
+      "faces": 22792,
+      "nonmanifold_edges": 0,
+      "volume": 0.16165021050739667
+    },
+    "metal_diamond_frame": {
+      "vertices": 528,
+      "faces": 528,
+      "nonmanifold_edges": 0,
+      "volume": 0.0559170470705897
+    },
+    "acrylic_diamond_face": {
+      "vertices": 9912,
+      "faces": 19820,
+      "nonmanifold_edges": 0,
+      "volume": 0.0653595347954031
+    },
+    "satin_diamond_rear_border": {
+      "vertices": 288,
+      "faces": 288,
+      "nonmanifold_edges": 0,
+      "volume": 0.00036827362846405696
+    },
+    "metal_diamond_divider_left1": {
+      "vertices": 1000,
+      "faces": 1996,
+      "nonmanifold_edges": 0,
+      "volume": 0.0008494141848437923
+    },
+    "metal_diamond_divider_1": {
+      "vertices": 1000,
+      "faces": 1996,
+      "nonmanifold_edges": 0,
+      "volume": 0.0008494139826841655
+    },
+    "metal_number_plus50_0_0": {
+      "vertices": 686,
+      "faces": 1368,
+      "nonmanifold_edges": 0,
+      "volume": 0.002829391109266961
+    },
+    "ivory_number_plus50_0_0": {
+      "vertices": 446,
+      "faces": 888,
+      "nonmanifold_edges": 0,
+      "volume": 0.0008949014859107107
+    },
+    "metal_number_plus50_1_0": {
+      "vertices": 1047,
+      "faces": 2090,
+      "nonmanifold_edges": 0,
+      "volume": 0.006423244281377584
+    },
+    "ivory_number_plus50_1_0": {
+      "vertices": 987,
+      "faces": 1970,
+      "nonmanifold_edges": 0,
+      "volume": 0.0021016701178979778
+    },
+    "metal_number_plus50_2_0": {
+      "vertices": 1280,
+      "faces": 2560,
+      "nonmanifold_edges": 0,
+      "volume": 0.006944423000645549
+    },
+    "ivory_number_plus50_2_0": {
+      "vertices": 1204,
+      "faces": 2408,
+      "nonmanifold_edges": 0,
+      "volume": 0.00239387666370502
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 12,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle"
+    ]
+  },
+  "usdz_bytes": 2759393
+}

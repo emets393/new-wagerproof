@@ -3,7 +3,7 @@
   "family": "performance",
   "title": "CONSISTENT",
   "label": "55%",
-  "tier": "gold",
+  "tier": "bronze",
   "frame_prefix": "Consistent",
   "asset": "consistent.usdz",
   "editable_master": "consistent.blend",
@@ -55,66 +55,102 @@
       "vertices": 1047,
       "faces": 2090,
       "nonmanifold_edges": 0,
-      "volume": 0.006423223868913578
+      "volume": 0.006423222224122745
     },
     "ivory_number_55pct_0_0": {
       "vertices": 987,
       "faces": 1970,
       "nonmanifold_edges": 0,
-      "volume": 0.0021016565560288067
+      "volume": 0.0021016525126092197
     },
     "metal_number_55pct_1_0": {
       "vertices": 1047,
       "faces": 2090,
       "nonmanifold_edges": 0,
-      "volume": 0.006423244281377584
+      "volume": 0.006423245256391671
     },
     "ivory_number_55pct_1_0": {
       "vertices": 987,
       "faces": 1970,
       "nonmanifold_edges": 0,
-      "volume": 0.0021016701178979778
+      "volume": 0.002101669978686984
     },
     "metal_number_55pct_2_0": {
       "vertices": 588,
       "faces": 1176,
       "nonmanifold_edges": 0,
-      "volume": 0.0012666517238499857
+      "volume": 0.0012666464984423785
     },
     "ivory_number_55pct_2_0": {
       "vertices": 582,
       "faces": 1164,
       "nonmanifold_edges": 0,
-      "volume": 0.0002392324677064307
+      "volume": 0.00023925536636078216
     },
     "metal_number_55pct_2_1": {
       "vertices": 588,
       "faces": 1176,
       "nonmanifold_edges": 0,
-      "volume": 0.0012666632741971423
+      "volume": 0.0012666939672010666
     },
     "ivory_number_55pct_2_1": {
       "vertices": 582,
       "faces": 1164,
       "nonmanifold_edges": 0,
-      "volume": 0.00023924163713399555
+      "volume": 0.000239163558072713
     },
     "metal_number_55pct_2_2": {
       "vertices": 536,
       "faces": 1068,
       "nonmanifold_edges": 0,
-      "volume": 0.002230181760312284
+      "volume": 0.0022301790023887364
     },
     "ivory_number_55pct_2_2": {
       "vertices": 514,
       "faces": 1024,
       "nonmanifold_edges": 0,
-      "volume": 0.0006005210637352585
+      "volume": 0.0006005187707505541
+    },
+    "metal_number_100_0_0": {
+      "vertices": 321,
+      "faces": 638,
+      "nonmanifold_edges": 0,
+      "volume": 0.0006266764784924731
+    },
+    "ivory_number_100_0_0": {
+      "vertices": 299,
+      "faces": 594,
+      "nonmanifold_edges": 0,
+      "volume": 8.870497165855842e-05
+    },
+    "metal_number_100_1_0": {
+      "vertices": 465,
+      "faces": 930,
+      "nonmanifold_edges": 0,
+      "volume": 0.0009779264596180821
+    },
+    "ivory_number_100_1_0": {
+      "vertices": 448,
+      "faces": 896,
+      "nonmanifold_edges": 0,
+      "volume": 0.00013389784537327793
+    },
+    "metal_number_100_2_0": {
+      "vertices": 465,
+      "faces": 930,
+      "nonmanifold_edges": 0,
+      "volume": 0.0009779263239156244
+    },
+    "ivory_number_100_2_0": {
+      "vertices": 448,
+      "faces": 896,
+      "nonmanifold_edges": 0,
+      "volume": 0.00013389783239329357
     }
   },
   "export_checks": {
     "usd_y_up": true,
-    "mesh_roles_count": 16,
+    "mesh_roles_count": 22,
     "finite_vertices_normals": true,
     "materials_bound": true,
     "no_studio_or_sample_text": true
@@ -127,11 +163,5 @@
       "angle"
     ]
   },
-  "usdz_bytes": 2922415,
-  "family_palette": {
-    "primary": "#763AB9",
-    "secondary": "#B47BE5",
-    "enamel": "#EBDDFF",
-    "name": "Amethyst / lilac"
-  }
+  "usdz_bytes": 3142524
 }

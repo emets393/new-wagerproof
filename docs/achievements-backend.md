@@ -1,6 +1,6 @@
 # Personal achievement backend
 
-The migration `supabase/migrations/20260910120000_user_achievements.sql` defines 24 durable user awards. Unlocks are insert-only under concurrent refreshes; deleting an agent or reducing its statistics never revokes an award or changes its original earned date. Source agent UUIDs remain available after deletion. Current locked progress is recomputed independently.
+The migration `supabase/migrations/20260910120000_user_achievements.sql` defines the original 24 durable user awards. Forward migration `20260911120000_expand_user_achievements.sql` expands the catalog to 35. Unlocks are insert-only under concurrent refreshes; deleting an agent or reducing its statistics never revokes an award or changes its original earned date. Source agent UUIDs remain available after deletion. Current locked progress is recomputed independently.
 
 ## Metrics
 
@@ -17,7 +17,7 @@ The migration `supabase/migrations/20260910120000_user_achievements.sql` defines
 `get_user_achievements()` and `record_achievement_activity(activity text)` return the same JSON object:
 
 ```json
-{"catalog_version":1,"initialized_at":"ISO timestamp","generated_at":"ISO timestamp","achievements":[{"id":"first-agent","progress":1,"current_value":1,"target_value":1,"earned_at":"ISO timestamp or null","is_backfilled":false,"credited_agent_id":"UUID or null"}],"newly_unlocked_ids":["first-agent"]}
+{"catalog_version":2,"initialized_at":"ISO timestamp","generated_at":"ISO timestamp","achievements":[{"id":"first-agent","progress":1,"current_value":1,"target_value":1,"earned_at":"ISO timestamp or null","is_backfilled":false,"credited_agent_id":"UUID or null"}],"newly_unlocked_ids":["first-agent"]}
 ```
 
 First initialization quietly backfills existing qualifying evidence. Later pending awards remain in `newly_unlocked_ids` until the authenticated owner calls `acknowledge_achievement_celebrations(achievement_ids text[])`. Acknowledgment cannot grant awards. The app may suppress its initial snapshot celebration according to Honeydew behavior. `record_achievement_activity` accepts only the three completed-feature values above, never achievement IDs, statistics or user IDs.
@@ -44,3 +44,11 @@ Production deployment completed September 9, 2026 against Main project `gnjrklxo
 Migration `20260910120000` was applied and recorded atomically, without replaying unrelated historical migrations. The MCP Worker was deployed afterward as version `88756806-5cab-49df-b266-197133ab2bfe`, preserving production variables. Its existing `MAIN_SERVICE_ROLE_KEY` binding was confirmed, and the deployed OAuth metadata endpoint returned HTTP 200.
 
 Rollback-only checks against the live database passed for the authenticated 24-award contract, quiet backfill, new activity unlocks, acknowledgment, repeated-event idempotence, owner RLS and service-only MCP recognition. No simulated test awards were retained. A complete real OAuth tool call and two-device account synchronization remain user acceptance checks; the HTTP handler itself passed local success/failure tests.
+
+## Catalog version 2
+
+`20260911120000_expand_user_achievements.sql` is deployed and recorded in migration history. It extends the allowed IDs and evaluator without rewriting existing earned dates or attribution. Adds durable agent creation counts of 3/5, single-agent graded-pick thresholds 1000/2500/5000, best straight-pick streaks 20/25, net units +50/+100, and 55% consistency requiring 250/500 decided picks. The consistency denominator excludes pushes and cannot combine agents.
+
+Each existing account advances its catalog version on its next authenticated read. Newly added qualifying awards are marked as quiet backfill, while existing pending celebrations remain pending. Source triggers continue to latch subsequently reached milestones. The new tests run after the original migration and behavior suite to exercise the actual upgrade path.
+
+Deployed migration `20260911121000_achievement_agent_creation_history.sql` adds an owner-readable, server-written creation ledger, backfilled from currently existing agents. Source refreshes capture each agent ID once and preserve it after deletion. Tests cover deletion before a milestone, owner isolation and denied fabricated creation writes.

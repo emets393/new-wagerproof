@@ -83,7 +83,7 @@ struct OnboardingCarouselContainer: View {
             if let idx = step.carouselIndex {
                 // Both edges derive from the SAME update as `selection` so
                 // the outgoing page's removal matches the travel direction.
-                slideEdge = step.rawValue >= old.rawValue ? .trailing : .leading
+                slideEdge = step >= old ? .trailing : .leading
                 selection = idx
             }
             // Pre-fill the agent draft before the builder pages appear.
@@ -129,7 +129,8 @@ struct OnboardingCarouselContainer: View {
 
     @ViewBuilder
     private func pageContent(for slot: Int) -> some View {
-        switch OnboardingStep(rawValue: slot + 1) {
+        let steps = OnboardingStep.carouselSteps
+        switch steps.indices.contains(slot) ? steps[slot] : nil {
         case .terms:             OnboardingTermsPage()
         case .bettorType:        OnboardingBettorTypePage()
         case .bettingPitfalls:   OnboardingBettingPitfallsPage()
@@ -143,6 +144,7 @@ struct OnboardingCarouselContainer: View {
         case .agentValueIntro:   OnboardingAgentPitchIntroPage()
         case .agentValueProof:   OnboardingAgentPitchProofPage()
         case .agentLeaderboard:  OnboardingLeaderboardPage()
+        case .achievements:      OnboardingAchievementsPage()
         case .attPriming:        OnboardingATTPage()
         case .builderSports:     OnboardingBuilderSportsPage(creation: creationStore)
         case .builderArchetype:  OnboardingBuilderArchetypePage(creation: creationStore)

@@ -26,6 +26,22 @@ Actual Blender models and reimported USDZ renders. Bodies, reverse, and front de
 
 [Blender](experience-500/experience-500.blend) · [USDZ](experience-500/experience-500.usdz)
 
-Review assets only. Runtime integration and device testing remain later work.
+## 1,000 GRADED PICKS
 
-[Ticket punch-out before/after review](quality-review/REVIEW.md)
+![1,000 GRADED PICKS](experience-1000/renders/usdz-angle.png)
+
+[Blender](experience-1000/experience-1000.blend) · [USDZ](experience-1000/experience-1000.usdz)
+
+## 2,500 GRADED PICKS
+
+![2,500 GRADED PICKS](experience-2500/renders/usdz-angle.png)
+
+[Blender](experience-2500/experience-2500.blend) · [USDZ](experience-2500/experience-2500.usdz)
+
+## 5,000 GRADED PICKS
+
+![5,000 GRADED PICKS](experience-5000/renders/usdz-angle.png)
+
+[Blender](experience-5000/experience-5000.blend) · [USDZ](experience-5000/experience-5000.usdz)
+
+Review assets only. Runtime integration and device testing remain later work.

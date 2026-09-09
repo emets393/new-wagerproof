@@ -1,9 +1,9 @@
 {
   "status": "passed",
-  "expected_assets": 24,
-  "passed_assets": 24,
+  "expected_assets": 35,
+  "passed_assets": 35,
   "validation": "Delivery inventory and existing export/reimport audit reports; USDZ geometry not reopened.",
-  "delivery_status": "Review masters only; no app integration or device validation.",
+  "delivery_status": "Review-master inventory only; native runtime validation is tracked separately in docs/achievements-ios.md.",
   "assets": [
     {
       "family": "Getting Started",
@@ -23,6 +23,20 @@
       "family": "Getting Started",
       "title": "First Picks",
       "directory": "first-picks",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Getting Started",
+      "title": "Agent Squad",
+      "directory": "getting-started/agent-squad",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Getting Started",
+      "title": "Full Lineup",
+      "directory": "getting-started/full-lineup",
       "status": "passed",
       "errors": []
     },
@@ -55,6 +69,27 @@
       "errors": []
     },
     {
+      "family": "Agent Experience",
+      "title": "1000 Graded Picks",
+      "directory": "experience/experience-1000",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Agent Experience",
+      "title": "2500 Graded Picks",
+      "directory": "experience/experience-2500",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Agent Experience",
+      "title": "5000 Graded Picks",
+      "directory": "experience/experience-5000",
+      "status": "passed",
+      "errors": []
+    },
+    {
       "family": "Winning Streaks",
       "title": "3 Win Streak",
       "directory": "streaks/streak-3",
@@ -83,6 +118,20 @@
       "errors": []
     },
     {
+      "family": "Winning Streaks",
+      "title": "20 Win Streak",
+      "directory": "streaks/streak-20",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Winning Streaks",
+      "title": "25 Win Streak",
+      "directory": "streaks/streak-25",
+      "status": "passed",
+      "errors": []
+    },
+    {
       "family": "Performance",
       "title": "First Win",
       "directory": "performance/first-win",
@@ -107,6 +156,34 @@
       "family": "Performance",
       "title": "Consistent",
       "directory": "performance/consistent",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Performance",
+      "title": "+50 Units",
+      "directory": "performance/plus-50-units",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Performance",
+      "title": "+100 Units",
+      "directory": "performance/plus-100-units",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Performance",
+      "title": "Proven Consistency 250",
+      "directory": "performance/consistent-250",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Performance",
+      "title": "Proven Consistency 500",
+      "directory": "performance/consistent-500",
       "status": "passed",
       "errors": []
     },

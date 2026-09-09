@@ -32,6 +32,7 @@ struct AchievementMedalView: UIViewRepresentable {
     let earnedAt: Date?
     let caption: String
     var onInteractionBegan: (() -> Void)? = nil
+    var revealOnAppear = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeUIView(context: Context) -> AchievementMedalHost { AchievementMedalHost() }
@@ -39,7 +40,7 @@ struct AchievementMedalView: UIViewRepresentable {
         view.onInteractionBegan = onInteractionBegan
         view.update(.init(family: familyAsset, variant: variantRoot, earned: earned,
                           name: recipientName, date: earnedAt, caption: caption,
-                          reduceMotion: reduceMotion))
+                          reduceMotion: reduceMotion, reveal: revealOnAppear))
     }
     static func dismantleUIView(_ view: AchievementMedalHost, coordinator: ()) { view.releaseRenderer() }
 }
@@ -52,6 +53,7 @@ fileprivate struct MedalPresentation: Equatable {
     var date: Date?
     var caption: String
     var reduceMotion: Bool
+    var reveal = true
 }
 
 /// Decodes each family once, coalesces simultaneous requests, and only hands out clones.
@@ -199,7 +201,7 @@ fileprivate struct MedalPresentation: Equatable {
     private func startReveal() {
         stopMotion()
         guard config?.reduceMotion == false else { return }
-        revealing = true
+        revealing = config?.reveal ?? true
         motionStart = CACurrentMediaTime()
         let link = CADisplayLink(target: self, selector: #selector(stepMotion(_:)))
         link.add(to: .main, forMode: .common)
@@ -435,6 +437,7 @@ fileprivate struct MedalPresentation: Equatable {
         defer { surface.suspend(); surface.removeFromSuperview() }
         let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("AchievementBakes")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent("complete.txt"))
         for definition in AchievementCatalog.definitions {
             for earned in [true, false] {
                 let loaded: Bool = await withCheckedContinuation { continuation in
@@ -450,11 +453,20 @@ fileprivate struct MedalPresentation: Equatable {
                 let snapshot: UIImage? = await withCheckedContinuation { continuation in
                     surface.capture { continuation.resume(returning: $0) }
                 }
-                guard let data = snapshot?.pngData() else { throw CocoaError(.fileWriteUnknown) }
+                guard let snapshot else { throw CocoaError(.fileWriteUnknown) }
+                // ARView snapshots inherit the simulator screen scale (often 3x).
+                // Bake a fixed pixel size suitable for 108-point collection cells.
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = 1
+                format.opaque = false
+                let thumbnail = UIGraphicsImageRenderer(size: CGSize(width: 512, height: 512), format: format).image { _ in
+                    snapshot.draw(in: CGRect(x: 0, y: 0, width: 512, height: 512))
+                }
+                guard let data = thumbnail.pngData() else { throw CocoaError(.fileWriteUnknown) }
                 try data.write(to: directory.appendingPathComponent(definition.thumbnail + (earned ? "" : "_locked") + ".png"))
             }
         }
-        try Data("48 native thumbnails complete".utf8).write(to: directory.appendingPathComponent("complete.txt"))
+        try Data("\(AchievementCatalog.definitions.count * 2) native thumbnails complete".utf8).write(to: directory.appendingPathComponent("complete.txt"))
     }
 }
 #endif

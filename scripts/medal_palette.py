@@ -8,10 +8,10 @@ PALETTES={
  'leaderboard':dict(primary='#AA1644',secondary='#E64C70',enamel='#FFE5E9',name='Ruby / rose'),
  'exploration':dict(primary='#008D94',secondary='#45CABB',enamel='#CCFFF0',name='Teal / aqua'),
 }
-PREFIXES={'FirstAgent':'getting-started','FirstFollow':'getting-started','FirstPicks':'getting-started',
- **{f'Experience{n}':'experience' for n in [10,50,100,500]},
- **{f'Streak{n}':'streaks' for n in [3,5,10,15]},
- **{n:'performance' for n in ['FirstWin','Plus10Units','Plus25Units','Consistent']},
+PREFIXES={'AgentSquad':'getting-started','FullLineup':'getting-started','FirstAgent':'getting-started','FirstFollow':'getting-started','FirstPicks':'getting-started',
+ **{f'Experience{n}':'experience' for n in [10,50,100,500,1000,2500,5000]},
+ **{f'Streak{n}':'streaks' for n in [3,5,10,15,20,25]},
+ **{n:'performance' for n in ['FirstWin','Plus10Units','Plus25Units','Plus50Units','Plus100Units','Consistent','Consistent250','Consistent500']},
  **{n:'leaderboard' for n in ['Top100','Top10','NumberOne']},
  **{n:'exploration' for n in ['GameAnalyst','PropsScout','TrendExplorer','SystemBuilder','WagerbotPartner','ConnectedResearcher']}}
 def linear(h):

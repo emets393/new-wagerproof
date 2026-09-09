@@ -16,46 +16,46 @@
   "preview_text_in_export": false,
   "parts": {
     "satin_flame_reverse": {
-      "vertices": 11940,
-      "faces": 23876,
+      "vertices": 16306,
+      "faces": 32608,
       "nonmanifold_edges": 0,
-      "volume": 0.17066181029330127
+      "volume": 0.17065455094919532
     },
     "acrylic_center_cell": {
-      "vertices": 4432,
-      "faces": 8860,
+      "vertices": 5889,
+      "faces": 11774,
       "nonmanifold_edges": 0,
-      "volume": 0.03896520423381383
+      "volume": 0.03896939875562868
     },
     "acrylic_left_cell": {
-      "vertices": 884,
-      "faces": 1764,
+      "vertices": 1063,
+      "faces": 2122,
       "nonmanifold_edges": 0,
-      "volume": 0.006482311584050458
+      "volume": 0.006477290494432901
     },
     "acrylic_right_cell": {
-      "vertices": 670,
-      "faces": 1336,
+      "vertices": 706,
+      "faces": 1408,
       "nonmanifold_edges": 0,
-      "volume": 0.00379005639277519
+      "volume": 0.0037879802056031693
     },
     "metal_flame_chassis": {
-      "vertices": 5160,
-      "faces": 10328,
+      "vertices": 6272,
+      "faces": 12552,
       "nonmanifold_edges": 0,
-      "volume": 0.050960855735011204
+      "volume": 0.05096330684253998
     },
     "metal_number_3_0_0": {
-      "vertices": 14552,
-      "faces": 29100,
+      "vertices": 2042,
+      "faces": 4080,
       "nonmanifold_edges": 0,
-      "volume": 0.014058215343500982
+      "volume": 0.01405777658856547
     },
     "ivory_number_3_0_0": {
-      "vertices": 1291,
-      "faces": 2578,
+      "vertices": 1793,
+      "faces": 3582,
       "nonmanifold_edges": 0,
-      "volume": 0.005243712046134093
+      "volume": 0.005245316169133773
     }
   },
   "export_checks": {
@@ -75,11 +75,5 @@
       "back"
     ]
   },
-  "usdz_bytes": 3623300,
-  "family_palette": {
-    "primary": "#E74712",
-    "secondary": "#FFAB25",
-    "enamel": "#FFF0CF",
-    "name": "Ember / amber"
-  }
+  "usdz_bytes": 3166670
 }

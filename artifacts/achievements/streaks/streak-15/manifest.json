@@ -3,7 +3,7 @@
   "family": "streaks",
   "title": "15 WIN STREAK",
   "label": "15",
-  "tier": "gold",
+  "tier": "silver",
   "frame_prefix": "Streak15",
   "asset": "streak-15.usdz",
   "editable_master": "streak-15.blend",
@@ -16,58 +16,58 @@
   "preview_text_in_export": false,
   "parts": {
     "satin_flame_reverse": {
-      "vertices": 11940,
-      "faces": 23876,
+      "vertices": 16306,
+      "faces": 32608,
       "nonmanifold_edges": 0,
-      "volume": 0.17066181029330127
+      "volume": 0.17065455094919532
     },
     "acrylic_center_cell": {
-      "vertices": 4432,
-      "faces": 8860,
+      "vertices": 5889,
+      "faces": 11774,
       "nonmanifold_edges": 0,
-      "volume": 0.03896520423381383
+      "volume": 0.03896939875562868
     },
     "acrylic_left_cell": {
-      "vertices": 884,
-      "faces": 1764,
+      "vertices": 1063,
+      "faces": 2122,
       "nonmanifold_edges": 0,
-      "volume": 0.006482311584050458
+      "volume": 0.006477290494432901
     },
     "acrylic_right_cell": {
-      "vertices": 670,
-      "faces": 1336,
+      "vertices": 706,
+      "faces": 1408,
       "nonmanifold_edges": 0,
-      "volume": 0.00379005639277519
+      "volume": 0.0037879802056031693
     },
     "metal_flame_chassis": {
-      "vertices": 5160,
-      "faces": 10328,
+      "vertices": 6272,
+      "faces": 12552,
       "nonmanifold_edges": 0,
-      "volume": 0.050960855735011204
+      "volume": 0.05096330684253998
     },
     "metal_number_15_0_0": {
-      "vertices": 776,
-      "faces": 1548,
+      "vertices": 1121,
+      "faces": 2238,
       "nonmanifold_edges": 0,
-      "volume": 0.008181164273748726
+      "volume": 0.008180742106998417
     },
     "ivory_number_15_0_0": {
-      "vertices": 772,
-      "faces": 1540,
+      "vertices": 995,
+      "faces": 1986,
       "nonmanifold_edges": 0,
-      "volume": 0.003017894740733584
+      "volume": 0.0030196668273778254
     },
     "metal_number_15_1_0": {
-      "vertices": 1450,
-      "faces": 2896,
+      "vertices": 1547,
+      "faces": 3090,
       "nonmanifold_edges": 0,
-      "volume": 0.01163090646884172
+      "volume": 0.011629775687078365
     },
     "ivory_number_15_1_0": {
-      "vertices": 1266,
-      "faces": 2528,
+      "vertices": 1527,
+      "faces": 3050,
       "nonmanifold_edges": 0,
-      "volume": 0.004216161335462277
+      "volume": 0.004217132838220753
     }
   },
   "export_checks": {
@@ -85,11 +85,5 @@
       "angle"
     ]
   },
-  "usdz_bytes": 2562688,
-  "family_palette": {
-    "primary": "#E74712",
-    "secondary": "#FFAB25",
-    "enamel": "#FFF0CF",
-    "name": "Ember / amber"
-  }
+  "usdz_bytes": 3292890
 }

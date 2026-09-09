@@ -164,6 +164,7 @@ struct AchievementDetailView: View {
                                 }
                             }.padding(.horizontal, 28)
                             Text("Drag to rotate · Double-tap to flip").font(.caption).foregroundStyle(.secondary)
+                            AchievementShareButton(item: item).padding(.horizontal, 28).padding(.top, 12)
                         }
                     }.padding(.bottom, 32)
                 }
@@ -188,7 +189,9 @@ struct AchievementDetailView: View {
         if item.definition.group == .leaderboard {
             return item.status.currentValue > 0 ? "Best eligible rank: \(Int(item.status.currentValue))" : "No eligible leaderboard rank yet"
         }
-        if item.id == "consistent" { return "\(item.status.currentValue.formatted(.number.precision(.fractionLength(0...1))))% win rate · 100 decided picks required" }
+        if item.id.hasPrefix("consistent") {
+            let decided = item.id == "consistent" ? "100" : String(item.id.dropFirst("consistent-".count))
+            return "\(item.status.currentValue.formatted(.number.precision(.fractionLength(0...1))))% win rate · \(decided) decided picks required" }
         return "\(item.status.currentValue.formatted(.number.precision(.fractionLength(0...1)))) / \(item.status.targetValue.formatted(.number.precision(.fractionLength(0...1))))"
     }
 }
@@ -235,9 +238,35 @@ struct AchievementUnlockedSheet: View {
                 }
             Text(item.definition.title).font(.system(size: 28, weight: .bold)).multilineTextAlignment(.center)
             Text(item.definition.requirement).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            AchievementShareButton(item: item)
             Button("Continue", action: onDone).font(.headline).frame(maxWidth: .infinity).padding()
                 .background(.green, in: Capsule()).foregroundStyle(.black)
         }.padding(28).padding(.top, 24).background(Color.appSurface.ignoresSafeArea())
         .interactiveDismissDisabled()
+    }
+}
+
+/// Matches Honeydew: share only an earned medal, using the baked native image.
+private struct AchievementShareButton: View {
+    let item: Achievement
+
+    var body: some View {
+        if item.earned, let thumbnail = UIImage(named: item.definition.thumbnail) {
+            let image = Image(uiImage: thumbnail)
+            ShareLink(
+                item: image,
+                subject: Text("WagerProof Achievement"),
+                message: Text("I just earned “\(item.definition.title)” on WagerProof! 🏆"),
+                preview: SharePreview(item.definition.title, image: image)
+            ) {
+                Label("Share with a Friend", systemImage: "square.and.arrow.up")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundStyle(.green)
+                    .background(.green.opacity(0.12), in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
