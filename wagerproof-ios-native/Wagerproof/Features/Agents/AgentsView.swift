@@ -107,6 +107,7 @@ private enum AgentsTab: String, CaseIterable {
 /// - B16 wired the Top Picks branch to `TopAgentPicksFeedContainer` (with
 ///   filter modes + favorites + search). Resolved waiver #070.
 struct AgentsView: View {
+    @Environment(AchievementsStore.self) private var achievements
     @Environment(AuthStore.self) private var auth
     @Environment(ProAccessStore.self) private var proAccess
     @Environment(MainTabStore.self) private var tabStore
@@ -241,6 +242,7 @@ struct AgentsView: View {
                 // of covering the screen as a modal — see MainTabToolbar.swift.
                 .wagerProofSettingsDestination(tabStore: tabStore, tab: .agents, auth: auth, settingsStore: settingsStore, revenueCat: revenueCat, adminMode: adminMode, proAccess: proAccess)
                 .wagerProofChatDestination(tabStore: tabStore, tab: .agents)
+                .onChange(of: store.agentsVersion) { _, _ in Task { await achievements.refresh() } }
                 .task {
                     // Bind the active user and trigger the first refresh.
                     store.bind(userId: currentUserId)

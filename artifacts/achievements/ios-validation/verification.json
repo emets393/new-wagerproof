@@ -1,0 +1,18 @@
+{
+  "simulator": "D69B4254-398D-4806-921B-56411888C597",
+  "debug_build": "passed",
+  "release_build": "passed",
+  "model_store_tests": 13,
+  "sql_behavior_tests": "passed",
+  "mcp_tests": "passed",
+  "production_deployed": false,
+  "runtime_usdz_sha256": {
+    "streaks.usdz": "e1b2e2115b7e1abd27700af0669664181adc46d2775d47e5d120183aa8229599",
+    "exploration.usdz": "91e531947359fc66aca7f68cf0abab6e98a44ebac642c91a6662530b05c7b688",
+    "experience.usdz": "67a17d1bf02d6d4e80e7eb431505bd81abd4801abbf6adb6364ac677dbf806c9",
+    "getting-started.usdz": "1f9af6644ef9f40589aa4f1332d27a8bb53474401133a71e36ffec9de982f5f8",
+    "performance.usdz": "36d99094e31570cbec587bc99e52f61f506907bd3907aefdabbd773ec7b5e1fb",
+    "leaderboard.usdz": "b31e80e44e505232451f3648e390943909af5761936de603f6575f48f297e0a5"
+  },
+  "thumbnails": 24
+}

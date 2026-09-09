@@ -1,0 +1,107 @@
+{
+  "id": "number-one",
+  "family": "leaderboard",
+  "title": "NUMBER ONE",
+  "label": "1",
+  "tier": "gold",
+  "frame_prefix": "NumberOne",
+  "asset": "number-one.usdz",
+  "editable_master": "number-one.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "satin_crown_reverse": {
+      "vertices": 22793,
+      "faces": 45582,
+      "nonmanifold_edges": 0,
+      "volume": 0.1933029929151579
+    },
+    "metal_crown_chassis": {
+      "vertices": 22775,
+      "faces": 45546,
+      "nonmanifold_edges": 0,
+      "volume": 0.1624885735016833
+    },
+    "metal_crown_cell_center": {
+      "vertices": 408,
+      "faces": 408,
+      "nonmanifold_edges": 0,
+      "volume": 0.0020833185284424216
+    },
+    "acrylic_crown_center": {
+      "vertices": 2366,
+      "faces": 4728,
+      "nonmanifold_edges": 0,
+      "volume": 0.009617372923854185
+    },
+    "metal_crown_cell_left": {
+      "vertices": 402,
+      "faces": 402,
+      "nonmanifold_edges": 0,
+      "volume": 0.0016796528570781279
+    },
+    "acrylic_crown_left": {
+      "vertices": 1785,
+      "faces": 3566,
+      "nonmanifold_edges": 0,
+      "volume": 0.005141498544682188
+    },
+    "metal_crown_cell_right": {
+      "vertices": 402,
+      "faces": 402,
+      "nonmanifold_edges": 0,
+      "volume": 0.0016785302929549538
+    },
+    "acrylic_crown_right": {
+      "vertices": 1785,
+      "faces": 3566,
+      "nonmanifold_edges": 0,
+      "volume": 0.005144071911001369
+    },
+    "metal_crown_band": {
+      "vertices": 8151,
+      "faces": 16298,
+      "nonmanifold_edges": 0,
+      "volume": 0.017885928175697258
+    },
+    "metal_number_1_0_0": {
+      "vertices": 902,
+      "faces": 1800,
+      "nonmanifold_edges": 0,
+      "volume": 0.007306520712574567
+    },
+    "ivory_number_1_0_0": {
+      "vertices": 942,
+      "faces": 1880,
+      "nonmanifold_edges": 0,
+      "volume": 0.0026562908079571547
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 11,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle"
+    ]
+  },
+  "usdz_bytes": 5835711,
+  "family_palette": {
+    "primary": "#AA1644",
+    "secondary": "#E64C70",
+    "enamel": "#FFE5E9",
+    "name": "Ruby / rose"
+  }
+}

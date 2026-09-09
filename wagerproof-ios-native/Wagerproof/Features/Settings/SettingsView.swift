@@ -18,8 +18,8 @@ import WagerproofStores
 ///   of `ProfileSectionHeader` + `ProfileRow` primitives.
 /// - The two `HoneydewOptionCard` hero banners (Pro CTA + Discord) are kept
 ///   from the prior design — they're the visual hook (gradient + drifting
-///   chrome + glass pill) and double as the "Plan" affordance, so they sit at
-///   the top above the flat sections.
+///   chrome + glass pill) and double as the "Plan" affordance, so they sit
+///   below the achievement collection and AI connector, above preferences.
 /// - All sheet/modal triggers go through `@State` flags that flip
 ///   `.sheet(item:)` / `.sheet(isPresented:)` / `.fullScreenCover(isPresented:)`
 ///   to mount the modal views from the same file. The modals themselves
@@ -87,6 +87,8 @@ struct SettingsView: View {
         // pops it.
         ScrollView {
             VStack(spacing: 0) {
+                AchievementDiscoverySection().padding(.horizontal, Spacing.lg)
+
                 claudeConnectorSection
 
                 // Hero banners (kept) double as the "Plan" affordance.

@@ -1,0 +1,80 @@
+{
+  "status": "passed",
+  "source": "Actual USDZ front render",
+  "four_open_arcs": true,
+  "four_solid_bridges": true,
+  "samples": [
+    {
+      "quadrant": 0,
+      "role": "open_arc",
+      "pixel": [
+        805,
+        295
+      ],
+      "alpha": 0
+    },
+    {
+      "quadrant": 0,
+      "role": "solid_bridge",
+      "pixel": [
+        910,
+        550
+      ],
+      "alpha": 255
+    },
+    {
+      "quadrant": 1,
+      "role": "open_arc",
+      "pixel": [
+        295,
+        295
+      ],
+      "alpha": 0
+    },
+    {
+      "quadrant": 1,
+      "role": "solid_bridge",
+      "pixel": [
+        550,
+        190
+      ],
+      "alpha": 255
+    },
+    {
+      "quadrant": 2,
+      "role": "open_arc",
+      "pixel": [
+        295,
+        805
+      ],
+      "alpha": 0
+    },
+    {
+      "quadrant": 2,
+      "role": "solid_bridge",
+      "pixel": [
+        190,
+        550
+      ],
+      "alpha": 255
+    },
+    {
+      "quadrant": 3,
+      "role": "open_arc",
+      "pixel": [
+        805,
+        805
+      ],
+      "alpha": 0
+    },
+    {
+      "quadrant": 3,
+      "role": "solid_bridge",
+      "pixel": [
+        550,
+        910
+      ],
+      "alpha": 255
+    }
+  ]
+}

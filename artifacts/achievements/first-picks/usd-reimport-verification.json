@@ -1,0 +1,43 @@
+{
+  "closed_outward_meshes": {
+    "acrylic_lime_face": {
+      "vertices": 10370,
+      "faces": 10584,
+      "nonmanifold_edges": 0,
+      "volume": 0.07669309017580991
+    },
+    "ivory_pixel_check_face": {
+      "vertices": 128468,
+      "faces": 256932,
+      "nonmanifold_edges": 0,
+      "volume": 0.008514141879987641
+    },
+    "metal_pixel_check_outline": {
+      "vertices": 147908,
+      "faces": 295812,
+      "nonmanifold_edges": 0,
+      "volume": 0.023731426555510124
+    },
+    "metal_shield_frame": {
+      "vertices": 2376,
+      "faces": 2376,
+      "nonmanifold_edges": 0,
+      "volume": 0.0710346036508294
+    },
+    "satin_rear_border": {
+      "vertices": 1296,
+      "faces": 1296,
+      "nonmanifold_edges": 0,
+      "volume": 0.0004678638683746965
+    },
+    "satin_shield_back": {
+      "vertices": 10370,
+      "faces": 10584,
+      "nonmanifold_edges": 0,
+      "volume": 0.20544508865003833
+    }
+  },
+  "anchors_present": true,
+  "sample_text_in_export": false,
+  "usdz_bytes": 26669267
+}

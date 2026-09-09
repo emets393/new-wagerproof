@@ -1,0 +1,85 @@
+{
+  "id": "streak-3",
+  "family": "streaks",
+  "title": "3 WIN STREAK",
+  "label": "3",
+  "tier": "bronze",
+  "frame_prefix": "Streak3",
+  "asset": "streak-3.usdz",
+  "editable_master": "streak-3.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "satin_flame_reverse": {
+      "vertices": 11940,
+      "faces": 23876,
+      "nonmanifold_edges": 0,
+      "volume": 0.17066181029330127
+    },
+    "acrylic_center_cell": {
+      "vertices": 4432,
+      "faces": 8860,
+      "nonmanifold_edges": 0,
+      "volume": 0.03896520423381383
+    },
+    "acrylic_left_cell": {
+      "vertices": 884,
+      "faces": 1764,
+      "nonmanifold_edges": 0,
+      "volume": 0.006482311584050458
+    },
+    "acrylic_right_cell": {
+      "vertices": 670,
+      "faces": 1336,
+      "nonmanifold_edges": 0,
+      "volume": 0.00379005639277519
+    },
+    "metal_flame_chassis": {
+      "vertices": 5160,
+      "faces": 10328,
+      "nonmanifold_edges": 0,
+      "volume": 0.050960855735011204
+    },
+    "metal_number_3_0_0": {
+      "vertices": 14552,
+      "faces": 29100,
+      "nonmanifold_edges": 0,
+      "volume": 0.014058215343500982
+    },
+    "ivory_number_3_0_0": {
+      "vertices": 1291,
+      "faces": 2578,
+      "nonmanifold_edges": 0,
+      "volume": 0.005243712046134093
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 7,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle",
+      "top",
+      "back"
+    ]
+  },
+  "usdz_bytes": 3623300,
+  "family_palette": {
+    "primary": "#E74712",
+    "secondary": "#FFAB25",
+    "enamel": "#FFF0CF",
+    "name": "Ember / amber"
+  }
+}

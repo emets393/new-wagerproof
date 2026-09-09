@@ -1,0 +1,44 @@
+[
+  {
+    "slug": "game-analyst",
+    "title": "GAME ANALYST",
+    "label": "analyst",
+    "tier": "silver",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "props-scout",
+    "title": "PROPS SCOUT",
+    "label": "props",
+    "tier": "silver",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "trend-explorer",
+    "title": "TREND EXPLORER",
+    "label": "trends",
+    "tier": "silver",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "system-builder",
+    "title": "SYSTEM BUILDER",
+    "label": "systems",
+    "tier": "silver",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "wagerbot-partner",
+    "title": "WAGERBOT PARTNER",
+    "label": "chat",
+    "tier": "silver",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "connected-researcher",
+    "title": "CONNECTED RESEARCHER",
+    "label": "mcp",
+    "tier": "silver",
+    "fill": "#8BCD00"
+  }
+]

@@ -1,0 +1,178 @@
+{
+  "id": "first_follow",
+  "frame_prefix": "FirstFollow",
+  "family": "getting_started",
+  "tier": "bronze",
+  "revision": 4,
+  "asset": "first-follow.usdz",
+  "editable_master": "first-follow.blend",
+  "coordinates": "+X right, +Y up, +Z front; exported Y-up",
+  "curvature": {
+    "type": "ellipsoidal",
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135,
+    "shell_thickness": 0.095,
+    "rear_formula": "center_z + sqrt(radius^2-horizontal_weight*x^2-y^2) - radius - shell_thickness"
+  },
+  "engraving": {
+    "preview_text_in_export": false,
+    "name_anchor": "FirstFollow_Back_Name",
+    "caption_anchor": "FirstFollow_Back_Caption",
+    "date_anchor": "FirstFollow_Back_Date",
+    "rear_rotation_y_degrees": 180
+  },
+  "front_emblems": "All layers conform to the shared shield surface, including caps and facial details",
+  "parts": {
+    "satin_shield_back": {
+      "vertices": 10370,
+      "faces": 10584,
+      "nonmanifold_edges": 0,
+      "volume": 0.20544508865003833
+    },
+    "metal_shield_frame": {
+      "vertices": 2376,
+      "faces": 2376,
+      "nonmanifold_edges": 0,
+      "volume": 0.0710346036508294
+    },
+    "acrylic_lime_face": {
+      "vertices": 10370,
+      "faces": 10584,
+      "nonmanifold_edges": 0,
+      "volume": 0.07669309017580991
+    },
+    "satin_rear_border": {
+      "vertices": 1296,
+      "faces": 1296,
+      "nonmanifold_edges": 0,
+      "volume": 0.0004678638683746965
+    },
+    "metal_left_head_outline": {
+      "vertices": 103520,
+      "faces": 207036,
+      "nonmanifold_edges": 0,
+      "volume": 0.01891499615130412
+    },
+    "charcoal_left_hair": {
+      "vertices": 101576,
+      "faces": 203148,
+      "nonmanifold_edges": 0,
+      "volume": 0.005746084751441726
+    },
+    "ivory_left_face": {
+      "vertices": 91208,
+      "faces": 182412,
+      "nonmanifold_edges": 0,
+      "volume": 0.0015159156922534241
+    },
+    "highlight_left_hair_0": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 6.259033357271937e-05
+    },
+    "highlight_left_hair_1": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 6.259033384044965e-05
+    },
+    "highlight_left_hair_2": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 6.259034204914196e-05
+    },
+    "charcoal_left_eye_0": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 3.426398689400284e-05
+    },
+    "charcoal_left_eye_1": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 3.4264000649228395e-05
+    },
+    "charcoal_left_mouth": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 4.195423554544798e-05
+    },
+    "metal_right_head_outline": {
+      "vertices": 103520,
+      "faces": 207036,
+      "nonmanifold_edges": 0,
+      "volume": 0.03706039501287395
+    },
+    "charcoal_right_hair": {
+      "vertices": 103520,
+      "faces": 207036,
+      "nonmanifold_edges": 0,
+      "volume": 0.005739079331472055
+    },
+    "ivory_right_face": {
+      "vertices": 91208,
+      "faces": 182412,
+      "nonmanifold_edges": 0,
+      "volume": 0.0015159270774332278
+    },
+    "ivory_right_cap_mark": {
+      "vertices": 24464,
+      "faces": 48924,
+      "nonmanifold_edges": 0,
+      "volume": 0.00012799609194864863
+    },
+    "charcoal_right_eye_0": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 3.4263921913885524e-05
+    },
+    "ivory_cyan_eye_accent_0": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 7.306190902982905e-06
+    },
+    "charcoal_right_eye_1": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 3.4263944054964574e-05
+    },
+    "ivory_cyan_eye_accent_1": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 7.306191069527668e-06
+    },
+    "charcoal_right_mouth": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 4.19541667755805e-05
+    }
+  },
+  "palette": {
+    "metal": "#D89B5D",
+    "acrylic": "#008B48",
+    "ivory": "#FFE4B8",
+    "charcoal": "#161D23",
+    "highlight": "#858B8D"
+  },
+  "source_reference": "../references/first-follow-approved.png",
+  "validation": {
+    "source_meshes_closed_outward": true,
+    "usdz_reimport": "passed"
+  },
+  "family_palette": {
+    "primary": "#008B48",
+    "secondary": "#25BB78",
+    "enamel": "#D3F4E2",
+    "name": "Emerald / jade"
+  }
+}

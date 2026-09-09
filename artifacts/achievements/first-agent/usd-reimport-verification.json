@@ -1,0 +1,85 @@
+{
+  "closed_outward_meshes": {
+    "acrylic_lime_face": {
+      "vertices": 10370,
+      "faces": 10584,
+      "nonmanifold_edges": 0,
+      "volume": 0.07669309017580991
+    },
+    "charcoal_agent_hair": {
+      "vertices": 103520,
+      "faces": 207036,
+      "nonmanifold_edges": 0,
+      "volume": 0.022917568199636407
+    },
+    "charcoal_eye_0": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 0.0001294096684135678
+    },
+    "charcoal_eye_1": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 0.00012940967674381114
+    },
+    "charcoal_pixel_mouth": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 0.00015740609229382787
+    },
+    "highlight_hair_pixel_0": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 0.00021245629525249593
+    },
+    "highlight_hair_pixel_1": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 0.0002124562682433015
+    },
+    "highlight_hair_pixel_2": {
+      "vertices": 12152,
+      "faces": 24300,
+      "nonmanifold_edges": 0,
+      "volume": 0.00021245631619832544
+    },
+    "ivory_agent_face": {
+      "vertices": 91208,
+      "faces": 182412,
+      "nonmanifold_edges": 0,
+      "volume": 0.005611999711913928
+    },
+    "metal_agent_head_outline": {
+      "vertices": 103520,
+      "faces": 207036,
+      "nonmanifold_edges": 0,
+      "volume": 0.06020346184574952
+    },
+    "metal_shield_frame": {
+      "vertices": 2376,
+      "faces": 2376,
+      "nonmanifold_edges": 0,
+      "volume": 0.0710346036508294
+    },
+    "satin_rear_border": {
+      "vertices": 1296,
+      "faces": 1296,
+      "nonmanifold_edges": 0,
+      "volume": 0.0004678638683746965
+    },
+    "satin_shield_back": {
+      "vertices": 10370,
+      "faces": 10584,
+      "nonmanifold_edges": 0,
+      "volume": 0.20544508865003833
+    }
+  },
+  "anchors_present": true,
+  "sample_text_in_export": false,
+  "usdz_bytes": 34877458
+}

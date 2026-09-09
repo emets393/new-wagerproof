@@ -25,6 +25,7 @@ import WagerproofStores
 ///      summary when scores aren't predicted
 ///   9. Agent pick rationale (only when the audit store has a matching pick)
 struct NCAABGameBottomSheet: View {
+    @Environment(AchievementsStore.self) private var achievements
     let game: NCAABGame
     var onClose: () -> Void = {}
     /// When false (carousel mode), the page paints a transparent base instead of
@@ -110,6 +111,7 @@ struct NCAABGameBottomSheet: View {
         .presentationDetents([.fraction(0.85), .large])
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.disabled)
+        .task { await achievements.record(.gameAnalysis) }
         .task(id: game.id) {
             // Reset transient sheet state when a new game opens.
             spreadExpanded = false

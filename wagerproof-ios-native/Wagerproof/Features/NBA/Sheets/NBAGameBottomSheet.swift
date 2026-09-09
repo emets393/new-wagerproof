@@ -19,6 +19,7 @@ import WagerproofStores
 ///  11. Team Stats (Adj Off/Def/Pace, ATS%, Over%)
 ///  12. Match Simulator (model-predicted scores)
 struct NBAGameBottomSheet: View {
+    @Environment(AchievementsStore.self) private var achievements
     let game: NBAGame
     var onClose: () -> Void = {}
     /// When false (carousel mode), the page paints a transparent base instead of
@@ -105,6 +106,7 @@ struct NBAGameBottomSheet: View {
         .presentationDetents([.fraction(0.85), .large])
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.disabled)
+        .task { await achievements.record(.gameAnalysis) }
         .task(id: game.id) {
             // Reset transient sheet state when a new game opens.
             spreadExpanded = false

@@ -1,0 +1,125 @@
+{
+  "id": "system-builder",
+  "family": "exploration",
+  "title": "SYSTEM BUILDER",
+  "label": "systems",
+  "tier": "silver",
+  "frame_prefix": "SystemBuilder",
+  "asset": "system-builder.usdz",
+  "editable_master": "system-builder.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "metal_compass_chassis": {
+      "vertices": 32004,
+      "faces": 64020,
+      "nonmanifold_edges": 0,
+      "volume": 0.2988260964258957
+    },
+    "acrylic_lime_center": {
+      "vertices": 16544,
+      "faces": 33084,
+      "nonmanifold_edges": 0,
+      "volume": 0.0425005988378318
+    },
+    "metal_slider_rail_0": {
+      "vertices": 1804,
+      "faces": 3604,
+      "nonmanifold_edges": 0,
+      "volume": 0.0030422522293825265
+    },
+    "ivory_slider_rail_0": {
+      "vertices": 1796,
+      "faces": 3588,
+      "nonmanifold_edges": 0,
+      "volume": 0.0021141732968045436
+    },
+    "metal_slider_knob_0": {
+      "vertices": 510,
+      "faces": 1016,
+      "nonmanifold_edges": 0,
+      "volume": 0.0030701316733658304
+    },
+    "ivory_slider_knob_0": {
+      "vertices": 478,
+      "faces": 952,
+      "nonmanifold_edges": 0,
+      "volume": 0.0013355124881357758
+    },
+    "metal_slider_rail_1": {
+      "vertices": 1804,
+      "faces": 3604,
+      "nonmanifold_edges": 0,
+      "volume": 0.0030409444864405353
+    },
+    "ivory_slider_rail_1": {
+      "vertices": 1796,
+      "faces": 3588,
+      "nonmanifold_edges": 0,
+      "volume": 0.002113613073193506
+    },
+    "metal_slider_knob_1": {
+      "vertices": 510,
+      "faces": 1016,
+      "nonmanifold_edges": 0,
+      "volume": 0.003070166062433972
+    },
+    "ivory_slider_knob_1": {
+      "vertices": 478,
+      "faces": 952,
+      "nonmanifold_edges": 0,
+      "volume": 0.0013353351350318746
+    },
+    "metal_slider_rail_2": {
+      "vertices": 1804,
+      "faces": 3604,
+      "nonmanifold_edges": 0,
+      "volume": 0.0030422521916383884
+    },
+    "ivory_slider_rail_2": {
+      "vertices": 1796,
+      "faces": 3588,
+      "nonmanifold_edges": 0,
+      "volume": 0.002114173289861505
+    },
+    "metal_slider_knob_2": {
+      "vertices": 510,
+      "faces": 1016,
+      "nonmanifold_edges": 0,
+      "volume": 0.003070133138067252
+    },
+    "ivory_slider_knob_2": {
+      "vertices": 478,
+      "faces": 952,
+      "nonmanifold_edges": 0,
+      "volume": 0.0013355606350952337
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 14,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle"
+    ]
+  },
+  "usdz_bytes": 5834268,
+  "family_palette": {
+    "primary": "#008D94",
+    "secondary": "#45CABB",
+    "enamel": "#CCFFF0",
+    "name": "Teal / aqua"
+  }
+}
