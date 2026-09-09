@@ -18,6 +18,7 @@ import UIKit
 /// public-specific chrome: no generation/autopilot/settings controls, plus the
 /// Follow CTA on top and the responsible-gambling disclaimer at the bottom.
 struct PublicAgentDetailView: View {
+    @Environment(AchievementsStore.self) private var achievements
     let agentId: String
 
     @Environment(AuthStore.self) private var auth
@@ -528,6 +529,7 @@ struct PublicAgentDetailView: View {
             // time it appears, without waiting on its own poll/refresh.
             followedAgentsStore.bind(userId: userId)
             await followedAgentsStore.refresh()
+            await achievements.refresh()
         } catch {
             isFollowing = !nextValue
             errorMessage = (error as NSError).localizedDescription

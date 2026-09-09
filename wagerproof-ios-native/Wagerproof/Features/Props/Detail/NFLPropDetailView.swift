@@ -1,4 +1,5 @@
 import SwiftUI
+import WagerproofStores
 import WagerproofModels
 import WagerproofDesign
 import WagerproofServices
@@ -16,6 +17,7 @@ import WagerproofServices
 /// The hero renders instantly from the feed selection; the page + trends rows
 /// load per player through `NFLPropPageService` and degrade independently.
 struct NFLPropDetailView: View {
+    @Environment(AchievementsStore.self) private var achievements
     let selection: NFLPlayerPropSelection
 
     @State private var detail: NFLPropPlayerDetailBundle?
@@ -134,6 +136,7 @@ struct NFLPropDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: selection.id) {
             await loadDetail()
+            if !displayMarkets.isEmpty { await achievements.record(.props) }
         }
         .sheet(item: $metricHelp) { help in
             NFLPropMetricHelpSheet(help: help)

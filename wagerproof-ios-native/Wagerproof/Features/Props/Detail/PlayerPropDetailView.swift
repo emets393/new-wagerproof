@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofModels
 import WagerproofDesign
+import WagerproofStores
 
 /// Full-page player-prop detail, styled like the MLB game detail
 /// (`MLBGameBottomSheet`): a `CollapsingWidgetScroll` whose identity row docks
@@ -9,6 +10,7 @@ import WagerproofDesign
 /// toolbar row so it stays visible. Widgets use the same flat card fill as
 /// game-detail cards. The line scrubber floats over the scrolling content.
 struct PlayerPropDetailView: View {
+    @Environment(AchievementsStore.self) private var achievements
     let selection: PlayerPropSelection
 
     /// Per-market selected line (lazily falls back to each market's fair line).
@@ -96,6 +98,7 @@ struct PlayerPropDetailView: View {
         }
         .ignoresSafeArea()
         .toolbarBackground(.hidden, for: .navigationBar)
+        .task { if !selection.props.isEmpty { await achievements.record(.props) } }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)

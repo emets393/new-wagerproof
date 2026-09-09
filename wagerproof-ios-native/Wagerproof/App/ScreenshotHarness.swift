@@ -24,6 +24,7 @@ import WagerproofStores
 /// `-propsSport <mlb|nfl|nba|ncaab>` to land on a specific sport segment
 /// (see MainTabView.init).
 struct ScreenshotHarnessView: View {
+    @State private var achievementsStore = AchievementsStore()
     @State private var authStore = AuthStore()
     @State private var router = RootRouter()
     @State private var onboardingStore = OnboardingStore()
@@ -67,6 +68,7 @@ struct ScreenshotHarnessView: View {
             primaryClusters
         }
         .environment(authStore)
+        .environment(achievementsStore)
         .environment(router)
         .environment(onboardingStore)
         .environment(themeStore)

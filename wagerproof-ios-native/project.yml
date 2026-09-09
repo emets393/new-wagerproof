@@ -63,6 +63,12 @@ targets:
           - Wagerproof.entitlements
           - Wagerproof.Debug.entitlements
           - Info.plist
+          - Resources/Achievements/verification/**
+          - Resources/Achievements/achievement_studio.skybox
+      - path: Wagerproof/Resources/Achievements/achievement_studio.skybox
+        type: file
+        fileType: file.skybox
+        buildPhase: resources
     configFiles:
       Debug: Wagerproof/Configuration/Debug.xcconfig
       Release: Wagerproof/Configuration/Release.xcconfig

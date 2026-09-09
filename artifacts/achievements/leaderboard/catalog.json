@@ -1,0 +1,23 @@
+[
+  {
+    "slug": "top-100",
+    "title": "TOP 100",
+    "label": "100",
+    "tier": "bronze",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "top-10",
+    "title": "TOP 10",
+    "label": "10",
+    "tier": "silver",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "number-one",
+    "title": "NUMBER ONE",
+    "label": "1",
+    "tier": "gold",
+    "fill": "#007B3B"
+  }
+]

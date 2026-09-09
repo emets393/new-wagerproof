@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofStores
+import WagerproofModels
 
 /// The signed-in app's tab shell. Four visible content tabs plus a detached
 /// Search role (iOS 18+ — renders as a separate pill outside the bar on
@@ -26,6 +27,9 @@ import WagerproofStores
 ///   project's deployment target was bumped to iOS 18.0 in `project.yml` /
 ///   `Package.swift` to unlock it.
 struct MainTabView: View {
+    @Environment(AchievementsStore.self) private var achievements
+    @State private var celebratedAchievement: Achievement?
+    @State private var celebratingId: String?
     @Environment(RootRouter.self) private var rootRouter
     @Environment(AuthStore.self) private var auth
     // B21 — the Learn WagerProof walkthrough is presented globally from this
@@ -210,6 +214,34 @@ struct MainTabView: View {
             RoastView()
                 .environment(tabStore)
         }
+        .sheet(item: $celebratedAchievement, onDismiss: {
+            if let id = celebratingId { achievements.acknowledgeCelebration(id) }
+            celebratingId = nil
+        }) { item in
+            AchievementUnlockedSheet(item: item) { celebratedAchievement = nil }
+        }
+        .task(id: achievements.pendingCelebrations) {
+            guard let id = achievements.pendingCelebrations.first else { return }
+            // Wait for existing sheets and transitions; never clobber a paywall or another modal.
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(600))
+                guard !Task.isCancelled else { return }
+                let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                    .flatMap(\.windows).first { $0.isKeyWindow }
+                if UIApplication.shared.applicationState == .active,
+                   window?.rootViewController?.presentedViewController == nil,
+                   celebratedAchievement == nil, celebratingId == nil {
+                    celebratingId = id
+                    celebratedAchievement = achievements.achievement(id: id)
+                    return
+                }
+            }
+        }
+        .onChange(of: achievements.userId) { _, _ in
+            celebratingId = nil
+            celebratedAchievement = nil
+        }
+        .onChange(of: tabStore.selected) { _, _ in Task { await achievements.refresh() } }
         // B21 — global Learn WagerProof walkthrough sheet.
         .sheet(item: Bindable(learnStore).activeTopic) { _ in
             LearnWagerProofBottomSheet(store: learnStore)

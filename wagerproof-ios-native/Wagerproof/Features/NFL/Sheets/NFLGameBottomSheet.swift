@@ -5,6 +5,7 @@ import WagerproofServices
 import WagerproofStores
 
 struct NFLGameBottomSheet: View {
+    @Environment(AchievementsStore.self) private var achievements
     let game: NFLPrediction
     var onClose: () -> Void = {}
     var showAura: Bool = true
@@ -122,6 +123,7 @@ struct NFLGameBottomSheet: View {
         .presentationDetents([.fraction(0.85), .large])
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.disabled)
+        .task { await achievements.record(.gameAnalysis) }
         .task(id: game.gameId) {
             // Seed the hero text cache so subsequent scroll frames reuse it
             // instead of re-parsing the kickoff and re-building the stat rows.

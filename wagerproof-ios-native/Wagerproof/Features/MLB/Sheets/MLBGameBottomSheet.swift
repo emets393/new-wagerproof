@@ -31,6 +31,7 @@ import WagerproofStores
 ///
 /// Postponed games short-circuit to a simple banner.
 struct MLBGameBottomSheet: View {
+    @Environment(AchievementsStore.self) private var achievements
     let game: MLBGame
     var onClose: () -> Void = {}
     /// When false (carousel mode), the page paints an opaque base instead of its
@@ -204,6 +205,7 @@ struct MLBGameBottomSheet: View {
             mlExpanded = false
             ouExpanded = false
         }
+        .task { await achievements.record(.gameAnalysis) }
         .task(id: game.gamePk) {
             // Seed the hero text cache so subsequent scroll frames reuse it
             // instead of re-formatting the date and re-building the stat rows.

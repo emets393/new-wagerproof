@@ -1,0 +1,98 @@
+{
+  "asset": "first-picks.usdz",
+  "status": "passed",
+  "up_axis": "Y",
+  "curved_backing_surface": "passed",
+  "front_and_rear_frames": "passed",
+  "rear_surface_anchors": {
+    "Engraving": [
+      0.0,
+      -0.03999999910593033,
+      0.03985714167356491
+    ],
+    "Name": [
+      0.0,
+      0.17000000178813934,
+      0.037419047206640244
+    ],
+    "Caption": [
+      0.0,
+      -0.03999999910593033,
+      0.03985714167356491
+    ],
+    "Date": [
+      0.0,
+      -0.25,
+      0.03441685810685158
+    ]
+  },
+  "no_preview_geometry": true,
+  "parts": {
+    "satin_rear_border": {
+      "vertices": 1296,
+      "polygons": 1296,
+      "closed_outward": true,
+      "signed_volume": 0.000467864,
+      "shader": {
+        "metallic": 1.0,
+        "clearcoat": 0.0,
+        "roughness": 0.3799999952316284
+      }
+    },
+    "satin_shield_back": {
+      "vertices": 10370,
+      "polygons": 10584,
+      "closed_outward": true,
+      "signed_volume": 0.205445089,
+      "shader": {
+        "metallic": 1.0,
+        "clearcoat": 0.0,
+        "roughness": 0.3799999952316284
+      }
+    },
+    "ivory_pixel_check_face": {
+      "vertices": 128468,
+      "polygons": 256932,
+      "closed_outward": true,
+      "signed_volume": 0.008514142,
+      "shader": {
+        "metallic": 0.0,
+        "clearcoat": 0.3499999940395355,
+        "roughness": 0.27000001072883606
+      }
+    },
+    "acrylic_lime_face": {
+      "vertices": 10370,
+      "polygons": 10584,
+      "closed_outward": true,
+      "signed_volume": 0.07669309,
+      "shader": {
+        "metallic": 0.0,
+        "clearcoat": 1.0,
+        "roughness": 0.08500000089406967
+      }
+    },
+    "metal_pixel_check_outline": {
+      "vertices": 147908,
+      "polygons": 295812,
+      "closed_outward": true,
+      "signed_volume": 0.023731427,
+      "shader": {
+        "metallic": 1.0,
+        "clearcoat": 0.0,
+        "roughness": 0.2199999988079071
+      }
+    },
+    "metal_shield_frame": {
+      "vertices": 2376,
+      "polygons": 2376,
+      "closed_outward": true,
+      "signed_volume": 0.071034604,
+      "shader": {
+        "metallic": 1.0,
+        "clearcoat": 0.0,
+        "roughness": 0.2199999988079071
+      }
+    }
+  }
+}

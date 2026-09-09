@@ -97,6 +97,8 @@ struct SettingsView: View {
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.md)
 
+                AchievementDiscoverySection().padding(.horizontal, Spacing.lg)
+
                 preferencesSection
                 supportSection
                 legalSection

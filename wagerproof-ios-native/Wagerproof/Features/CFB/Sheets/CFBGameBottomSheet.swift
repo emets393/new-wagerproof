@@ -7,6 +7,7 @@ import WagerproofStores
 /// CFB Week 7 slate detail screen: a seven-market bet board from
 /// `cfb_slate_feed`, plus fired flags split into active picks and tracking.
 struct CFBGameBottomSheet: View {
+    @Environment(AchievementsStore.self) private var achievements
     let game: CFBPrediction
     var onClose: () -> Void = {}
     var showAura: Bool = true
@@ -98,6 +99,7 @@ struct CFBGameBottomSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.disabled)
         .onDisappear { auditStore.clear() }
+        .task { await achievements.record(.gameAnalysis) }
         .task(id: game.gameId) {
             // Seed the hero text cache so subsequent scroll frames reuse it
             // instead of re-parsing the kickoff and re-building the stat rows.

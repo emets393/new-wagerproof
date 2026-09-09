@@ -1,0 +1,55 @@
+{
+  "family": "exploration",
+  "bytes": 8161061,
+  "variants": [
+    {
+      "frame_prefix": "ConnectedResearcher",
+      "source": "artifacts/achievements/exploration/connected-researcher/manifest.json",
+      "original_faces": 111944,
+      "runtime_faces": 85360,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "GameAnalyst",
+      "source": "artifacts/achievements/exploration/game-analyst/manifest.json",
+      "original_faces": 103520,
+      "runtime_faces": 77466,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "PropsScout",
+      "source": "artifacts/achievements/exploration/props-scout/manifest.json",
+      "original_faces": 103532,
+      "runtime_faces": 77478,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "SystemBuilder",
+      "source": "artifacts/achievements/exploration/system-builder/manifest.json",
+      "original_faces": 124584,
+      "runtime_faces": 97342,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "TrendExplorer",
+      "source": "artifacts/achievements/exploration/trend-explorer/manifest.json",
+      "original_faces": 110048,
+      "runtime_faces": 83576,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "WagerbotPartner",
+      "source": "artifacts/achievements/exploration/wagerbot-partner/manifest.json",
+      "original_faces": 106332,
+      "runtime_faces": 80092,
+      "contour_retessellated": false
+    }
+  ],
+  "checks": {
+    "y_up": true,
+    "material_bindings": true,
+    "corner_normals": true,
+    "no_studio": true,
+    "lod_closed_outward": true
+  }
+}

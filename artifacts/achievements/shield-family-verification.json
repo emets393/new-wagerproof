@@ -1,0 +1,53 @@
+{
+  "first-agent": {
+    "shared_part_hashes": {
+      "satin_rear_border": "0947f455222638e88c6113fc1552cf7e68a7a6d5b4844aaec9e3877e317deafa",
+      "satin_shield_back": "ecf7457e4e5677253c2a1e37d20ed58d1376c811474e795b8a3eaf69ef2238e5",
+      "metal_shield_frame": "7ab9c2ad8076947d2ecfe0a2f70b5f7670d6d38828e7a8f049009fddcb5a1f9e",
+      "acrylic_lime_face": "a3442896c2413060f6063d13ec43a135f6cc047bba435424a0b209af7a25e372"
+    },
+    "curve": {
+      "type": "ellipsoidal",
+      "radius": 5.6,
+      "horizontal_weight": 3.8,
+      "center_z": 0.135,
+      "shell_thickness": 0.095,
+      "rear_formula": "center_z + sqrt(radius^2-horizontal_weight*x^2-y^2) - radius - shell_thickness"
+    },
+    "status": "passed"
+  },
+  "first-follow": {
+    "shared_part_hashes": {
+      "acrylic_lime_face": "a3442896c2413060f6063d13ec43a135f6cc047bba435424a0b209af7a25e372",
+      "satin_rear_border": "0947f455222638e88c6113fc1552cf7e68a7a6d5b4844aaec9e3877e317deafa",
+      "satin_shield_back": "ecf7457e4e5677253c2a1e37d20ed58d1376c811474e795b8a3eaf69ef2238e5",
+      "metal_shield_frame": "7ab9c2ad8076947d2ecfe0a2f70b5f7670d6d38828e7a8f049009fddcb5a1f9e"
+    },
+    "curve": {
+      "type": "ellipsoidal",
+      "radius": 5.6,
+      "horizontal_weight": 3.8,
+      "center_z": 0.135,
+      "shell_thickness": 0.095,
+      "rear_formula": "center_z + sqrt(radius^2-horizontal_weight*x^2-y^2) - radius - shell_thickness"
+    },
+    "status": "passed"
+  },
+  "first-picks": {
+    "shared_part_hashes": {
+      "metal_shield_frame": "7ab9c2ad8076947d2ecfe0a2f70b5f7670d6d38828e7a8f049009fddcb5a1f9e",
+      "satin_rear_border": "0947f455222638e88c6113fc1552cf7e68a7a6d5b4844aaec9e3877e317deafa",
+      "satin_shield_back": "ecf7457e4e5677253c2a1e37d20ed58d1376c811474e795b8a3eaf69ef2238e5",
+      "acrylic_lime_face": "a3442896c2413060f6063d13ec43a135f6cc047bba435424a0b209af7a25e372"
+    },
+    "curve": {
+      "type": "ellipsoidal",
+      "radius": 5.6,
+      "horizontal_weight": 3.8,
+      "center_z": 0.135,
+      "shell_thickness": 0.095,
+      "rear_formula": "center_z + sqrt(radius^2-horizontal_weight*x^2-y^2) - radius - shell_thickness"
+    },
+    "status": "passed"
+  }
+}

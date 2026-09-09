@@ -1,0 +1,177 @@
+{
+  "status": "passed",
+  "expected_assets": 24,
+  "passed_assets": 24,
+  "validation": "Delivery inventory and existing export/reimport audit reports; USDZ geometry not reopened.",
+  "delivery_status": "Review masters only; no app integration or device validation.",
+  "assets": [
+    {
+      "family": "Getting Started",
+      "title": "First Agent",
+      "directory": "first-agent",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Getting Started",
+      "title": "First Follow",
+      "directory": "first-follow",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Getting Started",
+      "title": "First Picks",
+      "directory": "first-picks",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Agent Experience",
+      "title": "10 Graded Picks",
+      "directory": "experience/experience-10",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Agent Experience",
+      "title": "50 Graded Picks",
+      "directory": "experience/experience-50",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Agent Experience",
+      "title": "100 Graded Picks",
+      "directory": "experience/experience-100",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Agent Experience",
+      "title": "500 Graded Picks",
+      "directory": "experience/experience-500",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Winning Streaks",
+      "title": "3 Win Streak",
+      "directory": "streaks/streak-3",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Winning Streaks",
+      "title": "5 Win Streak",
+      "directory": "streaks/streak-5",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Winning Streaks",
+      "title": "10 Win Streak",
+      "directory": "streaks/streak-10",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Winning Streaks",
+      "title": "15 Win Streak",
+      "directory": "streaks/streak-15",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Performance",
+      "title": "First Win",
+      "directory": "performance/first-win",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Performance",
+      "title": "+10 Units",
+      "directory": "performance/plus-10-units",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Performance",
+      "title": "+25 Units",
+      "directory": "performance/plus-25-units",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Performance",
+      "title": "Consistent",
+      "directory": "performance/consistent",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Leaderboard",
+      "title": "Top 100",
+      "directory": "leaderboard/top-100",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Leaderboard",
+      "title": "Top 10",
+      "directory": "leaderboard/top-10",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Leaderboard",
+      "title": "Number One",
+      "directory": "leaderboard/number-one",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Exploration",
+      "title": "Game Analyst",
+      "directory": "exploration/game-analyst",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Exploration",
+      "title": "Props Scout",
+      "directory": "exploration/props-scout",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Exploration",
+      "title": "Trend Explorer",
+      "directory": "exploration/trend-explorer",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Exploration",
+      "title": "System Builder",
+      "directory": "exploration/system-builder",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Exploration",
+      "title": "WagerBot Partner",
+      "directory": "exploration/wagerbot-partner",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "family": "Exploration",
+      "title": "Connected Researcher",
+      "directory": "exploration/connected-researcher",
+      "status": "passed",
+      "errors": []
+    }
+  ]
+}

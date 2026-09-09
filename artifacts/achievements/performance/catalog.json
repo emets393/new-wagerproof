@@ -1,0 +1,30 @@
+[
+  {
+    "slug": "first-win",
+    "title": "FIRST WIN",
+    "label": "1",
+    "tier": "bronze",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "plus-10-units",
+    "title": "+10 UNITS",
+    "label": "+10",
+    "tier": "silver",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "plus-25-units",
+    "title": "+25 UNITS",
+    "label": "+25",
+    "tier": "gold",
+    "fill": "#8BCD00"
+  },
+  {
+    "slug": "consistent",
+    "title": "CONSISTENT",
+    "label": "55%",
+    "tier": "gold",
+    "fill": "#8BCD00"
+  }
+]

@@ -30,6 +30,7 @@ import UIKit
 /// Settings is a toolbar push (gear); the audit modal is a `.sheet`. Chat is no
 /// longer surfaced here (the RN detail page has none).
 struct AgentDetailView: View {
+    @Environment(AchievementsStore.self) private var achievements
     let agentId: String
     let initialAgent: AgentWithPerformance?
 
@@ -626,6 +627,7 @@ struct AgentDetailView: View {
         focusPrintIntro = false
         if viewedFreshGeneration {
             ReviewPromptCoordinator.shared.recordGeneratedPicksViewed()
+            Task { await achievements.refresh() }
         }
     }
 

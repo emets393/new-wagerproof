@@ -7,6 +7,7 @@ import WagerproofStores
 /// Historical Trends — native large title + floating filter pills, container-free
 /// content. See .claude/docs/15_mobile_historical_analysis.md.
 struct HistoricalAnalysisView: View {
+    @Environment(AchievementsStore.self) private var achievements
     let sport: HistoricalAnalysisSport
 
     @Environment(AuthStore.self) private var authStore
@@ -85,9 +86,13 @@ struct HistoricalAnalysisView: View {
             guard was, !isNow, let response = store.nlChatState.lastResponse else { return }
             presentToast(for: response)
         }
+        .onChange(of: store.analysis != nil) { _, loaded in
+            if loaded { Task { await achievements.record(.historicalAnalysis) } }
+        }
         .task {
             store.loadRecentQueries()
             await store.onAppear(userId: userId)
+            if store.analysis != nil { await achievements.record(.historicalAnalysis) }
         }
         .sheet(
             isPresented: $showSaveSystemSheet,
@@ -102,6 +107,7 @@ struct HistoricalAnalysisView: View {
                 SaveSystemSheet(store: store, userId: userId) { shared in
                     presentSystemSavedToast(shared: shared)
                     ReviewPromptCoordinator.shared.recordSystemSaved()
+                    Task { await achievements.refresh() }
                     // Continue in the shared hub so the new system is visible.
                     openMySystemsAfterSave = true
                 }

@@ -1,0 +1,41 @@
+{
+  "family": "streaks",
+  "bytes": 4811001,
+  "variants": [
+    {
+      "frame_prefix": "Streak10",
+      "source": "artifacts/achievements/streaks/streak-10/manifest.json",
+      "original_faces": 71028,
+      "runtime_faces": 54546,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Streak15",
+      "source": "artifacts/achievements/streaks/streak-15/manifest.json",
+      "original_faces": 54676,
+      "runtime_faces": 40406,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Streak3",
+      "source": "artifacts/achievements/streaks/streak-3/manifest.json",
+      "original_faces": 77842,
+      "runtime_faces": 39836,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Streak5",
+      "source": "artifacts/achievements/streaks/streak-5/manifest.json",
+      "original_faces": 52088,
+      "runtime_faces": 38296,
+      "contour_retessellated": false
+    }
+  ],
+  "checks": {
+    "y_up": true,
+    "material_bindings": true,
+    "corner_normals": true,
+    "no_studio": true,
+    "lod_closed_outward": true
+  }
+}
