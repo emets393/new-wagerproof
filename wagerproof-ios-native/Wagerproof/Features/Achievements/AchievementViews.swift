@@ -35,7 +35,7 @@ private struct AchievementShelf: View {
                 LazyHStack(alignment: .top, spacing: 16) {
                     ForEach(items) { item in
                         NavigationLink { AchievementDetailView(id: item.id) } label: {
-                            AchievementTile(item: item).frame(width: 104)
+                            AchievementTile(item: item, compact: true).frame(width: 88)
                         }.buttonStyle(.plain)
                     }
                 }
@@ -107,10 +107,11 @@ struct AchievementLibraryView: View {
 
 private struct AchievementTile: View {
     let item: Achievement
+    var compact = false
     var body: some View {
         VStack(spacing: 6) {
             Image(uiImage: AchievementThumbnail.image(named: item.definition.thumbnail, earned: item.earned)).resizable().scaledToFit()
-                .frame(height: 108)
+                .frame(height: compact ? 88 : 108)
                 .overlay(alignment: .bottomTrailing) {
                     if !item.earned { Image(systemName: "lock.fill").font(.caption2).foregroundStyle(.secondary) }
                 }
@@ -120,7 +121,10 @@ private struct AchievementTile: View {
                 ProgressView(value: item.fraction).tint(.green)
                     .accessibilityLabel("Progress").accessibilityValue(item.fraction.formatted(.percent))
             } else if let date = item.status.earnedAt {
-                Text(date, style: .date).font(.caption2).foregroundStyle(.secondary)
+                Text(date.formatted(.dateTime.month(.defaultDigits).day().year(.twoDigits)))
+                    .font(compact ? .system(size: 9) : .caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
         .accessibilityElement(children: .ignore)

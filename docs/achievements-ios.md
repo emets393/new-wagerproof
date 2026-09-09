@@ -93,3 +93,5 @@ Earned achievement details and unlock celebrations offer â€œShare with a Friendâ
 Validation: 35-asset catalog and palette checks, SQL boundary/upgrade/history tests, 13 native model/store tests and the production onboarding navigation verifier pass. All 70 packaged thumbnails are 512-pixel native renders. Simulator and signed iPhone builds verify integration; onboarding, third paywall slide and sharing controls are visually checked separately.
 
 The final Debug build (3.6.1, build 326) was installed and launched normally on the selected iPhone 14 Pro. No App Store upload was performed. Share-sheet delivery to an external destination remains manual device UAT.
+
+Horizontal discovery shelves use 88-point cards and 9-point compact numeric unlock dates (for example, 9/9/26) to fit more medals across Settings. Dates use the device locale.
