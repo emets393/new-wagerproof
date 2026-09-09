@@ -11,7 +11,10 @@ struct AchievementPreview: View {
         defaults: UserDefaults(suiteName: "achievement.visual-qa.\(UUID().uuidString)")!)
     var body: some View {
         NavigationStack {
-            if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-achievementID"),
+            if ProcessInfo.processInfo.arguments.contains("-achievementCelebration"),
+               let item = store.achievement(id: "first-agent") {
+                AchievementUnlockedSheet(item: item, onDone: {})
+            } else if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-achievementID"),
                index + 1 < ProcessInfo.processInfo.arguments.count {
                 AchievementDetailView(id: ProcessInfo.processInfo.arguments[index + 1])
             } else { AchievementLibraryView() }
@@ -25,6 +28,9 @@ struct AchievementPreview: View {
                     displayName: ProcessInfo.processInfo.arguments[index + 1]))
             }
             store.bind(userId: "visual-qa"); await store.refresh()
+            if ProcessInfo.processInfo.arguments.contains("-bakeAchievementThumbnails") {
+                do { try await AchievementNativeBake.run() } catch { print("Native achievement bake failed: \(error)") }
+            }
         }
     }
 }

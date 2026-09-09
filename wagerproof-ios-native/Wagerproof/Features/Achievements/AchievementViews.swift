@@ -109,8 +109,7 @@ private struct AchievementTile: View {
     let item: Achievement
     var body: some View {
         VStack(spacing: 6) {
-            Image(uiImage: AchievementThumbnail.image(named: item.definition.thumbnail)).resizable().scaledToFit()
-                .saturation(item.earned ? 1 : 0).opacity(item.earned ? 1 : 0.4)
+            Image(uiImage: AchievementThumbnail.image(named: item.definition.thumbnail, earned: item.earned)).resizable().scaledToFit()
                 .frame(height: 108)
                 .overlay(alignment: .bottomTrailing) {
                     if !item.earned { Image(systemName: "lock.fill").font(.caption2).foregroundStyle(.secondary) }
@@ -134,20 +133,23 @@ struct AchievementDetailView: View {
     @Environment(AchievementsStore.self) private var store
     @Environment(AuthStore.self) private var auth
     @State private var immersive = false
+    @State private var revealed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         if let item = store.achievement(id: id) {
             GeometryReader { geometry in
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 10) {
                         AchievementMedalView(familyAsset: item.definition.group.asset,
                             variantRoot: item.definition.variantRoot, earned: item.earned,
                             recipientName: auth.profile?.displayName ?? auth.profile?.username ?? "WagerProof",
                             earnedAt: item.status.earnedAt, caption: item.definition.title.uppercased())
-                            .frame(height: immersive ? max(360, geometry.size.height - 80) : max(280, geometry.size.height * 0.48))
+                            .frame(height: immersive ? geometry.size.height * 0.7 : 420)
+                            .scaleEffect(revealed || immersive ? 1 : 0.55)
+                            .opacity(revealed ? 1 : 0)
                         if !immersive {
                             VStack(spacing: 10) {
-                                Text(item.definition.group.title.uppercased()).font(.caption.weight(.bold)).tracking(2).foregroundStyle(.secondary)
-                                Text(item.definition.title).font(.largeTitle.bold()).multilineTextAlignment(.center)
+                                Text(item.definition.title).font(.system(size: 28, weight: .bold)).multilineTextAlignment(.center)
                                 if let date = item.status.earnedAt {
                                     Label("Unlocked \(date.formatted(date: .abbreviated, time: .omitted))", systemImage: "checkmark.seal.fill")
                                         .font(.subheadline).foregroundStyle(.green)
@@ -171,10 +173,14 @@ struct AchievementDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .tabBar)
             .toolbar { ToolbarItem(placement: .topBarTrailing) {
-                Button { immersive.toggle() } label: {
+                Button { withAnimation { immersive.toggle() } } label: {
                     Image(systemName: immersive ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                 }.accessibilityLabel(immersive ? "Show achievement details" : "Expand medal")
             } }
+            .onAppear {
+                if reduceMotion { revealed = true }
+                else { withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) { revealed = true } }
+            }
             .task { await store.refresh() }
         }
     }
@@ -191,13 +197,43 @@ struct AchievementUnlockedSheet: View {
     let item: Achievement
     let onDone: () -> Void
     @Environment(AuthStore.self) private var auth
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showRotationHint = true
+    @State private var fingerAtEnd = false
     var body: some View {
         VStack(spacing: 20) {
             Text("ACHIEVEMENT UNLOCKED").font(.caption.bold()).tracking(2).foregroundStyle(.secondary)
             AchievementMedalView(familyAsset: item.definition.group.asset, variantRoot: item.definition.variantRoot,
                 earned: true, recipientName: auth.profile?.displayName ?? auth.profile?.username ?? "WagerProof",
-                earnedAt: item.status.earnedAt, caption: item.definition.title.uppercased()).frame(maxHeight: .infinity)
-            Text(item.definition.title).font(.largeTitle.bold()).multilineTextAlignment(.center)
+                earnedAt: item.status.earnedAt, caption: item.definition.title.uppercased(),
+                onInteractionBegan: { showRotationHint = false })
+                .frame(maxHeight: .infinity)
+                .overlay(alignment: .bottom) {
+                    if showRotationHint {
+                        VStack(spacing: 8) {
+                            Image(systemName: "hand.draw.fill")
+                                .font(.system(size: 30, weight: .medium))
+                                .offset(x: reduceMotion ? 0 : fingerAtEnd ? 38 : -38)
+                                .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
+                                .accessibilityHidden(true)
+                            Text("Swipe me to rotate").font(.subheadline.weight(.semibold))
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 20).padding(.vertical, 12)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                        .allowsHitTesting(false)
+                        .task {
+                            guard !reduceMotion else { return }
+                            // Let the reveal spin finish before teaching the horizontal gesture.
+                            try? await Task.sleep(for: .milliseconds(750))
+                            guard !Task.isCancelled else { return }
+                            withAnimation(.easeInOut(duration: 1.15).repeatCount(3, autoreverses: true)) {
+                                fingerAtEnd = true
+                            }
+                        }
+                    }
+                }
+            Text(item.definition.title).font(.system(size: 28, weight: .bold)).multilineTextAlignment(.center)
             Text(item.definition.requirement).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button("Continue", action: onDone).font(.headline).frame(maxWidth: .infinity).padding()
                 .background(.green, in: Capsule()).foregroundStyle(.black)

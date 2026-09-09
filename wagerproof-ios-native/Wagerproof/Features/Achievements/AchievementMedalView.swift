@@ -2,11 +2,16 @@ import SwiftUI
 import UIKit
 import RealityKit
 import simd
+import QuartzCore
+#if DEBUG
+import WagerproofModels
+#endif
 
 /// Raw bundle thumbnails are cached independently from the decoded 3D families.
 @MainActor enum AchievementThumbnail {
     private static let cache = NSCache<NSString, UIImage>()
-    static func image(named name: String) -> UIImage {
+    static func image(named name: String, earned: Bool = true) -> UIImage {
+        let name = earned ? name : name + "_locked"
         if let image = cache.object(forKey: name as NSString) { return image }
         let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "Achievements")
             ?? Bundle.main.url(forResource: name, withExtension: "png")
@@ -26,10 +31,12 @@ struct AchievementMedalView: UIViewRepresentable {
     let recipientName: String
     let earnedAt: Date?
     let caption: String
+    var onInteractionBegan: (() -> Void)? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeUIView(context: Context) -> AchievementMedalHost { AchievementMedalHost() }
     func updateUIView(_ view: AchievementMedalHost, context: Context) {
+        view.onInteractionBegan = onInteractionBegan
         view.update(.init(family: familyAsset, variant: variantRoot, earned: earned,
                           name: recipientName, date: earnedAt, caption: caption,
                           reduceMotion: reduceMotion))
@@ -86,6 +93,7 @@ fileprivate struct MedalPresentation: Equatable {
 /// Hosts borrow one renderer. A disappearing fullscreen host restores the previous
 /// still-visible detail host; stale dismantle callbacks cannot detach the new owner.
 @MainActor final class AchievementMedalHost: UIView {
+    fileprivate var onInteractionBegan: (() -> Void)?
     fileprivate var presentation: MedalPresentation?
     fileprivate let fallback = UIImageView()
     fileprivate let status = UILabel()
@@ -114,8 +122,8 @@ fileprivate struct MedalPresentation: Equatable {
     fileprivate func update(_ value: MedalPresentation) {
         guard presentation != value else { return }
         presentation = value
-        fallback.image = AchievementThumbnail.image(named: "achievement_\(value.variant)")
-        fallback.alpha = value.earned ? 1 : 0.35
+        fallback.image = AchievementThumbnail.image(named: "achievement_\(value.variant)", earned: value.earned)
+        fallback.alpha = 1
         if SharedMedalRenderer.shared.owner === self { SharedMedalRenderer.shared.renderer.update(value) }
     }
     override func didMoveToWindow() {
@@ -153,6 +161,7 @@ fileprivate struct MedalPresentation: Equatable {
                 renderer.topAnchor.constraint(equalTo: host.topAnchor), renderer.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             ])
         }
+        renderer.onInteractionBegan = { [weak host] in host?.onInteractionBegan?() }
         renderer.onState = { [weak host] loaded, failed in
             guard let host else { return }
             host.fallback.isHidden = loaded
@@ -181,7 +190,32 @@ fileprivate struct MedalPresentation: Equatable {
     private var radius: Float = 1.5
     private var yaw: Float = 0
     private let haptic = UIImpactFeedbackGenerator(style: .light)
+    private let settleHaptic = UIImpactFeedbackGenerator(style: .rigid)
+    private var detentIndex = 0
+    private var motionLink: CADisplayLink?
+    private var motionStart: CFTimeInterval = 0
+    private var revealing = true
+    private func stopMotion() { motionLink?.invalidate(); motionLink = nil }
+    private func startReveal() {
+        stopMotion()
+        guard config?.reduceMotion == false else { return }
+        revealing = true
+        motionStart = CACurrentMediaTime()
+        let link = CADisplayLink(target: self, selector: #selector(stepMotion(_:)))
+        link.add(to: .main, forMode: .common)
+        motionLink = link
+    }
+    @objc private func stepMotion(_ link: CADisplayLink) {
+        let elapsed = CACurrentMediaTime() - motionStart
+        if revealing {
+            let t = min(1, Float(elapsed / 0.65))
+            yaw = t * t * (3 - 2 * t) * 2 * .pi
+            if t >= 1 { revealing = false; motionStart = CACurrentMediaTime(); yaw = 0 }
+        } else { yaw = sin(Float(elapsed) * 1.5) * 0.34 }
+        pivot.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
+    }
     private var notificationTokens: [NSObjectProtocol] = []
+    var onInteractionBegan: (() -> Void)?
     var onState: ((Bool, Bool) -> Void)?
 
     override init(frame: CGRect) {
@@ -195,7 +229,7 @@ fileprivate struct MedalPresentation: Equatable {
             arView.topAnchor.constraint(equalTo: topAnchor), arView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         anchor.addChild(pivot); anchor.addChild(camera); arView.scene.addAnchor(anchor)
-        camera.camera.fieldOfViewInDegrees = 45
+        camera.camera.fieldOfViewInDegrees = 50
         for (position, intensity): (SIMD3<Float>, Float) in [([-0.5, 0.6, 2], 1800), ([0.8, -0.25, 2], 900), ([0.2, -0.6, -1.2], 1100)] {
             let light = DirectionalLight(); light.light.intensity = intensity
             light.look(at: .zero, from: position, relativeTo: nil); anchor.addChild(light)
@@ -208,7 +242,7 @@ fileprivate struct MedalPresentation: Equatable {
         isAccessibilityElement = true
         accessibilityTraits = [.adjustable]
         notificationTokens.append(NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.arView.isHidden = true; self?.pivot.stopAllAnimations() }
+            MainActor.assumeIsolated { self?.arView.isHidden = true; self?.stopMotion(); self?.pivot.stopAllAnimations() }
         })
         notificationTokens.append(NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { if self?.window != nil { self?.arView.isHidden = false } }
@@ -219,14 +253,16 @@ fileprivate struct MedalPresentation: Equatable {
 
     func suspend() {
         if let id = requestID { MedalEntityCache.cancel(id) }
+        stopMotion()
         requestID = nil; config = nil
         pivot.stopAllAnimations(); pivot.children.removeAll()
         arView.isHidden = true
-        onState = nil
+        onState = nil; onInteractionBegan = nil
     }
     func update(_ value: MedalPresentation) {
         guard config != value else { return }
         if let id = requestID { MedalEntityCache.cancel(id) }
+        stopMotion()
         config = value
         arView.isHidden = false
         pivot.stopAllAnimations(); pivot.children.removeAll(); yaw = 0
@@ -248,66 +284,89 @@ fileprivate struct MedalPresentation: Equatable {
             let oriented = Entity()
             oriented.addChild(variant)
             oriented.orientation = frame.orientation(relativeTo: oriented).inverse
-            if !value.earned { self.applyLocked(to: variant) }
-            else { self.addEngraving(value, variant: variant, front: frame) }
+            self.applyFinishes(to: variant, earned: value.earned)
+            if value.earned { self.addEngraving(value, variant: variant, front: frame) }
             let bounds = oriented.visualBounds(relativeTo: nil)
             oriented.position = -bounds.center
             self.radius = max(0.1, simd_length(bounds.extents) * 0.5)
             self.pivot.addChild(oriented)
             if let environment = MedalEntityCache.environment { self.arView.environment.lighting.resource = environment }
-            self.frameCamera(); self.onState?(true, false)
+            self.arView.environment.lighting.intensityExponent = 0
+            self.frameCamera(); self.onState?(true, false); self.startReveal()
         }
     }
     private func frameCamera() {
         let aspect = max(0.1, Float(bounds.width / max(1, bounds.height)))
         let vertical = camera.camera.fieldOfViewInDegrees * .pi / 360
         let horizontal = atan(tan(vertical) * aspect)
-        let distance = radius / sin(min(vertical, horizontal)) * 1.08
+        let distance = radius / sin(min(vertical, horizontal)) * 1.06
         // Tight clip planes retain precision between the authored shallow metal layers.
         camera.camera.near = max(0.01, distance - radius * 1.25)
         camera.camera.far = distance + radius * 1.25
         camera.look(at: .zero, from: [0, 0, max(0.3, distance)], relativeTo: nil)
     }
-    private func applyLocked(to entity: Entity) {
-        if var component = entity.components[ModelComponent.self] {
+    /// Honeydew's explicit PBR roles, preserving WagerProof's authored family colors.
+    private func applyFinishes(to entity: Entity, earned: Bool, inheritedRole: String = "") {
+        let name = entity.name.lowercased()
+        let role = ["acrylic", "ivory", "satin", "metal"].first(where: { name.hasPrefix($0 + "_") }) ?? inheritedRole
+        if var component = entity.components[ModelComponent.self], !role.isEmpty {
             component.materials = component.materials.map { original in
-                if var material = original as? PhysicallyBasedMaterial {
-                    let source = material.baseColor.tint
-                    var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-                    source.getRed(&r, green: &g, blue: &b, alpha: &a)
-                    let gray = (r * 0.2126 + g * 0.7152 + b * 0.0722) * 0.55 + 0.12
-                    material.baseColor.tint = UIColor(white: gray, alpha: 1)
-                    material.roughness = .init(floatLiteral: 0.45)
-                    return material
+                guard var material = original as? PhysicallyBasedMaterial else { return original }
+                switch role {
+                case "acrylic":
+                    material.metallic = 0.0
+                    material.roughness = .init(floatLiteral: earned ? 0.085 : 0.4)
+                    material.clearcoat = .init(floatLiteral: earned ? 1 : 0.2)
+                    material.clearcoatRoughness = .init(floatLiteral: 0.065)
+                case "ivory":
+                    material.metallic = 0.0
+                    material.roughness = .init(floatLiteral: 0.27)
+                    material.clearcoat = .init(floatLiteral: 0.35)
+                default:
+                    material.metallic = 1.0
+                    material.roughness = .init(floatLiteral: !earned ? 0.4 : role == "satin" ? 0.38 : 0.22)
+                    material.clearcoat = 0.0
                 }
-                return SimpleMaterial(color: UIColor(white: 0.42, alpha: 1), roughness: 0.5, isMetallic: entity.name.hasPrefix("metal"))
+                if !earned {
+                    let rgb: [CGFloat] = role == "acrylic" ? [61, 68, 73] : role == "ivory" ? [155, 158, 160] : [114, 117, 122]
+                    material.baseColor = .init(tint: UIColor(red: rgb[0]/255, green: rgb[1]/255, blue: rgb[2]/255, alpha: 1))
+                }
+                return material
             }
             entity.components.set(component)
         }
-        for child in entity.children { applyLocked(to: child) }
+        for child in entity.children { applyFinishes(to: child, earned: earned, inheritedRole: role) }
     }
     @objc private func drag(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
-        case .began: pivot.stopAllAnimations(); haptic.prepare()
+        case .began:
+            onInteractionBegan?()
+            stopMotion(); pivot.stopAllAnimations(); haptic.prepare(); settleHaptic.prepare()
+            detentIndex = Int((yaw / .pi).rounded())
         case .changed:
             yaw += Float(gesture.translation(in: self).x) * 0.01
             gesture.setTranslation(.zero, in: self)
+            let detent = Int((yaw / .pi).rounded())
+            if detent != detentIndex { detentIndex = detent; haptic.impactOccurred(intensity: 0.6); haptic.prepare() }
             pivot.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
         case .ended, .cancelled, .failed: settle(to: (yaw / .pi).rounded() * .pi)
         default: break
         }
     }
     private func settle(to angle: Float) {
+        stopMotion()
         yaw = angle.truncatingRemainder(dividingBy: 2 * .pi)
         var target = pivot.transform; target.rotation = simd_quatf(angle: yaw, axis: [0, 1, 0])
         if config?.reduceMotion == true { pivot.transform = target }
-        else { pivot.move(to: target, relativeTo: anchor, duration: 0.3, timingFunction: .easeInOut) }
+        else { pivot.move(to: target, relativeTo: anchor, duration: 0.35, timingFunction: .easeInOut) }
         accessibilityValue = abs(cos(yaw)) > 0.5 && cos(yaw) > 0 ? "Front" : "Back"
-        haptic.impactOccurred(intensity: 0.6)
+        settleHaptic.impactOccurred()
     }
-    @objc private func flipMedal() { settle(to: yaw + .pi) }
+    @objc private func flipMedal() { onInteractionBegan?(); settle(to: yaw + .pi) }
     override func accessibilityIncrement() { settle(to: yaw + .pi) }
     override func accessibilityDecrement() { settle(to: yaw - .pi) }
+
+    fileprivate func capture(_ completion: @escaping (UIImage?) -> Void) { arView.snapshot(saveToHDR: false, completion: completion) }
 
     private func addEngraving(_ value: MedalPresentation, variant: Entity, front: Entity) {
         let date = value.date.map { $0.formatted(.dateTime.day().month(.abbreviated).year()).uppercased() } ?? ""
@@ -365,3 +424,37 @@ fileprivate struct MedalPresentation: Equatable {
         catch { text.isEnabled = false }
     }
 }
+
+#if DEBUG
+@MainActor enum AchievementNativeBake {
+    static func run() async throws {
+        guard let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) else { return }
+        let surface = MedalRealitySurface(frame: CGRect(x: 0, y: 0, width: 512, height: 512))
+        window.addSubview(surface)
+        defer { surface.suspend(); surface.removeFromSuperview() }
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("AchievementBakes")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for definition in AchievementCatalog.definitions {
+            for earned in [true, false] {
+                let loaded: Bool = await withCheckedContinuation { continuation in
+                    surface.onState = { loaded, failed in
+                        if loaded || failed { continuation.resume(returning: loaded) }
+                    }
+                    surface.update(.init(family: definition.group.asset, variant: definition.variantRoot,
+                        earned: earned, name: "", date: nil, caption: "", reduceMotion: true))
+                }
+                surface.onState = nil
+                guard loaded else { throw CocoaError(.fileReadCorruptFile) }
+                try await Task.sleep(for: .milliseconds(350))
+                let snapshot: UIImage? = await withCheckedContinuation { continuation in
+                    surface.capture { continuation.resume(returning: $0) }
+                }
+                guard let data = snapshot?.pngData() else { throw CocoaError(.fileWriteUnknown) }
+                try data.write(to: directory.appendingPathComponent(definition.thumbnail + (earned ? "" : "_locked") + ".png"))
+            }
+        }
+        try Data("48 native thumbnails complete".utf8).write(to: directory.appendingPathComponent("complete.txt"))
+    }
+}
+#endif

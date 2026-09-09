@@ -18,7 +18,7 @@ The app refreshes on login, foreground, tab changes, collection/detail entry, ag
 - `.../WagerproofServices/AchievementService.swift`: authenticated RPC transport.
 - `.../WagerproofStores/AchievementsStore.swift`: account lifecycle, snapshots, offline retries and celebrations.
 - `wagerproof-ios-native/Wagerproof/Features/Achievements`: library, shelf, detail, celebration and renderer.
-- `wagerproof-ios-native/Wagerproof/Resources/Achievements`: six family USDZs, 24 thumbnails and studio environment. The verification folder is excluded from the app bundle.
+- `wagerproof-ios-native/Wagerproof/Resources/Achievements`: six family USDZs, 48 native earned/locked thumbnails and studio environment. The verification folder is excluded from the app bundle.
 - `scripts/package-achievement-runtime.py`: reproducible runtime packaging. Editable review masters remain under `artifacts/achievements`.
 
 ## Validation
@@ -54,3 +54,11 @@ The production migration and MCP hook are deployed. The signed Debug build, vers
 ## Family color revision
 
 The later color-only pass updates all 24 authored medals, six runtime exports and 24 thumbnails to emerald, sapphire, ember/amber, amethyst, ruby/rose and teal/aqua. See `artifacts/achievements/palette-review/family-palettes.png` and its README. Export shader colors, material bindings, variant anchors and unchanged mesh counts were verified. The palette revision passed a new Debug simulator build and signed device build. The updated simulator collection was visually checked; `ios-validation/final-palette-collection.png` records the result. Earlier screenshots and build hashes predate this palette revision.
+
+## Honeydew presentation alignment
+
+The follow-up rendering pass copies Honeydew's 50-degree camera, 1.06 framing margin, 0.65-second smoothstep reveal, gentle idle rocking, front/back detents and role-specific PBR roughness/clearcoat. WagerProof retains the approved authored family colors and geometry. Detail uses the same 420-point hero size and spring grow-in.
+
+The collection now uses 48 earned/locked PNGs baked through the production RealityKit surface, replacing the Blender preview images and opacity-based locked treatment. To regenerate after an asset/material change, launch a Debug simulator build with `-achievementPreview -bakeAchievementThumbnails`. Wait for `Documents/AchievementBakes/complete.txt`, copy all 48 PNGs into the achievement resources and regenerate the Xcode project. Runtime packaging's Blender thumbnails are interim previews; perform this native bake afterward for release.
+
+The unlock sheet initially shows a finger-swipe hint and “Swipe me to rotate.” Touching the medal dismisses the hint and stops automatic rotation. Reduce Motion suppresses the reveal, rocking and finger animation. `-achievementPreview -achievementCelebration` is the isolated Debug preview for this surface and does not grant a real award.
