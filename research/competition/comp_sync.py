@@ -88,6 +88,12 @@ def http_json(url: str, headers: dict | None = None, payload: dict | None = None
             last = e
         except urllib.error.URLError as e:
             last = e
+        except OSError as e:
+            # A mid-read socket timeout raises bare TimeoutError (an OSError), NOT
+            # URLError — it escaped this retry loop and failed the 2026-09-09 15:31
+            # run. HTTPError/URLError are caught above, so this arm is pure
+            # socket-level flake; same idempotent-retry logic applies.
+            last = e
         time.sleep(2 ** attempt * 3)   # 3s, 6s, 12s
     raise last
 
