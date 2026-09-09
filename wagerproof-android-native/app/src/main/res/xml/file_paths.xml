@@ -8,4 +8,5 @@
     <cache-path name="shared-trends" path="shared-trends/" />
     <!-- Rendered agent pick / parlay ticket PNGs (AgentPickFocusView share). -->
     <cache-path name="shared-plays" path="shared-plays/" />
+    <cache-path name="shared-achievements" path="shared-achievements/" />
 </paths>

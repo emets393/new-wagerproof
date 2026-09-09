@@ -76,6 +76,7 @@ fun PlayerPropDetailScreen(
     }
     val scope = rememberCoroutineScope()
     val markets = selection.props
+    androidx.compose.runtime.LaunchedEffect(selection.id) { if (markets.isNotEmpty()) graph.achievements.record("props") }
     val listState = rememberLazyListState()
 
     val initialMarket = remember(selection.id) {

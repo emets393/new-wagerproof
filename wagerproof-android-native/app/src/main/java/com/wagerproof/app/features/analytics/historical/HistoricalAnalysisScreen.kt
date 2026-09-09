@@ -125,6 +125,9 @@ fun HistoricalAnalysisScreen(sport: HistoricalAnalysisSport, modifier: Modifier 
     val density = LocalDensity.current
 
     LaunchedEffect(sport, userId) { store.onAppear(userId) }
+    LaunchedEffect(store.hasLoadedOnce, store.analysis != null) {
+        if (store.hasLoadedOnce && store.analysis != null) graph.achievements.record("historical_analysis")
+    }
     DisposableEffect(store) { onDispose(store::close) }
     LaunchedEffect(store.snapshot.selectedConferences) {
         if (store.snapshot.selectedConferences.isNotEmpty() && breakdownTab == "conf") breakdownTab = "team"

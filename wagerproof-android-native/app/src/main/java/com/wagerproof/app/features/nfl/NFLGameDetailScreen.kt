@@ -122,6 +122,9 @@ fun NFLGameDetailPage(
     bottomInset: Dp,
     onSelectProp: (NFLPlayerPropSelection) -> Unit = {},
 ) {
+    val achievementStore = com.wagerproof.app.di.appGraph().achievements
+    androidx.compose.runtime.LaunchedEffect(Unit) { achievementStore.record("game_analysis") }
+
     val graph = appGraph()
     val propsStore = graph.props
     val awayColors = remember(game.awayTeam) { NFLTeamColors.colorPair(game.awayTeam) }

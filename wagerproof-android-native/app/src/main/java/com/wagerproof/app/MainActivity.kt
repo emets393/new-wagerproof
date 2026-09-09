@@ -38,7 +38,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             CompositionLocalProvider(LocalAppGraph provides graph) {
                 WagerproofTheme {
-                    RootHost()
+                    val achievementPreview = if (BuildConfig.DEBUG) intent.getStringExtra("achievement_preview") else null
+                    if (achievementPreview != null) com.wagerproof.app.features.achievements.AchievementPreview(achievementPreview)
+                    else RootHost()
                 }
             }
         }

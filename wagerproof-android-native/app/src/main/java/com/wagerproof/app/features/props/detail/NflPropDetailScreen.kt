@@ -143,6 +143,7 @@ fun NflPropDetailScreen(
             player.markets.map { fm -> NflDisplayMarket(fm.market, fm.label, null, fm) }
         }
     }
+    LaunchedEffect(displayMarkets.isNotEmpty()) { if (displayMarkets.isNotEmpty()) graph.achievements.record("props") }
     val activeDisplayMarket = displayMarkets.firstOrNull { it.key == activeMarket } ?: displayMarkets.firstOrNull()
 
     LaunchedEffect(listState, displayMarkets) {
