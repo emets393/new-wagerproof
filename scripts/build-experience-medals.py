@@ -1,4 +1,4 @@
-"""Approved four-tier Agent Experience ticket family; assets only."""
+"""Seven Agent Experience milestones on the approved curved ticket."""
 import math
 import sys
 from pathlib import Path
@@ -7,10 +7,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from medal_studio import ring, disk, number, run_family
 
 VARIANTS = [
-    dict(slug='experience-10', title='10 GRADED PICKS', label='10', tier='bronze', fill='#8BCD00'),
-    dict(slug='experience-50', title='50 GRADED PICKS', label='50', tier='silver', fill='#8BCD00'),
-    dict(slug='experience-100', title='100 GRADED PICKS', label='100', tier='gold', fill='#8BCD00'),
-    dict(slug='experience-500', title='500 GRADED PICKS', label='500', tier='gold', fill='#8BCD00'),
+    {'slug': 'experience-10', 'title': '10 GRADED PICKS', 'label': '10', 'tier': 'bronze', 'fill': '#8BCD00'},
+    {'slug': 'experience-50', 'title': '50 GRADED PICKS', 'label': '50', 'tier': 'bronze', 'fill': '#8BCD00'},
+    {'slug': 'experience-100', 'title': '100 GRADED PICKS', 'label': '100', 'tier': 'silver', 'fill': '#8BCD00'},
+    {'slug': 'experience-500', 'title': '500 GRADED PICKS', 'label': '500', 'tier': 'silver', 'fill': '#8BCD00'},
+    {'slug': 'experience-1000', 'title': '1,000 GRADED PICKS', 'label': '1000', 'tier': 'gold', 'fill': '#8BCD00'},
+    {'slug': 'experience-2500', 'title': '2,500 GRADED PICKS', 'label': '2500', 'tier': 'gold', 'fill': '#8BCD00'},
+    {'slug': 'experience-5000', 'title': '5,000 GRADED PICKS', 'label': '5000', 'tier': 'gold', 'fill': '#8BCD00'},
 ]
 
 def ticket_contour():

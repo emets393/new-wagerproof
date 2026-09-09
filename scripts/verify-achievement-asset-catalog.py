@@ -1,4 +1,4 @@
-"""Check the 24 approved review deliveries using their existing audit reports.
+"""Check the 35 approved review deliveries using their existing audit reports.
 
 Read-only; emits JSON to stdout and exits nonzero for any incomplete delivery.
 Does not reopen USDZ geometry or alter assets. Run after all family builds finish.
@@ -10,10 +10,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1] / 'artifacts/achievements'
 FAMILIES = {
-    'Getting Started': [('first-agent','First Agent'),('first-follow','First Follow'),('first-picks','First Picks')],
-    'Agent Experience': [('experience/experience-'+str(n),str(n)+' Graded Picks') for n in (10,50,100,500)],
-    'Winning Streaks': [('streaks/streak-'+str(n),str(n)+' Win Streak') for n in (3,5,10,15)],
-    'Performance': [('performance/'+slug,title) for slug,title in [('first-win','First Win'),('plus-10-units','+10 Units'),('plus-25-units','+25 Units'),('consistent','Consistent')]],
+    'Getting Started': [('first-agent','First Agent'),('first-follow','First Follow'),('first-picks','First Picks'),('getting-started/agent-squad','Agent Squad'),('getting-started/full-lineup','Full Lineup')],
+    'Agent Experience': [('experience/experience-'+str(n),str(n)+' Graded Picks') for n in (10,50,100,500,1000,2500,5000)],
+    'Winning Streaks': [('streaks/streak-'+str(n),str(n)+' Win Streak') for n in (3,5,10,15,20,25)],
+    'Performance': [('performance/'+slug,title) for slug,title in [('first-win','First Win'),('plus-10-units','+10 Units'),('plus-25-units','+25 Units'),('consistent','Consistent'),('plus-50-units','+50 Units'),('plus-100-units','+100 Units'),('consistent-250','Proven Consistency 250'),('consistent-500','Proven Consistency 500')]],
     'Leaderboard': [('leaderboard/'+slug,title) for slug,title in [('top-100','Top 100'),('top-10','Top 10'),('number-one','Number One')]],
     'Exploration': [('exploration/'+slug,title) for slug,title in [('game-analyst','Game Analyst'),('props-scout','Props Scout'),('trend-explorer','Trend Explorer'),('system-builder','System Builder'),('wagerbot-partner','WagerBot Partner'),('connected-researcher','Connected Researcher')]],
 }
@@ -35,6 +35,15 @@ def verify():
                 try:return json.loads(path.read_text())
                 except (OSError,ValueError):return {}
             manifest=read('manifest.json')
+            requested_tiers = {
+                'agent-squad':'silver','full-lineup':'gold',
+                **{f'experience-{n}':t for n,t in [(10,'bronze'),(50,'bronze'),(100,'silver'),(500,'silver'),(1000,'gold'),(2500,'gold'),(5000,'gold')]},
+                **{f'streak-{n}':t for n,t in [(3,'bronze'),(5,'bronze'),(10,'silver'),(15,'silver'),(20,'gold'),(25,'gold')]},
+                'first-win':'bronze','plus-10-units':'bronze','plus-25-units':'silver','plus-50-units':'silver','plus-100-units':'gold',
+                'consistent':'bronze','consistent-250':'silver','consistent-500':'gold',
+            }
+            slug=relative.split('/')[-1]
+            if slug in requested_tiers:check(manifest.get('tier')==requested_tiers[slug],'Incorrect expanded tier finish')
             for field,extension in [('asset','.usdz'),('editable_master','.blend')]:
                 name=manifest.get(field)
                 if not isinstance(name,str) or Path(name).name!=name or not name.endswith(extension):
@@ -48,7 +57,7 @@ def verify():
                 check(part.get('nonmanifold_edges')==0 and part.get('volume',0)>0,'Unclosed/inward source part '+name)
                 check(all(not isinstance(v,(float,int)) or math.isfinite(v) for v in part.values()),'Nonfinite source result '+name)
             validation=manifest.get('validation',{})
-            if family=='Getting Started':
+            if relative in ('first-agent','first-follow','first-picks'):
                 check(validation.get('source_meshes_closed_outward') is True,'Source audit not passed')
                 check(validation.get('usdz_reimport')=='passed','Reimport audit not passed')
                 check(manifest.get('engraving',{}).get('preview_text_in_export') is False,'Preview inscription export policy missing')
@@ -72,8 +81,8 @@ def verify():
                 check(audit.get('mesh_roles_count')==len(parts),'Export/source part count mismatch')
                 check(set(views).issubset(validation.get('actual_usdz_views',[])),'Actual view audit incomplete')
             assets.append({'family':family,'title':title,'directory':relative,'status':'failed' if errors else 'passed','errors':errors})
-    assert len(assets)==24
-    report={'status':'passed' if all(a['status']=='passed' for a in assets) else 'failed','expected_assets':24,
+    assert len(assets)==35
+    report={'status':'passed' if all(a['status']=='passed' for a in assets) else 'failed','expected_assets':35,
             'passed_assets':sum(a['status']=='passed' for a in assets),'validation':'Delivery inventory and existing export/reimport audit reports; USDZ geometry not reopened.',
             'delivery_status':'Review-master inventory only; native runtime validation is tracked separately in docs/achievements-ios.md.','assets':assets}
     print(json.dumps(report,indent=2))

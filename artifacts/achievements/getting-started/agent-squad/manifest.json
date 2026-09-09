@@ -1,0 +1,127 @@
+{
+  "id": "agent-squad",
+  "family": "getting-started",
+  "title": "AGENT SQUAD",
+  "label": "3",
+  "tier": "silver",
+  "frame_prefix": "AgentSquad",
+  "asset": "agent-squad.usdz",
+  "editable_master": "agent-squad.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "satin_shield_back": {
+      "vertices": 34238,
+      "faces": 68472,
+      "nonmanifold_edges": 0,
+      "volume": 0.20544920579687326
+    },
+    "metal_shield_frame": {
+      "vertices": 2376,
+      "faces": 2376,
+      "nonmanifold_edges": 0,
+      "volume": 0.0710346036508294
+    },
+    "acrylic_lime_face": {
+      "vertices": 31753,
+      "faces": 63502,
+      "nonmanifold_edges": 0,
+      "volume": 0.08307906047941328
+    },
+    "satin_rear_border": {
+      "vertices": 1296,
+      "faces": 1296,
+      "nonmanifold_edges": 0,
+      "volume": 0.0004678638683746965
+    },
+    "metal_agent_head_outline": {
+      "vertices": 4885,
+      "faces": 9766,
+      "nonmanifold_edges": 0,
+      "volume": 0.02784032877355456
+    },
+    "charcoal_agent_hair": {
+      "vertices": 4847,
+      "faces": 9690,
+      "nonmanifold_edges": 0,
+      "volume": 0.010604453120060576
+    },
+    "ivory_agent_face": {
+      "vertices": 3898,
+      "faces": 7792,
+      "nonmanifold_edges": 0,
+      "volume": 0.0025931287703695157
+    },
+    "highlight_hair_pixel_0": {
+      "vertices": 158,
+      "faces": 312,
+      "nonmanifold_edges": 0,
+      "volume": 9.846598092465963e-05
+    },
+    "highlight_hair_pixel_1": {
+      "vertices": 158,
+      "faces": 312,
+      "nonmanifold_edges": 0,
+      "volume": 9.846600514904962e-05
+    },
+    "highlight_hair_pixel_2": {
+      "vertices": 158,
+      "faces": 312,
+      "nonmanifold_edges": 0,
+      "volume": 9.846601571039181e-05
+    },
+    "charcoal_eye_0": {
+      "vertices": 128,
+      "faces": 252,
+      "nonmanifold_edges": 0,
+      "volume": 6.016516598553398e-05
+    },
+    "charcoal_eye_1": {
+      "vertices": 128,
+      "faces": 252,
+      "nonmanifold_edges": 0,
+      "volume": 6.016466850395782e-05
+    },
+    "charcoal_pixel_mouth": {
+      "vertices": 130,
+      "faces": 256,
+      "nonmanifold_edges": 0,
+      "volume": 7.350309706693113e-05
+    },
+    "metal_number_3_0_0": {
+      "vertices": 787,
+      "faces": 1570,
+      "nonmanifold_edges": 0,
+      "volume": 0.003402793848342007
+    },
+    "ivory_number_3_0_0": {
+      "vertices": 723,
+      "faces": 1442,
+      "nonmanifold_edges": 0,
+      "volume": 0.0009488362572510097
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 15,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle",
+      "top",
+      "back"
+    ]
+  },
+  "usdz_bytes": 7881327
+}

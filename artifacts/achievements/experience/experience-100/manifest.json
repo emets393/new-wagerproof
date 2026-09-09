@@ -3,7 +3,7 @@
   "family": "experience",
   "title": "100 GRADED PICKS",
   "label": "100",
-  "tier": "gold",
+  "tier": "silver",
   "frame_prefix": "Experience100",
   "asset": "experience-100.usdz",
   "editable_master": "experience-100.blend",
@@ -91,11 +91,5 @@
       "angle"
     ]
   },
-  "usdz_bytes": 7211838,
-  "family_palette": {
-    "primary": "#175BC5",
-    "secondary": "#4FADED",
-    "enamel": "#D2E9FF",
-    "name": "Sapphire / ice"
-  }
+  "usdz_bytes": 7211794
 }

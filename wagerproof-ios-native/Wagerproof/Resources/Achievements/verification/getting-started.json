@@ -1,6 +1,6 @@
 {
   "family": "getting-started",
-  "bytes": 5934269,
+  "bytes": 9190251,
   "variants": [
     {
       "frame_prefix": "FirstAgent",
@@ -21,6 +21,20 @@
       "source": "artifacts/achievements/first-picks/manifest.json",
       "original_faces": 577584,
       "runtime_faces": 45892,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "AgentSquad",
+      "source": "artifacts/achievements/getting-started/agent-squad/manifest.json",
+      "original_faces": 167602,
+      "runtime_faces": 52948,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "FullLineup",
+      "source": "artifacts/achievements/getting-started/full-lineup/manifest.json",
+      "original_faces": 167476,
+      "runtime_faces": 52836,
       "contour_retessellated": false
     }
   ],

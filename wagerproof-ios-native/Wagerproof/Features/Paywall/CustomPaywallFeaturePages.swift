@@ -27,7 +27,7 @@ struct PaywallValueCarousel: View {
     @State private var reviewsPausedUntil = Date.distantPast
 
     private static let pageKeys = [
-        "value", "social_proof", "agent_hq", "leaderboard",
+        "value", "social_proof", "achievements", "agent_hq", "leaderboard",
         "reasoned_picks", "outliers", "community_connectors",
     ]
 
@@ -62,40 +62,58 @@ struct PaywallValueCarousel: View {
                 .tag(1)
 
                 featurePage(
+                    title: "Made for your milestones",
+                    blurb: "Explore \(AchievementCatalog.definitions.count) collectible achievements as you research and build your agents' track records.",
+                    heroHeight: compactHeight ? 250 : 350
+                ) {
+                    if page == 2 && scenePhase == .active {
+                        AchievementMedalView(familyAsset: "streaks", variantRoot: "Streak25",
+                            earned: true, recipientName: "Your name", earnedAt: nil,
+                            caption: "25 WIN STREAK", revealOnAppear: false)
+                            .allowsHitTesting(false)
+                            .accessibilityLabel("Gold 25 Win Streak achievement preview")
+                    } else {
+                        Image(uiImage: AchievementThumbnail.image(named: "achievement_Streak25"))
+                            .resizable().scaledToFit()
+                    }
+                }
+                .tag(2)
+
+                featurePage(
                     title: "Your agent is already working",
                     blurb: "Watch your agents move around the office and research for you 24/7",
                     heroHeight: compactHeight ? 250 : 372
                 ) {
                     agentHQHero
                 }
-                .tag(2)
+                .tag(3)
 
                 featurePage(
                     title: "Copy from the leaderboard",
                     blurb: "See the strategies that are working and tail the trends.",
                     heroHeight: compactHeight ? 268 : 384
                 ) {
-                    PaywallLeaderboardHero(accent: accent, compact: compactHeight, isActive: page == 3)
+                    PaywallLeaderboardHero(accent: accent, compact: compactHeight, isActive: page == 4)
                 }
-                .tag(3)
+                .tag(4)
 
                 featurePage(
                     title: "Picks that show their work",
                     blurb: "Every recommendation includes the odds, confidence, and signals behind it.",
                     heroHeight: compactHeight ? 250 : 350
                 ) {
-                    PaywallReasonedPicksHero(accent: accent, compact: compactHeight, isActive: page == 4)
+                    PaywallReasonedPicksHero(accent: accent, compact: compactHeight, isActive: page == 5)
                 }
-                .tag(4)
+                .tag(5)
 
                 featurePage(
                     title: "The signals most bettors miss",
                     blurb: "Rare historical splits and matchup trends, paired with the line in front of you.",
                     heroHeight: compactHeight ? 240 : 330
                 ) {
-                    PaywallOutliersHero(compact: compactHeight, isActive: page == 5)
+                    PaywallOutliersHero(compact: compactHeight, isActive: page == 6)
                 }
-                .tag(5)
+                .tag(6)
 
                 featurePage(
                     title: "Your data, wherever you research",
@@ -104,7 +122,9 @@ struct PaywallValueCarousel: View {
                 ) {
                     PaywallCommunityConnectorsHero(compact: compactHeight)
                 }
-                .tag(6)
+                .tag(7)
+
+
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(maxHeight: .infinity)
@@ -644,7 +664,7 @@ struct PaywallValueCarousel: View {
     private var agentHQHero: some View {
         PixelOffice(
             agents: nil,
-            isActive: page == 2,
+            isActive: page == 3,
             previewAgents: officeAgents,
             showsControls: false
         )

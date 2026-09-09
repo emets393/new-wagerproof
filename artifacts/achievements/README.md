@@ -1,6 +1,6 @@
 # WagerProof achievement medals
 
-The 24 approved concepts across six families now have editable Blender review
+The 35 milestones across six families now have editable Blender review
 masters, standalone USDZ exports, manifests, and actual exported-model renders.
 All bodies, reverse surfaces, and raised front details follow the approved bow.
 
@@ -8,16 +8,16 @@ All bodies, reverse surfaces, and raised front details follow the approved bow.
 
 | Family | Awards | Review |
 | --- | --- | --- |
-| Getting Started | First Agent, First Follow, First Picks | [Shields](SHIELD-REVIEW.md) |
-| Agent Experience | 10, 50, 100, 500 graded picks | [Tickets](experience/family-review.md) |
-| Winning Streaks | 3, 5, 10, 15 wins | [Flames](streaks/family-review.md) |
-| Performance | First Win, +10 Units, +25 Units, Consistent 55% | [Diamonds](performance/family-review.md) |
+| Getting Started | First Agent, First Follow, First Picks, Agent Squad, Full Lineup | [Shields](SHIELD-REVIEW.md) |
+| Agent Experience | 10, 50, 100, 500, 1,000, 2,500, 5,000 graded picks | [Tickets](experience/family-review.md) |
+| Winning Streaks | 3, 5, 10, 15, 20, 25 wins | [Flames](streaks/family-review.md) |
+| Performance | First Win, +10/+25/+50/+100 Units, Consistent 55% over 100/250/500 | [Diamonds](performance/family-review.md) |
 | Leaderboard | Top 100, Top 10, Number One | [Crowns](leaderboard/family-review.md) |
 | Exploration | Game Analyst, Props Scout, Trend Explorer, System Builder, WagerBot Partner, Connected Researcher | [Compasses](exploration/family-review.md) |
 
 ## Delivery boundary
 
-All 24 medals are integrated into the native iOS achievement collection through six optimized, cached RealityKit family hierarchies. The app implements durable server unlocks, personalized curved engraving and celebrations. The updated signed build is installed on the selected iPhone 14 Pro. See `docs/achievements-ios.md` and `docs/achievements-backend.md` at the repository root for validation and deployment details.
+All 35 medals are integrated into the native iOS achievement collection through six optimized, cached RealityKit family hierarchies. The app implements durable server unlocks, personalized curved engraving and celebrations. The updated signed build is installed on the selected iPhone 14 Pro. See `docs/achievements-ios.md` and `docs/achievements-backend.md` at the repository root for validation and deployment details.
 
 The approved image concepts are retained under `references/`. Their silhouettes,
 color progression, and front symbols guided these models. The user's later
@@ -93,5 +93,11 @@ their independent USD geometry reports.
 python3 scripts/verify-achievement-asset-catalog.py
 ```
 
-This checks all 24 deliveries and their existing audit reports without repeating
+This checks all 35 deliveries and their existing audit reports without repeating
 mesh processing. `catalog-verification.json` stores the final collection result.
+
+## Expanded milestone tiers
+
+The collection now contains 35 awards. Agent Squad and Full Lineup extend the pixel-head shields with a milestone numeral. Experience reaches 5,000 graded picks, streaks reach 25, units reach +100, and consistency has bronze/silver/gold 100/250/500 decided-pick levels. See `docs/achievements-ios.md` for the complete finish table and backend semantics.
+
+Rebuild the new lineup medals with `scripts/build-agent-lineup-medals.py`; the existing Experience, Streaks and Performance builders contain their expanded variant tables. Package the four changed families and then run the native thumbnail bake to deliver 70 matching earned/locked previews.

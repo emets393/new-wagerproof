@@ -1,14 +1,18 @@
-"""Four Performance medals on the approved curved clipped-diamond master."""
+"""Eight Performance medals on the approved curved clipped-diamond master."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import medal_studio as studio
 
 VARIANTS = [
-    dict(slug='first-win', title='FIRST WIN', label='1', tier='bronze', fill='#8BCD00'),
-    dict(slug='plus-10-units', title='+10 UNITS', label='+10', tier='silver', fill='#8BCD00'),
-    dict(slug='plus-25-units', title='+25 UNITS', label='+25', tier='gold', fill='#8BCD00'),
-    dict(slug='consistent', title='CONSISTENT', label='55%', tier='gold', fill='#8BCD00'),
+    {'slug': 'first-win', 'title': 'FIRST WIN', 'label': '1', 'tier': 'bronze'},
+    {'slug': 'plus-10-units', 'title': '+10 UNITS', 'label': '+10', 'tier': 'bronze'},
+    {'slug': 'plus-25-units', 'title': '+25 UNITS', 'label': '+25', 'tier': 'silver'},
+    {'slug': 'plus-50-units', 'title': '+50 UNITS', 'label': '+50', 'tier': 'silver'},
+    {'slug': 'plus-100-units', 'title': '+100 UNITS', 'label': '+100', 'tier': 'gold'},
+    {'slug': 'consistent', 'title': 'CONSISTENT', 'label': '55%', 'tier': 'bronze', 'decided': 100},
+    {'slug': 'consistent-250', 'title': 'PROVEN CONSISTENCY 250', 'label': '55%', 'tier': 'silver', 'decided': 250},
+    {'slug': 'consistent-500', 'title': 'PROVEN CONSISTENCY 500', 'label': '55%', 'tier': 'gold', 'decided': 500},
 ]
 
 
@@ -43,7 +47,9 @@ def geometry(root,mats,variant):
         parts.append(studio.polygon('metal_diamond_divider_'+str(side).replace('-','left'),
                      points,-.006,.027,mats['metal'],root,.004))
     width,height=(.64,1.08) if variant['label']=='1' else (1.22,.48)
-    parts.extend(studio.number(variant['label'],(0,0),width,height,root,mats))
+    parts.extend(studio.number(variant['label'],(0,.12 if variant.get('decided') else 0),width,height,root,mats))
+    if variant.get('decided'):
+        parts.extend(studio.number(str(variant['decided']),(0,-.29),.60,.18,root,mats))
     return parts
 
 

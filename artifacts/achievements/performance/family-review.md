@@ -20,12 +20,34 @@ Actual Blender models and reimported USDZ renders. Bodies, reverse, and front de
 
 [Blender](plus-25-units/plus-25-units.blend) · [USDZ](plus-25-units/plus-25-units.usdz)
 
+## +50 UNITS
+
+![+50 UNITS](plus-50-units/renders/usdz-angle.png)
+
+[Blender](plus-50-units/plus-50-units.blend) · [USDZ](plus-50-units/plus-50-units.usdz)
+
+## +100 UNITS
+
+![+100 UNITS](plus-100-units/renders/usdz-angle.png)
+
+[Blender](plus-100-units/plus-100-units.blend) · [USDZ](plus-100-units/plus-100-units.usdz)
+
 ## CONSISTENT
 
 ![CONSISTENT](consistent/renders/usdz-angle.png)
 
 [Blender](consistent/consistent.blend) · [USDZ](consistent/consistent.usdz)
 
-All four source and reimported USDZ variants passed closed outward mesh checks, finite vertex/normal checks, material binding checks, Y-up orientation, and exclusion of studio/sample engraving from export. Front and angle renders were inspected for every variant; First Win also provides top and rear proofs. Curved bodies, dividers and numerals use radius 5.6 with horizontal curvature weight 3.8.
+## PROVEN CONSISTENCY 250
+
+![PROVEN CONSISTENCY 250](consistent-250/renders/usdz-angle.png)
+
+[Blender](consistent-250/consistent-250.blend) · [USDZ](consistent-250/consistent-250.usdz)
+
+## PROVEN CONSISTENCY 500
+
+![PROVEN CONSISTENCY 500](consistent-500/renders/usdz-angle.png)
+
+[Blender](consistent-500/consistent-500.blend) · [USDZ](consistent-500/consistent-500.usdz)
 
 Review assets only. Runtime integration and device testing remain later work.

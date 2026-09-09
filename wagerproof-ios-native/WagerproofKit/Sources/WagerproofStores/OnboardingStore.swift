@@ -7,7 +7,7 @@ import WagerproofSharedKit
 
 /// Owns the onboarding wizard's state:
 ///   - Local-only completion flag (persisted via App Group `UserDefaults`)
-///   - Step pointer (1...25) — 22 carousel pages + 3 cinematic phases
+///   - 26 stable step IDs: 23 carousel pages + 3 cinematic phases
 ///   - Survey form state (sports, bettor type, primary goal, etc.)
 ///   - Agent builder draft (projected from the embedded `AgentCreationStore`)
 ///
@@ -21,10 +21,9 @@ import WagerproofSharedKit
 @Observable
 @MainActor
 public final class OnboardingStore {
-    /// 25-step ordered flow. Steps 1...22 are pages inside the onboarding
-    /// carousel (`carouselIndex` 0...21); 23/24/25 are full-screen cinematic
-    /// phases rendered outside the pager. Raw values MUST stay contiguous —
-    /// `advance()`/`back()` navigate by ±1 arithmetic.
+    /// 26-step ordered flow: 23 carousel pages plus 3 cinematic phases.
+    /// Declaration order controls navigation; raw IDs remain stable. The new
+    /// achievement page uses ID 26 between leaderboard and ATT priming.
     ///
     /// The researchTime → weeklyStakes → Cost → Reclaim run is the
     /// personalized value arc (self-reported daily checking + weekly bet
@@ -55,6 +54,8 @@ public final class OnboardingStore {
         /// Animated mock leaderboard: top agents across the country, hot
         /// streaks at a glance, "just tail the best" pitch.
         case agentLeaderboard  = 13
+        /// New page keeps its own ID so existing saved/analytics step identities stay stable.
+        case achievements      = 26
         case attPriming        = 14
         case builderSports     = 15
         case builderArchetype  = 16
@@ -76,13 +77,22 @@ public final class OnboardingStore {
         /// TabView slot (0-based). nil for cinematic steps — they render
         /// outside the pager, so misuse is loud rather than snapping the
         /// carousel to a wrong page.
-        public var carouselIndex: Int? { isCinematic ? nil : rawValue - 1 }
+        public var carouselIndex: Int? { Self.carouselSteps.firstIndex(of: self) }
+        public static var carouselSteps: [Step] { allCases.filter { !$0.isCinematic } }
+        public var next: Step? {
+            guard let index = Self.allCases.firstIndex(of: self), index + 1 < Self.allCases.count else { return nil }
+            return Self.allCases[index + 1]
+        }
+        public var previous: Step? {
+            guard let index = Self.allCases.firstIndex(of: self), index > 0 else { return nil }
+            return Self.allCases[index - 1]
+        }
 
         /// Mixpanel funnel shared with Android and web (24 steps, `timeSummary` = 24).
-        /// iOS-only ATT priming is omitted so `step_number` / `step_name` match.
+        /// iOS-only ATT priming and achievements are omitted so `step_number` / `step_name` match.
         public var analyticsStepNumber: Int? {
             switch self {
-            case .attPriming: return nil
+            case .attPriming, .achievements: return nil
             default:
                 return rawValue > Step.attPriming.rawValue ? rawValue - 1 : rawValue
             }
@@ -94,15 +104,15 @@ public final class OnboardingStore {
             allCases.compactMap(\.analyticsStepNumber).count
         }
 
-        public static let carouselPageCount = 22
+        public static var carouselPageCount: Int { carouselSteps.count }
 
         /// Progress-bar fraction. nil for cinematic steps (no chrome there).
         public var progress: Double? {
-            isCinematic ? nil : Double(rawValue) / Double(Self.carouselPageCount)
+            carouselIndex.map { Double($0 + 1) / Double(Self.carouselPageCount) }
         }
 
         public static func < (lhs: Step, rhs: Step) -> Bool {
-            lhs.rawValue < rhs.rawValue
+            allCases.firstIndex(of: lhs)! < allCases.firstIndex(of: rhs)!
         }
     }
 
@@ -336,7 +346,7 @@ public final class OnboardingStore {
 
     public func advance() {
         guard !isTransitioning else { return }
-        guard let next = Step(rawValue: currentStep.rawValue + 1) else { return }
+        guard let next = currentStep.next else { return }
         let completedStep = currentStep
         isTransitioning = true
         currentStep = next
@@ -352,7 +362,7 @@ public final class OnboardingStore {
 
     public func back() {
         guard !isTransitioning else { return }
-        guard let prev = Step(rawValue: currentStep.rawValue - 1) else { return }
+        guard let prev = currentStep.previous else { return }
         isTransitioning = true
         currentStep = prev
         Task { [weak self] in
@@ -427,7 +437,7 @@ public final class OnboardingStore {
         case .researchReclaim:
             return hasSeenReclaimReveal
         case .bettingPitfalls, .agentHQ, .agentValueIntro,
-             .agentValueProof, .agentLeaderboard, .attPriming,
+             .agentValueProof, .agentLeaderboard, .achievements, .attPriming,
              .builderMindset, .builderBetStyle, .builderDataTrust,
              .builderSportRules, .builderInsights,
              .generation, .reveal, .timeSummary:
