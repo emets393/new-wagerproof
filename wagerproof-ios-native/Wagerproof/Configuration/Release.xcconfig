@@ -1,6 +1,6 @@
 // Release build configuration.
 
-MARKETING_VERSION = 3.6.1
+MARKETING_VERSION = 3.6.2
 CURRENT_PROJECT_VERSION = 326
 
 DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
