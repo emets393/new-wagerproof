@@ -253,28 +253,45 @@ def win_prob(margin):
     return 0.5 * (1 + math.erf(margin / (13.86 * math.sqrt(2))))
 
 
+def _seed_universe(fall_cols):
+    """Full-schedule game universe for the week (master slate + nflverse ids/kickoffs),
+    shaped to the h1tt frame's columns with 1H fields NaN."""
+    mm = pd.read_parquet(DATA / "master.parquet")
+    slate = mm[(mm.season == SEASON) & (mm.week == WEEK)][["season", "week", "home_ab", "away_ab"]].copy()
+    slate["home_ab"] = norm_ab(slate.home_ab); slate["away_ab"] = norm_ab(slate.away_ab)
+    # real nflverse game_id + gameday + gametime from the schedule (join on normalized abbrs)
+    sched = pd.read_parquet(DATA / "nflverse_games.parquet")
+    sched = sched[(sched.season == SEASON) & (sched.week == WEEK)][
+        ["season", "week", "home_team", "away_team", "game_id", "gameday", "gametime"]]
+    slate = slate.merge(sched, left_on=["season", "week", "home_ab", "away_ab"],
+                        right_on=["season", "week", "home_team", "away_team"], how="left")
+    kick = pd.to_datetime(slate.gameday.astype(str) + " " + slate.gametime.fillna("13:00"),
+                          errors="coerce").dt.tz_localize("America/New_York").dt.tz_convert("UTC")
+    f = slate.reindex(columns=fall_cols)
+    for c in ("season", "week", "home_ab", "away_ab", "game_id", "gameday"):
+        f[c] = slate[c].values
+    f["_seed_kickoff"] = kick.dt.strftime("%Y-%m-%dT%H:%M:%S+00:00").values
+    return f
+
+
 def build_games():
     fall = pd.read_parquet(DATA / "h1tt_frame.parquet")
     f = fall[(fall.season == SEASON) & (fall.week == WEEK)].copy()
+    # The game universe is ALWAYS the full schedule. h1tt_frame carries only PLAYED
+    # games (quarter scores), so mid-week it holds a partial slate — the morning after
+    # the 2026 opener it held exactly 1 game, the old empty-check kept it as the
+    # universe, and the write wiped the other 15 games off the site (2026-09-10).
+    # Seed rows fill every scheduled game the frame doesn't cover; played rows keep
+    # their 1H data, upcoming ones stay NaN exactly as before.
+    seed = _seed_universe(fall.columns)
     if f.empty:
-        # Upcoming week: unplayed games have no quarter scores, so h1tt_frame carries no rows for them.
-        # Seed the game universe from the master slate so every game still gets an FG card; the 1H
-        # columns stay NaN (blank 1H cards, accepted interim) and the FG merges below fill the rest.
-        mm = pd.read_parquet(DATA / "master.parquet")
-        slate = mm[(mm.season == SEASON) & (mm.week == WEEK)][["season", "week", "home_ab", "away_ab"]].copy()
-        slate["home_ab"] = norm_ab(slate.home_ab); slate["away_ab"] = norm_ab(slate.away_ab)
-        # real nflverse game_id + gameday + gametime from the schedule (join on normalized abbrs)
-        sched = pd.read_parquet(DATA / "nflverse_games.parquet")
-        sched = sched[(sched.season == SEASON) & (sched.week == WEEK)][
-            ["season", "week", "home_team", "away_team", "game_id", "gameday", "gametime"]]
-        slate = slate.merge(sched, left_on=["season", "week", "home_ab", "away_ab"],
-                            right_on=["season", "week", "home_team", "away_team"], how="left")
-        kick = pd.to_datetime(slate.gameday.astype(str) + " " + slate.gametime.fillna("13:00"),
-                              errors="coerce").dt.tz_localize("America/New_York").dt.tz_convert("UTC")
-        f = slate.reindex(columns=fall.columns)
-        for c in ("season", "week", "home_ab", "away_ab", "game_id", "gameday"):
-            f[c] = slate[c].values
-        f["_seed_kickoff"] = kick.dt.strftime("%Y-%m-%dT%H:%M:%S+00:00").values
+        f = seed
+    else:
+        have = set(zip(norm_ab(f.home_ab), norm_ab(f.away_ab)))
+        missing = seed[[not ((h, a) in have) for h, a in zip(seed.home_ab, seed.away_ab)]]
+        if len(missing):
+            print(f"[universe] h1tt frame covers {len(f)} played game(s); seeding {len(missing)} upcoming from schedule")
+            f = pd.concat([f, missing], ignore_index=True)
     hp = pd.read_parquet(DATA / "h1m_preds.parquet")
     hp = hp[(hp.season == SEASON) & (hp.week == WEEK)]
     g = f.merge(hp[["slot", "season", "week", "home_ab", "away_ab", "fg_sp", "fg_tot",
