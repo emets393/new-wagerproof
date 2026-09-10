@@ -65,7 +65,10 @@ public struct LottieView: UIViewRepresentable {
         guard let animationView = uiView.subviews.first as? LottieAnimationView else { return }
         animationView.loopMode = loopMode
         animationView.animationSpeed = speed
-        if autoplay, !animationView.isAnimationPlaying {
+        // A completed one-shot must not replay when surrounding SwiftUI state
+        // changes (for example, dismissing an achievement's swipe hint).
+        if autoplay, !animationView.isAnimationPlaying,
+           loopMode != .playOnce || animationView.currentProgress < 1 {
             animationView.play()
         }
     }

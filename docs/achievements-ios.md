@@ -95,3 +95,5 @@ Validation: 35-asset catalog and palette checks, SQL boundary/upgrade/history te
 The final Debug build (3.6.1, build 326) was installed and launched normally on the selected iPhone 14 Pro. No App Store upload was performed. Share-sheet delivery to an external destination remains manual device UAT.
 
 Horizontal discovery shelves use 88-point cards and 9-point compact numeric unlock dates (for example, 9/9/26) to fit more medals across Settings. Dates use the device locale.
+
+Unlock celebrations play the bundled Honeydew share-import confetti Lottie once per presented achievement. The overlay ignores touches and accessibility, is omitted for Reduce Motion, and does not replay when the swipe hint or other surrounding state changes.

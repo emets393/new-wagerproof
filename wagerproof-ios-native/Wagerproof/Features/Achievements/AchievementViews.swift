@@ -246,6 +246,15 @@ struct AchievementUnlockedSheet: View {
             Button("Continue", action: onDone).font(.headline).frame(maxWidth: .infinity).padding()
                 .background(.green, in: Capsule()).foregroundStyle(.black)
         }.padding(28).padding(.top, 24).background(Color.appSurface.ignoresSafeArea())
+        .overlay {
+            if !reduceMotion {
+                LottieView(name: "confetti", loopMode: .playOnce)
+                    .id(item.id)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
         .interactiveDismissDisabled()
     }
 }
