@@ -1166,15 +1166,29 @@ def main():
     if _fin_ids:
         _pick_scope += "&game_id=not.in.(" + ",".join(sorted(_fin_ids)) + ")"
     for t, scope in (("nfl_slate_picks", _pick_scope),
-                     ("nfl_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}"),
-                     ("nfl_slate_games", f"season=eq.{SEASON}&week=eq.{WEEK}")):
+                     ("nfl_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")):
         resp = requests.delete(f"{BASE_URL}/{t}?{scope}", headers=hdr, timeout=60)
         if resp.status_code not in (200, 204):
             sys.exit(f"delete {t}: {resp.status_code} {resp.text[:300]}")
-    for t, df in (("nfl_slate_games", games), ("nfl_slate_flags", fl),
-                  ("nfl_slate_picks", picks)):
+    # nfl_slate_props FK-references games with NO cascade, so games can NOT be
+    # wipe+reinserted once props exist (23503 on 2026-09-10). UPSERT in place and
+    # delete only rows that fell out of the build.
+    _allq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                         f"&select=game_id", headers=hdr, timeout=30)
+    _stale = sorted({str(x["game_id"]) for x in (_allq.json() if _allq.ok else [])}
+                    - set(games.game_id.astype(str)))
+    if _stale:
+        resp = requests.delete(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                               "&game_id=in.(" + ",".join(_stale) + ")", headers=hdr, timeout=60)
+        if resp.status_code not in (200, 204):
+            sys.exit(f"delete stale nfl_slate_games: {resp.status_code} {resp.text[:300]}")
+    _up_hdr = {**hdr, "Prefer": "resolution=merge-duplicates,return=minimal"}
+    for t, df, url, h in (
+            ("nfl_slate_games", games, f"{BASE_URL}/nfl_slate_games?on_conflict=game_id", _up_hdr),
+            ("nfl_slate_flags", fl, f"{BASE_URL}/nfl_slate_flags", hdr),
+            ("nfl_slate_picks", picks, f"{BASE_URL}/nfl_slate_picks", hdr)):
         recs = json.loads(df.to_json(orient="records"))   # to_json handles numpy types
-        resp = requests.post(f"{BASE_URL}/{t}", headers=hdr, json=recs, timeout=60)
+        resp = requests.post(url, headers=h, json=recs, timeout=60)
         if resp.status_code != 201:
             sys.exit(f"insert {t}: {resp.status_code} {resp.text[:300]}")
         print(f"loaded {len(recs)} rows -> {t}")
