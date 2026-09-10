@@ -99,6 +99,9 @@ fun CFBGameDetailPage(
     topInset: Dp,
     bottomInset: Dp,
 ) {
+    val achievementStore = com.wagerproof.app.di.appGraph().achievements
+    androidx.compose.runtime.LaunchedEffect(Unit) { achievementStore.record("game_analysis") }
+
     val awayColors = remember(game.awayTeam) { CFBTeamColors.colorPair(game.awayTeam) }
     val homeColors = remember(game.homeTeam) { CFBTeamColors.colorPair(game.homeTeam) }
 

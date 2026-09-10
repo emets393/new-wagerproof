@@ -94,6 +94,9 @@ fun NCAABGameDetailPage(
     bottomInset: Dp,
     modifier: Modifier = Modifier,
 ) {
+    val achievementStore = com.wagerproof.app.di.appGraph().achievements
+    androidx.compose.runtime.LaunchedEffect(Unit) { achievementStore.record("game_analysis") }
+
     val scope = rememberCoroutineScope()
     val trendsStore = remember { NCAABBettingTrendsStore() }
     val accuracyStore = remember { NCAABModelAccuracyStore() }

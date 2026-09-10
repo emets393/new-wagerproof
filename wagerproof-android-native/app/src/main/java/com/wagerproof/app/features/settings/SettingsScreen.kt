@@ -156,6 +156,8 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = Spacing.xl),
         ) {
+            com.wagerproof.app.features.achievements.AchievementDiscovery()
+
             // --- AI Connector ---
             // First section on purpose (matches iOS): the connector is a shipped
             // cross-platform surface most users never discover, and it is open to

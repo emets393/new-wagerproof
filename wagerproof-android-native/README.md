@@ -73,3 +73,7 @@ already exists on Play, so this is satisfied.
 ## Modules
 
 `:core:models` (pure JVM) → `:core:shared` → `:core:services` → `:core:stores` → `:app`; `:core:design` (UI-only, no data deps); `:widgets` (Glance). Mirrors the iOS `WagerproofKit` layering — see PLAN.md for the layering rules and locked architecture decisions.
+
+## Achievement release 3.6.2
+
+The native collection, 3D medals, unlock confetti, sharing, onboarding and third paywall slide are described in [the achievement implementation notes](docs/achievements/README.md). This PR advances Android to 3.6.2, versionCode 95; older version examples above are historical.

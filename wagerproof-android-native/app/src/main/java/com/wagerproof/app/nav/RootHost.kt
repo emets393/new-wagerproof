@@ -108,6 +108,8 @@ fun RootHost(modifier: Modifier = Modifier) {
                 // App-scoped caches intentionally outlive their screens, so the
                 // root auth boundary must own their user binding. bindUser also
                 // clears detail polling on a direct account A → B transition.
+                graph.achievements.bind(phase.userId)
+                scope.launch { graph.achievements.refresh() }
                 graph.agents.bind(phase.userId.lowercase())
                 graph.topAgentPicks.bind(phase.userId.lowercase())
                 graph.followedAgents.bind(phase.userId)
@@ -127,6 +129,7 @@ fun RootHost(modifier: Modifier = Modifier) {
                 WidgetSyncCoordinator.syncAll(graph.application, phase.userId)
             }
             is AuthStore.Phase.Unauthenticated -> {
+                graph.achievements.bind(null)
                 graph.agents.bind(null)
                 graph.topAgentPicks.bind(null)
                 graph.followedAgents.bind(null)
@@ -139,6 +142,17 @@ fun RootHost(modifier: Modifier = Modifier) {
                 graph.adminMode.reset()
             }
             is AuthStore.Phase.Launching -> router.resolve(phase, onboardingComplete = false)
+        }
+    }
+
+    // Catch server-side milestones while the signed-in app stays in the foreground.
+    LaunchedEffect(authPhase, graph.agents.agents.size, graph.followedAgents.follows.size, graph.wagerBotChat.isStreaming) {
+        if (authPhase is AuthStore.Phase.Authenticated) graph.achievements.refresh()
+    }
+    LaunchedEffect(authPhase) {
+        while (authPhase is AuthStore.Phase.Authenticated) {
+            delay(60_000)
+            if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) graph.achievements.refresh()
         }
     }
 
@@ -204,6 +218,7 @@ fun RootHost(modifier: Modifier = Modifier) {
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             val account = latestAuthPhase as? AuthStore.Phase.Authenticated
+            if (event == Lifecycle.Event.ON_RESUME && account != null) scope.launch { graph.achievements.refresh() }
             if (event == Lifecycle.Event.ON_RESUME &&
                 account != null &&
                 graph.rootRouter.phase == RootRouter.Phase.Ready &&
@@ -284,6 +299,17 @@ fun RootHost(modifier: Modifier = Modifier) {
             }
         }
 
+        if (!shouldPresentPaywall && router.phase == RootRouter.Phase.Ready && !resetPasswordPresented) {
+            graph.achievements.pending.firstOrNull()?.let { id ->
+                graph.achievements.achievements.firstOrNull { it.id == id }?.let { item ->
+                    androidx.compose.runtime.key(id) {
+                        com.wagerproof.app.features.achievements.AchievementDetail(item, celebration = true) {
+                            scope.launch { graph.achievements.acknowledge(id) }
+                        }
+                    }
+                }
+            }
+        }
         if (shouldPresentPaywall) {
             val dismissPaywall = {
                 paywallDismissed = true

@@ -69,6 +69,7 @@ class AppGraph(val application: Application) {
     val onboarding = OnboardingStore()
     val theme = ThemeStore()
     val settings = SettingsStore()
+    val achievements = com.wagerproof.core.stores.AchievementsStore(application)
     val learn = LearnWagerProofStore()
     val agentPickAudit = AgentPickAuditStore()
     val reviewPrompts = ReviewPromptCoordinator.standard { BuildConfig.VERSION_NAME }

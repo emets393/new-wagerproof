@@ -128,6 +128,9 @@ fun MLBGameDetailPage(
     onSelectProp: (PlayerPropSelection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val achievementStore = com.wagerproof.app.di.appGraph().achievements
+    androidx.compose.runtime.LaunchedEffect(Unit) { achievementStore.record("game_analysis") }
+
     if (game.isPostponed == true) {
         PostponedPage(game, topInset, bottomInset, modifier)
         return

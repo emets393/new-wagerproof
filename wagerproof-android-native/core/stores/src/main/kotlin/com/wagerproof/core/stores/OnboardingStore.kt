@@ -55,12 +55,9 @@ class OnboardingStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /**
-     * 24-step ordered flow. Steps 1..21 are pages inside the onboarding carousel
-     * (`carouselIndex` 0..20); 22/23/24 are full-screen cinematic phases rendered
-     * outside the pager. Raw values MUST stay contiguous — [advance]/[back]
-     * navigate by ±1 arithmetic. Enum declaration order == raw order, so the
-     * natural (ordinal) comparison used by [isCinematic] matches Swift's
-     * `Comparable` on rawValue.
+     * 25-step ordered flow. Achievement discovery uses new raw ID 25 while
+     * preserving every existing ID. Navigation and carousel progress use enum
+     * declaration order; the legacy 24-step analytics funnel excludes this page.
      *
      * [RESEARCH_TIME] → [WEEKLY_STAKES] → [RESEARCH_COST] → [RESEARCH_RECLAIM] is
      * the personalized value arc (self-reported daily checking + weekly bet
@@ -95,6 +92,7 @@ class OnboardingStore {
 
         /** Animated mock leaderboard: hot streaks at a glance, "just tail the best". */
         AGENT_LEADERBOARD(13),
+        ACHIEVEMENTS(25),
         BUILDER_SPORTS(14),
         BUILDER_ARCHETYPE(15),
         BUILDER_MINDSET(16),
@@ -116,10 +114,10 @@ class OnboardingStore {
         val isCinematic: Boolean get() = this >= GENERATION
 
         /** TabView slot (0-based). null for cinematic steps — they render outside the pager. */
-        val carouselIndex: Int? get() = if (isCinematic) null else raw - 1
+        val carouselIndex: Int? get() = if (isCinematic) null else ordinal
 
         /** Progress-bar fraction. null for cinematic steps (no chrome there). */
-        val progress: Double? get() = if (isCinematic) null else raw.toDouble() / carouselPageCount
+        val progress: Double? get() = if (isCinematic) null else (ordinal + 1).toDouble() / carouselPageCount
 
         /**
          * Mixpanel `step_name` matching web/iOS (e.g. `agentHQ`, not `agentHq`).
@@ -135,7 +133,7 @@ class OnboardingStore {
             }
 
         companion object {
-            const val carouselPageCount: Int = 21
+            const val carouselPageCount: Int = 22
 
             fun fromRaw(raw: Int): Step? = entries.firstOrNull { it.raw == raw }
         }
@@ -335,7 +333,7 @@ class OnboardingStore {
 
     fun advance() {
         if (isTransitioning) return
-        val next = Step.fromRaw(currentStep.raw + 1) ?: return
+        val next = Step.entries.getOrNull(currentStep.ordinal + 1) ?: return
         val completedStep = currentStep
         isTransitioning = true
         currentStep = next
@@ -346,7 +344,7 @@ class OnboardingStore {
 
     fun back() {
         if (isTransitioning) return
-        val prev = Step.fromRaw(currentStep.raw - 1) ?: return
+        val prev = Step.entries.getOrNull(currentStep.ordinal - 1) ?: return
         isTransitioning = true
         currentStep = prev
         startTransitionLock()
@@ -380,9 +378,9 @@ class OnboardingStore {
     }
 
     private fun trackStepCompletedIfNeeded(step: Step) {
-        if (step.raw <= highestCompletedStep) return
+        if (step == Step.ACHIEVEMENTS || step.raw <= highestCompletedStep) return
         highestCompletedStep = step.raw
-        val totalSteps = Step.entries.size
+        val totalSteps = 24
         AnalyticsService.track(
             "Onboarding Step Completed",
             mapOf(
@@ -415,7 +413,7 @@ class OnboardingStore {
         Step.RESEARCH_COST -> hasSeenCostReveal
         Step.RESEARCH_RECLAIM -> hasSeenReclaimReveal
         Step.BETTING_PITFALLS, Step.AGENT_HQ, Step.AGENT_VALUE_INTRO,
-        Step.AGENT_VALUE_PROOF, Step.AGENT_LEADERBOARD,
+        Step.AGENT_VALUE_PROOF, Step.AGENT_LEADERBOARD, Step.ACHIEVEMENTS,
         Step.BUILDER_MINDSET, Step.BUILDER_BET_STYLE, Step.BUILDER_DATA_TRUST,
         Step.BUILDER_SPORT_RULES, Step.BUILDER_INSIGHTS,
         Step.GENERATION, Step.REVEAL, Step.TIME_SUMMARY -> true
