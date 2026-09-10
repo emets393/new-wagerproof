@@ -124,8 +124,11 @@ def main():
     g = t[t.l3_pf.notna() & t.tt_line.notna()].copy()
     g["gap"] = g.tt_line - g.l3_pf
     print(g.gap.describe().round(1).to_string())
+    # Same guard as h1tt_p5: a season with <5 qualifying games can't be quintiled
+    # (the 2026 opener crashed p5 this exact way on 2026-09-10).
     g["gb"] = g.groupby("season").gap.transform(
-        lambda x: pd.qcut(x.rank(method="first"), 5, labels=["q1", "q2", "q3", "q4", "q5"]))
+        lambda x: pd.qcut(x.rank(method="first"), 5, labels=["q1", "q2", "q3", "q4", "q5"])
+        if x.notna().sum() >= 5 else pd.Series(pd.NA, index=x.index))
     for b in ("q1", "q2", "q3", "q4", "q5"):
         rep(bet(g[g.gb == b], "tt", "over"), f"gap {b}: TT OVER")
         rep(bet(g[g.gb == b], "tt", "under"), f"gap {b}: TT UNDER")
