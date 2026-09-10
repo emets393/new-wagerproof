@@ -1195,7 +1195,8 @@ def main():
             ("nfl_slate_picks", picks, f"{BASE_URL}/nfl_slate_picks", hdr)):
         recs = json.loads(df.to_json(orient="records"))   # to_json handles numpy types
         resp = requests.post(url, headers=h, json=recs, timeout=60)
-        if resp.status_code != 201:
+        # 201 = rows created; 200 = upsert that only updated existing rows
+        if resp.status_code not in (200, 201):
             sys.exit(f"insert {t}: {resp.status_code} {resp.text[:300]}")
         print(f"loaded {len(recs)} rows -> {t}")
 
