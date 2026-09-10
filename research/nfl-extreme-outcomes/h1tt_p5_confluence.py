@@ -30,8 +30,12 @@ def main():
     f["tt_home_push"] = f.final_home == f.tt_home_close_tt_home_point
     f["sum_resid"] = (f.tt_home_close_tt_home_point + f.tt_away_close_tt_away_point
                       - f.total_close_total_point)
+    # A season with fewer than 5 graded games can't be split into quintiles —
+    # qcut ValueError'd the morning after the 2026 opener (one graded row).
+    # Tiny seasons get no rank (NaN) and simply don't fire the q5 signal yet.
     f["srb"] = f.groupby("season").sum_resid.transform(
-        lambda x: pd.qcut(x.rank(method="first"), 5, labels=["q1", "q2", "q3", "q4", "q5"]))
+        lambda x: pd.qcut(x.rank(method="first"), 5, labels=["q1", "q2", "q3", "q4", "q5"])
+        if x.notna().sum() >= 5 else pd.Series(pd.NA, index=x.index))
     f["ttsum_q5"] = f.srb == "q5"
     f["bigfav"] = f.spread_close_spread_home.abs() >= 7
 
