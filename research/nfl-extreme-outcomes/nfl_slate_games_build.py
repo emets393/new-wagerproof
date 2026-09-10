@@ -1119,6 +1119,12 @@ def main():
             h1_home=int(r.h1_home) if pd.notna(r.h1_home) else None,
             h1_away=int(r.h1_away) if pd.notna(r.h1_away) else None))
     games = pd.DataFrame(rows)
+    # int + None in one column re-floats it (10 -> 10.0 -> 22P02 on the DB's integer
+    # cols once the slate mixes played and seeded games); nullable Int64 keeps ints ints
+    for c in ("final_home", "final_away", "h1_home", "h1_away",
+              "fg_spread_confluence", "flags_active", "flags_tracking"):
+        if c in games.columns:
+            games[c] = games[c].astype("Int64")
     fl = fl.replace({np.nan: None})
 
     print(f"{len(games)} games, {len(fl)} flags "
