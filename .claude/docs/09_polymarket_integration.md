@@ -367,7 +367,15 @@ const { data } = useQuery({
 ```
 
 ### Database Caching (Server-Side)
-See `08_database_caching.md` for `polymarket_events` table schema and cron job setup.
+See `08_database_caching.md` for the table schemas and cron job setup, and
+`supabase/functions/update-polymarket-cache/README.md` for the writer.
+
+The cache key is `{league}_{away_team}_{home_team}` built from the **exact team
+strings the feed renders**. Since 2026-09-01 the NFL feed is `nfl_slate_feed`
+(full names: `nfl_New England Patriots_Seattle Seahawks`); the writer also emits
+the old short-name key (`nfl_New England_Seattle`) for older app builds. If a
+feed ever changes its team-name strings, the writer's game source must change
+with it or every lookup misses and cards show "Market pending".
 
 ---
 
