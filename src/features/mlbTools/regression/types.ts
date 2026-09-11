@@ -129,6 +129,7 @@ export const BET_TYPE_LABEL: Record<SuggestedPick['bet_type'], string> = {
   f5_ml: 'First 5 · Moneyline',
   f5_ou: 'First 5 · Total',
   f5_rl: 'First 5 · Run line',
+  pitcher_k: 'Pitcher · Strikeouts',
 };
 
 /** The four markets the accuracy tables are keyed on. */

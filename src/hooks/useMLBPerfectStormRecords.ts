@@ -1,12 +1,12 @@
 /**
- * Aggregated Perfect Storm tier records sourced from mlb_graded_picks.
+ * Aggregated Perfect Storm tier records from `mlb_unified_pick_record`.
  *
- * Returns the season-to-date W-L record and ROI% for each of the 4
- * tiers (hammer, ps, lean, watch), so the regression report can show
- * the historical track record of each tier next to today's picks.
- *
- * Refreshes when the cron-driven nightly classifier updates rows.
- * React Query refetches every 10 min in case more picks have graded.
+ * That view is the single combined record: the existing legacy graded picks
+ * (unchanged, full history) PLUS the BallparkPal engine's picks from its
+ * go-live date forward (no backfill — see memory bpp-pick-engine). Returns the
+ * W-L record and ROI% for each of the 4 tiers (hammer, ps, lean, watch), so the
+ * regression report shows the real, live-accruing track record next to today's
+ * picks. React Query refetches every 10 min as more picks grade.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -37,10 +37,11 @@ export function useMLBPerfectStormRecords() {
   return useQuery<MLBPerfectStormRecords>({
     queryKey: ['mlb-perfect-storm-records'],
     queryFn: async () => {
+      // Combined record view is pre-aggregated by (tier, source, bet_type); roll it up to tier.
       const { data, error } = await collegeFootballSupabase
-        .from('mlb_graded_picks')
-        .select('perfect_storm_tier, result, units_won')
-        .in('perfect_storm_tier', ['hammer', 'ps', 'lean', 'watch']);
+        .from('mlb_unified_pick_record')
+        .select('tier, n, w, l, p, units')
+        .in('tier', ['hammer', 'ps', 'lean', 'watch']);
       if (error) throw error;
 
       const acc: MLBPerfectStormRecords = {
@@ -51,14 +52,14 @@ export function useMLBPerfectStormRecords() {
       };
 
       for (const row of data ?? []) {
-        const tier = row.perfect_storm_tier as PerfectStormTier;
+        const tier = row.tier as PerfectStormTier;
         const r = acc[tier];
         if (!r) continue;
-        r.picks += 1;
-        if (row.result === 'won')       r.wins   += 1;
-        else if (row.result === 'lost') r.losses += 1;
-        else if (row.result === 'push') r.pushes += 1;
-        r.units += Number(row.units_won ?? 0);
+        r.picks  += Number(row.n ?? 0);
+        r.wins   += Number(row.w ?? 0);
+        r.losses += Number(row.l ?? 0);
+        r.pushes += Number(row.p ?? 0);
+        r.units  += Number(row.units ?? 0);
       }
 
       // Finalize: compute win_pct and roi_pct (over graded games only).
