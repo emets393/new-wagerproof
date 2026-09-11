@@ -95,3 +95,18 @@ three seasons) — market dings the favorite for the visible late mistake,
 favorite quality shows through. ★ DOUBLE-DIP MYTH CONFIRMED DEAD under the
 corrected definition: score last meaningful possession AND receive the 2H
 kick = 50.6% (dog) / 50.2% (fav), ~400 games. Candidate/watch tier.
+
+## Intersections: line-state x turnover tells (exp_2h_intersect.py, NFL)
+
+The DISCOUNT is what makes the turnover tells pay:
+- ★ C1 squandered gift (fav late TO, dog 0 pts off it) + fav live line crashed
+  >=2 -> back FAV: 81.0% (n=21, 80/83/80 by season). Without the discount
+  (fav on pace) the same signal is 60% and 2025-negative.
+- D1 dog blew ALL takeaways + fav behind pace -> back FAV 61.4% (n=44) vs
+  52.6% when fav on/ahead of pace. Same structure, broader trigger.
+- A1 big-fav crash + dog EARNED it (converted a takeaway) -> dog 61.9% (n=21);
+  crash with no dog takeaway = 50%. The crash-fade needs the earn.
+- B blowout cell does NOT split on how the lead was built (62 vs 64) — spot 1
+  stands as-is.
+Pattern: signal alone is not enough; signal + market discount = edge (same
+economics as the whole overreaction family). All n=21-44, watch tier.
