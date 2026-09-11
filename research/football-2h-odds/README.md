@@ -80,13 +80,18 @@ late-1H dose adds nothing (53.4%, n=58). Asymmetry: conversion only matters
 for DOGS (fav converted -> 49.6%, nothing). Squandered opportunity > seized
 opportunity as a signal. Watch-tier; revisit with 2026 sample.
 
-## Final-1H-possession study (exp_2h_final_poss.py, NFL)
+## Final-1H-possession study (exp_2h_final_poss.py, NFL) — CORRECTED 2026-09-12
 
-Momentum narrative INVERTS around the dog: dog ends 1H with a TD -> dog covers
-2H only 43.9% (fade 56.1, n=82); dog ends 1H with a TURNOVER -> dog covers
-55.4% (n=74, 3/3 seasons). Both = fade the market's emotional adjustment to
-the dog's final-possession drama (consistent with the over-priced-reversion
-decomposition). Favorite cells all favor the fav (fav TD 54.9, fav TO ->
-fav 56.9). ★ MYTH-BUST: the classic "score before half AND receive the 2H
-kickoff" double-dip is FULLY PRICED (dog 48.6%, fav 51.2%). Two-minute-drill
-dog TD fade 57.9% but n=38 and 2025 flipped. All candidate/watch tier.
+AUDIT (owner challenge): plumbing verified (game_id order, grading oracle,
+drive log hand-check) BUT the v1 kneel-out classification biased the dog
+cells — a team's "final possession" ignored that a kneel could follow a real
+drive, selecting only very-late events. Corrected = last MEANINGFUL possession.
+
+CORRECTED results: dog ends 1H with TD -> NO signal (49.0%; v1's 43.9%
+fade-the-dog was mostly artifact). Dog ends with turnover -> weak 52.9% lean.
+Favorite cells hold and strengthen: fav ends 1H with TD -> back fav 54.0%;
+★ fav ends 1H with a TURNOVER -> back fav anyway 58.0% (n=88, 55/59/60 all
+three seasons) — market dings the favorite for the visible late mistake,
+favorite quality shows through. ★ DOUBLE-DIP MYTH CONFIRMED DEAD under the
+corrected definition: score last meaningful possession AND receive the 2H
+kick = 50.6% (dog) / 50.2% (fav), ~400 games. Candidate/watch tier.
