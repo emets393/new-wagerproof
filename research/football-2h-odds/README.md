@@ -79,3 +79,14 @@ All four claims directionally CORRECT, none to validation bar. Best: dog got a
 late-1H dose adds nothing (53.4%, n=58). Asymmetry: conversion only matters
 for DOGS (fav converted -> 49.6%, nothing). Squandered opportunity > seized
 opportunity as a signal. Watch-tier; revisit with 2026 sample.
+
+## Final-1H-possession study (exp_2h_final_poss.py, NFL)
+
+Momentum narrative INVERTS around the dog: dog ends 1H with a TD -> dog covers
+2H only 43.9% (fade 56.1, n=82); dog ends 1H with a TURNOVER -> dog covers
+55.4% (n=74, 3/3 seasons). Both = fade the market's emotional adjustment to
+the dog's final-possession drama (consistent with the over-priced-reversion
+decomposition). Favorite cells all favor the fav (fav TD 54.9, fav TO ->
+fav 56.9). ★ MYTH-BUST: the classic "score before half AND receive the 2H
+kickoff" double-dip is FULLY PRICED (dog 48.6%, fav 51.2%). Two-minute-drill
+dog TD fade 57.9% but n=38 and 2025 flipped. All candidate/watch tier.
