@@ -13,14 +13,14 @@ const STALE_TIME = 5 * 60 * 1000; // matches the legacy sessionStorage cache TTL
  * Unified games feed. Replaces each legacy page's imperative fetchData() +
  * useSportsPageCache — React Query provides the same 5-minute freshness and
  * instant back-navigation. CFB is the only sport whose data depends on admin
- * mode (slate), hence the conditional query-key segment.
+ * mode (slate slate), hence the conditional query-key segment.
  */
 export function useGamesFeed(sport: GamesSport) {
   const { adminModeEnabled } = useAdminMode();
   const cfbAdminMode = sport === 'cfb' ? adminModeEnabled : false;
 
   return useQuery<SportFeed>({
-    // v3: feed signalCount from slate_feed flags_* / n_flags_* (excludes blanket keys)
+    // v3: feed signalCount from slate_games flags_* / n_flags_* (excludes blanket keys)
     queryKey: ['games-feed', sport, cfbAdminMode, 'signals-v3'],
     staleTime: STALE_TIME,
     queryFn: () => {

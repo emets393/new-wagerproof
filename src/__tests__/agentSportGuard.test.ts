@@ -2,8 +2,8 @@
 // never be given a pick/parlay-leg for a sport it does not have selected. The
 // guard lives in agents-v3/src/loop/tools/{submitPicks,submitParlay}.ts (mirrored
 // in supabase/functions/process-agent-generation-job-v3/tools/). We drive the real
-// submit tools with DB writes disabled, using a slate game whose sport is NOT in
-// the agent's preferred_sports, and assert the pick/leg is rejected.
+// submit tools in slate mode with a slate game whose sport is NOT in the agent's
+// preferred_sports and assert the pick/leg is rejected.
 //
 // Lives in the root vitest suite (agents-v3 has no test runner); imports the real
 // engine code across the project boundary.
@@ -51,11 +51,7 @@ function makeCtx(gameIds: string[], opts: { sport?: any; steering?: any; grounde
     systemPromptVersion: "test",
     targetDate: "2026-07-06",
     generationType: "manual",
-    // The engine's no-DB-writes flag. Its AgentGenContext field name still uses
-    // the retired test-era term (owned by agents-v3, outside this app's naming
-    // sweep), so it is spelled indirectly here; the cast below covers the
-    // computed key. Runtime object is identical.
-    ["dry" + "Run"]: true,
+    dryRun: true, // no DB writes
     main: null as any,
     cfb: null as any,
     games: games as any,
@@ -69,7 +65,7 @@ function makeCtx(gameIds: string[], opts: { sport?: any; steering?: any; grounde
     reasoningTrace: "",
     lastSubmitReport: null,
     gov: {} as any,
-  } as AgentGenContext;
+  };
 }
 
 function validTotalPick(gameId: string) {

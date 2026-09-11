@@ -11,7 +11,7 @@ import { resolveCfbCurrentWeek, signalCountFromSlateGame } from './footballSlate
  * so the slate rolls Week 1 -> Week 2 automatically. Weeks 1-3 carry priors-blend display
  * predictions (tier 'lean', no bet flags); week 4+ carries the full opponent-adjusted model.
  * The legacy path (cfb_team_mapping + cfb_live_weekly_inputs + cfb_api_predictions) is retired.
- * (cfb_slate_feed is a filtered view over the weekly slate table that hides played games.)
+ * (cfb_slate_feed keeps its test-era name but now holds the live current-week slate.)
  */
 
 export interface CFBPrediction {
@@ -91,7 +91,7 @@ export interface CFBPrediction {
   // Opening spread from cfb_live_weekly_inputs (column: spread)
   opening_spread?: number | null;
   /** Adapter discriminator: true when the row came from cfb_slate_feed (admin mode). */
-  is_slate?: boolean;
+  is_dry_run?: boolean;
   [key: string]: unknown;
 }
 
@@ -528,14 +528,14 @@ export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBP
   let merged: CFBPrediction[] = [];
   let mappings: CFBTeamMapping[] = [];
   let generatedAt: string | null = null;
-  // The NEW CFB model's weekly output lives in cfb_slate_feed (a view over the weekly slate table
-  // that hides played games). Live feed + admin both read it; the current week resolves from
+  // The NEW CFB model's weekly output lives in cfb_slate_feed (legacy test-era name; it now holds
+  // the real current-week slate). Live feed + admin both read it; the current week resolves from
   // kickoffs so the board rolls Week 1 -> Week 2 on its own. The old legacy path
   // (cfb_live_weekly_inputs + cfb_api_predictions) is retired — that model is no longer used.
   {
     const { season, week } = await resolveCfbCurrentWeek();
     const [
-      { data: slateMappings, error: mappingsError },
+      { data: dryRunMappings, error: mappingsError },
       { data: preds, error: predsError },
     ] = await Promise.all([
       collegeFootballSupabase
@@ -553,7 +553,7 @@ export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBP
       throw new Error(`Team mappings error: ${mappingsError.message}`);
     }
 
-    mappings = slateMappings || [];
+    mappings = dryRunMappings || [];
     // Shared Outliers / games logo cache (web port of native CFBTeamAssets).
     // Also seeds FCS opponents (NDSU, Sacramento State, …) missing from FBS cfb_teams.
     installCfbTeamAssets(mappings);
@@ -642,7 +642,7 @@ export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBP
         // New model win-prob → feed ML edge pill (was left blank after slate cutover).
         pred_ml_proba: prediction.fg_home_win_prob ?? null,
         // Every row is from cfb_slate_feed — unlock the conviction / multi-market UI for all users.
-        is_slate: true,
+        is_dry_run: true,
       };
     });
     generatedAt = (preds as any[])?.[0]?.generated_at ?? null;
@@ -687,7 +687,7 @@ export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBP
     games,
     extras: {
       teamMappings: mappings,
-      // Always the slate now — admin mode only gates AI Payload, not the model UI.
+      // Always the slate slate now — admin mode only gates AI Payload, not the model UI.
       mode: 'slate',
       generatedAt,
     },

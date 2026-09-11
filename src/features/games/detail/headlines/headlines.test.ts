@@ -35,7 +35,7 @@ const LINE_MOVE_BASE = {
   pointCount: 4,
 };
 
-const SLATE_SUMMARY_BASE = {
+const DRY_RUN_SUMMARY_BASE = {
   hasScore: true,
   predAway: 24,
   predHome: 31,
@@ -315,19 +315,19 @@ describe('deterministic game-detail headlines', () => {
     })).toBe('No line history has been recorded for this game.');
   });
 
-  // --- CFB slate ----------------------------------------------------------
+  // --- CFB dry run ----------------------------------------------------------
 
   it('puts CFB slate spread value on the side the gap points to', () => {
     // spreadGap < 0 => model has HOME favoured by more than the book => value HOME.
-    expect(cfbSlateSummaryHeadline({ ...SLATE_SUMMARY_BASE, spreadGap: -3 }))
+    expect(cfbSlateSummaryHeadline({ ...DRY_RUN_SUMMARY_BASE, spreadGap: -3 }))
       .toContain('3 points of spread value toward CLEM');
-    expect(cfbSlateSummaryHeadline({ ...SLATE_SUMMARY_BASE, spreadGap: 3 }))
+    expect(cfbSlateSummaryHeadline({ ...DRY_RUN_SUMMARY_BASE, spreadGap: 3 }))
       .toContain('3 points of spread value toward PITT');
   });
 
   it('suppresses any CFB spread direction when the model capped the edge', () => {
     const sentence = cfbSlateSummaryHeadline({
-      ...SLATE_SUMMARY_BASE,
+      ...DRY_RUN_SUMMARY_BASE,
       spreadGap: -20,
       spreadCapped: true,
     });

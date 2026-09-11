@@ -16,8 +16,8 @@ import { resolveNflCurrentWeek, signalCountFromSlateGame } from './footballSlate
  * dynamically from kickoffs (resolveNflCurrentWeek), so the slate rolls Week 1 -> Week 2
  * automatically. The legacy path (v_input_values_with_epa + nfl_predictions_epa classifier +
  * nfl_betting_lines as card lines + production_weather) is retired. Line Movement reads the
- * game-keyed nfl_line_movement consensus view. (nfl_slate_feed is a filtered view over the
- * weekly slate table that hides already-played games.)
+ * game-keyed nfl_line_movement consensus view. (nfl_slate_feed keeps its test-era name but
+ * now holds the live current-week slate.)
  */
 
 export interface NFLPrediction {
@@ -321,8 +321,8 @@ function ouProbFromSlatePick(
 }
 
 export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
-  // The NEW NFL model's weekly output lives in nfl_slate_feed (a view over the weekly slate table
-  // that hides played games — Odds-API lines + the locked totals/sides/1H model numbers). The current
+  // The NEW NFL model's weekly output lives in nfl_slate_feed (legacy test-era name; it now holds the
+  // real current-week slate — Odds-API lines + the locked totals/sides/1H model numbers). The current
   // week resolves dynamically from kickoffs so the board rolls Week 1 -> Week 2 on its own. The old
   // legacy path (v_input_values_with_epa + nfl_predictions_epa classifier + nfl_betting_lines as card
   // lines) is retired; nfl_betting_lines remains only for Line-Movement history.

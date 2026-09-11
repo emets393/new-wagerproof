@@ -107,7 +107,7 @@ export function cfbWeatherHeadline(v: CfbWeatherHeadlineInput): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Slate summary
+// Slate slate summary
 // ---------------------------------------------------------------------------
 
 export type CfbSlateSummaryHeadlineInput = {
