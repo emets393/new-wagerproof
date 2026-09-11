@@ -94,8 +94,8 @@ struct SearchView: View {
     /// Historical Trends leaf pushed from the Explore rail's Trends drawer.
     @State private var trendsDestination: HistoricalAnalysisSport?
     @State private var showTrendsDrawer = false
-    /// Let the detached-search focus/keyboard transition commit before starting
-    /// the decorative Explore and agent-card animation loops.
+    /// Let the tab-switch transition commit before starting the decorative
+    /// Explore and agent-card animation loops.
     @State private var exploreAnimationsReady = false
     /// Sport chosen inside the drawer. Held until the sheet has actually gone —
     /// pushing while it's still up lands the destination behind the sheet.

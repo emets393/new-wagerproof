@@ -132,13 +132,8 @@ struct MainTabView: View {
 
             // Detached search role (iOS 18+). On iOS 26 this renders as a
             // standalone pill outside the bar; on 18.x it falls back to a
-            // fifth tab cell. On iOS 27 this tab gets the detached
-            // trailing-edge "prominent" circle, but ONLY in combination with
-            // `.tabViewSearchActivation(.searchTabSelection)` below — see
-            // UITabBarController.prominentTabIdentifier header docs: the
-            // search tab is prominent-by-default only when selecting it
-            // auto-activates search. Don't use `role: .prominent` here: it
-            // drops the search semantics (no field-morph transition).
+            // fifth tab cell. Don't use `role: .prominent` here: it drops the
+            // search semantics (no field-morph transition).
             // Needs a `value:` because `TabView(selection:)` requires every
             // `Tab` to share a value type. SearchView owns its own
             // NavigationStack and calls back into the tab shell via the
@@ -149,9 +144,16 @@ struct MainTabView: View {
             }
         }
         // SearchView owns the searchable modifier so it cannot leak an extra
-        // navigation-bar field into every content tab. This shell modifier
-        // still links the detached search-tab selection to that descendant.
-        .activateSearchOnTabSelection()
+        // navigation-bar field into every content tab.
+        //
+        // Deliberately NOT `.tabViewSearchActivation(.searchTabSelection)`:
+        // that focuses the field and throws the keyboard up the instant the
+        // search tab is tapped, burying the Explore rail. Default
+        // (`.automatic`) lands on the search page with the field idle — the
+        // user taps it when they actually want to type. The cost is that on
+        // iOS 27 the search tab is no longer prominent-by-default (that
+        // appearance is tied to selection auto-activating search; see
+        // UITabBarController.prominentTabIdentifier).
         // Brand green tint replaces the system blue accent. Matches RN's
         // hardcoded `#00E676` active tab color in the FloatingTabBar.
         .tint(Color(hex: 0x00E676))
@@ -362,17 +364,6 @@ struct MainTabView: View {
 }
 
 private extension View {
-    /// Link selection of the detached search tab to activation of its search
-    /// field. On dismissal, SwiftUI automatically restores the prior tab.
-    @ViewBuilder
-    func activateSearchOnTabSelection() -> some View {
-        if #available(iOS 26.0, *) {
-            self.tabViewSearchActivation(.searchTabSelection)
-        } else {
-            self
-        }
-    }
-
     /// Apply iOS 26's `tabBarMinimizeBehavior(.onScrollDown)` when the SDK
     /// supports it; otherwise leave the view untouched so we stay buildable
     /// against the iOS 18 deployment floor.

@@ -794,26 +794,6 @@ private struct PaywallBeforeAfterPage: View {
                 comparisonUnit
                     .frame(height: compact ? 230 : 272)
 
-                // Typographic play on the copy: "less" is thin + italic (visually
-                // LESS), "more" is the heaviest weight (visually MORE); "Check"
-                // and "Enjoy" sit lighter so those two hero words carry the
-                // contrast rather than competing with it.
-                (
-                    Text("Check ")
-                        .font(.system(size: compact ? 23 : 27, weight: .medium, design: .default))
-                    + Text("less")
-                        .font(.system(size: compact ? 23 : 27, weight: .thin, design: .default))
-                        .italic()
-                    + Text(". Enjoy ")
-                        .font(.system(size: compact ? 23 : 27, weight: .medium, design: .default))
-                    + Text("more")
-                        .font(.system(size: compact ? 23 : 27, weight: .black, design: .default))
-                    + Text(".")
-                        .font(.system(size: compact ? 23 : 27, weight: .medium, design: .default))
-                )
-                .foregroundStyle(Color.appTextPrimary)
-                .multilineTextAlignment(.center)
-
                 benefits
             }
             .padding(.horizontal, compact ? 15 : 20)
