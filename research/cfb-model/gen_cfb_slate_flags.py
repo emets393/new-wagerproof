@@ -283,6 +283,76 @@ try:
 except Exception as e:
     print(f"  [lookahead_fade] skipped: {e}")
 
+# ── DECEPTIVE-WIN FADES (all-season rolling, PAPER-TRACK — owner-approved 2026-09-10) ──
+# CFBD postgame win expectancy (PWE) = how often a team wins given how the game was
+# actually played, score-free. Study exp_pwe_luck.py + exp_pwe_ats_luck.py (2021-25,
+# next game ATS vs OPENER, oracle-checked):
+#   double_luck_fade: team WON w/ own PWE<=.50 AND covered a spread it deserved to miss
+#     by >=4 (deserved margin = 10.2*PHI^-1(PWE)) -> fade next game 60.7% (n=107,
+#     ALL 5 seasons >=53%). Components alone ~52% — the interaction is the signal.
+#   lucky_win_fade: won w/ PWE<=.40 (no double-luck) -> fade 56.0% (n=327, 5/5 seasons).
+# Unlucky losers, deserved-but-failed covers, and cumulative luck ledgers all tested
+# NULL — only deceptive WINS mislead the market, and only for ONE game.
+# Trigger reads each team's most recent completed game THIS season (any week, rolling);
+# PWE comes from a LIVE CFBD pull (games_{SEASON}.parquet is fetch-once and goes stale),
+# openers/finals from our own slate table (Odds-API lines, never CFBD consensus).
+try:
+    from scipy.stats import norm as _norm
+    import cfbd as _cfbd
+    _PWE_SIGMA = 10.2          # frozen from the 2021-25 fit; do NOT refit in-season
+    _gj = pd.DataFrame(_cfbd.get("/games", year=SEASON, seasonType="both"))
+    _gj = _gj[(_gj.completed == True) & _gj.homePostgameWinProbability.notna()]
+    _pq = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=lt.{WEEK}"
+                       f"&final_home=not.is.null&select=game_id,week,home_team,away_team,"
+                       f"final_home,final_away,fg_spread_open", headers=C.H, timeout=30)
+    _pg = pd.DataFrame(_pq.json() if _pq.ok else [])
+    _pg = _pg.merge(_gj[["id", "homePostgameWinProbability", "awayPostgameWinProbability"]],
+                    left_on="game_id", right_on="id", how="inner")
+    _lastg = {}
+    for _, pr in _pg.sort_values("week").iterrows():        # later weeks overwrite: most recent game wins
+        for _hs in (True, False):
+            _tm = pr.home_team if _hs else pr.away_team
+            _pw = pr.homePostgameWinProbability if _hs else pr.awayPostgameWinProbability
+            _mar = (pr.final_home - pr.final_away) * (1 if _hs else -1)
+            _osp = (pr.fg_spread_open if pd.notna(pr.fg_spread_open) else np.nan) * (1 if _hs else -1)
+            if pd.isna(_pw) or pd.isna(_osp):
+                continue
+            _lastg[_tm] = dict(opp=pr.away_team if _hs else pr.home_team,
+                               pwe=float(_pw), won=_mar > 0, covered=_mar + _osp > 0,
+                               dcm=float(_PWE_SIGMA * _norm.ppf(min(max(_pw, .01), .99)) + _osp))
+    _n_dl = _n_lw = 0
+    for _, r in te.iterrows():
+        _op = getattr(r, "open_spread", np.nan)
+        if pd.isna(_op):
+            continue                                # grade line is the opener; no opener -> skip
+        for _side_is_home, _tm in ((True, r.homeTeam), (False, r.awayTeam)):
+            L = _lastg.get(_tm)
+            if not L or not L["won"]:
+                continue
+            _dl = L["pwe"] <= 0.50 and L["covered"] and L["dcm"] <= -4
+            _lw = (not _dl) and L["pwe"] <= 0.40
+            if not (_dl or _lw):
+                continue
+            _n_dl += _dl; _n_lw += _lw
+            rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                         "game": lab(r),
+                         "source": (f"DECEPTIVE WIN: {_tm} beat {L['opp']} last time out, but the "
+                                    f"game stats say they win it only {100*L['pwe']:.0f}% of the time"
+                                    + (" — and they stole the cover too" if _dl else "")
+                                    + f". Fading that team next game has hit "
+                                    f"{'61%' if _dl else '56%'} across 2021-2025"),
+                         "signal_key": "double_luck_fade" if _dl else "lucky_win_fade",
+                         "market": "spread",
+                         "side": "AWAY" if _side_is_home else "HOME",   # fade = bet the opponent
+                         "line": round(float(_op), 1),                  # home-perspective opener
+                         "price": -110, "edge": None,
+                         "conviction": "track", "tier": "tracking",
+                         "stake_units": C.STAKE["track"], "grade_line": "open", "mammoth": False})
+    print(f"  [pwe_luck_fade] {_n_dl} double-luck + {_n_lw} lucky-win fades "
+          f"({len(_lastg)} teams with graded prior game)")
+except Exception as e:
+    print(f"  [pwe_luck_fade] skipped: {e}")
+
 # ── BACKUP-QB PREGAME TRIGGER (live 2026-08-27): covers.com injuries x established
 #    starters (qb_availability). Established starter listed Out/IR -> the two vaulted
 #    signals fire PREGAME: fade_home_backup_qb (spread, home team only, T3) and
