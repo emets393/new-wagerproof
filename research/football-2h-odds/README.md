@@ -53,3 +53,20 @@ median 3 fresh books/market). 2H totals 14.5-31.5 (median 21.5), 2H spreads
   its score rule -> home 59.7% (n=129, 3/3 seasons, monotone dose; home side
   only). Outlier book >= 1pt off consensus -> follow at consensus price 56.4%
   (172 games, 3/3 seasons, 59.2% at net >= 2).
+
+## NCAAF replication (2026-09-11, exp_2h_ncaaf.py) — different regime
+
+NFL constructs mostly DO NOT transfer. CFB structure: halves are CORRELATED
+(margin corr +0.21, total +0.14 vs ~0 NFL) and the market UNDER-follows the 1H
+(totals: reality +0.093/pt vs market +0.065). Failed: dominator continuation
+(47.7%), coasting fav, view-improved fav, bespoke-move, outlier-book at 1pt
+(45.5%; 60.9% at 2+ but n=23). Replicated: standard fav (3-6) in blowout mode
+58.7% (NFL 64%).
+
+★ CFB-SPECIFIC HEADLINE: 2H total posted at 26 or lower -> bet OVER.
+n=834, 56.4%, +6.1% ROI at real prices (median -114), z=+3.67,
+per-season 56.7 / 56.5 / 55.8. Blanket 2H over lean is 53.5% but the whole
+edge concentrates in low/mid 2H totals (<=22: 55.8%, 22.5-26: 56.7%,
+26.5+: 48.3%). Books shade slow-game 2H totals too low; college scoring
+floor beats it. Threshold from a 3-bucket split of a registered blanket
+observation — monotone/dose-coherent.
