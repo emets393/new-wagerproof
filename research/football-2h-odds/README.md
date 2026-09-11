@@ -70,3 +70,12 @@ edge concentrates in low/mid 2H totals (<=22: 55.8%, 22.5-26: 56.7%,
 26.5+: 48.3%). Books shade slow-game 2H totals too low; college scoring
 floor beats it. Threshold from a 3-bucket split of a registered blanket
 observation — monotone/dose-coherent.
+
+## 1H turnover-conversion study (Discord user theory, exp_2h_turnovers.py)
+
+All four claims directionally CORRECT, none to validation bar. Best: dog got a
+1H takeaway and blew every one -> back FAV 2H = 55.8% (n=120, 3/3 seasons
+52/58/59, z=1.1). Dog converted -> back dog 52.8%; fav blew -> dog 51.9%;
+late-1H dose adds nothing (53.4%, n=58). Asymmetry: conversion only matters
+for DOGS (fav converted -> 49.6%, nothing). Squandered opportunity > seized
+opportunity as a signal. Watch-tier; revisit with 2026 sample.
