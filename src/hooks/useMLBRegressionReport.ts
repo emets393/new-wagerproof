@@ -91,7 +91,7 @@ export interface BullpenFatigue {
 
 export interface SuggestedPick {
   game_pk: number;
-  bet_type: 'full_ml' | 'full_ou' | 'full_rl' | 'f5_ml' | 'f5_ou' | 'f5_rl';
+  bet_type: 'full_ml' | 'full_ou' | 'full_rl' | 'f5_ml' | 'f5_ou' | 'f5_rl' | 'pitcher_k';
   pick: string;
   matchup: string;
   home_team: string;
@@ -106,7 +106,7 @@ export interface SuggestedPick {
   edge_at_suggestion: number;
   line_at_suggestion: number | null;
   edge_bucket: string;
-  bucket_win_pct: number;
+  bucket_win_pct: number | null;
   bucket_sample: number;
   confidence_at_suggestion: 'high' | 'moderate';
   reasoning: string;
@@ -242,19 +242,73 @@ function getTodayET(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
+/**
+ * Combined pick sourcing (2026-09-10): the BallparkPal engine owns Moneyline,
+ * First-5 Moneyline, and Pitcher-Strikeout picks (validated edges); the legacy
+ * regression ETL keeps only its proven markets — full/F5 Totals and Run lines —
+ * at the hammer/ps tiers. Legacy full_ml (a loser at every tier) and the legacy
+ * lean/watch drag are dropped. Both feed the same tiers so the report and record
+ * are unchanged in shape. See memory: bpp-pick-engine.
+ */
+const LEGACY_KEPT_MARKETS = new Set(['full_ou', 'f5_ou', 'full_rl', 'f5_rl']);
+
+function mapBppRowToPick(r: any): SuggestedPick {
+  const topTier = r.perfect_storm_tier === 'hammer' || r.perfect_storm_tier === 'ps';
+  return {
+    game_pk: r.game_pk,
+    bet_type: r.bet_type,
+    pick: r.pick,
+    matchup: r.matchup,
+    home_team: r.home_team,
+    away_team: r.away_team,
+    game_time_et: r.game_time_et ?? null,
+    game_number: 1,
+    model_prob: r.bpp_projection ?? null,
+    fair_value: null,
+    edge_at_suggestion: r.edge ?? 0,
+    line_at_suggestion: r.line ?? null,
+    edge_bucket: '',
+    bucket_win_pct: null,
+    bucket_sample: 0,
+    confidence_at_suggestion: topTier ? 'high' : 'moderate',
+    reasoning: r.context ?? '',
+    home_sp: r.home_sp ?? null,
+    away_sp: r.away_sp ?? null,
+    first_suggested_at: '',
+    locked: false,
+    perfect_storm_tier: r.perfect_storm_tier ?? null,
+  };
+}
+
 export function useMLBRegressionReport() {
   return useQuery<MLBRegressionReport | null>({
     queryKey: ['mlb-regression-report', getTodayET()],
     queryFn: async () => {
       const today = getTodayET();
-      const { data, error } = await collegeFootballSupabase
-        .from('mlb_regression_report')
-        .select('*')
-        .eq('report_date', today)
-        .maybeSingle();
+      const [reportRes, bppRes] = await Promise.all([
+        collegeFootballSupabase.from('mlb_regression_report').select('*').eq('report_date', today).maybeSingle(),
+        collegeFootballSupabase.from('bpp_report_picks').select('*').eq('official_date', today),
+      ]);
+      if (reportRes.error) throw reportRes.error;
+      if (bppRes.error) throw bppRes.error;
 
-      if (error) throw error;
-      return data as MLBRegressionReport | null;
+      const report = reportRes.data as MLBRegressionReport | null;
+      const bppPicks: SuggestedPick[] = (bppRes.data ?? []).map(mapBppRowToPick);
+
+      if (!report) {
+        // No legacy report row yet — still surface the BallparkPal picks so the page isn't empty.
+        return bppPicks.length
+          ? ({ report_date: today, suggested_picks: bppPicks } as unknown as MLBRegressionReport)
+          : null;
+      }
+
+      const legacyKept = (report.suggested_picks ?? []).filter(
+        (p) =>
+          LEGACY_KEPT_MARKETS.has(p.bet_type) &&
+          (p.perfect_storm_tier === 'hammer' || p.perfect_storm_tier === 'ps'),
+      );
+
+      return { ...report, suggested_picks: [...legacyKept, ...bppPicks] };
     },
     refetchInterval: 10 * 60 * 1000, // 10 minutes
     staleTime: 5 * 60 * 1000,

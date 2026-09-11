@@ -35,6 +35,7 @@ const BET_TYPE_LABEL: Record<SuggestedPick['bet_type'], string> = {
   f5_ml: '1st 5 · Moneyline',
   f5_ou: '1st 5 · Total',
   f5_rl: '1st 5 · Run Line',
+  pitcher_k: 'Pitcher · Strikeouts',
 };
 
 /**
