@@ -426,11 +426,14 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
   const [edgeMarket, setEdgeMarket] = React.useState(markets[0] ?? 'fg_spread');
   const [sortKey, setSortKey] = React.useState<'roi' | 'record'>('roi');
   const [sortDesc, setSortDesc] = React.useState(true);
+  /** Collapsed: top 20 by ROI. Expand (or search) reveals the full team list. */
+  const [teamsExpanded, setTeamsExpanded] = React.useState(false);
+  const TOP_TEAMS = 20;
 
   const q = teamQuery.trim().toLowerCase();
-  const teamRows = teams
-    .filter((s) => s.market === teamMarket && (!q || s.scope_key.toLowerCase().includes(q)))
-    .sort((a, b) => {
+  const marketTeams = teams.filter((s) => s.market === teamMarket);
+  const sortRows = (rows: RecordSplitRow[]) =>
+    [...rows].sort((a, b) => {
       const val = (r: RecordSplitRow) =>
         sortKey === 'roi'
           ? (roiPct(r) ?? -Infinity)
@@ -438,6 +441,34 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
       const d = val(b) - val(a);
       return (sortDesc ? d : -d) || a.scope_key.localeCompare(b.scope_key);
     });
+
+  const matchedTeams = marketTeams.filter(
+    (s) => !q || s.scope_key.toLowerCase().includes(q),
+  );
+  // Searching or expanding unlocks the full sorted list; otherwise only the
+  // top-20 ROI teams (still re-sorted by the active column).
+  const topRoiKeys = new Set(
+    [...marketTeams]
+      .sort(
+        (a, b) => (roiPct(b) ?? -Infinity) - (roiPct(a) ?? -Infinity)
+          || a.scope_key.localeCompare(b.scope_key),
+      )
+      .slice(0, TOP_TEAMS)
+      .map((r) => r.scope_key),
+  );
+
+  const showAllTeams = teamsExpanded || Boolean(q);
+  const teamRows = sortRows(
+    showAllTeams ? matchedTeams : matchedTeams.filter((r) => topRoiKeys.has(r.scope_key)),
+  );
+  const hiddenCount = showAllTeams
+    ? 0
+    : Math.max(0, matchedTeams.length - teamRows.length);
+
+  React.useEffect(() => {
+    setTeamsExpanded(false);
+  }, [teamMarket]);
+
   const onSort = (key: 'roi' | 'record') => {
     if (sortKey === key) setSortDesc((v) => !v);
     else { setSortKey(key); setSortDesc(true); }
@@ -562,9 +593,29 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
                   </tr>
                 );
               })}
+              {teamRows.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-2 py-4 text-center text-[12px] text-muted-foreground">
+                    {q ? 'No teams match that search.' : 'No graded team splits yet.'}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+        {!q && matchedTeams.length > TOP_TEAMS && (
+          <div className="mt-2 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setTeamsExpanded((v) => !v)}
+              className="rounded-full border border-border bg-background px-3.5 py-1.5 text-[12px] font-bold text-muted-foreground hover:text-foreground"
+            >
+              {teamsExpanded
+                ? 'Show top 20 by ROI'
+                : `Show all ${matchedTeams.length} teams (+${hiddenCount})`}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
