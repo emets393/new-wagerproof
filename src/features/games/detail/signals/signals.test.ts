@@ -40,6 +40,19 @@ describe('parseHitRate', () => {
     expect(parseHitRate('180%')).toBeNull();
     expect(parseHitRate('0%')).toBeNull();
   });
+
+  it('does not chart ROI as a hit rate', () => {
+    // P5 ATD Drift: profit-only typical_hit was scraped as 5.5% and shown as
+    // "loses to the vig" — the opposite of the copy.
+    expect(parseHitRate('+5-6% ROI (n~1600/yr)')).toBeNull();
+    expect(parseHitRate('+5% ROI')).toBeNull();
+  });
+
+  it('keeps the hit-rate side when ROI is paired after a slash', () => {
+    expect(parseHitRate('58-61% / +11-16% ROI')).toBeCloseTo(0.595, 5);
+    expect(parseHitRate('56.2% ATS / +7.2% ROI (n=349, wk4-11, 7/8 seasons)')).toBeCloseTo(0.562, 5);
+    expect(parseHitRate('63–69% / +5–9% ROI [67,63]')).toBeCloseTo(0.66, 5);
+  });
 });
 
 describe('hitRateWindow', () => {

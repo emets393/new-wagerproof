@@ -14,6 +14,22 @@ export const BREAK_EVEN_RATE = 0.524;
 const NUM = '([0-9]+(?:\\.[0-9]+)?)';
 
 /**
+ * Drop ROI clauses before scraping a hit rate.
+ *
+ * `typical_hit` often pairs both: `58-61% / +11-16% ROI`. ROI is profit, not
+ * cover rate — parsing `+5-6% ROI` as a 5.5% win rate charted P5 ATD Drift as
+ * "loses to the vig" when the text meant a profitable backtest.
+ */
+function stripRoiClauses(raw: string): string {
+  return raw
+    .replace(
+      /\s*\/?\s*[+\u2212\-−]?\s*[0-9]+(?:\.[0-9]+)?(?:\s*[-–—]\s*[0-9]+(?:\.[0-9]+)?)?\s*%\s*ROI\b/gi,
+      '',
+    )
+    .trim();
+}
+
+/**
  * Percentage pulled out of a free-text `typical_hit`, as a 0–1 fraction.
  *
  * The column is prose written by hand — real values include `58%`, `57-60%`,
@@ -28,14 +44,17 @@ const NUM = '([0-9]+(?:\\.[0-9]+)?)';
 export function parseHitRate(raw: string | null | undefined): number | null {
   if (!raw) return null;
 
+  const text = stripRoiClauses(raw);
+  if (!text) return null;
+
   // A true range must END in the percent sign: "57-60%". `2024-25,` fails
   // because a comma follows, not a `%`.
-  const range = raw.match(new RegExp(`${NUM}\\s*[-–—]\\s*${NUM}\\s*%`));
+  const range = text.match(new RegExp(`${NUM}\\s*[-–—]\\s*${NUM}\\s*%`));
   if (range) {
     return clampPercent((Number(range[1]) + Number(range[2])) / 2);
   }
 
-  const single = raw.match(new RegExp(`${NUM}\\s*%`));
+  const single = text.match(new RegExp(`${NUM}\\s*%`));
   if (single) return clampPercent(Number(single[1]));
 
   return null;

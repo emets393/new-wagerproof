@@ -19,6 +19,21 @@ public enum SignalHitRate {
 
     private static let number = "([0-9]+(?:\\.[0-9]+)?)"
 
+    /// Drop ROI clauses before scraping a hit rate.
+    ///
+    /// `typical_hit` often pairs both: `58-61% / +11-16% ROI`. ROI is profit,
+    /// not cover rate — parsing `+5-6% ROI` as a 5.5% win rate charted P5 ATD
+    /// Drift as "loses to the vig" when the text meant a profitable backtest.
+    private static func stripRoiClauses(_ raw: String) -> String {
+        let pattern = #"\s*/?\s*[+\u2212\-−]?\s*[0-9]+(?:\.[0-9]+)?(?:\s*[-–—]\s*[0-9]+(?:\.[0-9]+)?)?\s*%\s*ROI\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return raw
+        }
+        let range = NSRange(raw.startIndex..., in: raw)
+        let stripped = regex.stringByReplacingMatches(in: raw, range: range, withTemplate: "")
+        return stripped.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Percentage pulled out of a free-text `typical_hit`, as a 0–1 fraction.
     ///
     /// The column is prose written by hand — real values include `58%`,
@@ -33,12 +48,15 @@ public enum SignalHitRate {
     public static func fraction(_ raw: String?) -> Double? {
         guard let raw, !raw.isEmpty else { return nil }
 
+        let text = stripRoiClauses(raw)
+        guard !text.isEmpty else { return nil }
+
         // A true range has to END in the percent sign: "57-60%". `2024-25,`
         // fails this because a comma follows, not a `%`.
-        if let range = match(raw, "\(number)\\s*[-–—]\\s*\(number)\\s*%"), range.count == 2 {
+        if let range = match(text, "\(number)\\s*[-–—]\\s*\(number)\\s*%"), range.count == 2 {
             return clamp((range[0] + range[1]) / 2)
         }
-        if let single = match(raw, "\(number)\\s*%"), let value = single.first {
+        if let single = match(text, "\(number)\\s*%"), let value = single.first {
             return clamp(value)
         }
         return nil
