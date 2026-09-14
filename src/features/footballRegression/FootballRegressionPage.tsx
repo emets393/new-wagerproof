@@ -2,10 +2,35 @@ import * as React from 'react';
 import { Activity, CalendarDays, RefreshCcw } from 'lucide-react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { SignalBacktestChart } from '@/features/games/detail/signals';
 import { useEnsureCompTeamAssets } from '@/features/competition/hooks';
 import { getCfbTeamLogo } from '@/utils/cfbTeamAssets';
 import { getNflTeamLogo } from '@/utils/nflTeamAssets';
+import type { SignalPerformanceRow } from '@/utils/signalPerformance';
 import { cn } from '@/lib/utils';
+
+type SignalDefRow = {
+  signal_key: string;
+  display_name?: string | null;
+  one_liner?: string | null;
+  definition?: string | null;
+  why_it_works?: string | null;
+  bet_direction?: string | null;
+  typical_hit?: string | null;
+  market?: string | null;
+};
+
+const SIGNAL_DEFS_TABLE: Record<'nfl' | 'cfb', string> = {
+  nfl: 'nfl_signal_defs',
+  cfb: 'cfb_signal_defs',
+};
 
 /**
  * NFL/CFB weekly regression report (owner spec 2026-08-30).
@@ -151,6 +176,8 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   const [loading, setLoading] = React.useState(true);
   const [splits, setSplits] = React.useState<RecordSplitRow[]>([]);
   const [teamQuery, setTeamQuery] = React.useState('');
+  const [signalPerf, setSignalPerf] = React.useState<SignalPerformanceRow[]>([]);
+  const [signalDefs, setSignalDefs] = React.useState<Record<string, SignalDefRow>>({});
   const { isSuccess: logosReady } = useEnsureCompTeamAssets();
 
   // Edge/team splits live behind an authed edge function — the raw table is
@@ -172,6 +199,8 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setSignalPerf([]);
+      setSignalDefs({});
       const { data: reports } = await collegeFootballSupabase
         .from('football_regression_reports')
         .select('*')
@@ -183,14 +212,31 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
       if (cancelled) return;
       setReport(r);
       if (r) {
-        const { data: rows } = await collegeFootballSupabase
-          .from('football_regression_storylines')
-          .select('id,family,matchup,title,body,rank,status,updates,created_at')
-          .eq('sport', sport)
-          .eq('season', r.season)
-          .eq('week', r.week)
-          .order('rank', { ascending: true, nullsFirst: false });
-        if (!cancelled) setStorylines((rows ?? []) as StorylineRow[]);
+        const [{ data: rows }, { data: perfRows }, { data: defRows }] = await Promise.all([
+          collegeFootballSupabase
+            .from('football_regression_storylines')
+            .select('id,family,matchup,title,body,rank,status,updates,created_at')
+            .eq('sport', sport)
+            .eq('season', r.season)
+            .eq('week', r.week)
+            .order('rank', { ascending: true, nullsFirst: false }),
+          collegeFootballSupabase
+            .from('signal_performance')
+            .select('signal_key,n,wins,losses,pushes,hit_rate,units,roi,season,sport')
+            .eq('sport', sport)
+            .eq('season', r.season),
+          collegeFootballSupabase
+            .from(SIGNAL_DEFS_TABLE[sport])
+            .select('signal_key,display_name,one_liner,definition,why_it_works,bet_direction,typical_hit,market'),
+        ]);
+        if (cancelled) return;
+        setStorylines((rows ?? []) as StorylineRow[]);
+        setSignalPerf(((perfRows ?? []) as SignalPerformanceRow[]).filter((p) => p.n > 0));
+        const byKey: Record<string, SignalDefRow> = {};
+        for (const d of (defRows ?? []) as SignalDefRow[]) {
+          if (d.signal_key) byKey[d.signal_key] = d;
+        }
+        setSignalDefs(byKey);
       }
       if (!cancelled) setLoading(false);
     })();
@@ -301,6 +347,14 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
             />
           )}
         </section>
+      )}
+
+      {signalPerf.length > 0 && (
+        <SeasonSignalsSection
+          season={report.season}
+          rows={signalPerf}
+          defs={signalDefs}
+        />
       )}
 
       {comingSoon.length > 0 && (
@@ -618,6 +672,174 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
         )}
       </div>
     </div>
+  );
+}
+
+function signalRecord(p: SignalPerformanceRow): string {
+  return p.pushes > 0
+    ? `${p.wins}-${p.losses}-${p.pushes}`
+    : `${p.wins}-${p.losses}`;
+}
+
+function formatRoiPct(roi: number): string {
+  const pct = roi * 100;
+  if (pct > 0) return `+${pct.toFixed(1)}%`;
+  if (pct < 0) return `${pct.toFixed(1)}%`;
+  return '0.0%';
+}
+
+/** Current-season signal leaderboard — click a row for the glossary definition. */
+function SeasonSignalsSection({
+  season,
+  rows,
+  defs,
+}: {
+  season: number;
+  rows: SignalPerformanceRow[];
+  defs: Record<string, SignalDefRow>;
+}) {
+  const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
+  const [sortKey, setSortKey] = React.useState<'roi' | 'hit' | 'n'>('roi');
+  const [sortDesc, setSortDesc] = React.useState(true);
+
+  const sorted = React.useMemo(() => {
+    const val = (p: SignalPerformanceRow) => {
+      if (sortKey === 'hit') return p.hit_rate;
+      if (sortKey === 'n') return p.n;
+      return Number(p.roi) || 0;
+    };
+    return [...rows].sort((a, b) => {
+      const d = val(b) - val(a);
+      return (sortDesc ? d : -d) || a.signal_key.localeCompare(b.signal_key);
+    });
+  }, [rows, sortKey, sortDesc]);
+
+  const selected = selectedKey
+    ? {
+        perf: rows.find((r) => r.signal_key === selectedKey),
+        def: defs[selectedKey],
+      }
+    : null;
+
+  const onSort = (key: typeof sortKey) => {
+    if (sortKey === key) setSortDesc((v) => !v);
+    else {
+      setSortKey(key);
+      setSortDesc(true);
+    }
+  };
+  const arrow = (key: typeof sortKey) =>
+    sortKey === key ? (sortDesc ? ' ↓' : ' ↑') : '';
+
+  const th =
+    'px-2 py-1.5 text-left text-[10px] font-bold uppercase tracking-wide text-muted-foreground';
+  const td = 'px-2 py-1.5 whitespace-nowrap';
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        🎯 Signal record · {season} season
+      </div>
+      <p className="mt-1 text-[12px] text-muted-foreground">
+        Graded picks this season. Tap a signal for what it means.
+      </p>
+      <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-[12px]">
+          <thead className="bg-muted/40">
+            <tr>
+              <th className={th}>Signal</th>
+              <th className={cn(th, 'cursor-pointer select-none')} onClick={() => onSort('hit')}>
+                Win%{arrow('hit')}
+              </th>
+              <th className={th}>Record</th>
+              <th className={cn(th, 'cursor-pointer select-none')} onClick={() => onSort('roi')}>
+                ROI{arrow('roi')}
+              </th>
+              <th className={cn(th, 'cursor-pointer select-none text-right')} onClick={() => onSort('n')}>
+                N{arrow('n')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((p) => {
+              const name = defs[p.signal_key]?.display_name || p.signal_key;
+              const positive = Number(p.roi) > 0;
+              const negative = Number(p.roi) < 0;
+              return (
+                <tr
+                  key={p.signal_key}
+                  className="cursor-pointer border-t border-border/60 hover:bg-muted/40"
+                  onClick={() => setSelectedKey(p.signal_key)}
+                >
+                  <td className={cn(td, 'max-w-[14rem] truncate font-semibold text-foreground')}>
+                    {name}
+                  </td>
+                  <td className={cn(td, 'tabular-nums')}>
+                    {(p.hit_rate * 100).toFixed(1)}%
+                  </td>
+                  <td className={cn(td, 'tabular-nums font-bold')}>{signalRecord(p)}</td>
+                  <td
+                    className={cn(
+                      td,
+                      'tabular-nums font-bold',
+                      positive && 'text-emerald-600 dark:text-emerald-400',
+                      negative && 'text-red-500 dark:text-red-400',
+                    )}
+                  >
+                    {formatRoiPct(Number(p.roi))}
+                  </td>
+                  <td className={cn(td, 'text-right tabular-nums text-muted-foreground')}>
+                    {p.n}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <Dialog open={Boolean(selectedKey)} onOpenChange={(open) => !open && setSelectedKey(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {selected?.def?.display_name || selectedKey}
+            </DialogTitle>
+            {selected?.def?.one_liner && (
+              <DialogDescription>{selected.def.one_liner}</DialogDescription>
+            )}
+          </DialogHeader>
+          {selected?.def?.definition && (
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              {selected.def.definition}
+            </p>
+          )}
+          {selected?.def?.why_it_works && (
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Why it works:</span>{' '}
+              {selected.def.why_it_works}
+            </p>
+          )}
+          {selected?.def?.bet_direction && (
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Direction:</span>{' '}
+              {selected.def.bet_direction}
+            </p>
+          )}
+          {!selected?.def?.definition && !selected?.def?.why_it_works && (
+            <p className="text-[13px] text-muted-foreground">
+              No definition on file for this signal yet.
+            </p>
+          )}
+          {selected?.perf && (
+            <SignalBacktestChart
+              className="mt-2"
+              backtestRaw={selected.def?.typical_hit}
+              performance={selected.perf}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </section>
   );
 }
 
