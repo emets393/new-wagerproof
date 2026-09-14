@@ -212,7 +212,11 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
       if (cancelled) return;
       setReport(r);
       if (r) {
-        const [{ data: rows }, { data: perfRows }, { data: defRows }] = await Promise.all([
+        const [
+          { data: rows, error: storyErr },
+          { data: perfRows, error: perfErr },
+          { data: defRows, error: defErr },
+        ] = await Promise.all([
           collegeFootballSupabase
             .from('football_regression_storylines')
             .select('id,family,matchup,title,body,rank,status,updates,created_at')
@@ -229,9 +233,16 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
             .from(SIGNAL_DEFS_TABLE[sport])
             .select('signal_key,display_name,one_liner,definition,why_it_works,bet_direction,typical_hit,market'),
         ]);
+        if (storyErr) console.warn('[football-regression] storylines', storyErr.message);
+        if (perfErr) console.warn('[football-regression] signal_performance', perfErr.message);
+        if (defErr) console.warn('[football-regression] signal_defs', defErr.message);
         if (cancelled) return;
         setStorylines((rows ?? []) as StorylineRow[]);
-        setSignalPerf(((perfRows ?? []) as SignalPerformanceRow[]).filter((p) => p.n > 0));
+        // Coerce n — PostgREST occasionally returns numeric columns as strings.
+        const perf = ((perfRows ?? []) as SignalPerformanceRow[]).filter(
+          (p) => Number(p.n) > 0,
+        );
+        setSignalPerf(perf);
         const byKey: Record<string, SignalDefRow> = {};
         for (const d of (defRows ?? []) as SignalDefRow[]) {
           if (d.signal_key) byKey[d.signal_key] = d;
@@ -310,6 +321,15 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
         </p>
       </header>
 
+      {/* Above model edge/team splits — those tables are long and were burying this. */}
+      {signalPerf.length > 0 && (
+        <SeasonSignalsSection
+          season={report.season}
+          rows={signalPerf}
+          defs={signalDefs}
+        />
+      )}
+
       {modelRecord.length > 0 && (
         <section className="rounded-xl border border-border bg-card p-4">
           <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -347,14 +367,6 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
             />
           )}
         </section>
-      )}
-
-      {signalPerf.length > 0 && (
-        <SeasonSignalsSection
-          season={report.season}
-          rows={signalPerf}
-          defs={signalDefs}
-        />
       )}
 
       {comingSoon.length > 0 && (
