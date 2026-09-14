@@ -452,15 +452,23 @@ def main():
         a = attempts_flags(a)
         c = pd.concat([c, a], ignore_index=True)
 
-    # map to slate game ids via home team
+    # map to slate game ids via home team. Key from the SLATE TABLE, not a model
+    # frame: h1m_preds only contains PLAYED games, so keying from it left every
+    # UPCOMING game's props with a NULL game_id all week — the agents' get_props
+    # matched nothing and zero prop picks were possible (found 2026-09-14, 368/375
+    # v3 runs saw empty props). Constructed ids are validated against
+    # nfl_slate_games so the FK can never break.
     tm = pd.read_parquet(DATA / "team_mapping.parquet")
     name_ab = dict(zip(tm.city_and_name, tm["Team Abbrev"].replace({"LAR": "LA"})))
-    hp = pd.read_parquet(DATA / "h1m_preds.parquet")
-    hp = hp[(hp.season == SEASON) & (hp.week == WEEK)]
-    gid = dict(zip(hp.home_ab, hp.game_id))
     c["home_ab"] = c.home_team.map(name_ab)
     c["away_ab"] = c.away_team.map(name_ab)
-    c["game_id"] = c.home_ab.map(gid)
+    _k = load_key()
+    _sg = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}&select=game_id",
+                       headers={"apikey": _k, "Authorization": f"Bearer {_k}"}, timeout=30)
+    _valid = {str(x["game_id"]) for x in (_sg.json() if _sg.ok else [])}
+    _mk = [f"{SEASON}_{int(WEEK):02d}_{a}_{h}" if pd.notna(a) and pd.notna(h) else None
+           for a, h in zip(c.away_ab, c.home_ab)]
+    c["game_id"] = [g if g in _valid else None for g in _mk]
     c["is_home"] = c.team == c.home_ab
     # attempts rows arrive without opp (the 6-market frame carries it); fill from home/away
     opp_calc = pd.Series(np.where(c.is_home, c.away_ab, c.home_ab), index=c.index)
