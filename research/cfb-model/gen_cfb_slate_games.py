@@ -240,4 +240,10 @@ for col in ["home_rank", "away_rank", "final_home", "final_away", "h1_home", "h1
 print(f"cfb_slate_games rows: {len(df)} | tiers: {df.conviction_tier.value_counts().to_dict()}")
 print(f"  with TT close: {df.tt_home_close.notna().sum()} | 1H total: {df.h1_total_close.notna().sum()} | ML: {df.fg_ml_home_close.notna().sum()}")
 C.wipe("cfb_slate_games", f"season=eq.{SEASON}&week=eq.{WEEK}")
+# last-line guard: the games table PKs on game_id — any upstream join fanout
+# must never reach the insert (23505 killed the wk3 build 2026-09-14).
+if df.game_id.duplicated().any():
+    _dups = df[df.game_id.duplicated(keep=False)].game_id.unique().tolist()
+    print(f"  [dedup] WARNING: dropping duplicate game rows {_dups}")
+    df = df.drop_duplicates(subset=["game_id"], keep="first")
 C.insert("cfb_slate_games", df)

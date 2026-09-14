@@ -78,6 +78,16 @@ for gid, d in g.groupby("game_id"):
         "close_sp_h_price": close.sp_h_price, "close_sp_a_price": close.sp_a_price,
         "open_hrs": open_.hrs, "close_hrs": close.hrs, "nbooks_close": close.nbooks, "n_snaps": len(d)})
 fr = pd.DataFrame(rows)
+# The Odds API occasionally lists the same real game under TWO event ids
+# (phantom duplicates — burned NBA team-totals too). Two rows with one
+# (season,home,away) fan out every downstream team-name merge into duplicate
+# slate rows (23505 on cfb_slate_games, 2026-09-14: Houston @ Texas Tech).
+# Keep the event with the most snapshots — phantoms are thin.
+_before = len(fr)
+fr = fr.sort_values("n_snaps", ascending=False).drop_duplicates(
+    subset=["season", "home", "away"], keep="first")
+if len(fr) < _before:
+    print(f"  [dedup] dropped {_before - len(fr)} phantom duplicate event(s)")
 
 # join outcomes from model_games (season, home, away)
 mg = gm[["season", "week", "homeTeam", "awayTeam", "actual_margin", "actual_total", "homeConference", "awayConference"]].rename(
