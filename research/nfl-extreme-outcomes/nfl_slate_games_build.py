@@ -704,6 +704,44 @@ def build_flags(g):
         except Exception as _e:
             print(f"  [rockfight] skipped ({type(_e).__name__}: {_e})")
 
+    # ---- FAILED-COMEBACK OVER (owner battery 2026-09-15, tracking/paper).
+    # Previous game: team fell into a DEEP hole (own win prob <= .10 at some point),
+    # stormed back, and lost by <=3. Their offense ended the game white-hot but the
+    # box score says "loss" -> the market shades their next total down -> next game
+    # OVER 54.5% (n=503, 2012-25; eras 61/47/55). DOUBLE placebo separation: close
+    # loss WITHOUT the hole = 46.2% over; deep hole WITHOUT the close finish = 48.2%.
+    if WEEK >= 2:
+        try:
+            _pbp = pd.read_parquet(
+                f"https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{SEASON}.parquet",
+                columns=["game_id", "home_wp", "qtr"])
+            _wpmin = _pbp.dropna(subset=["home_wp"]).groupby("game_id").home_wp.agg(["min", "max"])
+            _sp2 = ROOT / "data" / "nflverse_games.parquet"
+            _nv2 = pd.read_parquet(_sp2) if _sp2.exists() else pd.read_csv(
+                "https://github.com/nflverse/nfldata/raw/master/data/games.csv")
+            _done2 = _nv2[(_nv2.season == SEASON) & (_nv2.game_type == "REG") & _nv2.result.notna()]
+            _fc = set()
+            for _, _gm in _done2.sort_values("week").iterrows():
+                _w = _wpmin.loc[_gm.game_id] if _gm.game_id in _wpmin.index else None
+                if _w is None:
+                    continue
+                for _t, _hm in ((_gm.home_team, True), (_gm.away_team, False)):
+                    _marg = _gm.result if _hm else -_gm.result
+                    _tmin = _w["min"] if _hm else 1 - _w["max"]
+                    if _tmin <= 0.10 and -3 <= _marg < 0:
+                        _fc.add(_t)
+                    else:
+                        _fc.discard(_t)                            # only the MOST RECENT game counts
+            for _, r in g.iterrows():
+                if r.home_ab in _fc or r.away_ab in _fc:
+                    _tl = r.total_close_total_point
+                    if pd.notna(_tl):
+                        add(r, "rockfight", "failed_comeback_over", "tracking", "total",
+                            f"OVER {_tl:g}", _tl,
+                            amer(getattr(r, "total_close_pay_total_over_price", np.nan)), None)
+        except Exception as _e:
+            print(f"  [failed_comeback] skipped ({type(_e).__name__}: {_e})")
+
     # ---- LATE-SEASON DEFENSE family (NFL_LATE_SEASON_DEFENSE.md, owner-shipped 2026-08-23).
     # Entering-week league percentile ranks of defense (EPA allowed, lower=better) and offense
     # (EPA, higher=better) from team_week (= nfl_pregame_advanced_team_week, the legacy EPA feed
