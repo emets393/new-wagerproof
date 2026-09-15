@@ -1,6 +1,7 @@
 """Auto-resolve the current NFL (season, week) for the weekly runner — prints "SEASON WEEK".
 
-Owner rule: the target week is the FIRST regular-season week with any ungraded game.
+Owner rule: the target week is the FIRST regular-season week with any game still to kick off
+(no result AND kickoff in the future — see open_games).
 Preseason -> week 1 every run until week 1 completes, then week 2, and so on. No static
 week edits, ever. Mirrors resolve_cfb_week.py's role in run_cfb_week.sh.
 
@@ -14,13 +15,29 @@ import pandas as pd
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+def open_games(s, now=None):
+    """Games still bettable pregame: no result AND kickoff in the future.
+
+    Result-only was wrong on Monday nights: nflverse posts the MNF result hours after
+    the game, so the runner kept targeting the finished week, the model frame already
+    had every score, consensus_totals predicted 0 rows and crashed on `bet_quality`
+    (2026-09-15 02:55 UTC). A kicked-off game is not a slate row either way, so the
+    week rolls forward the moment its last game kicks off. Missing gametime falls back
+    to the result-only rule for that row."""
+    now = now or pd.Timestamp.now(tz="UTC")
+    ko = pd.to_datetime(s.gameday.astype(str) + " " + s.gametime.fillna("").astype(str), errors="coerce")
+    ko = ko.dt.tz_localize("America/New_York", ambiguous="NaT", nonexistent="NaT").dt.tz_convert("UTC")
+    future = ko.isna() | (ko > now)
+    return s[s.result.isna() & future]
+
+
 def resolve():
     g = pd.read_parquet(os.path.join(HERE, "data", "nflverse_games.parquet"))
     g = g[g.game_type == "REG"]
     season = int(g.season.max())
     s = g[g.season == season]
-    open_weeks = s.loc[s.result.isna(), "week"]
-    # season fully graded -> stay on its last week until next season's schedule lands
+    open_weeks = open_games(s)["week"]
+    # season fully played -> stay on its last week until next season's schedule lands
     week = int(open_weeks.min()) if len(open_weeks) else int(s.week.max())
     return season, week
 

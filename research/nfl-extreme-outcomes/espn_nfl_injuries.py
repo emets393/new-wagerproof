@@ -50,7 +50,7 @@ def service_key():
 
 
 def resolve_week():
-    """Same rule as resolve_nfl_week.py (first REG week with an ungraded game), pulled
+    """Same rule as resolve_nfl_week.py (first REG week with a game still to kick off), pulled
     live so this runs before fetch.py has cached the schedule. Returns season, week,
     window_start (UTC) = 6 days before the week's first kickoff date."""
     if os.environ.get("NFL_SEASON") and os.environ.get("NFL_WEEK"):
@@ -61,7 +61,8 @@ def resolve_week():
         g = g[g.game_type == "REG"]
         season = int(g.season.max())
         s = g[g.season == season]
-        open_weeks = s.loc[s.result.isna(), "week"]
+        from resolve_nfl_week import open_games   # same kickoff-aware rule as the runner
+        open_weeks = open_games(s)["week"]
         week = int(open_weeks.min()) if len(open_weeks) else int(s.week.max())
     wk = g[(g.season == season) & (g.week == week) & (g.game_type == "REG")]
     first = pd.to_datetime(wk.gameday).min()
