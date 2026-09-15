@@ -661,6 +661,49 @@ def build_flags(g):
                     f"{r.away_ab} {-csp:+g}", -csp,
                     amer(r.spread_close_pay_spread_away_price), tt_vs_spread)
 
+    # ---- ROCK-FIGHT BOUNCE (owner-shipped 2026-09-15, exp battery 1999-2025 + splits).
+    # A team's previous game was LOW-SCORING AND CLOSE (<=35 combined, decided by <=7):
+    # the market over-discounts stifled offenses after a competitive slog -> next game
+    # OVER 53.5% (n=1751, z=+2.9); placebo (low-scoring BLOWOUT) 48.6% = closeness is
+    # the ingredient. BOOST: both teams triggered AND non-divisional -> 61.8% (n=136).
+    # Suppressed wk13+ (late-season rock fights are real weather: 50.6%); wk1 has no
+    # prior game. Graded vs close (validation basis).
+    if 2 <= WEEK <= 12:
+        try:
+            _sched_p = ROOT / "data" / "nflverse_games.parquet"
+            if _sched_p.exists():
+                _nv = pd.read_parquet(_sched_p)
+            else:
+                _nv = pd.read_csv("https://github.com/nflverse/nfldata/raw/master/data/games.csv")
+            _nv = _nv[(_nv.season == SEASON) & (_nv.game_type == "REG")]
+            _done = _nv[_nv.result.notna()]
+            _last = {}
+            for _, _gm in _done.sort_values("week").iterrows():
+                _tot, _mar = _gm.home_score + _gm.away_score, abs(_gm.result)
+                for _t in (_gm.home_team, _gm.away_team):
+                    _last[_t] = (_tot <= 35) and (_mar <= 7)
+            _divmap = {(str(x.away_team), str(x.home_team)): bool(x.div_game == 1)
+                       for _, x in _nv[_nv.week == WEEK].iterrows()}
+            for _, r in g.iterrows():
+                th, ta = _last.get(r.home_ab, False), _last.get(r.away_ab, False)
+                if not (th or ta):
+                    continue
+                tot_line = r.total_close_total_point if pd.notna(getattr(r, "total_close_total_point", np.nan)) else None
+                if tot_line is None:
+                    continue
+                both = th and ta
+                is_div = _divmap.get((r.away_ab, r.home_ab), False)
+                if both and not is_div:
+                    add(r, "rockfight", "rockfight_bounce_over", "active", "total",
+                        f"OVER {tot_line:g}", tot_line,
+                        amer(getattr(r, "total_close_pay_total_over_price", np.nan)), None)
+                else:
+                    add(r, "rockfight", "rockfight_bounce_lean", "tracking", "total",
+                        f"OVER {tot_line:g}", tot_line,
+                        amer(getattr(r, "total_close_pay_total_over_price", np.nan)), None)
+        except Exception as _e:
+            print(f"  [rockfight] skipped ({type(_e).__name__}: {_e})")
+
     # ---- LATE-SEASON DEFENSE family (NFL_LATE_SEASON_DEFENSE.md, owner-shipped 2026-08-23).
     # Entering-week league percentile ranks of defense (EPA allowed, lower=better) and offense
     # (EPA, higher=better) from team_week (= nfl_pregame_advanced_team_week, the legacy EPA feed
