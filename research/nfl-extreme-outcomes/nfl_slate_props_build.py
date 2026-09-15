@@ -540,7 +540,13 @@ def main():
     ez = df.groupby("market").model_edge.transform(
         lambda x: (x - x.mean()) / x.std() if x.notna().sum() > 2 and x.std() > 0 else np.nan)
     a_mask = df["flags"].map(lambda f: bool(set(f or []) & {"P14", "P17", "P18"}))
-    inj_ok = ~df.report_status.isin(["Out", "Doubtful"]) if "report_status" in df.columns else True
+    # Out/Doubtful never played in 2024-25 (0/826); a Questionable QB played 27% —
+    # neither belongs in a bettable tier (owner 2026-09-15). Questionable non-QBs stay.
+    if "report_status" in df.columns:
+        inj_ok = ~(df.report_status.isin(["Out", "Doubtful"])
+                   | ((df.report_status == "Questionable") & (df.position == "QB")))
+    else:
+        inj_ok = True
     df["rank_tier"] = np.where(a_mask & inj_ok, "A-validated",
                        np.where(ez.abs().ge(1.28) & inj_ok, "B-context", None))
     df["rank_pos"] = np.nan
