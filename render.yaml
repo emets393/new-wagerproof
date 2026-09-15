@@ -20,8 +20,8 @@
 # OPEN OPERATIONAL ITEMS (before Week 1):
 #   - WEEK is auto-derived by current_week.py (first unplayed week from the schedule), so the slate
 #     crons need no manual week setting; the grade cron is season-scoped (grades all weeks idempotently).
-#   - Dynamic weather/injury re-score: add a game-day cron (e.g. every 2-3h Thu/Sat/Sun) that re-runs
-#     the slate runner (idempotent) so weather/injury changes re-score before kickoff.
+#   - Injury re-score before kickoff: DONE 2026-09-15 — espn_nfl_injuries.py runs first in the
+#     slate runner, and nfl-slate-gameday-{sun,prime} re-run the runner right after inactives post.
 #   - Migrate the legacy NFL/CFB GitHub Actions crons here too (the dual-feed legacy prediction tables
 #     that feed the legacy_* signals — see 14_SEASON_2026_PIPELINE_READINESS.md).
 # =============================================================================
@@ -105,6 +105,43 @@ services:
     runtime: python
     plan: standard
     schedule: "0 14,18,22 * 9-12,1-2 *"    # daily 10am/2pm/6pm ET, NFL season
+    # (injuries: espn_nfl_injuries.py is step 0 of run_nfl_week.sh — see the game-day crons below)
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  # --- NFL GAME-DAY injury re-score (owner 2026-09-15). Inactives post 90 min before
+  # kickoff, so the 14/18/22 UTC refresh misses every Sunday 1pm inactive and every
+  # primetime one. These re-run the SAME idempotent runner (ESPN injuries -> fetch ->
+  # props) at 15:45 UTC (1pm ET inactives at 15:30), 19:45 (4:05/4:25 games) and
+  # 23:00 (SNF) on Sundays, and 23:00 UTC on Mon/Thu/Sat for the night game. The
+  # nflverse injuries file is a post-week archive and is NOT a source here.
+  - type: cron
+    name: nfl-slate-gameday-sun
+    runtime: python
+    plan: standard
+    schedule: "45 15,19 * 9-12,1 0"
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  - type: cron
+    name: nfl-slate-gameday-prime
+    runtime: python
+    plan: standard
+    schedule: "0 23 * 9-12,1 0,1,4,6"
     buildCommand: >-
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'

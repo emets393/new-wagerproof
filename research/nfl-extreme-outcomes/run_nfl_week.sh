@@ -35,6 +35,10 @@ echo "=== NFL weekly run :: season=$SEASON week=$WEEK ==="
 step() { echo; echo ">>> $*"; }
 
 # --- 1) DATA LAYER -------------------------------------------------------------
+# ESPN pregame injuries FIRST: fetch.py caches nfl_injuries_raw right after, so today's
+# designations/inactives reach the props builder and prop_rank in this same run. Guarded —
+# a feed hiccup must not stop the slate build (the table just stays at the last pull).
+step "injuries (ESPN pregame feed)";    python3 espn_nfl_injuries.py || true
 step "fetch Supabase tables (pregame, team_week, odds_hist, lines, mapping, training_epa)"
 python3 fetch.py --force
 step "pull play-by-play scheme priors (nflverse)"
