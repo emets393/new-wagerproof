@@ -117,7 +117,18 @@ def main():
     # nfl_slate_props is the weekly Tuesday consensus; this fills everything the
     # books posted since. Owner rule 2026-08-27: the props surface shows ONLY
     # players with an actual posted line — see the has_posted filter below.
-    live = fetch("nfl_player_props_current", f"season=eq.{SEASON}&week=eq.{WEEK}")
+    # Read the BASE capture table, not nfl_player_props_current: that view's
+    # DISTINCT ON over 1.7M rows can't finish inside PostgREST's 8s statement
+    # timeout (500'd the wk2 build, 2026-09-15) — even indexed its heap fetches
+    # run minutes. The week-keyed base query is fast; collapse to the latest
+    # snapshot per (player, market, book) in pandas instead.
+    live = fetch("nfl_player_props",
+                 f"season=eq.{SEASON}&week=eq.{WEEK}"
+                 f"&select=player_id,player_name,position,team,market,line,"
+                 f"over_odds,under_odds,bookmaker,season,week,snapshot_time")
+    if len(live):
+        live = (live.sort_values("snapshot_time")
+                    .groupby(["player_id", "market", "bookmaker"], as_index=False).last())
     live_mkts = {}
     if len(live):
         for (pid_, mk_), grp in live.groupby(["player_id", "market"]):
