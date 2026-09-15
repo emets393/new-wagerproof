@@ -362,6 +362,14 @@ def generate(target, week=None, strict_open=True):
         preds=pd.concat([old.merge(preds[key].assign(_new=1),on=key,how='left').query('_new!=1').drop(columns=['_new']),preds],ignore_index=True)
     preds.to_csv(pred_path,index=False)
     L(f"[display] {len(preds)} predictions written -> {pred_path}")
+    # A fully-played week (rollover night) or a lines gap yields ZERO predictions —
+    # an empty frame has no columns, and preds.bet_quality crashed the whole runner
+    # at the wk1->2 boundary (2026-09-15 02:55/03:14/11:06). Degrade to the existing
+    # ledger untouched, exit clean.
+    if preds.empty or "bet_quality" not in preds.columns:
+        path=os.path.join(OUT,f"consensus_totals_ledger_{target}.csv")
+        L("[bets] 0 predictions this week (played-out or no lines) — ledger left as-is")
+        return (pd.read_csv(path) if os.path.exists(path) and os.path.getsize(path)>0 else pd.DataFrame()), path
     # Filter to bet-quality picks (HC only — the 3-7 sweet spot) for the bet ledger
     bets=preds[preds.bet_quality==1].copy()
     rows=[]

@@ -31,8 +31,29 @@ def open_games(s, now=None):
     return s[s.result.isna() & future]
 
 
+SCHED_URL = "https://github.com/nflverse/nfldata/raw/master/data/games.csv"
+
+
+def load_games():
+    """Cached schedule if fetch.py has run, else a live pull. The runner resolves the
+    week BEFORE fetch.py, and Render cron filesystems are fresh clones, so the cache
+    never existed at resolve time there — the except-branch default (2026 1) silently
+    ran every Render refresh against week 1 (caught 2026-09-15 03:10 UTC)."""
+    path = os.path.join(HERE, "data", "nflverse_games.parquet")
+    if os.path.exists(path):
+        return pd.read_parquet(path)
+    import io
+    import requests
+    r = requests.get(SCHED_URL, timeout=120)
+    r.raise_for_status()
+    g = pd.read_csv(io.StringIO(r.text))
+    if "home_score" not in g.columns:
+        raise RuntimeError("nflverse games.csv did not parse (no home_score column)")
+    return g
+
+
 def resolve():
-    g = pd.read_parquet(os.path.join(HERE, "data", "nflverse_games.parquet"))
+    g = load_games()
     g = g[g.game_type == "REG"]
     season = int(g.season.max())
     s = g[g.season == season]
@@ -46,6 +67,7 @@ if __name__ == "__main__":
     try:
         season, week = resolve()
     except Exception as e:
-        print(f"[resolve_nfl_week] {e} -> defaulting 2026 1", file=sys.stderr)
-        season, week = 2026, 1
+        # A silent default is how every Render run targeted week 1 for a night; fail loud
+        # instead — run_nfl_week.sh is set -e and the next scheduled run retries.
+        sys.exit(f"[resolve_nfl_week] cannot resolve the week: {e}")
     print(season, week)
