@@ -714,8 +714,12 @@ def build_flags(g):
         try:
             _pbp = pd.read_parquet(
                 f"https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{SEASON}.parquet",
-                columns=["game_id", "home_wp", "qtr"])
-            _wpmin = _pbp.dropna(subset=["home_wp"]).groupby("game_id").home_wp.agg(["min", "max"])
+                columns=["game_id", "wp", "posteam", "home_team", "qtr"])
+            # study-identical construct: possession plays only, regulation only —
+            # raw min includes the final-whistle 0.0 every loser prints (2026-09-15 audit)
+            _pbp = _pbp[_pbp.posteam.notna() & _pbp.wp.notna() & (_pbp.qtr <= 4)]
+            _pbp["home_wp"] = np.where(_pbp.posteam == _pbp.home_team, _pbp.wp, 1 - _pbp.wp)
+            _wpmin = _pbp.groupby("game_id").home_wp.agg(["min", "max"])
             _sp2 = ROOT / "data" / "nflverse_games.parquet"
             _nv2 = pd.read_parquet(_sp2) if _sp2.exists() else pd.read_csv(
                 "https://github.com/nflverse/nfldata/raw/master/data/games.csv")
