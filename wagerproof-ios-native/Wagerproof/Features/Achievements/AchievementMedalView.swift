@@ -3,9 +3,7 @@ import UIKit
 import RealityKit
 import simd
 import QuartzCore
-#if DEBUG
 import WagerproofModels
-#endif
 
 /// Raw bundle thumbnails are cached independently from the decoded 3D families.
 @MainActor enum AchievementThumbnail {
@@ -35,6 +33,14 @@ struct AchievementMedalView: UIViewRepresentable {
     var revealOnAppear = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Warm decoded geometry while the user browses thumbnails. No ARView is created.
+    @MainActor static func preloadFamilies() async {
+        for group in AchievementGroup.allCases {
+            guard !Task.isCancelled else { return }
+            await MedalEntityCache.preload(group.asset)
+        }
+    }
+
     func makeUIView(context: Context) -> AchievementMedalHost { AchievementMedalHost() }
     func updateUIView(_ view: AchievementMedalHost, context: Context) {
         view.onInteractionBegan = onInteractionBegan
@@ -62,9 +68,23 @@ fileprivate struct MedalPresentation: Equatable {
     static var requests: [String: Task<Void, Never>] = [:]
     static var listeners: [String: [UUID: (Entity?) -> Void]] = [:]
     static var environment: EnvironmentResource?
+    private static var environmentRequest: Task<EnvironmentResource?, Never>?
 
-    static func load(_ family: String, id: UUID, completion: @escaping (Entity?) -> Void) {
-        if let model = models[family] { completion(model.clone(recursive: true)); return }
+    static func preload(_ family: String) async {
+        await withCheckedContinuation { continuation in
+            loadFamily(family, id: UUID()) { _ in continuation.resume() }
+        }
+    }
+
+    static func load(_ family: String, variant: String, id: UUID, completion: @escaping (Entity?) -> Void) {
+        loadFamily(family, id: id) { model in
+            // Clone only the requested subtree, never every sibling in the family.
+            completion(model?.findEntity(named: variant)?.clone(recursive: true))
+        }
+    }
+
+    private static func loadFamily(_ family: String, id: UUID, completion: @escaping (Entity?) -> Void) {
+        if let model = models[family] { completion(model); return }
         listeners[family, default: [:]][id] = completion
         guard requests[family] == nil else { return }
         let name = (family as NSString).deletingPathExtension
@@ -75,8 +95,14 @@ fileprivate struct MedalPresentation: Equatable {
         requests[family] = Task { @MainActor in
             do {
                 let model = try await Entity(contentsOf: url)
+                if environment == nil {
+                    if environmentRequest == nil {
+                        environmentRequest = Task { try? await EnvironmentResource(named: "achievement_studio") }
+                    }
+                    environment = await environmentRequest?.value
+                    environmentRequest = nil
+                }
                 models[family] = model
-                if environment == nil { environment = try? await EnvironmentResource(named: "achievement_studio") }
                 finish(family, model: model)
             } catch { finish(family, model: nil) }
             requests[family] = nil
@@ -88,7 +114,7 @@ fileprivate struct MedalPresentation: Equatable {
     }
     private static func finish(_ family: String, model: Entity?) {
         let callbacks = listeners.removeValue(forKey: family)?.values
-        callbacks?.forEach { $0(model?.clone(recursive: true)) }
+        callbacks?.forEach { $0(model) }
     }
 }
 
@@ -274,15 +300,13 @@ fileprivate struct MedalPresentation: Equatable {
         accessibilityHint = "Swipe up or down to turn the medal."
         accessibilityValue = "Front"
         let token = UUID(); requestID = token
-        MedalEntityCache.load(value.family, id: token) { [weak self] family in
+        MedalEntityCache.load(value.family, variant: value.variant, id: token) { [weak self] variant in
             guard let self, self.requestID == token, self.config == value, self.window != nil else { return }
-            guard let family, let variant = family.findEntity(named: value.variant),
+            guard let variant,
                   let frame = variant.findEntity(named: value.variant + "_Front_Frame") else {
                 self.onState?(false, true); return
             }
-            // Extract only the selected variant from the instance clone. Siblings
-            // never enter the scene or expand its bounds; the cache stays pristine.
-            variant.removeFromParent()
+            // The cache hands out an independent clone of only this medal.
             let oriented = Entity()
             oriented.addChild(variant)
             oriented.orientation = frame.orientation(relativeTo: oriented).inverse
