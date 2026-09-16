@@ -7,13 +7,20 @@ vanished conditions RESOLVED instead of deleting them.
 
 Families v1 (data available now):
   injuries      — covers.com listings for slate teams (QBs lead), backup-QB triggers
-  signals       — active flags with model-agreement framing + live/all-time records
+  signals       — CONFLUENCE engine (owner spec 2026-09-16): flags are grouped per
+                  game+market, graded per family against this season's finals, and the
+                  report surfaces (a) multi-signal alignments with no opposing signal,
+                  (b) strong solo signals, (c) explicit conflict storylines — instead
+                  of one storyline per raw flag. regime_* (ratings-fed) excluded:
+                  the daily wipe+reinsert rewrites played games' rows with post-game
+                  ratings, so their "records" are hindsight, not live performance.
   line_movement — open->current across FG/TT/1H; steam vs the model's lean
   coach         — hammer/mercy-tier coaches laying big numbers (behavioral context)
 Families gated until current-season data exists: EPA/luck regression, team form.
 CFB cap: top ~30 by materiality (owner call). Usage: gen_cfb_regression_report.py [season week]
 """
 import datetime as dt
+import re
 import sys
 from pathlib import Path
 
@@ -31,6 +38,59 @@ def fetch(env, table, params):
     r = requests.get(f"{lib.SUPA}/{table}?{params}", headers=lib.hdr(env), timeout=60)
     j = r.json()
     return j if isinstance(j, list) else []
+
+
+# Ratings-fed families whose stored rows for played games are regenerated with
+# post-game inputs (daily wipe+reinsert) — their table "records" are hindsight.
+RATINGS_FED = ("regime_", "padded_road", "rvr_")
+PRIOR_N = 20   # pseudo-games behind the backtest rate when blending with live
+
+
+def live_signal_records(env, season, week):
+    """Grade every prior-week flag THIS season against finals via the structured
+    bet_* fields (team+signed line / over-under+line). Returns {key: (w, l)}.
+    Line-anchored and preseason-static signals regenerate identically post-kickoff,
+    so this is safe for them; RATINGS_FED keys are excluded upstream."""
+    fl = fetch(env, "cfb_slate_flags",
+               f"select=game_id,signal_key,market,bet_team,bet_direction,bet_line"
+               f"&season=eq.{season}&week=lt.{week}")
+    gs = fetch(env, "cfb_slate_games",
+               f"select=game_id,home_team,final_home,final_away"
+               f"&season=eq.{season}&week=lt.{week}&final_home=not.is.null")
+    fin = {g["game_id"]: g for g in gs}
+    rec = {}
+    for f in fl:
+        g = fin.get(f["game_id"])
+        k = f["signal_key"]
+        if not g or any(k.startswith(p) for p in RATINGS_FED) or f.get("bet_line") is None:
+            continue
+        bl = float(f["bet_line"])
+        bt, bd = f.get("bet_team"), f.get("bet_direction")
+        hm = g["final_home"] - g["final_away"]
+        tot = g["final_home"] + g["final_away"]
+        res = None
+        if f["market"] == "spread" and bt:
+            m = hm if bt == g["home_team"] else -hm
+            res = None if m + bl == 0 else m + bl > 0
+        elif f["market"] == "total" and bd:
+            res = None if tot == bl else (bd == "over") == (tot > bl)
+        elif f["market"] == "team_total" and bt and bd:
+            pts = g["final_home"] if bt == g["home_team"] else g["final_away"]
+            res = None if pts == bl else (bd == "over") == (pts > bl)
+        if res is not None:
+            w, l = rec.get(k, (0, 0))
+            rec[k] = (w + int(res), l + int(not res))
+    return rec
+
+
+def signal_score(key, defs, live):
+    """Blend the validated backtest rate (prior) with this season's graded record."""
+    prior = 54.0
+    m = re.search(r"(\d+(?:\.\d+)?)%", (defs.get(key) or {}).get("typical_hit") or "")
+    if m:
+        prior = float(m.group(1))
+    w, l = live.get(key, (0, 0))
+    return (prior * PRIOR_N + 100.0 * w) / (PRIOR_N + w + l), (w, l)
 
 
 def main():
@@ -52,16 +112,15 @@ def main():
     gmap = {str(g["game_id"]): g for g in upcoming}
     label = {str(g["game_id"]): f"{g['away_team']} @ {g['home_team']}" for g in upcoming}
     flags = fetch(env, "cfb_slate_flags",
-                  f"select=game_id,signal_key,side,market,conviction,tier,source"
+                  f"select=game_id,signal_key,side,market,conviction,tier,source,"
+                  f"bet_team,bet_direction,bet_line"
                   f"&season=eq.{season}&week=eq.{week}")
     picks = fetch(env, "cfb_slate_picks",
                   f"select=game_id,card_group,pick_side,pick_team&season=eq.{season}&week=eq.{week}")
     defs = {d["signal_key"]: d for d in fetch(env, "cfb_signal_defs",
             "select=signal_key,display_name,typical_hit,one_liner")}
-    # THIS season only — signal_performance is per-season; last year's record
-    # must never render as "Live this season" (NFL 0-1 incident, 2026-08-31).
-    perf = {p["signal_key"]: p for p in fetch(env, "signal_performance",
-            f"select=signal_key,n,wins,losses,hit_rate&sport=eq.cfb&season=eq.{season}")}
+    # (signal_performance no longer read here — live records are graded directly
+    # from finals in live_signal_records(), which also skips RATINGS_FED keys.)
     injuries = fetch(env, "cfb_injuries",
                      f"select=cfbd_team,player,pos,status,detail&season=eq.{season}&week=eq.{week}")
     model_side = {str(p["game_id"]): p.get("pick_side") for p in picks if p.get("card_group") == "spread"}
@@ -96,42 +155,138 @@ def main():
                            + ". CFB injury reporting is unmandated — an unlisted player is unreported, not confirmed healthy.",
                       data={"team": team, "listings": rows}, rank=100 - sev * 25))
 
-    # ---- signals with model-agreement framing --------------------------------
+    # ---- signals: CONFLUENCE engine ------------------------------------------
+    # Per game+market: do the fired signals AGREE (one direction, no opposition),
+    # CONFLICT (both directions fired), or stand alone? Alignments with no
+    # opposing signal rank first, weighted by each family's blended record
+    # (backtest prior + this season's graded finals). One raw flag != one
+    # storyline any more (owner spec 2026-09-16).
+    live = live_signal_records(env, season, week)
+
+    def sig_label(key):
+        d = defs.get(key, {})
+        sc, (w, l) = signal_score(key, defs, live)
+        bits = []
+        m = re.search(r"(\d+(?:\.\d+)?)%", d.get("typical_hit") or "")
+        if m:
+            bits.append(f"{m.group(1)}% validated")
+        if w + l >= 3:
+            bits.append(f"{w}-{l} this season")
+        return f"{d.get('display_name', key)}" + (f" ({', '.join(bits)})" if bits else ""), sc
+
+    by_game = {}
     for f in flags:
         gid = str(f["game_id"])
-        if gid not in gmap or f.get("tier") != "active":
+        if gid not in gmap or any(f["signal_key"].startswith(p) for p in RATINGS_FED):
             continue
-        d = defs.get(f["signal_key"], {})
+        by_game.setdefault(gid, []).append(f)
+
+    for gid, fl in by_game.items():
         g = gmap[gid]
-        side, market = f.get("side"), f["market"]
-        # Resolve the abstract side to an explicit team + CURRENT line — the
-        # report must never say "the away side" or "the G5 team" (owner rule).
-        sc, tc = g.get("fg_spread_close"), g.get("fg_total_close")
-        target = None
-        if market == "spread" and sc is not None and side in ("HOME", "AWAY"):
-            team = g["home_team"] if side == "HOME" else g["away_team"]
-            line = float(sc) if side == "HOME" else -float(sc)
-            target = f"{team} {line:+g}"
-        elif market == "total" and tc is not None and side in ("OVER", "UNDER"):
-            target = f"{side} {float(tc):g}"
-        ms = model_side.get(gid) if market == "spread" else (
-            model_tot.get(gid) if market == "total" else None)
-        agree = (ms == side) if ms and side in ("HOME", "AWAY", "OVER", "UNDER") else None
-        pr = perf.get(f["signal_key"])
-        rec = (f" Live this season: {pr['wins']}-{pr['losses']}." if pr and (pr.get("wins") or pr.get("losses")) else "")
-        frame = (" The model leans the same way." if agree is True else
-                 (" Note: the model leans the other way — treat as tension, not confirmation." if agree is False else ""))
-        name = d.get("display_name", f["signal_key"])
-        S.append(dict(storyline_key=f"signal:{f['signal_key']}:{gid}", family="signals",
-                      game_id=gid, matchup=label.get(gid),
-                      title=f"{name}: {target}" if target else f"{name} — {label.get(gid)}",
-                      body=(f"This signal points to {target} in {label.get(gid)}. " if target else "")
-                           + f"{d.get('one_liner','Validated signal').rstrip('.')}. "
-                           f"Historical record: {d.get('typical_hit','validated')}." + rec + frame,
-                      data={"signal_key": f["signal_key"], "side": side, "target": target,
-                            "market": market, "model_agrees": agree,
-                            "conviction": f.get("conviction")},
-                      rank=20 if agree else 35))
+        sc_, tc_ = g.get("fg_spread_close"), g.get("fg_total_close")
+
+        # -- spread group: direction = the team a flag bets
+        sp = [f for f in fl if f["market"] == "spread" and f.get("bet_team")]
+        teams = {f["bet_team"] for f in sp}
+        # cross-market tension: a team-total UNDER on a team the spread flags lay
+        tt_under = {f["bet_team"] for f in fl
+                    if f["market"] == "team_total" and f.get("bet_direction") == "under"}
+        if len(teams) == 1 and sp:
+            team = next(iter(teams))
+            line = (float(sc_) if team == g["home_team"] else -float(sc_)) if sc_ is not None else None
+            target = f"{team} {line:+g}" if line is not None else team
+            labels, scores = zip(*(sig_label(f["signal_key"]) for f in sp))
+            avg = sum(scores) / len(scores)
+            ms = model_side.get(gid)
+            agree = (ms == ("HOME" if team == g["home_team"] else "AWAY")) if ms else None
+            tension = (f" One signal argues the other way: a team-total under is live on {team}"
+                       " — a thin-scoring cover is the risk." if team in tt_under and line is not None and line <= -14 else "")
+            if len(sp) >= 2:
+                S.append(dict(storyline_key=f"conf:spread:{gid}", family="signals", game_id=gid,
+                              matchup=label.get(gid),
+                              title=f"{len(sp)} signals align: {target}",
+                              body=f"{label.get(gid)}: {len(sp)} independent signals point the same way"
+                                   f" with nothing firing against them — {'; '.join(labels)}."
+                                   + (" The model leans the same way." if agree else "")
+                                   + tension
+                                   + " Alignment of validated signals is the strongest read this board produces.",
+                              data={"market": "spread", "target": target, "signals": [f["signal_key"] for f in sp],
+                                    "blended_score": round(avg, 1), "model_agrees": agree},
+                              rank=12 - 3 * min(len(sp), 4) + (0 if agree else 2)))
+            elif scores[0] >= 57:
+                S.append(dict(storyline_key=f"solo:{sp[0]['signal_key']}:{gid}", family="signals",
+                              game_id=gid, matchup=label.get(gid),
+                              title=f"{defs.get(sp[0]['signal_key'],{}).get('display_name', sp[0]['signal_key'])}: {target}",
+                              body=f"{label.get(gid)}: {labels[0]} points to {target}, and no other signal"
+                                   f" on this game argues against it. "
+                                   f"{(defs.get(sp[0]['signal_key'],{}).get('one_liner') or '').rstrip('.')}."
+                                   + (" The model leans the same way." if agree else "") + tension,
+                              data={"market": "spread", "target": target, "signals": [sp[0]["signal_key"]],
+                                    "blended_score": round(scores[0], 1), "model_agrees": agree},
+                              rank=22 if agree else 26))
+        elif len(teams) >= 2:
+            sides = []
+            for team in sorted(teams):
+                ls = [sig_label(f["signal_key"])[0] for f in sp if f["bet_team"] == team]
+                sides.append(f"{team}: {'; '.join(ls)}")
+            S.append(dict(storyline_key=f"conflict:spread:{gid}", family="signals", game_id=gid,
+                          matchup=label.get(gid),
+                          title=f"Signals conflict — {label.get(gid)} spread",
+                          body=f"{label.get(gid)}: our signals fire on BOTH sides of this spread — "
+                               + " vs ".join(sides)
+                               + ". When validated signals disagree, history says the edge cancels —"
+                                 " this is a stay-away, not a lean.",
+                          data={"market": "spread", "conflict": sides}, rank=46))
+
+        # -- total group: total flags + team-total flags as direction evidence
+        tot = [f for f in fl if f["market"] == "total" and f.get("bet_direction")]
+        tt = [f for f in fl if f["market"] == "team_total" and f.get("bet_direction")]
+        dirs = {f["bet_direction"] for f in tot} | {f["bet_direction"] for f in tt}
+        if len(dirs) == 1 and tot and tc_ is not None:
+            d0 = next(iter(dirs))
+            target = f"{d0.upper()} {float(tc_):g}"
+            group = tot + tt
+            labels, scores = zip(*(sig_label(f["signal_key"]) for f in group))
+            agree = (model_tot.get(gid) == d0.upper()) if model_tot.get(gid) else None
+            # early_total_edge IS the blend's own lean — "the model agrees" would be
+            # circular self-confirmation, and its rank bonus let auto-agreeing totals
+            # groups crowd every spread alignment out of the quota (ND wk3 incident).
+            if any(f["signal_key"] == "early_total_edge" for f in group):
+                agree = None
+            if len(group) >= 2:
+                S.append(dict(storyline_key=f"conf:total:{gid}", family="signals", game_id=gid,
+                              matchup=label.get(gid),
+                              title=f"{len(group)} signals align: {target}",
+                              body=f"{label.get(gid)}: every totals-family signal on this game points"
+                                   f" {d0} — {'; '.join(labels)}."
+                                   + (" The model leans the same way." if agree else "")
+                                   + " Alignment of validated signals is the strongest read this board produces.",
+                              data={"market": "total", "target": target, "signals": [f["signal_key"] for f in group],
+                                    "blended_score": round(sum(scores) / len(scores), 1), "model_agrees": agree},
+                              rank=12 - 3 * min(len(group), 4) + (0 if agree else 2)))
+            elif scores[0] >= 57:
+                S.append(dict(storyline_key=f"solo:{tot[0]['signal_key']}:{gid}", family="signals",
+                              game_id=gid, matchup=label.get(gid),
+                              title=f"{defs.get(tot[0]['signal_key'],{}).get('display_name', tot[0]['signal_key'])}: {target}",
+                              body=f"{label.get(gid)}: {labels[0]} points to {target}, with nothing firing"
+                                   f" the other way. "
+                                   f"{(defs.get(tot[0]['signal_key'],{}).get('one_liner') or '').rstrip('.')}."
+                                   + (" The model leans the same way." if agree else ""),
+                              data={"market": "total", "target": target, "signals": [tot[0]["signal_key"]],
+                                    "blended_score": round(scores[0], 1), "model_agrees": agree},
+                              rank=22 if agree else 26))
+        elif len(dirs) >= 2 and tc_ is not None:
+            sides = []
+            for d0 in sorted(dirs):
+                ls = [sig_label(f["signal_key"])[0] for f in tot + tt if f["bet_direction"] == d0]
+                sides.append(f"{d0}: {'; '.join(ls)}")
+            S.append(dict(storyline_key=f"conflict:total:{gid}", family="signals", game_id=gid,
+                          matchup=label.get(gid),
+                          title=f"Signals conflict — {label.get(gid)} total",
+                          body=f"{label.get(gid)}: totals signals fire in BOTH directions — "
+                               + " vs ".join(sides)
+                               + ". Conflicting signals cancel — stay away rather than pick a side.",
+                          data={"market": "total", "conflict": sides}, rank=46))
 
     # ---- line movement (all markets) -----------------------------------------
     for g in upcoming:
@@ -193,7 +348,7 @@ def main():
     # outrank everything and evict injuries/movement/coach entirely (first-run
     # bug), and the eviction set churns between runs. Injuries always seat
     # (owner rule). Deterministic order: (rank, key).
-    QUOTA = {"injuries": 10, "signals": 12, "line_movement": 8, "coach": 5}
+    QUOTA = {"injuries": 10, "signals": 15, "line_movement": 6, "coach": 4}
     dedup = {}
     for s in S:
         dedup.setdefault(s["storyline_key"], s)
