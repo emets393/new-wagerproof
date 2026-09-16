@@ -1256,8 +1256,22 @@ def main():
     _pick_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
     if _fin_ids:
         _pick_scope += "&game_id=not.in.(" + ",".join(sorted(_fin_ids)) + ")"
+    # KICKED-OFF games keep their existing FLAG rows too — frozen pregame history.
+    # A played game's regenerated flags use post-game inputs, which turns any
+    # later signal grading into hindsight (CFB regime_* audit, 2026-09-16).
+    import datetime as _dtmod
+    _kick_now = _dtmod.datetime.now(_dtmod.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    _koq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                        f"&kickoff=lt.{_kick_now}&select=game_id", headers=hdr, timeout=30)
+    _ko_ids = {str(x["game_id"]) for x in (_koq.json() if _koq.ok else [])}
+    if _ko_ids:
+        fl = fl[~fl.game_id.astype(str).isin(_ko_ids)]
+        print(f"  freezing flags on {len(_ko_ids)} kicked-off games (pregame history preserved)")
+    _flag_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
+    if _ko_ids:
+        _flag_scope += "&game_id=not.in.(" + ",".join(sorted(_ko_ids)) + ")"
     for t, scope in (("nfl_slate_picks", _pick_scope),
-                     ("nfl_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")):
+                     ("nfl_slate_flags", _flag_scope)):
         resp = requests.delete(f"{BASE_URL}/{t}?{scope}", headers=hdr, timeout=60)
         if resp.status_code not in (200, 204):
             sys.exit(f"delete {t}: {resp.status_code} {resp.text[:300]}")

@@ -6,7 +6,9 @@ vanished conditions resolve on the record.
 
 Families v1:
   injuries      — team injury digests + notable Out/Doubtful (empty until Sept reports)
-  signals       — active flags with model-agreement framing + records
+  signals       — CONFLUENCE engine (shared w/ CFB, football_report_lib): per-game
+                  alignments / strong solos / explicit conflicts, records graded
+                  live from finals (owner spec 2026-09-16)
   line_movement — open->current across FG spread/total, TT, 1H (all captured markets)
   ref_trends    — assigned referee with a strong directional trend in ANY market
                   (gated until assignments publish in game week)
@@ -73,15 +75,13 @@ def main():
     games = [g for g in games if g.get("kickoff") and str(g["kickoff"])[:19] > now_iso]
     label = {str(g["game_id"]): f"{g['away_team']} @ {g['home_team']}" for g in games}
     flags = fetch(env, "nfl_slate_flags",
-                  f"select=game_id,signal_key,side,market,conviction,tier&season=eq.{season}&week=eq.{week}")
+                  f"select=game_id,signal_key,side,market,conviction,tier,"
+                  f"bet_team,bet_direction,bet_line&season=eq.{season}&week=eq.{week}")
     picks = fetch(env, "nfl_slate_picks",
                   f"select=game_id,card_group,pick_side&season=eq.{season}&week=eq.{week}")
     defs = {d["signal_key"]: d for d in fetch(env, "nfl_signal_defs",
             "select=signal_key,display_name,typical_hit,one_liner")}
-    # THIS season only — signal_performance is per-season, and an unfiltered
-    # fetch showed 2025's 0-1 as "Live record" before a 2026 snap was played.
-    perf = {p["signal_key"]: p for p in fetch(env, "signal_performance",
-            f"select=signal_key,n,wins,losses&sport=eq.nfl&season=eq.{season}")}
+    # (live signal records are graded from finals inside lib.confluence_storylines)
     refs = {r["referee"]: r for r in fetch(env, "nfl_referee_trends", "select=referee,career_games,splits")}
     coaches = fetch(env, "nfl_coach_trends", "select=coach,splits,career_games,through_season")
     # One trend row per coach NAME (table has snapshot duplicates — keep freshest),
@@ -115,51 +115,16 @@ def main():
                       body=f"{team_ab}: {names}.",
                       data={"team": team_ab, "listings": rows}, rank=15))
 
-    # ---- signals with model-agreement framing --------------------------------
+    # ---- signals: CONFLUENCE engine (shared, football_report_lib) ------------
+    # sides_model is the base model lean on ~every spread (blanket — excluded);
+    # consensus_totals_HC / M2 are the model's own totals lean (no circular
+    # "model agrees" bonus).
     gmap = {str(g["game_id"]): g for g in games}
-    for f in flags:
-        gid = str(f["game_id"])
-        if gid not in label or f.get("tier") != "active":
-            continue
-        d = defs.get(f["signal_key"], {})
-        g = gmap[gid]
-        side, market = str(f.get("side") or ""), f["market"]
-        # NFL flags store "KC -3"-style labels whose LINE goes stale as the
-        # market moves. Resolve the abbr to home/away, then restate the side as
-        # full team name + CURRENT line — never an abbr with a dead number.
-        away_ab, home_ab = str(gid).split("_")[2:4]
-        sc, tc = g.get("fg_spread_close"), g.get("fg_total_close")
-        side_ha, target = None, None
-        tok = side.split(" ")[0]
-        if tok == home_ab:
-            side_ha = "HOME"
-        elif tok == away_ab:
-            side_ha = "AWAY"
-        elif tok in ("OVER", "UNDER"):
-            side_ha = tok
-        if market == "spread" and sc is not None and side_ha in ("HOME", "AWAY"):
-            team = g["home_team"] if side_ha == "HOME" else g["away_team"]
-            line = float(sc) if side_ha == "HOME" else -float(sc)
-            target = f"{team} {line:+g}"
-        elif market == "total" and tc is not None and side_ha in ("OVER", "UNDER"):
-            target = f"{side_ha} {float(tc):g}"
-        ms = model_side.get(gid) if market == "spread" else (
-            model_tot.get(gid) if market == "total" else None)
-        agree = (ms == side_ha) if ms and side_ha else None
-        pr = perf.get(f["signal_key"])
-        rec = (f" Live record: {pr['wins']}-{pr['losses']}." if pr and (pr.get("wins") or pr.get("losses")) else "")
-        frame = (" The model leans the same way." if agree is True else
-                 (" Note: the model leans the other way — tension, not confirmation." if agree is False else ""))
-        name = d.get("display_name", f["signal_key"])
-        S.append(dict(storyline_key=f"signal:{f['signal_key']}:{gid}", family="signals",
-                      game_id=gid, matchup=label.get(gid),
-                      title=f"{name}: {target}" if target else f"{name} — {label.get(gid)}",
-                      body=(f"This signal points to {target} in {label.get(gid)}. " if target else "")
-                           + f"{d.get('one_liner','Validated signal').rstrip('.')}. "
-                           f"Historical: {d.get('typical_hit','validated')}." + rec + frame,
-                      data={"signal_key": f["signal_key"], "side": side, "target": target,
-                            "market": market, "model_agrees": agree},
-                      rank=20 if agree else 35))
+    S += lib.confluence_storylines(
+        env, "nfl", season, week, gmap, label, flags, defs, model_side, model_tot,
+        "nfl_slate_flags", "nfl_slate_games",
+        model_own_keys={"consensus_totals_HC", "M2_k1_model_lean"},
+        blanket_keys={"sides_model"})
 
     # ---- line movement — every captured market -------------------------------
     for g in games:

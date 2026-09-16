@@ -787,10 +787,26 @@ if WEEK <= 3 and len(df) and (df.signal_key == "fade_high_total").any():
 
 print(f"cfb_slate_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
 print(f"  conviction {df.conviction.value_counts().to_dict()} | mammoth flags {int(df.mammoth.sum())}")
-C.wipe("cfb_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")
+# KICKED-OFF games keep their existing flag rows — frozen pregame history.
+# Regenerating a played game's flags swaps in post-game inputs (live ratings
+# feeds), which made regime_* rows grade as 35-1 pure hindsight (2026 wk1-2
+# audit: every regime row's created_at was AFTER kickoff). Same pattern as the
+# completed-games guard on cfb_slate_picks (health_sweep 2026-09-03).
+import datetime as _dt
+_now = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+_koq = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                    f"&kickoff=lt.{_now}&select=game_id", headers={**C.H, "Prefer": ""}, timeout=30)
+_played = {int(x["game_id"]) for x in (_koq.json() if _koq.ok else [])}
+if _played:
+    df = df[~df.game_id.astype(int).isin(_played)]
+    print(f"  freezing flags on {len(_played)} kicked-off games (pregame history preserved)")
+_fscope = f"season=eq.{SEASON}&week=eq.{WEEK}"
+if _played:
+    _fscope += f"&game_id=not.in.({','.join(str(i) for i in sorted(_played))})"
+C.wipe("cfb_slate_flags", _fscope)
 C.insert("cfb_slate_flags", df)
 act = df[df.tier == "active"].groupby("game_id").size(); trk = df[df.tier == "tracking"].groupby("game_id").size()
-for gid in g7:
+for gid in (set(g7) - _played):
     requests.patch(f"{C.URL}/rest/v1/cfb_slate_games?game_id=eq.{gid}", headers=C.H,
                    data=json.dumps({"n_flags_active": int(act.get(gid, 0)), "n_flags_tracking": int(trk.get(gid, 0))}))
 print("  back-filled n_flags on games")
