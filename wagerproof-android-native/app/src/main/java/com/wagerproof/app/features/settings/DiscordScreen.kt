@@ -123,7 +123,7 @@ fun DiscordScreen(onDismiss: () -> Unit, onUpgrade: () -> Unit, modifier: Modifi
                 )
             }
 
-            if (proAccess.isPro) {
+            if (proAccess.hasSubscription) {
                 Column(
                     modifier = Modifier.padding(horizontal = Spacing.lg),
                     verticalArrangement = Arrangement.spacedBy(Spacing.lg),

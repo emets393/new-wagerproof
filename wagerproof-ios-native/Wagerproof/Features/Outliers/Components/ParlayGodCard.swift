@@ -227,7 +227,7 @@ struct MatchupParlaysWidget: View {
                 tintHex: 0x22C55E
             )
         ) {
-            ProContentSection(title: "Matchup Parlays", minHeight: 236) {
+            ProContentSection(title: "Matchup Parlays", minHeight: 236, minimumTier: .premium) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(alignment: .top, spacing: 12) {
                         ForEach(tickets) { ticket in
@@ -499,6 +499,11 @@ struct ParlayGodRail: View {
     private let cardWidth: CGFloat = 300
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Parlay God") { railContent }
+    }
+
+    @ViewBuilder
+    private var railContent: some View {
         if tickets.isEmpty && !isLoading {
             if let emptyNote {
                 VStack(alignment: .leading, spacing: 10) {
@@ -530,7 +535,7 @@ struct ParlayGodRail: View {
                 if showsHeader {
                     sectionHeader
                 }
-                ProContentSection(title: title, minHeight: 236) {
+                ProContentSection(title: title, minHeight: 236, minimumTier: .premium) {
                     carousel
                 }
             }

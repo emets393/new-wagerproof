@@ -67,7 +67,14 @@ struct AgentConsensusSection: View {
         store?.consensus(for: sport, gameId: gameId)
     }
 
+    @Environment(ProAccessStore.self) private var tierAccess: ProAccessStore?
+
     var body: some View {
+        if tierAccess?.isTierRestricted(.pro) != true { consensusContent }
+    }
+
+    @ViewBuilder
+    private var consensusContent: some View {
         // A VStack (not a bare `if`) so the `.task` still has a view to attach
         // to on the very first render, when the store has nothing yet. Empty it
         // costs zero height in the collapsing scroll.

@@ -80,6 +80,11 @@ struct PublicAgentDetailView: View {
     }
 
     var body: some View {
+        TieredAccessGate(minimum: .pro, title: "Agent Picks") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         Group {
             if agent != nil {
                 detailScroll

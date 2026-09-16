@@ -49,6 +49,7 @@ import WagerproofStores
 /// sheet presentation in its own NavigationStack — search rows reliably
 /// land the user on the correct surface no matter which tab they came from.
 struct SearchView: View {
+    @Environment(ProAccessStore.self) private var tierAccess
     @Environment(MainTabStore.self) private var tabStore
 
     // Optional upstream stores. We use Bindable-via-env so SwiftUI re-renders
@@ -465,6 +466,16 @@ struct SearchView: View {
     /// the Games page, so the drawer carries the gradient + drifting-icon
     /// treatment the neutral explore tile deliberately doesn't.
     private var trendsDrawer: some View {
+        TieredAccessGate(minimum: .premium, title: "Historical Trends") {
+            trendsDrawerContent
+        }
+        .background(Color.appSurface)
+        .presentationDetents(tierAccess.isTierRestricted(.premium) ? [.height(340), .large] : [.height(260)])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Color.appSurface)
+    }
+
+    private var trendsDrawerContent: some View {
         VStack(spacing: 10) {
             Text("Historical Trends")
                 .font(.system(size: 20, weight: .bold))
@@ -486,9 +497,6 @@ struct SearchView: View {
         .padding(.top, 16)
         .frame(maxWidth: .infinity, alignment: .top)
         .background(Color.appSurface)
-        .presentationDetents([.height(260)])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(Color.appSurface)
     }
 
     /// The trends tools offered in the drawer, paired with the sport their leaf
@@ -580,7 +588,7 @@ struct SearchView: View {
                     }
                 }
             }
-            if showsScope(.players) {
+            if showsScope(.players) && !tierAccess.isTierRestricted(.premium) {
                 let players = store.playerResults
                 if !players.isEmpty {
                     Section(header: sectionHeader("Props", icon: "figure.run", count: players.count)) {
@@ -590,7 +598,7 @@ struct SearchView: View {
                     }
                 }
             }
-            if showsScope(.agents) && !store.agentResults.isEmpty {
+            if !tierAccess.isTierRestricted(.pro) && showsScope(.agents) && !store.agentResults.isEmpty {
                 Section(header: sectionHeader("Agents", icon: "brain.head.profile", count: store.agentResults.count)) {
                     ForEach(store.agentResults) { result in
                         // The same AgentRowCard the Agents tab renders.
@@ -606,7 +614,7 @@ struct SearchView: View {
                     }
                 }
             }
-            if showsScope(.outliers) {
+            if showsScope(.outliers) && !tierAccess.isTierRestricted(.premium) {
                 if !store.trendResults.isEmpty {
                     Section(header: sectionHeader("Outliers", icon: "chart.line.uptrend.xyaxis", count: store.trendResults.count)) {
                         outliersRail(store.trendResults)
@@ -690,6 +698,17 @@ struct SearchView: View {
     /// empty state when nothing is available.
     @ViewBuilder
     private func browseSections(_ scope: SearchStore.SearchScope) -> some View {
+        if scope == .agents && tierAccess.isTierRestricted(.pro) {
+            ProContentSection(title: "Agents", minimumTier: .pro) { Color.clear.frame(height: 210) }
+        } else if (scope == .players || scope == .outliers) && tierAccess.isTierRestricted(.premium) {
+            ProContentSection(title: "Advanced Research", minimumTier: .premium) { Color.clear.frame(height: 210) }
+        } else {
+            allowedBrowseSections(scope)
+        }
+    }
+
+    @ViewBuilder
+    private func allowedBrowseSections(_ scope: SearchStore.SearchScope) -> some View {
         switch scope {
         case .players:
             let players = store.browsePlayerResults

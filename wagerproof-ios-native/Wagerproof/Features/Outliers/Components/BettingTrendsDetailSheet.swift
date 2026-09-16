@@ -30,6 +30,16 @@ struct BettingTrendsDetailSheet: View {
     var onViewMatchup: (() -> Void)? = nil
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Situational Betting Trends") {
+            detailContent
+        }
+        .background(Color.appSurface)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationBackgroundInteraction(.disabled)
+    }
+
+    private var detailContent: some View {
         ScrollView {
             VStack(spacing: 12) {
                 headerCard
@@ -41,11 +51,6 @@ struct BettingTrendsDetailSheet: View {
             .padding(.vertical, 16)
         }
         .background(Color.appSurface)
-        // Spec §1 freezes one expand presentation for all three insight
-        // widgets — full-height, matching MatchupPropsDetailSheet/F5SplitsDetailSheet.
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-        .presentationBackgroundInteraction(.disabled)
     }
 
     // MARK: - Header

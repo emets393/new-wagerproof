@@ -54,6 +54,7 @@ import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.services.AnalyticsService
 import com.wagerproof.core.services.PaywallConversionTracker
 import com.wagerproof.core.services.RevenueCatService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -112,23 +113,21 @@ fun PostOnboardingPaywall(
         isLoadingOffering = true
         loadError = null
 
-        // Prefer the placement-specific offering so the dashboard can ship a
-        // distinct post-onboarding variant; fall back to the cached offering.
-        val placementOffering = revenueCat.fetchOffering(RevenueCatService.Placement.ONBOARDING)
-        if (placementOffering != null) {
-            offering = placementOffering
-            isLoadingOffering = false
-            return
-        }
-        val fallback = revenueCat.offering
-        if (fallback != null) {
-            offering = fallback
-            isLoadingOffering = false
-            return
-        }
         offering = null
-        loadError = "Couldn't reach the subscription service. Check your connection and try again."
-        isLoadingOffering = false
+        try {
+            offering = revenueCat.fetchOffering(RevenueCatService.Placement.ONBOARDING)
+            // RevenueCat explicitly chose No Offering. Honor that targeting decision.
+            if (offering == null) {
+                onCloseEnabledChanged(true)
+                onUserDismissed()
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            loadError = "Couldn't reach the subscription service. Check your connection and try again."
+        } finally {
+            isLoadingOffering = false
+        }
     }
 
     LaunchedEffect(reloadKey) { loadOffering() }
@@ -138,7 +137,7 @@ fun PostOnboardingPaywall(
 
     // Absent key = HARD (no ✕): the real onboarding gate ships hard and a remote
     // `true` softens it. The debug preview always allows closing.
-    val closeEnabled = isDebugPreview ||
+    val closeEnabled = isDebugPreview || loadError != null ||
         PaywallPlanResolver.metadataBoolean(metadata, "paywall_close_enabled", default = false)
 
     // Absent key = custom paywall; explicit `false` = legacy RC template.
@@ -149,7 +148,7 @@ fun PostOnboardingPaywall(
     // cannot resolve the catalog (common for a side-loaded debug package). Its
     // own unavailable-plans footer provides recovery without replacing the
     // entire designed paywall with a generic error page.
-    val isShowingCustomPaywall = customPaywallEnabled && !isLoadingOffering
+    val isShowingCustomPaywall = customPaywallEnabled && !isLoadingOffering && current != null && loadError == null
 
     LaunchedEffect(closeEnabled) { onCloseEnabledChanged(closeEnabled) }
 
@@ -158,7 +157,7 @@ fun PostOnboardingPaywall(
     // CustomPaywallView, and two senders would double-count the funnel step.
     var didTrackPresented by remember { mutableStateOf(false) }
     LaunchedEffect(current, isLoadingOffering, isShowingCustomPaywall) {
-        if (didTrackPresented || isLoadingOffering || current == null || isShowingCustomPaywall) {
+        if (didTrackPresented || isLoadingOffering || current == null || isShowingCustomPaywall || current.identifier == TieredPaywallCatalog.OFFERING_ID) {
             return@LaunchedEffect
         }
         didTrackPresented = true
@@ -206,6 +205,12 @@ fun PostOnboardingPaywall(
         }
     }
 
+    if (current?.identifier == TieredPaywallCatalog.OFFERING_ID) {
+        TieredPaywallScreen(offering = current, allowClose = closeEnabled, showsPicksExpiry = true,
+            source = PAYWALL_SOURCE, onDismiss = onUserDismissed)
+        return
+    }
+
     // Forced dark — the app is dark-only, but pin black regardless of template.
     Box(
         modifier = Modifier
@@ -213,7 +218,7 @@ fun PostOnboardingPaywall(
             .background(Color.Black),
     ) {
         if (!isLoadingOffering) {
-            if (customPaywallEnabled) {
+            if (isShowingCustomPaywall) {
                 CustomPaywallView(
                     offering = current,
                     allowClose = closeEnabled,
@@ -300,7 +305,7 @@ fun PostOnboardingPaywall(
 
         if (isLoadingOffering || isFinalizing) {
             LoadingOverlay(isFinalizing = isFinalizing)
-        } else if (!customPaywallEnabled && (loadError != null || offering == null)) {
+        } else if (loadError != null || offering == null) {
             ErrorOverlay(
                 message = loadError,
                 onRetry = { reloadKey++ },

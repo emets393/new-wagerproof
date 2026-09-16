@@ -18,6 +18,11 @@ struct OutliersDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Outliers") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         // Value/fade categories share the OutliersStore (week games + alerts)
         // and render inline; every other category delegates to its own
         // self-contained list view that owns its store, sort pills, refresh

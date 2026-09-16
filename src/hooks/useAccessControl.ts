@@ -1,3 +1,4 @@
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,6 +11,7 @@ import debug from "@/utils/debug";
 
 export function useAccessControl() {
   const { user } = useAuth();
+  const { hasSubscription, loading: subscriptionLoading } = useRevenueCat();
   
   const { data: hasAccess, isLoading } = useQuery({
     queryKey: ['user-access', user?.id],
@@ -88,5 +90,5 @@ export function useAccessControl() {
     refetchInterval: 1000 * 60 * 15, // Refetch every 15 minutes
   });
   
-  return { hasAccess: hasAccess ?? false, isLoading };
+  return { hasAccess: hasSubscription || (hasAccess ?? false), isLoading: isLoading || subscriptionLoading };
 }

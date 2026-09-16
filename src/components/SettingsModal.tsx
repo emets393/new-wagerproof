@@ -1,3 +1,4 @@
+import { tierTitle } from '@/features/tieredPaywall/access';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   Dialog,
@@ -69,7 +70,7 @@ function usernameSlug(displayName: string): string {
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { user, updatePassword, sendPasswordReset, signOut } = useAuth();
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
-  const { hasProAccess, customerInfo, subscriptionType } = useRevenueCatWeb();
+  const { hasSubscription: hasProAccess, subscriptionTier, isTieredCustomer, customerInfo, subscriptionType } = useRevenueCatWeb();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -268,11 +269,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
           <div className="mx-6 mt-3 grid grid-cols-2 gap-2.5">
             <HeroButton
-              title={hasProAccess ? 'You are Pro' : 'Go Pro Today'}
-              subtitle={hasProAccess ? 'Premium picks unlocked' : 'Unlock premium picks'}
+              title={hasProAccess ? `WagerProof ${tierTitle(subscriptionTier ?? 'pro')}` : 'Explore WagerProof'}
+              subtitle={hasProAccess ? 'Your membership is active' : 'Find your plan'}
               action={hasProAccess ? 'Manage' : 'Upgrade'}
               icon={<CreditCard className="h-5 w-5" />}
-              onClick={hasProAccess ? handleManageBilling : () => openRoute(PAYWALL_ROUTE)}
+              onClick={hasProAccess ? handleManageBilling : () => openRoute(isTieredCustomer ? '/plans/tiers' : PAYWALL_ROUTE)}
             />
             <HeroButton
               title="Join our Discord"
@@ -432,9 +433,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             <SettingsRow
               icon={<CreditCard />}
               title="Subscription"
-              subtitle={hasProAccess ? `WagerProof Pro${subscriptionType ? ` · ${subscriptionType}` : ''}` : 'Free plan'}
+              subtitle={hasProAccess ? `WagerProof ${tierTitle(subscriptionTier ?? 'pro')}${subscriptionType ? ` · ${subscriptionType}` : ''}` : 'Free plan'}
               trailing={<ChevronRight className="h-4 w-4" />}
-              onClick={hasProAccess ? handleManageBilling : () => openRoute(PAYWALL_ROUTE)}
+              onClick={hasProAccess ? handleManageBilling : () => openRoute(isTieredCustomer ? '/plans/tiers' : PAYWALL_ROUTE)}
             />
           </SettingsGroup>
 

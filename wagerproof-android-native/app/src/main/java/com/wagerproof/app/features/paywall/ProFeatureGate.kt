@@ -69,7 +69,7 @@ fun ProFeatureGate(
         proAccess.isPro -> content()
         fallback != null -> fallback()
         showUpgradePrompt -> {
-            UpgradePrompt(onUpgrade = { isPaywallPresented = true })
+            LockedFeaturePreview(com.wagerproof.core.models.SubscriptionTier.PRO, "More with WagerProof Pro", { isPaywallPresented = true }, content)
             PaywallDialogHost(
                 show = isPaywallPresented,
                 placementId = com.wagerproof.core.services.RevenueCatService.Placement.GENERIC_FEATURE,

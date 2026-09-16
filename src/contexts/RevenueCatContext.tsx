@@ -1,3 +1,4 @@
+import { resolveSubscriptionTier, tierRank, isTieredCustomer as isTieredCatalogCustomer, type SubscriptionTier } from '@/features/tieredPaywall/access';
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { CustomerInfo, Offerings, Package } from '@revenuecat/purchases-js';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,7 +22,6 @@ import {
 } from '@/lib/revenuecatPaywall';
 import {
   checkSupabaseSubscription,
-  resolveServerEntitlement,
   syncRevenueCatToSupabase,
 } from '@/utils/syncRevenueCatToSupabase';
 import debug from '@/utils/debug';
@@ -30,23 +30,44 @@ import debug from '@/utils/debug';
  * Web Billing alone misses store purchases on other RC identities.
  * Promote when RC Web says Pro; otherwise OR in mirror + server resolve.
  */
-async function resolveHasProAccess(
-  userId: string,
-  customerInfo: CustomerInfo | null,
-): Promise<boolean> {
-  if (customerInfo && ENTITLEMENT_IDENTIFIER in customerInfo.entitlements.active) {
-    return true;
-  }
-  if (await checkSupabaseSubscription(userId)) {
-    return true;
-  }
-  return resolveServerEntitlement();
+async function resolveSubscriptionAccess(userId: string, info: CustomerInfo | null) {
+  const active = Object.keys(info?.entitlements.active ?? {});
+  const sdkTier = resolveSubscriptionTier(active);
+  const sdkEnrolled = isTieredCatalogCustomer(Object.keys(info?.entitlements.all ?? {}),
+    Object.values(info?.entitlements.all ?? {}).map(entitlement => entitlement.productIdentifier));
+  if (sdkTier === 'pro') return { tier: sdkTier, enrolled: sdkEnrolled };
+
+  // Server reconciliation checks store purchases on legacy alias identities.
+  // A lower SDK tier must not be OR-ed with a coarse paid=true profile flag.
+  try {
+    const { data, error } = await supabase.functions.invoke('resolve-my-entitlement', { body: {} });
+    if (!error && data) {
+      if (data.isAdmin || data.hasPremiumAccess) return { tier: 'pro' as const, enrolled: sdkEnrolled || data.isTieredCustomer === true };
+      const serverTier: SubscriptionTier | null = ['standard', 'premium', 'pro'].includes(data.subscriptionTier) ? data.subscriptionTier : null;
+      if (serverTier || data.isTieredCustomer || sdkEnrolled) {
+        return { tier: 'subscriptionTier' in data ? serverTier : sdkTier, enrolled: sdkEnrolled || data.isTieredCustomer === true };
+      }
+    }
+  } catch { /* Continue with the SDK and authoritative tier cache. */ }
+  // This table is server-written. Never use the legacy profile fallback for
+  // an explicitly enrolled lower-tier customer, including after expiry.
+  const { data: cache, error: cacheError } = await supabase.from('subscription_tier_access' as any)
+    .select('tier,is_tiered_customer').eq('user_id', userId).maybeSingle();
+  const cached = cache as unknown as { tier: SubscriptionTier | null; is_tiered_customer: boolean } | null;
+  if (cached) return { tier: tierRank(cached.tier) > tierRank(sdkTier) ? cached.tier : sdkTier, enrolled: sdkEnrolled || cached.is_tiered_customer };
+  if (sdkTier || sdkEnrolled) return { tier: sdkTier, enrolled: sdkEnrolled };
+  // Missing cache during an outage is unresolved, not evidence of legacy Pro.
+  if (cacheError) return { tier: null, enrolled: false };
+  return { tier: await checkSupabaseSubscription(userId) ? 'pro' as const : null, enrolled: false };
 }
 
 interface RevenueCatContextType {
   customerInfo: CustomerInfo | null;
   offerings: Offerings | null;
   hasProAccess: boolean;
+  subscriptionTier: SubscriptionTier | null;
+  isTieredCustomer: boolean;
+  hasSubscription: boolean;
   loading: boolean;
   offeringsLoading: boolean;
   error: string | null;
@@ -62,7 +83,11 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   const { user, loading: authLoading } = useAuth();
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [offerings, setOfferings] = useState<Offerings | null>(null);
-  const [hasProAccess, setHasProAccess] = useState(false);
+  const [access, setAccess] = useState<{ tier: SubscriptionTier | null; enrolled: boolean }>({ tier: null, enrolled: false });
+  const subscriptionTier = access.tier;
+  const isTieredCustomer = access.enrolled;
+  const hasProAccess = subscriptionTier === 'pro';
+  const hasSubscription = subscriptionTier !== null;
   const [loading, setLoading] = useState(true);
   const [offeringsLoading, setOfferingsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +108,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         resetRevenueCat();
         setCustomerInfo(null);
         setOfferings(null);
-        setHasProAccess(false);
+        setAccess({ tier: null, enrolled: false });
         setError(null);
         setLoading(false);
         setOfferingsLoading(false);
@@ -97,7 +122,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         // Check sandbox mode setting from database (best-effort when logged out)
         try {
           const { data: sandboxData } = await supabase.rpc('get_sandbox_mode');
-          const isSandbox = sandboxData?.enabled ?? false;
+          const isSandbox = !!sandboxData && typeof sandboxData === 'object' && 'enabled' in sandboxData && sandboxData.enabled === true;
           setSandboxMode(isSandbox);
           debug.log('Sandbox mode from DB:', isSandbox);
         } catch (err) {
@@ -125,11 +150,11 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           debug.log('Could not sync to Supabase (non-critical):', supabaseError);
         }
 
-        const hasAccess = await resolveHasProAccess(user.id, info);
+        const resolvedAccess = await resolveSubscriptionAccess(user.id, info);
         if (cancelled) return;
-        setHasProAccess(hasAccess);
+        setAccess(resolvedAccess);
 
-        debug.log('RevenueCat initialized successfully. Has Pro:', hasAccess);
+        debug.log('RevenueCat initialized successfully. Tier:', resolvedAccess.tier);
       } catch (err: any) {
         if (cancelled) return;
         debug.error('Error initializing RevenueCat:', err);
@@ -232,9 +257,9 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
       await syncRevenueCatToSupabase(user.id, info);
 
-      const hasAccess = await resolveHasProAccess(user.id, info);
-      setHasProAccess(hasAccess);
-      return hasAccess;
+      const resolvedAccess = await resolveSubscriptionAccess(user.id, info);
+      setAccess(resolvedAccess);
+      return resolvedAccess.tier !== null;
     } catch (err: any) {
       debug.error('Error refreshing customer info:', err);
       setError(err.message || 'Failed to refresh customer info');
@@ -290,16 +315,12 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       const result = await purchasePackage(pkg);
       setCustomerInfo(result.customerInfo);
 
-      if (result.hasProEntitlement) {
+      const tier = resolveSubscriptionTier(Object.keys(result.customerInfo.entitlements.active));
+      if (tier) {
         await syncRevenueCatToSupabase(user.id, result.customerInfo);
-        setHasProAccess(true);
-        debug.log('Purchase verified with fresh WagerProof Pro entitlement.');
+        setAccess(await resolveSubscriptionAccess(user.id, result.customerInfo));
       } else {
-        setHasProAccess(false);
-        const verificationError =
-          'Your payment completed, but WagerProof Pro could not be verified yet.';
-        setError(verificationError);
-        debug.error(verificationError);
+        setError('Your payment completed, but your subscription could not be verified yet.');
       }
 
       return result;
@@ -335,6 +356,9 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     customerInfo,
     offerings,
     hasProAccess,
+    subscriptionTier,
+    isTieredCustomer,
+    hasSubscription,
     loading,
     offeringsLoading,
     error,

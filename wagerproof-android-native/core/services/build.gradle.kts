@@ -46,6 +46,7 @@ dependencies {
     implementation(libs.googleid)
 
     api(libs.revenuecat)
+    implementation("com.android.billingclient:billing:8.2.1")
     implementation(libs.mixpanel)
     implementation(libs.facebook.core)
 

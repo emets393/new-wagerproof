@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.agents
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -75,6 +78,13 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun PublicAgentDetailScreen(agentId: String, modifier: Modifier = Modifier) {
+    TieredAccessGate(SubscriptionTier.PRO, "Agent Picks") { PublicAgentDetailScreenContent(agentId, modifier) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun PublicAgentDetailScreenContent(agentId: String, modifier: Modifier = Modifier) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     val auth = graph.auth
     val proAccess = graph.proAccess
@@ -110,6 +120,7 @@ fun PublicAgentDetailScreen(agentId: String, modifier: Modifier = Modifier) {
 
     val historyReloadKey = "$agentId-$canSeePicks-$isOwnAgent-${currentUserId ?: ""}"
     LaunchedEffect(historyReloadKey) {
+        if (featurePreview) return@LaunchedEffect
         // Registry-scoped store: `snapshot` may survive from a previous visit, so
         // re-fetch on entry rather than rendering yesterday's picks. A live
         // generation poll owns the snapshot while it runs.

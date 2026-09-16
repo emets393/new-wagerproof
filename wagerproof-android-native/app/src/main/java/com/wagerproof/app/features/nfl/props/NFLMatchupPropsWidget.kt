@@ -72,6 +72,18 @@ fun NFLMatchupPropsWidget(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    com.wagerproof.app.features.paywall.TieredAccessGate(com.wagerproof.core.models.SubscriptionTier.PREMIUM, "Player Props") { NFLMatchupPropsWidgetContent(awayTeam, homeTeam, propsStore, onSelect, onExpand, modifier) }
+}
+
+@Composable
+private fun NFLMatchupPropsWidgetContent(
+    awayTeam: String,
+    homeTeam: String,
+    propsStore: PropsStore,
+    onSelect: (NFLPlayerPropSelection) -> Unit,
+    onExpand: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val summary = propsStore.nflPropsInsight(awayTeam, homeTeam) ?: return
     val itemsById = remember(awayTeam, homeTeam, propsStore.nflPlayers) {
         val players = propsStore.nflPlayers(awayTeam, homeTeam)

@@ -1,3 +1,4 @@
+import { TierAccessGate } from '@/features/tieredPaywall/TierAccessGate';
 import * as React from 'react';
 import { Medal, Sparkles, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +20,11 @@ function RankMark({ rank }: { rank: number | null }) {
   return rank ? <span className="text-xs font-black text-[#00C968]">#{rank}</span> : null;
 }
 
-export function TopAgentPicksRail({ maxItems, sectionId }: { maxItems?: number; sectionId?: string } = {}) {
+export function TopAgentPicksRail(props: { maxItems?: number; sectionId?: string } = {}) {
+  return <TierAccessGate minimum="pro" title="Top Agent Picks"><UnlockedTopAgentPicksRail {...props} /></TierAccessGate>;
+}
+
+function UnlockedTopAgentPicksRail({ maxItems, sectionId }: { maxItems?: number; sectionId?: string } = {}) {
   const navigate = useNavigate();
   const [filter, setFilter] = React.useState<TopAgentPicksFilter>('top10');
   const { data: rows = [], isLoading } = useTopAgentPicks(filter, '');

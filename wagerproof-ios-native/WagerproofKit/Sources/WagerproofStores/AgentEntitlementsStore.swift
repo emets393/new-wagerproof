@@ -41,11 +41,13 @@ public final class AgentEntitlementsStore {
 
     public var maxActiveAgents: Int? {
         if isAdmin { return nil }
+        if proAccess.isTierRestricted(.pro) { return 0 }
         return isPro ? Self.proMaxActiveAgents : Self.freeAgentLimit
     }
 
     public var maxTotalAgents: Int? {
         if isAdmin { return nil }
+        if proAccess.isTierRestricted(.pro) { return 0 }
         return isPro ? Self.proMaxTotalAgents : Self.freeAgentLimit
     }
 
@@ -53,6 +55,7 @@ public final class AgentEntitlementsStore {
     /// free users gate on ACTIVE count.
     public func canCreateAnotherAgent(activeCount: Int, totalCount: Int) -> Bool {
         if isAdmin { return true }
+        if proAccess.isTierRestricted(.pro) { return false }
         if isPro { return totalCount < Self.proMaxTotalAgents }
         return activeCount < Self.freeAgentLimit
     }
@@ -61,6 +64,7 @@ public final class AgentEntitlementsStore {
     /// (the "you could be here" tease); Pro/admin see all.
     public func canViewLeaderboardRank(_ rank: Int) -> Bool {
         if isPro || isAdmin { return true }
+        if proAccess.isTierRestricted(.pro) { return false }
         return rank >= Self.freeLeaderboardMinRank && rank <= Self.freeLeaderboardMaxRank
     }
 }

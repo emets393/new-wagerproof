@@ -61,6 +61,11 @@ struct PlayerPropDetailView: View {
     private var oppColor: Color { Color(hex: Int(MLBTeams.colors(for: selection.opponentName).primary)) }
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Player Props") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         GeometryReader { root in
             let chrome = PropDetailChrome(safeTop: root.safeAreaInsets.top, safeBottom: root.safeAreaInsets.bottom)
             ScrollViewReader { proxy in

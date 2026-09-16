@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.wagerproof.core.models.SubscriptionTier
 import com.revenuecat.purchases.CustomerInfo
 import com.revenuecat.purchases.Offering
 import com.revenuecat.purchases.Package
@@ -48,12 +49,12 @@ import com.wagerproof.core.services.AnalyticsService
 import com.wagerproof.core.services.PaywallConversionTracker
 import com.wagerproof.core.services.RevenueCatService
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /**
  * Port of iOS `RevenueCatPaywallView.swift`.
  *
- * Fetches the placement-specific offering (fallback to the cached
- * `RevenueCatStore.offering`), gates on load state, and hands the resolved
+ * Fetches only the placement-specific offering, gates on load state, and hands the resolved
  * offering to RevenueCatUI's native [Paywall] composable — the same code path
  * the RevenueCat dashboard designs against.
  *
@@ -71,6 +72,7 @@ import kotlinx.coroutines.launch
 fun PaywallScreen(
     placementId: String = RevenueCatService.Placement.GENERIC_FEATURE,
     onDismiss: () -> Unit,
+    minimumTier: SubscriptionTier = SubscriptionTier.PRO,
 ) {
     val graph = appGraph()
     val revenueCat = graph.revenueCat
@@ -83,12 +85,14 @@ fun PaywallScreen(
     var reloadKey by remember { mutableStateOf(0) }
     LaunchedEffect(placementId, reloadKey) {
         loadState = LoadState.Loading
-        val fetched = revenueCat.fetchOffering(placementId) ?: revenueCat.offering
-        if (fetched != null) {
-            offering = fetched
-            loadState = LoadState.Ready
-        } else {
-            loadState = LoadState.Empty
+        offering = null
+        try {
+            offering = revenueCat.fetchOffering(placementId)
+            loadState = if (offering != null) LoadState.Ready else LoadState.Empty
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            loadState = LoadState.Failed("Couldn't load subscription options. Check your connection and try again.")
         }
     }
 
@@ -98,7 +102,7 @@ fun PaywallScreen(
     var didTrackPresented by remember(placementId) { mutableStateOf(false) }
     LaunchedEffect(placementId, loadState, offering) {
         val current = offering
-        if (didTrackPresented || loadState != LoadState.Ready || current == null) return@LaunchedEffect
+        if (didTrackPresented || loadState != LoadState.Ready || current == null || current.identifier == TieredPaywallCatalog.OFFERING_ID) return@LaunchedEffect
         didTrackPresented = true
         AnalyticsService.track(
             "paywall_presented",
@@ -122,6 +126,12 @@ fun PaywallScreen(
             mapOf("source" to placementId, "result" to result),
         )
         onDismiss()
+    }
+
+    if (graph.proAccess.isPreviewing || (loadState == LoadState.Ready && offering?.identifier == TieredPaywallCatalog.OFFERING_ID)) {
+        TieredPaywallScreen(offering = offering, minimumTier = minimumTier,
+            preview = graph.proAccess.isPreviewing, source = placementId, onDismiss = onDismiss)
+        return
     }
 
     Column(
@@ -306,6 +316,7 @@ internal fun PaywallDialogHost(
     show: Boolean,
     placementId: String,
     onDismiss: () -> Unit,
+    minimumTier: SubscriptionTier = SubscriptionTier.PRO,
 ) {
     if (!show) return
     Dialog(
@@ -313,7 +324,7 @@ internal fun PaywallDialogHost(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            PaywallScreen(placementId = placementId, onDismiss = onDismiss)
+            PaywallScreen(placementId = placementId, onDismiss = onDismiss, minimumTier = minimumTier)
         }
     }
 }

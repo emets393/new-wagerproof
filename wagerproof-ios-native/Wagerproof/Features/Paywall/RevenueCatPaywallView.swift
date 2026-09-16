@@ -4,6 +4,7 @@ import RevenueCatUI
 import WagerproofDesign
 import WagerproofServices
 import WagerproofStores
+import WagerproofModels
 
 /// SwiftUI port of `wagerproof-mobile/components/RevenueCatPaywall.tsx`.
 ///
@@ -21,8 +22,10 @@ import WagerproofStores
 struct RevenueCatPaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(RevenueCatStore.self) private var revenueCat
+    @Environment(ProAccessStore.self) private var access
 
     let placementId: String
+    var minimumTier: SubscriptionTier = .pro
 
     @State private var offering: Offering?
     @State private var loadState: LoadState = .loading
@@ -36,6 +39,42 @@ struct RevenueCatPaywallView: View {
     }
 
     var body: some View {
+        if access.isPreviewing || (isScreenshotPreview && revenueCat.isTieredCustomer) {
+            TieredPaywallView(
+                minimumTier: PaywallTier.allCases.first { $0.accessTier == minimumTier } ?? .pro,
+                preview: true,
+                source: placementId,
+                onPurchaseFinalized: { _, _ in dismiss() },
+                onRequestClose: { dismiss() }
+            )
+        } else if loadStateIsReady, let offering, offering.identifier == TieredPaywallConfiguration.offeringID {
+            TieredPaywallView(
+                minimumTier: PaywallTier.allCases.first { $0.accessTier == minimumTier } ?? .pro,
+                source: placementId,
+                placementID: placementId,
+                offering: offering,
+                onPurchaseFinalized: { _, _ in dismiss() },
+                onRequestClose: { dismiss() }
+            )
+        } else {
+            legacyPaywall
+        }
+    }
+
+    private var loadStateIsReady: Bool {
+        if case .ready = loadState { return true }
+        return false
+    }
+
+    private var isScreenshotPreview: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("-uiScreenshotMode")
+        #else
+        return false
+        #endif
+    }
+
+    private var legacyPaywall: some View {
         NavigationStack {
             content
                 .background(Color.appSurface.ignoresSafeArea())
@@ -168,15 +207,41 @@ struct RevenueCatPaywallView: View {
     }
 
     private func loadOffering() async {
+        if revenueCat.isPro && !isScreenshotPreview { dismiss(); return }
         loadState = .loading
-        if let fetched = await revenueCat.fetchOffering(forPlacement: placementId) {
-            offering = fetched
-            loadState = .ready
-        } else if let fallback = revenueCat.offering {
-            offering = fallback
-            loadState = .ready
-        } else {
-            loadState = .empty
+        offering = nil
+        #if DEBUG
+        // Deterministic failure-screen QA without changing live targeting.
+        // Both the screenshot harness and explicit launch argument are required.
+        if isScreenshotPreview {
+            switch UserDefaults.standard.string(forKey: "paywallTestResult") {
+            case "none":
+                loadState = .empty
+                return
+            case "error":
+                loadState = .failed("Unable to load subscription options. Check your connection and try again.")
+                return
+            default: break
+            }
+        }
+        #endif
+        do {
+            let fetched = try await revenueCat.fetchOffering(forPlacement: placementId)
+            guard !Task.isCancelled else { return }
+            switch PaywallPlacementRoute.resolve(
+                offeringID: fetched?.identifier,
+                tieredEnabled: TieredPaywallConfiguration.enabled,
+                catalogReady: fetched?.metadata["tiered_catalog_ready"] as? Bool == true
+            ) {
+            case .none: loadState = .empty
+            case .unavailable: loadState = .failed("These plans are not available yet. Please try again later.")
+            case .legacy, .tiered:
+                offering = fetched
+                loadState = .ready
+            }
+        } catch {
+            guard !Task.isCancelled else { return }
+            loadState = .failed(error.localizedDescription)
         }
     }
 }

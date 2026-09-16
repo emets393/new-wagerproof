@@ -1,0 +1,97 @@
+{
+  "offeringID": "wagerproof_tiers_v1",
+  "plans": [
+    {
+      "id": "standard",
+      "title": "Premium",
+      "monthlyCents": 1999,
+      "yearlyCents": 19999,
+      "webMonthlyCents": 1399,
+      "webYearlyCents": 13999
+    },
+    {
+      "id": "premium",
+      "title": "Premium Plus",
+      "monthlyCents": 2999,
+      "yearlyCents": 29999,
+      "webMonthlyCents": 2099,
+      "webYearlyCents": 20999
+    },
+    {
+      "id": "pro",
+      "title": "Pro",
+      "monthlyCents": 7999,
+      "yearlyCents": 35999,
+      "webMonthlyCents": 5599,
+      "webYearlyCents": 25199
+    }
+  ],
+  "features": [
+    {
+      "id": "games",
+      "title": "Game Data & Matchups",
+      "detail": "Every matchup, key stats, injury reports, and live scores in one place.",
+      "tier": "standard"
+    },
+    {
+      "id": "predictions",
+      "title": "WagerProof Predictions",
+      "detail": "Model projections and signals to help you research every game.",
+      "tier": "standard"
+    },
+    {
+      "id": "markets",
+      "title": "Prediction Markets",
+      "detail": "Follow market probabilities and see how they compare with our models.",
+      "tier": "standard"
+    },
+    {
+      "id": "discord",
+      "title": "Discord Community",
+      "detail": "Join the WagerProof community to discuss games, research, and strategy.",
+      "tier": "standard"
+    },
+    {
+      "id": "outliers",
+      "title": "Outliers",
+      "detail": "Spot the biggest gaps between model projections and market expectations.",
+      "tier": "premium"
+    },
+    {
+      "id": "props",
+      "title": "Player Props",
+      "detail": "Research player lines, matchup context, and recent performance.",
+      "tier": "premium"
+    },
+    {
+      "id": "parlays",
+      "title": "Parlay God",
+      "detail": "Explore curated parlay combinations with the research behind every leg.",
+      "tier": "premium"
+    },
+    {
+      "id": "cheats",
+      "title": "Cheat Sheets",
+      "detail": "Find the strongest trends and prop opportunities in a quick, scannable view.",
+      "tier": "premium"
+    },
+    {
+      "id": "agents",
+      "title": "Personal AI Agents",
+      "detail": "Build up to 30 agents around your strategies, with 8 active in your office.",
+      "tier": "pro"
+    },
+    {
+      "id": "picks",
+      "title": "Agent Picks & Autopilot",
+      "detail": "Get picks from your agents and let autopilot handle their daily research.",
+      "tier": "pro"
+    },
+    {
+      "id": "leaderboard",
+      "title": "Full Agent Leaderboard",
+      "detail": "Explore every rank, compare track records, and follow the agents you trust.",
+      "tier": "pro"
+    }
+  ]
+}

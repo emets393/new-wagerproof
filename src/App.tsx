@@ -30,6 +30,7 @@ import BetSlipGrader from "./pages/BetSlipGrader";
 import LearnWagerProof from "./pages/LearnWagerProof";
 import Admin from "./pages/Admin";
 import PaywallTest from "./pages/PaywallTest";
+import TieredPlansPage from "./features/tieredPaywall/TieredPlansPage";
 // import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import FeatureRequests from "./pages/FeatureRequests";
@@ -286,6 +287,7 @@ function AppRoutes() {
     '/press-kit',
     '/onboarding', // Add onboarding to public routes to avoid nested layouts
     '/paywall-test', // Add paywall test to public routes
+    '/plans/tiers',
     '/free-picks', // Free picks landing page - public access
     '/ai-agents', // New separate landing page for the AI Agent feature
     '/mcp', // Public WagerProof MCP connector tutorial
@@ -317,6 +319,7 @@ function AppRoutes() {
               )
             }
           />
+          <Route path="/plans/tiers" element={<TieredPlansPage />} />
           <Route path="/free-picks" element={<FreePicks />} />
           <Route path="/ai-agents" element={<AgentLanding />} />
           <Route path="/mcp" element={<McpTutorial />} />
@@ -337,12 +340,12 @@ function AppRoutes() {
           <Route path="/access-denied" element={<AccessDenied />} />
           <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
           <Route path="/games" element={<ProtectedRoute allowFreemium={true}><GamesPage /></ProtectedRoute>} />
-          <Route path="/todays-trends" element={<ProtectedRoute allowFreemium={true}><TrendsTodayPage /></ProtectedRoute>} />
-          <Route path="/props" element={<ProtectedRoute allowFreemium={true}><PropsPage /></ProtectedRoute>} />
+          <Route path="/todays-trends" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><TrendsTodayPage /></ProtectedRoute>} />
+          <Route path="/props" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><PropsPage /></ProtectedRoute>} />
           <Route path="/college-football" element={<LegacySportRedirect sport="cfb" />} />
           <Route path="/nfl" element={<LegacySportRedirect sport="nfl" />} />
           <Route path="/nfl/props" element={<LegacyPropsRedirect sport="nfl" />} />
-          <Route path="/nfl/player/:playerId" element={<ProtectedRoute allowFreemium={true}><PropBreakdownPage /></ProtectedRoute>} />
+          <Route path="/nfl/player/:playerId" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><PropBreakdownPage /></ProtectedRoute>} />
           <Route path="/nba" element={<LegacySportRedirect sport="nba" />} />
           <Route path="/nba/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="nba" />} />
           <Route path="/nba/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NBATodayHalftimeTrends /></ProtectedRoute>} />
@@ -350,26 +353,26 @@ function AppRoutes() {
           <Route path="/ncaab" element={<LegacySportRedirect sport="ncaab" />} />
           <Route path="/mlb" element={<LegacySportRedirect sport="mlb" />} />
           <Route path="/mlb/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="mlb" />} />
-          <Route path="/mlb/daily-regression-report" element={<ProtectedRoute><RegressionReportPage /></ProtectedRoute>} />
-          <Route path="/nfl/regression-report" element={<ProtectedRoute><FootballRegressionPage sport="nfl" /></ProtectedRoute>} />
-          <Route path="/cfb/regression-report" element={<ProtectedRoute><FootballRegressionPage sport="cfb" /></ProtectedRoute>} />
-          <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true}><F5SplitsPage /></ProtectedRoute>} />
+          <Route path="/mlb/daily-regression-report" element={<ProtectedRoute minimumTier="premium"><RegressionReportPage /></ProtectedRoute>} />
+          <Route path="/nfl/regression-report" element={<ProtectedRoute minimumTier="premium"><FootballRegressionPage sport="nfl" /></ProtectedRoute>} />
+          <Route path="/cfb/regression-report" element={<ProtectedRoute minimumTier="premium"><FootballRegressionPage sport="cfb" /></ProtectedRoute>} />
+          <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><F5SplitsPage /></ProtectedRoute>} />
           <Route path="/mlb/pitcher-matchups" element={<LegacyPropsRedirect sport="mlb" />} />
-          <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true}><PlayerPropsReportPage /></ProtectedRoute>} />
+          <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><PlayerPropsReportPage /></ProtectedRoute>} />
           <Route path="/mlb/picks-performance" element={<Navigate to="/mlb/picks-report?tab=performance" replace />} />
           <Route path="/ncaab/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="ncaab" />} />
           <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />
-          <Route path="/historical-trends" element={<ProtectedRoute><HistoricalTrends /></ProtectedRoute>} />
+          <Route path="/historical-trends" element={<ProtectedRoute minimumTier="premium"><HistoricalTrends /></ProtectedRoute>} />
           <Route path="/competition" element={<ProtectedRoute authOnly={true}><CompetitionPage /></ProtectedRoute>} />
           <Route path="/nfl-analytics" element={<LegacyTrendsRedirect sport="nfl" />} />
           <Route path="/cfb-analytics" element={<LegacyTrendsRedirect sport="cfb" />} />
           <Route path="/mlb-analytics" element={<LegacyTrendsRedirect sport="mlb" />} />
           <Route path="/wagerbot-chat" element={<WagerBotChatRedirect />} />
           <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
-          <Route path="/connect-ai" element={<ProtectedRoute allowFreemium={true}><ConnectAI /></ProtectedRoute>} />
+          <Route path="/connect-ai" element={<ProtectedRoute allowFreemium={true} minimumTier="pro"><ConnectAI /></ProtectedRoute>} />
           <Route path="/scoreboard/diagnostics" element={<ProtectedRoute><LiveScoreDiagnostics /></ProtectedRoute>} />
-          <Route path="/today-in-sports" element={<ProtectedRoute allowFreemium={true}><TodayInSports /></ProtectedRoute>} />
+          <Route path="/today-in-sports" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><TodayInSports /></ProtectedRoute>} />
           <Route
             path="/bet-slip-grader"
             element={
@@ -381,11 +384,11 @@ function AppRoutes() {
           <Route path="/share-win" element={<ProtectedRoute><ShareWin /></ProtectedRoute>} />
           <Route path="/tip-jar" element={<ProtectedRoute><TipJar /></ProtectedRoute>} />
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
-          <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
-          <Route path="/agents/create" element={<ProtectedRoute><AgentCreate /></ProtectedRoute>} />
+          <Route path="/agents" element={<ProtectedRoute minimumTier="pro"><Agents /></ProtectedRoute>} />
+          <Route path="/agents/create" element={<ProtectedRoute minimumTier="pro"><AgentCreate /></ProtectedRoute>} />
           <Route path="/agents/public/:id" element={<LegacyAgentRedirect />} />
           <Route path="/agents/:id" element={<LegacyAgentRedirect />} />
-          <Route path="/agents/:id/settings" element={<ProtectedRoute><AgentSettings /></ProtectedRoute>} />
+          <Route path="/agents/:id/settings" element={<ProtectedRoute minimumTier="pro"><AgentSettings /></ProtectedRoute>} />
           {/* <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} /> */}
           <Route
             path="/community-voting"

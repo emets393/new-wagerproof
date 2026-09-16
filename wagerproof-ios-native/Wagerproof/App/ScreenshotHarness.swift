@@ -47,6 +47,8 @@ struct ScreenshotHarnessView: View {
     init() {
         let rc = RevenueCatStore()
         let admin = AdminModeStore()
+        rc.debugSet(status: .granted)
+        admin.debugSet(isAdmin: false)
         _revenueCatStore = State(initialValue: rc)
         _adminModeStore = State(initialValue: admin)
         _proAccessStore = State(initialValue: ProAccessStore(revenueCat: rc, adminMode: admin))
@@ -162,7 +164,7 @@ struct ScreenshotHarnessView: View {
             gamesTargets
         case .agentsLoaded, .topAgentPicks, .agentHeaderShowcase, .agentStats:
             agentsTargets
-        case .mlbInsightWidgets, .searchInsights:
+        case .mlbInsightWidgets, .mlbTrendsDetail, .searchInsights:
             toolTargets
         case .historicalAnalysisMLB:
             NavigationStack { HistoricalAnalysisView(sport: .mlb) }
@@ -180,7 +182,7 @@ struct ScreenshotHarnessView: View {
              .deleteAccount, .deleteAccountError,
              .discord, .iosWidget:
             settingsTargetsA
-        case .secretSettings, .paywall, .customPaywall, .paywallError, .customerCenter:
+        case .secretSettings, .paywall, .customPaywall, .tieredPaywall, .paywallError, .customerCenter:
             settingsTargetsB
         default:
             EmptyView()
@@ -197,6 +199,20 @@ struct ScreenshotHarnessView: View {
         switch ScreenshotHarness.target {
         case .mlbInsightWidgets:
             makeInsightWidgets()
+        case .mlbTrendsDetail:
+            let trends = InsightWidgetFixtures.trends
+            NavigationStack {
+                BettingTrendsDetailSheet(
+                    awayName: trends.awayTeam.teamName,
+                    homeName: trends.homeTeam.teamName,
+                    timeDisplay: MLBTrendsMatrixAdapter.timeDisplay(for: trends),
+                    stripeColors: MLBTrendsMatrixAdapter.stripeColors(for: trends),
+                    accent: MLBTrendsMatrixAdapter.accent,
+                    sections: MLBTrendsMatrixAdapter.sections(for: trends),
+                    guide: .mlb,
+                    avatar: MLBTrendsMatrixAdapter.avatarProvider(for: trends)
+                )
+            }
         case .searchInsights:
             makeSearchInsights()
         default:
@@ -493,6 +509,7 @@ struct ScreenshotHarnessView: View {
         admin.debugSet(isAdmin: false)
         return OutliersView()
             .environment(OutliersTrendsStore())
+            .environment(ParlayGodStore())
             .environment(ProAccessStore(revenueCat: rc, adminMode: admin))
             .environment(MainTabStore())
             // The hub's primitive rails read these from the env (hoisted to
@@ -616,6 +633,7 @@ struct ScreenshotHarnessView: View {
         let admin = AdminModeStore()
         admin.debugSet(isAdmin: false)
         return PropsView()
+            .environment(ParlayGodStore())
             .environment(MainTabStore())
             .environment(store)
             .environment(SettingsStore())
@@ -754,13 +772,15 @@ struct ScreenshotHarnessView: View {
             makeSettingsModal {
                 RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
             }
+        case .tieredPaywall:
+            let minimum = PaywallTier.allCases.first { $0.slug == UserDefaults.standard.string(forKey: "tieredRequiredTier") } ?? .standard
+            let selected = PaywallTier.allCases.first { $0.slug == UserDefaults.standard.string(forKey: "tieredPreviewTier") } ?? .pro
+            TieredPaywallView(initialTier: selected.rawValue < minimum.rawValue ? minimum : selected, minimumTier: minimum, preview: true)
         case .customPaywall:
             PostOnboardingPaywall(onUserDismissed: {})
         case .paywallError:
-            // RevenueCatPaywallView fails closed to a `ContentUnavailableView`
-            // when no offering is reachable. The harness shares the same
-            // builder — the RC SDK in the simulator returns `.empty` so the
-            // error state renders naturally.
+            // Pass -paywallTestResult error|none for deterministic failure UI;
+            // without it this target exercises the actual placement lookup.
             makeSettingsModal {
                 RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
             }
@@ -1342,6 +1362,8 @@ enum ScreenshotHarness {
         // SearchView with fixture slates + pre-seeded "Yankees" query (matchup
         // card insight chips + Players results).
         case searchInsights
+        // Shared trends destination, with fixtures for entitlement regression QA.
+        case mlbTrendsDetail
         // Agents hub with a debug-populated AgentsStore — used to verify the
         // full-width AgentRowCard list + the animated PixelOffice loop without
         // a real Supabase round-trip.
@@ -1371,6 +1393,7 @@ enum ScreenshotHarness {
         case secretSettings
         case paywall
         case customPaywall
+        case tieredPaywall
         case paywallError
         case customerCenter
         // Temporary QA target: mount the MLB Historical Analysis screen directly
@@ -1387,7 +1410,7 @@ enum ScreenshotHarness {
         case .settings, .settingsLoaded, .settingsError,
              .deleteAccount, .deleteAccountError,
              .discord, .iosWidget,
-             .secretSettings, .paywall, .customPaywall, .paywallError, .customerCenter:
+             .secretSettings, .paywall, .customPaywall, .tieredPaywall, .paywallError, .customerCenter:
             return true
         default:
             return false

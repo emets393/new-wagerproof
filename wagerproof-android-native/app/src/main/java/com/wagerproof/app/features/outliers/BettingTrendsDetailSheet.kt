@@ -1,5 +1,7 @@
 package com.wagerproof.app.features.outliers
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -65,6 +67,7 @@ fun BettingTrendsDetailSheet(
         containerColor = AppColors.appSurface,
         dragHandle = null,
     ) {
+        TieredAccessGate(SubscriptionTier.PREMIUM, "Situational Betting Trends") {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -77,7 +80,8 @@ fun BettingTrendsDetailSheet(
             HowToUseSection(guide)
             Spacer(Modifier.height(40.dp))
         }
-    }
+            }
+}
 }
 
 @Composable

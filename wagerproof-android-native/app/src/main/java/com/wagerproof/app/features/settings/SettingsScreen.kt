@@ -175,17 +175,17 @@ fun SettingsScreen(
             ) {
                 val proTitle = when {
                     proAccess.isLoading -> "Verifying access"
-                    proAccess.isPro -> "You are Pro"
+                    proAccess.hasSubscription -> proAccess.planTitle
                     else -> "Go Pro Today"
                 }
                 val proSubtitle = when {
                     proAccess.isLoading -> "Checking plan"
-                    proAccess.isPro -> "Premium picks unlocked"
+                    proAccess.hasSubscription -> "Your subscription is active"
                     else -> "Unlock premium picks"
                 }
                 val proAction = when {
                     proAccess.isLoading -> "Hold"
-                    proAccess.isPro -> "Manage"
+                    proAccess.hasSubscription -> "Manage"
                     else -> "Upgrade"
                 }
                 HeroBanner(
@@ -196,7 +196,7 @@ fun SettingsScreen(
                     enabled = !proAccess.isLoading,
                     onTap = {
                         if (!proAccess.isLoading) {
-                            modal = if (proAccess.isPro) SettingsModal.CustomerCenter else SettingsModal.Paywall
+                            modal = if (proAccess.hasSubscription) SettingsModal.CustomerCenter else SettingsModal.Paywall
                         }
                     },
                 )

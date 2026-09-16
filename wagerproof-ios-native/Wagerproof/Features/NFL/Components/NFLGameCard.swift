@@ -71,10 +71,16 @@ struct NFLGameCard: View {
 
     private var hasMammothPlay: Bool {
         if game.mammoth { return true }
-        return slatePicks.contains { pick in
-            pick.hasPlay == true
-                && (pick.isMammoth == true || (pick.conviction ?? "").lowercased() == "mammoth")
+        // Explicit branches avoid a Swift 6.4 SemanticARCOpts crash in Release
+        // builds when this optional/string predicate is optimized as a closure.
+        for pick in slatePicks {
+            guard pick.hasPlay == true else { continue }
+            if pick.isMammoth == true { return true }
+            if let conviction = pick.conviction, conviction.lowercased() == "mammoth" {
+                return true
+            }
         }
+        return false
     }
 
     /// Same blanket strip the detail sheet uses, so the feed pill never counts

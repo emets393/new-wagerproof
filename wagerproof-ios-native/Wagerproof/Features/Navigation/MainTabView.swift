@@ -27,6 +27,8 @@ import WagerproofModels
 ///   project's deployment target was bumped to iOS 18.0 in `project.yml` /
 ///   `Package.swift` to unlock it.
 struct MainTabView: View {
+    @Environment(ProAccessStore.self) private var access
+    @State private var showAccessPreview = false
     @Environment(AchievementsStore.self) private var achievements
     @State private var celebratedAchievement: Achievement?
     @State private var celebratingId: String?
@@ -157,6 +159,26 @@ struct MainTabView: View {
         // Brand green tint replaces the system blue accent. Matches RN's
         // hardcoded `#00E676` active tab color in the FloatingTabBar.
         .tint(Color(hex: 0x00E676))
+        .padding(.top, access.isPreviewing ? 44 : 0)
+        .overlay(alignment: .top) {
+            if access.isPreviewing {
+                HStack(spacing: 12) {
+                    Button { showAccessPreview = true } label: {
+                        Label("Preview: \(access.planTitle)", systemImage: "viewfinder")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    Spacer(minLength: 4)
+                    Button("Reset") { access.previewMode = .actual }
+                        .font(.system(size: 12, weight: .bold))
+                        .accessibilityIdentifier("entitlementPreview.bannerReset")
+                }
+                .foregroundStyle(Color.appTextPrimary)
+                .padding(.horizontal, 20).frame(minHeight: 44)
+                .background(Color.appPrimary.opacity(0.12))
+                .accessibilityIdentifier("entitlementPreview.banner")
+            }
+        }
+        .sheet(isPresented: $showAccessPreview) { SecretSettingsView() }
         // Collapse the tab bar into a compact pill as the user scrolls down
         // a tab's content, expanding again on scroll up (iOS 26 Liquid Glass
         // behavior). No-op on earlier OSes.
