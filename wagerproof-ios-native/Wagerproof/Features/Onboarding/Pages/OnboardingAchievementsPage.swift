@@ -37,7 +37,6 @@ struct OnboardingAchievementsPage: View {
                         recipientName: "Your name", earnedAt: previewDate,
                         caption: selected.title.uppercased(),
                         onInteractionBegan: dismissHint)
-                        .id(selectedID)
                         .frame(height: max(220, min(360, geometry.size.height - 310)))
                         .overlay { swipeHint }
                         .accessibilityLabel("\(selected.title), 3D achievement preview")
@@ -54,6 +53,7 @@ struct OnboardingAchievementsPage: View {
                 .frame(maxWidth: 720).frame(maxWidth: .infinity)
             }
         }
+        .task { await AchievementMedalView.preloadFamilies() }
         .task(id: reduceMotion) { await demonstrateSwipe() }
         .sensoryFeedback(.selection, trigger: selectedID)
     }

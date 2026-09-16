@@ -22,6 +22,7 @@ struct AchievementDiscoverySection: View {
         }
         .padding(.vertical, 20)
         .task { await store.refresh() }
+        .task { await AchievementMedalView.preloadFamilies() }
     }
 }
 
@@ -102,6 +103,7 @@ struct AchievementLibraryView: View {
         .toolbar(.hidden, for: .tabBar)
         .refreshable { await store.refresh() }
         .task { await store.refresh() }
+        .task { await AchievementMedalView.preloadFamilies() }
     }
 }
 
