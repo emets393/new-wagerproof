@@ -188,8 +188,8 @@ const FLAGS_TABLE: Record<FootballSport, string> = {
 // PostgREST 42703 the ENTIRE CFB flags query (silently — debug.warn only), so CFB
 // gameFlags had always been empty and no flag data ever reached the signal chips.
 const FLAGS_SELECT: Record<FootballSport, string> = {
-  cfb: 'game_id,signal_key,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line',
-  nfl: 'game_id,signal_key,rule,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line',
+  cfb: 'game_id,signal_key,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line,grade_line',
+  nfl: 'game_id,signal_key,rule,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line,grade_line',
 };
 
 const SIGNAL_DEFS_TABLE: Record<FootballSport, string> = {
@@ -213,7 +213,18 @@ type SlateFlag = {
   bet_team?: string | null;
   bet_direction?: string | null;
   bet_line?: number | string | null;
+  /** 'open' = this flag is graded (and its line stated) at the OPENER, not the live line. */
+  grade_line?: string | null;
 };
+
+/** Flags graded at the opener carry the opener's number — tag it so it doesn't
+    read as a wrong "current" line once the market moves (USA -4.5 vs live -7). */
+function withOpenTag(direction: string | null, flag?: SlateFlag | null): string | null {
+  if (!direction) return direction;
+  if (String(flag?.grade_line || '').toLowerCase() !== 'open') return direction;
+  // Only tag directions that state a number; "USA ML" has no line to mislabel.
+  return /\d/.test(direction) && !/\bML\b/.test(direction) ? `${direction} (open)` : direction;
+}
 
 function flagSignalKey(flag: SlateFlag): string {
   return String(flag.signal_key || flag.rule || '').trim();
@@ -1874,18 +1885,21 @@ function resolvePickSignals(
       betLogo: betTeamLogo(flag?.bet_team, away, home),
       betOU: normalizedBetOU(flag?.bet_direction),
       direction:
-        resolveSignalDirectionDisplay({
-          sideLabel: flag?.side,
-          action: flag?.side,
-          betDirection: def?.bet_direction,
-          betTeam: flag?.bet_team,
-          betOU: flag?.bet_direction,
-          betLine: flag?.bet_line,
-          flagMarket: flag?.market,
-          row,
-          away,
-          home,
-        }) || undefined,
+        withOpenTag(
+          resolveSignalDirectionDisplay({
+            sideLabel: flag?.side,
+            action: flag?.side,
+            betDirection: def?.bet_direction,
+            betTeam: flag?.bet_team,
+            betOU: flag?.bet_direction,
+            betLine: flag?.bet_line,
+            flagMarket: flag?.market,
+            row,
+            away,
+            home,
+          }),
+          flag,
+        ) || undefined,
     };
   });
   return signalKeys.map((key) => {
@@ -1905,19 +1919,22 @@ function resolvePickSignals(
       betLogo: betTeamLogo(flag?.bet_team, away, home),
       betOU: normalizedBetOU(flag?.bet_direction),
       direction:
-        resolveSignalDirectionDisplay({
-          sideLabel: embedded?.label,
-          action: embedded?.action || embedded?.team,
-          team: embedded?.team,
-          betDirection: def?.bet_direction,
-          betTeam: flag?.bet_team,
-          betOU: flag?.bet_direction,
-          betLine: flag?.bet_line,
-          flagMarket: flag?.market,
-          row,
-          away,
-          home,
-        }) || undefined,
+        withOpenTag(
+          resolveSignalDirectionDisplay({
+            sideLabel: embedded?.label,
+            action: embedded?.action || embedded?.team,
+            team: embedded?.team,
+            betDirection: def?.bet_direction,
+            betTeam: flag?.bet_team,
+            betOU: flag?.bet_direction,
+            betLine: flag?.bet_line,
+            flagMarket: flag?.market,
+            row,
+            away,
+            home,
+          }),
+          flag,
+        ) || undefined,
     };
   }).concat(counters);
 }

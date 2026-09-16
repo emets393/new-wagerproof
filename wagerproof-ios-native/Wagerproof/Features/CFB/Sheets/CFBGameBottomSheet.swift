@@ -1338,6 +1338,20 @@ struct CFBGameBottomSheet: View {
     /// Concrete per-game pick copy — never raw HOME/AWAY.
     /// Mirrors web `resolveSignalDirectionDisplay` for the common cases.
     private func signalDirectionLabel(_ flag: CFBSlateFlag) -> String {
+        let label = baseSignalDirectionLabel(flag)
+        // Flags graded at the opener state the opener's number — tag it so it
+        // doesn't read as a wrong "current" line once the market moves
+        // (double_luck_fade "USA -4.5" while the book shows -7).
+        if flag.gradeLine?.lowercased() == "open",
+           flag.line != nil,
+           label.rangeOfCharacter(from: .decimalDigits) != nil,
+           !label.hasSuffix("ML") {
+            return label + " (open)"
+        }
+        return label
+    }
+
+    private func baseSignalDirectionLabel(_ flag: CFBSlateFlag) -> String {
         let market = flag.market.lowercased()
         let side = flag.side.trimmingCharacters(in: .whitespacesAndNewlines)
         let upper = side.uppercased()
