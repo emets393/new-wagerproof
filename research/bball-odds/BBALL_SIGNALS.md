@@ -530,6 +530,35 @@ refinement that has not cleared. Track it; bet plain S9.
   shrunk version of this (needs the explicit edge×ranked_conf feature +
   loose leaves); the rule layer carries it at full strength meanwhile.
 
+- **CBB UNLUCKY-LOSER back (2026-09-11, CBB_WP_LUCK_BRIEF.md):** team LOST a game it
+  controlled (time-averaged in-game WP ≥ .50, CBBD play WP) → BACK it ATS next game
+  52.8%/+0.9% (n=3,925, z=+3.40, 6/6 seasons, T-60 52.4%/+0.1% z=+2.89, within-team
+  permutation p<.003). Direction was the OPPOSITE of the registered prediction (it
+  was the "expect null" placebo of the CFB deceptive-win port), so it is an
+  observation, not validated. Concentrated post-hoc cells: lead share ≥ .70 & lost
+  53.7%/+2.4% (n=1,599, 6/6, T-60 53.5%); lost-deserved AND failed-deserved-cover
+  54.1%/+3.2% (n=714); next game as a DOG 54.3%/+3.7%. Paper-track 2026-27 with
+  those cells fixed; nothing active. **Deep dive (CBB_WP_LUCK_DEEP_BRIEF.md):** the
+  lucky-winner FADE is alive only on NON-conference triggers (53.5%/+2.1%, n=1,180,
+  z 2.35, T-60 53.1%; conference play 50.4% dead); the unlucky-loser BACK concentrates
+  on home-loss → next game AWAY (54.2%/+3.4%, n=1,606) and is dead when the team is a
+  −2..−8 favourite next (49.9%); REMATCH window: deserving meeting-1 loser → back in
+  meeting 2 = 54.0%/+3.2% (n=1,260, z 2.55, T-60 54.5%), best when the loser travels
+  (55.1%), no dose, no line-shift signal, no straight-up edge. Continuous luck gap in
+  points = nothing (deciles flat). **Round 3 (curve shape + model overlap):** the shape
+  that matters is the SECOND HALF — lost in REGULATION while controlling the 2nd half
+  (2H time-averaged WP ≥ .60) → back next game 55.3%/+5.5% (n=1,247, z 3.63, 6/6
+  seasons, T-60 55.1%), dose-responsive .6→.7→ 56.6%, 1H flow does NOTHING, OT losses
+  dead (29% of the cell). **CONFLUENCE with the CBB originator spread model: ship-band
+  pick whose side is a deserved loser OR whose opponent is a lucky winner = 58.7%/+12.0%
+  T-60 (n=982, 5/5 seasons 57-61%) vs the model's 55.3%; random-partition p=.007 (first
+  pass mis-built the frame and reported 59.4%/n=493 on the own-side half only — corrected
+  in cbb_wp_luck_deep5.py); 2H-flow own-side version 63.5% (n=178, p=.015); SKIP when the
+  pick FACES a deserved loser: 49.8% (n=494, p=.007 low); model does not already know the
+  flag (mean edge on flagged teams ≈ 0); outside the ship band the flag alone is 51.5%.** Totals/1H/ML/TT: nothing bettable (own TT over
+  53% eaten by vig). Opponent-flag conjunction does NOT stack (51.0%). Strictly one game
+  (game +2 = 49.0%). Paper-track cells fixed in CBB_WP_LUCK_DEEP_BRIEF.md "Round 3".
+
 ## Derivative-market weird lines (H1TT_BBALL_BRIEF2.md)
 
 **TT news-lag family (S1's mechanism, 3rd independent confirmation):**
@@ -678,7 +707,7 @@ into lines) · CBB H2H · raw height/experience/continuity-home clashes · pace
 battles · TO-vs-TO and OREB-vs-DREB standalone · stale-book chase NBA (juice
 trap) · big-fav CBB team totals (12% vig both sides) · 3-heavy dog variance
 theory (backwards) · possession-level shot-luck regression (fully priced — REGRESSION_BRIEF2) · team-specific venue-history HCA · **TEAM-level luck regression, BOTH sports, all 8 markets (see section above — 4 NBA designs + the NCAAB re-run on 4× the sample, all null, placebo wins)** · **CBB player shooting-heat (S10 port: fails the random-cut test at 73%, −1.0% at the close)** · **CBB non-shooting heat — FT%, turnovers, rebounds, assists (all 8 markets negative, both placebos beat all four)** · **CBB five-man UNIT shape — unit quality, depth drop-off, minutes concentration, rotation churn (64/64 walk-forward rows negative; team strength itself correlates 0.001 with covering)** · **the LAGGED/feed-free version of S1/S6 (51.3%/−2.0% — there is no free substitute for a pregame availability feed)** · v1/v2 GBM models vs the close (market MAE wins; model
-value is baseline + confluence only).
+value is baseline + confluence only). · **CBB FADE-THE-LUCKY-WINNER (CFB deceptive-win port, 2026-09-11): won with time-averaged WP ≤ .50 / stole the cover / both — 51.1-51.7%, z ≤ 1.5, no dose, −1 to −3% at −110, two seasons in the low 40s on the primary cell; the four-factors instrument reads 48-49%. The within-team mechanism exists (+2 pts vs the same team's other games) but lucky winners are covering teams, so it is priced. The asymmetry in CBB runs the other way — see the tracking list.**
 
 ## Segment calibration (2026-07-17, owner-prompted)
 
