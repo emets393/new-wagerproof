@@ -3,7 +3,11 @@
 Source of truth for the App Store product page. Edit here, then push to App Store
 Connect. Per-release "What's New" lives in `RELEASE_NOTES.md`, not this file.
 
-App `6757089957` — `com.wagerproof.mobile`. 3.6.2 release metadata synced and read back on 2026-09-09. Exact live 3.6.1 promotional text and description are preserved in `release-metadata/3.6.2.json`; older copy below is historical.
+App `6757089957`, bundle `com.wagerproof.mobile`. Promotional Text and What's New for the iOS 3.6.3 draft were synced and read back on 2026-09-16 for its only locale, `en-US`. Exact values are in `release-metadata/3.6.3.json`; description, keywords and URLs were left unchanged.
+
+Build 3.6.3 (390), from merge commit `e8258b70828133e5ca22acaa247c27cf114a96b0`, completed Xcode Cloud and App Store processing and is in beta testing with the Internal Testing group. The store version remains Prepare for Submission.
+
+The previous release metadata remains in `release-metadata/3.6.2.json`; older copy below is historical.
 
 | Field | Limit | Current |
 |---|---|---|

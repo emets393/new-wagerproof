@@ -1,0 +1,10 @@
+{
+  "version": "3.6.3",
+  "platform": "IOS",
+  "localizations": {
+    "en-US": {
+      "promotionalText": "Choose Premium, Premium Plus or Pro for game predictions, deeper research and personal AI agents. Compare monthly and yearly plans in our redesigned subscription screen.",
+      "whatsNew": "Find the plan that fits your research.\n\nNEW PLAN OPTIONS\nCompare Premium, Premium Plus and Pro with a clearer view of the features included in each monthly or yearly plan.\n\nPREVIEW BEFORE YOU UPGRADE\nSee what is available in the next plan while browsing research tools and AI agent features, with a direct path to upgrade.\n\nEXISTING MEMBERS KEEP THEIR ACCESS\nCurrent subscribers keep their existing features. Your subscription continues without any action needed.\n\nPOLISH THROUGHOUT THE APP\nRefined onboarding, subscription screens and feature previews, plus improvements to achievement loading."
+    }
+  }
+}

@@ -11,6 +11,24 @@ Version strings live in four files and must be bumped together — see
 
 ---
 
+## 3.6.3
+
+Find the plan that fits your research.
+
+NEW PLAN OPTIONS
+Compare Premium, Premium Plus and Pro with a clearer view of the features included in each monthly or yearly plan.
+
+PREVIEW BEFORE YOU UPGRADE
+See what is available in the next plan while browsing research tools and AI agent features, with a direct path to upgrade.
+
+EXISTING MEMBERS KEEP THEIR ACCESS
+Current subscribers keep their existing features. Your subscription continues without any action needed.
+
+POLISH THROUGHOUT THE APP
+Refined onboarding, subscription screens and feature previews, plus improvements to achievement loading.
+
+---
+
 ## 3.6.2
 
 Track skill with achievements!
