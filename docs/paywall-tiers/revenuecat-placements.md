@@ -2,7 +2,7 @@
 
 Status, September 15, 2026 UTC: iOS rule `e-ClhzcQQy` (**App version 3.6.3**) is active and ordered before the Default Rule. It requires only App Store app `app450d144c7c` and exact marketing version `3.6.3`; there is no account attribute requirement. Its four mobile placements map to `wagerproof_tiers_v1`. Other versions retain the unchanged legacy default. The current offering remains `hardPaywall`.
 
-Web rule `gxnB9Oc2V3` remains inactive and requires a QA attribute. The website's local checkout flag is enabled, but its deployment and `tiered_web_ready` remain pending. **Mobile browser checkout now goes directly to RevenueCat's hosted production Purchase Link**, independently of that website placement. `tiered_hosted_web_ready` is true and `tiered_hosted_web_url` identifies the new offering's dedicated link. Build 381 ignores those new keys and stays hidden; the updated native code is required. No customer attributes or subscription entitlements were changed. See [setup-status.md](setup-status.md).
+Web rule `gxnB9Oc2V3` is prepared for production checkout, scoped only to the production and sandbox Web Billing apps. The QA attribute condition has been removed. Activate it above the catch-all Default Rule after the release PR merges. The website checkout flag and `tiered_web_ready` are enabled; the legacy fallback remains `hardPaywall`. **Mobile browser checkout now goes directly to RevenueCat's hosted production Purchase Link**, independently of that website placement. `tiered_hosted_web_ready` is true and `tiered_hosted_web_url` identifies the new offering's dedicated link. Build 381 ignores those new keys and stays hidden; the updated native code is required. No customer attributes or subscription entitlements were changed. See [setup-status.md](setup-status.md).
 
 ## Placement identifiers
 
@@ -36,7 +36,7 @@ Optional audience attributes belong in RevenueCat, not a separate account regist
 - Web re-resolves the placement on Continue and passes the original verified Package to purchase. It does not reconstruct packages or fetch tiered packages from the global catalog.
 - Mobile browser checkout appends the authenticated RevenueCat customer ID to `https://pay.rev.cat/sjaluffkdnitjajl/` and requests USD. It omits `package_id` so the hosted selector displays all six web options. SDK identity must match the signed-in Supabase UUID. Returning to the app forces a fresh CustomerInfo fetch before granting access. This route needs neither website authentication nor a website deployment. The independent website route still validates `origin` for attribution.
 - `tiered_paywall_qa` remains a RevenueCat-managed customer attribute. The app does not self-enroll customers from preview mode, a URL, or an existing subscription. Native uses the SDK's attribute-sync method; web awaits attribute writes before the fresh placement request.
-- The native renderer, catalog-ready flag, version-only iOS rule, and hosted checkout metadata are enabled. The website placement remains inactive. Explicit design previews remain available without purchasing.
+- The native renderer, catalog-ready flag, version-only iOS rule, and hosted checkout metadata are enabled. The website placement is prepared for activation after the release PR merges. Explicit design previews remain available without purchasing.
 
 ## Verification and remaining release checks
 
