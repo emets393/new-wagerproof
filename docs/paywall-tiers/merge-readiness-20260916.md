@@ -27,7 +27,7 @@ Android continues to receive the legacy offer until a separately verified releas
 
 ## App Store release boundary
 
-Version 3.6.3 exists in Prepare for Submission. The current TestFlight build 383 is internal-only. The main-branch Xcode Cloud workflow is enabled and configured to archive an App Store-eligible build on merge; its next build number is above 383. Actual purchase/restore/upgrade QA and App Store submission follow that build.
+Version 3.6.3 exists in Prepare for Submission. The current TestFlight build 383 is internal-only. The main-branch Xcode Cloud workflow is enabled and configured to archive an App Store-eligible build on merge; its next build number is above 383. Actual purchase/restore/upgrade QA and App Store submission follow that build. Recent main builds failed because Swift 6.4 crashed in `SemanticARCOpts` while optimizing `CFBGameCard.hasMammothPlay`. The identical CFB/NFL predicates now use explicit branches instead of the crashing closure; behavior is preserved. Cloud archive verification remains necessary.
 
 The six new subscription products are configured for all 175 territories, including future territories. App-level availability was US-only at audit time; changing it affects the published version too and cannot be bound specifically to version 3.6.3. The user has been asked whether to apply that change now or at release.
 
