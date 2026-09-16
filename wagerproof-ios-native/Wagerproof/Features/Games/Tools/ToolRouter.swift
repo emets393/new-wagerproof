@@ -8,6 +8,13 @@ import WagerproofStores
 enum ToolRouter {
     @ViewBuilder
     static func leafView(for category: OutliersStore.Category) -> some View {
+        TieredAccessGate(minimum: .premium, title: "Advanced Research") {
+            toolContent(for: category)
+        }
+    }
+
+    @ViewBuilder
+    private static func toolContent(for category: OutliersStore.Category) -> some View {
         switch category {
         case .nbaAccuracy:        NBAModelAccuracyView()
         case .ncaabAccuracy:      NCAABModelAccuracyView()

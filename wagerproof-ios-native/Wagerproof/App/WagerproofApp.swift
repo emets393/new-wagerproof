@@ -57,6 +57,11 @@ struct WagerproofApp: App {
     #endif
 
     init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-enableTieredOnboardingPreview") {
+            UserDefaults.standard.set(true, forKey: "tieredOnboardingPreview")
+        }
+        #endif
         // Configure Google Sign-In once at process launch — matches the RN
         // configureGoogleSignIn() call in contexts/AuthContext.tsx.
         GoogleSignInCoordinator.configureIfNeeded()

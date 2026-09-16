@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.analytics.historical
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -104,6 +107,13 @@ import kotlin.math.sin
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoricalAnalysisScreen(sport: HistoricalAnalysisSport, modifier: Modifier = Modifier) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Historical Trends") { HistoricalAnalysisScreenContent(sport, modifier) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun HistoricalAnalysisScreenContent(sport: HistoricalAnalysisSport, modifier: Modifier = Modifier) {
+    val featurePreview = LocalFeatureGatePreview.current
     val store = remember(sport) { HistoricalAnalysisStore(sport) }
     val graph = appGraph()
     val userId = (graph.auth.phase as? AuthStore.Phase.Authenticated)?.userId
@@ -124,12 +134,16 @@ fun HistoricalAnalysisScreen(sport: HistoricalAnalysisSport, modifier: Modifier 
     var chatDockHeight by remember(sport) { mutableStateOf(0.dp) }
     val density = LocalDensity.current
 
-    LaunchedEffect(sport, userId) { store.onAppear(userId) }
+    LaunchedEffect(sport, userId) {
+        if (featurePreview) return@LaunchedEffect
+        store.onAppear(userId) }
     LaunchedEffect(store.hasLoadedOnce, store.analysis != null) {
+        if (featurePreview) return@LaunchedEffect
         if (store.hasLoadedOnce && store.analysis != null) graph.achievements.record("historical_analysis")
     }
     DisposableEffect(store) { onDispose(store::close) }
     LaunchedEffect(store.snapshot.selectedConferences) {
+        if (featurePreview) return@LaunchedEffect
         if (store.snapshot.selectedConferences.isNotEmpty() && breakdownTab == "conf") breakdownTab = "team"
     }
 

@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import RevenueCat
 import WagerproofServices
+import WagerproofModels
 import WagerproofSharedKit
 
 /// `RevenueCatStore` mirrors `wagerproof-mobile/contexts/RevenueCatContext.tsx`.
@@ -57,6 +58,8 @@ public final class RevenueCatStore {
     public private(set) var customerInfo: CustomerInfo?
     public private(set) var offering: Offering?
     public private(set) var entitlementStatus: EntitlementStatus = .unknown
+    public private(set) var subscriptionTier: SubscriptionTier?
+    public private(set) var isTieredCustomer = false
     public private(set) var subscriptionType: String?
     public private(set) var lastError: String?
 
@@ -73,7 +76,7 @@ public final class RevenueCatStore {
     /// driven by the cached entitlement state.
     public var isPro: Bool {
         if forceFreemiumMode { return false }
-        return entitlementStatus == .granted
+        return subscriptionTier == .pro
     }
 
     public var isEntitlementResolved: Bool {
@@ -108,7 +111,7 @@ public final class RevenueCatStore {
         isLoading = true
         do {
             let (info, _) = try await RevenueCatService.shared.logIn(userId: userId.uuidString)
-            apply(info, source: .login)
+            await applyTrusted(info, source: .login)
             await refreshOffering()
             lastError = nil
             // Only flip this true on the success path — a failed login
@@ -135,6 +138,8 @@ public final class RevenueCatStore {
         customerInfo = nil
         entitlementStatus = .denied
         subscriptionType = nil
+        subscriptionTier = nil
+        isTieredCustomer = false
         isLoading = false
         // Reset the gate so the next sign-in re-runs the live login fetch
         // before the paywall predicate is allowed to fire.
@@ -150,7 +155,7 @@ public final class RevenueCatStore {
         }
         do {
             let info = try await RevenueCatService.shared.customerInfo()
-            apply(info, source: .refresh)
+            await applyTrusted(info, source: .refresh)
             lastError = nil
             // A successful refresh also satisfies the paywall predicate's
             // "live data for the active user" requirement.
@@ -164,13 +169,13 @@ public final class RevenueCatStore {
     /// Restore purchases from the App Store. Trusted source.
     public func restorePurchases() async throws {
         let info = try await RevenueCatService.shared.restorePurchases()
-        apply(info, source: .restore)
+        await applyTrusted(info, source: .restore)
     }
 
     /// Force-sync purchases from the App Store. Trusted source.
     public func syncPurchases() async throws {
         let info = try await RevenueCatService.shared.syncPurchases()
-        apply(info, source: .refresh)
+        await applyTrusted(info, source: .refresh)
     }
 
     /// Fetch the current offering (used for paywall display).
@@ -182,12 +187,8 @@ public final class RevenueCatStore {
         }
     }
 
-    public func fetchOffering(forPlacement placementId: String) async -> Offering? {
-        do {
-            return try await RevenueCatService.shared.offering(forPlacement: placementId)
-        } catch {
-            return nil
-        }
+    public func fetchOffering(forPlacement placementId: String) async throws -> Offering? {
+        try await RevenueCatService.shared.offering(forPlacement: placementId)
     }
 
     public func clearError() {
@@ -199,25 +200,40 @@ public final class RevenueCatStore {
     /// Apply a `CustomerInfo` snapshot to the store. Honors the
     /// trust-downgrade guard so an untrusted stream update can never lock a
     /// paying user out — only an explicit refresh / restore / purchase can.
-    private func apply(_ info: CustomerInfo, source: CustomerInfoSource) {
-        let hasEntitlement = RevenueCatService.shared.hasProEntitlement(info)
+    private func applyTrusted(_ info: CustomerInfo, source: CustomerInfoSource) async {
+        let userID = currentUserId
+        var server: RevenueCatService.ServerSubscriptionAccess?
+        if RevenueCatService.shared.isTieredCustomer(info),
+           RevenueCatService.shared.subscriptionTier(info) != .pro {
+            server = try? await RevenueCatService.shared.serverSubscriptionAccess()
+        }
+        guard userID == currentUserId else { return }
+        apply(info, source: source, server: server)
+    }
+
+    private func apply(_ info: CustomerInfo, source: CustomerInfoSource, server: RevenueCatService.ServerSubscriptionAccess? = nil) {
+        let sdkTier = RevenueCatService.shared.subscriptionTier(info)
+        let nextTier = (server?.subscriptionTier?.rank ?? -1) > (sdkTier?.rank ?? -1) ? server?.subscriptionTier : sdkTier
+        let hasEntitlement = nextTier != nil
         let nextStatus: EntitlementStatus = hasEntitlement ? .granted : .denied
         let nextType = RevenueCatService.shared.activeSubscriptionType(info)
 
         // Trust-downgrade guard. The native StoreKit listener fires with
         // stale anonymous-identity data during sign-in; honoring it would
         // strand paying users. Real downgrades arrive via a trusted refresh.
-        if entitlementStatus == .granted, nextStatus == .denied, !source.isTrusted {
+        if (subscriptionTier?.rank ?? -1) > (nextTier?.rank ?? -1), !source.isTrusted {
             return
         }
 
         customerInfo = info
+        subscriptionTier = nextTier
+        isTieredCustomer = RevenueCatService.shared.isTieredCustomer(info) || server?.isTieredCustomer == true
         entitlementStatus = nextStatus
         subscriptionType = nextType
 
         // Persist a coarse-grained snapshot to the App Group defaults so
         // widgets + cold launch can render Pro state without waiting for RC.
-        AppGroup.defaults.set(hasEntitlement, forKey: AppGroupKey.proEntitlementGranted)
+        AppGroup.defaults.set(nextTier == .pro, forKey: AppGroupKey.proEntitlementGranted)
         if let nextType {
             AppGroup.defaults.set(nextType, forKey: AppGroupKey.proSubscriptionType)
         } else {
@@ -258,9 +274,21 @@ public final class RevenueCatStore {
         isLoading: Bool = false
     ) {
         self.entitlementStatus = status
+        self.subscriptionTier = status == .granted ? .pro : nil
         self.subscriptionType = subscriptionType
         self.isLoading = isLoading
         self.isInitialized = true
+        if let value = UserDefaults.standard.string(forKey: "tieredTestAccess") {
+            if let tier = SubscriptionTier(rawValue: value) { debugSetTier(tier) }
+            else if value == "expired" { debugSetTier(nil) }
+        }
+    }
+    public func debugSetTier(_ tier: SubscriptionTier?, enrolled: Bool = true) {
+        subscriptionTier = tier
+        isTieredCustomer = enrolled
+        entitlementStatus = tier == nil ? .denied : .granted
+        hasResolvedActiveUserEntitlement = true
+        isLoading = false
     }
     #endif
 }

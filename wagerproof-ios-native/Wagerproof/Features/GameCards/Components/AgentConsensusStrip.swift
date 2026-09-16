@@ -1,4 +1,5 @@
 import SwiftUI
+import WagerproofStores
 import WagerproofDesign
 import WagerproofModels
 
@@ -30,7 +31,14 @@ struct AgentConsensusStrip: View {
     private static let emerald = Color(hex: 0x10B981)
     private static let maxVisible = 4
 
+    @Environment(ProAccessStore.self) private var tierAccess: ProAccessStore?
+
     var body: some View {
+        if tierAccess?.isTierRestricted(.pro) != true { consensusContent }
+    }
+
+    @ViewBuilder
+    private var consensusContent: some View {
         if consensus.agents <= 0 {
             EmptyView()
         } else if consensus.flagged {

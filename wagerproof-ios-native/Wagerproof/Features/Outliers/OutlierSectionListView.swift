@@ -20,6 +20,11 @@ struct OutlierSectionListView: View {
     @Environment(MLBF5SplitsStore.self) private var f5Store: MLBF5SplitsStore?
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Outliers") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 switch kind {

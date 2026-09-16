@@ -85,6 +85,11 @@ struct AgentDetailView: View {
     }
 
     var body: some View {
+        TieredAccessGate(minimum: .pro, title: "Agent Picks") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         CollapsingWidgetScroll(heroMaxHeight: 196, heroMinHeight: 60) { _ in
             AgentPixelWaveBackground(
                 avatarColor: agent?.avatarColor ?? "#6366f1",
@@ -150,6 +155,7 @@ struct AgentDetailView: View {
         // Guarded so the initial load stays owned by the .task below. Also
         // resumes an in-flight generation run surfaced by the fresh snapshot.
         .onAppear {
+            guard !proAccess.isTierRestricted(.pro) else { return }
             ReviewPromptCoordinator.shared.recordAgentDetailViewed(agentID: agentId)
             guard store.snapshot != nil else { return }
             Task {
@@ -158,6 +164,7 @@ struct AgentDetailView: View {
             }
         }
         .task(id: historyReloadKey) {
+            guard !proAccess.isTierRestricted(.pro) else { return }
             if store.snapshot == nil {
                 await store.refreshSnapshot()
             }

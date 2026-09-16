@@ -16,6 +16,11 @@ struct OutlierMatchupDetailView: View {
     @State private var trendsSheet: MLBGameTrends?
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Outliers") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         CollapsingWidgetScroll(heroMaxHeight: 152, heroMinHeight: 96) { progress in
             TeamAuraBackground(
                 awayColor: item.away.primary,

@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.props.detail
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -69,6 +72,17 @@ fun PlayerPropDetailScreen(
     initialLine: Double? = null,
     onBack: () -> Unit,
 ) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Player Props") { PlayerPropDetailScreenContent(selection, initialLine, onBack) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun PlayerPropDetailScreenContent(
+    selection: PlayerPropSelection,
+    initialLine: Double? = null,
+    onBack: () -> Unit,
+) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     BackHandler(onBack = onBack)
     DisposableEffect(selection.id) {
@@ -76,7 +90,9 @@ fun PlayerPropDetailScreen(
     }
     val scope = rememberCoroutineScope()
     val markets = selection.props
-    androidx.compose.runtime.LaunchedEffect(selection.id) { if (markets.isNotEmpty()) graph.achievements.record("props") }
+    androidx.compose.runtime.LaunchedEffect(selection.id) {
+        if (featurePreview) return@LaunchedEffect
+        if (markets.isNotEmpty()) graph.achievements.record("props") }
     val listState = rememberLazyListState()
 
     val initialMarket = remember(selection.id) {
@@ -107,6 +123,7 @@ fun PlayerPropDetailScreen(
 
     // Scroll-spy: the topmost visible market widget is the active market.
     LaunchedEffect(listState) {
+        if (featurePreview) return@LaunchedEffect
         snapshotFlow { listState.firstVisibleItemIndex }.collect { idx ->
             if (System.currentTimeMillis() < suppressSpyUntil) return@collect
             markets.getOrNull(idx)?.market?.let { m -> if (m != activeMarket) activeMarket = m }

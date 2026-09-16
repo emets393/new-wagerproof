@@ -194,14 +194,14 @@ struct SettingsView: View {
     @ViewBuilder
     private var heroCard: some View {
         let isLoading = proAccess.isLoading
-        let isPro = proAccess.isPro
+        let isPro = proAccess.hasSubscription
         let title = isLoading
             ? "Verifying access"
-            : (isPro ? "You are Pro" : "Go Pro Today")
+            : (isPro ? "WagerProof \(proAccess.subscriptionTier?.title ?? "Pro")" : "Explore WagerProof")
         let subtitle = isLoading
             ? "Checking plan"
-            : (isPro ? "Premium picks unlocked" : "Unlock premium picks")
-        let actionWord = isLoading ? "Hold" : (isPro ? "Manage" : "Upgrade")
+            : (proAccess.isPreviewing ? "Previewing \(proAccess.planTitle) access" : (isPro ? "Your membership is active" : "Find the plan for your research"))
+        let actionWord = isLoading ? "Hold" : (proAccess.isPreviewing ? "Preview" : (isPro ? "Manage" : "Upgrade"))
 
         HoneydewOptionCard(
             title: title,
@@ -669,7 +669,8 @@ struct SettingsView: View {
 
     private func handleHeroTap() {
         if proAccess.isLoading { return }
-        if proAccess.isPro {
+        if proAccess.isPreviewing { isPaywallPresented = true; return }
+        if proAccess.hasSubscription {
             handleManageSubscriptionTap()
         } else {
             isPaywallPresented = true
@@ -678,7 +679,8 @@ struct SettingsView: View {
 
     private func handleManageSubscriptionTap() {
         if proAccess.isLoading { return }
-        if proAccess.isPro {
+        if proAccess.isPreviewing { isPaywallPresented = true; return }
+        if proAccess.hasSubscription {
             // Mirrors RN: prefer the in-SDK customer center, fall back to
             // App Store subscriptions URL if the SDK didn't enable the UI.
             isOpeningCustomerCenter = true

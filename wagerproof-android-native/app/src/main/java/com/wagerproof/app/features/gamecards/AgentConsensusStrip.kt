@@ -55,6 +55,8 @@ private const val FALLBACK_AVATAR_COLOR = "#64748B"
  */
 @Composable
 fun AgentConsensusStrip(consensus: GameAgentConsensus, modifier: Modifier = Modifier) {
+    if (com.wagerproof.app.di.appGraph().proAccess.isTierRestricted(com.wagerproof.core.models.SubscriptionTier.PRO)) return
+
     if (consensus.agents <= 0) return
 
     val visible = consensus.avatars.take(MAX_VISIBLE)

@@ -75,6 +75,8 @@ fun AgentConsensusSection(
     gameDate: String,
     modifier: Modifier = Modifier,
 ) {
+    if (com.wagerproof.app.di.appGraph().proAccess.isTierRestricted(com.wagerproof.core.models.SubscriptionTier.PRO)) return
+
     val store = appGraph().agentConsensus
 
     // Widens the feed's existing slate coverage rather than replacing it; a

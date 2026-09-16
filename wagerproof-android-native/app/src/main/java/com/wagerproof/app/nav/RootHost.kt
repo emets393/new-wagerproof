@@ -203,7 +203,7 @@ fun RootHost(modifier: Modifier = Modifier) {
         authenticated = authPhase is AuthStore.Phase.Authenticated,
         hasResolvedActiveUserEntitlement = graph.revenueCat.hasResolvedActiveUserEntitlement,
         proAccessLoading = graph.proAccess.isLoading,
-        isPro = graph.proAccess.isPro,
+        isPro = graph.proAccess.hasSubscription,
         paywallDismissed = paywallDismissed,
         testPaywallOverride = router.testPaywallOverride,
     )

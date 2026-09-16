@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.props
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -121,6 +124,16 @@ fun PropsScreen(
     modifier: Modifier = Modifier,
     onFullScreenChanged: (Boolean) -> Unit = {},
 ) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Player Props") { PropsScreenContent(modifier, onFullScreenChanged) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun PropsScreenContent(
+    modifier: Modifier = Modifier,
+    onFullScreenChanged: (Boolean) -> Unit = {},
+) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     val store = graph.props
     val parlayGod = graph.parlayGod
@@ -153,6 +166,7 @@ fun PropsScreen(
 
     // Screen-entry + sport-switch load, mirroring iOS `.task(id: selectedSport)`.
     LaunchedEffect(store.selectedSport) {
+        if (featurePreview) return@LaunchedEffect
         quickFilterText = ""
         if (store.selectedSport != PropsStore.Sport.MLB) mlbFilters = MLBPropFeedFilters()
         if (store.selectedSport != PropsStore.Sport.NFL) nflFilters = NFLPropFeedFilters()
@@ -166,6 +180,7 @@ fun PropsScreen(
 
     // Reactive filter rules (ported exactly).
     LaunchedEffect(mlbFilters.market) {
+        if (featurePreview) return@LaunchedEffect
         val market = mlbFilters.market
         if (market == "batter_home_runs") {
             mlbFilters = mlbFilters.copy(market = null)
@@ -174,6 +189,7 @@ fun PropsScreen(
         }
     }
     LaunchedEffect(nflFilters.market) {
+        if (featurePreview) return@LaunchedEffect
         val market = nflFilters.market
         if (market != null) {
             if (nflFilters.signalsOnly) nflFilters = nflFilters.copy(signalsOnly = false)
@@ -181,6 +197,7 @@ fun PropsScreen(
         }
     }
     LaunchedEffect(nflFilters.signalsOnly) {
+        if (featurePreview) return@LaunchedEffect
         if (store.selectedSport == PropsStore.Sport.NFL && nflFilters.signalsOnly) {
             sortMode = PropSortMode.HIT_RATE
             val gameId = nflFilters.gameId
@@ -190,6 +207,7 @@ fun PropsScreen(
         }
     }
     LaunchedEffect(store.nflPlayers) {
+        if (featurePreview) return@LaunchedEffect
         val market = nflFilters.market ?: return@LaunchedEffect
         if (market !in NFLPropFeedFilters.sheetMarkets(store.nflPlayers).allKeys) {
             nflFilters = nflFilters.copy(market = null)
@@ -205,7 +223,9 @@ fun PropsScreen(
         else -> "feed"
     }
 
-    LaunchedEffect(dest) { onFullScreenChanged(dest != "feed") }
+    LaunchedEffect(dest) {
+        if (featurePreview) return@LaunchedEffect
+        onFullScreenChanged(dest != "feed") }
     DisposableEffect(Unit) {
         onDispose { onFullScreenChanged(false) }
     }
@@ -242,7 +262,7 @@ fun PropsScreen(
                 parlayGod = parlayGod,
                 parlayAccess = when {
                     graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
-                    graph.proAccess.isPro -> ParlayGodAccessState.Granted
+                    graph.proAccess.hasAccess(com.wagerproof.core.models.SubscriptionTier.PREMIUM) -> ParlayGodAccessState.Granted
                     else -> ParlayGodAccessState.Locked
                 },
                 sortMode = sortMode,

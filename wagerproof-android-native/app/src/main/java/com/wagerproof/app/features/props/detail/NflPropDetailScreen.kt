@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.props.detail
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -109,6 +112,16 @@ fun NflPropDetailScreen(
     selection: NFLPlayerPropSelection,
     onBack: () -> Unit,
 ) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Player Props") { NflPropDetailScreenContent(selection, onBack) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun NflPropDetailScreenContent(
+    selection: NFLPlayerPropSelection,
+    onBack: () -> Unit,
+) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     BackHandler(onBack = onBack)
     DisposableEffect(selection.id) {
@@ -143,10 +156,13 @@ fun NflPropDetailScreen(
             player.markets.map { fm -> NflDisplayMarket(fm.market, fm.label, null, fm) }
         }
     }
-    LaunchedEffect(displayMarkets.isNotEmpty()) { if (displayMarkets.isNotEmpty()) graph.achievements.record("props") }
+    LaunchedEffect(displayMarkets.isNotEmpty()) {
+        if (featurePreview) return@LaunchedEffect
+        if (displayMarkets.isNotEmpty()) graph.achievements.record("props") }
     val activeDisplayMarket = displayMarkets.firstOrNull { it.key == activeMarket } ?: displayMarkets.firstOrNull()
 
     LaunchedEffect(listState, displayMarkets) {
+        if (featurePreview) return@LaunchedEffect
         snapshotFlow { listState.firstVisibleItemIndex }
             .distinctUntilChanged()
             .collect { index ->
@@ -157,6 +173,7 @@ fun NflPropDetailScreen(
     }
 
     LaunchedEffect(selection.id) {
+        if (featurePreview) return@LaunchedEffect
         val playerId = player.playerId?.takeIf { it.isNotEmpty() }
         detail = if (playerId != null) {
             NFLPropPageService.shared.detail(playerId)

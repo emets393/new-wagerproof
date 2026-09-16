@@ -201,7 +201,7 @@ fun NFLGameDetailPage(
     val groups = groupedPicks(picks)
     val parlayAccess = when {
         graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
-        graph.proAccess.isPro -> ParlayGodAccessState.Granted
+        graph.proAccess.hasAccess(com.wagerproof.core.models.SubscriptionTier.PREMIUM) -> ParlayGodAccessState.Granted
         else -> ParlayGodAccessState.Locked
     }
 

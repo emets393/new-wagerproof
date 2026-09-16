@@ -1,5 +1,6 @@
 import Foundation
 import RevenueCat
+import WagerproofModels
 
 /// `RevenueCatService` wraps the RevenueCat Swift SDK. It mirrors
 /// `wagerproof-mobile/services/revenuecat.ts` byte-for-byte where APIs overlap
@@ -26,6 +27,8 @@ public final class RevenueCatService: @unchecked Sendable {
         public static let onboarding = "onboarding"
         public static let genericFeature = "generic_feature"
         public static let agentFeature = "agent_feature"
+        public static let tierUpgradePremium = "tier_upgrade_premium"
+        public static let tierUpgradePro = "tier_upgrade_pro"
     }
 
     private var configured = false
@@ -201,15 +204,23 @@ public final class RevenueCatService: @unchecked Sendable {
         return offerings.current
     }
 
-    /// Returns the placement-specific offering, falling back to the current
-    /// offering if RC has no placement attached. Mirrors RN's
-    /// `getCurrentOfferingForPlacement(placementId)` fallback behavior.
+    /// Sync pending attributes before targeting. The SDK owns default-placement
+    /// fallback; nil is an intentional No Offering, never a reason to use current.
     public func offering(forPlacement placementIdentifier: String) async throws -> Offering? {
-        let offerings = try await Purchases.shared.offerings()
-        if let placementOffering = offerings.currentOffering(forPlacement: placementIdentifier) {
-            return placementOffering
+        guard configured else { throw PlacementError.notConfigured }
+        let userID = Purchases.shared.appUserID
+        guard let offerings = try await Purchases.shared.syncAttributesAndOfferingsIfNeeded() else {
+            throw PlacementError.missingOfferings
         }
-        return offerings.current
+        guard userID == Purchases.shared.appUserID else { throw PlacementError.identityChanged }
+        return offerings.currentOffering(forPlacement: placementIdentifier)
+    }
+
+    public enum PlacementError: LocalizedError {
+        case notConfigured, identityChanged, missingOfferings
+        public var errorDescription: String? {
+            "Subscription options could not be loaded for this account. Please try again."
+        }
     }
 
     public func restorePurchases() async throws -> CustomerInfo {
@@ -227,10 +238,37 @@ public final class RevenueCatService: @unchecked Sendable {
         info.entitlements.active[Self.entitlementIdentifier] != nil
     }
 
+    public func subscriptionTier(_ info: CustomerInfo) -> SubscriptionTier? {
+        SubscriptionTier.resolve(activeEntitlementIDs: Set(info.entitlements.active.keys))
+    }
+
+    public struct ServerSubscriptionAccess: Decodable, Sendable {
+        public let subscriptionTier: SubscriptionTier?
+        public let isTieredCustomer: Bool?
+    }
+
+    /// The authenticated resolver checks historical uppercase/anonymous RC
+    /// identities. A legacy Pro plan on another identity must beat a new lower
+    /// tier on the current SDK identity.
+    public func serverSubscriptionAccess() async throws -> ServerSubscriptionAccess {
+        let client = await MainSupabase.shared.client
+        return try await client.functions.invoke("resolve-my-entitlement")
+    }
+
+    public func isTieredCustomer(_ info: CustomerInfo) -> Bool {
+        SubscriptionTier.isTieredCustomer(productIDs: info.allPurchasedProductIdentifiers,
+                                         entitlementIDs: Set(info.entitlements.all.keys))
+    }
+
+    private func highestEntitlement(_ info: CustomerInfo) -> EntitlementInfo? {
+        guard let tier = subscriptionTier(info) else { return nil }
+        return info.entitlements.active[tier.entitlementID]
+    }
+
     /// Map an active entitlement's productIdentifier to a coarse subscription
     /// type. Matches RN's `getActiveSubscriptionType(customerInfo)`.
     public func activeSubscriptionType(_ info: CustomerInfo) -> String? {
-        guard let entitlement = info.entitlements.active[Self.entitlementIdentifier] else { return nil }
+        guard let entitlement = highestEntitlement(info) else { return nil }
         let productId = entitlement.productIdentifier.lowercased()
         if productId.contains("lifetime") { return "lifetime" }
         if productId.contains("annual") || productId.contains("yearly") { return "yearly" }
@@ -241,10 +279,10 @@ public final class RevenueCatService: @unchecked Sendable {
     /// Returns the active entitlement's productIdentifier (used by the
     /// secret-settings "Check Offerings" debug action).
     public func activeProductIdentifier(_ info: CustomerInfo) -> String? {
-        info.entitlements.active[Self.entitlementIdentifier]?.productIdentifier
+        highestEntitlement(info)?.productIdentifier
     }
 
     public func activeExpirationDate(_ info: CustomerInfo) -> Date? {
-        info.entitlements.active[Self.entitlementIdentifier]?.expirationDate
+        highestEntitlement(info)?.expirationDate
     }
 }

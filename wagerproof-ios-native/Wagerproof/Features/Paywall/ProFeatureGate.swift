@@ -62,37 +62,12 @@ struct ProFeatureGate<Content: View, Fallback: View>: View {
     }
 
     private var upgradePrompt: some View {
-        VStack(spacing: Spacing.md) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(Color(hex: 0xFFD700))
-            Text("Pro Feature")
-                .font(AppFont.title)
-                .foregroundStyle(Color.appTextPrimary)
-            Text("This feature is available for WagerProof Pro subscribers.")
-                .font(AppFont.body)
-                .foregroundStyle(Color.appTextSecondary)
-                .multilineTextAlignment(.center)
-
-            Button {
-                isPaywallPresented = true
-            } label: {
-                Text("Upgrade to Pro")
-                    .font(AppFont.bodyEmphasized)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.xl)
-                    .padding(.vertical, Spacing.md)
-                    .background(Color.appPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-        }
-        .padding(Spacing.xl)
-        .frame(maxWidth: .infinity)
-        .background(Color.appSurfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        LockedFeaturePreview(minimum: .pro, title: "More with WagerProof Pro", action: {
+            isPaywallPresented = true
+        }) { content }
         .padding(Spacing.lg)
         .sheet(isPresented: $isPaywallPresented) {
-            RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
+            RevenueCatPaywallView(placementId: "tier_upgrade_pro", minimumTier: .pro)
         }
     }
 }

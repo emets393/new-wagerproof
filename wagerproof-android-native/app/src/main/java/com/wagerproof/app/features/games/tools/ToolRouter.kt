@@ -17,6 +17,7 @@ import com.wagerproof.core.stores.OutliersStore
 object ToolRouter {
     @Composable
     fun LeafView(category: OutliersStore.Category, modifier: Modifier = Modifier) {
+        com.wagerproof.app.features.paywall.TieredAccessGate(com.wagerproof.core.models.SubscriptionTier.PREMIUM, "Advanced Research") {
         when (category) {
             OutliersStore.Category.nbaAccuracy -> NBAModelAccuracyView(modifier)
             OutliersStore.Category.ncaabAccuracy -> NCAABModelAccuracyView(modifier)
@@ -25,6 +26,7 @@ object ToolRouter {
             OutliersStore.Category.nflHistoricalAnalysis -> HistoricalAnalysisScreen(HistoricalAnalysisSport.NFL, modifier)
             OutliersStore.Category.cfbHistoricalAnalysis -> HistoricalAnalysisScreen(HistoricalAnalysisSport.CFB, modifier)
             OutliersStore.Category.`value`, OutliersStore.Category.fade -> Unit
+        }
         }
     }
 }

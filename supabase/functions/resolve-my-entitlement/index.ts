@@ -45,6 +45,9 @@ serve(async (req) => {
 
     return json(200, {
       hasPremiumAccess: result.hasPremiumAccess === true,
+      subscriptionTier: result.isAdmin ? 'pro' : result.entitlement?.tier ?? null,
+      isTieredCustomer: result.entitlement?.isTieredCustomer === true,
+      hasSubscription: result.isAdmin || result.entitlement?.tier != null,
       isAdmin: result.isAdmin === true,
       source: result.entitlement?.source ?? (result.isAdmin ? 'admin' : null),
       subscriptionStatus: result.entitlement?.subscriptionStatus ?? null,

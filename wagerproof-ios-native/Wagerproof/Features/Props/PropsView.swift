@@ -138,6 +138,11 @@ struct PropsView: View {
     @Namespace private var cardTransition
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Player Props") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
