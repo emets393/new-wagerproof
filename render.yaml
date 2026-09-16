@@ -31,6 +31,8 @@ envVarGroups:
     envVars:
       - key: SUPABASE_SERVICE_KEY      # service-role key (writes slate_* tables, finals, logs)
         sync: false
+      - key: FP_DATA_TOKEN             # Fantasy Points Data Suite JWT (fp-data-inseason); recapture from the web app on 401
+        sync: false
       - key: CFBD_API_KEY              # College Football Data API (CFB fetch)
         sync: false
       - key: ODDS_API_KEY             # The Odds API (event/odds history)
@@ -147,6 +149,26 @@ services:
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
     startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  # --- Fantasy Points Data Suite in-season pull (owner 2026-09-16: "$200 for this data,
+  # get everything"). fp_pull.py --inseason re-pulls the last completed week +/-1 for every
+  # tool/scope the subscription can read (29 tools, 46 scopes) into raw cells, then
+  # fp_load.py upserts the lean rows (current + prior season) into fp_data. Tue 12:00 UTC
+  # after MNF grades, Thu 12:00 UTC to catch FP's charting corrections. Full 2021+ history
+  # is the local parquet warehouse, not this cron. FP_DATA_TOKEN = the web app's JWT.
+  - type: cron
+    name: fp-data-inseason
+    runtime: python
+    schedule: "0 12 * 9-12,1-2 2,4"
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nFP_DATA_TOKEN=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$FP_DATA_TOKEN" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && python3 fp_pull.py --inseason --workers 3 && python3 fp_load.py
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION
