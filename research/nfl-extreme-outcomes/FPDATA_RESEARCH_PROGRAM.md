@@ -120,3 +120,16 @@ press signals it confirms, FADE/SKIP spread signals it opposes (44% = losing).
 Best aligned cells: primetime_tight_under 77%, tight_soft_ml_fade_home 80%,
 primetime_tight_favorite 75%, sides_model 58.6%. Caveat: 23-25 = build era (shared
 info); confirm 2026 live. ACTION: add model-confluence tag to NFL flag surfacing.
+
+## INJURY / AVAILABILITY FILTER (2026-09-17) — owner catch, quantified + built
+Team composites blend whoever played → injury/roster contamination. QUANTIFIED:
+19.4% of team-games (2023-25) had a NON-primary QB start; model spreads @2pt =
+69.2% CLEAN (both primary QB, n130) vs 64.8% backup (n71). ~4.5pt degradation.
+BUILT: availability flag from nfl_injuries_raw (live, 2026 wk2 present) + wk1-pbp
+QB-starter baseline. Flag = QB out/change OR key skill/OL out → reduce confidence
+or skip. Week-2 2026 flags: SEA@ARI (SEA QB Darnold OUT + ARI RB Conner out = DOUBLE),
+CLE (QB), GB (RB Jacobs), DET/MIN/NO (RB), HOU/NE (WR). Of the 3 total plays,
+CAR@ATL + LV@LAC CLEAN; NO@BAL minor (RB). SEA@ARI now correctly downgraded.
+NEXT (the real fix): player-availability-WEIGHTED composites — build each team's
+expected performance from PROJECTED-ACTIVE players' individual profiles (slot%,
+sep, alignment already in warehouse), so a missing WR1/backup QB changes the number.
