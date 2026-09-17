@@ -127,9 +127,11 @@ Team composites blend whoever played → injury/roster contamination. QUANTIFIED
 69.2% CLEAN (both primary QB, n130) vs 64.8% backup (n71). ~4.5pt degradation.
 BUILT: availability flag from nfl_injuries_raw (live, 2026 wk2 present) + wk1-pbp
 QB-starter baseline. Flag = QB out/change OR key skill/OL out → reduce confidence
-or skip. Week-2 2026 flags: SEA@ARI (SEA QB Darnold OUT + ARI RB Conner out = DOUBLE),
-CLE (QB), GB (RB Jacobs), DET/MIN/NO (RB), HOU/NE (WR). Of the 3 total plays,
-CAR@ATL + LV@LAC CLEAN; NO@BAL minor (RB). SEA@ARI now correctly downgraded.
+or skip. ⚠ FILTER BUG FIXED (owner catch): a QB-out only flags if the OUT player is the
+team STARTER (most-recent-wk primary passer). CLE (Gabriel) + SEA (Darnold) were
+BACKUPS -> false positives, removed. Corrected wk2 flags: NO QB changes; key-skill
+outs = ARI Conner/GB Jacobs/DET Pacheco/MIN Mason (RB), HOU Dell/NE A.J.Brown (WR).
+3 total plays: CAR@ATL CLEAN, LV@LAC CLEAN, NO@BAL minor(RB). SEA@ARI = ARI RB flag only.
 NEXT (the real fix): player-availability-WEIGHTED composites — build each team's
 expected performance from PROJECTED-ACTIVE players' individual profiles (slot%,
 sep, alignment already in warehouse), so a missing WR1/backup QB changes the number.
