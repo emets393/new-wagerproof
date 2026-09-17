@@ -62,3 +62,13 @@ included as feature (predict-the-raw-quantity law). NO blind combinatorial sweep
 CONCLUSION: sides edges from this data require timing/interaction constructs not
 yet found — do NOT re-run level-based versions. Effort priority = PROPS (validated
 domain: separator×man 55.7%) via the composite+alignment+coverage feature matrix.
+
+## COMPOSITE-V2 TOTALS MODEL — FROZEN SPEC (2026-09-17)
+exp_fp_composite_v2.py | 16 reliability-gated engineered composites -> 8 off-vs-def
+DIFFERENTIALS + scheme + core EPA + market (36 feats) | ridge λ=50 (dose held at
+10/50/200 — not a λ cherry-pick) | walk-forward 2023-25, wk4+:
+totals 54.0% @2+ (261) / 58.2% @3+ (134) / 61.7% @4+ (60), monotone dose.
+INDEPENDENCE CONFIRMED: 4/135 picks overlap consensus_totals; non-overlap 76-54 (58.5%).
+Caveats: 2025 thr3 ran 7-10 (small n); grade-vs-T60 confirm pending.
+STATUS: TRACKING — paper-trade 2026 weekly (score after each FP data refresh);
+go-live decision after ~25 live picks. Spread pulse (54.4% @2, n~200) tracking-only.
