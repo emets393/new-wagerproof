@@ -161,3 +161,16 @@ contaminated 63%); do NOT try to re-predict them from thin backup data. Skill-
 position availability-weighting untested but same mechanism (market prices stars)
 makes it unlikely to beat the filter — test skeptically if at all.
 PRODUCTION: FP-only full model + injury/availability FILTER (skip flagged games).
+
+## PLAYER PROPS (2026-09-17) — receiving hard, RUSHING works via opportunity×matchup
+exp_prop_receiving.py + exp_prop_cells.py + rushing cells.
+- Global regression (predict stat w/ line as feature): reproduces line, 48-51%. DEAD.
+- RECEIVING cells (lined rows only; 2023 close_line was NaN → must drop/rebuild):
+  mostly ~50% (efficient market). separator×man modest 53.9% rec-yds (z1.3). Slot/
+  first-read/TPRR/two-high cells all noise. Books price receiving granularity well.
+- RUSHING (RB rush_yds) — owner's opportunity×matchup thesis CONFIRMED:
+  ★ favorite RB (spread<=-3) vs SOFT run front (bot-third stuff) → OVER 55.9% (n195, z1.65)
+  ★ underdog RB (spread>=+4) → UNDER 55.3% (z-2.15); baseline RB under ~52%.
+  Volume(game script) × OL-DL matchup is the working combination.
+CANDIDATES (paper 2026): rush favorite×soft-front OVER, underdog UNDER, sep×man rec.
+NEXT: firm rushing combo (add dropback/pace volume proj), apply to upcoming slate.
