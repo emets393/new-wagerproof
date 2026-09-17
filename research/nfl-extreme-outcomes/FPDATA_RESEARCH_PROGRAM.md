@@ -135,3 +135,16 @@ outs = ARI Conner/GB Jacobs/DET Pacheco/MIN Mason (RB), HOU Dell/NE A.J.Brown (W
 NEXT (the real fix): player-availability-WEIGHTED composites — build each team's
 expected performance from PROJECTED-ACTIVE players' individual profiles (slot%,
 sep, alignment already in warehouse), so a missing WR1/backup QB changes the number.
+
+
+## STARTER-IDENTITY NUANCE (2026-09-17, owner catch #2)
+QB starter = FIRST PASSER of the game, NOT most-attempts (starter can get hurt
+early & backup out-throws him — e.g. Darnold started SEA wk1, hurt Q1, Lock threw
+23-3). Attempt-count logic misclassifies every start-then-hurt game.
+Rebuilt flags (_qb_situation_flags.parquet): starter_hurt_early (starter!=majority)
+OR starter_change (game starter != prior game's starter). 12.8% of games.
+Re-quantified w/ correct logic: CLEAN 69.0%/77.0% @2/3pt vs QB-situation 62.8%/71.4%
+— consistent ~6pt gap both thresholds (earlier anomaly was the bad definition).
+LIVE wk2 corrected: SEA@ARI IS flagged (Darnold=true starter, out -> Lock starts)
++ ARI RB; CLE clean (Watson starts, backup Gabriel out). Live starter = first
+passer of most recent game, cross-checked vs injury report.
