@@ -72,3 +72,14 @@ INDEPENDENCE CONFIRMED: 4/135 picks overlap consensus_totals; non-overlap 76-54 
 Caveats: 2025 thr3 ran 7-10 (small n); grade-vs-T60 confirm pending.
 STATUS: TRACKING — paper-trade 2026 weekly (score after each FP data refresh);
 go-live decision after ~25 live picks. Spread pulse (54.4% @2, n~200) tracking-only.
+
+## ★★ COMPOSITE-V3 — SPREADS CRACKED (2026-09-17)
+exp_fp_composite_v3.py adds 4 DISSECTION FITS (opponent-mix-weighted expectations):
+  fit_scheme_pass (QB efficiency per shell × opp shell diet) — LARGEST coef -1.07
+  fit_run_concept (own man/zone rush success vs this front's concept success allowed) +0.37
+  fit_sack_timing (QB hold time - D time-to-sack); fit_explosive
+SPREADS vs close: 56.1%@1 / 60.6%@2 / 66.0%@3 / 68.8%@4, z up to +3.9, per-season
+64/51/70 (no losing yr). FIRST spread edge in 6 constructs — dissection fits are why.
+TOTALS held: 54.6%@2 / 56.3%@3. Calibration clean (2-4pt-better bucket → +2.9 realized).
+STATUS: TRACKING — freeze v3 spec, T-60 grade confirm, paper 2026 both markets.
+2024 soft (51%@2) = variance watch.
