@@ -97,3 +97,14 @@ SPREAD thr>=2 by week: wk1-3 61% / wk4-6 59% / wk7-11 59% / wk12-18 74% / ALL 66
 Per-season wk1-6: 52/62/67 (no losing yr). Per-season ALL: 65/60/78. Volume ~2x v3.
 This is the PRODUCTION spec. Freeze; T-60 grade confirm + 2026 paper both markets.
 KEY LESSON: carry player/scheme traits into FITS (not team composites) for early season.
+
+## v5 SITUATIONAL LAYER (2026-09-17) — owner idea, confirmed for totals
+exp_fp_v5_situational.py: added referee scoring tendency (walk-forward prior-season
+pts-over-expected, shrunk <20 games), rest/bye/short-week, primetime, weather, div.
+ABLATION verdict: TARGETED helps, kitchen-sink HURTS (dilution).
+  v4 baseline: SP3 71.2%, TOT3 58.2%
+  +referee only: TOT3 60.0% | +rest/primetime only: TOT3 62.1% | +ALL: TOT3 54.5% (worse)
+  BEST = v4 + referee + rest/bye/short-week/primetime: SP3 72.1%, TOT2 57.0%, TOT3 59.5%.
+Situational helps TOTALS (scoring-environment context) more than spreads; weather/dome
+add nothing (already in line). Per-season TOT thr3: 70/52/53. Fold targeted block into
+production spec. Do NOT add weather or the full situational dump.
