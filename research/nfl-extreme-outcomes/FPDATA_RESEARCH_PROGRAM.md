@@ -83,3 +83,17 @@ SPREADS vs close: 56.1%@1 / 60.6%@2 / 66.0%@3 / 68.8%@4, z up to +3.9, per-seaso
 TOTALS held: 54.6%@2 / 56.3%@3. Calibration clean (2-4pt-better bucket → +2.9 realized).
 STATUS: TRACKING — freeze v3 spec, T-60 grade confirm, paper 2026 both markets.
 2024 soft (51%@2) = variance watch.
+
+## ★★★ COMPOSITE-V4 — EARLY-SEASON SOLVED (2026-09-17)
+exp_fp_v4_earlyseason.py. Problem: v3 fits reset each Sept -> weak wk1-6 (50%).
+FIX (owner's Rodgers idea, at the FIT layer): seed entering-game values with
+prior-season, shrink out as current games accrue:
+  - fit_scheme_pass: team per-shell pass efficiency + opp shell diet BOTH prior-
+    seeded (QB's 2024 vs-Cover-2 -> 2025 wk1). Shells coach/QB-driven, persist.
+  - composites: SELECTIVE carry — only the 7 with YoY r>=0.35 (qb_hold, runblock,
+    recv_playmaking, rz_usage, passrush, scheme_man, scheme_twohigh). Rest reset.
+    (Naive carry-ALL failed — market prices team priors; carry only persistent+granular.)
+SPREAD thr>=2 by week: wk1-3 61% / wk4-6 59% / wk7-11 59% / wk12-18 74% / ALL 66% (n=246).
+Per-season wk1-6: 52/62/67 (no losing yr). Per-season ALL: 65/60/78. Volume ~2x v3.
+This is the PRODUCTION spec. Freeze; T-60 grade confirm + 2026 paper both markets.
+KEY LESSON: carry player/scheme traits into FITS (not team composites) for early season.
