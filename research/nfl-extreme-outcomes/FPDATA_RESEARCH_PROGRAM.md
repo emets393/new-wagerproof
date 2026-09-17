@@ -108,3 +108,15 @@ ABLATION verdict: TARGETED helps, kitchen-sink HURTS (dilution).
 Situational helps TOTALS (scoring-environment context) more than spreads; weather/dome
 add nothing (already in line). Per-season TOT thr3: 70/52/53. Fold targeted block into
 production spec. Do NOT add weather or the full situational dump.
+
+## SIGNAL x MODEL CONFLUENCE (2026-09-17) — the two systems reinforce
+exp_fp_signal_confluence.py: joined 1261 graded NFL signal picks (forecast_ledger
+23-25) to the composite model's side.
+  ALL signals baseline: 56.4% +0.076u
+  SPREADS: model-align 60.8% (+0.161u, n194) | neutral 56.8% | OPPOSE 44.0% (-0.161u!)
+  TOTALS:  model-align 67.6% (+0.291u, n102) | oppose 59.0% | neutral 55.2%
+Monotone align>neutral>oppose on BOTH markets. The composite model is a FILTER:
+press signals it confirms, FADE/SKIP spread signals it opposes (44% = losing).
+Best aligned cells: primetime_tight_under 77%, tight_soft_ml_fade_home 80%,
+primetime_tight_favorite 75%, sides_model 58.6%. Caveat: 23-25 = build era (shared
+info); confirm 2026 live. ACTION: add model-confluence tag to NFL flag surfacing.
