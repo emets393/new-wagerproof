@@ -188,3 +188,15 @@ RESULTS (dose-response):
 LESSON: volume markets (receptions) beatable via distillation; efficiency (yards) not.
 Single cells missed it — edge is DISTRIBUTED across dims, only the regularized combo finds it.
 Same architecture as sides v3/v4. NEXT: rush attempts/yds distilled; pass TDs; wire RB-recs.
+
+## QB PROP MARKETS (2026-09-17, distilled) — all 6 tested
+exp_prop_qb.py. QB composites (cpoe/acc/adot/deep/hero/sack/poe/ttt/firstread/
+checkdown/scramble) + opp coverage+pass-rush + matchup interactions + line, ridge WF.
+  ★ QB RUSH YDS: 55.5/55.7/56.4% @4/8/12%, z+2.2, dose-response. THE QB edge (mobile
+    QB rushing = stable identity market underprices). 
+  ~ pass_yds: 55.5% @8% (z1.4) non-monotone — modest candidate.
+  ✗ pass_tds 52.8% (weak), completions ~50%, attempts 48% (negative) = efficient.
+PATTERN CONFIRMED: market prices marquee markets tight (pass yds/tds/att, rec yds),
+leaves edges in secondary volume/mobility (RB recs, QB rush yds).
+⚠ DATA: panel close_line only 2024+ → ~1.5 clean test seasons. Rebuild 2023 close from
+props_rows (snapshot warehouse) for a 3rd validation season before trusting borderline.
