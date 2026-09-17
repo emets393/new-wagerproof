@@ -148,3 +148,16 @@ Re-quantified w/ correct logic: CLEAN 69.0%/77.0% @2/3pt vs QB-situation 62.8%/7
 LIVE wk2 corrected: SEA@ARI IS flagged (Darnold=true starter, out -> Lock starts)
 + ARI RB; CLE clean (Watson starts, backup Gabriel out). Live starter = first
 passer of most recent game, cross-checked vs injury report.
+
+## PLAYER-ANCHORED QB — TESTED, DOES NOT WORK (2026-09-17)
+exp_fp_player_v6.py. Replaced team passing composite with STARTING QB's own
+profile (player_id keyed, carried across teams, first-passer starter). Result:
+FULL model 70.1% ALL / 69.2% QB-situation → +QB anchor 65.8% / 55.2%. HURTS,
+worst in QB-situation games. Why: (1) QB quality already priced by line + team
+composites; (2) backups (the contamination cases) have no stable profile → anchor
+= noise exactly where needed. VERDICT: the FILTER wins, not anchoring. For injury/
+roster: identify + downgrade/skip QB-situation & key-injury games (clean 69% vs
+contaminated 63%); do NOT try to re-predict them from thin backup data. Skill-
+position availability-weighting untested but same mechanism (market prices stars)
+makes it unlikely to beat the filter — test skeptically if at all.
+PRODUCTION: FP-only full model + injury/availability FILTER (skip flagged games).
