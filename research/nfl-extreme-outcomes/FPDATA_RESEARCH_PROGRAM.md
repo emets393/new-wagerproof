@@ -174,3 +174,17 @@ exp_prop_receiving.py + exp_prop_cells.py + rushing cells.
   Volume(game script) × OL-DL matchup is the working combination.
 CANDIDATES (paper 2026): rush favorite×soft-front OVER, underdog UNDER, sep×man rec.
 NEXT: firm rushing combo (add dropback/pace volume proj), apply to upcoming slate.
+
+## ★ DISTILLED PROP MODEL (2026-09-17) — the approach that finally worked
+exp_prop_distilled.py: per-player engineered composites (route/target share, TPRR,
+YPRR, slot/wide/backfield%, aDOT, first-read, design%, separation, sep-wins) +
+player×defense MATCHUP interactions (sep×man, slot×zone, deep×two-high, wide×man,
+backfield×two-high) + opportunity + line, ridge λ40, walk-forward, over/under vs close.
+RESULTS (dose-response):
+  ★★ RB RECEPTIONS: 54.7/56.4/57.7% @4/8/12% edge, z+2.6; per-season 56.2%/56.4% STABLE.
+     = owner's checkdown/two-high/RB-receiving thesis, validated. THE prop win.
+  ★ WR/TE receptions: 53.3/54.2/56.3% pooled but 2024 50.6% / 2025 54.2% — candidate, 2024 soft.
+  ✗ reception YARDS: ~49% (efficiency-driven, market efficient — don't bet).
+LESSON: volume markets (receptions) beatable via distillation; efficiency (yards) not.
+Single cells missed it — edge is DISTRIBUTED across dims, only the regularized combo finds it.
+Same architecture as sides v3/v4. NEXT: rush attempts/yds distilled; pass TDs; wire RB-recs.
