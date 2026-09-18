@@ -189,10 +189,16 @@ def main():
                 label = f"{p['pick_team']} {new_side.title()} {cur_line:g}"
             else:
                 label = f"{team} 1H {fmt(cur_line)}"
+            # Demote the WHOLE card (label + stake too — a "Solid Play / 1.0u" card at conviction
+            # none shipped on CAR@ATL 2026-wk2), and take the games-row header to NEUTRAL for a
+            # spread flip: no conviction = no lean, same rule as the build.
             rec = dict(pick_side=new_side, pick_label=label,
                        vegas_line=round(cur_line, 1), model_line=round(model_line, 2),
                        edge=round(edge, 2), best_line=None, best_odds=None, best_book=None,
-                       conviction="none", has_play=False)
+                       conviction="none", has_play=False, recommendation="No Bet", stake_units=0.0)
+            if cg == "spread":
+                requests.patch(f"{SUPA}/nfl_slate_games?game_id=eq.{gid}", headers=hdr,
+                               json={"fg_spread_pick": "NEUTRAL"}, timeout=30)
             # NFL stance lives in the embedded signals jsonb — invert each
             # signal's stance so aligned<->counter chips follow the flip.
             sigs = p.get("signals")
