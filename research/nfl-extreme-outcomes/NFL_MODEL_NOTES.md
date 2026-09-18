@@ -33,3 +33,5 @@ moves; the CLV story was inflated. TODO: replace the four features with open-der
 features; the NFL sides model is now an ORIGINATOR like CFB's). `data/sides_models_2026.pkl` re-frozen
 (previous copy: `sides_models_2026.pkl.pre_originator_2026-09-18.bak`). Sides record vs opener at
 conf≥.06 unchanged within noise (56.2% pooled 2023-25); the CLV/predict-the-move claims are the clean ones.
+Clean-model dose response (re-run 2026-09-18 after the fix, vs opener): .03-.06 → 54.2%, .06-.10 → 56.8%,
+.10-.15 → 58.2%, .15+ → 54.7% (pooled 2023-25). Same hump; the .06 floor and the no-ranking-above-.10 rule stand.

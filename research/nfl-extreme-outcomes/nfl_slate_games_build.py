@@ -1175,10 +1175,14 @@ def main():
             fg_pred_margin=round(float(r.pred_margin), 2) if pd.notna(r.pred_margin) else None,
             # slate spread pick = the margin model's covering side (matches the spread card).
             # fg_home_cover_prob (classification) is the agreement signal, not the headline.
+            # The card always carries a side (the model's lean) but only a card with conviction
+            # is a play; a no-bet card (under the PLAY_CONF floor, models split, past REG_CAP)
+            # must read NEUTRAL here or the header shows a lean the card refuses (2026-09-18:
+            # 16/16 headers had a pick while 9 cards were "No Bet").
             fg_spread_pick=(
                 f"{(r.home_ab if bm['spread']['pick_side'] == 'HOME' else r.away_ab)} "
                 f"{(r.open_spread if bm['spread']['pick_side'] == 'HOME' else -r.open_spread):+g}"
-                if bm.get("spread") and pd.notna(r.open_spread) else None),
+                if bm.get("spread") and pd.notna(r.open_spread) and bm["spread"].get("conviction", "none") != "none" else "NEUTRAL"),
             fg_spread_confluence=int(r.confluence),
             fg_home_win_prob=r.fg_home_win_prob,
             # FG predicted box score (DISPLAY): split of pred total by pred margin
