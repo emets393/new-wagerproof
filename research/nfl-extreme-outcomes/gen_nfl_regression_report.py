@@ -127,14 +127,17 @@ def main():
     # job's disk has, so this generator READS the table rather than computing.
     # Storyline keys are per game; the sync resolves a game once it kicks off
     # (it is dropped from `games` above) or falls out of the featured set.
+    # Card shows the two-sentence summary (body); the facet-by-facet rundown rides in
+    # data.full and expands in place on the web (owner 2026-09-18: no duplicate prose).
     for f in fetch(env, "nfl_matchup_facts",
-                   f"select=game_id,matchup,direction,body,score&season=eq.{season}&week=eq.{week}&order=score.desc"):
+                   f"select=game_id,matchup,direction,body,score,facts&season=eq.{season}&week=eq.{week}&order=score.desc"):
         gid = str(f["game_id"])
         if gid not in label:
             continue
+        summ = ((f.get("facts") or {}).get("summary")) or f["body"].split("\n")[1].lstrip("- ")
         S.append(dict(storyline_key=f"matchup:{gid}", family="matchups", game_id=gid,
                       matchup=label.get(gid), title=f"Featured matchup — {label.get(gid)}",
-                      body=f["body"], data={"direction": f.get("direction"), "score": f.get("score")},
+                      body=summ, data={"full": f["body"], "direction": f.get("direction"), "score": f.get("score")},
                       rank=5))
 
     # ---- signals: CONFLUENCE engine (shared, football_report_lib) ------------
@@ -269,16 +272,10 @@ def main():
     narrative, model = lib.generate_narrative(
         env, "NFL", stored,
         f"Week {week}, {season} season. {len(games)} games on the slate."
-        + (f" {n_feat} 'matchups' storylines are FEATURED MATCHUPS: open the report with a section "
-           "'## 🔎 Featured Matchups' and give each one its own sub-heading and 120-180 words that walk "
-           "through the ins and outs of that game — the number and the model's read, each passing game "
-           "against the other's coverage mix, the trenches, the quarterback against that coverage, the "
-           "run game, familiarity, receivers, and the situational facts — quoting the storyline's "
-           "numbers exactly and ending with whether the matchup facts and the model line up or sit in "
-           "tension. Describe the model's play as 'the model shows a play on X' or 'the model has no "
-           "play' — never 'recommends', 'suggests a play', or any imperative. Then continue with the "
-           "other families as usual." if n_feat else ""),
-        max_tokens=2800 if n_feat else 1400)
+        + (f" {n_feat} 'matchups' storylines are FEATURED MATCHUPS and have their own expandable "
+           "cards with the full rundown, so do NOT write them up: mention in ONE sentence which games "
+           "are featured this week and move on. Describe any model play as 'the model shows a play on "
+           "X' — never 'recommends', 'suggests', or any imperative." if n_feat else ""))
     fam_counts = {}
     for s in stored:
         fam_counts[s["family"]] = fam_counts.get(s["family"], 0) + 1

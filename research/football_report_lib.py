@@ -55,7 +55,7 @@ def sync_storylines(env, sport, season, week, fresh):
     """
     H = hdr(env)
     existing = requests.get(
-        f"{SUPA}/football_regression_storylines?select=id,storyline_key,title,body,rank,status,updates"
+        f"{SUPA}/football_regression_storylines?select=id,storyline_key,title,body,rank,status,updates,data"
         f"&sport=eq.{sport}&season=eq.{season}&week=eq.{week}", headers=H, timeout=60).json()
     by_key = {e["storyline_key"]: e for e in existing}
     log, day = [], today_et()
@@ -82,6 +82,10 @@ def sync_storylines(env, sport, season, week, fresh):
                          updates=(old.get("updates") or []) + [
                              {"date": day, "status": "updated", "note": s.get("update_note") or "Details refreshed with today's data."}])
             log.append({"type": "updated", "key": key, "title": s["title"]})
+        elif s.get("data") is not None and old.get("data") != s.get("data"):
+            # payload-only change (e.g. a featured matchup's full rundown re-rendered while its
+            # summary stayed the same): refresh silently, no status flip, no update note.
+            patch["data"] = s.get("data")
         requests.patch(f"{SUPA}/football_regression_storylines?id=eq.{old['id']}",
                        headers=H, json=patch, timeout=30)
 

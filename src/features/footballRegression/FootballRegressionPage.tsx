@@ -107,6 +107,9 @@ interface StorylineRow {
   status: 'active' | 'updated' | 'resolved';
   updates: Array<{ date: string; note: string; status: string }>;
   created_at: string;
+  // Featured matchups carry the full facet-by-facet rundown here (markdown); `body` is the
+  // short summary shown on the collapsed card. Other families leave it null.
+  data?: { full?: string; direction?: string } | null;
 }
 
 // Emoji + accent per storyline family — the visual identity of each card.
@@ -222,7 +225,7 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
         ] = await Promise.all([
           collegeFootballSupabase
             .from('football_regression_storylines')
-            .select('id,family,matchup,title,body,rank,status,updates,created_at')
+            .select('id,family,matchup,title,body,rank,status,updates,created_at,data')
             .eq('sport', sport)
             .eq('season', r.season)
             .eq('week', r.week)
@@ -860,6 +863,10 @@ function SeasonSignalsSection({
 
 function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl' | 'cfb'; logosReady: boolean }) {
   const m = FAMILY_META[s.family] ?? FAMILY_FALLBACK;
+  // Featured matchups: the card shows the summary; the facet-by-facet rundown expands
+  // in place (owner 2026-09-18: one summary card + "full rundown", not two copies).
+  const [open, setOpen] = React.useState(false);
+  const full = s.family === 'matchups' ? s.data?.full ?? null : null;
   return (
     <article className={cn('rounded-xl border border-border border-l-4 bg-card p-4', m.border)}>
       <div className="flex flex-wrap items-center gap-2">
@@ -884,6 +891,24 @@ function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl'
         {s.matchup ? s.title.replace(` — ${s.matchup}`, '') : s.title}
       </h3>
       <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{s.body}</p>
+      {full && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="rounded-md border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted"
+            aria-expanded={open}
+          >
+            {open ? 'Hide full rundown' : 'Full rundown'}
+          </button>
+          {open && (
+            <div
+              className="rundown mt-3 space-y-2 text-[13px] leading-relaxed text-muted-foreground [&_h4]:mt-3 [&_h4]:text-[13px] [&_h4]:font-bold [&_h4]:text-foreground [&_li]:ml-4 [&_li]:list-disc"
+              dangerouslySetInnerHTML={{ __html: mdToHtml(full) }}
+            />
+          )}
+        </div>
+      )}
       {/* Only substantive update notes — the generic daily-refresh note is noise. */}
       {(s.updates ?? []).filter((u) => u.note && !u.note.startsWith('Details refreshed')).length > 0 && (
         <ul className="mt-2 space-y-1 border-t border-border pt-2">

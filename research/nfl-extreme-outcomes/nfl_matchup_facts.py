@@ -226,28 +226,43 @@ for g in games:
     rows.append(dict(game_id=gid, matchup=f"{an} @ {hn}", home=home, away=away, hn=hn, an=an, g=g, F=F, tells=tells, n_fp=n_fp, n_int=n_int, fp_side=fp_side, model_side=model_side, align=align, score=score, sp=sp, tp=tp, wx=wx))
 sel = sorted([r for r in rows if r["n_fp"] >= 2 and r["n_int"] >= 1], key=lambda r: (-r["score"], r["g"]["kickoff"]))[:MAX_GAMES]
 print(f"{SEASON} week {WEEK}: {len(games)} unplayed games scored; featured {len(sel)}: " + ", ".join(f"{r['matchup']} ({r['score']:.1f}, {r['align']})" for r in sel))
+PRETTY = {"COVER_0":"Cover 0","COVER_1":"Cover 1","COVER_2":"Cover 2","COVER_3":"Cover 3","COVER_4":"Cover 4","COVER_6":"Cover 6","2_MAN":"2-Man","man":"man coverage","zone":"zone coverage","single-high":"single-high","two-high":"two-high","blitzed":"when blitzed","not blitzed":"no blitz","<=3 rushers":"3 or fewer rushers","4 rushers":"4 rushers","5+ rushers":"5+ rushers","<=6 box":"6 or fewer in the box","7 box":"7 in the box","8+ box":"8+ in the box","<=5 box":"5 or fewer in the box","6 box":"6 in the box","play action":"play action","no play action":"no play action"}
+def pretty(x): return PRETTY.get(str(x), str(x))
 def sheet(r):
+    """Full rundown as light markdown: one '#### emoji heading' per facet, one-line bullets under it,
+    a blank line between facets (the card expands it; mdToHtml on the web renders h4 / li / bold)."""
     g, F, home, away, hn, an = r["g"], r["F"], r["home"], r["away"], r["hn"], r["an"]; L = []
-    L.append(f"THE NUMBER. {an} @ {hn}. Spread {hn} {float(g['fg_spread_close']):+g} (opened {float(g['fg_spread_open']):+g}), total {g['fg_total_close']}. Model spread {hn} {float(g['fg_pred_spread']):+g}, model total {g['fg_pred_total']}. "
-             + (f"Model play: {r['sp']['pick_label']} ({r['sp']['conviction']})." if r["model_side"] else "No model play on the spread (under the confidence floor or the two models split).")
-             + (f" Total play: {r['tp']['pick_label']} ({r['tp']['conviction']})." if r["tp"] and r["tp"].get("has_play") else f" Total lean {g.get('fg_total_pick')} without a play."))
+    L.append("### 🔢 The number")
+    L.append(f"- Spread **{hn} {float(g['fg_spread_close']):+g}** (opened {float(g['fg_spread_open']):+g}), total **{g['fg_total_close']}**")
+    L.append(f"- Model: {hn} {float(g['fg_pred_spread']):+g}, total {float(g['fg_pred_total']):.1f}")
+    L.append(f"- " + (f"Model play: **{r['sp']['pick_label']}** ({r['sp']['conviction']})" if r["model_side"] else "No model play on the spread (under the confidence floor, or the two models split)")
+             + (f"; total play: **{r['tp']['pick_label']}** ({r['tp']['conviction']})" if r["tp"] and r["tp"].get("has_play") else f"; total lean {g.get('fg_total_pick')} without a play"))
     for side, opp_, nm, key in ((away, home, an, "away"), (home, away, hn, "home")):
         ps, rg, tr, qm, fm, rc = F[f"{key}_pass"], F[f"{key}_run"], F[f"{key}_trench"], F[f"{key}_qb"], F[f"{key}_fam"], F[f"{key}_recv"]
-        s = f"{nm.upper()} OFFENSE vs {opp_} DEFENSE. "
-        if ps: s += f"Passing game projects {ps['shift']:+.2f} points per dropback vs its own norm against {opp_}'s coverage mix" + (" (" + "; ".join(f"{t['look']}: {opp_} shows it {100*t['d_share']:.0f}%, stacked {t['stacked']:+.2f}" for t in ps["top"][:2]) + "). " if ps["top"] else ". ")
-        if qm: s += f"{qm['qb']} projects {qm['pct']:+.0f}% vs his own rate against this mix ({opp_} plays man {qm['d_man']:.0f}%, two-high {qm['d_two_high']:.0f}%). "
-        if tr: s += f"Trenches: {nm} allows pressure on {100*tr['o_allowed']:.0f}% of dropbacks" + (f" ({100*tr['o_allowed_5plus']:.0f}% vs five or more rushers)" if tr.get("o_allowed_5plus") else "") + f"; {opp_} generates pressure {100*tr['d_generated']:.0f}%, sends five or more {100*tr['d_5plus_rate']:.0f}%" + (f", blitzes {100*tr['d_blitz_rate']:.0f}%" if tr.get("d_blitz_rate") is not None else "") + f" (league pressure {100*tr['league']:.0f}%). "
-        if rg: s += f"Run game projects {rg['shift']:+.2f} per carry vs norm against {opp_}'s boxes" + (" (" + "; ".join(f"{c['box']} {100*c['d_share']:.0f}% of the time, stacked {c['stacked']:+.2f}" for c in rg["cells"][:3]) + "). " if rg["cells"] else ". ")
-        if fm and (fm["d_blitz_is_high"] or fm["d_man_is_high"]): s += f"Familiarity: {fm['qb']} has faced blitz-heavy defenses on {fm['share_vs_high_blitz']:.0f}% of his dropbacks over two seasons and man-heavy ones on {fm['share_vs_high_man']:.0f}%; {opp_} blitzes {fm['d_blitz']:.0f}%" + (f", plays man {fm['d_man']:.0f}%" if fm.get("d_man") is not None else "") + (f"; his efficiency vs the blitz {fm['qb_epa_vs_blitz']:+.2f} vs {fm['qb_epa_no_blitz']:+.2f} without it" if fm.get("qb_epa_vs_blitz") is not None and fm.get("qb_epa_no_blitz") is not None else "") + ". "
-        if rc: s += "Receivers: " + "; ".join(f"{x['name']} wins on {x['best'][0]['look']} ({x['best'][0]['stacked']:+.0f} separation vs league, {opp_} allows {x['best'][0]['d_allows']:+.0f}) and loses on {x['worst']['look']}" for x in rc[:2]) + ". "
-        L.append(s)
+        L.append(f"### 🏈 {nm} offense vs {opp_} defense")
+        if ps: L.append(f"- **Passing game** projects **{ps['shift']:+.2f}** points per dropback vs its own norm against {opp_}'s coverage mix" + (" — " + "; ".join(f"{pretty(t['look'])} ({opp_} shows it {100*t['d_share']:.0f}%): {t['stacked']:+.2f}" for t in ps["top"][:2]) if ps["top"] else ""))
+        if qm: L.append(f"- **Quarterback**: {qm['qb']} projects **{qm['pct']:+.0f}%** vs his own rate against this mix ({opp_} plays man {qm['d_man']:.0f}%, two-high {qm['d_two_high']:.0f}%)")
+        if tr: L.append(f"- **Trenches**: {nm} allows pressure on {100*tr['o_allowed']:.0f}% of dropbacks" + (f" ({100*tr['o_allowed_5plus']:.0f}% vs five or more rushers)" if tr.get("o_allowed_5plus") else "") + f"; {opp_} generates pressure {100*tr['d_generated']:.0f}%, sends five or more {100*tr['d_5plus_rate']:.0f}%" + (f", blitzes {100*tr['d_blitz_rate']:.0f}%" if tr.get("d_blitz_rate") is not None else "") + f" (league {100*tr['league']:.0f}%)")
+        if rg: L.append(f"- **Run game** projects **{rg['shift']:+.2f}** per carry vs norm against {opp_}'s boxes" + (" — " + "; ".join(f"{pretty(c['box'])} ({100*c['d_share']:.0f}%): {c['stacked']:+.2f}" for c in rg["cells"][:3]) if rg["cells"] else ""))
+        if fm and (fm["d_blitz_is_high"] or fm["d_man_is_high"]): L.append(f"- **Familiarity**: {fm['qb']} has faced blitz-heavy defenses on {fm['share_vs_high_blitz']:.0f}% of his dropbacks over two seasons, man-heavy ones on {fm['share_vs_high_man']:.0f}%; {opp_} blitzes {fm['d_blitz']:.0f}%" + (f", plays man {fm['d_man']:.0f}%" if fm.get("d_man") is not None else "") + (f"; his efficiency vs the blitz {fm['qb_epa_vs_blitz']:+.2f} vs {fm['qb_epa_no_blitz']:+.2f} without it" if fm.get("qb_epa_vs_blitz") is not None and fm.get("qb_epa_no_blitz") is not None else ""))
+        if rc: L.append("- **Receivers**: " + "; ".join(f"{x['name']} wins on {x['best'][0]['look']} ({x['best'][0]['stacked']:+.0f} separation vs league, {opp_} allows {x['best'][0]['d_allows']:+.0f}), loses on {x['worst']['look']}" for x in rc[:2]))
     sit = [t[1] for t in r["tells"] if t[0] == "INT" and not t[1].startswith("model")]
-    if sit: L.append("SITUATIONAL. " + " ".join(x[0].upper() + x[1:] + "." for x in sit))
-    L.append({"aligned": f"WHAT LINES UP. The matchup facts lean {r['fp_side']} and the model's play is on the same side.", "tension": f"WHAT DOES NOT LINE UP. The matchup facts lean {r['fp_side']} while the model's play is on {r['model_side']}; treat it as tension, not a resolution.", "no model play": f"WHAT LINES UP. The matchup facts lean {r['fp_side'] or 'neither side'}; the model has no play here, so this is a watch, not a number.", "matchup even": "WHAT LINES UP. The matchup facts do not favor either side; the model's play stands on its own."}[r["align"]])
+    if sit:
+        L.append("### 📋 Situational")
+        for x in sit: L.append("- " + x[0].upper() + x[1:])
+    L.append("### 🔗 What lines up")
+    L.append("- " + {"aligned": f"The matchup facts lean **{r['fp_side']}** and the model's play is on the same side.", "tension": f"The matchup facts lean **{r['fp_side']}** while the model's play is on **{r['model_side']}** — tension, not a resolution.", "no model play": f"The matchup facts lean **{r['fp_side'] or 'neither side'}**; the model has no play here, so this is a watch, not a number.", "matchup even": "The matchup facts do not favor either side; the model's play stands on its own."}[r["align"]])
     return "\n".join(L)
+def summary(r):
+    """Two sentences for the collapsed card: the number + the model, and the single biggest matchup tell."""
+    g, hn = r["g"], r["hn"]; fp = [t[1] for t in r["tells"] if t[0] == "FP"]
+    s1 = f"{hn} {float(g['fg_spread_close']):+g}, total {g['fg_total_close']}; " + (f"model play {r['sp']['pick_label']}" if r["model_side"] else "no model play on the spread") + (f", total play {r['tp']['pick_label']}" if r["tp"] and r["tp"].get("has_play") else "") + "."
+    s2 = (fp[0][0].upper() + fp[0][1:] + ".") if fp else ""
+    tail = {"aligned": " Matchup facts and the model line up.", "tension": " Matchup facts and the model point different ways.", "no model play": " Matchup facts only — the model is on the sideline.", "matchup even": " Matchup facts are even."}[r["align"]]
+    return (s1 + " " + s2 + tail).strip()
 # write: replace this week's rows
 requests.delete(f"{lib.SUPA}/nfl_matchup_facts?season=eq.{SEASON}&week=eq.{WEEK}", headers=H, timeout=30)
 for r in sel:
-    body = sheet(r); facts = {k: v for k, v in r["F"].items()}; facts["tells"] = r["tells"]; facts["align"] = r["align"]; facts["fp_side"] = r["fp_side"]; facts["model_side"] = r["model_side"]
+    body = sheet(r); facts = {k: v for k, v in r["F"].items()}; facts["tells"] = r["tells"]; facts["align"] = r["align"]; facts["fp_side"] = r["fp_side"]; facts["model_side"] = r["model_side"]; facts["summary"] = summary(r)
     row = dict(game_id=r["game_id"], season=SEASON, week=WEEK, matchup=r["matchup"], away_ab=r["away"], home_ab=r["home"], score=r["score"], direction=r["align"], facts=json.loads(json.dumps(facts, default=lambda o: None if (isinstance(o, float) and np.isnan(o)) else (float(o) if isinstance(o, (np.floating, np.integer)) else str(o)))), body=body)
     x = requests.post(f"{lib.SUPA}/nfl_matchup_facts", headers={**H, "Prefer": "resolution=merge-duplicates"}, json=row, timeout=30); print(f"  {r['matchup']}: {x.status_code} | {len(body)} chars | {r['n_fp']} matchup tells, {r['n_int']} internal, {r['align']}")
