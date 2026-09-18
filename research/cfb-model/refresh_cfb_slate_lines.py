@@ -210,7 +210,7 @@ def main():
             b_up.append(r.status_code in (200, 204))
     print(f"best-book (tt/1h): {sum(b_up)}/{len(b_up)} picks refreshed")
     revalidate_banded_flags(hdr, season, week, gids)
-    flip_stale_sides(hdr, season, week, gids)
+    flip_stale_sides(hdr, season, week, gids, fills=fills)
 
 
 # ---- LINE-BAND RE-VALIDATION (owner catch 2026-08-30: g5_dog_wk1_bigfav is
@@ -283,7 +283,12 @@ CONV_RANK = {"mammoth": 5, "T1": 4, "T2": 3, "T3": 2, "track": 1}
 STAKE_DISP = {"mammoth": 5.0, "high": 3.0, "med": 2.0, "low": 1.0, "lean": 0.5, "none": 0.0}
 
 
-def flip_stale_sides(hdr, season, week, gids):
+def flip_stale_sides(hdr, season, week, gids, fills=None):
+    # `fills` = main()'s latest-capture-per-game frame; the band-hygiene block below used it
+    # without receiving it (NameError, caught -> 'band hygiene skipped' on every run since it shipped).
+    def val(row, k):
+        v = row.get(k)
+        return None if v is None or (isinstance(v, float) and v != v) else float(v)
     gsel = ("game_id,home_team,away_team,fg_pred_spread,fg_pred_total,fg_spread_close,fg_total_close,"
             "fg_spread_pick,fg_total_pick,tt_home_pred,tt_away_pred,tt_home_close,tt_away_close")
     grows = {int(g["game_id"]): g for g in requests.get(
@@ -423,6 +428,8 @@ def flip_stale_sides(hdr, season, week, gids):
                           f"&season=eq.{season}&week=eq.{week}&signal_key=in.({BAND_KEYS})"
                           f"&game_id=in.({gids})", headers=hdr, timeout=30).json()
         killed = 0
+        if fills is None:
+            raise RuntimeError("no line captures passed in")
         for f_ in (fl if isinstance(fl, list) else []):
             if f_["game_id"] not in fills.index:
                 continue

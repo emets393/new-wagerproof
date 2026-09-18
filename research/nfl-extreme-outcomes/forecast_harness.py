@@ -3,7 +3,8 @@
 
 Locked assets (see LOCKED_MODELS.md):
   SIDES   : walk-forward HistGBM on home_cover (vs close); bet the confident side (|p-.5|>=.03) vs the OPENER.
-            Feature set = b14 "base" (Madden-independent so it runs before Aug-2026 launch ratings exist).
+            Feature set = b14 "base" (Madden-independent so it runs before Aug-2026 launch ratings exist)
+            + b89 matchup nets + 4 TRUE season-to-date nets (2026-09-17; pbp-built, see build() comment).
   TOTALS  : spot alerts (slate-level totals live in consensus_totals.py):
             * key WR/TE out (NGS air-share>=35%) -> OVER ; high-conviction tier adds Madden OVR>=80
             * wind >= 15mph -> UNDER
@@ -232,6 +233,34 @@ def build():
         aexp=pd.to_numeric(m[ao],errors="coerce")+pd.to_numeric(m[hd],errors="coerce")
         m[f"net_{x}"]=hexp-aexp; NETS.append(f"net_{x}")
     BASE=BASE+NETS
+    # ---- TRUE season-to-date nets (shipped 2026-09-17) ----
+    # The `_s2d` columns behind the NETS above come from nfl_pregame_advanced_team_week, which never
+    # resets by season (an 8-season franchise average through 2025, raw one-game rows in 2026).
+    # data/team_week_seasonal.parquet is the same 4 stats rebuilt from play-by-play as real
+    # season-to-date, K=4 prior-season seeded, entering-week (build_team_week_seasonal.py, fed by
+    # refresh_pbp_current.py in run_nfl_week.sh). ADDED alongside the old nets, not replacing them:
+    # 2022-25 opener-graded 53.0% -> 55.4% at conf .03 (K-ensemble 54.5%), 4/4 folds up, placebo
+    # 52.6%, vs-close +2.0, flips 64%. FP unit features on top add nothing. exp_prod_fix_s2d*.py.
+    # Keyed by nflverse abbreviation -> our style. Missing rows stay NaN (HistGBM handles natively).
+    _tw_path=os.path.join(DATA,"team_week_seasonal.parquet"); TRUE=[]
+    if os.path.exists(_tw_path):
+        _tw=pd.read_parquet(_tw_path); _ours=set(m.home_ab.unique())
+        _tw["team"]=_tw.team.replace({k:v for k,v in {"LA":"LAR","JAX":"JAC","WAS":"WSH","LV":"LVR","ARI":"ARZ","BAL":"BLT","CLE":"CLV","HOU":"HST"}.items() if v in _ours and k not in _ours})
+        _S={"pass":("off_pass_epa_neutral_s2d","def_pass_epa_allowed_neutral_s2d"),"rush":("off_rush_epa_neutral_s2d","def_rush_epa_allowed_neutral_s2d"),
+            "ppd":("off_pts_per_drive_s2d","def_pts_per_drive_allowed_s2d"),"proe":("off_proe_s2d",None)}
+        _cols=[c for c in _tw.columns if c.endswith("_s2d")]
+        for side in ("home","away"):
+            m=m.merge(_tw.rename(columns={"team":f"{side}_ab",**{c:f"{side[0]}t_{c}" for c in _cols}})[[f"{side}_ab","season","week"]+[f"{side[0]}t_{c}" for c in _cols]],on=[f"{side}_ab","season","week"],how="left")
+        for k,(o,d) in _S.items():
+            m[f"true_net_{k}"]=((m[f"ht_{o}"]+m[f"at_{d}"])-(m[f"at_{o}"]+m[f"ht_{d}"])) if d else (m[f"ht_{o}"]-m[f"at_{o}"]); TRUE.append(f"true_net_{k}")
+        _cov=m[m.season==m.season.max()][TRUE].notna().mean().mean()
+        print(f"[true-s2d] {len(TRUE)} true season-to-date nets merged (current-season coverage {_cov:.0%})")
+    else:
+        # keep the columns so a frozen pkl trained WITH the nets can still predict (NaN-native) instead of KeyError-ing the slate
+        TRUE=["true_net_pass","true_net_rush","true_net_ppd","true_net_proe"]
+        for c in TRUE: m[c]=np.nan
+        print("[true-s2d] data/team_week_seasonal.parquet missing — true nets are NaN this run (run refresh_pbp_current.py + build_team_week_seasonal.py)")
+    BASE=BASE+TRUE
     # ---- totals triggers ----
     msk=inj[inj.report_status.isin(["Out","Doubtful"])].merge(air,on=["season","week","player_id"],how="left")
     msk=msk[msk.position.astype(str).str.strip().isin(["WR","TE","RB","FB"])]; msk["airshare"]=msk.airshare.fillna(0)
