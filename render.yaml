@@ -170,8 +170,9 @@ services:
       "$SUPABASE_SERVICE_KEY" "$FP_DATA_TOKEN" > .env.local
     # After the pull: refresh play-by-play and write the FEATURED MATCHUPS facts
     # (nfl_matchup_facts) for the regression report — the only job whose disk has
-    # the Fantasy Points parquets (six lean ones are git-tracked so the prior
-    # season is present on a fresh clone; the pull appends the new week). Best
+    # the Fantasy Points parquets (six lean ones are git-tracked under
+    # data/fpdata_hist so the prior season is present on a fresh clone; the
+    # builder merges them with the freshly pulled data/fpdata). Best
     # effort: a failure here must not fail the data pull.
     startCommand: cd research/nfl-extreme-outcomes && python3 fp_pull.py --inseason --workers 3 && python3 fp_load.py && { python3 refresh_pbp_current.py && python3 nfl_matchup_facts.py || true; }
     envVars:

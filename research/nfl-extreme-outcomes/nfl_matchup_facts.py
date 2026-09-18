@@ -21,7 +21,17 @@ AB = {"ARZ":"ARI","BLT":"BAL","CLV":"CLE","HST":"HOU","LAR":"LA"}
 def tk(d):
     s = d.teamAbbreviation if "teamAbbreviation" in d.columns and d.teamAbbreviation.notna().any() else d.teamNickname.map(NICK); return s.map(lambda a: AB.get(a, a))
 def load(t, flat=False, seasons=None):
-    d = pd.read_parquet(FP + ("flat/" if flat else "") + t + ".parquet"); d = d[d.__season.isin(seasons)] if seasons else d; d = d.copy(); d["team"] = tk(d)
+    # data/fpdata_hist holds git-tracked copies of the six tables this builder needs: the Render
+    # pull's consolidate() rebuilds data/fpdata from the raw cells on ITS disk (this season only),
+    # so the prior season comes from hist and the current pull wins on any overlapping cell.
+    parts = []
+    for base in (f"data/fpdata_hist/{'flat/' if flat else ''}", FP + ("flat/" if flat else "")):
+        p = base + t + ".parquet"
+        if os.path.exists(p): parts.append(pd.read_parquet(p))
+    if not parts: raise FileNotFoundError(t)
+    d = pd.concat(parts, ignore_index=True); keys = [c for c in ("__season", "__week", "playerPlayerId", "teamNickname", "teamTeamId", "gameGameId") if c in d.columns]
+    d = d.drop_duplicates(subset=keys, keep="last") if keys else d
+    d = d[d.__season.isin(seasons)] if seasons else d; d = d.copy(); d["team"] = tk(d)
     if "opponentAbbreviation" in d.columns: d["opp"] = d.opponentAbbreviation.map(lambda a: AB.get(a, a))
     if "playerFirstName" in d.columns: d["nm"] = d.playerFirstName.astype(str) + " " + d.playerLastName.astype(str)
     return d

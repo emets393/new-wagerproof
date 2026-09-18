@@ -1266,6 +1266,6 @@ tells and ≥1 internal tell, and writes a deterministic fact sheet per game to 
 (direction = aligned / tension / no model play / matchup even). `gen_nfl_regression_report.py` reads
 the table into 'matchups' storylines (rank 5, quota 4) and the narrative LLM opens the report with a
 "Featured Matchups" section, 120-180 words per game, no picks. Runs on the fp-data-inseason Render job
-(Tue/Thu) after the pull; six lean FP parquets are git-tracked so a fresh clone has the prior season.
+(Tue/Thu) after the pull; six lean FP parquets are git-tracked under data/fpdata_hist and merged with the pulled data.
 Web: FootballRegressionPage renders the family with top billing. First run: 2026 week 2 (GB@NYJ aligned,
 MIN@CHI even, NYG@LAR tension, NO@BAL no model play).
