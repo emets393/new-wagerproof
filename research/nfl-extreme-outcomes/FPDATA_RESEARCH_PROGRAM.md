@@ -1269,3 +1269,20 @@ the table into 'matchups' storylines (rank 5, quota 4) and the narrative LLM ope
 (Tue/Thu) after the pull; six lean FP parquets are git-tracked under data/fpdata_hist and merged with the pulled data.
 Web: FootballRegressionPage renders the family with top billing. First run: 2026 week 2 (GB@NYJ aligned,
 MIN@CHI even, NYG@LAR tension, NO@BAL no model play).
+
+## SHIPPED — Player Prop Report (owner spec 2026-09-18)
+`nfl_prop_narratives.py` evaluates every posted line on nfl_slate_props (receptions, receiving yards,
+rush yards/attempts, pass yards/completions/attempts; QB rushing and non-QB passing excluded) and
+gathers directional tells: receivers = player_chain route stack / coverage-identity yards-per-route
+shift / target-share direction / alignment stack / pocket effect; QBs = QB vs this coverage mix,
+trenches; backs = run-concept stack, before/after contact vs the front; everyone = last-5 vs line,
+defense allowed to the position vs league, teammate Out/Doubtful share, QB out, DNP, game script from
+the model spread, game-model total gap. Keep ≥3 tells one way and net ≥2; one card per player; quotas
+QB 3 / WR-TE 5 / RB 3; max 10. Writes `nfl_prop_narratives` (replaces the week) with summary + markdown
+rundown ("the numbers point toward the OVER — a read, not a pick"). Web: /nfl/regression-report/props
+(PropNarrativesPage: headshot, logos, market + line + best over/under book, position filter, expandable
+numbers); button on the NFL regression page header. Runs on fp-data-inseason after matchup facts.
+FP tables it needs are tracked under data/fpdata_hist (fp_hist.read_fp merges hist + pull).
+Not yet in it: the validated prop MODEL projection (pass_yds / rec_yds / completions) — the live scorer
+is not wired; add as a 'model' tell when it is. First run 2026 wk2: 467 props → 81 qualified → 10 shown,
+9 over / 1 under (the tell set skews over: form-above-line and defense-allows fire more than their unders).

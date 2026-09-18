@@ -24,14 +24,8 @@ def load(t, flat=False, seasons=None):
     # data/fpdata_hist holds git-tracked copies of the six tables this builder needs: the Render
     # pull's consolidate() rebuilds data/fpdata from the raw cells on ITS disk (this season only),
     # so the prior season comes from hist and the current pull wins on any overlapping cell.
-    parts = []
-    for base in (f"data/fpdata_hist/{'flat/' if flat else ''}", FP + ("flat/" if flat else "")):
-        p = base + t + ".parquet"
-        if os.path.exists(p): parts.append(pd.read_parquet(p))
-    if not parts: raise FileNotFoundError(t)
-    d = pd.concat(parts, ignore_index=True); keys = [c for c in ("__season", "__week", "playerPlayerId", "teamNickname", "teamTeamId", "gameGameId") if c in d.columns]
-    d = d.drop_duplicates(subset=keys, keep="last") if keys else d
-    d = d[d.__season.isin(seasons)] if seasons else d; d = d.copy(); d["team"] = tk(d)
+    from fp_hist import read_fp
+    d = read_fp(t, flat); d = d[d.__season.isin(seasons)] if seasons else d; d = d.copy(); d["team"] = tk(d)
     if "opponentAbbreviation" in d.columns: d["opp"] = d.opponentAbbreviation.map(lambda a: AB.get(a, a))
     if "playerFirstName" in d.columns: d["nm"] = d.playerFirstName.astype(str) + " " + d.playerLastName.astype(str)
     return d

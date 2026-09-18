@@ -1,0 +1,29 @@
+"""Fantasy Points table loader that survives a fresh Render clone.
+
+fp_pull.py's consolidate() rebuilds data/fpdata/<tool>__<scope>.parquet from the raw cells on the
+job's OWN disk, so on Render a table holds only the weeks that job pulled (this season). The
+prior season lives in data/fpdata_hist/ — git-tracked copies of the tables the weekly report
+builders need (nfl_matchup_facts.py, nfl_prop_narratives.py, player_chain.py). read_fp() merges
+hist + current, the freshly pulled cell winning on overlap, so the same code runs identically on a
+laptop with full history and on Render with hist + this season.
+
+Adding a table to a builder: copy it into data/fpdata_hist (same relative path, flat/ included)
+and `git add -f` it — research/.gitignore excludes *.parquet by default."""
+import os
+import pandas as pd
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+KEYS = ("__season", "__week", "playerPlayerId", "teamNickname", "teamTeamId", "gameGameId")
+
+
+def read_fp(table, flat=False):
+    parts = []
+    for base in ("data/fpdata_hist", "data/fpdata"):
+        p = os.path.join(HERE, base, "flat" if flat else "", table + ".parquet")
+        if os.path.exists(p):
+            parts.append(pd.read_parquet(p))
+    if not parts:
+        raise FileNotFoundError(f"{table}.parquet not in data/fpdata or data/fpdata_hist")
+    d = pd.concat(parts, ignore_index=True)
+    keys = [c for c in KEYS if c in d.columns]
+    return d.drop_duplicates(subset=keys, keep="last") if keys else d

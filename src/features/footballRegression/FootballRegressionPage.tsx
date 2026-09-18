@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 import { Activity, CalendarDays, RefreshCcw } from 'lucide-react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { supabase } from '@/integrations/supabase/client';
@@ -320,6 +321,16 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
               );
             })}
         </div>
+        {sport === 'nfl' && (
+          // Player-level companion report (nfl_prop_narratives): players whose numbers stand
+          // out against this week's defense, with the posted lines. Same no-picks rule.
+          <Link
+            to="/nfl/regression-report/props"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-[13px] font-bold text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+          >
+            🎯 Player Prop Report — this week&apos;s standout matchups →
+          </Link>
+        )}
         <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <CalendarDays className="h-3.5 w-3.5" />
           A living report — storylines update in place all week; resolved ones stay on the record.

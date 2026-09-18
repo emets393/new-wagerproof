@@ -19,6 +19,7 @@ import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
 import F5SplitsPage from "./features/mlbTools/f5Splits/F5SplitsPage";
 import RegressionReportPage from "./features/mlbTools/regression/RegressionReportPage";
 import { FootballRegressionPage } from "./features/footballRegression/FootballRegressionPage";
+import { PropNarrativesPage } from "./features/footballRegression/PropNarrativesPage";
 import { PlayerPropsReportPage } from "./features/mlbTools/playerPropsReport";
 import PropBreakdownPage from "./features/propBreakdown/PropBreakdownPage";
 import PropsPage from "./features/props/PropsPage";
@@ -355,6 +356,7 @@ function AppRoutes() {
           <Route path="/mlb/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="mlb" />} />
           <Route path="/mlb/daily-regression-report" element={<ProtectedRoute minimumTier="premium"><RegressionReportPage /></ProtectedRoute>} />
           <Route path="/nfl/regression-report" element={<ProtectedRoute minimumTier="premium"><FootballRegressionPage sport="nfl" /></ProtectedRoute>} />
+          <Route path="/nfl/regression-report/props" element={<ProtectedRoute minimumTier="premium"><PropNarrativesPage /></ProtectedRoute>} />
           <Route path="/cfb/regression-report" element={<ProtectedRoute minimumTier="premium"><FootballRegressionPage sport="cfb" /></ProtectedRoute>} />
           <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><F5SplitsPage /></ProtectedRoute>} />
           <Route path="/mlb/pitcher-matchups" element={<LegacyPropsRedirect sport="mlb" />} />
