@@ -15,3 +15,21 @@ card tier is now the classifier's confidence (`med`, `high` with an aligned spot
 regression magnitude, which never ranked outcomes. `refresh_nfl_slate_lines.py` keeps a NEUTRAL header
 NEUTRAL (it used to re-derive a pick from the regression alone on every line refresh, which is why every
 game showed one) and applies the cap.
+
+## Predict-the-close (owner ask, 2026-09-18) — `exp_predict_close.py`, `exp_predict_close_clean.py`
+Target = close − open (home spread), walk-forward, graded on (a) share of games the line moved toward
+our side, (b) CLV points, (c) win vs the OPENER at -110.
+⚠ **LEAK FOUND in the harness BASE:** `home_fav`, `abs_spread`, `home_dog_7_10`, `away_dog_7_10` are
+computed from `m.home_spread` = the nflverse CLOSING line in history (the serve week gets whatever line
+the schedule pull carries). A move model with them reads the close (r=.70, "our way" 94-99%). With them
+rebuilt from the OPENER: r=.14/.27 (2024/25).
+  clean, |pred move|≥1.0: n=112, line our way 73%, CLV +0.94 pts, win vs open 51.4% (47.4 / 56.0)
+  clean, |pred move|≥1.5: n=37,  our way 70%, CLV +0.82, win vs open 55.6%
+The production regression's edge alone: leaky r=.29/.42, our-way 72-88% → clean r=.07/.15, our-way 47/79%.
+Sides classifier vs opener at conf≥.06, leaky 57.4% → clean 56.2% (pooled n≈530): the WIN record barely
+moves; the CLV story was inflated. TODO: replace the four features with open-derived ones in
+`forecast_harness.build()` BASE and re-freeze `sides_models_2026.pkl` (train/serve consistency).
+**FIXED 2026-09-18:** the four line-derived features are out of `forecast_harness.build()` BASE (54
+features; the NFL sides model is now an ORIGINATOR like CFB's). `data/sides_models_2026.pkl` re-frozen
+(previous copy: `sides_models_2026.pkl.pre_originator_2026-09-18.bak`). Sides record vs opener at
+conf≥.06 unchanged within noise (56.2% pooled 2023-25); the CLV/predict-the-move claims are the clean ones.

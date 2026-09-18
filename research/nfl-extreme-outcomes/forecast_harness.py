@@ -195,8 +195,14 @@ def build():
     sched=[f"{s}_{f}" for s in ["h","a"] for f in flags]
     for c in sched: m[c]=pd.to_numeric(m[c],errors="coerce").fillna(0)
     ref=[c for c in ["ref_total_pts_avg","ref_home_cover_pct","ref_under_pct","ref_fav_cover_pct"] if c in m.columns]
+    # ORIGINATOR (owner, 2026-09-18): no market input. home_fav / abs_spread / home_dog_7_10 /
+    # away_dog_7_10 came off m.home_spread, which in history is the nflverse CLOSING line — the
+    # backtest read the close (predict-the-move r=.70 -> .14-.27 without them) while the serve
+    # week saw whatever line the schedule pull carried. Removing them costs nothing on the sides
+    # record (conf>=.06 vs opener 57.4% -> 56.2%, exp_predict_close_clean.py). The columns are
+    # still computed above for spot rules; they just never enter the model.
     BASE=["pr_diff","home_predictive_pr","away_predictive_pr","last5_diff","home_consistency_pr","away_consistency_pr",
-          "home_dog_7_10","away_dog_7_10","div_game_i","conf_game_i","league_game_i","primetime_i","week","home_fav","abs_spread",
+          "div_game_i","conf_game_i","league_game_i","primetime_i","week",
           "air_diff","dprod_team_diff","h_dpt","a_dpt"]+ref+sched
     for c in BASE: m[c]=pd.to_numeric(m[c],errors="coerce")
     # ---- b89/b90b MATCHUP-NET features (vaulted 2026-06) ----
@@ -1014,7 +1020,7 @@ def generate(m, BASE, target, week=None):
                     sel=(led.market=="total")&led.rule.isin(MAMMOTH_TOTAL_RULES)&(led.season==s)&(led.week==w)&(led.game==gm)&((led.bet_home==-1)==(d=="O"))
                     led.loc[sel,"mammoth"]=1
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv")
-    if os.path.exists(path):
+    if os.path.exists(path) and len(led):   # a week with zero picks has no pick_id column -> keep the old ledger as is
         old=pd.read_csv(path); led=pd.concat([old[~old.pick_id.isin(led.pick_id)],led],ignore_index=True)
         led["mammoth"]=pd.to_numeric(led.mammoth,errors="coerce").fillna(0).astype(int)
     led.to_csv(path,index=False); return led,path

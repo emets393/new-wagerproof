@@ -334,3 +334,11 @@ NOT rank games by edge size above that; suppress sides/totals leans in weeks 1-3
 `refresh_cfb_slate_lines.py` (clears a lean that drifts under 4 as the line moves, restores one that
 grows back past 4). A same-side validated spot keeps its play regardless. Applies in EARLY weeks too:
 the early blend's own 2026 wk1-2 record is 35% under 4 / 61% at 4+ (n=48/49).
+
+## 8. Predict-the-close (owner ask, 2026-09-18) — `../nfl-extreme-outcomes/exp_predict_close.py`
+Target = close − open, walk-forward 2022-25, feature set is clean (no line-derived inputs).
+  opener + model edge, |pred move|≥1.0: n=109, line our way 68%, CLV +0.93 pts, win vs open 55.6% (n=108)
+    by season: 2022 77%/+0.90/60.9% · 2023 55%/+0.37/48.1% · 2024 56%/+0.02/46.4% · 2025 83%/+2.33/66.7%
+  + fundamentals: n=138, our way 68%, CLV +0.75, win vs open 56.3%
+The move's direction is predictable ~2:1; the bet vs the opener is 55-56% pooled and swings by season.
+This IS the "+CLV product" of §1, now measured directly.
