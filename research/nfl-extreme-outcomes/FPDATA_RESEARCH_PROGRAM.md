@@ -1287,3 +1287,16 @@ Graded like every prop card: grade_nfl_prop_narratives.py (grade_week.sh step 4c
 nfl_player_props actuals; the page shows the season record and graded reads. Not yet in it: the prop MODEL projection — the live scorer
 is not wired; add as a 'model' tell when it is. First run 2026 wk2: 467 props → 81 qualified → 10 shown,
 9 over / 1 under (the tell set skews over: form-above-line and defense-allows fire more than their unders).
+
+## Prop MODEL projections wired (2026-09-18) — `score_props_week.py`
+Generalized the one-off wk2 scorer: board from nfl_player_props (consensus line, ≥2 books), spread/total
+from nfl_slate_games, FP state carried forward (K=4, never joined on the unplayed week), season-to-date
+szn/l3/l5 from the FP per-game tables, training = prop_engine's 2018-25 panel. Frozen configs: pass_yds
+(λ60, thr 20), completions (λ60, 1.75), pass_tds (λ200, 0.35), receptions WR/TE (λ200, 0.7), rec_yds
+WR/TE (λ200, 12), receptions RB (λ600, 0.7), rush_attempts RB (λ200, 1.8). Every projection is written
+to `nfl_prop_model_preds` (parquet copy data/_prop_preds_SwW.parquet); nfl_prop_narratives.py adds a
+'model' tell (weight 1.5) when the edge clears the market's threshold and shows the projection as
+context otherwise. prop_engine.py now reads through fp_hist.read_fp (its FP inputs are tracked under
+data/fpdata_hist) so the scorer runs on the fp-data-inseason job before the narratives.
+Wk2 first run: 244 projections, 29 clear thresholds; the board went from 9 over / 1 under to 7 / 3
+(Daniels completions UNDER 4/4, Geno Smith pass yards UNDER).

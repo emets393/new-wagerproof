@@ -55,6 +55,8 @@ props = props[props.market.isin(MK) & props.game_id.astype(str).isin(games) & pr
 # QB rushing / non-QB passing props: the position logic above does not apply to them
 props = props[~((props.position == "QB") & props.market.isin(["player_rush_yds","player_rush_attempts"])) & ~((props.position != "QB") & props.market.str.startswith("player_pass"))].copy()
 props["team"] = props.team.map(ab); props["key"] = props.player_name.map(nn)
+# validated prop-model projections for the week (score_props_week.py -> nfl_prop_model_preds), keyed by odds-API player_id + market
+MP = {(str(m["player_id"]), m["market"]): m for m in fetch("nfl_prop_model_preds", f"select=player_id,market,line,pred,edge,threshold,fires,tier&season=eq.{SEASON}&week=eq.{WEEK}&limit=5000")}
 inj = pd.DataFrame(fetch("nfl_injuries_raw", f"select=team,player,position,report_status&season=eq.{SEASON}&week=eq.{WEEK}"))
 if len(inj): inj["team"] = inj.team.map(ab); inj["key"] = inj.player.map(nn); inj = inj[inj.report_status.astype(str).str.lower().isin(["out","doubtful"])]
 # ---------------------------------------------------------------- FP per-game player tables (form, ids, defense allowed by position)
@@ -145,6 +147,12 @@ def evaluate(r):
     if stat in ("pass_yds","pass_comp","pass_att") and so >= 20: T("injury", "under", f"receivers carrying {so:.0f}% of the target share are Out/Doubtful")
     if str(r.report_status or "").lower() in ("out","doubtful"): return None
     if str(r.practice_status or "").upper() in ("DNP",): T("injury", "under", f"did not practice ({r.practice_status})")
+    # the validated prop model's projection for THIS line (score_props_week.py). Counts as a tell only
+    # when it clears the market's frozen threshold; otherwise it is shown as context in the sheet.
+    mp = MP.get((str(r.player_id), r.market)); facts["model"] = mp
+    if mp and mp.get("pred") is not None:
+        e_ = float(mp["pred"]) - line
+        if abs(e_) >= float(mp["threshold"]): T("model", "over" if e_ > 0 else "under", f"the prop model projects {float(mp['pred']):.1f} {label}, {abs(e_):.1f} {'above' if e_ > 0 else 'below'} the line (clears this market's {float(mp['threshold']):g} threshold)", 1.5)
     # game script from the model
     home = team == ab(g["home_ab"]); sp = g.get("fg_spread_close"); tp = g.get("fg_total_pick"); facts["script"] = dict(spread=sp, total_pick=tp, model_total=g.get("fg_pred_total"))
     if sp is not None:
@@ -191,6 +199,9 @@ def sheet(r, e):
     g = games[str(r.game_id)]; L = [f"### 🔢 The line", f"- **{e['label'].capitalize()} {e['line']:g}** ({r.team} vs {e['opp']})" + (f" — best over {r.best_over_line:g} at {r.best_over_book_name} ({int(r.best_over_price):+d})" if pd.notna(r.best_over_line) and pd.notna(r.best_over_price) else "") + (f", best under {r.best_under_line:g} at {r.best_under_book_name} ({int(r.best_under_price):+d})" if pd.notna(r.best_under_line) and pd.notna(r.best_under_price) else "")]
     fm = e["facts"].get("form")
     if fm: L.append(f"- Last {fm['n5']}: {fm['l5']:.1f} per game" + (f"; this season: {fm['szn']:.1f} over {fm['n_szn']} game{'s' if fm['n_szn'] != 1 else ''}" if fm.get("szn") is not None else "") + f"; last game: {fm['last']:.0f}")
+    mp = e["facts"].get("model")
+    if mp and mp.get("pred") is not None:
+        e_ = float(mp["pred"]) - e["line"]; L.append(f"- 🧮 Prop model projects **{float(mp['pred']):.1f}** ({e_:+.1f} vs the line; this market's threshold is {float(mp['threshold']):g}, so it {'counts' if abs(e_) >= float(mp['threshold']) else 'is context only'})")
     groups = [("🎯 Matchup", ("routes","coverage","alignment","pocket","concept","trenches","back")), ("🛡️ The defense", ("defense",)), ("🏥 Context", ("injury",)), ("🧮 Game script and model", ("script","model"))]
     for title, srcs in groups:
         ts = [t for t in e["tells"] if t["src"] in srcs]

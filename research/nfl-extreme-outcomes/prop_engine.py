@@ -26,6 +26,7 @@ NICK = {"Cardinals":"ARZ","Falcons":"ATL","Ravens":"BLT","Bills":"BUF","Panthers
 "Seahawks":"SEA","49ers":"SF","Buccaneers":"TB","Titans":"TEN","Commanders":"WAS"}
 num = lambda s: pd.to_numeric(s, errors="coerce")
 FP = "data/fpdata/"
+from fp_hist import read_fp as _read_fp   # hist + current merge (Render clones carry only this season in data/fpdata)
 
 
 def entering(df, key, cols, prefix, K=4.0, minp=1):
@@ -61,15 +62,15 @@ def team_key(df, col="teamNickname"):
 
 # ---------------------------------------------------------------- panel + lines
 panel = pd.read_parquet("data/nfl_prop_v3_panel.parquet")
-cw = pd.read_parquet(FP + "player_crosswalk.parquet")[["player_id", "playerPlayerId"]].drop_duplicates("player_id")
+cw = _read_fp("player_crosswalk")[["player_id", "playerPlayerId"]].drop_duplicates("player_id")
 panel = panel.merge(cw, on="player_id", how="left")
-_cl23 = pd.read_parquet(FP + "_close_2023.parquet")
+_cl23 = _read_fp("_close_2023")
 panel = panel.merge(_cl23, on=["player_id", "market", "season", "week"], how="left")
 panel["close_line"] = panel.close_line.fillna(panel.cl23)
 
 # ============================================================ PLAYER FEATURE BLOCKS
 # ---- RUSHING: workload + efficiency + concepts (NEVER used by prior prop models) ----
-ru = pd.read_parquet(FP + "player_rushing-advanced.parquet")
+ru = _read_fp("player_rushing-advanced")
 RU = {"ru_att": "playerStatsRushingAttemptsTotal", "ru_ypa": "playerStatsRushingYardsPerAttempt",
       "ru_ybc": "playerStatsRushingYardsBeforeContactPerAttempt",
       "ru_yac": "playerStatsRushingYardsAfterContactPerAttempt",
@@ -89,7 +90,7 @@ for k, c in RU.items():
 f_rush = entering(ru, "playerPlayerId", list(RU), "")
 
 # ---- BELL COW: market shares (the workload driver for attempts) ----
-bc = pd.read_parquet(FP + "player_rushing-bell-cow.parquet")
+bc = _read_fp("player_rushing-bell-cow")
 BC = {"ms_rush": "marketShareRushingAttemptsTotal", "ms_snap": "marketShareSnapsOffenseTotal",
       "ms_route": "marketShareReceivingRoutesTotal", "ms_tgt": "marketShareReceivingTargetsTotal",
       "ms_xfp": "marketShareXfpPprTotal", "tm_rush_att": "teamStatsRushingAttemptsTotal",
@@ -99,7 +100,7 @@ for k, c in BC.items():
 f_bc = entering(bc, "playerPlayerId", list(BC), "")
 
 # ---- RECEIVING advanced (role + efficiency + alignment) ----
-ra = pd.read_parquet(FP + "player_receiving-advanced.parquet")
+ra = _read_fp("player_receiving-advanced")
 RC = {"rc_routeshare": "marketShareReceivingRoutesTotal", "rc_airshare": "marketShareReceivingYardsAir",
       "rc_tprr": "playerStatsReceivingTargetsPerRoute", "rc_yprr": "playerStatsReceivingAveragesPerRouteYardsTotal",
       "rc_slot": "playerStatsReceivingAlignmentSlotRoutesPercentage",
@@ -115,7 +116,7 @@ for k, c in RC.items():
 f_recv = entering(ra, "playerPlayerId", list(RC), "")
 
 # ---- SEPARATION ----
-sep = pd.read_parquet(FP + "player_receiving-separation-by-alignment.parquet")
+sep = _read_fp("player_receiving-separation-by-alignment")
 SE = {"sp_score": "playerStatsReceivingSeparationScorePercentage",
       "sp_win": "playerStatsReceivingSeparationWinsPercentage"}
 for k, c in SE.items():
@@ -123,7 +124,7 @@ for k, c in SE.items():
 f_sep = entering(sep, "playerPlayerId", list(SE), "")
 
 # ---- QB passing advanced + depth ----
-qb = pd.read_parquet(FP + "player_passing-advanced.parquet")
+qb = _read_fp("player_passing-advanced")
 qb = qb[num(qb.playerStatsPassingDropbacksTotal) >= 10]
 QC = {"qb_cpoe": "playerStatsPassingCompletionsOverExpected",
       "qb_acc": "playerStatsPassingThrowAccuracyHighlyAccuratePercentage",
@@ -142,7 +143,7 @@ f_qb = entering(qb, "playerPlayerId", list(QC), "")
 
 # ============================================================ OPPONENT / TEAM BLOCKS
 # ---- opponent RUN defense ----
-dr = pd.read_parquet(FP + "team_defense_rushing-advanced.parquet")
+dr = _read_fp("team_defense_rushing-advanced")
 dr["__k"] = team_key(dr)
 DR = {"dru_ypa": "opponentStatsRushingYardsPerAttempt", "dru_ybc": "opponentStatsRushingYardsBeforeContactPerAttempt",
       "dru_yac": "opponentStatsRushingYardsAfterContactPerAttempt",
@@ -159,7 +160,7 @@ for k, c in DR.items():
 f_dr = entering(dr, "__k", list(DR), "")
 
 # ---- opponent COVERAGE diet ----
-cov = pd.read_parquet(FP + "team_defense_coverage-matrix.parquet")
+cov = _read_fp("team_defense_coverage-matrix")
 cov["__k"] = team_key(cov)
 CV = {"dcv_man": "opponentStatsCoverageSchemeManPassingDropbacksPercentage",
       "dcv_zone": "opponentStatsCoverageSchemeZonePassingDropbacksPercentage",
@@ -169,7 +170,7 @@ for k, c in CV.items():
 f_cov = entering(cov, "__k", list(CV), "")
 
 # ---- opponent PASS defense ----
-dp = pd.read_parquet(FP + "team_defense_passing-advanced.parquet")
+dp = _read_fp("team_defense_passing-advanced")
 dp["__k"] = team_key(dp)
 DP = {"dps_ypa": "opponentStatsPassingYardsPerAttempt", "dps_cpoe": "opponentStatsPassingCompletionsOverExpected",
       "dps_sack": "opponentStatsPassingSackedPercentage", "dps_poe": "opponentStatsPassingPressuredOverExpected",
@@ -181,7 +182,7 @@ for k, c in DP.items():
 f_dp = entering(dp, "__k", list(DP), "")
 
 # ---- opponent RECEIVING allowed ----
-drc = pd.read_parquet(FP + "team_defense_receiving-advanced.parquet")
+drc = _read_fp("team_defense_receiving-advanced")
 drc["__k"] = team_key(drc)
 DRC = {"drc_yds": "opponentStatsReceivingYardsTotal", "drc_tgt": "opponentStatsReceivingTargetsTotal",
        "drc_rec": "opponentStatsReceivingReceptionsTotal", "drc_yprr": "opponentStatsReceivingAveragesPerRouteYardsTotal",
@@ -192,7 +193,7 @@ for k, c in DRC.items():
 f_drc = entering(drc, "__k", list(DRC), "")
 
 # ---- TRENCHES (OL vs DL) ----
-lm = pd.read_parquet(FP + "lineMatchups__team.parquet")
+lm = _read_fp("lineMatchups__team")
 lm["__k"] = team_key(lm)
 LM = {"ol_press_allow": "teamStatsPassingPressuredPercentage", "ol_poe": "teamStatsPassingPressuredOverExpected",
       "ol_ybc_tot": "teamStatsRushingYardsBeforeContactTotal", "ol_rush_att": "teamStatsRushingAttemptsTotal",
@@ -204,7 +205,7 @@ f_lm = entering(lm, "__k", list(LM), "")
 
 # ---- GAME SCRIPT: PROE (proeReport) + pass/rush snap split (run-pass report) ----
 # This is the volume engine for attempts/completions/receptions markets.
-pr_t = pd.read_parquet(FP + "proeReport__team.parquet")
+pr_t = _read_fp("proeReport__team")
 pr_t["__k"] = team_key(pr_t)
 pr_t["gs_db"] = num(pr_t.teamStatsPassingDropbacksTotal)
 pr_t["gs_db_exp"] = num(pr_t.teamStatsPassingDropbacksExpected)
@@ -212,7 +213,7 @@ pr_t["gs_proe"] = pr_t.gs_db - pr_t.gs_db_exp            # pass-rate over expect
 pr_t["gs_snaps"] = num(pr_t.teamStatsSnapsOffenseTotal)
 f_gs = entering(pr_t, "__k", ["gs_db", "gs_db_exp", "gs_proe", "gs_snaps"], "")
 
-rpr = pd.read_parquet(FP + "team_run-pass-report.parquet")
+rpr = _read_fp("team_run-pass-report")
 rpr["__k"] = team_key(rpr)
 rpr["rp_pass"] = num(rpr.teamStatsSnapsOffensePass)
 rpr["rp_rush"] = num(rpr.teamStatsSnapsOffenseRush)
@@ -221,7 +222,7 @@ rpr["rp_passrate"] = rpr.rp_pass / rpr.rp_tot.replace(0, np.nan)
 f_rp = entering(rpr, "__k", ["rp_pass", "rp_rush", "rp_tot", "rp_passrate"], "")
 
 # opponent pace/volume allowed
-pr_o = pd.read_parquet(FP + "proeReport__opponent.parquet")
+pr_o = _read_fp("proeReport__opponent")
 pr_o["__k"] = team_key(pr_o)
 oc = {"ogs_db": "opponentStatsPassingDropbacksTotal", "ogs_snaps": "opponentStatsSnapsOffenseTotal"}
 oc = {k: c for k, c in oc.items() if c in pr_o.columns}
@@ -364,16 +365,21 @@ NARROW_RECV = MKT_CTX + [c for c in panel.columns if c.startswith(("rc_", "sp_",
 NARROW_RUSH = MKT_CTX + [c for c in panel.columns if c.startswith(("ru_", "ms_", "tm_", "O_dru"))] \
     + [c for c in panel.columns if c.startswith("ix_") and c.split("_")[1] in ("rush", "ybc", "yac", "stuff", "zone", "workload", "script")]
 
-# ⛔ 2026-09-17 PRICE AUDIT (prop_anchor_check.py, prop_price_rebuild.py, prop_price_check2.py):
-# the three "CONFIRMED" specs beat the LINE but not the PRICE. At matched T-60 prices (median
-# implied prob across books posting the consensus line — the panel's over_px/under_px were medians
-# of American odds and straddled zero) ROI is pass_tds -1.2% (61.5% vs 61.3% breakeven, model
-# picks the -159 side), pass_yds +0.2% (53.6% on the 181 plays at a line a book actually posted;
-# the other 219 were at phantom half-lines), receptions +0.0% (56.5% vs 55.6% breakeven, picks
-# the -125 over 85% of the time). Placebo ROI -2 to -8% = the vig. The models recover the vig
-# and nothing more. pass_tds' 61% is a base-rate lean (shuffled-target placebo 58.8%, line-only
-# model 62.5%). Also: at the OPEN line all three are 48-52% — whatever exists is T-60 only.
-# Tier labels below are the pre-audit labels, kept for the audit trail. NOTHING HERE IS SHIPPABLE.
+# ★★★ PROPS — FINAL READ, ALL CONFIGS SCORED, NO SELECTION (2026-09-18, exp_prop_config_robustness.py)
+# The right question is not "does the best config hold" (one draw, can be unlucky) but "what share
+# of ALL configs (lambda x threshold x feature set x injury-ctx) is profitable in EACH season" at
+# best-book T-60 execution:
+#                          2024 %>0  median | 2025 %>0  median | both>0
+#   ★ pass_yds QB            100%   +7.6%  |   81%   +6.9%  |  81%   ROBUST. (the one 2024-best config
+#       that lost in 2025 was in the unlucky 19%; the market itself is real)              SHIP
+#   ★ reception_yds WR/TE     92%   +2.9%  |   79%   +2.5%  |  71%   ROBUST but small. SHIP-lean
+#   ~ pass_completions QB      43%   -1.3%  |  100%  +22.1%  |  43%   REAL IN 2025, flat 2024. Season-
+#       variable; ship at reduced stakes, expect +5..+20 not +22.
+#   ~ receptions WR/TE         30%   -2.3%  |  100%   +7.3%  |  30%   2025-only. candidate.
+#   ~ pass_attempts QB         25%   -3.5%  |  100%   +9.1%  |  25%   2025-only. candidate.
+#   x rush_attempts (19% both), rush_yds (0%), RB receptions (18%): no.
+# Earlier verdicts ("five markets", then "pass_yds fails") were both single-config views; this
+# table supersedes them. Execution unchanged: T-60, best available book, DNP = no action, +CTX for QB.
 SPECS = [
     # (market, positions, lambda, threshold, feature_set, tier, note)
     ("player_pass_tds", ["QB"], 200, 0.35, None, "CONFIRMED",
