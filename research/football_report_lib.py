@@ -168,12 +168,15 @@ HARD RULES:
   encouraged (e.g. "## 🏥 Injuries"); none in body text. Numbers stated exactly as given."""
 
 
-def generate_narrative(env, league, storylines, extra_context=""):
+def generate_narrative(env, league, storylines, extra_context="", max_tokens=1400):
     key = env.get("OPENAI_API_KEY_REPORTS") or env.get("OPENAI_API_KEY_MLB")
     if not key:
         return None, None
     payload = [{k: s.get(k) for k in ("family", "title", "body", "rank", "matchup", "status")}
                for s in storylines]
+    # Featured-matchup weeks (NFL) carry 4 x 120-180-word sections on top of the 500-700
+    # word report, so the caller lifts max_tokens; the word budget in the system prompt is
+    # a floor for the non-featured part, not a cap on the whole.
     body = {
         "model": "gpt-4o",
         "messages": [
@@ -181,7 +184,7 @@ def generate_narrative(env, league, storylines, extra_context=""):
             {"role": "user", "content": (extra_context + "\n\nSTORYLINES:\n"
                                          + json.dumps(payload, default=str))[:60000]},
         ],
-        "max_tokens": 1400, "temperature": 0.4,
+        "max_tokens": max_tokens, "temperature": 0.4,
     }
     try:
         r = requests.post("https://api.openai.com/v1/chat/completions",

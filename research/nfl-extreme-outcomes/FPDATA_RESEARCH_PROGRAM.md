@@ -987,3 +987,285 @@ PATTERN CONFIRMED: market prices marquee markets tight (pass yds/tds/att, rec yd
 leaves edges in secondary volume/mobility (RB recs, QB rush yds).
 ⚠ DATA: panel close_line only 2024+ → ~1.5 clean test seasons. Rebuild 2023 close from
 props_rows (snapshot warehouse) for a 3rd validation season before trusting borderline.
+
+## DOSSIER → POINTS: the two gates (2026-09-18)
+
+`team_dossier.py TEAM` (8 sections, every unit, league percentiles) and `cross_dossier.py AWAY HOME`
+(unit-vs-unit stacked EPA by coverage type / man-zone / shell / blitz / rushers / box / play action,
+share-weighted by the defense's identity; receivers by route/alignment/coverage vs the defense;
+QB pts/dropback by the defense's coverage mix; line vs rush). Built BUF and LAC, crossed for wk3.
+The share-weighted stacked shift IS the "adjusted value" the owner described (LAC −.034/db ≈ −1.3
+pts, BUF +.018 ≈ +0.6).
+
+**Gate 1 — reliability of within-look deviations (`exp_cross_reliability.py`, 2022-25):** coverage
+type ×7, rushers, play action, motion, box (pass and run), offense AND defense: split-half r all
+between −.22 and +.20, none ≥ .30; YoY same. FP QB-by-coverage: Man .06, Cover2 .21, Cover3 .26,
+Cover4 .19. Overall offense LEVEL split-half .60 (a real trait); defense level only .14. A team's
+production inside a look, relative to itself, does not persist half-season to half-season.
+**Gate 2 — opponent-ADJUSTED levels (`exp_prod_opp_adjusted.py`):** ridge off−def+home per week,
+walk-forward, prior season half weight. Into the shipped model: A 55.4% → F (+adj nets) 54.0% →
+G (adj replaces true) 54.4%; F−A −1.3 [−3.4, +0.9]; corr(adj, unadjusted true net) .82. No gain.
+VERDICT: the dossier/cross layer is content and scouting; it cannot be converted to points because
+the interaction terms are not estimable at 17 games/season and the level terms are already in
+production (the true-s2d fix captured that gain).
+
+## PROPS AT PRICE, CORRECTED — two markets survive with best-book execution (2026-09-18)
+
+The 09-17 "dead at price" verdict was an artifact of the STRICT price set (plays where every book
+posted the same consensus line). Reconciliation (`exp_prop_price_reconcile.py`): pass_yds thr20
+strict subset 53.6% (n=181) vs the plays where books DISAGREED 59.4% (n=219). Book disagreement
+= market uncertainty = where a model can be right; the strict filter removed exactly those.
+BEST-BOOK execution (most favorable line among books posting at T-60 in the model's direction, at
+that book's own price — coherent line+price, the bet you place):
+
+| market | thr | win | n | ROI | 2024 / 2025 | sides | placebo @best-book | blanket base rate |
+|---|---|---|---|---|---|---|---|---|
+| pass_yds QB | 20 | 57.0% | 400 | +7.6% | +7.4 / +7.8 | OVER +5.8 (320), UNDER +14.6 (80) | −4.1% | OVER −0.4, UNDER −7.2 |
+| reception_yds WR/TE | 12 | 58.0% | 312 | +9.6% | +6.6 / +21.1 | 99% overs | +1.1% | OVER −2.9 |
+| pass_completions QB | 2.5 | 58.4% | 173 | +8.9% | +0.4 / +32.2 | | −5.7% | one-season mirage, NO |
+
+pass_yds holds at thr 10/15/20/25 (+7.3/+6.5/+7.6/+8.0), fair-price subset (−115 or better) +8.6%,
+both sides profitable — SHIPPABLE at T-60 (at the open it is ~50%). reception_yds is one-sided and
+2025-heavy — CANDIDATE. Everything else stays dead at price. `data/fpdata/_prop_price_deep.parquet`.
+Execution needs: T-60 pull of every book's line (props_rows already captures it), pick the best line
+in the model's direction, stake at that book. score_slate_props.py currently prices at consensus.
+
+## PROPS, FINAL — five markets at best-book with DNP removal and teammate-injury context (2026-09-18)
+
+Owner's two objections were both right and both testable. (1) DNP: no lined player was himself
+Out/Doubtful (T-60 lines exist only for actives); ~73 of 19,249 rows had zero snaps and zero stat —
+now no-action. (2) Teammate injuries: never a feature. Built `CTX` = entering target / carry /
+attempt share of same-team Out/Doubtful WR-TE / RB / QB that week + skill count
+(exp_prop_injury_context.py, from data/injuries_raw.parquet, 3,771 team-weeks with a skill Out).
+
+| market | thr | feats | win | n | ROI | 2024 / 2025 | placebo | blanket O / U | λ x0.5 / x2 |
+|---|---|---|---|---|---|---|---|---|---|
+| pass_yds QB | 20 | +CTX | 58.2% | 390 | +9.8% | +8.6 / +11.9 | −2.6 | −0.4 / −7.2 | +9.3 / +8.4 |
+| pass_completions QB | 1.0 | +CTX | 59.9% | 531 | +11.9% | +4.9 / +21.0 | −6.4 | −4.4 / −0.3 | +7.9 / +11.5 |
+| receptions WR/TE | 0.7 | base | 58.9% | 423 | +6.7% | +6.6 / +6.9 | +0.6 | −4.7 / −2.6 | +4.6 / +5.6 |
+| reception_yds WR/TE | 12 | +CTX | 56.9% | 487 | +7.3% | +5.7 / +11.1 | +1.4 | −2.3 / −4.3 | +5.3 / +7.2 |
+| rush_attempts RB | 1.8 | base | 57.9% | 278 | +7.4% | +10.4 / +3.8 | −4.1 | −9.9 / +2.2 | +8.9 / −0.4 |
+
+CTX helps the QB markets (+2 pts pass_yds, +2.4 completions) and hurts receptions; the "teammate
+out → over" subset alone is ~50-56% (not a standalone edge). rush_attempts is lambda-fragile →
+candidate. pass_attempts, RB receptions, rush_yds, pass_tds stay out. Volume ≈ 11 + 14 + 11 + 13
+plays/week. All T-60, best-book. Live wiring: score_slate_props.py needs CTX (from nfl_injuries_raw
+ESPN feed) and best-book selection from the per-book props snapshot.
+
+## PROPS — STRICT HOLDOUT VERDICT (2026-09-18 evening)
+
+Everything above chose thresholds/lambdas/feature sets looking at 2024 AND 2025. `exp_prop_holdout.py`
+selects on 2024 only (train 2023) and scores 2025 blind; the same selection on shuffled targets (3
+reps) is the null. `exp_prop_holdout_audit.py`: best-book is not a stale-line artifact (gaps tiny,
+book mix balanced, blanket O/U at best book negative both seasons; 2025 completions blanket UNDER
++4.0% is the one market lean).
+
+| market | 2024-chosen config | 2024 | 2025 HOLDOUT | null 2025 | verdict |
+|---|---|---|---|---|---|
+| pass_completions QB | lam60 thr1.0 wide +CTX | +4.9% n=299 | **65.1% n=232 +21.0%** | −7.3/+0.3/−1.0 | REAL (every grid cell +16..+43% on 2025; holds at consensus −110) |
+| pass_attempts QB | lam600 thr1.5 +CTX | +2.4% | 56.2% n=144 +5.5% | −6.5/−2.7/−5.1 | weak pass |
+| receptions WR/TE | lam200 thr0.7 narrow | +6.6% | 60.0% n=185 +6.9% | +4.5/+3.8/+3.5 | marginal (~+2.5 over a mean-reversion null) |
+| pass_yds QB | lam600 thr20 +CTX | +12.3% | 52.1% n=94 −1.5% | −16.6/−6.3/−17.7 | FAILS (lam60 was +8/+12 but chosen on both years) |
+| rush_attempts RB | lam60 thr1.8 narrow | +15.4% | 50.5% n=107 −6.5% | negative | FAILS |
+| reception_yds | thr18 selected → n=3 | | inconclusive | +2.9/+4.6/+3.7 | unproven |
+| rush_yds, RB receptions | | | ≈0 | | fail |
+
+Honest state: ONE market survives pre-registration cleanly (completions, season-variable: 2024
++5%, 2025 +21%), one weakly (attempts), the rest are in-sample selection. The earlier "five
+markets" table is the in-sample view and is superseded by this one.
+
+## PLAY-LEVEL MODEL v1 (2026-09-18 night, playlevel_model.py) — replicates the market, does not beat it
+
+137,379 REG plays 2022-26 (dropbacks + designed runs) with look tags (coverage type/man-zone/shell
+57% tagged; box/rushers/blitz/PA/motion ~100%) and ENTERING-WEEK FP profiles attached per play:
+30 offense cols (18 gated units + CORE + tendencies + starting-QB FP passing profile), 22 defense
+cols (units + coverage identity shares + box/blitz/rush5/man), 13 matchup differentials.
+HistGBM on EPA/play, train 2022-24, HOLDOUT 2025, nested feature sets:
+  context .0069 | +look .0066 | +profiles .0085 | +look+profiles .0070   (R², all plays)
+EPA per play is ~99% noise; profiles add ~+0.002 R² at most; top features are man/zone and rushers
+(in-game info), then down/distance. Roll-up (neutral contexts, integrating over the defense's
+entering look shares): net rating correlates .69 with the OPENER and .31 with the margin, but with
+the margin−opener residual only +.07 (2024 +.17, 2023/2025 ≈0); margin ~ opener + net: t = 0.79,
+1 sd of net = +0.5 pts beyond the opener. Bets vs opener 50.7% (|edge|≥1, n=347). Into the
+production sides model: 58.8% → 58.0%. VERDICT: v1 reconstructs the closing line from the same
+inputs the market uses; no information beyond it. Limits: 57% coverage tagging, no per-play target
+receiver, no hierarchical shrinkage. A v2 (pass plays only, targeted-receiver profiles, success/
+yards targets, shrinkage) is the remaining untested variant; expected gain is small.
+
+## PROPS — ALL CONFIGS, NO SELECTION (2026-09-18 night, exp_prop_config_robustness.py) — supersedes both prior verdicts
+
+Owner: "how did you get 55% everywhere and then say it's all dead?" Because both answers were
+single-config views: the first chose the best of 18 configs looking at both seasons; the strict
+holdout chose the best on 2024 alone (one draw). The unbiased read is the share of ALL configs
+profitable in each season at best-book:
+
+| market | configs | 2024 %>0 / median | 2025 %>0 / median | both>0 | verdict |
+|---|---|---|---|---|---|
+| pass_yds QB | 16 | 100% / +7.6% | 81% / +6.9% | 81% | ROBUST — ship |
+| reception_yds WR/TE | 24 | 92% / +2.9% | 79% / +2.5% | 71% | robust, small — ship-lean |
+| pass_completions QB | 14 | 43% / −1.3% | 100% / +22.1% | 43% | real in 2025, flat 2024 — ship reduced |
+| receptions WR/TE | 30 | 30% / −2.3% | 100% / +7.3% | 30% | 2025-only — candidate |
+| pass_attempts QB | 12 | 25% / −3.5% | 100% / +9.1% | 25% | 2025-only — candidate |
+| rush_attempts RB | 36 | 50% / +0.3% | 36% / −0.9% | 19% | no |
+| rush_yds RB | 24 | 0% | 58% / +0.6% | 0% | no |
+| receptions RB | 28 | 29% | 54% / +0.7% | 18% | no |
+
+pass_yds' single 2024-best config that lost in 2025 was one of the unlucky 19%; 13 of 16 configs
+were profitable both years. Lesson recorded: judge a market by the distribution over configs, not
+by any one pick.
+
+## TARGET SHARE MODEL (2026-09-18 night, target_share_model.py) — the owner's "reverse-engineer why" question, answered
+
+16,796 WR/TE/RB player-games 2021-26 (>=8 routes; weekly target share verified = site export
+1,119/1,119). Target = this game's target share. 55 pregame features in 6 groups. Walk-forward.
+
+| features | 2023 R²/MAE | 2024 | 2025 |
+|---|---|---|---|
+| entering share (baseline) | .334 / 5.37 | .310 / 5.53 | .306 / 5.48 |
+| last-3 share | .353 / 5.49 | .332 / 5.69 | .312 / 5.67 |
+| PLAYER (role: route share, first-read share, aDOT, yprr…) | .410 / 5.19 | .392 / 5.28 | .409 / 5.14 |
+| +PECKING (share/number of teammates above him) | .405 | .400 | .414 |
+| +INJURY (teammates out above/below, QB out, QB change) | .414 | .402 | .416 |
+| +TEAM +OPP +GAME (all 55) | .413 / 5.19 | .409 / 5.21 | .416 / 5.09 |
+
+WHY (permutation, 2025): PLAYER .148, PECKING .055, INJURY .003, TEAM .0004, OPP .0001, GAME .0001.
+Top: last-3 route share .063, n_above .039, first-read share .028, last-3 tsh .023, entering tsh .022.
+Partial effects (share pts): teammate ABOVE him out (20% share) +0.27 (a vacated 20% spreads across
+the whole corps); teammate below out 0; starting QB out 0; QB change 0; −7 fav → +7 dog +0.02;
+opponent man 15→40% −0.07 (WR); two-high 35→65% −0.05; pressure over expected 0; +6 sep allowed at
+his alignment +0.02. => Target share is ROLE (route share, read order, pecking) + noise; the
+opponent, the script and the QB barely move it; injuries move it a fraction of the narrative.
+~59% of weekly variance is in-game.
+PAYOFF (all-configs, best-book): receptions WR/TE both-seasons-positive configs 53% → 67% with
+pred target share (2024 median +0.1 → +1.6, 2025 +6.9 → +4.9); reception_yds no change (58%);
+RB receptions no. Modest, real-looking help on receptions only.
+
+## WEEKLY PLAYER BRIEFS — the product (2026-09-18 night)
+
+Owner's spec (the St. Brown chain) is now a weekly pipeline:
+- `player_dossier.py "Player" TEAM OPP --asof S W` — the long-form single-player report (7 sections).
+- `player_chain.py` — the chain as a function keyed by FP player id (same-name players exist:
+  two Justin Jeffersons in 2026 wk1); returns structured calls + the compact brief.
+- `gen_player_briefs.py S W [--all]` — every receiver with a receptions/rec-yds line on the unplayed
+  games (nfl_player_props × nfl_slate_games), name+team → FP id; writes
+  `out/player_briefs_SwW.md` (grouped by game) and `data/fpdata/_chain_calls_SwW.parquet`.
+  Week 2: 139/139 lined receivers matched, 130 briefs.
+- `grade_player_briefs.py S W` — after the Tuesday FP pull: share direction, depth direction,
+  primary alignment, coverage shift, pressure shift, and over/under the posted lines; appends to
+  `data/fpdata/_chain_grades.parquet` (running track record).
+Week-1 loop test (28 players, as-of week 1, base 2025): alignment call right 83%, coverage moved
+toward the opponent's identity 100%, pressure moved as expected 80%; share direction 11% and depth
+18% — the "flat within 2 pts" band is far tighter than weekly share noise (sd ≈ 5.5 pts), so
+those two calls need a noise-aware band before they mean anything. Consistent with the
+target-share model: role and structure are predictable, week-to-week share direction from
+coverage is not. Do not widen the band to fit results; set it from the noise (±1 sd) up front.
+Data notes: FP week rows land Tuesday/Thursday (fp-data-inseason), so Sunday briefs use the
+Thursday pull; per-play coverage for the current season lags nflverse publication (FTN covers
+blitz/box); 6 same-name player collisions in 2026 wk1 handled by id keying.
+
+## Reception Perception paper (owner, 2026-09-18) — replicated, does not move the prop models
+Harmon & Scott 2022 (RP charting, 308 WR-seasons, player+year fixed effects): success vs man +1.56%
+yds/game per point, vs zone +0.59%; zone's effect doubles for slot-heavy receivers; man's is constant.
+`exp_rp_coverage_success.py` re-runs the same panel on our FP data (420 WR-seasons 2021-25, FP
+separation score vs man/zone as the success analog, player+season FE):
+  - both coverage terms positive and significant (man t=4.4, zone t=4.9 on yards/game); slot
+    interaction reproduces (zone effect +1.4% at 10% slot -> +2.4% at 70% slot; man ~flat)
+  - our zone term is LARGER than man (opposite ordering) — FP separation vs zone is a lower-mean,
+    lower-variance number than RP success, so "per point" is not on the same scale; the ordering
+    is not comparable, the structure is
+  - routes/game dominates everything (+5%/route, t=19-24) — volume, same as the target-share model
+Matchup efficiency prior (p_man(opp)*sep_man + p_zone(opp)*sep_zone*(1+slot), K=4, plus a
+yards/route version and a man-skill×man-faced gap) added to the prop models, all configs, best-book:
+  reception_yds  both-seasons-positive 58% -> 50% | receptions 53% -> 40% | pass_yds 81% -> 88%
+Noise both ways. Verdict: real description of WHO produces at the season level, already in the
+posted line at the game level. Same shape as every other FP finding. Keep as brief content, not model input.
+
+## Tail test — can the prop model sort the board? (owner reframe, 2026-09-18)
+`exp_prop_tail.py` (+ `--null SEED`) and `exp_prop_tail_vs_null.py`. Weekly cross-market ranking by
+edge vs best book (market-scaled); slices of the week's board; three stacks (base / +CTX / +FP);
+shuffled-target nulls keep everything except the labels the model learned from.
+  - extreme top 2% LOSES in every stack both seasons (low-line, juiced overs, 2x DNP rate)
+  - 2-10% band wins 55-58% both seasons... but the NULL wins the same band in 2025 (57-59%):
+    2024 model adds +4..+6 pts over null; 2025 adds -1..0. Consensus slice (top-10% under all 9
+    settings minus top-2%, ~12/wk): real 54.4% / 58.2% vs nulls ~50% / 55-59%.
+  - tail is ~90% overs. FP stack = base stack within noise.
+Verdict: the sorting is not separable from a labels-free line-gap ranking across both seasons.
+The model helps in 2024, not 2025; the line-gap effect helps in 2025, not 2024. Neither is a
+shippable "these props are more probable" rule on two seasons. Do not present the tail as an edge.
+
+## Stepwise bottom-up, STEP 1 = the run game (owner, 2026-09-18) — `exp_stepwise_run.py`
+Team rushing advanced (zone vs man/gap concept success, stuffs, MTF, YBCO) offense × defense-allowed,
+K=4-seeded entering values, walk-forward 2022-25, one row per team-game (2,540).
+  - predicting THIS game's rush success: own+opp r=+.15..+.22 per season (single-game noise ceiling ~.35);
+    the concept-matched split adds NOTHING over own+opp (r +.10..+.23); stuffs/YBCO/MTF add ≤.02.
+  - does the run-game expectation move points past the CLOSE?  r with team-pts residual −.03..+.07,
+    with margin residual −.04..+.09; top/bottom-decile bet 41-55% by season (chance).
+Verdict: the run facet is predictable exactly as far as teams are stable, and the market has that.
+STEP 2 (usage) / STEP 3 (expected points per facet) not built — step 1b fails the gate that would justify them.
+
+## Facet composite → points (owner, 2026-09-18) — `exp_composite.py`
+Six facets per team (pass off = passer rating, pass def = rating allowed, rush off/def = success %,
+O-line = pressure allowed + YBCO, D-line = pressure generated + stuffs), entering-week K=4 seeded,
+z-scored across the league each week; TEAM = OFF + DEF; gap = home − away. 1,017 games 2022-25.
+  - one unit of gap ≈ +3.2 pts of margin (r=.30). The closing LINE moves +2.9 pts per unit (r=.66):
+    the market prices this composite almost exactly, and better than the composite predicts results.
+  - residual vs close r=+.02 pooled (2024 +.12, 2025 −.06); betting the better composite at any
+    threshold: 47-49% vs close pooled, 39-42% in 2025.
+  - totals: +1.7 pts per unit on the actual total, +1.8 on the line, residual r≈0; over/under bets 50%.
+  - facet weights the market uses: pass offense dominates (r .67 with the line); rush defense and
+    D-line stuffs ≈ 0. Decile table: gap decile 10 → margin +9.7 vs line +8.6; decile 1 → −4.2 vs −4.9.
+Verdict: the composite is a good description of team quality and the line IS that composite. As a
+model input it is redundant with the opener. Useful as a plain-language explainer of the line.
+Confluence at the OPENER (`exp_composite_confluence.py`, 2023-25, clean model): model alone at conf≥.06
+57.0% (n=474); model+composite AGREE 55-56%; DISAGREE → model side 55%, composite side 45%; composite
+alone 49%; model-under-floor rescued by composite 46%; all-three-agree 57.8% (n=156) = model alone.
+The composite neither confirms nor filters the model. Closed.
+Variants (`exp_composite_variants.py`): 28-facet composite tracks the closing line at r=.70 (six-facet .63)
+— built right — with residual vs open r=.05; weights fitted to margin r(resid)=.055; weights fitted DIRECTLY
+to the opener residual (walk-forward): out-of-sample r=−.035, top-quintile bets 58%/38%. No build of a
+team-quality composite has anything the opener lacks. Closed for good.
+
+## Three-stage matchup (owner, 2026-09-18) — `exp_three_stage.py`
+Stage 1 strategy: an offense's pass rate vs its own norm moves < ±1.6 PROE pts across every defense
+scheme × tier cell, no consistent direction; run-defense tier GOOD +0.4 / BAD −1.0. Predicting this
+game's pass rate: own tendency r .28-.36; + scheme +.00; + quality +.01-.03.
+Stage 2 efficiency: pass YPA vs cell ±0.2; rush success −1.7 pts vs GOOD run D, +1.1 vs BAD (real, small).
+Predicting this game's YPA: own norm r .24-.27; + opp D ≤ +.03; + scheme +.00; + own-history-vs-cell +.00.
+Stage 3 expected points (usage × pass eff × rush eff, both teams): r with actual total .18-.20, with the
+LINE .66-.70, residual −.03..+.01; spread r actual .30-.37, line .74-.78, residual .00-.09. Bets: totals
+46-59% by season, spread vs opener 44-54%. Same verdict as the composite: it rebuilds the line.
+
+## Study A — in-season regression / luck (owner, 2026-09-18) — `exp_luck_regression.py`
+Ten facets (pass eff, YPA, rush success, pressure, pass D, run D, points-over-yards luck, turnover
+margin, spread miss, margin), norm = K=4-seeded s2d EXCLUDING the last 2 games, deviation in sd.
+(1) The bounce: after a VERY COLD game every facet is still BELOW norm the next game (−0.18 to −0.31 sd);
+after VERY HOT still above (+0.15 to +0.32); r(last, next) +.10 to +.19. Regression toward the norm
+happens; it never overshoots. Streaks persist mildly — the opposite of "unlucky team excels next week".
+(2) Market: residual by bucket ±1 pt, sign flips between last-1/last-2 and open/close. Bets: back very
+cold / fade very hot 42-62% by season, nothing consistent; best pooled cell (back a torched pass defense
+vs open) 55.3% n=208 but 48/45/56/59 by season vs close. Totals: cold offense → over 41/38/62/52.
+Verdict: no luck/regression edge in team facets; the market already discounts one bad week.
+
+## Study B — familiarity (owner, 2026-09-18) — `exp_familiarity.py`
+Per-play frame 2022-25 (pbp + FTN + participation): offense/QB exposure to blitz-heavy, 5+-rusher, man-heavy
+defenses (dropback-weighted, prior games; QB across seasons) vs a HIGH-style opponent; defense exposure to
+run-heavy / play-action-heavy offenses.
+  - QB-level: unfamiliar QBs vs blitz/5+/man run 0.1-0.2 sd below familiar ones pooled (EPA vs own norm),
+    but the sign flips by season (2022/2024 unfamiliar NOT worse); continuous walk-forward r −.07..+.16.
+  - team-level: nothing (±0.05 sd).  ATS/UNDER bets vs close and open: 32-67% by season, no cell repeats.
+  - defense unfamiliar with run-heavy offenses allowed +0.28 sd vs norm (familiar +0.10), direction holds
+    3 of 4 seasons on the field; fade-D ATS 48/55/50/48, OVER 50/42/54/57. Play-action version: nothing.
+Verdict: a faint, real on-field familiarity effect at the QB and run-defense level; zero against the line.
+
+## SHIPPED — Featured Matchups in the NFL regression report (owner spec 2026-09-18)
+`nfl_matchup_facts.py` scores every unplayed game on how many INDEPENDENT things are telling — Fantasy
+Points / charting matchup facts (passing-game shift by coverage look ≥0.10, trench mismatch, QB vs this
+coverage mix ≥15%, run game by box, QB familiarity with blitz/man-heavy defenses) and internal facts
+(model play, active signals, weather, referee trend, Out/Doubtful) — keeps the top 4 with ≥2 matchup
+tells and ≥1 internal tell, and writes a deterministic fact sheet per game to `nfl_matchup_facts`
+(direction = aligned / tension / no model play / matchup even). `gen_nfl_regression_report.py` reads
+the table into 'matchups' storylines (rank 5, quota 4) and the narrative LLM opens the report with a
+"Featured Matchups" section, 120-180 words per game, no picks. Runs on the fp-data-inseason Render job
+(Tue/Thu) after the pull; six lean FP parquets are git-tracked so a fresh clone has the prior season.
+Web: FootballRegressionPage renders the family with top billing. First run: 2026 week 2 (GB@NYJ aligned,
+MIN@CHI even, NYG@LAR tension, NO@BAL no model play).

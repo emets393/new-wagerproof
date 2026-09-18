@@ -5,6 +5,10 @@ only (football_report_lib). NO PICKS. Families re-evaluate fully each run so
 vanished conditions resolve on the record.
 
 Families v1:
+  matchups      — FEATURED MATCHUPS (owner spec 2026-09-18): top-4 games where the Fantasy
+                  Points / charting matchup facts AND our internal data (model play, signals,
+                  weather, referee, injuries) are both telling. Read from nfl_matchup_facts,
+                  which nfl_matchup_facts.py writes on the fp-data-inseason job (Tue/Thu).
   injuries      — team injury digests + notable Out/Doubtful (empty until Sept reports)
   signals       — CONFLUENCE engine (shared w/ CFB, football_report_lib): per-game
                   alignments / strong solos / explicit conflicts, records graded
@@ -115,6 +119,24 @@ def main():
                       body=f"{team_ab}: {names}.",
                       data={"team": team_ab, "listings": rows}, rank=15))
 
+    # ---- featured matchups (owner spec 2026-09-18) ---------------------------
+    # nfl_matchup_facts is written by nfl_matchup_facts.py (Fantasy Points /
+    # charting matchup facts crossed with the model, signals, weather, referee,
+    # injuries — top MAX_GAMES games by how many independent things are telling).
+    # It needs the FP parquets + play-by-play caches, which only the fp-data
+    # job's disk has, so this generator READS the table rather than computing.
+    # Storyline keys are per game; the sync resolves a game once it kicks off
+    # (it is dropped from `games` above) or falls out of the featured set.
+    for f in fetch(env, "nfl_matchup_facts",
+                   f"select=game_id,matchup,direction,body,score&season=eq.{season}&week=eq.{week}&order=score.desc"):
+        gid = str(f["game_id"])
+        if gid not in label:
+            continue
+        S.append(dict(storyline_key=f"matchup:{gid}", family="matchups", game_id=gid,
+                      matchup=label.get(gid), title=f"Featured matchup — {label.get(gid)}",
+                      body=f["body"], data={"direction": f.get("direction"), "score": f.get("score")},
+                      rank=5))
+
     # ---- signals: CONFLUENCE engine (shared, football_report_lib) ------------
     # sides_model is the base model lean on ~every spread (blanket — excluded);
     # consensus_totals_HC / M2 are the model's own totals lean (no circular
@@ -224,7 +246,7 @@ def main():
                                     "direction": direction, "pct": pct, "n": n}, rank=45))
 
     # ---- rank with family quotas, cap, sync ----------------------------------
-    QUOTA = {"confluence": 6, "injuries": 10, "signals": 10, "ref_trends": 8,
+    QUOTA = {"matchups": 4, "confluence": 6, "injuries": 10, "signals": 10, "ref_trends": 8,
              "line_movement": 8, "coach_trends": 6}
     dedup = {}
     for s in S:
@@ -243,8 +265,20 @@ def main():
     stored = fetch(env, "football_regression_storylines",
                    f"select=family,title,body,rank,matchup,status&sport=eq.nfl"
                    f"&season=eq.{season}&week=eq.{week}&order=rank")
+    n_feat = sum(1 for s in stored if s.get("family") == "matchups" and s.get("status") != "resolved")
     narrative, model = lib.generate_narrative(
-        env, "NFL", stored, f"Week {week}, {season} season. {len(games)} games on the slate.")
+        env, "NFL", stored,
+        f"Week {week}, {season} season. {len(games)} games on the slate."
+        + (f" {n_feat} 'matchups' storylines are FEATURED MATCHUPS: open the report with a section "
+           "'## 🔎 Featured Matchups' and give each one its own sub-heading and 120-180 words that walk "
+           "through the ins and outs of that game — the number and the model's read, each passing game "
+           "against the other's coverage mix, the trenches, the quarterback against that coverage, the "
+           "run game, familiarity, receivers, and the situational facts — quoting the storyline's "
+           "numbers exactly and ending with whether the matchup facts and the model line up or sit in "
+           "tension. Describe the model's play as 'the model shows a play on X' or 'the model has no "
+           "play' — never 'recommends', 'suggests a play', or any imperative. Then continue with the "
+           "other families as usual." if n_feat else ""),
+        max_tokens=2800 if n_feat else 1400)
     fam_counts = {}
     for s in stored:
         fam_counts[s["family"]] = fam_counts.get(s["family"], 0) + 1

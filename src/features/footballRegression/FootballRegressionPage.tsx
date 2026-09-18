@@ -111,6 +111,9 @@ interface StorylineRow {
 
 // Emoji + accent per storyline family — the visual identity of each card.
 const FAMILY_META: Record<string, { label: string; emoji: string; chip: string; border: string }> = {
+  // Featured matchups: Fantasy Points scheme/matchup facts crossed with our model, signals,
+  // weather, referee and injuries (research/nfl-extreme-outcomes/nfl_matchup_facts.py). Top billing.
+  matchups: { label: 'Featured Matchup', emoji: '🔎', chip: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400', border: 'border-l-indigo-500/80' },
   injuries: { label: 'Injuries', emoji: '🏥', chip: 'bg-red-500/15 text-red-500 dark:text-red-400', border: 'border-l-red-500/70' },
   signals: { label: 'Signal', emoji: '🎯', chip: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400', border: 'border-l-emerald-500/70' },
   line_movement: { label: 'Line Movement', emoji: '📈', chip: 'bg-sky-500/15 text-sky-600 dark:text-sky-400', border: 'border-l-sky-500/70' },
@@ -127,7 +130,7 @@ const FAMILY_FALLBACK = { label: 'Storyline', emoji: '📌', chip: 'bg-muted tex
 // Cards render grouped by family (owner: interleaving injury cards between
 // signal cards reads as disorder). Rank still orders WITHIN a family.
 const FAMILY_ORDER = [
-  'confluence', 'injuries', 'signals', 'line_movement',
+  'matchups', 'confluence', 'injuries', 'signals', 'line_movement',
   'ref_trends', 'coach_trends', 'coach', 'luck', 'situational', 'roster',
 ];
 
