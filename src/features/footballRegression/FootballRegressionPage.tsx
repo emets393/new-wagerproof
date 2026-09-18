@@ -424,6 +424,22 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
         </section>
       )}
 
+      {/* Featured matchups sit directly under Today's update (owner 2026-09-18), ahead of the
+          AI narrative — they are the week's headline content, not one family among many. */}
+      {grouped.filter((g) => g.fam === 'matchups').map(({ fam, rows }) => {
+        const m = FAMILY_META[fam] ?? FAMILY_FALLBACK;
+        return (
+          <section key={fam} className="space-y-3">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              {m.emoji} {m.label}s ({rows.length})
+            </h2>
+            {rows.map((s) => (
+              <StorylineCard key={s.id} s={s} sport={sport} logosReady={logosReady} />
+            ))}
+          </section>
+        );
+      })}
+
       {report.narrative && (
         <section className="rounded-xl border border-border bg-card p-5">
           <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -436,7 +452,7 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
         </section>
       )}
 
-      {grouped.map(({ fam, rows }) => {
+      {grouped.filter((g) => g.fam !== 'matchups').map(({ fam, rows }) => {
         const m = FAMILY_META[fam] ?? FAMILY_FALLBACK;
         return (
           <section key={fam} className="space-y-3">
@@ -896,10 +912,10 @@ function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl'
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="rounded-md border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-[13px] font-bold text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             aria-expanded={open}
           >
-            {open ? 'Hide full rundown' : 'Full rundown'}
+            {open ? '▲ Hide full rundown' : '▼ Full rundown — facet by facet'}
           </button>
           {open && (
             <div
