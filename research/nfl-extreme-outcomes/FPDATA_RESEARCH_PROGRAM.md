@@ -1283,6 +1283,7 @@ rundown ("the numbers point toward the OVER — a read, not a pick"). Web: /nfl/
 (PropNarrativesPage: headshot, logos, market + line + best over/under book, position filter, expandable
 numbers); button on the NFL regression page header. Runs on fp-data-inseason after matchup facts.
 FP tables it needs are tracked under data/fpdata_hist (fp_hist.read_fp merges hist + pull).
-Not yet in it: the validated prop MODEL projection (pass_yds / rec_yds / completions) — the live scorer
+Graded like every prop card: grade_nfl_prop_narratives.py (grade_week.sh step 4c) sets actual_value / result from
+nfl_player_props actuals; the page shows the season record and graded reads. Not yet in it: the prop MODEL projection — the live scorer
 is not wired; add as a 'model' tell when it is. First run 2026 wk2: 467 props → 81 qualified → 10 shown,
 9 over / 1 under (the tell set skews over: form-above-line and defense-allows fire more than their unders).

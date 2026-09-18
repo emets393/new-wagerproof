@@ -41,6 +41,9 @@ interface PropRow {
   n_against: number | null;
   summary: string | null;
   body: string | null;
+  // Graded like every other prop card (grade_nfl_prop_narratives.py): actual vs the line.
+  actual_value: number | null;
+  result: 'win' | 'loss' | 'push' | null;
 }
 
 const MARKET_LABEL: Record<string, string> = {
@@ -115,6 +118,11 @@ function PropCard({ r }: { r: PropRow }) {
           </div>
         </div>
       </div>
+      {r.result && (
+        <div className={cn('mt-3 inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11px] font-bold', r.result === 'win' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : r.result === 'loss' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400' : 'bg-muted text-muted-foreground')}>
+          {r.result === 'win' ? '✅ Read was right' : r.result === 'loss' ? '❌ Read was wrong' : '➖ Push'} · actual {r.actual_value} vs {r.line}
+        </div>
+      )}
       {r.summary && <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">{r.summary}</p>}
       {r.body && (
         <div className="mt-3">
@@ -140,6 +148,7 @@ function PropCard({ r }: { r: PropRow }) {
 
 export function PropNarrativesPage() {
   const [rows, setRows] = React.useState<PropRow[]>([]);
+  const [graded, setGraded] = React.useState<PropRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [pos, setPos] = React.useState<'ALL' | 'QB' | 'WR/TE' | 'RB'>('ALL');
 
@@ -147,7 +156,7 @@ export function PropNarrativesPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // Latest week on file, then its rows. Kicked-off games drop out client-side.
+      // Latest week on file for the live cards; every graded read this season for the record.
       const { data: latest } = await collegeFootballSupabase
         .from('nfl_prop_narratives')
         .select('season,week')
@@ -156,15 +165,25 @@ export function PropNarrativesPage() {
         .limit(1);
       const wk = latest?.[0];
       if (!wk) { if (!cancelled) { setRows([]); setLoading(false); } return; }
-      const { data } = await collegeFootballSupabase
-        .from('nfl_prop_narratives')
-        .select('*')
-        .eq('season', wk.season)
-        .eq('week', wk.week)
-        .order('score', { ascending: false });
+      const [{ data }, { data: past }] = await Promise.all([
+        collegeFootballSupabase
+          .from('nfl_prop_narratives')
+          .select('*')
+          .eq('season', wk.season)
+          .eq('week', wk.week)
+          .order('score', { ascending: false }),
+        collegeFootballSupabase
+          .from('nfl_prop_narratives')
+          .select('*')
+          .eq('season', wk.season)
+          .not('result', 'is', null)
+          .order('week', { ascending: false })
+          .order('score', { ascending: false }),
+      ]);
       if (!cancelled) {
         const now = Date.now();
         setRows(((data ?? []) as PropRow[]).filter((r) => !r.kickoff || new Date(r.kickoff).getTime() > now));
+        setGraded((past ?? []) as PropRow[]);
         setLoading(false);
       }
     })();
@@ -174,7 +193,13 @@ export function PropNarrativesPage() {
   const shown = rows.filter((r) =>
     pos === 'ALL' ? true : pos === 'WR/TE' ? r.position === 'WR' || r.position === 'TE' : r.position === pos,
   );
-  const wk = rows[0];
+  const wk = rows[0] ?? graded[0];
+  const record = {
+    w: graded.filter((r) => r.result === 'win').length,
+    l: graded.filter((r) => r.result === 'loss').length,
+    p: graded.filter((r) => r.result === 'push').length,
+  };
+  const lastGradedWeek = graded[0]?.week;
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 px-4 py-6">
@@ -188,6 +213,14 @@ export function PropNarrativesPage() {
           Players whose numbers stand out against the defense they face this week, with the real posted lines.
           Every card shows what points which way. Nothing here is a pick.
         </p>
+        {graded.length > 0 && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-[12px] font-bold">
+            📊 Reads this season: {record.w}-{record.l}{record.p ? `-${record.p}` : ''}
+            <span className="font-normal text-muted-foreground">
+              · {record.w + record.l ? Math.round((100 * record.w) / (record.w + record.l)) : 0}% right, graded vs the line after each game
+            </span>
+          </div>
+        )}
         <div className="mt-3 flex flex-wrap gap-2">
           {(['ALL', 'QB', 'WR/TE', 'RB'] as const).map((p) => (
             <button
@@ -209,6 +242,15 @@ export function PropNarrativesPage() {
         </section>
       )}
       {shown.map((r) => <PropCard key={r.id} r={r} />)}
+
+      {graded.length > 0 && (
+        <section className="space-y-3 pt-2">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            📋 Graded reads{lastGradedWeek ? ` · through week ${lastGradedWeek}` : ''} ({graded.length})
+          </h2>
+          {graded.slice(0, 20).map((r) => <PropCard key={r.id} r={r} />)}
+        </section>
+      )}
     </div>
   );
 }
