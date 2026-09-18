@@ -1,3 +1,4 @@
+import { resolvePremiumAccess } from '../shared/entitlements.ts';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
@@ -71,7 +72,7 @@ serve(async (req) => {
       return errorResponse(400, 'Invalid request', parseResult.error.errors);
     }
 
-    const { avatar_id, user_id, is_admin } = parseResult.data;
+    const { avatar_id, user_id } = parseResult.data;
 
     console.log(`[generate-avatar-picks] Starting generation for avatar ${avatar_id} by user ${user_id}`);
 
@@ -98,6 +99,19 @@ serve(async (req) => {
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
     const cfbClient = createClient(cfbSupabaseUrl, cfbSupabaseKey);
+    const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
+    if (token !== supabaseServiceKey) {
+      const { data: { user: caller }, error: authError } = await supabaseClient.auth.getUser(token);
+      if (authError || !caller || caller.id.toLowerCase() !== user_id.toLowerCase()) {
+        return errorResponse(401, 'Sign in to generate agent picks.');
+      }
+    }
+    const access = await resolvePremiumAccess(supabaseClient, user_id);
+    const is_admin = access.isAdmin;
+    if (access.entitlement?.isTieredCustomer && !access.hasPremiumAccess) {
+      return errorResponse(403, 'Agent picks require WagerProof Pro.');
+    }
+
 
     // ---------------------------------------------------------------------
     // 3. Fetch and Validate Avatar Profile

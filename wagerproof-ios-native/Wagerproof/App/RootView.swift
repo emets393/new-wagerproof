@@ -42,11 +42,12 @@ struct RootView: View {
         // catches the case the earlier `revenueCat.isLoading == false`
         // gate missed: when the user is an admin, RC reports
         // `entitlementStatus == .denied` and resolves fast, while the
-        // admin row lookup hasn't finished yet. `proAccess.isPro` is
+        // admin row lookup hasn't finished yet. `proAccess.hasSubscription` is
         // briefly false → predicate fired → paywall flashed → admin
         // role lands → flipped to true → paywall dismissed. Combined
         // with `hasResolvedActiveUserEntitlement` we cover both the
         // RC stale-cache window and the admin-resolution lag.
+        guard !proAccess.isPreviewing else { return false }
         guard revenueCat.hasResolvedActiveUserEntitlement else { return false }
         guard !proAccess.isLoading else { return false }
         if paywallDismissed { return false }
@@ -54,7 +55,7 @@ struct RootView: View {
         // Pro/admin account can still see the paywall; it self-clears on
         // dismiss/purchase, so it never leaks into normal Pro usage.
         if router.testPaywallOverride { return true }
-        return !proAccess.isPro
+        return !proAccess.hasSubscription
     }
 
     /// Two-way binding so SwiftUI's own swipe / cover-management can also
@@ -112,17 +113,18 @@ struct RootView: View {
             // was trying to sell them out of.
             guard requested else { return }
             router.reopenPaywallRequested = false
-            guard !proAccess.isPro else { return }
+            guard !proAccess.hasSubscription else { return }
             paywallDismissed = false
         }
         .onChange(of: auth.phase) { _, newPhase in
+            proAccess.previewMode = .actual
             // Sign-out resets the dismiss flag so the next user (or the same
             // user signing back in without Pro) sees the paywall again.
             if case .unauthenticated = newPhase { paywallDismissed = false }
         }
         .task {
             reviewPromptCoordinator.recordAppActive()
-            PicksExpiryService.shared.reconcile(isPro: proAccess.isPro)
+            PicksExpiryService.shared.reconcile(isPro: proAccess.hasSubscription)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -132,7 +134,7 @@ struct RootView: View {
                 // was backgrounded. ActivityKit can't do this on its own: the
                 // card goes stale at the deadline but stays on the Lock Screen
                 // until something ends it.
-                PicksExpiryService.shared.reconcile(isPro: proAccess.isPro)
+                PicksExpiryService.shared.reconcile(isPro: proAccess.hasSubscription)
             }
         }
         // Value events only enqueue. The root waits for the originating sheet,

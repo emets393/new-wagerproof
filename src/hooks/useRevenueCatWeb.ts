@@ -16,6 +16,9 @@ export function useRevenueCatWeb() {
     customerInfo,
     offerings,
     hasProAccess,
+    subscriptionTier,
+    isTieredCustomer,
+    hasSubscription,
     loading,
     offeringsLoading,
     error,
@@ -26,7 +29,7 @@ export function useRevenueCatWeb() {
   } = useRevenueCat();
 
   // Get subscription type if user has Pro access
-  const subscriptionType: ProductIdentifier | null = customerInfo && hasProAccess
+  const subscriptionType: ProductIdentifier | null = customerInfo && hasSubscription
     ? getActiveSubscriptionType(customerInfo)
     : null;
 
@@ -71,6 +74,9 @@ export function useRevenueCatWeb() {
     // Customer info
     customerInfo,
     hasProAccess,
+    subscriptionTier,
+    isTieredCustomer,
+    hasSubscription,
     subscriptionType,
     isMonthly,
     isYearly,

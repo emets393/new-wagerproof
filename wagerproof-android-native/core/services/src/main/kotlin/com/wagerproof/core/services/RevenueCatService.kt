@@ -1,11 +1,13 @@
 package com.wagerproof.core.services
 
+import com.wagerproof.core.models.SubscriptionTier
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import com.revenuecat.purchases.CustomerInfo
 import com.revenuecat.purchases.LogLevel
 import com.revenuecat.purchases.Offering
+import com.revenuecat.purchases.Offerings
 import com.revenuecat.purchases.Package
 import com.revenuecat.purchases.PurchaseParams
 import com.revenuecat.purchases.PurchaseResult
@@ -16,6 +18,7 @@ import com.revenuecat.purchases.awaitCustomerInfo
 import com.revenuecat.purchases.awaitLogIn
 import com.revenuecat.purchases.awaitLogOut
 import com.revenuecat.purchases.awaitOfferings
+import com.revenuecat.purchases.awaitSyncAttributesAndOfferingsIfNeeded
 import com.revenuecat.purchases.awaitPurchase
 import com.revenuecat.purchases.awaitRestore
 import com.revenuecat.purchases.awaitSyncPurchases
@@ -23,6 +26,8 @@ import com.revenuecat.purchases.interfaces.RedeemWebPurchaseListener
 import com.wagerproof.core.shared.AppGroup
 import com.wagerproof.core.shared.AppGroupKey
 import java.util.Locale
+import com.wagerproof.core.models.serialization.WagerproofJson
+import kotlinx.serialization.json.*
 import kotlinx.coroutines.CancellationException
 import java.util.Date
 import kotlin.coroutines.resume
@@ -228,11 +233,18 @@ object RevenueCatService {
     suspend fun currentOffering(): Offering? =
         Purchases.sharedInstance.awaitOfferings().current
 
-    /** Placement offering with fallback to `offerings.current` — mirrors RN's `getCurrentOfferingForPlacement`. */
+    /** A null placement is an intentional No Offering result. Never substitute another offer. */
     suspend fun offering(forPlacement: String): Offering? {
-        val offerings = Purchases.sharedInstance.awaitOfferings()
-        return offerings.getCurrentOfferingForPlacement(forPlacement) ?: offerings.current
+        check(configured) { "Subscription service is not ready." }
+        val purchases = Purchases.sharedInstance
+        val userId = purchases.appUserID
+        val offerings = purchases.awaitSyncAttributesAndOfferingsIfNeeded()
+        check(userId == purchases.appUserID) { "The subscription account changed. Please retry." }
+        return resolvePlacement(offerings, forPlacement)
     }
+
+    internal fun resolvePlacement(offerings: Offerings, placement: String): Offering? =
+        offerings.getCurrentOfferingForPlacement(placement)
 
     /**
      * Buy a package through Play Billing.
@@ -247,6 +259,17 @@ object RevenueCatService {
      */
     suspend fun purchase(activity: Activity, pkg: Package): PurchaseResult =
         Purchases.sharedInstance.awaitPurchase(PurchaseParams.Builder(activity, pkg).build())
+
+    /** Replaces an owned Play subscription instead of creating a second subscription. */
+    suspend fun purchaseTier(activity: Activity, pkg: Package, current: CustomerInfo?): PurchaseResult {
+        val owned = current?.let(::highestEntitlement)
+        val builder = PurchaseParams.Builder(activity, pkg)
+        if (owned?.store == com.revenuecat.purchases.Store.PLAY_STORE && owned.productIdentifier != pkg.product.id) {
+            builder.oldProductId(owned.productIdentifier)
+                .googleReplacementMode(com.revenuecat.purchases.models.GoogleReplacementMode.WITH_TIME_PRORATION)
+        }
+        return Purchases.sharedInstance.awaitPurchase(builder.build())
+    }
 
     suspend fun restorePurchases(): CustomerInfo =
         Purchases.sharedInstance.awaitRestore()
@@ -275,9 +298,25 @@ object RevenueCatService {
     fun hasProEntitlement(info: CustomerInfo): Boolean =
         info.entitlements.active.containsKey(ENTITLEMENT_IDENTIFIER)
 
+    fun subscriptionTier(info: CustomerInfo) = SubscriptionTier.resolve(info.entitlements.active.keys)
+    fun isTieredCustomer(info: CustomerInfo) = SubscriptionTier.isTieredCustomer(
+        info.allPurchasedProductIds, info.entitlements.all.keys)
+    data class ServerAccess(val tier: SubscriptionTier?, val isTiered: Boolean)
+    suspend fun serverSubscriptionAccess(): ServerAccess? {
+        val token = EdgeFunctions.accessTokenOrNull() ?: return null
+        val response = EdgeFunctions.post("resolve-my-entitlement", "{}", token)
+        if (!response.isSuccess) return null
+        val json = WagerproofJson.parseToJsonElement(response.body).jsonObject
+        val tier = json["subscriptionTier"]?.jsonPrimitive?.contentOrNull
+        return ServerAccess(SubscriptionTier.entries.firstOrNull { it.slug == tier },
+            json["isTieredCustomer"]?.jsonPrimitive?.booleanOrNull == true)
+    }
+
+    private fun highestEntitlement(info: CustomerInfo) = subscriptionTier(info)?.let { info.entitlements.active[it.entitlementId] }
+
     /** Coarse subscription type from the active entitlement's productIdentifier. */
     fun activeSubscriptionType(info: CustomerInfo): String? {
-        val productId = info.entitlements.active[ENTITLEMENT_IDENTIFIER]
+        val productId = highestEntitlement(info)
             ?.productIdentifier?.lowercase() ?: return null
         return when {
             productId.contains("lifetime") -> "lifetime"
@@ -288,10 +327,10 @@ object RevenueCatService {
     }
 
     fun activeProductIdentifier(info: CustomerInfo): String? =
-        info.entitlements.active[ENTITLEMENT_IDENTIFIER]?.productIdentifier
+        highestEntitlement(info)?.productIdentifier
 
     fun activeExpirationDate(info: CustomerInfo): Date? =
-        info.entitlements.active[ENTITLEMENT_IDENTIFIER]?.expirationDate
+        highestEntitlement(info)?.expirationDate
 
     /**
      * Persist the coarse entitlement snapshot so widgets/cold-launch UI don't

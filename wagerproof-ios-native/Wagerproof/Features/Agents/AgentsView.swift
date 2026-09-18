@@ -197,6 +197,11 @@ struct AgentsView: View {
     }
 
     var body: some View {
+        TieredAccessGate(minimum: .pro, title: "Your AI Agents") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         @Bindable var binding = store
         NavigationStack(path: $navPath) {
             // The My Agents branch uses a custom collapsing hero: the pixel

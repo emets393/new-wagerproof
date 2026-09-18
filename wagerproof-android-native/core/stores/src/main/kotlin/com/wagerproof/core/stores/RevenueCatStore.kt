@@ -1,5 +1,6 @@
 package com.wagerproof.core.stores
 
+import com.wagerproof.core.models.SubscriptionTier
 import android.content.Intent
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -66,6 +67,8 @@ class RevenueCatStore {
     var customerInfo by mutableStateOf<CustomerInfo?>(null); private set
     var offering by mutableStateOf<Offering?>(null); private set
     var entitlementStatus by mutableStateOf(EntitlementStatus.Unknown); private set
+    var subscriptionTier by mutableStateOf<SubscriptionTier?>(null); private set
+    var isTieredCustomer by mutableStateOf(false); private set
     var subscriptionType by mutableStateOf<String?>(null); private set
     var lastError by mutableStateOf<String?>(null); private set
     var isRedeemingWebPurchase by mutableStateOf(false); private set
@@ -89,11 +92,12 @@ class RevenueCatStore {
 
     /** Effective Pro flag. `false` when freemium is simulated, else driven by cached entitlement. */
     val isPro: Boolean
-        get() = if (forceFreemiumMode) false else entitlementStatus == EntitlementStatus.Granted
+        get() = if (forceFreemiumMode) false else subscriptionTier == SubscriptionTier.PRO
 
     val isEntitlementResolved get() = entitlementStatus != EntitlementStatus.Unknown
 
     private var streamJob: Job? = null
+    var identityRevision by mutableStateOf(0); private set
     private var currentUserId: String? = null
 
     /** Bootstrap the RevenueCat SDK. Idempotent. Called at app launch before auth fires. */
@@ -125,7 +129,7 @@ class RevenueCatStore {
         }
         try {
             val result = RevenueCatService.logIn(userId)
-            apply(result.customerInfo, CustomerInfoSource.Login)
+            applyTrusted(result.customerInfo, CustomerInfoSource.Login)
             refreshOffering()
             lastError = null
             // Only on the success path — a failed login keeps stale state and the
@@ -151,8 +155,11 @@ class RevenueCatStore {
      */
     fun prepareUserIdentity(userId: String): Boolean {
         if (currentUserId == userId) return false
+        identityRevision++
         currentUserId = userId
         customerInfo = null
+        subscriptionTier = null
+        isTieredCustomer = false
         entitlementStatus = EntitlementStatus.Unknown
         subscriptionType = null
         hasResolvedActiveUserEntitlement = false
@@ -174,8 +181,11 @@ class RevenueCatStore {
             // must not leave account A's local entitlement attached to the
             // now-anonymous app or its home-screen widgets.
         } finally {
+            identityRevision++
             currentUserId = null
             customerInfo = null
+            subscriptionTier = null
+            isTieredCustomer = false
             entitlementStatus = EntitlementStatus.Denied
             subscriptionType = null
             isLoading = false
@@ -195,7 +205,7 @@ class RevenueCatStore {
         }
         try {
             val info = RevenueCatService.customerInfo()
-            apply(info, CustomerInfoSource.Refresh)
+            applyTrusted(info, CustomerInfoSource.Refresh)
             lastError = null
             hasResolvedActiveUserEntitlement = true
         } catch (cancellation: CancellationException) {
@@ -209,13 +219,13 @@ class RevenueCatStore {
     /** Restore purchases from the store. Trusted source. */
     suspend fun restorePurchases() {
         val info = RevenueCatService.restorePurchases()
-        apply(info, CustomerInfoSource.Restore)
+        applyTrusted(info, CustomerInfoSource.Restore)
     }
 
     /** Force-sync purchases from the store. Trusted source. */
     suspend fun syncPurchases() {
         val info = RevenueCatService.syncPurchases()
-        apply(info, CustomerInfoSource.Refresh)
+        applyTrusted(info, CustomerInfoSource.Refresh)
     }
 
     /**
@@ -244,7 +254,7 @@ class RevenueCatStore {
                     // RevenueCat returns authoritative CustomerInfo with the
                     // redemption response. Apply it as a trusted purchase so
                     // the stream downgrade guard cannot hide the entitlement.
-                    apply(result.customerInfo, CustomerInfoSource.Purchase)
+                    applyTrusted(result.customerInfo, CustomerInfoSource.Purchase)
                     hasResolvedActiveUserEntitlement = true
                     lastError = null
                     refreshOffering()
@@ -308,13 +318,9 @@ class RevenueCatStore {
         }
     }
 
-    suspend fun fetchOffering(placementId: String): Offering? = try {
+    // Preserve the distinction between an intentional No Offering and a failed request.
+    suspend fun fetchOffering(placementId: String): Offering? =
         RevenueCatService.offering(placementId)
-    } catch (cancellation: CancellationException) {
-        throw cancellation
-    } catch (e: Throwable) {
-        null
-    }
 
     fun clearError() {
         lastError = null
@@ -331,29 +337,44 @@ class RevenueCatStore {
      * untrusted stream update can never lock a paying user out — only an
      * explicit refresh / restore / purchase can.
      */
-    private fun apply(info: CustomerInfo, source: CustomerInfoSource) {
-        val hasEntitlement = RevenueCatService.hasProEntitlement(info)
+    private suspend fun applyTrusted(info: CustomerInfo, source: CustomerInfoSource) {
+        val identity = currentUserId
+        val server = if (RevenueCatService.isTieredCustomer(info) && RevenueCatService.subscriptionTier(info) != SubscriptionTier.PRO) {
+            try { RevenueCatService.serverSubscriptionAccess() }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { null }
+        } else null
+        if (identity != currentUserId) return
+        apply(info, source, server)
+    }
+
+    private fun apply(info: CustomerInfo, source: CustomerInfoSource, server: RevenueCatService.ServerAccess? = null) {
+        val sdkTier = RevenueCatService.subscriptionTier(info)
+        val nextTier = listOfNotNull(sdkTier, server?.tier).maxByOrNull { it.ordinal }
+        val hasEntitlement = nextTier != null
         val nextStatus = if (hasEntitlement) EntitlementStatus.Granted else EntitlementStatus.Denied
         val nextType = RevenueCatService.activeSubscriptionType(info)
 
         // Trust-downgrade guard. The native listener fires with stale
         // anonymous-identity data during sign-in; honoring it would strand
         // paying users. Real downgrades arrive via a trusted refresh.
-        if (entitlementStatus == EntitlementStatus.Granted &&
-            nextStatus == EntitlementStatus.Denied &&
+        if ((subscriptionTier?.ordinal ?: -1) > (nextTier?.ordinal ?: -1) &&
             !source.isTrusted
         ) {
             return
         }
 
         customerInfo = info
+        if (nextTier != null) com.wagerproof.core.services.PicksExpiryService.cancel()
+        subscriptionTier = nextTier
+        isTieredCustomer = RevenueCatService.isTieredCustomer(info) || server?.isTiered == true
         entitlementStatus = nextStatus
         subscriptionType = nextType
 
         // Persist a coarse snapshot to App Group so widgets + cold launch can
         // render Pro state without waiting for RC.
         val editor = StorePrefs.appGroup.edit()
-        editor.putBoolean(AppGroupKey.PRO_ENTITLEMENT_GRANTED, hasEntitlement)
+        editor.putBoolean(AppGroupKey.PRO_ENTITLEMENT_GRANTED, nextTier == SubscriptionTier.PRO)
         if (nextType != null) {
             editor.putString(AppGroupKey.PRO_SUBSCRIPTION_TYPE, nextType)
         } else {
@@ -403,6 +424,7 @@ class RevenueCatStore {
         isLoading: Boolean = false,
     ) {
         if (!BuildFlags.isDebugBuild) return
+        this.subscriptionTier = if (status == EntitlementStatus.Granted) SubscriptionTier.PRO else null
         this.entitlementStatus = status
         this.subscriptionType = subscriptionType
         this.isLoading = isLoading

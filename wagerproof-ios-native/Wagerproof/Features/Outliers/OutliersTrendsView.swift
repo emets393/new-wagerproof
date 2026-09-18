@@ -87,6 +87,11 @@ struct OutliersTrendsView: View {
     private let cardWidth: CGFloat = 300
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Outliers") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         // Pinned section header keeps the filter row stuck below the nav bar while the
         // trend sections scroll under it — so a user can drill down by re-filtering
         // mid-scroll without jumping back to the top.

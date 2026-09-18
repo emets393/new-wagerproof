@@ -47,6 +47,15 @@ fun MatchupPropsDetailSheet(
     onSelect: (PlayerPropSelection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    com.wagerproof.app.features.paywall.TieredAccessGate(com.wagerproof.core.models.SubscriptionTier.PREMIUM, "Player Props") { MatchupPropsDetailSheetContent(matchup, onSelect, modifier) }
+}
+
+@Composable
+private fun MatchupPropsDetailSheetContent(
+    matchup: MLBPropMatchup,
+    onSelect: (PlayerPropSelection) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier
             .fillMaxSize()

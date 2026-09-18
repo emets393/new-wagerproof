@@ -1,3 +1,5 @@
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import { tierRestricted } from '@/features/tieredPaywall/access';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { PixelSpriteAvatar } from '@/components/agents/split/PixelSpriteAvatar';
@@ -81,6 +83,8 @@ function AvatarStack({
  * (see get_game_agent_consensus) turns the strip green.
  */
 export function AgentConsensusStrip({ consensus }: { consensus: GameAgentConsensus }) {
+  const { subscriptionTier, isTieredCustomer } = useRevenueCat();
+  if (tierRestricted(subscriptionTier, isTieredCustomer, 'pro')) return null;
   const { agents, side, sideAgents, marketAgents, flagged, avatars } = consensus;
   if (agents <= 0) return null;
 

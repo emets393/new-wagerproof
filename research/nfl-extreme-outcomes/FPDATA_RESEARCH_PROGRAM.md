@@ -938,3 +938,52 @@ bloat). Random forest is best-calibrated but its probabilities are compressed (h
 the plays) — production HGB stays. VERDICT: the best the search can find is indistinguishable from
 what it finds on shuffled targets, and it does not hold on the holdout. Adding more configurations
 only raises the chance maximum. The FP data is closed as a sides-model input. Content layer stands.
+
+## APPENDIX — sections from the earlier committed snapshot (main, 2026-09-17 midday) not in the later doc
+(kept verbatim so the merge loses nothing; the prop verdicts here were superseded by the PRICE AUDIT above: RB receptions / QB rush yds were never re-tested at matched prices)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## ★ DISTILLED PROP MODEL (2026-09-17) — the approach that finally worked
+exp_prop_distilled.py: per-player engineered composites (route/target share, TPRR,
+YPRR, slot/wide/backfield%, aDOT, first-read, design%, separation, sep-wins) +
+player×defense MATCHUP interactions (sep×man, slot×zone, deep×two-high, wide×man,
+backfield×two-high) + opportunity + line, ridge λ40, walk-forward, over/under vs close.
+RESULTS (dose-response):
+  ★★ RB RECEPTIONS: 54.7/56.4/57.7% @4/8/12% edge, z+2.6; per-season 56.2%/56.4% STABLE.
+     = owner's checkdown/two-high/RB-receiving thesis, validated. THE prop win.
+  ★ WR/TE receptions: 53.3/54.2/56.3% pooled but 2024 50.6% / 2025 54.2% — candidate, 2024 soft.
+  ✗ reception YARDS: ~49% (efficiency-driven, market efficient — don't bet).
+LESSON: volume markets (receptions) beatable via distillation; efficiency (yards) not.
+Single cells missed it — edge is DISTRIBUTED across dims, only the regularized combo finds it.
+Same architecture as sides v3/v4. NEXT: rush attempts/yds distilled; pass TDs; wire RB-recs.
+
+## QB PROP MARKETS (2026-09-17, distilled) — all 6 tested
+exp_prop_qb.py. QB composites (cpoe/acc/adot/deep/hero/sack/poe/ttt/firstread/
+checkdown/scramble) + opp coverage+pass-rush + matchup interactions + line, ridge WF.
+  ★ QB RUSH YDS: 55.5/55.7/56.4% @4/8/12%, z+2.2, dose-response. THE QB edge (mobile
+    QB rushing = stable identity market underprices). 
+  ~ pass_yds: 55.5% @8% (z1.4) non-monotone — modest candidate.
+  ✗ pass_tds 52.8% (weak), completions ~50%, attempts 48% (negative) = efficient.
+PATTERN CONFIRMED: market prices marquee markets tight (pass yds/tds/att, rec yds),
+leaves edges in secondary volume/mobility (RB recs, QB rush yds).
+⚠ DATA: panel close_line only 2024+ → ~1.5 clean test seasons. Rebuild 2023 close from
+props_rows (snapshot warehouse) for a 3rd validation season before trusting borderline.

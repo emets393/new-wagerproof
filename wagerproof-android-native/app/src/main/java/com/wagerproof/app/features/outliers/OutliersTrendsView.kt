@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.outliers
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -109,6 +112,16 @@ fun OutliersTrendsView(
     store: OutliersTrendsStore,
     modifier: Modifier = Modifier,
 ) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Betting Trends") { OutliersTrendsViewContent(store, modifier) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun OutliersTrendsViewContent(
+    store: OutliersTrendsStore,
+    modifier: Modifier = Modifier,
+) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     val parlayGod = graph.parlayGod
     val scope = rememberCoroutineScope()
@@ -120,19 +133,23 @@ fun OutliersTrendsView(
 
     val parlayAccess = when {
         graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
-        graph.proAccess.isPro -> ParlayGodAccessState.Granted
+        graph.proAccess.hasAccess(com.wagerproof.core.models.SubscriptionTier.PREMIUM) -> ParlayGodAccessState.Granted
         else -> ParlayGodAccessState.Locked
     }
 
     // Keep this on the always-mounted page container. The rail intentionally
     // renders nothing on a thin slate, so attaching the fetch to the rail would
     // leave the feature permanently empty on its first appearance.
-    LaunchedEffect(Unit) { parlayGod.refreshIfNeeded() }
+    LaunchedEffect(Unit) {
+        if (featurePreview) return@LaunchedEffect
+ parlayGod.refreshIfNeeded() }
 
     // iOS `.onChange(of: store.sport)` — reset dependent filters + refetch. Skip
     // the initial composition so we don't refetch what the root screen already loaded.
     var firstSport by remember { mutableStateOf(true) }
     LaunchedEffect(store.sport) {
+        if (featurePreview) return@LaunchedEffect
+
         if (firstSport) {
             firstSport = false
             return@LaunchedEffect

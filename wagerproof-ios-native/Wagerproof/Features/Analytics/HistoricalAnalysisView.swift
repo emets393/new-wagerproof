@@ -7,6 +7,18 @@ import WagerproofStores
 /// Historical Trends — native large title + floating filter pills, container-free
 /// content. See .claude/docs/15_mobile_historical_analysis.md.
 struct HistoricalAnalysisView: View {
+    let sport: HistoricalAnalysisSport
+
+    var body: some View {
+        TieredAccessGate(minimum: .premium, title: "\(sport.shortTitle) Historical Trends") {
+            HistoricalAnalysisContent(sport: sport)
+        }
+        .navigationTitle(sport.shortTitle + " Trends")
+    }
+}
+
+private struct HistoricalAnalysisContent: View {
+    @Environment(\.isFeatureGatePreview) private var isFeaturePreview
     @Environment(AchievementsStore.self) private var achievements
     let sport: HistoricalAnalysisSport
 
@@ -62,7 +74,7 @@ struct HistoricalAnalysisView: View {
         // Chat dock replaces the tab bar on this screen — same pattern as
         // WagerBotChatView / detail pages.
         .toolbar(.hidden, for: .tabBar)
-        .toolbar { systemsToolbar }
+        .toolbar { if !isFeaturePreview { systemsToolbar } }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             chatDock
@@ -87,9 +99,10 @@ struct HistoricalAnalysisView: View {
             presentToast(for: response)
         }
         .onChange(of: store.analysis != nil) { _, loaded in
-            if loaded { Task { await achievements.record(.historicalAnalysis) } }
+            if loaded && !isFeaturePreview { Task { await achievements.record(.historicalAnalysis) } }
         }
         .task {
+            guard !isFeaturePreview else { return }
             store.loadRecentQueries()
             await store.onAppear(userId: userId)
             if store.analysis != nil { await achievements.record(.historicalAnalysis) }
@@ -172,7 +185,7 @@ struct HistoricalAnalysisView: View {
         // Auth can still be `.launching` when `.task` first runs — re-fetch My
         // Systems once the session is ready so the list isn't stuck empty.
         .onChange(of: authStore.phase) { _, phase in
-            if case .authenticated(let id) = phase {
+            if !isFeaturePreview, case .authenticated(let id) = phase {
                 Task { await store.refreshSaved(userId: id) }
             }
         }
