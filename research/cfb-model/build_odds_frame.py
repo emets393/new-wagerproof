@@ -92,7 +92,28 @@ if len(fr) < _before:
 # join outcomes from model_games (season, home, away)
 mg = gm[["season", "week", "homeTeam", "awayTeam", "actual_margin", "actual_total", "homeConference", "awayConference"]].rename(
     columns={"homeTeam": "home", "awayTeam": "away"})
-fr = fr.merge(mg, on=["season", "home", "away"], how="inner")
+# NEUTRAL-SITE ORIENTATION (2026-09-18): the Odds API designates its own home team and it can be the
+# opposite of CFBD/ESPN's (Kansas vs Arizona State at Wembley: Odds API home = ASU, CFBD home = Kansas).
+# A strict (home, away) join silently drops the game -> no spread on the card -> health-sweep RED.
+# Unmatched rows retry with the teams swapped and every home-referenced field flipped into the
+# schedule's orientation.
+straight = fr.merge(mg, on=["season", "home", "away"], how="inner")
+_k = ["season", "home", "away"]
+left = fr[~fr.set_index(_k).index.isin(straight.set_index(_k).index)]
+sw = left.merge(mg.rename(columns={"home": "away", "away": "home"}), on=_k, how="inner")
+if len(sw):
+    sw = sw.rename(columns={"home": "away", "away": "home"})
+    for c in ("open_spread", "close_spread", "spread_move"):
+        sw[c] = -sw[c]
+    for a, b in (("open_home_ml", "open_away_ml"), ("close_home_ml", "close_away_ml"), ("close_sp_h_price", "close_sp_a_price")):
+        sw[a], sw[b] = sw[b].values, sw[a].values
+    for c in ("novig_home_prob", "open_novig_home"):
+        sw[c] = 1 - sw[c]
+    sw["swapped_orientation"] = True
+    print(f"  [orientation] {len(sw)} game(s) matched with home/away swapped and flipped into the schedule's orientation: "
+          + ", ".join(f"{r.away} @ {r.home}" for r in sw.itertuples()))
+straight["swapped_orientation"] = False
+fr = pd.concat([straight, sw], ignore_index=True) if len(sw) else straight
 fr["home_cover_close"] = (fr.actual_margin + fr.close_spread) > 0
 fr["over_close"] = fr.actual_total > fr.close_total
 out = os.path.join(HERE, "data", "odds_game_frame.parquet")
