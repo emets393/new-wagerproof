@@ -71,6 +71,11 @@ SPOT_META = {
  "T3 fade home backup": ("spread","open","T3",True),
 }
 STAKE = {"mammoth": 5.0, "T1": 3.0, "T2": 2.0, "T3": 1.0, "track": 0.5}
+# DOSE-RESPONSE FLOOR (LOCKED_MODELS.md §7, 2026-09-18): the base model is a threshold, not a slope.
+# |model - close| < 4 is noise (sides 49.7-53.6%, totals <=50% every season 2022-25; the early blend
+# 2026 wk1-2 went 35% below 4 and 61% at 4+). Below the floor NO lean is shown on the game row or the
+# spread/total card — the number still renders. A validated spot on the same side keeps its play.
+LEAN_FLOOR = 4.0
 def classify(token):
     for k, v in SPOT_META.items():
         if k in token: return v

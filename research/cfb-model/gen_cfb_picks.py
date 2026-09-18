@@ -246,24 +246,28 @@ for _, r in te.iterrows():
         bs = best_spread(gid, pside); model_line = round(-r.pred_margin if ph else r.pred_margin, 1)
         cv, mam, sig = conv_for(gid, "spread", side=pside)
         if capped: cv, mam, sig = "none", False, []
+        # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR, LOCKED_MODELS.md §7): a bare model lean under 4 pts
+        # loses — no side is shown (number still renders). A same-side validated spot keeps the pick.
+        below = abs(side_edge) < C.LEAN_FLOOR and cv == "none"
         sp_conv, sp_mam, sp_sig, sp_has = cv, mam, sig, (not capped and cv != "none")
         vline = r.spread_close if ph else -r.spread_close
-        rows.append(dict(game_id=gid, card_group="spread", bet_type="spread", sort_order=1, pick_side=pside, pick_team=pteam,
-            pick_label=f"{pteam} {fmt_line(bs[0] if bs else vline)}", model_number=round(float(r.pred_margin), 1), model_line=model_line,
+        rows.append(dict(game_id=gid, card_group="spread", bet_type="spread", sort_order=1, pick_side=(None if below else pside), pick_team=(None if below else pteam),
+            pick_label=(None if below else f"{pteam} {fmt_line(bs[0] if bs else vline)}"), model_number=round(float(r.pred_margin), 1), model_line=model_line,
             vegas_line=round(float(vline), 1), vegas_price=-110, edge=round(abs(side_edge), 1),
             best_book=bs[2] if bs else None, best_line=round(bs[0], 1) if bs else None, best_odds=bs[1] if bs else None,
-            conviction=cv, is_mammoth=mam, has_play=(not capped and cv != "none"), display_only=capped,
+            conviction=cv, is_mammoth=mam, has_play=(not capped and cv != "none"), display_only=(capped or below),
             signal_keys=sig, counter_signal_keys=counter_keys(gid, "spread", pside),
             stake_units=C.STAKE.get({"mammoth":"mammoth","high":"T1","med":"T2","low":"T3","lean":"track"}.get(cv,"track"),0)))
     # ---- TOTAL ----
     if pd.notna(r.total_edge):
         pside = "OVER" if r.total_edge > 0 else "UNDER"; bt = best_total(gid, pside)
         cv, mam, sig = conv_for(gid, "total", side=pside)
-        rows.append(dict(game_id=gid, card_group="total", bet_type="total", sort_order=2, pick_side=pside, pick_team=None,
-            pick_label=f"{pside.title()} {bt[0] if bt else r.total_close:g}", model_number=round(float(r.pred_total), 1), model_line=round(float(r.pred_total), 1),
+        below_t = abs(float(r.total_edge)) < C.LEAN_FLOOR and cv == "none"   # same floor as the spread card
+        rows.append(dict(game_id=gid, card_group="total", bet_type="total", sort_order=2, pick_side=(None if below_t else pside), pick_team=None,
+            pick_label=(None if below_t else f"{pside.title()} {bt[0] if bt else r.total_close:g}"), model_number=round(float(r.pred_total), 1), model_line=round(float(r.pred_total), 1),
             vegas_line=round(float(r.total_close), 1), vegas_price=-110, edge=round(abs(float(r.total_edge)), 1),
             best_book=bt[2] if bt else None, best_line=round(bt[0], 1) if bt else None, best_odds=bt[1] if bt else None,
-            conviction=cv, is_mammoth=mam, has_play=(cv != "none"), display_only=False, signal_keys=sig,
+            conviction=cv, is_mammoth=mam, has_play=(cv != "none"), display_only=below_t, signal_keys=sig,
             counter_signal_keys=counter_keys(gid, "total", pside),
             stake_units=C.STAKE.get({"mammoth":"mammoth","high":"T1","med":"T2","low":"T3","lean":"track"}.get(cv,"track"),0)))
     # ---- TEAM TOTALS (both, always) ----

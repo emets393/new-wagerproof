@@ -29,6 +29,7 @@ import requests
 
 ROOT = Path(__file__).resolve().parent
 SUPA = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
+REG_CAP = 7.0   # mirrors nfl_slate_games_build.REG_CAP (not imported: that module runs on import)
 
 
 def load_key():
@@ -58,7 +59,7 @@ def main():
     if not anchor:
         sys.exit("no slate")
     season, week = anchor[0]["season"], anchor[0]["week"]
-    gsel = ("game_id,kickoff,home_team,away_team,fg_pred_spread,fg_pred_total,"
+    gsel = ("game_id,kickoff,home_team,away_team,fg_pred_spread,fg_pred_total,fg_spread_pick,"
             "tt_home_pred,tt_away_pred,h1_pred_margin,h1_pred_total")
     games = requests.get(f"{SUPA}/nfl_slate_games?select={gsel}&season=eq.{season}&week=eq.{week}",
                          headers=hdr, timeout=30).json()
@@ -101,7 +102,15 @@ def main():
             if ps is not None:
                 rec["fg_spread_edge"] = round(sp - float(ps), 2)
                 side_home = (sp - float(ps)) >= 0
-                rec["fg_spread_pick"] = f"{abbr(gid, side_home)} {fmt(sp if side_home else -sp)}"
+                # The build decides WHETHER there is a lean (classifier floor + agreement,
+                # nfl_slate_games_build.PLAY_CONF); this refresher only re-tails the number. A
+                # NEUTRAL header stays NEUTRAL, and a regression gap past REG_CAP (the inverted
+                # extreme, 38.9% vs close) goes NEUTRAL here too. dose_response.py, 2026-09-18.
+                cur_pick = g.get("fg_spread_pick")
+                if cur_pick in (None, "NEUTRAL") or abs(sp - float(ps)) >= REG_CAP:
+                    rec["fg_spread_pick"] = "NEUTRAL"
+                else:
+                    rec["fg_spread_pick"] = f"{abbr(gid, side_home)} {fmt(sp if side_home else -sp)}"
         tot = val(row, "fg_total")
         if tot is not None:
             rec["fg_total_close"] = tot

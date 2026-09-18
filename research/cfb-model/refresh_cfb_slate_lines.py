@@ -281,6 +281,10 @@ def revalidate_banded_flags(hdr, season, week, gids):
 TIER_DISP = {"mammoth": "mammoth", "T1": "high", "T2": "med", "T3": "low", "track": "lean"}
 CONV_RANK = {"mammoth": 5, "T1": 4, "T2": 3, "T3": 2, "track": 1}
 STAKE_DISP = {"mammoth": 5.0, "high": 3.0, "med": 2.0, "low": 1.0, "lean": 0.5, "none": 0.0}
+try:
+    from dry_common import LEAN_FLOOR          # single source of truth for the 4-pt lean floor
+except Exception:
+    LEAN_FLOOR = 4.0
 
 
 def flip_stale_sides(hdr, season, week, gids, fills=None):
@@ -331,12 +335,21 @@ def flip_stale_sides(hdr, season, week, gids, fills=None):
         if cg == "spread" and g.get("fg_spread_close") is not None and g.get("fg_pred_spread") is not None:
             close, prd = float(g["fg_spread_close"]), float(g["fg_pred_spread"])
             new = "HOME" if (close - prd) >= 0 else "AWAY"   # side_edge = close - pred; ties break HOME (generator rule)
-            if cur and new != cur:
+            edge = abs(close - prd)
+            cv, mam, sig = conv_for(gid, "spread", lambda s, n=new: s == n)
+            # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR): as the line moves, a bare model lean that drops
+            # under 4 pts is CLEARED, and a cleared card whose gap grows back past 4 gets its side again.
+            below = edge < LEAN_FLOOR and cv == "none"
+            if cur and below:
+                rec = dict(pick_side=None, pick_team=None, pick_label=None, vegas_line=round(close if new == "HOME" else -close, 1),
+                           model_line=round(prd if new == "HOME" else -prd, 1), edge=round(edge, 1),
+                           best_line=None, best_odds=None, best_book=None, conviction="none", is_mammoth=False,
+                           has_play=False, display_only=True, signal_keys=[], stake_units=0.0)
+                gpatch.setdefault(gid, {})["fg_spread_pick"] = None
+            elif (cur and new != cur) or (not cur and not below):
                 team = g["home_team"] if new == "HOME" else g["away_team"]
                 vl = close if new == "HOME" else -close
                 ml = prd if new == "HOME" else -prd
-                cv, mam, sig = conv_for(gid, "spread", lambda s, n=new: s == n)
-                edge = abs(close - prd)
                 capped = edge > 14 and cv == "none"   # EARLY degenerate cap
                 rec = dict(pick_side=new, pick_team=team, pick_label=f"{team} {fmt(vl)}",
                            vegas_line=round(vl, 1), model_line=round(ml, 1), edge=round(edge, 1),
@@ -351,8 +364,14 @@ def flip_stale_sides(hdr, season, week, gids, fills=None):
         elif cg == "total" and g.get("fg_total_close") is not None and g.get("fg_pred_total") is not None:
             close, prd = float(g["fg_total_close"]), float(g["fg_pred_total"])
             new = "OVER" if (prd - close) > 0 else "UNDER"
-            if cur and new != cur:
-                cv, mam, sig = conv_for(gid, "total", lambda s, n=new: s == n)
+            cv, mam, sig = conv_for(gid, "total", lambda s, n=new: s == n)
+            below = abs(prd - close) < LEAN_FLOOR and cv == "none"   # same floor as the spread card
+            if cur and below:
+                rec = dict(pick_side=None, pick_team=None, pick_label=None, vegas_line=round(close, 1), model_line=round(prd, 1),
+                           edge=round(abs(prd - close), 1), best_line=None, best_odds=None, best_book=None,
+                           conviction="none", is_mammoth=False, has_play=False, display_only=True, signal_keys=[], stake_units=0.0)
+                gpatch.setdefault(gid, {})["fg_total_pick"] = None
+            elif (cur and new != cur) or (not cur and not below):
                 rec = dict(pick_side=new, pick_team=None, pick_label=f"{new.title()} {close:g}",
                            vegas_line=round(close, 1), model_line=round(prd, 1),
                            edge=round(abs(prd - close), 1),

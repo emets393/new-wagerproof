@@ -90,6 +90,13 @@ REC = {"mammoth": "MAMMOTH Play", "high": "High Conviction", "med": "Solid Play"
        "low": "Lean", "lean": "Small Lean", "none": "No Bet"}
 STAKE = {"mammoth": 3.0, "high": 1.5, "med": 1.0, "low": 0.5, "lean": 0.25, "none": 0.0}
 CONV_RANK = {"none": 0, "lean": 1, "low": 2, "med": 3, "high": 4, "mammoth": 5}
+# DOSE-RESPONSE FLOOR + CAP (NFL_MODEL_NOTES.md, dose_response.py, 2026-09-18). The classifier is a
+# hump: |P(home cover)-.5| in .03-.06 = 50.0% at the opener (loses), .06-.15 = 58-60%, .15+ decays.
+# The regression gap INVERTS at the extreme: |pred margin - line| >= 7 = 38.9% vs close, losing all
+# five seasons. So a lean needs classifier confidence >= PLAY_CONF, and a regression gap >= REG_CAP
+# is display-only regardless. The regression magnitude no longer sets the tier (it never ranked).
+PLAY_CONF = 0.06
+REG_CAP = 7.0
 # the line a signal was computed from -> the line we GRADE against (grading framework)
 GRADE_LINE = {"fg_harness": "open", "consensus_totals": "open",
               "props": "close", "h1_model": "close", "k_signal": "close", "late_defense": "close"}
@@ -340,8 +347,11 @@ def build_games():
         # Pre-2026-08-15 this used the classifier (ph) while the card used reg_edge — when
         # the two models split, header and card CONTRADICTED (the CFB Oklahoma failure).
         # NEUTRAL when the classifier disagrees with the margin side (the card shows
-        # conv=none there) or the classifier is inside its confidence band.
-        if pd.isna(r.reg_edge) or pd.isna(r.ph) or pd.isna(r.open_spread) or abs(r.ph - 0.5) < CONF:
+        # conv=none there), the classifier is under the PLAY_CONF floor, or the
+        # regression gap is past REG_CAP (the inverted extreme — see constants).
+        if pd.isna(r.reg_edge) or pd.isna(r.ph) or pd.isna(r.open_spread) or abs(r.ph - 0.5) < PLAY_CONF:
+            return "NEUTRAL"
+        if abs(r.reg_edge) >= REG_CAP:
             return "NEUTRAL"
         margin_home = r.reg_edge >= 0
         if margin_home != (r.ph >= 0.5):
@@ -909,17 +919,17 @@ def build_picks(g, fl, books, kickoff, meta):
             f.rule != "sides_model"
             and ((str(f.side).split()[0] == r.home_ab) == (side == "HOME"))
             for _, f in act_sp.iterrows())
-        if not agree:
-            conv = "none"                       # models split -> show prediction, no confident play
-        elif re_mag >= 3 or spot_aligned:
+        # DOSE-RESPONSE ladder (dose_response.py, 2026-09-18): the tier is the CLASSIFIER's
+        # confidence, not the regression magnitude — regression size never ranked outcomes and
+        # inverts past REG_CAP. .06+ classifier confidence with agreement = 58-60% at the opener.
+        clf_conf = abs(float(r.ph) - 0.5) if pd.notna(r.ph) else 0.0
+        if not agree or clf_conf < PLAY_CONF or re_mag >= REG_CAP:
+            conv = "none"                       # split / under the floor / inverted extreme -> number only
+        elif spot_aligned:
             conv = "high"
-        elif re_mag >= 1.5:
-            conv = "med"
-        elif re_mag > 0:
-            conv = "lean"
         else:
-            conv = "none"
-        is_mam = bool(r.mammoth) and agree        # locked mammoth gate (confluence=1 + spot)
+            conv = "med"
+        is_mam = bool(r.mammoth) and agree and conv != "none"   # locked mammoth gate (confluence=1 + spot)
         if is_mam:
             conv = "mammoth"
         vline = r.open_spread if side == "HOME" else -r.open_spread

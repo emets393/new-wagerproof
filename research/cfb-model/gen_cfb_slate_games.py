@@ -166,19 +166,23 @@ for _, r in m.iterrows():
     # forecast's open-based side_edge stays for the betting/spot layer only.
     edge = (r.pred_margin + r.spread_close if pd.notna(r.pred_margin) and pd.notna(r.spread_close)
             else (r.side_edge if pd.notna(r.side_edge) else None))
-    mside = ("AWAY" if edge < 0 else "HOME") if edge is not None else None
-    tside = ("OVER" if pd.notna(r.total_edge) and r.total_edge > 0 else "UNDER") if pd.notna(r.total_edge) else None
+    mdir = ("AWAY" if edge < 0 else "HOME") if edge is not None else None          # model direction (spot agreement)
+    tdir = ("OVER" if pd.notna(r.total_edge) and r.total_edge > 0 else "UNDER") if pd.notna(r.total_edge) else None
     # conviction = only spots that AGREE with the model side count (conflicting opposite-side spots don't inflate)
-    convs = []
+    convs = []; spread_spot = False; total_spot = False
     for tok in str(r.spots or "").split(";"):
         tok = tok.strip(); c = C.classify(tok)
         if not c: continue
         if c[0] == "spread":
             # spot side: parse from token where explicit, else model side
-            ts = "HOME" if ("-> HOME" in tok or "=HOME" in tok or "lay-fav home" in tok) else ("AWAY" if ("AWAY" in tok or "=AWAY" in tok or "away-fav" in tok or "fade home" in tok or "lay-fav away" in tok) else mside)
-            if ts == mside: convs.append(c[2])
+            ts = "HOME" if ("-> HOME" in tok or "=HOME" in tok or "lay-fav home" in tok) else ("AWAY" if ("AWAY" in tok or "=AWAY" in tok or "away-fav" in tok or "fade home" in tok or "lay-fav away" in tok) else mdir)
+            if ts == mdir: convs.append(c[2]); spread_spot = True
         else:
-            convs.append(c[2])
+            convs.append(c[2]); total_spot = True
+    # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR): a bare model lean under 4 pts is not shown — it loses.
+    # A same-side validated spot keeps the pick (the spot is its own signal). Numbers still render.
+    mside = mdir if (edge is None or abs(edge) >= C.LEAN_FLOOR or spread_spot) else None
+    tside = tdir if (pd.isna(r.total_edge) or abs(float(r.total_edge)) >= C.LEAN_FLOOR or total_spot) else None
     has_tt = len(tt_csv[tt_csv.game_id == gid]) > 0
     if r.mammoth == 1: tier = "mammoth"
     elif "T1" in convs: tier = "high"

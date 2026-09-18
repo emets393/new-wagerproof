@@ -316,3 +316,21 @@ active (late steam confirm, 60.0% 5/5 seasons). Computed live per game from the
 `cfb_line_movement` snapshot series vs kickoff; judged only once each window has opened;
 any missing snapshot leaves the tier exactly as the pre-refinement ladder set it. Fires
 from week 5 with the rest of core_total_edge.
+
+---
+
+## 7. DOSE RESPONSE of the base models (owner question, 2026-09-18) — `dose_response.py`
+Walk-forward 2022-25, exact production recipe, bucketed by |model − line|, per season.
+**It is a THRESHOLD, not a slope.** Sides vs opener: |edge|<2 → 49.7% (loses), 2-4 → 53.6%, 4-6 →
+56.1% (≥54% in all four seasons — the only bucket that holds every year), 6+ → flat 54-55% (10+ was
+47.7% in 2024). Totals vs opener: <4 → ≤50%, 4-8 → 54-55%, 8-10 → 48.7% (41% in 2024), 10+ → 56%.
+Rank correlation of |edge| decile vs win rate: sides vs open +0.60/+0.41/+0.02/+0.09 by season —
+present in 2022-23, flat in 2024-25. Vs close both models are ~50-54% at every edge (CLV product).
+**Weeks 1-3 lose at every edge** (sides 44-51%, n≈580) — priors/carry-forward are not bettable;
+**weeks 4+ carry everything** (sides 4+ edge 57-60%). Display rule: show a lean at |edge|≥4 and do
+NOT rank games by edge size above that; suppress sides/totals leans in weeks 1-3.
+**WIRED 2026-09-18:** `dry_common.LEAN_FLOOR = 4.0` — `gen_cfb_slate_games.py` (game-row pick + tier),
+`gen_cfb_picks.py` (spread/total cards: `pick_side=None`, `display_only=True` under the floor) and
+`refresh_cfb_slate_lines.py` (clears a lean that drifts under 4 as the line moves, restores one that
+grows back past 4). A same-side validated spot keeps its play regardless. Applies in EARLY weeks too:
+the early blend's own 2026 wk1-2 record is 35% under 4 / 61% at 4+ (n=48/49).
