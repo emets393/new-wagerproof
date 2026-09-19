@@ -162,6 +162,9 @@ HARD RULES:
   reader decides. No "take", "back", "fade", "play", "bet" imperatives.
 - Use ONLY facts present in the storylines JSON. Never invent numbers, players, trends, or injuries. If a
   storyline lacks a number, describe it qualitatively. Numbers stated exactly as given.
+- Never point the reader to a record, split or number the storyline does not actually give ("his own record
+  will be the tell" is banned unless the record is stated). If the storyline says there is no personal history,
+  say that.
 - Every number gets its source in plain words, from the storyline's own wording or `source` field: "across three
   seasons of sportsbook lines, 2023 to 2025", "on more than 4,000 plays he has called since 2022", "over his last
   15 games". Never write vague sourcing like "based on recent trends".
