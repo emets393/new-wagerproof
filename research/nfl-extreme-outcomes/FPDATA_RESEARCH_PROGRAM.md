@@ -1620,3 +1620,25 @@ the null's ROI swings ±100% at n<50 (long prices), so small-cell ROI is meaning
   birthday: hit 12.8% vs implied 17.1%, −42% — players score LESS around their birthday. QB vs former team scores 4.3% vs 11.3% implied.
 Verdict: storyline games are the only place ATD hit rates clear the vig, and only in the revenge cells, at ~2 sd on ~150 games. Not a ship;
 paper-track "first season away, anytime TD YES" through 2026 alongside the QB-revenge pass-TD under. Everything else in both markets: closed.
+
+## ANYTIME TD — red-zone play calling, depth usage, per-player situational tendency (owner, 2026-09-19) — `exp_atd_redzone.py`
+Rebuilt with zeros as zeros (91% of inside-5 snap cells are blank = not on the field; the v2 entering means were conditional on being
+there). Entering (K=4): team inside-20/10/5 snaps per game, inside-5 pass rate (1 − inside-5 rush att / inside-5 snaps), inside-10/20 pass
+rate, TDs/game; opponent allowed inside-5 rushes, end-zone targets, TDs; player inside-20/10/5 snap share, inside-5 rush share, inside-10/20
+rush att and targets, end-zone target share, TD per red-zone touch, share of team TDs, last-3 vs season inside-5 snap share. 17,406 priced
+player-games, best price of 4 books.
+**(1) The market tracks red-zone usage to the point:** RB inside-5 snap share quintiles hit 3/8/17/31/42% vs implied 8/12/20/34/46%; inside-5
+rush share 4→42% vs 8→46%; WR end-zone target share 5→31% vs 7→32%; TE inside-10 targets 2→25% vs 6→26%. ROI negative in every quintile
+(least bad at the top: −6% to 0%). Team inside-5 / inside-10 pass rate terciles: hit − implied is −2 to −5 pts in every cell for RBs and
+WR/TEs alike. Opponent allowed: same. Play-calling and depth usage are IN the price.
+**(2) Situation cells, per season, paired placebo:** goal-line back × run-heavy inside 5 −13.3% (placebo −11.5 ± 6.4); × pass-heavy −10.5%;
+end-zone WR/TE × pass-heavy −5.0% (placebo −1.2 ± 4.8); TE inside-10 targets −4.6%; goal-line back × soft opp −14.7%; ≥40% of team TDs
+−17.6%. Only two beat their placebo: ROLE RISING (last-3 inside-5 snap share ≥ season + .15) hit 20.7% vs 21.5%, ROI −0.8% vs placebo
+−15.9 ± 3.3 (4.6 sd better than the same players' other games — real information, priced to break-even; ≥+.25 +0.9%, seasons +2/+12/−12);
+role FALLING −25%. And "on the field inside 5 but <30% of the rushes" +39.6%/63 — it's Patrick Ricard and four backs; noise.
+**(3) Per-player situational tendency** (pass-heavy RZ week / soft opponent / home / role up / high-trip week, 1,725 player-situation pairs):
+273 stable-sign (16%) vs 25-50% by coin → NO per-player situational tendencies beyond chance. Forecast of the stable positive reads 2025
+wk13-22: 142 bets, hit 19.0% vs implied 25.6%, −21.3%.
+Verdict: anytime TD stays closed. The book prices who is on the field inside the 5, who gets the ball, and how each team calls it. The
+one piece of information it prices only to break-even is a rising inside-5 role (last 3 games vs season) — usable as card copy
+("goal-line role growing"), not as a bet. Storyline revenge cells (previous section) remain the only ATD cells above the vig.
