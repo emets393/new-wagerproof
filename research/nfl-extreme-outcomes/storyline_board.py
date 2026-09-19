@@ -39,13 +39,20 @@ P = P.merge(hist.rename(columns={"player_id":"gsis_id","team":"opp"}), on=["gsis
 P["seasons_since"] = SEASON - P.last_season; P["drafted_by_opp"] = P.draft_team.replace({"LAR":"LA","OAK":"LV","SD":"LAC","STL":"LA"}) == P.opp
 dr = pd.read_csv("data/storyline_drama.csv"); dr = dr[dr.tier > 0]; key = lambda n: (lambda p: (p[0][0] + " " + p[-1]) if p else n)(norm(n).split())
 dr["_k"] = dr.player.map(key); P["_k"] = P.player_name.map(key); tier = dr.groupby(["_k","old_team"]).tier.min().rename("drama_tier").reset_index(); P = P.merge(tier, left_on=["_k","opp"], right_on=["_k","old_team"], how="left")
+# per-player homecoming history 2023-25 (visiting, own stadium far) from the graded frame, for the card copy
+try:
+    F = pd.read_parquet("data/_storyline_frame.parquet"); F = F[F.is_ou & F.hc]; HH = F.groupby("player_id").agg(hc_games=("week", lambda s: len(set(zip(F.loc[s.index, "season"], s)))), hc_over=("over", "mean")).reset_index()
+    E = pd.read_parquet("data/_storyline_frame.parquet"); E = E[E.is_ou & ~E.hc].groupby("player_id").over.mean().rename("else_over").reset_index(); HH = HH.merge(E, on="player_id", how="left")
+    P = P.merge(HH.rename(columns={"player_id":"gsis_id"}), on="gsis_id", how="left")
+except Exception: P["hc_games"] = np.nan
+P["homecoming"] = P.homecoming & (hav(P.birth_lat, P.birth_lon, P.team.map(lambda t: STAD.get(t, (np.nan, np.nan))[0]), P.team.map(lambda t: STAD.get(t, (np.nan, np.nan))[1])) > 120)   # his own stadium must not be near his birthplace
 QBPOS = P.position == "QB"
 def read(r):
     out = []
     if r.revenge:
         tag = f"REVENGE vs {r.opp} ({int(r.n_seasons)} season{'s' if r.n_seasons > 1 else ''} there, left {int(r.seasons_since)} season{'s' if r.seasons_since != 1 else ''} ago" + (", drafted by them" if r.drafted_by_opp else "") + (f", drama tier {int(r.drama_tier)}" if pd.notna(r.drama_tier) else "") + (", at the old stadium" if not r.is_home else "") + ")"
         out.append(tag + (" → historical read: QB UNDER (35% over 2023-25, n=114 markets)" if r.position == "QB" else (" → historical read: OVER (first season away 59% over, placebo 46%)" if r.seasons_since <= 1 else " → historical read: slight over (54%), not a bet")))
-    if r.homecoming: out.append(f"HOMECOMING: born {r.birth_city}, {r.birth_st}, {r.dist_site:.0f} mi from the site" + (" → historical read: QB UNDER (37% over, n=54)" if r.position == "QB" else " → no read (50% over)"))
+    if r.homecoming: out.append(f"HOMECOMING: born {r.birth_city}, {r.birth_st}, {r.dist_site:.0f} mi from the site" + (f"; his past homecomings: {int(r.hc_games)} games, {100*r.hc_over:.0f}% over (elsewhere {100*r.else_over:.0f}%)" if pd.notna(getattr(r, "hc_games", np.nan)) else "; first homecoming on record") + (" → historical read: QB UNDER (37% over, n=54)" if r.position == "QB" else " → group read: none (51%); use his own history"))
     if r.birthday: out.append(f"BIRTHDAY {r.birth_date.strftime('%b %d')} ({int(r.bday_diff):+d} days)" + (" → historical read: QB OVER (62% over, n=84)" if r.position == "QB" else " → no read (48% over)"))
     return out
 rows = []
