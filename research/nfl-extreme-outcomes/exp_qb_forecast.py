@@ -14,11 +14,12 @@ carried from the end of 2025 (opponent rates, receivers, weather from the matchu
 import os, sys, numpy as np, pandas as pd, requests, warnings
 warnings.filterwarnings("ignore"); num = lambda s: pd.to_numeric(s, errors="coerce")
 HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, os.path.dirname(HERE)); import football_report_lib as lib
-env = lib.load_env(); H = lib.hdr(env); MKT = sys.argv[1] if len(sys.argv) > 1 else "player_pass_completions"; STAT = MKT.replace("player_pass_", "").replace("player_", ""); RB = MKT.startswith("player_rush"); THR = (10.0 if RB else 15.0) if "yds" in MKT else 1.5   # bet threshold on the market's own scale
+env = lib.load_env(); H = lib.hdr(env); MKT = sys.argv[1] if len(sys.argv) > 1 else "player_pass_completions"; STAT = MKT.replace("player_pass_", "").replace("player_", ""); RB = MKT.startswith("player_rush"); WR = MKT in ("player_receptions","player_reception_yds"); THR = 12.0 if (WR and "yds" in MKT) else 0.7 if WR else (10.0 if RB else 15.0) if "yds" in MKT else 1.5   # bet threshold on the market's own scale
 def fetch(table, params):
     j = requests.get(f"{lib.SUPA}/{table}?{params}", headers=H, timeout=90).json(); return j if isinstance(j, list) else []
 FAC = ["close_line","opp_rate_man","opp_rate_blitz","opp_rate_press","wind","temp","team_spread","total","e_rw_catchable","inj_wrte_tgt_out","rest","is_home"]
 if RB: FAC = ["close_line","opp_rate_heavy","opp_rate_stack","opp_succ_allowed","opp_ypc_allowed","wind","temp","team_spread","total","ms_rush","inj_rb_car_out","rest","is_home"]
+if WR: FAC = ["close_line","opp_rate_man","opp_rate_two","opp_rate_blitz","opp_rate_press","wind","temp","primetime","team_spread","total","e_tsh","inj_wrte_tgt_out","inj_qb_out","rest","is_home"]
 d = pd.read_parquet(f"data/_{STAT}_deep_frame.parquet").dropna(subset=["qb"]).copy(); FAC = [c for c in FAC if c in d.columns]
 # ---------------------------------------------------------------- 2026 week 1 rows
 pp = pd.DataFrame(fetch("nfl_player_props", f"select=player_name,team,market,bookmaker,line,over_odds,under_odds,actual_value,home_team,away_team,snapshot_time&season=eq.2026&week=eq.1&market=eq.{MKT}&limit=5000"))
@@ -37,13 +38,14 @@ W["qb"] = W.player_name.map(match); W = W[W.qb.notna()].copy(); W["season"], W["
 # factors carried from the end of 2025: opponent rates & receivers = last 2025 value per team; weather/lines from matchup + slate
 OPPC = [c for c in FAC if c.startswith("opp_")]; last = d[d.season == 2025].sort_values("week").groupby("opp")[OPPC].last(); W = W.merge(last, left_on="opp", right_index=True, how="left")
 TEAMC = [c for c in ("e_rw_catchable",) if c in FAC]; lastr = d[d.season == 2025].sort_values("week").groupby("team")[TEAMC].last() if TEAMC else None; W = W.merge(lastr, left_on="team", right_index=True, how="left") if TEAMC else W
-PLC = [c for c in ("ms_rush",) if c in FAC]; lastp = d[d.season == 2025].sort_values("week").groupby("qb")[PLC].last() if PLC else None; W = W.merge(lastp, left_on="qb", right_index=True, how="left") if PLC else W
+PLC = [c for c in ("ms_rush","e_tsh") if c in FAC]; lastp = d[d.season == 2025].sort_values("week").groupby("qb")[PLC].last() if PLC else None; W = W.merge(lastp, left_on="qb", right_index=True, how="left") if PLC else W
 m = pd.read_parquet("data/matchup.parquet"); m = m[(m.season == 2026) & (m.week == 1)][["home_ab","away_ab","wind_mph","temp_f","game_stadium_dome","dome_closed","home_spread","nv_total_line"]]
 m["home_ab"] = m.home_ab.replace({"LAR":"LA"}); m["away_ab"] = m.away_ab.replace({"LAR":"LA"}); m["indoors"] = (m.game_stadium_dome.astype(str).str.lower() == "true") | (num(m.dome_closed) == 1)
 m["wind"] = np.where(m.indoors, 0, num(m.wind_mph)); m["temp"] = np.where(m.indoors, 70, num(m.temp_f))
 W = W.merge(m[["home_ab","away_ab","wind","temp","home_spread","nv_total_line"]], left_on=["home","away"], right_on=["home_ab","away_ab"], how="left")
 W["team_spread"] = np.where(W.is_home == 1, num(W.home_spread), -num(W.home_spread)); W["total"] = num(W.nv_total_line); W["rest"] = 7.0
-inj = pd.DataFrame(fetch("nfl_injuries_raw", "select=team,player,position,report_status&season=eq.2026&week=eq.1")); W["inj_wrte_tgt_out"] = 0.0; W["inj_rb_car_out"] = 0.0   # share-out needs the FP share join; week 1 injuries were light — treated as 0
+if "primetime" in FAC: W = W.drop(columns=["primetime"]).merge(pd.read_parquet("data/matchup.parquet").query("season == 2026 and week == 1")[["home_ab","away_ab","primetime"]].assign(home_ab=lambda z: z.home_ab.replace({"LAR":"LA"}), away_ab=lambda z: z.away_ab.replace({"LAR":"LA"})), left_on=["home","away"], right_on=["home_ab","away_ab"], how="left", suffixes=("", "_m")) if "primetime" in W.columns else W
+inj = pd.DataFrame(fetch("nfl_injuries_raw", "select=team,player,position,report_status&season=eq.2026&week=eq.1")); W["inj_wrte_tgt_out"] = 0.0; W["inj_rb_car_out"] = 0.0; W["inj_qb_out"] = 0.0; W["primetime"] = 0.0   # share-out needs the FP share join; week 1 injuries were light — treated as 0
 for c in FAC: W[c] = W[c].fillna(d[c].median())
 print(f"2026 week 1: {len(W)} QB {STAT} lines with graded actuals and matched profiles")
 # ---------------------------------------------------------------- assemble train / test
@@ -81,7 +83,7 @@ def grade(x, col, thr):
     if not len(s): return np.nan, 0, np.nan
     over = e > 0; line = np.where(over, s.bo_line, s.bu_line); pay = np.where(over, s.bo_dec, s.bu_dec); won = np.where(over, s.actual > line, s.actual < line); push = s.actual.values == line
     p = np.where(push, 0, np.where(won, pay, -1.0)); return (won[~push].mean() if (~push).sum() else np.nan), int((~push).sum()), p.mean()
-print("\n" + "=" * 110); print("POOLED FORECAST — 2025 weeks 13+ and 2026 week 1"); print("=" * 110)
+print("\n" + "=" * 110); print(f"POOLED FORECAST — {STAT}: 2025 weeks 13+ and 2026 week 1 (bet threshold {THR})"); print("=" * 110)
 for ph, lab in (("test25", "2025 wk13-22"), ("test26", "2026 wk1"), (None, "both")):
     x = te if ph is None else te[te.phase == ph]; print(f"  {lab:14s} n={len(x):3d} | " + " | ".join(f"{c}: MAE {np.abs(x[c] - x.actual).mean():4.2f}" + ("" if c == "LINE" else f" bet≥THR {100*grade(x, c, THR)[0]:4.1f}%/{grade(x, c, THR)[1]:3d} ROI {100*grade(x, c, THR)[2]:+5.1f}%") for c in ("LINE","UNIV","HIS","BIAS","PROFILE")))
 print("\n" + "=" * 110); print("PER QUARTERBACK — out-of-sample: his model vs the line on HIS test games (2025 wk13+ and 2026 wk1); who was predictable?"); print("=" * 110)

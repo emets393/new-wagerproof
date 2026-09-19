@@ -13,12 +13,13 @@ Writes data/_qb_profiles_<season>.parquet and out/qb_profiles_<season>.md."""
 import os, sys, numpy as np, pandas as pd, requests, warnings
 warnings.filterwarnings("ignore")
 HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, os.path.dirname(HERE)); import football_report_lib as lib
-env = lib.load_env(); H = lib.hdr(env); SEASON = int(sys.argv[1]) if len(sys.argv) > 1 else 2026; MKT = sys.argv[2] if len(sys.argv) > 2 else "player_pass_completions"; STAT = MKT.replace("player_pass_", "").replace("player_", ""); RB = MKT.startswith("player_rush")
+env = lib.load_env(); H = lib.hdr(env); SEASON = int(sys.argv[1]) if len(sys.argv) > 1 else 2026; MKT = sys.argv[2] if len(sys.argv) > 2 else "player_pass_completions"; STAT = MKT.replace("player_pass_", "").replace("player_", ""); RB = MKT.startswith("player_rush"); WR = MKT in ("player_receptions","player_reception_yds")
 def fetch(table, params):
     j = requests.get(f"{lib.SUPA}/{table}?{params}", headers=H, timeout=60).json(); return j if isinstance(j, list) else []
 d = pd.read_parquet(f"data/_{STAT}_deep_frame.parquet").dropna(subset=["qb"]).copy(); d["res"] = d.actual - d.close_line
 FAC = {"opp_rate_man": "opponent man-coverage rate", "opp_rate_blitz": "opponent blitz rate", "opp_rate_press": "opponent pressure rate", "wind": "wind", "temp": "temperature", "team_spread": "team spread (+ = underdog)", "total": "game total", "e_rw_catchable": "receivers' catchable-target rate", "inj_wrte_tgt_out": "WR/TE target share out", "rest": "days of rest", "is_home": "home game", "close_line": "the line itself"}
 if RB: FAC = {"opp_rate_heavy": "opponent 7+ box rate", "opp_rate_stack": "opponent 8+ box rate", "opp_succ_allowed": "opponent rush success allowed", "opp_ypc_allowed": "opponent yards/carry allowed", "wind": "wind", "temp": "temperature", "team_spread": "team spread (+ = underdog)", "total": "game total", "ms_rush": "his carry share", "inj_rb_car_out": "teammate RB carries out", "inj_wrte_tgt_out": "WR/TE target share out", "rest": "days of rest", "is_home": "home game", "close_line": "the line itself"}
+if WR: FAC = {"opp_rate_man": "opponent man-coverage rate", "opp_rate_two": "opponent two-high rate", "opp_rate_blitz": "opponent blitz rate", "opp_rate_press": "opponent pressure rate", "wind": "wind", "temp": "temperature", "primetime": "primetime game", "team_spread": "team spread (+ = underdog)", "total": "game total", "e_tsh": "his entering target share", "inj_wrte_tgt_out": "WR/TE target share out", "inj_qb_out": "starting QB out", "rest": "days of rest", "is_home": "home game", "close_line": "the line itself"}
 FAC = {k: v for k, v in FAC.items() if k in d.columns}
 for c in FAC: d[c] = d[c].fillna(d[c].median())
 active = pd.DataFrame(fetch("nfl_slate_props", f"select=player_name,team&season=eq.{SEASON}&market=eq.{MKT}&limit=2000")).drop_duplicates("player_name")
@@ -32,11 +33,11 @@ for nm in active.player_name:
 print(f"{len(active)} players on this season's board; {len(act)} have priced {STAT} history in 2023-25")
 LG = {f: np.corrcoef(d[f], d.res)[0,1] for f in FAC}; lg_mae = np.abs(d.res).mean(); lg_sd = d.res.std()
 rng = np.random.default_rng(0)
-rows, md = [], [f"# Quarterback profiles — {STAT}, {SEASON} starters\n", f"Each line: how HIS {STAT} relate to the posted line and to each factor, on his own priced games 2023-25. A tendency is listed only when it holds on both halves of his games. Nothing here is a pick.\n"]
+rows, md = [], [f"# {'Receiver' if WR else 'Back' if RB else 'Quarterback'} profiles — {STAT}, {SEASON} starters\n", f"Each line: how HIS {STAT} relate to the posted line and to each factor, on his own priced games 2023-25. A tendency is listed only when it holds on both halves of his games. Nothing here is a pick.\n"]
 for q, nm in sorted(act.items(), key=lambda kv: -len(d[d.qb == kv[0]])):
     x = d[d.qb == q].sort_values(["season","week"]); n = len(x)
     if n < 15: continue
-    mae, sd, over = np.abs(x.res).mean(), x.res.std(), (x.actual > x.close_line).mean(); bias_stat = x.res.median() if RB else x.res.mean()   # median for backs: rush yards is right-skewed
+    mae, sd, over = np.abs(x.res).mean(), x.res.std(), (x.actual > x.close_line).mean(); bias_stat = x.res.median() if (RB or "yds" in MKT) else x.res.mean()   # median for backs: rush yards is right-skewed
     o, e = x.iloc[::2], x.iloc[1::2]; tend = []
     for f, lab in FAC.items():
         if x[f].std() == 0: continue

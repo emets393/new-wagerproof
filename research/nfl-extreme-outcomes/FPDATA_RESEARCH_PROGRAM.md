@@ -1524,3 +1524,25 @@ Fix: `fillna(0)` on tgt/rec/yds/tsh/yprr/first before entering values; weight-ze
 foundation did not transfer to any market.**
 Lesson logged in memory (leak-screen): a feature that equals its fill constant on >1% of rows must be checked against the outcome on those rows;
 the overall correlation screen (r 0.04) missed it, the proper null caught it (real found 56 unders, nulls found 0).
+
+## RECEIVERS — the per-player pass, same system as QBs/RBs (owner, 2026-09-19) — `exp_wr_market_deep.py <mkt>`, `qb_profiles.py 2026 <mkt>`, `exp_qb_forecast.py <mkt>`
+Owner: "with QBs you looked at specific player trends — cold, primetime, wind, opponent blitz rate — then you stopped." Correct. Receivers got a
+pooled model only. Now run for player_receptions and player_reception_yds: deep frame (him: entering target/route share, depth, yards per route,
+catch rate, man/two-high sensitivity; opponent man/blitz/pressure/two-high; context incl. PRIMETIME; injury), per-player profiles with the
+STRICT rule (same sign every season with 8+ games), and the forecast (learn ≤2025 wk12 → 2025 wk13-22 + 2026 wk1) at best book.
+**Everything pass (walk-forward, ≥0.7 rec / ≥12 yds):** receptions full stack 54.0%/287 −1.3% (2024), 58.3%/252 +5.8% (2025); all-configs
+both-season 33%. Yards full stack 54.7%/417 +3.1%, 53.7%/244 +1.2%; frozen engine set 55.5%/362 +4.8%, 52.3%/155 −1.4%. Family drop-one: nothing
+beyond the line moves either number (|ΔMAE| ≤ 0.007 rec, ≤ 0.14 yds; opponent/injury families HURT yards). Partial effects: receivers under
+18+ mph wind and ≤50°F run below the line on yards (+0.8 / +3.4 vs +6.7 league mean residual — the yards line sits ~6 above the median, right-skewed),
+28%+ target-share players run under both lines; blitz-heavy opponents slightly over. All small.
+**Profiles (120 / 131 active receivers with 15+ priced games):** most predictable vs the line = low-volume TEs (Knox, Fant, Likely) and Keon Coleman;
+stable tendencies exist for ~half (Reed/Kraft/Higbee/Hollins/Juwan Johnson: blitz +; Metcalf/Fant/Douglas/Engram: two-high −; Worthy: primetime −;
+Otton/Pitts/Diggs: primetime +; Rice/Goedert/Doubs: rest −). Written to out/qb_profiles_receptions_2026.md, out/qb_profiles_reception_yds_2026.md.
+**Forecast under the strict rule — FAILS for receivers:**
+- receptions 2025 wk13-22 (n=758): HIS 50.6%/346 −5.8% | PROFILE 49.3%/213 −8.6% | BIAS 58.1%/31 +8.8% (tiny) | UNIV 77%/22 (tiny)
+- receiving yards (n=850): HIS 48.3%/354 −8.8% | PROFILE 50.8%/179 −4.1% | BIAS 47.5%/59 −9.9%
+- per player: HIS MAE beats the line for roughly a third of receivers, by a few tenths of a catch, with no bet edge; the tendencies that were stable
+  through 2025 wk12 did not pay after it.
+Verdict: the per-player tendency method transfers from QBs to receivers as a DESCRIPTION (profiles are real and stable in-sample) but not as a
+FORECAST — receiver residuals vs the line are too noisy (resid sd 2.1 catches / 31 yds on lines of 4 / 45). Keep the profile sheets as card copy
+("Reed catches more against blitz-heavy defenses, every season"), do not bet them.
