@@ -80,22 +80,22 @@ class ResearchTells:
                 pr = pr.iloc[0]; tl = list(pr.tendencies) if pr.tendencies is not None and len(pr.tendencies) else []
                 for t in tl:
                     v = self._tendency(t, c, mk)
-                    if v: out.append(dict(src="tendency", dir=v[0], text=v[1] + f" in every season since 2023 ({int(pr.games)} priced games)", w=1.5))
+                    if v: out.append(dict(src="tendency", dir=v[0], text=v[1] + f" in every season since 2023 ({int(pr.games)} games with a sportsbook line)", w=1.5))
         # 2. storylines
         pid = str(r.player_id)
         if len(self.F) and pid in self.F.index:
             f = self.F.loc[pid]
             if bool(f.get("revenge", False)):
                 if r.position == "QB" and r.market in ("player_pass_yds", "player_pass_tds", "player_pass_completions", "player_pass_attempts"):
-                    out.append(dict(src="storyline", dir="under", text=f"he faces his former team ({int(f.n_seasons)} season{'s' if f.n_seasons > 1 else ''} there): quarterbacks facing a former team have gone under their passing-yards line 60% of the time and their passing-touchdown line 70% (59 games, 2023-25)", w=1.5 if r.market in ("player_pass_yds","player_pass_tds") else 1.0))
+                    out.append(dict(src="storyline", dir="under", text=f"he faces his former team ({int(f.n_seasons)} season{'s' if f.n_seasons > 1 else ''} there): quarterbacks facing a former team have finished below their passing-yards number 60% of the time and below their touchdown-pass number 70% (59 games, 2023 to 2025)", w=1.5 if r.market in ("player_pass_yds","player_pass_tds") else 1.0))
                 elif r.position != "QB" and f.get("seasons_since", 9) <= 1:
-                    out.append(dict(src="storyline", dir="over", text=f"first season away from {f.opp}, facing them: skill players in that spot have gone over their lines 60% of the time vs 47% in their other games (154 lines, 2023-25)", w=1.5))
+                    out.append(dict(src="storyline", dir="over", text=f"first season away from {f.opp}, facing them: skill players in that spot have finished above the sportsbooks' numbers 60% of the time, against 47% in their other games (154 lines, 2023 to 2025)", w=1.5))
                 if pd.notna(f.get("rv_games", np.nan)) and f.rv_games >= 3 and (f.rv_over >= 0.67 or f.rv_over <= 0.33):
                     out.append(dict(src="storyline", dir="over" if f.rv_over >= 0.67 else "under", text=f"his own record vs former teams: over the line {pct(f.rv_over)} across {int(f.rv_games)} games (2023-25), {pct(f.rv_else_over)} elsewhere", w=1.0))
             if bool(f.get("hc", False)) and pd.notna(f.get("hc_games", np.nan)) and f.hc_games >= 3 and (f.hc_over >= 0.67 or f.hc_over <= 0.33):
                 out.append(dict(src="storyline", dir="over" if f.hc_over >= 0.67 else "under", text=f"homecoming ({f.dist_site:.0f} miles from {f.birth_city}, {f.birth_st}): his own record on these trips is over the line {pct(f.hc_over)} across {int(f.hc_games)} games (2023-25), {pct(f.else_over)} elsewhere", w=1.0))
             if bool(f.get("birthday3", False)) and r.position == "QB" and r.market == "player_pass_yds":
-                out.append(dict(src="storyline", dir="over", text=f"birthday week ({f.birth_date.strftime('%b %d')}): quarterbacks in a birthday week have gone over their passing-yards line 69% of the time (42 lines, 2023-25 — a small sample)", w=1.0))
+                out.append(dict(src="storyline", dir="over", text=f"birthday week ({f.birth_date.strftime('%b %d')}): quarterbacks in a birthday week have finished above their passing-yards number 69% of the time (42 lines, 2023 to 2025 — a small sample)", w=1.0))
         # 3. play-caller shift live this week
         pc = self.pc.get(str(r.team).replace("LAR", "LA"))
         if pc and len(self.SIT):
@@ -106,5 +106,5 @@ class ResearchTells:
                 if r.market.startswith("player_pass") or r.market in ("player_receptions", "player_reception_yds"): d = "over" if passy else "under"
                 elif r.market in ("player_rush_attempts", "player_rush_yds"): d = "under" if passy else "over"
                 else: continue
-                out.append(dict(src="coaching", dir=d, text=f"{pc} calls it {'pass' if passy else 'run'}-heavier than the league in {s.situation.split(' (')[0]} games, every season ({s.relative:+.0f} points of pass rate over expected vs the league's own shift, {int(s.plays)} plays 2022-25)", w=1.0)); break
+                out.append(dict(src="coaching", dir=d, text=f"his play-caller {pc} {'throws' if passy else 'runs'} more than a typical coach does in {s.situation.split(' (')[0]} games — about {abs(s.relative):.0f} points more {'pass' if passy else 'run'}-heavy than everyone else gets in that spot, every season ({int(s.plays)} plays 2022-25)", w=1.0)); break
         return out

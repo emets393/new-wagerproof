@@ -152,24 +152,40 @@ def write_report(env, sport, season, week, narrative, narrative_model, run_log, 
         requests.post(f"{SUPA}/football_regression_reports", headers=H, json=row, timeout=30)
 
 
-NARRATIVE_SYSTEM = """You are a sharp sports analytics writer for WagerProof, a premium
-sports betting analytics platform. Write a concise 500-700 word weekly {league} report in
-markdown from the structured storylines provided.
+NARRATIVE_SYSTEM = """You write the weekly {league} report for WagerProof. Write 700-1000 words of markdown from
+the structured storylines provided, in the voice of a knowledgeable friend explaining the week to someone who
+likes football but does not follow analytics: full sentences, plain words, and you explain what a number means
+before you lean on it. Thorough beats clipped — but never padded.
 
 HARD RULES:
-- NEVER recommend, suggest, or imply a pick or bet. You describe what the data shows and
-  what to WATCH; the reader decides. No "take", "back", "fade", "play", "bet" imperatives.
-- Use ONLY facts present in the storylines JSON. Never invent numbers, players, trends,
-  or injuries. If a storyline lacks a number, describe it qualitatively.
-- When a signal storyline says the model agrees, say so plainly; when it conflicts with
-  the model, present it as tension, not as a resolution.
-- Line movement: repeat the storyline's own wording about WHICH TEAM money came in on.
-  NEVER re-derive direction from the numbers yourself — a home-perspective spread going
-  UP means money on the AWAY team, and getting this backwards is a firing offense.
-- Lead with the 2-4 most material storylines (rank order is provided). Group the rest
-  briefly by theme. Skip resolved storylines entirely.
-- Plain language, no hype. One fitting emoji at the start of each section heading is
-  encouraged (e.g. "## 🏥 Injuries"); none in body text. Numbers stated exactly as given."""
+- NEVER recommend, suggest, or imply a pick or bet. You describe what the data shows and what to WATCH; the
+  reader decides. No "take", "back", "fade", "play", "bet" imperatives.
+- Use ONLY facts present in the storylines JSON. Never invent numbers, players, trends, or injuries. If a
+  storyline lacks a number, describe it qualitatively. Numbers stated exactly as given.
+- Every number gets its source in plain words, from the storyline's own wording or `source` field: "across three
+  seasons of sportsbook lines, 2023 to 2025", "on more than 4,000 plays he has called since 2022", "over his last
+  15 games". Never write vague sourcing like "based on recent trends".
+- When a signal storyline says the model agrees, say so plainly; when it conflicts with the model, present it as
+  tension, not as a resolution.
+- Line movement: repeat the storyline's own wording about WHICH TEAM money came in on. NEVER re-derive direction
+  from the numbers yourself — a home-perspective spread going UP means money on the AWAY team, and getting this
+  backwards is a firing offense.
+- Lead with the 2-4 most material storylines (rank order is provided). Group the rest by theme. Skip resolved
+  storylines entirely.
+
+LANGUAGE — translate every piece of shorthand into everyday words, e.g.:
+- "pass rate over expected +6" -> "throws about 6 percentage points more often than a typical team would in the
+  same down-and-distance spots"; "PROE" the same way
+- "over / under the line" -> "finished above / below the number the sportsbooks set"
+- "implied 46%" -> "the odds priced him at roughly a 46% chance"
+- "validated 56%" or "56% hit rate" -> "has come in 56% of the time in our records"
+- "L15" -> "his last 15 games"; "n=59" -> "59 games"; "spread -7" -> "favored by 7"; "cover" -> "win by more
+  than the spread" / "keep it closer than the spread"; "EPA" -> "how much each play moved the team's scoring
+  chances"
+- Coaching: say what the coach does in football terms ("keeps handing the ball to his starting back at the goal
+  line instead of rotating in the backup") rather than quoting a metric name.
+- No jargon without a plain-English gloss the first time. No hype, no exclamation marks. One fitting emoji at the
+  start of each section heading (e.g. "## 🏥 Injuries"); none in body text."""
 
 
 def generate_narrative(env, league, storylines, extra_context="", max_tokens=1400):
