@@ -25,6 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.inse
 import football_report_lib as lib
 from fp_hist import read_fp
 from player_chain import Chain
+from research_tells import ResearchTells   # per-player tendencies, storylines, play-caller shifts (owner 2026-09-19)
 num = lambda s: pd.to_numeric(s, errors="coerce")
 NICK = {"Cardinals":"ARI","Falcons":"ATL","Ravens":"BAL","Bills":"BUF","Panthers":"CAR","Bears":"CHI","Bengals":"CIN","Browns":"CLE","Cowboys":"DAL","Broncos":"DEN","Lions":"DET","Packers":"GB","Texans":"HOU","Colts":"IND","Jaguars":"JAX","Chiefs":"KC","Rams":"LA","Chargers":"LAC","Raiders":"LV","Dolphins":"MIA","Vikings":"MIN","Patriots":"NE","Saints":"NO","Giants":"NYG","Jets":"NYJ","Eagles":"PHI","Steelers":"PIT","Seahawks":"SEA","49ers":"SF","Buccaneers":"TB","Titans":"TEN","Commanders":"WAS"}
 AB = {"ARZ":"ARI","BLT":"BAL","CLV":"CLE","HST":"HOU","LAR":"LA"}; ab = lambda a: AB.get(str(a), str(a))
@@ -47,7 +48,7 @@ def wavg(df, val, wt):
     v, w = num(df[val]), num(df[wt]); ok = v.notna() & w.notna() & (w > 0); return float((v[ok] * w[ok]).sum() / w[ok].sum()) if w[ok].sum() > 0 else np.nan
 SUF = re.compile(r"\s+(jr|sr|ii|iii|iv|v)\.?$", re.I); nn = lambda s: SUF.sub("", str(s).lower()).replace(".", "").replace("'", "").replace("-", " ").strip()
 # ---------------------------------------------------------------- internal
-games = {str(g["game_id"]): g for g in fetch("nfl_slate_games", f"select=game_id,home_ab,away_ab,home_team,away_team,kickoff,fg_spread_close,fg_spread_pick,fg_pred_total,fg_total_close,fg_total_pick,fg_home_cover_prob,wx_wind_mph,wx_summary&season=eq.{SEASON}&week=eq.{WEEK}")}
+games = {str(g["game_id"]): g for g in fetch("nfl_slate_games", f"select=game_id,home_ab,away_ab,home_team,away_team,kickoff,fg_spread_close,fg_spread_pick,fg_pred_total,fg_total_close,fg_total_pick,fg_home_cover_prob,wx_wind_mph,wx_temp_f,wx_summary&season=eq.{SEASON}&week=eq.{WEEK}")}
 now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"); games = {k: g for k, g in games.items() if g.get("kickoff") and str(g["kickoff"])[:19] > now_iso}
 props = pd.DataFrame(fetch("nfl_slate_props", f"select=game_id,player_id,player_name,position,team,opponent,market,close_line,best_over_line,best_over_price,best_over_book_name,best_under_line,best_under_price,best_under_book_name,headshot_url,report_status,practice_status&season=eq.{SEASON}&week=eq.{WEEK}&limit=5000"))
 MK = {"player_reception_yds": ("rec_yds", "receiving yards"), "player_receptions": ("rec", "receptions"), "player_rush_yds": ("rush_yds", "rushing yards"), "player_rush_attempts": ("rush_att", "rushing attempts"), "player_pass_yds": ("pass_yds", "passing yards"), "player_pass_completions": ("pass_comp", "completions"), "player_pass_attempts": ("pass_att", "pass attempts")}
@@ -123,6 +124,7 @@ def rb_concepts(key, team, opp):
             his = b[y].sum() / b[a].sum() - lg; front = num(f[fy]).sum() / num(f[fa]).sum() - lg; out["cells"].append(dict(concept=lab, share=float(b[a].sum() / max(b.zatt.sum() + b.matt.sum(), 1)), his=his, front=front, stacked=his + front))
     return out
 C = Chain(SEASON, WEEK)
+RT = ResearchTells(SEASON, WEEK, games, props)
 # ---------------------------------------------------------------- tells per prop
 def evaluate(r):
     stat, label = MK[r.market]; key, team, opp_full = r.key, r.team, r.opponent; g = games[str(r.game_id)]
@@ -192,6 +194,11 @@ def evaluate(r):
             if best and best["stacked"] <= -0.6 and best["share"] >= 0.35: T("concept", "under", f"on {best['concept']} runs ({100*best['share']:.0f}% of his carries) he is {best['his']:+.1f} yards/att vs league and {opp} allows {best['front']:+.1f}")
             if rc["ybc"] <= rc["lg_ybc"] - 0.4 and rc["stuff_allowed"] >= rc["lg_stuff"] + 3: T("trenches", "under", f"his line gives him {rc['ybc']:.1f} yards before contact (league {rc['lg_ybc']:.1f}) against a front that stuffs {rc['stuff_allowed']:.0f}% of runs (league {rc['lg_stuff']:.0f}%)")
             if rc["yac"] >= rc["lg_yac"] + 0.4 and rc["succ_allowed"] >= rc["lg_succ"] + 3: T("back", "over", f"he creates {rc['yac']:.1f} yards after contact (league {rc['lg_yac']:.1f}) against a front that allows {rc['succ_allowed']:.0f}% rush success (league {rc['lg_succ']:.0f}%)")
+    # research tells (research_tells.py): his own every-season tendency with a live trigger, storylines, the play-caller's live shift
+    try:
+        rt = RT.tells(r); facts["research"] = rt
+        for t in rt: T(t["src"], t["dir"], t["text"], t["w"])
+    except Exception as ex: facts["research_error"] = str(ex)[:120]
     if not tells: return None
     n_over = sum(t["w"] for t in tells if t["dir"] == "over"); n_under = sum(t["w"] for t in tells if t["dir"] == "under")
     direction = "over" if n_over > n_under else "under"; n_for, n_against = (n_over, n_under) if direction == "over" else (n_under, n_over)
@@ -203,7 +210,7 @@ def sheet(r, e):
     mp = e["facts"].get("model")
     if mp and mp.get("pred") is not None:
         e_ = float(mp["pred"]) - e["line"]; L.append(f"- 🧮 Prop model projects **{float(mp['pred']):.1f}** ({e_:+.1f} vs the line; this market's threshold is {float(mp['threshold']):g}, so it {'counts' if abs(e_) >= float(mp['threshold']) else 'is context only'})")
-    groups = [("🎯 Matchup", ("routes","coverage","alignment","pocket","concept","trenches","back")), ("🛡️ The defense", ("defense",)), ("🏥 Context", ("injury",)), ("🧮 Game script and model", ("script","model"))]
+    groups = [("🎯 Matchup", ("routes","coverage","alignment","pocket","concept","trenches","back")), ("🛡️ The defense", ("defense",)), ("📈 His own tendencies (every season, 2023-25)", ("tendency",)), ("📖 Storylines", ("storyline",)), ("🧠 Play-caller", ("coaching",)), ("🏥 Context", ("injury",)), ("🧮 Game script and model", ("script","model"))]
     for title, srcs in groups:
         ts = [t for t in e["tells"] if t["src"] in srcs]
         if ts: L.append(f"### {title}"); L += [f"- {'🟢' if t['dir'] == 'over' else '🔴'} {t['text'][0].upper() + t['text'][1:]}" for t in ts]

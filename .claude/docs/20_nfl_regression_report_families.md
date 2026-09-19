@@ -50,3 +50,18 @@ words, and never rewrite them. NO PICKS anywhere; a card says what the data show
 job has them. Table DDL for `nfl_week_storylines` was applied via the Management API (see the
 `supabase-ddl-management-api` memory); it has RLS enabled and no anon policy — only the service key
 reads/writes it.
+
+## Player Prop Report (`/nfl/regression-report/props`)
+
+`nfl_prop_narratives.py` scores every posted prop with tells and keeps the players where 3+ tells
+point one way (net ≥ 2). Since 2026-09-19 it also takes `research_tells.py`:
+- **tendency** (weight 1.5): the player's own every-season tendency from the priced-line profiles
+  whose trigger is live this week (wind, heat/cold, favorite/underdog, total, home/road, rest,
+  blitz-heavy or low-blitz opponent from the coordinator's 2022-25 rate).
+- **storyline** (1.5 / 1.0): QB vs a former team → passing yards/TDs under; skill player in his
+  first season away vs the old team → over; QB birthday week → passing yards over (small); a
+  player's own homecoming or former-team record when 3+ games and lopsided.
+- **coaching** (1.0): the play-caller's stable situational shift that is live this week
+  (pass-heavy → QB volume and receivers over; run-heavy → rushing over, pass attempts under).
+Each tell's text carries its seasons and counts. The card body groups them under "His own
+tendencies", "Storylines" and "Play-caller".
