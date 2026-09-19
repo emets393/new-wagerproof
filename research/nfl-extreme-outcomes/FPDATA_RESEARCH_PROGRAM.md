@@ -1546,3 +1546,28 @@ Otton/Pitts/Diggs: primetime +; Rice/Goedert/Doubs: rest −). Written to out/qb
 Verdict: the per-player tendency method transfers from QBs to receivers as a DESCRIPTION (profiles are real and stable in-sample) but not as a
 FORECAST — receiver residuals vs the line are too noisy (resid sd 2.1 catches / 31 yds on lines of 4 / 45). Keep the profile sheets as card copy
 ("Reed catches more against blitz-heavy defenses, every season"), do not bet them.
+
+## FOOTBALL-LOGIC CHAIN: pressure → less time → first read → who the first read is (owner, 2026-09-19) — `exp_recyds_mechanism.py`
+Owner: "high winds, full boxes, high-blitz teams give the QB less time; he goes to his first read; we have who the first read is."
+Built at play level (nflverse pbp × FTN read_thrown / n_pass_rushers / n_defense_box / qb_hit, 78k charted dropbacks 2022-25) and carried
+to the priced receiver lines via ENTERING rates: QB first-read rate overall & when blitzed (his "blitz lift"), receiver's share of the team's
+first-read throws, opponent blitz / QB-hit / heavy-box-on-pass / first-read-forced rates, aDOT × wind.
+**(A) The chain is REAL per play, every season:** first read thrown 51-64% when blitzed vs 45-52% not (+6 to +11 pts, 4/4 seasons);
+checkdowns halve under blitz (8% vs 14-18%); heavy box +1 to +3 pts. QB hit → first-read rate DROPS (sack/scramble). Air yards on a
+first-read throw 10.5-10.9 vs 3.8-5.1 on anything else — the first read is the downfield shot.
+**(B) It does NOT reach the receiver's game line.** Among the top-tercile first-read receivers, +10 pts of opponent blitz rate moves his
+TARGETS by +0.03 / +0.40 / −0.03 vs his own average (2023/24/25); his targets vs average in blitz-heavy games −0.57 / +0.41 / −0.39. The
+arithmetic: ~35 dropbacks × 25% blitz × +10 pts first-read × his ~35% first-read share ≈ +0.3 targets ≈ 3 yards — inside the noise of a
+line that misses by 23 yards. The "first read" is a play-design slot that rotates; the team's top first-read receiver owns 30-40% of
+those throws (G.Wilson, Nabers, London .41; Chase .34; Jefferson .33), not all of them.
+**(C) Pre-registered cells vs the line, per season with mirrors:** C1 first-read × blitz-heavy over 48.9/51.6/46.1% — no different from
+its mirrors (NON-first-read × blitz-heavy 50/53/59%). C2 pressure, C3 heavy box, C6 opp-forces-first-read: same, nothing holds 3/3. C4 deep
+receiver (aDOT ≥12) × wind 15+: over 53/51/38% — 2025 only. C5 QB blitz-lift HIGH × first-read × blitz-heavy vs blitz-lift LOW: yards
+over 57/53/51% vs 44/52/43%, receptions 51/57/47% vs 41/46/45% — the gap has the right sign 3/3 but the HIGH cell itself is at market, and
+the LOW cell is n=40-90. All mechanism-feature correlations with (actual − line) are |r| ≤ 0.07.
+**(D) Model:** yards frozen + mechanism 58.0%/317 +9.4% (2024), 55.9%/272 +5.4% (2025), all-configs both-season 100% (median +6.8/+3.6)
+vs frozen alone 56.4%/296 +6.4% and 58.7%/109 +11.3% — same ROI, more volume in 2025, no new information (line + mechanism only:
+55%/51.8%). Receptions: mechanism HURTS (all-configs both 12%).
+Verdict: the football is right and the book has it. Blitz moves the ball to the first read on the play; over a game it is worth ~0.3
+targets to the first-read receiver and the line already sits there. Keep as card copy for WHY a first-read receiver's line is what it is;
+not a bet. Frame saved data/_reception_yds_mech_frame.parquet / _receptions_mech_frame.parquet.
