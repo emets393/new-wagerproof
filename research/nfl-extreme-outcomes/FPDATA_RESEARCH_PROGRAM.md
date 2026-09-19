@@ -1484,3 +1484,19 @@ Why receptions looked "2025-only" before: the earlier frame included the no-FP /
 receivers with an FP baseline who play, it is robust both seasons. Decision: ship receptions with the
 targets projection as a feature and the FP-history + active condition; agreement with TARGETS×CR = the
 high-conviction tier. Next: receiving yards with targets + catch rate + yards/reception.
+
+## RECEPTIONS — adversarial verification before shipping (owner asked, 2026-09-19) — `exp_receptions_verify.py`
+Oracle 100%. Leak audit: max |corr(feature, this-game residual)| = .11 (a leak would be >.3); targets
+projection trained on prior seasons; catch rate entering. Config table fully reported (9 configs, all >0 both
+seasons). ⚠ The first null (shuffling actuals across players) was MALFORMED — it scored 72% because it hands a
+low-line receiver another player's receptions. Proper null = permute (actual − line) within season × line
+bucket, keeping each row's line and best-book lines: 53-59% (2024), 56-61% (2025); REAL 61.2 / 65.7.
+What the null exposed: the receptions market has a STRUCTURAL OVER BIAS at low lines — over rate vs consensus
+56-59% at lines ≤2.5 (right skew: the line sits near the median, receptions can't go below 0), and "bet OVER
+every line ≤2.5 at best book" with no model = 57.1%/438 +8.1% · 59.9%/529 +13.5%. The model's edge is
+SELECTION on top of that: within lines ≤3.5, model-picked overs 63.0/67.8% vs all overs 55.5/56.4% vs the
+ones it passed on 52.4/49.8%. It has no under edge (34 and 3 under bets) and nothing at lines 4-5.5 (51/48%).
+Honest statement: real, two-part — a market bias worth ~+5-8 pts at low lines plus ~+8-11 pts of model
+selection within them; ~+6-8 pts over the proper null. Ship it AS THAT: low-line receiver overs the model
+agrees with. Method rule: a prop null must keep the line–actual pairing (permute residuals within line
+bucket), never shuffle actuals across players.
