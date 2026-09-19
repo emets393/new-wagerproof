@@ -308,6 +308,9 @@ class CFBSlatePicksStore {
         @SerialName("stake_units") val stakeUnits: Double? = null,
         @SerialName("grade_line") val gradeLine: String? = null,
         val mammoth: Boolean? = null,
+        @SerialName("bet_team") val betTeam: String? = null,
+        @SerialName("bet_direction") val betDirection: String? = null,
+        @SerialName("bet_line") val betLine: Double? = null,
     ) {
         fun toModel(): CFBSlateFlag = CFBSlateFlag(
             id = id.orEmpty(),
@@ -326,6 +329,9 @@ class CFBSlatePicksStore {
             stakeUnits = stakeUnits,
             gradeLine = gradeLine,
             mammoth = mammoth,
+            betTeam = betTeam,
+            betDirection = betDirection,
+            betLine = betLine,
         )
     }
 

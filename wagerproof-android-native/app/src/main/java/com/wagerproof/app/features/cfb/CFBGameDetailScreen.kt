@@ -239,7 +239,7 @@ fun CFBGameDetailPage(
     selectedSignal?.let { flag ->
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         ModalBottomSheet(onDismissRequest = { selectedSignal = null }, sheetState = sheetState) {
-            SignalDefinitionSheet(flag, signalDefs, perfByKey)
+            SignalDefinitionSheet(flag, game, signalDefs, perfByKey)
         }
     }
 
@@ -874,6 +874,7 @@ private fun HonestyNote(text: String) {
 @Composable
 private fun SignalDefinitionSheet(
     flag: CFBSlateFlag,
+    game: CFBPrediction,
     signalDefs: Map<String, CFBSignalDefinition>,
     perfByKey: Map<String, SignalPerformance>,
 ) {
@@ -886,8 +887,24 @@ private fun SignalDefinitionSheet(
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(def?.displayName ?: flag.source, color = AppColors.appTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                // Direction, signed for the side being bet: `betLine` is already signed for the
+                // bet team; `line` is home-perspective, so away-side spreads must flip.
+                val directionText = run {
+                    val upperSide = flag.side.uppercase(Locale.US)
+                    val team = flag.betTeam ?: when { upperSide.contains("HOME") -> game.homeTeam; upperSide.contains("AWAY") -> game.awayTeam; else -> null }
+                    val isOU = upperSide.startsWith("OVER") || upperSide.startsWith("UNDER") || flag.betDirection != null
+                    when {
+                        isOU -> "${(flag.betDirection ?: upperSide.split(" ").first()).lowercase(Locale.US).replaceFirstChar { it.uppercase() }} ${(flag.betLine ?: flag.line)?.let { fmt1(it) } ?: ""}".trim()
+                        team != null && flag.market.contains("moneyline") -> "${CFBTeamAssets.abbr(team)} ML"
+                        team != null -> {
+                            val signed = flag.betLine ?: flag.line?.let { if (team == game.awayTeam) -it else it }
+                            "${CFBTeamAssets.abbr(team)} ${signed?.let { GameCardFormatting.formatSpread(it) } ?: ""}".trim()
+                        }
+                        else -> "${flag.side} ${flag.line?.let { fmt1(it) } ?: ""}".trim()
+                    }
+                }
                 Text(
-                    def?.oneLiner ?: "${marketLabel(flag.market)} · ${flag.side} ${flag.line?.let { fmt1(it) } ?: ""}".trim(),
+                    "${marketLabel(flag.market)} · $directionText",
                     color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                 )
             }

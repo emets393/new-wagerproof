@@ -1377,8 +1377,14 @@ struct CFBGameBottomSheet: View {
                 if let dir { return "\(abbr) \(dir)" }
             }
             let prefix = market.hasPrefix("h1_") ? "\(abbr) 1H" : abbr
+            // `bet_line` is already signed for the bet team. `line` is the HOME-perspective
+            // number, so an away-side signal must flip it (UK +16.5 showed as "UK -16.5").
+            if let betLine = flag.betLine {
+                return "\(prefix) \(GameCardFormatting.formatSpread(betLine))"
+            }
             if let line = flag.line {
-                return "\(prefix) \(GameCardFormatting.formatSpread(line))"
+                let signed = (team == game.awayTeam) ? -line : line
+                return "\(prefix) \(GameCardFormatting.formatSpread(signed))"
             }
             return prefix
         }

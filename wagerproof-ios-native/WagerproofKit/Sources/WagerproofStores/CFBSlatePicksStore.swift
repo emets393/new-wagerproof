@@ -354,6 +354,9 @@ public final class CFBSlatePicksStore {
         let stakeUnits: Double?
         let gradeLine: String?
         let mammoth: Bool?
+        let betTeam: String?
+        let betDirection: String?
+        let betLine: Double?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -361,6 +364,9 @@ public final class CFBSlatePicksStore {
             case season, week, game, source, market, side, line, price, edge, conviction, tier, mammoth
             case stakeUnits = "stake_units"
             case gradeLine = "grade_line"
+            case betTeam = "bet_team"
+            case betDirection = "bet_direction"
+            case betLine = "bet_line"
         }
 
         var model: CFBSlateFlag {
@@ -380,7 +386,10 @@ public final class CFBSlatePicksStore {
                 tier: tier ?? "tracking",
                 stakeUnits: stakeUnits,
                 gradeLine: gradeLine,
-                mammoth: mammoth
+                mammoth: mammoth,
+                betTeam: betTeam,
+                betDirection: betDirection,
+                betLine: betLine
             )
         }
     }
