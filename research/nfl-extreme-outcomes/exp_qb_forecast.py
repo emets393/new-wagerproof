@@ -14,11 +14,12 @@ carried from the end of 2025 (opponent rates, receivers, weather from the matchu
 import os, sys, numpy as np, pandas as pd, requests, warnings
 warnings.filterwarnings("ignore"); num = lambda s: pd.to_numeric(s, errors="coerce")
 HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, os.path.dirname(HERE)); import football_report_lib as lib
-env = lib.load_env(); H = lib.hdr(env); MKT = sys.argv[1] if len(sys.argv) > 1 else "player_pass_completions"; STAT = MKT.replace("player_pass_", ""); THR = 15.0 if "yds" in MKT else 1.5   # bet threshold on the market's own scale
+env = lib.load_env(); H = lib.hdr(env); MKT = sys.argv[1] if len(sys.argv) > 1 else "player_pass_completions"; STAT = MKT.replace("player_pass_", "").replace("player_", ""); RB = MKT.startswith("player_rush"); THR = (10.0 if RB else 15.0) if "yds" in MKT else 1.5   # bet threshold on the market's own scale
 def fetch(table, params):
     j = requests.get(f"{lib.SUPA}/{table}?{params}", headers=H, timeout=90).json(); return j if isinstance(j, list) else []
 FAC = ["close_line","opp_rate_man","opp_rate_blitz","opp_rate_press","wind","temp","team_spread","total","e_rw_catchable","inj_wrte_tgt_out","rest","is_home"]
-d = pd.read_parquet(f"data/_{STAT}_deep_frame.parquet").dropna(subset=["qb"]).copy()
+if RB: FAC = ["close_line","opp_rate_heavy","opp_rate_stack","opp_succ_allowed","opp_ypc_allowed","wind","temp","team_spread","total","ms_rush","inj_rb_car_out","rest","is_home"]
+d = pd.read_parquet(f"data/_{STAT}_deep_frame.parquet").dropna(subset=["qb"]).copy(); FAC = [c for c in FAC if c in d.columns]
 # ---------------------------------------------------------------- 2026 week 1 rows
 pp = pd.DataFrame(fetch("nfl_player_props", f"select=player_name,team,market,bookmaker,line,over_odds,under_odds,actual_value,home_team,away_team,snapshot_time&season=eq.2026&week=eq.1&market=eq.{MKT}&limit=5000"))
 pp["snapshot_time"] = pd.to_datetime(pp.snapshot_time, utc=True); L = pp.sort_values("snapshot_time").groupby(["player_name","bookmaker"], as_index=False).last()
@@ -34,14 +35,15 @@ def match(nm):
     parts = str(nm).replace(".", "").split(); c = [k for k in keys if k.split(".")[-1].lower() == parts[-1].lower() and k[0].lower() == parts[0][0].lower()]; return c[0] if c else None
 W["qb"] = W.player_name.map(match); W = W[W.qb.notna()].copy(); W["season"], W["week"] = 2026, 1
 # factors carried from the end of 2025: opponent rates & receivers = last 2025 value per team; weather/lines from matchup + slate
-last = d[d.season == 2025].sort_values("week").groupby("opp")[["opp_rate_man","opp_rate_blitz","opp_rate_press"]].last(); W = W.merge(last, left_on="opp", right_index=True, how="left")
-lastr = d[d.season == 2025].sort_values("week").groupby("team")[["e_rw_catchable"]].last(); W = W.merge(lastr, left_on="team", right_index=True, how="left")
+OPPC = [c for c in FAC if c.startswith("opp_")]; last = d[d.season == 2025].sort_values("week").groupby("opp")[OPPC].last(); W = W.merge(last, left_on="opp", right_index=True, how="left")
+TEAMC = [c for c in ("e_rw_catchable",) if c in FAC]; lastr = d[d.season == 2025].sort_values("week").groupby("team")[TEAMC].last() if TEAMC else None; W = W.merge(lastr, left_on="team", right_index=True, how="left") if TEAMC else W
+PLC = [c for c in ("ms_rush",) if c in FAC]; lastp = d[d.season == 2025].sort_values("week").groupby("qb")[PLC].last() if PLC else None; W = W.merge(lastp, left_on="qb", right_index=True, how="left") if PLC else W
 m = pd.read_parquet("data/matchup.parquet"); m = m[(m.season == 2026) & (m.week == 1)][["home_ab","away_ab","wind_mph","temp_f","game_stadium_dome","dome_closed","home_spread","nv_total_line"]]
 m["home_ab"] = m.home_ab.replace({"LAR":"LA"}); m["away_ab"] = m.away_ab.replace({"LAR":"LA"}); m["indoors"] = (m.game_stadium_dome.astype(str).str.lower() == "true") | (num(m.dome_closed) == 1)
 m["wind"] = np.where(m.indoors, 0, num(m.wind_mph)); m["temp"] = np.where(m.indoors, 70, num(m.temp_f))
 W = W.merge(m[["home_ab","away_ab","wind","temp","home_spread","nv_total_line"]], left_on=["home","away"], right_on=["home_ab","away_ab"], how="left")
 W["team_spread"] = np.where(W.is_home == 1, num(W.home_spread), -num(W.home_spread)); W["total"] = num(W.nv_total_line); W["rest"] = 7.0
-inj = pd.DataFrame(fetch("nfl_injuries_raw", "select=team,player,position,report_status&season=eq.2026&week=eq.1")); W["inj_wrte_tgt_out"] = 0.0   # share-out needs the FP share join; week 1 injuries were light — treated as 0
+inj = pd.DataFrame(fetch("nfl_injuries_raw", "select=team,player,position,report_status&season=eq.2026&week=eq.1")); W["inj_wrte_tgt_out"] = 0.0; W["inj_rb_car_out"] = 0.0   # share-out needs the FP share join; week 1 injuries were light — treated as 0
 for c in FAC: W[c] = W[c].fillna(d[c].median())
 print(f"2026 week 1: {len(W)} QB {STAT} lines with graded actuals and matched profiles")
 # ---------------------------------------------------------------- assemble train / test
@@ -71,7 +73,7 @@ for q in te.qb.unique():
         # STRICT stability (2026-09-18): same sign in every season before the cutoff with 8+ of his games, at least two such seasons
         seas = [np.corrcoef(g[f], g.actual - g.close_line)[0,1] for s_, g in his.groupby('season') if len(g) >= 8 and g[f].std() > 0]
         if abs(r) >= 0.30 and p < 0.10 and len(seas) >= 2 and all(np.sign(v) == np.sign(r) for v in seas): tend.append((f, r * r_.std() / his[f].std(), his[f].mean()))   # slope per unit of factor
-    prof[q] = tend; bias = r_.sum() / (len(r_) + 8)
+    prof[q] = tend; bias = r_.median() * len(r_) / (len(r_) + 8)   # MEDIAN residual: rush yards is right-skewed (mean +3.5 vs median −1.0 vs the line); a mean bias leans every back OVER
     te.loc[te.qb == q, "BIAS"] = te[te.qb == q].close_line + bias
     te.loc[te.qb == q, "PROFILE"] = te[te.qb == q].close_line + bias + (sum(b * (te[te.qb == q][f] - m_) for f, b, m_ in tend) if tend else 0)
 def grade(x, col, thr):

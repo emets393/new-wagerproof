@@ -1419,3 +1419,20 @@ From the other two models (same window, 214 games): completions PROFILE × his y
 (line+bias) × cmp rate × yds/cmp 52.1%/71; agreement of the two profiles 54.5%/33. Nothing beats the
 direct yards model, which is the strongest prop model we have. Chaining adds no information.
 Predictability rank correlations across the three markets: att-cmp +.75, att-yds +.36, cmp-yds +.42.
+
+## RUNNING BACKS — rush yards + rush attempts, same pass (2026-09-18) — `exp_rb_market_deep.py <mkt>`, `qb_profiles.py 2026 <mkt>`, `exp_qb_forecast.py <mkt>` (RB factor sets; back-specific box splits from FTN)
+RUSH YARDS (3,219 RB-games): SKEW — mean(actual − line) +3.5 but MEDIAN −1.0, over rate 48.2%, every season;
+passing markets have no such gap. A mean-predicting model bets overs 77-98% and loses (frozen 42.7%/−19 ·
+49.2%/−7); median-calibrated (shift −3) it lands 50-54% = break-even. Rush yards is a median market with a
+long tail, not a modeling failure. Line-only MAE 22.8/22.7; no stack beats it. Profiles (34 backs, bias =
+MEDIAN residual): predictable Spears 14.3, Gainwell 14.5, Perine, R.White, Allgeier; least Dowdle 28.6,
+A.Jones 28.2, Henderson 27.4, K.Williams 27.1 (65% over, +17 mean). Forecast (407): LINE 21.95 | HIS 24.35
+54.3%/173 +3.0% | BIAS(median) 50%/30 | PROFILE 50.9%/53. Nothing carries.
+RUSH ATTEMPTS (2,547): line-only MAE 3.99/3.75; nothing beats it; frozen config 56.6%/205 +5.4% (2024)
+then 50.8%/130 −6.5% (2025) — not stable. Partial effects: teammate RB with <25% of carries out → +1.0
+(n=115), 25%+ out +0.6; soft run D +0.55, stout −0.25; big favorite ≈ 0 (the leading-script story is
+priced). Profiles (29 backs): predictable Warren 2.6, Spears 2.8, Dobbins 3.1, Swift 3.3, Henderson,
+R.White, Gibbs, McCaffrey; least Barkley 5.6, J.Taylor 4.9 (64% over, +2.0), Hubbard 4.7, Dowdle 4.5;
+Breece Hall 23% over (−2.5). Forecast (362): LINE 3.72 | HIS 4.13 52.2%/159 | BIAS 5/7 | PROFILE 50.7%/71.
+Verdict: both RB markets are line-efficient; per-back tendencies do not carry; the injury-out volume bump
+and the median-skew fact are the two things worth carrying into the cards. RB profiles = description only.
