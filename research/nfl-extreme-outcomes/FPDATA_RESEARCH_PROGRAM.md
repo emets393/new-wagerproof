@@ -1651,3 +1651,27 @@ season (4+/4+) and |gap| ≥ 8 pts. out/atd_player_profiles_2026.md. Result: 356
 play-calling 5.2%, team volume 3.4%, his usage 5.4% (far below placebo = the price moves with the situation, the residual does not);
 opponent 21.5% and context 18.9% (= placebo). The top of the list (Smith-Njigba home 63% vs 35%, Gibbs vs end-zone-soft defenses 86% vs 56%,
 Bijan with more inside-10 targets 33% vs 54%) is the tail of 3,506 draws. Sheet = card copy only.
+
+## COACH / COORDINATOR TENDENCIES (owner, 2026-09-19) — `coaching_staff_pull.py`, `coach_tendencies.py [hc|pc]`, `dc_tendencies.py`
+Staff: nflverse has head coaches only; PFR blocks scripts; Wikipedia '<year> <Team> season' pages carry '*Offensive coordinator – X' lines →
+`data/coaching_staff.csv` (2022-25 HC/OC/DC/QB/RB coaches, in-season firings split into *_note; 2026 from the current 'Template:<Team> staff';
+a dozen gaps hand-filled: interim seasons, HCs without an OC title). `data/play_callers.csv` = the offensive PLAY-CALLER per team-season
+(HC when he calls it — Reid, McVay, Shanahan, LaFleur, Payton, O'Connell, Taylor, McDaniel, Steichen, Canales, Coen, Ben Johnson, Kellen
+Moore, Schottenheimer, Daboll, McCarthy, Stefanski, Pederson, Kingsbury, Arthur Smith; else the OC) — from model knowledge, marked as such.
+Play level: pbp xpass/pass_oe × FTN (motion, play-action, screen, RPO, no-huddle, box, rushers), 2022-25, 4,000+ plays per veteran caller.
+Identity: PROE, early-down neutral pass rate, motion / PA / screen / RPO / no-huddle / shotgun, 4th-and-short go rate, RZ pass rate inside
+20/10/5, RZ target split RB/WR/TE, QB designed-run share inside the 5, and the GOAL-LINE BACK question: lead back (entering carries leader)
+share of all / inside-10 / inside-5 carries. 23 situations; a tendency = his PROE shift in the spot minus the league's shift, same sign every
+season (60+ plays), ≥3 pts. Head coaches: 119 stable of 966 pairs (analytic chance ~3.5%). Play-callers: 101 of 1,051. DCs (blitz rate =
+5+ rushers, heavy box 7+): 67 of 831.
+Reads: Sirianni −16 pts goal-to-go (Hurts sneaks; 26% pass inside the 5); Steichen −13 goal-to-go; O'Connell +10 inside the 10, Canales +11,
+Bowles +7; Taylor and McVay throw LESS on 3rd-and-long every season; McDaniel/Pederson throw MORE in cold; Daboll −10 in wind; Kubiak (LV) −6
+PROE, spreads goal-line carries (50% to RB1), runs vs bad pass defenses; Monken (CLE) rides RB1 (96% inside the 5), +7 pass on 3rd-and-long
+and two-minute; Slowik (MIA) rides RB1 90%; Caley (HOU) spreads (30%). Goal-line: Harbaugh 92%, Taylor 86%, Schottenheimer 83%, Reid 76%
+ride RB1; Macdonald 45%, Coen 52% sub. DCs: Flores blitz 45% (league 24%), Vance Joseph 33%, Bowles 32% but drops inside the 20 every season;
+Gus Bradley +13 pts blitz on 3rd-and-long 3/3; Anarumo +8 4/4; Evero blitzes inside the 20 4/4; Macdonald blitzes LESS in primetime/division.
+**Prop link:** lead back ATD by the caller's PRIOR-season inside-5 RB1 share — spreads 40.3% vs 43.2% implied (−13%), rides 40.5% vs 45.5%
+(−16%); the SPELL back under a ride-RB1 caller hits 11.8% vs 18.5% implied (−35%) — the most overpriced ATD group found. Use the sheets
+(out/coach_profiles_2026.md, out/playcaller_profiles_2026.md, out/dc_profiles_2026.md) as the WHY on cards; the market prices the usage.
+Gaps: WAS 2026 staff blank (template not found); first-time callers with no record: Doyle (BAL), Nagy (NYG; Reid called in KC), Mannion
+(PHI), Fleury (SEA); 8 first-time DCs. Two-high / man rates are not in FTN — DC sheets are blitz + box only.

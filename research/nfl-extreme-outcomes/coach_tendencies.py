@@ -13,7 +13,8 @@ For each coach x situation: his pass rate over expected and pass rate, vs his ow
 (so 'he gets MORE pass-happy in primetime than everyone else does' is explicit); per-season sign; STABLE = same sign every season with
 60+ plays. Writes out/coach_profiles_2026.md, data/_coach_situations.parquet, data/_coach_identity.parquet.
 Then the prop link: lead backs' anytime-TD hit vs implied by the coach's PRIOR-season inside-5 lead-back carry share."""
-import glob, numpy as np, pandas as pd, warnings, nfl_data_py as nfl
+import glob, sys, numpy as np, pandas as pd, warnings, nfl_data_py as nfl
+KEY = sys.argv[1] if len(sys.argv) > 1 else "hc"   # hc = head coach (nflverse), pc = offensive play-caller (data/play_callers.csv)
 warnings.filterwarnings("ignore"); num = lambda s: pd.to_numeric(s, errors="coerce")
 COLS = ["game_id","play_id","season","week","season_type","posteam","defteam","home_team","away_team","play_type","pass","rush","qb_dropback","qb_kneel","qb_spike","qb_scramble","down","ydstogo","yardline_100","goal_to_go","score_differential","game_seconds_remaining","half_seconds_remaining","xpass","pass_oe","shotgun","no_huddle","rusher_player_id","rusher_player_name","receiver_player_id","receiver_player_name","passer_player_id","fourth_down_converted","fourth_down_failed","punt_attempt","field_goal_attempt","epa","touchdown","td_team","wp","roof","temp","wind","spread_line","total_line","div_game","drive"]
 pbp = pd.concat([pd.read_parquet(f, columns=COLS) for f in ["data/pbp_cache/_dl_2022.parquet"] + sorted(glob.glob("data/pbp_cache/pbp_202[345].parquet"))], ignore_index=True)
@@ -32,7 +33,10 @@ S = nfl.import_schedules(list(range(2022, 2027))); S["home_team"] = S.home_team.
 S["kick_h"] = num(S.gametime.astype(str).str.split(":").str[0]); S["primetime"] = ((S.kick_h >= 19) | S.weekday.isin(["Monday","Thursday"])).astype(float)
 h = S[["season","week","home_team","home_coach","away_coach","primetime","home_rest","away_rest"]].rename(columns={"home_team":"posteam","home_coach":"coach","away_coach":"opp_coach","home_rest":"rest","away_rest":"opp_rest"}).assign(is_home=1.0)
 a = S[["season","week","away_team","away_coach","home_coach","primetime","away_rest","home_rest"]].rename(columns={"away_team":"posteam","away_coach":"coach","home_coach":"opp_coach","away_rest":"rest","home_rest":"opp_rest"}).assign(is_home=0.0)
-G = pd.concat([h, a]); P = P.merge(G, on=["season","week","posteam"], how="left"); P = P[P.coach.notna()].copy()
+G = pd.concat([h, a])
+if KEY == "pc":
+    PC = pd.read_csv("data/play_callers.csv"); PC["team"] = PC.team.replace({"LAR":"LA"}); G = G.merge(PC[["season","team","play_caller"]].rename(columns={"team":"posteam"}), on=["season","posteam"], how="left"); G["coach"] = G.play_caller.fillna(G.coach); G = G.drop(columns="play_caller")
+P = P.merge(G, on=["season","week","posteam"], how="left"); P = P[P.coach.notna()].copy()
 P["outdoors"] = P.roof.astype(str).str.lower().isin(["outdoors","open"]); P["cold"] = P.outdoors & (num(P.temp) <= 40); P["windy"] = P.outdoors & (num(P.wind) >= 15)
 P["team_spread"] = np.where(P.posteam == P.home_team, num(P.spread_line), -num(P.spread_line)); P["fav"] = P.team_spread <= -3; P["dog"] = P.team_spread >= 3   # nflverse spread_line = home line
 P["short_rest"] = num(P.rest) <= 5; P["off_bye"] = num(P.rest) >= 13; P["div"] = num(P.div_game) == 1; P["primetime"] = P.primetime == 1
@@ -84,11 +88,12 @@ for lab, col in SIT.items():
             if len(gg) >= 60 and (c, s) in base_cs.index: seas.append((s, (gg.pass_oe.mean() - base_cs[(c, s)]) - (pl[m & (pl.season == s)].pass_oe.mean() - pl[pl.season == s].pass_oe.mean())))
         rel = his - lg_sit; stable = len(seas) >= 2 and len({np.sign(v) for _, v in seas}) == 1 and abs(rel) >= 3
         rows.append(dict(coach=c, situation=lab, plays=len(g), pass_rate=g["pass"].mean(), lg_pass_rate=lg_pr, proe=g.pass_oe.mean(), shift_vs_his_base=his, league_shift=lg_sit, relative=rel, seasons=" ".join(f"{s}:{v:+.0f}" for s, v in seas), stable=stable, motion=g.is_motion.mean(), play_action=g[g["pass"]==1].is_play_action.mean(), no_huddle=g.is_no_huddle.mean()))
-SITS = pd.DataFrame(rows); SITS.to_parquet("data/_coach_situations.parquet", index=False); ID.to_parquet("data/_coach_identity.parquet", index=False); IDS.to_parquet("data/_coach_identity_by_season.parquet", index=False)
+SITS = pd.DataFrame(rows); sfx = "_pc" if KEY == "pc" else ""; SITS.to_parquet(f"data/_coach_situations{sfx}.parquet", index=False); ID.to_parquet(f"data/_coach_identity{sfx}.parquet", index=False); IDS.to_parquet(f"data/_coach_identity_by_season{sfx}.parquet", index=False)
 # ---------------------------------------------------------------- sheets for 2026 head coaches
 S26 = S[S.season == 2026]; C26 = pd.concat([S26[["home_team","home_coach"]].rename(columns={"home_team":"team","home_coach":"coach"}), S26[["away_team","away_coach"]].rename(columns={"away_team":"team","away_coach":"coach"})]).drop_duplicates("team").sort_values("team")
+if KEY == "pc": C26 = pd.read_csv("data/play_callers.csv").query("season == 2026")[["team","play_caller"]].rename(columns={"play_caller":"coach"}).sort_values("team")
 pct = lambda v: f"{100*v:.0f}%" if pd.notna(v) else "—"; pp = lambda v: f"{v:+.1f}" if pd.notna(v) else "—"
-md = ["# Head-coach tendencies, 2026 — play-calling identity and how it shifts by situation\n", f"Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or less) often he throws than the league would in the same down / distance / field / score / clock spot, in points. League: PROE {LG.proe:+.1f}, early-down neutral pass {pct(LG.early_neutral_pass)}, inside-20 pass {pct(LG.rz20_pass)}, inside-5 pass {pct(LG.rz5_pass)}, lead back carries all/inside-10/inside-5 {pct(LG.rb1_share_all)}/{pct(LG.rb1_share_in10)}/{pct(LG.rb1_share_in5)}, 4th-and-short go {pct(LG.fourth_go)}. A situational tendency is listed only when he shifts in the same direction relative to the league in every season with 60+ plays, by 3+ points.\n"]
+md = [f"# {'Offensive play-caller' if KEY == 'pc' else 'Head-coach'} tendencies, 2026 — play-calling identity and how it shifts by situation\n", f"Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or less) often he throws than the league would in the same down / distance / field / score / clock spot, in points. League: PROE {LG.proe:+.1f}, early-down neutral pass {pct(LG.early_neutral_pass)}, inside-20 pass {pct(LG.rz20_pass)}, inside-5 pass {pct(LG.rz5_pass)}, lead back carries all/inside-10/inside-5 {pct(LG.rb1_share_all)}/{pct(LG.rb1_share_in10)}/{pct(LG.rb1_share_in5)}, 4th-and-short go {pct(LG.fourth_go)}. A situational tendency is listed only when he shifts in the same direction relative to the league in every season with 60+ plays, by 3+ points.\n"]
 for r in C26.itertuples():
     i = ID[ID.coach == r.coach]
     if not len(i): md.append(f"## {r.team} — {r.coach}\n- No plays on record 2022-25 (first-year head coach).\n"); continue
@@ -100,7 +105,7 @@ for r in C26.itertuples():
     if len(t): md.append("- **Shifts by situation (relative to how the league shifts, every season):**"); [md.append(f"  - {x.situation}: pass rate {pct(x.pass_rate)} (league {pct(x.lg_pass_rate)}); PROE moves {pp(x.shift_vs_his_base)} vs his base while the league moves {pp(x.league_shift)} → {pp(x.relative)} more {'pass' if x.relative > 0 else 'run'}-heavy than the league in this spot; by season {x.seasons}; n={x.plays}") for x in t.itertuples()]
     else: md.append("- No situational shift holds every season — he calls it the same way everywhere.")
     md.append("")
-open("out/coach_profiles_2026.md", "w").write("\n".join(md))
+open(f"out/{'playcaller' if KEY == 'pc' else 'coach'}_profiles_2026.md", "w").write("\n".join(md))
 pd.set_option("display.width", 250); print(f"coaches with plays 2022-25: {ID.shape[0]} | 2026 head coaches: {C26.shape[0]} | coach-situation pairs {len(SITS)}, stable {int(SITS.stable.sum())}")
 print("\nIDENTITY — 2026 head coaches (sorted by pass rate over expected):"); j = C26.merge(ID, on="coach", how="left").sort_values("proe", ascending=False)
 print(j[["team","coach","plays","proe","early_neutral_pass","motion","play_action","no_huddle","fourth_go","rz20_pass","rz5_pass","rb1_share_all","rb1_share_in10","rb1_share_in5","qb_run_share_in5","rz_tgt_rb","rz_tgt_te"]].round(2).to_string(index=False))
