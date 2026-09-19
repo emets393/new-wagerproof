@@ -1571,3 +1571,25 @@ vs frozen alone 56.4%/296 +6.4% and 58.7%/109 +11.3% — same ROI, more volume i
 Verdict: the football is right and the book has it. Blitz moves the ball to the first read on the play; over a game it is worth ~0.3
 targets to the first-read receiver and the line already sits there. Keep as card copy for WHY a first-read receiver's line is what it is;
 not a bet. Frame saved data/_reception_yds_mech_frame.parquet / _receptions_mech_frame.parquet.
+
+## STORYLINE PROPS — hometown / birthday / former team (owner, 2026-09-19) — `storyline_bio.py`, `exp_storyline_props.py`, `storyline_board.py`
+Data built: `data/player_bio.parquet` (910 prop-line players 2023-26: nflverse birth date / college / draft team + ESPN birthplace city-state-country
+keyed by espn_id, geocoded 100% via geonamescache + Nominatim cache), `data/player_team_weeks.parquet` (weekly rosters 2016-25, catches midseason
+trades), `data/game_sites.parquet` (2018-26 schedule with stadium coordinates incl. 55 neutral/international), `data/storyline_drama.csv` (hand-curated
+~110 departures, tier 1 messy / 2 notable, from model knowledge — incomplete by construction). nflverse has NO hometown field; ESPN does.
+Frame: props_frame 2023-25 → consensus + best over/under book, 28,387 player-game-markets, 623 players, DNP removed. Flags: homecoming = AWAY/neutral
+game within 60/120 mi of birthplace (a home game near birthplace is every week → tested as a constant, null); birthday ±3 days; revenge = opp is a
+former team (attributes: drafted by them, seasons there, seasons since, first meeting, at old stadium, left midseason, drama tier). Control = the same
+players' other games (paired). Placebo = same players, same counts, random other games ×300.
+**Verdicts (over rate vs consensus; paired control in parentheses; per season 2023/24/25):**
+- ★ QB vs FORMER TEAM → UNDER. All QB markets 35.4% over (50.3), 43/41/27; pass TDs 30.4% (49.9) 27/35/29, pass yds 40% (50) 60/47/24. Best-book under
+  +21%. n=114 markets ≈ 30 games. Direction 3/3 seasons for TDs and pooled QB. The hyped QB revenge game goes under his number.
+- ★ SKILL PLAYER in his FIRST SEASON AWAY vs the old team → OVER. 59.5% (46.8) on 154 markets; placebo 45.6 ± 3.7 (95th pct 51.9) → 3.7 sd; per season
+  73.9/57.6/47.9 — 2025 flat, so the 2023 number carries it. Drafted-by-them subset 63.5% (87/58/40). Second meeting same season 77.8%/28. Any-recency
+  skill vs former team 54.4% (48.4) 50/56/57 — consistent but only +3.7% at best book. Left 2+ seasons ago: 52% = nothing.
+- QB BIRTHDAY WEEK → over 61.9% (48.6) on 84 markets, 59/75/50; pass yds 69% n=42. Small. Skill birthday 48.5% = nothing.
+- QB AWAY NEAR HOMETOWN → under (37% over, n=54, 30/44/36). Small. Skill homecoming ≤60 mi 52.6% (49.4) 54/42/58 = nothing; same-state 43.8% = noise.
+- DRAMA tiers: tier 1 50.9% (46.8) 42/53/55; tier 2 88/56/39; drama at old stadium 62/64/43 — the curated drama does not separate from plain revenge.
+  Players DO produce above their L3 form in revenge games (+3 to +6 vs +0.3 control) but the line moves most of the way.
+Board: `storyline_board.py [SEASON] [WEEK]` flags this week's slate with the historical read attached → out/storyline_board_<season>_wk<week>.csv.
+Not wired into signals or agents; paper-track the two ★ reads through 2026 before anything ships.
