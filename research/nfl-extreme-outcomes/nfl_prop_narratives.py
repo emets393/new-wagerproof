@@ -159,7 +159,8 @@ def evaluate(r):
         my_spread = float(sp) if home else -float(sp)
         if stat in ("rush_att","rush_yds") and my_spread <= -6.5: T("script", "over", f"{team} is a {abs(my_spread):g}-point favorite (a leading script feeds carries)")
         if stat in ("rush_att","rush_yds") and my_spread >= 6.5: T("script", "under", f"{team} is a {my_spread:g}-point underdog (a trailing script cuts carries)")
-        if stat in ("pass_att","pass_yds","pass_comp") and my_spread >= 6.5: T("script", "over", f"{team} is a {my_spread:g}-point underdog (a trailing script adds dropbacks)")
+        # NOTE (exp_qb_market_deep.py, attempts, 2023-25): 7+ point underdogs threw 1.2 attempts FEWER than the line,
+        # favorites 7+ threw 0.4 MORE — the trailing-script-adds-dropbacks story is already over-priced in the line, so no tell here.
     if tp and g.get("fg_pred_total") is not None and g.get("fg_total_close") is not None:
         gap = float(g["fg_pred_total"]) - float(g["fg_total_close"])
         if abs(gap) >= 4 and stat in ("rec_yds","rec","pass_yds","pass_comp","pass_att"): T("model", "over" if gap > 0 else "under", f"the game model has the total {abs(gap):.1f} points {'above' if gap > 0 else 'below'} the posted {g['fg_total_close']}", 0.5)

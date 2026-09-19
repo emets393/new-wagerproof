@@ -1300,3 +1300,122 @@ context otherwise. prop_engine.py now reads through fp_hist.read_fp (its FP inpu
 data/fpdata_hist) so the scorer runs on the fp-data-inseason job before the narratives.
 Wk2 first run: 244 projections, 29 clear thresholds; the board went from 9 over / 1 under to 7 / 3
 (Daniels completions UNDER 4/4, Geno Smith pass yards UNDER).
+
+## One market, everything — PASS COMPLETIONS (owner, 2026-09-18) — `exp_completions_deep.py`
+1,773 QB completions lines 2023-25 with 9 families (line, form, QB, team, opponent, receiver corps,
+game context incl. total/spread/wind/temp/precip/dome/divisional/rest/primetime, QB play-by-play
+splits × opponent tendency, injury context) and a per-QB shrunken residual.
+  - ACCURACY: nothing beats the line. Line-only MAE 4.51 / 4.45 (2024 / 2025); every added family
+    keeps or raises MAE (full stack 4.87 / 4.45). Drop-one on 2025: every family within ±0.05 MAE.
+  - PLAYER-SPECIFIC residual: r .21→.26 (2024), bet 63.4→66.2% (2025) but 51.6→49.7% (2024). Noise.
+  - PARTIAL EFFECTS vs the line (pooled): wind 18+ → −2.3 completions (n=67); short rest → +1.1
+    (n=127); man-heavy opp −0.4; ≥15% WR/TE share out −0.4; spread NOT monotonic (fav 7+ +0.1,
+    dog 7+ −0.6) — the blowout-runs-more story does not show in completions vs the line.
+  - THE BET: 2025 63-65% at ≥1.75 for every stack, 2024 ~50% for every stack — the market's 2025
+    miss is real and stack-independent; the frozen config (λ60, engine SETS) is as good as any
+    (53.3%/229 −0.0% · 65.1%/146 +20.5%); "full minus context" is the only stack profitable in 62%
+    of configs both seasons (context features add noise to ridge in 2024).
+Verdict: completions is a line-efficient market; the extra families describe completions but the
+line already carries them. Keep the frozen config; use wind/rest/man/injury as sheet context.
+Rule check per season: wind ≥18 mph → completions UNDER 53.8%/26 · 100%/9 · 83.3%/30 (avg actual−line
+−0.7 / −3.3 / −3.4) — small, direction holds, candidate to paper-track; wind ≥15 50/55/70; short rest
+→ OVER 59/54/50 (fading); man-heavy → UNDER 52/52/56; WR/TE 15%+ out → UNDER 52/56/53. Only wind ≥18 survives.
+Per-QB regressions (`exp_completions_player.py`, 12 factors, walk-forward, own games ≥12): every
+per-player form is WORSE than the line and the universal fit — own slopes MAE 4.9-5.8 (line 4.5),
+mixed (league slope + QB deviation) 5.2-5.7; bets 48-58% by season with no λ stable across both.
+BUT the individual tendencies are real: split-half stability of per-QB slopes r=+.51 (man rate),
++.48 (wind), +.45 (pressure), +.44 (spread), +.36 (blitz); injury/rest/temp ~0. E.g. Allen's
+completions fall 1.6/sd of opponent man rate, Mayfield's RISE 1.4/sd (league −0.2). Use these as
+player-brief content ("he completes less vs man-heavy defenses"), not as a line-beating model.
+
+## QB profiles — completions, 2026 starters (owner, 2026-09-18) — `qb_profiles.py`
+Per starter (34 with priced 2023-25 history): line MAE / residual sd (predictability rank), over rate
+and bias vs the line, and HIS tendencies = factor r with (completions − line) ≥ .30, permutation p<.10,
+sign holding on odd/even halves. Output: data/_qb_profiles_2026.parquet, out/qb_profiles_2026.md.
+Most predictable: Purdy (line MAE 2.7), C.Williams 3.3, Lawrence 3.4, B.Young 3.5; least: D.Jones 5.6,
+Daniels 5.2, Maye 5.1, Herbert 5.1, G.Smith 5.0 (league 4.6). Tendencies are individual and mostly NOT
+league-wide (league r ≈ 0): Stroud/Goff/Hurts −1.8..−2.0 per sd of opponent man rate; Mahomes/Rodgers/
+Nix/Purdy +1.1..+2.1 per sd of blitz rate; Love +1.6 wind (!), Rodgers −2.8 wind; L.Jackson +1.7 per
+sd of receivers' catchable rate, Love/Prescott/Herbert negative. Bias persistence (bet the prior-season
+bias side): 2024 56.1%/139 +4.2%, 2025 52.3%/174 −4.0%; sign persisted 77% then 44% — a description,
+not a bet. Next: wire the stable tendencies into the QB tells on the Player Prop Report.
+FORECAST TEST (`exp_qb_forecast.py`): profiles learned through 2025 wk12 → 2025 wk13-22 (200 QB-games)
++ 2026 wk1 (31, rows built from the posted lines + graded actuals). Pooled MAE: LINE 4.34, universal
+4.36, HIS own model 4.70, PROFILE (line + his stable tendencies) 4.91. Bets ≥1.5: HIS 52.2%/90 +1.0%,
+PROFILE 54.2%/59 +9.0% (2026 wk1 55.6%/9 +57% carries it; 2025 wk13+ 54.0%/50 +0.3%). Per QB: 11 of
+29 had HIS MAE below the line's on 4-10 test games each (Purdy 2.79 vs 3.25, Goff 4.12 vs 4.36, Stroud
+3.23 vs 3.28), 18 were worse (Hurts 4.36 vs 3.07, Prescott 4.31 vs 2.92, Burrow 3.74 vs 1.79) — the
+split a coin gives. Predictable QBs = the ones the LINE misses least (Burrow 1.8, Lawrence 2.4,
+C.Williams 2.4, Prescott 2.9 on their test games), not the ones our profile predicts.
+Verdict: per-QB profiles are true descriptions that do not forecast past the line. Closed.
+Attempts-first decomposition (`exp_completions_twostage.py`, 1,598 QB-games with both lines):
+attempts LINE × his entering completion rate vs the completions line: 2024 57.6%/33 +9.9%, 2025
+32.0%/25 −42.5% (sign flips; r with the residual +.05 → −.12). Attempts model does NOT beat the
+attempts line (MAE 6.43 vs 6.40; 6.63 vs 6.46); rate model ≈ his entering rate (.078 vs .078; .072 vs
+.076). Every two-stage combination is worse than the direct completions model on the bet (two-stage
+47.9% / 45.5%; att line × rate model 54.1 / 53.8; direct 56.1%/212 +5.4% · 59.0%/156 +10.0%).
+Verdict: completions is NOT better modeled as attempts × rate; volume is line-efficient and the rate
+is already his own rate. Direct model stays.
+
+## PASS ATTEMPTS — same full pass (owner, 2026-09-18) — `exp_qb_market_deep.py player_pass_attempts`, `qb_profiles.py 2026 player_pass_attempts`, `exp_qb_forecast.py player_pass_attempts`
+Universal: line-only MAE 6.50 / 6.59; no stack beats it; every family drop-one within ±0.05. Bet: frozen
+config 53.1%/275 −0.6% (2024) · 58.7%/172 +10.5% (2025) — the "2025-only" attempts verdict stands.
+Partial effects vs the line (pooled): short rest +1.8 (n=127); wind 18+ −1.8; opponent blitz rate
+MONOTONIC low −0.57 / mid −0.26 / high +0.34; dog 7+ −1.24 and fav 7+ +0.43 (the market OVER-prices the
+trailing script → removed the 'underdog = more attempts' tell from nfl_prop_narratives); WR/TE <15%
+share out +1.26. Profiles (34 starters): most predictable Purdy 3.8, Lawrence 5.2, Stroud 5.2, Prescott
+5.3 (league 6.5); least D.Jones 8.0, G.Smith 7.7, Cousins 7.2, Maye 7.1. Biases: Maye 33% over (−2.3),
+D.Jones −2.7, Stroud 36% over; Nix +2.2, C.Williams 63% over, Goff +1.8. Fewer stable tendencies than
+completions: Love (blitz +2.4, wind +2.5, total −2.7), Rodgers (blitz +3.2, wind −4.0), Hurts man −3.3,
+Burrow total +4.0, Lawrence temp −3.4. Forecast (through 2025 wk12 → wk13-22 + 2026 wk1, 232 games):
+LINE 6.77, universal 6.83, HIS 7.15 (bet 50.8%/118), PROFILE 7.45 (45.5%/66); 12 of 29 QBs beaten by
+their own model, 17 not. Rodgers/Love/Stafford profiles helped on 5-8 games; most hurt.
+Verdict: attempts behaves exactly like completions — line-efficient, individual tendencies real but
+not forecastable past the book. Using attempts to help completions has no lift to give (see two-stage).
+
+## CORRECTION (owner caught it, 2026-09-18): per-QB "stable tendencies" were tested on odd/even halves
+POOLED ACROSS SEASONS, which lets two old seasons carry a pattern the latest season reversed. J.Love,
+attempts vs opponent blitz rate: 2023 r +.43, 2024 +.61, 2025 −.35 (2025 table: −3.4 vs the line against
+top-half blitz opponents, +5.8 against bottom-half). Rule changed in qb_profiles.py: a tendency must
+hold the same sign in EVERY season with 8+ of his games (≥2 seasons). Survivors — attempts: Purdy rest,
+Lawrence temp/rest, C.Williams catchable/rest, Stafford WR-out, Murray blitz, Love catchable(−), Rodgers
+wind(−), Burrow total; completions: Purdy blitz/rest, C.Williams temp/rest, L.Jackson catchable, Stafford
+WR-out, Rodgers blitz/wind, Prescott catchable(−), Stroud man(−), Goff man(−), Mahomes blitz/pressure/temp,
+Nix blitz, Burrow total. Love's blitz claim and Hurts's man claim are GONE. Method rule for every
+per-player tendency from here: stability = sign agreement across seasons, never pooled halves.
+
+## Attempts vs completions profiles (2026-09-18) — `qb_profiles_compare.py`
+26 starters with both: predictability rank correlation +.75, bias correlation +.80 — the same QBs are
+predictable (or not) in both markets, and their bias vs the line points the same way in both.
+Predictable in BOTH (top 10 each): Purdy, Lawrence, Tua, Darnold, B.Young, C.Williams, Stafford.
+Unpredictable in BOTH: Daniels, Burrow, Maye, Cousins, G.Smith, D.Jones.
+Same-direction bias in both (|att| ≥1, |cmp| ≥.75): under — Purdy, Stroud, Herbert, L.Jackson, Daniels,
+Maye, G.Smith, D.Jones; over — Murray, Nix. Tendencies carrying across markets: Purdy rest(+),
+C.Williams rest(−), Stafford WR-out(+), Rodgers wind(−), Burrow total(+).
+
+## Forecast under the STRICT rule + bias predictor (2026-09-18) — `exp_qb_forecast.py <market>`
+Learned through 2025 wk12 → 2025 wk13-22 + 2026 wk1. BIAS = line + his shrunken prior bias (k=8);
+PROFILE = line + bias + per-season-stable tendencies.
+  attempts   (232): LINE 6.77 | BIAS 6.72, bet≥1.5 60.0%/20 +10.7% (2025: 66.7%/18) | PROFILE 7.29, 47.4%/78 −8.2% | HIS 7.15
+  completions(231): LINE 4.34 | BIAS 4.33, 75%/8 | PROFILE 4.72 but bet≥1.5 66.0%/50 +32.1% (2025 wk13+: 65.1%/43 +20.5%; wk1: 5/7)
+                    profile winners: Burrow 7/7 (total+), Herbert 5/7, Prescott 4/5, Goff 3/5, Stroud 2/3, Hurts 2/3; losers Cousins 2/7, Lawrence 0/1
+The shrunken BIAS is the first per-player thing to match/beat the line on MAE in both markets (tiny
+margins). The completions PROFILE is worse on MAE yet 66% on 50 bets in one window (≈2 sd) — promising,
+unproven: one test window, and the loose-rule version of the same idea was 54%/59. Attempts profile: no.
+Decision: paper-track the strict completions profile reads weekly in 2026 before any card shows them.
+
+## PASS YARDS — full pass + built from the other two (2026-09-18)
+Universal (`exp_qb_market_deep.py player_pass_yds`): the robust market — every config profitable both
+seasons (full stack 57.6%/288 +8.8% · 59.7%/201 +12.6% at thr 17.5; frozen engine config 58.9%/+11.4 ·
+55.3%/+4.2). Partial effects vs the line: wind 18+ −31 yds (n=63), cold (≤50°F) −10, short rest +19,
+dog 3-7 +11.5 but dog 7+ −9.6, receiver <15% share out +9, high-blitz opp +3.9.
+Profiles (`qb_profiles.py 2026 player_pass_yds`): most predictable Murray 35, Tua 42, Mahomes 45,
+Rodgers 47, Lawrence 48 (league 58); least Cousins 70, D.Jones 66, Burrow 65, Mayfield 63. Biases: Goff
++20 (71% over), Mayfield +16, Nix +15, Prescott +14; D.Jones −25, Herbert −17, Daniels −14, Tua −10.
+Strict forecast (216): LINE 59.2 | BIAS 58.5 (61.5%/13 in 2025, 0/2 wk1) | PROFILE 65.1, 58.4%/77 +10.3%
+in 2025 wk13+ but 1/7 in wk1 → 54.8%/84 pooled | HIS 63.6, 49%/104.
+From the other two models (same window, 214 games): completions PROFILE × his yds/completion 53.9%/76
++10.7% (corr with the yards residual −.03); completions (line+bias) × yds/cmp 51.2%/41; attempts
+(line+bias) × cmp rate × yds/cmp 52.1%/71; agreement of the two profiles 54.5%/33. Nothing beats the
+direct yards model, which is the strongest prop model we have. Chaining adds no information.
+Predictability rank correlations across the three markets: att-cmp +.75, att-yds +.36, cmp-yds +.42.
