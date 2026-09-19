@@ -47,6 +47,9 @@ class ResearchTells:
         CS = pd.read_csv("data/coaching_staff.csv"); CS["team"] = CS.team.replace({"LAR":"LA"}); self.dc = CS[CS.season == season].set_index("team").dc.to_dict()
         self.SIT = pd.read_parquet("data/_coach_situations_pc.parquet") if os.path.exists("data/_coach_situations_pc.parquet") else pd.DataFrame(); self.SIT = self.SIT[self.SIT.stable] if len(self.SIT) else self.SIT
         self.DID = pd.read_parquet("data/_dc_identity.parquet").set_index("coach") if os.path.exists("data/_dc_identity.parquet") else pd.DataFrame(); self.lg_blitz = float(self.DID.blitz.median()) if len(self.DID) else 0.24
+        self.ID = pd.read_parquet("data/_coach_identity_pc.parquet").set_index("coach") if os.path.exists("data/_coach_identity_pc.parquet") else pd.DataFrame()
+        rb = board[(board.position == "RB") & (board.market == "player_rush_attempts")] if "market" in board.columns else board.iloc[0:0]
+        self.lead_rb = rb.sort_values("close_line", ascending=False).groupby("team").head(1).set_index("team").player_name.to_dict() if len(rb) else {}
         self.PROF = {}
         for stat in ("attempts","completions","yds","tds","receptions","reception_yds","rush_attempts","rush_yds"):
             f = f"data/_qb_profiles_{stat}_{season}.parquet"
@@ -96,8 +99,18 @@ class ResearchTells:
                 out.append(dict(src="storyline", dir="over" if f.hc_over >= 0.67 else "under", text=f"homecoming ({f.dist_site:.0f} miles from {f.birth_city}, {f.birth_st}): his own record on these trips is over the line {pct(f.hc_over)} across {int(f.hc_games)} games (2023-25), {pct(f.else_over)} elsewhere", w=1.0))
             if bool(f.get("birthday3", False)) and r.position == "QB" and r.market == "player_pass_yds":
                 out.append(dict(src="storyline", dir="over", text=f"birthday week ({f.birth_date.strftime('%b %d')}): quarterbacks in a birthday week have finished above their passing-yards number 69% of the time (42 lines, 2023 to 2025 — a small sample)", w=1.0))
-        # 3. play-caller shift live this week
-        pc = self.pc.get(str(r.team).replace("LAR", "LA"))
+        # 3. play-caller identity — always shown as context; a directional tell (weight 0.5) only when it is pronounced
+        team = str(r.team).replace("LAR", "LA"); pc = self.pc.get(team)
+        if pc and len(self.ID) and pc in self.ID.index:
+            i = self.ID.loc[pc]; gl = ("keeps handing it to his starting back at the goal line" if pd.notna(i.rb1_share_in5) and i.rb1_share_in5 - i.rb1_share_all >= 0.08 else "rotates the backup in at the goal line" if pd.notna(i.rb1_share_in5) and i.rb1_share_in5 - i.rb1_share_all <= -0.08 else "splits goal-line carries the same way he does everywhere")
+            out.append(dict(src="coaching", dir="context", text=f"play-caller {pc}: throws about {abs(i.proe):.0f} point{'s' if round(abs(i.proe)) != 1 else ''} {'more' if i.proe >= 0 else 'less'} often than a typical team would in the same spots; inside the 5 he passes {pct(i.rz5_pass)} of the time (typical {pct(0.47)}); {gl} — starting back gets {pct(i.rb1_share_in5)} of inside-5 carries ({int(i.plays):,} plays 2022-25)", w=0.0))
+            if r.market in ("player_pass_attempts", "player_pass_completions", "player_receptions") and abs(i.proe) >= 3: out.append(dict(src="coaching", dir="over" if i.proe > 0 else "under", text=f"{pc} calls a {'pass' if i.proe > 0 else 'run'}-heavy offense ({abs(i.proe):.0f} points {'more' if i.proe > 0 else 'fewer'} throws than a typical team in the same spots, {int(i.plays):,} plays 2022-25)", w=0.5))
+            if r.market in ("player_rush_attempts", "player_rush_yds") and abs(i.proe) >= 3: out.append(dict(src="coaching", dir="over" if i.proe < 0 else "under", text=f"{pc} calls a {'run' if i.proe < 0 else 'pass'}-heavy offense ({abs(i.proe):.0f} points {'fewer' if i.proe < 0 else 'more'} throws than a typical team in the same spots, {int(i.plays):,} plays 2022-25)", w=0.5))
+            if r.market == "player_rush_attempts" and self.lead_rb.get(team) == r.player_name and pd.notna(i.rb1_share_in5) and i.rb1_share_in5 - i.rb1_share_all >= 0.08: out.append(dict(src="coaching", dir="over", text=f"he is the lead back and {pc} keeps the starting back on the field at the goal line ({pct(i.rb1_share_in5)} of inside-5 carries vs {pct(i.rb1_share_all)} overall, 2022-25)", w=0.5))
+        dc = self.dc.get(c["opp"])
+        if dc and len(self.DID) and dc in self.DID.index:
+            d = self.DID.loc[dc]; out.append(dict(src="coaching", dir="context", text=f"the defense under {dc} blitzes on {pct(d.blitz)} of passing plays (typical {pct(self.lg_blitz)}) and loads the box against the run {pct(d.heavy_box)} of the time ({int(d.dropbacks):,} passing plays 2022-25)", w=0.0))
+        # 3b. play-caller shift live this week
         if pc and len(self.SIT):
             live = {"primetime": c["primetime"], "divisional": c["div"], "cold (≤40°F outdoors)": c["cold"], "windy (≥15 mph)": c["windy"], "home": c["is_home"], "favorite (−3 or more)": c["fav"], "underdog (+3 or more)": c["dog"], "short rest (≤5 days)": c["short_rest"], "off a bye": c["off_bye"], "vs blitz-heavy defense": c["opp_blitz_high"]}
             for s in self.SIT[self.SIT.coach == pc].itertuples():

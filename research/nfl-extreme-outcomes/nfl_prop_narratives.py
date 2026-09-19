@@ -213,12 +213,12 @@ def sheet(r, e):
     groups = [("🎯 Matchup", ("routes","coverage","alignment","pocket","concept","trenches","back")), ("🛡️ The defense", ("defense",)), ("📈 His own tendencies (every season, 2023-25)", ("tendency",)), ("📖 Storylines", ("storyline",)), ("🧠 Play-caller", ("coaching",)), ("🏥 Context", ("injury",)), ("🧮 Game script and model", ("script","model"))]
     for title, srcs in groups:
         ts = [t for t in e["tells"] if t["src"] in srcs]
-        if ts: L.append(f"### {title}"); L += [f"- {'🟢' if t['dir'] == 'over' else '🔴'} {t['text'][0].upper() + t['text'][1:]}" for t in ts]
+        if ts: L.append(f"### {title}"); L += [f"- {'🟢' if t['dir'] == 'over' else '🔴' if t['dir'] == 'under' else '⚪'} {t['text'][0].upper() + t['text'][1:]}" for t in ts]
     L.append("### 🧭 Where the numbers point")
     L.append(f"- **{e['n_for']:g} of {e['n_for'] + e['n_against']:g}** things point toward the **{e['direction'].upper()}**" + (f"; {e['n_against']:g} point the other way" if e["n_against"] else "") + ". A read on the numbers, not a pick.")
     return "\n".join(L)
 def summary(r, e):
-    lead = max(e["tells"], key=lambda t: (t["dir"] == e["direction"], t["w"])); return f"{e['label'].capitalize()} {e['line']:g} vs {e['opp']}: {e['n_for']:g} of {e['n_for'] + e['n_against']:g} things point {e['direction'].upper()}. {lead['text'][0].upper() + lead['text'][1:]}."
+    lead = max([t for t in e["tells"] if t["dir"] in ("over", "under")], key=lambda t: (t["dir"] == e["direction"], t["w"])); return f"{e['label'].capitalize()} {e['line']:g} vs {e['opp']}: {e['n_for']:g} of {e['n_for'] + e['n_against']:g} things point {e['direction'].upper()}. {lead['text'][0].upper() + lead['text'][1:]}."
 # ---------------------------------------------------------------- run
 rows = []
 for r in props.itertuples():
