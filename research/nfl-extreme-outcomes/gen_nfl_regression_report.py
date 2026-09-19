@@ -31,7 +31,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 import football_report_lib as lib
 
-MAX_STORYLINES = 30
+MAX_STORYLINES = 80
 STRONG_PCT, STRONG_N = 0.65, 12          # L15 window bar for "strong" trend
 
 
@@ -139,6 +139,19 @@ def main():
                       matchup=label.get(gid), title=f"Featured matchup — {label.get(gid)}",
                       body=summ, data={"full": f["body"], "direction": f.get("direction"), "score": f.get("score")},
                       rank=5))
+
+    # ---- weekly storyline facts (owner 2026-09-19): storylines / coaching / player
+    # tendencies / goal-line roles. Written by nfl_week_storylines.py on the fp-data job
+    # (needs the research parquets); each row carries data.full (the expandable rundown)
+    # and data.source (which seasons / how many games the numbers come from).
+    for f in fetch(env, "nfl_week_storylines",
+                   f"select=game_id,family,storyline_key,title,body,data,rank,source&season=eq.{season}&week=eq.{week}&order=rank"):
+        gid = str(f.get("game_id"))
+        if gid not in label:
+            continue
+        S.append(dict(storyline_key=f["storyline_key"], family=f["family"], game_id=gid,
+                      matchup=label.get(gid), title=f["title"], body=f["body"],
+                      data=f.get("data") or {"source": f.get("source")}, rank=int(f.get("rank") or 30)))
 
     # ---- signals: CONFLUENCE engine (shared, football_report_lib) ------------
     # sides_model is the base model lean on ~every spread (blanket — excluded);
@@ -250,7 +263,8 @@ def main():
 
     # ---- rank with family quotas, cap, sync ----------------------------------
     QUOTA = {"matchups": 4, "confluence": 6, "injuries": 10, "signals": 10, "ref_trends": 8,
-             "line_movement": 8, "coach_trends": 6}
+             "line_movement": 8, "coach_trends": 6,
+             "storylines": 8, "coaching": 16, "player_tendencies": 16, "redzone_roles": 8}
     dedup = {}
     for s in S:
         dedup.setdefault(s["storyline_key"], s)
@@ -266,16 +280,23 @@ def main():
         s["rank"] = i + 1
     log = lib.sync_storylines(env, "nfl", season, week, S)
     stored = fetch(env, "football_regression_storylines",
-                   f"select=family,title,body,rank,matchup,status&sport=eq.nfl"
+                   f"select=family,title,body,rank,matchup,status,data&sport=eq.nfl"
                    f"&season=eq.{season}&week=eq.{week}&order=rank")
     n_feat = sum(1 for s in stored if s.get("family") == "matchups" and s.get("status") != "resolved")
+    n_cards = sum(1 for s in stored if s.get("family") in ("storylines", "coaching", "player_tendencies", "redzone_roles") and s.get("status") != "resolved")
     narrative, model = lib.generate_narrative(
         env, "NFL", stored,
         f"Week {week}, {season} season. {len(games)} games on the slate."
         + (f" {n_feat} 'matchups' storylines are FEATURED MATCHUPS and have their own expandable "
            "cards with the full rundown, so do NOT write them up: mention in ONE sentence which games "
            "are featured this week and move on. Describe any model play as 'the model shows a play on "
-           "X' — never 'recommends', 'suggests', or any imperative." if n_feat else ""))
+           "X' — never 'recommends', 'suggests', or any imperative." if n_feat else "")
+        + (f" {n_cards} storylines in the families 'storylines', 'coaching', 'player_tendencies' and 'redzone_roles' are per-game "
+           "cards with their own expandable rundown and a source line, so do NOT rewrite them: pick the two or three most "
+           "noteworthy (a quarterback facing his former team, a birthday, a coach whose tendency is live this week) and mention "
+           "each in one sentence that QUOTES the card's number and its source exactly as the card states them (e.g. 'quarterbacks "
+           "facing a former team have gone under their passing-touchdown line 70% of the time across 59 games from 2023 to 2025'). "
+           "Never write vague sourcing like 'based on recent seasons' or 'sourced from the player's history' — give the seasons and the count." if n_cards else ""))
     fam_counts = {}
     for s in stored:
         fam_counts[s["family"]] = fam_counts.get(s["family"], 0) + 1

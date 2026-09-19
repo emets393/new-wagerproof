@@ -176,7 +176,8 @@ def generate_narrative(env, league, storylines, extra_context="", max_tokens=140
     key = env.get("OPENAI_API_KEY_REPORTS") or env.get("OPENAI_API_KEY_MLB")
     if not key:
         return None, None
-    payload = [{k: s.get(k) for k in ("family", "title", "body", "rank", "matchup", "status")}
+    payload = [{**{k: s.get(k) for k in ("family", "title", "body", "rank", "matchup", "status")},
+                **({"source": (s.get("data") or {}).get("source")} if isinstance(s.get("data"), dict) and (s.get("data") or {}).get("source") else {})}
                for s in storylines]
     # Featured-matchup weeks (NFL) carry 4 x 120-180-word sections on top of the 500-700
     # word report, so the caller lifts max_tokens; the word budget in the system prompt is

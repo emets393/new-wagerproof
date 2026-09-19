@@ -110,7 +110,9 @@ interface StorylineRow {
   created_at: string;
   // Featured matchups carry the full facet-by-facet rundown here (markdown); `body` is the
   // short summary shown on the collapsed card. Other families leave it null.
-  data?: { full?: string; direction?: string } | null;
+  // Any family may carry `full` (an expandable markdown rundown) and `source` (which seasons /
+  // how many games the numbers come from — shown under the card so readers know the provenance).
+  data?: { full?: string; direction?: string; source?: string } | null;
 }
 
 // Emoji + accent per storyline family — the visual identity of each card.
@@ -128,14 +130,21 @@ const FAMILY_META: Record<string, { label: string; emoji: string; chip: string; 
   luck: { label: 'Regression', emoji: '🎲', chip: 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400', border: 'border-l-fuchsia-500/70' },
   situational: { label: 'Situational', emoji: '📅', chip: 'bg-teal-500/15 text-teal-600 dark:text-teal-400', border: 'border-l-teal-500/70' },
   roster: { label: 'Roster', emoji: '👥', chip: 'bg-orange-500/15 text-orange-600 dark:text-orange-400', border: 'border-l-orange-500/70' },
+  // Weekly storyline facts (research/nfl-extreme-outcomes/nfl_week_storylines.py, owner 2026-09-19):
+  // former-team / homecoming / birthday, play-caller + coordinator tendencies, per-player tendencies
+  // whose trigger is live this week, goal-line roles moving. Each carries data.full + data.source.
+  storylines: { label: 'Storylines', emoji: '📖', chip: 'bg-rose-500/15 text-rose-600 dark:text-rose-400', border: 'border-l-rose-500/70' },
+  coaching: { label: 'Coaching Tendencies', emoji: '🧠', chip: 'bg-violet-500/15 text-violet-600 dark:text-violet-400', border: 'border-l-violet-500/70' },
+  player_tendencies: { label: 'Player Tendencies', emoji: '📈', chip: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400', border: 'border-l-cyan-500/70' },
+  redzone_roles: { label: 'Goal-Line Roles', emoji: '🥅', chip: 'bg-lime-500/15 text-lime-600 dark:text-lime-400', border: 'border-l-lime-500/70' },
 };
 const FAMILY_FALLBACK = { label: 'Storyline', emoji: '📌', chip: 'bg-muted text-muted-foreground', border: 'border-l-border' };
 
 // Cards render grouped by family (owner: interleaving injury cards between
 // signal cards reads as disorder). Rank still orders WITHIN a family.
 const FAMILY_ORDER = [
-  'matchups', 'confluence', 'injuries', 'signals', 'line_movement',
-  'ref_trends', 'coach_trends', 'coach', 'luck', 'situational', 'roster',
+  'matchups', 'storylines', 'confluence', 'injuries', 'signals', 'coaching', 'player_tendencies',
+  'redzone_roles', 'line_movement', 'ref_trends', 'coach_trends', 'coach', 'luck', 'situational', 'roster',
 ];
 
 function mdToHtml(md: string): string {
@@ -893,7 +902,11 @@ function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl'
   // Featured matchups: the card shows the summary; the facet-by-facet rundown expands
   // in place (owner 2026-09-18: one summary card + "full rundown", not two copies).
   const [open, setOpen] = React.useState(false);
-  const full = s.family === 'matchups' ? s.data?.full ?? null : null;
+  // Any family can ship an expandable rundown in data.full (featured matchups, storylines,
+  // coaching, player tendencies, goal-line roles); the label names what expands.
+  const full = s.data?.full ?? null;
+  const source = s.data?.source ?? null;
+  const rundownLabel = s.family === 'matchups' ? 'Full rundown — facet by facet' : 'Full rundown';
   return (
     <article className={cn('rounded-xl border border-border border-l-4 bg-card p-4', m.border)}>
       <div className="flex flex-wrap items-center gap-2">
@@ -926,7 +939,7 @@ function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl'
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-[13px] font-bold text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             aria-expanded={open}
           >
-            {open ? '▲ Hide full rundown' : '▼ Full rundown — facet by facet'}
+            {open ? '▲ Hide full rundown' : `▼ ${rundownLabel}`}
           </button>
           {open && (
             <div
@@ -935,6 +948,10 @@ function StorylineCard({ s, sport, logosReady }: { s: StorylineRow; sport: 'nfl'
             />
           )}
         </div>
+      )}
+      {/* Provenance: which seasons / how many games or plays the card's numbers come from. */}
+      {source && (
+        <p className="mt-2 text-[11px] italic text-muted-foreground">Source: {source}</p>
       )}
       {/* Only substantive update notes — the generic daily-refresh note is noise. */}
       {(s.updates ?? []).filter((u) => u.note && !u.note.startsWith('Details refreshed')).length > 0 && (
