@@ -1600,3 +1600,23 @@ their last-3 form on the trip (+4 to +8 yds vs +0.1) but the line has it. Per pl
 a coin. Names that look real but are 2-5 games: D.J. Moore in Philadelphia (5 games, 62% over), Kyle Pitts in Philadelphia (4, 75%), Amon-Ra St. Brown
 in LA (2, 100%, +2.5 sd), Stefon Diggs in MD (2), Kamara in Atlanta; negatives Jayden Reed in Chicago (25%), Noah Brown NJ/NY, Sutton in Houston.
 Verdict: homecoming is card copy, not a bet; keep the per-player table (data/_storyline_frame.parquet, hc flag) for narrative use only.
+
+## PASSING TDs at the PRICE + ANYTIME TD with the new data (owner, 2026-09-19) — `exp_pass_tds_price.py`, `exp_atd_full.py`, `storyline_flags.py`
+**Passing TDs.** 82% of lines are 1.5, so the frozen "61% win rate" was the −150 favourite landing. Graded at the price: devigged implied P(over)
+from best over / best under (net payouts in the prop frame, +1 to decimal), Poisson P(over) from the walk-forward expectation, bet at |edge| ≥ m.
+Market calibration is clean (implied .35→over 22%, .45→48%, .55→58%, .65+→72%). Model at the price: frozen / full / full+storyline all
++7 to +9% in 2024 and −6 to −16% in 2025; proper null spans −11% to +15% → inside chance. Per-QB (over − implied): 9 of 39 stable-sign,
+coin gives ~10; entering-bias forecast 2025 wk13-22 loses (−6 to −18%). Mahomes under his implied every season (39% over vs 51%), Kyler
+the same (25% vs 40%), Burrow/Goff/Allen over — descriptive only. ★ The one cell at the price: QB vs FORMER TEAM over 30.5% vs implied 46.5%,
+n=59, 28.6/30.8/33.3 by season, UNDER at best price +26.8% (first meeting +24.8%, at old stadium +22.8%). Homecoming QB 46% (n=28) and
+birthday QB 53% (n=45) — nothing at the price. Deep-frame everything pass: nothing beyond the line moves TDs (drop-one |Δ| ≤ 0.011).
+**Anytime TD** (v2 red-zone frame rebuilt from FP history, 18,893 player-games, best of 4 books, week ≥ 4; flat-bet every YES −23.8%).
+Model with storyline flags + entering player residual: corr .3846 vs market .3858 — still equal to the market; ROI negative at every edge;
+the null's ROI swings ±100% at n<50 (long prices), so small-cell ROI is meaningless here. Per player: 160 of 369 stable-sign vs ~184 by coin
+(129 negative = the vig); the entering residual forecast loses −26 to −32%. Storyline cells vs a paired placebo (same players, same counts, 300×):
+  first season away: hit−implied +1.3 pts, ROI +21.1% n=148 | placebo −3.0 ± 2.3 pts, −28.6% ± 20 (2 sd)
+  RB vs former team: +0.6 pts, +18.4% n=95 | placebo −4.2 ± 3.0, −34.9% ± 24 (2 sd)
+  homecoming non-division: +3.8 pts, −5.2% n=219 | placebo −2.9 ± 2.2, −27.9% ± 15 (3 sd on hit rate, still loses money)
+  birthday: hit 12.8% vs implied 17.1%, −42% — players score LESS around their birthday. QB vs former team scores 4.3% vs 11.3% implied.
+Verdict: storyline games are the only place ATD hit rates clear the vig, and only in the revenge cells, at ~2 sd on ~150 games. Not a ship;
+paper-track "first season away, anytime TD YES" through 2026 alongside the QB-revenge pass-TD under. Everything else in both markets: closed.

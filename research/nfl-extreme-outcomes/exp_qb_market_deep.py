@@ -17,7 +17,7 @@ Readouts:  (1) walk-forward 2024 / 2025 accuracy by cumulative feature stack (MA
            (4) the bet: all-configs at best-book per season, vs the current frozen completions config
 The line is a FEATURE (raw target with the line, per the 'predict the raw quantity' law), never the target."""
 import io, contextlib, glob, itertools, sys, numpy as np, pandas as pd, warnings
-MKT = sys.argv[1] if len(sys.argv) > 1 else "player_pass_completions"; STAT = MKT.replace("player_pass_", ""); SC = 10.0 if "yds" in MKT else 1.0   # threshold scale: yards markets x10   # completions | attempts
+MKT = sys.argv[1] if len(sys.argv) > 1 else "player_pass_completions"; STAT = MKT.replace("player_pass_", ""); SC = 10.0 if "yds" in MKT else (0.2 if "tds" in MKT else 1.0)   # pass TDs: lines are 0.5/1.5/2.5, thresholds 0.2/0.35/0.5 expected TDs off the line   # threshold scale: yards markets x10   # completions | attempts
 from sklearn.ensemble import HistGradientBoostingRegressor
 warnings.filterwarnings("ignore"); num = lambda s: pd.to_numeric(s, errors="coerce"); K = 4.0
 src = open("exp_prop_injury_context.py").read().split('print("\\n" + "=" * 130)')[0]; ns = {}

@@ -14,7 +14,7 @@ carried from the end of 2025 (opponent rates, receivers, weather from the matchu
 import os, sys, numpy as np, pandas as pd, requests, warnings
 warnings.filterwarnings("ignore"); num = lambda s: pd.to_numeric(s, errors="coerce")
 HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, os.path.dirname(HERE)); import football_report_lib as lib
-env = lib.load_env(); H = lib.hdr(env); MKT = sys.argv[1] if len(sys.argv) > 1 else "player_pass_completions"; STAT = MKT.replace("player_pass_", "").replace("player_", ""); RB = MKT.startswith("player_rush"); WR = MKT in ("player_receptions","player_reception_yds"); THR = 12.0 if (WR and "yds" in MKT) else 0.7 if WR else (10.0 if RB else 15.0) if "yds" in MKT else 1.5   # bet threshold on the market's own scale
+env = lib.load_env(); H = lib.hdr(env); MKT = sys.argv[1] if len(sys.argv) > 1 else "player_pass_completions"; STAT = MKT.replace("player_pass_", "").replace("player_", ""); RB = MKT.startswith("player_rush"); WR = MKT in ("player_receptions","player_reception_yds"); THR = 12.0 if (WR and "yds" in MKT) else 0.7 if WR else (10.0 if RB else 15.0) if "yds" in MKT else (0.35 if "tds" in MKT else 1.5)   # bet threshold on the market's own scale
 def fetch(table, params):
     j = requests.get(f"{lib.SUPA}/{table}?{params}", headers=H, timeout=90).json(); return j if isinstance(j, list) else []
 FAC = ["close_line","opp_rate_man","opp_rate_blitz","opp_rate_press","wind","temp","team_spread","total","e_rw_catchable","inj_wrte_tgt_out","rest","is_home"]
