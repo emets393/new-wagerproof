@@ -1642,3 +1642,12 @@ wk13-22: 142 bets, hit 19.0% vs implied 25.6%, −21.3%.
 Verdict: anytime TD stays closed. The book prices who is on the field inside the 5, who gets the ball, and how each team calls it. The
 one piece of information it prices only to break-even is a rising inside-5 role (last 3 games vs season) — usable as card copy
 ("goal-line role growing"), not as a bet. Storyline revenge cells (previous section) remain the only ATD cells above the vig.
+**Per-player ATD tendency profiles (owner called out the miss, 2026-09-19) — `atd_player_profiles.py 2026`:** one sheet per player on the 2026
+anytime-TD board with 20+ priced games (282 players), 19 situations each (pass-heavy vs run-heavy inside the 20 / 10 / 5, trips, team TDs, his
+inside-20/10/5 snap share vs his norm, inside-5 rush share, inside-10 targets, end-zone share, role rising, opponent TDs / end-zone targets /
+inside-5 rushes allowed, home, former team, homecoming, birthday): hit vs implied inside vs outside, per-season gaps, STABLE = same sign every
+season (4+/4+) and |gap| ≥ 8 pts. out/atd_player_profiles_2026.md. Result: 356 of 3,506 pairs stable (10.2%) vs a PLACEBO of 19.5% ± 0.6
+(random in-situation games, same counts, same rule) — the real situations produce FEWER stable tendencies than random splits. By family:
+play-calling 5.2%, team volume 3.4%, his usage 5.4% (far below placebo = the price moves with the situation, the residual does not);
+opponent 21.5% and context 18.9% (= placebo). The top of the list (Smith-Njigba home 63% vs 35%, Gibbs vs end-zone-soft defenses 86% vs 56%,
+Bijan with more inside-10 targets 33% vs 54%) is the tail of 3,506 draws. Sheet = card copy only.
