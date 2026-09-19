@@ -1593,3 +1593,10 @@ players' other games (paired). Placebo = same players, same counts, random other
   Players DO produce above their L3 form in revenge games (+3 to +6 vs +0.3 control) but the line moves most of the way.
 Board: `storyline_board.py [SEASON] [WEEK]` flags this week's slate with the historical read attached → out/storyline_board_<season>_wk<week>.csv.
 Not wired into signals or agents; paper-track the two ★ reads through 2026 before anything ships.
+**Homecoming refined (owner, 2026-09-19):** visiting player, birthplace ≤120 mi of the stadium, his OWN stadium >120 mi away (a Jets player from
+NJ at the Giants is not a homecoming), and NON-division (the rare trip). n=329 markets: over 51.5% (same players elsewhere 49.9%), placebo 49.5 ± 2.8,
+per season 59/43/53. Division-game homecomings 46%. WR/TE receiving yards in the rare trip 56.5% (63/45/60) — 2024 breaks it. Players DO run above
+their last-3 form on the trip (+4 to +8 yds vs +0.1) but the line has it. Per player (49 with 2+ homecoming games): 27 improve vs the line, 22 worse —
+a coin. Names that look real but are 2-5 games: D.J. Moore in Philadelphia (5 games, 62% over), Kyle Pitts in Philadelphia (4, 75%), Amon-Ra St. Brown
+in LA (2, 100%, +2.5 sd), Stefon Diggs in MD (2), Kamara in Atlanta; negatives Jayden Reed in Chicago (25%), Noah Brown NJ/NY, Sutton in Houston.
+Verdict: homecoming is card copy, not a bet; keep the per-player table (data/_storyline_frame.parquet, hc flag) for narrative use only.
