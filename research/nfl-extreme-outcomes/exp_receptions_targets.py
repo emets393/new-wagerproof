@@ -16,6 +16,9 @@ with contextlib.redirect_stdout(io.StringIO()): exec(compile(src, "ic", "exec"),
 prep2, PE, CTX = ns["prep2"], ns["PE"], ns["CTX"]; from prop_engine import ridge
 d, F0 = prep2("player_receptions", ["WR","TE"], None); d = d[d.close_line.notna() & d.actual.notna()].copy(); d["pid"] = d.playerPlayerId.astype(str)
 RV = pd.read_parquet("data/_targets_deep_frame.parquet"); RV["pid"] = RV.pid.astype(str)
+# FP omits the receptions/yards row when a targeted player caught nothing -> NaN. Leaving it NaN made the entering catch rate NaN on
+# those games and the frame filter then DROPPED every zero-catch game (5558 rows, min actual 1) — an over-side leak. Zero is zero.
+RV["rec"] = RV.rec.fillna(0); RV["yds"] = RV.yds.fillna(0)
 TF = [c for c in RV.columns if c.startswith(("e_","sens_","ix_")) or c in ("wind","temp","rest","is_home","div_game","spread","total","implied_tt","big_fav","big_dog") or c in CTX]
 TF = [c for c in dict.fromkeys(TF)]; TALL = TF
 # catch rate entering (rec / tgt), from the targets frame's per-game rec & tgt
@@ -29,6 +32,7 @@ for yr in (2023, 2024, 2025):
     if len(tr) < 500: continue
     h = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.04, max_depth=3, l2_regularization=2.0, min_samples_leaf=40, random_state=0).fit(tr[TALL].fillna(tr[TALL].median()), tr.tgt)
     RV.loc[te, "tgt_proj"] = h.predict(RV.loc[te, TALL].fillna(tr[TALL].median()))
+RV.to_parquet("data/_targets_proj_frame.parquet", index=False)   # reused by exp_recyds_targets.py
 keep = list(dict.fromkeys(["pid","season","week","tgt_proj","e_cr","e_tgt","tgt","rec"] + [c for c in TALL if c not in d.columns]))
 d = d.merge(RV[keep].drop_duplicates(["pid","season","week"]), on=["pid","season","week"], how="left")
 d = d[d.tgt_proj.notna() & d.e_cr.notna()].copy(); d["tgt_x_cr"] = d.tgt_proj * d.e_cr; d["base_x_cr"] = d.e_tgt * d.e_cr

@@ -24,11 +24,16 @@ def wavg(df, v, w):
     x, y = num(df[v]), num(df[w]); ok = x.notna() & y.notna() & (y > 0); return float((x[ok] * y[ok]).sum() / y[ok].sum()) if y[ok].sum() > 0 else np.nan
 RV = load("player_receiving-advanced"); RV = RV[RV.playerPosition.isin(["WR","TE"])].copy(); RV["pid"] = RV.playerPlayerId.astype(str)
 for c, s in (("tgt","playerStatsReceivingTargetsTotal"), ("rec","playerStatsReceivingReceptionsTotal"), ("yds","playerStatsReceivingYardsTotal"), ("routes","playerStatsReceivingRoutesTotal"), ("tsh","marketShareReceivingTargetsTotal"), ("rsh","marketShareReceivingRoutesTotal"), ("adot","playerStatsReceivingAverageDepthOfTarget"), ("yprr","playerStatsReceivingAveragesPerRouteYardsTotal"), ("first","marketShareReceivingTargetedReadFirst")): RV[c] = num(RV[s]) if s in RV.columns else np.nan
-RV = RV[RV.routes >= 1].sort_values(["pid","season","week"]).reset_index(drop=True)
+# FP omits the receptions/yards rows when a targeted player caught nothing -> NaN. Left NaN, the entering rec/yds went NaN on exactly
+# his zero-catch games, got median-filled, and the HGB learned "fill value = he produced nothing today" (caught 2026-09-19: 45 of 56
+# rec-yds unders were 0-yard games). A zero is a zero.
+RV = RV[RV.routes >= 1]
+for c in ("tgt","rec","yds","tsh","yprr","first"): RV[c] = RV[c].fillna(0)   # ran routes, row present, stat missing = zero
+RV = RV.sort_values(["pid","season","week"]).reset_index(drop=True)
 def entering(df, key, spec):
     out = pd.DataFrame(index=df.index)
     for m, w in spec:
-        wcol = df[w] if w else pd.Series(1.0, index=df.index); n = df[m] * wcol; pri = pd.DataFrame({"a": n, "b": wcol, key: df[key], "season": df.season}).groupby([key, "season"]).agg(a=("a","sum"), b=("b","sum")); pri["r"] = pri.a / pri.b.replace(0, np.nan)
+        wcol = df[w] if w else pd.Series(1.0, index=df.index); n = (df[m] * wcol).where(wcol != 0, 0.0);  pri = pd.DataFrame({"a": n, "b": wcol, key: df[key], "season": df.season}).groupby([key, "season"]).agg(a=("a","sum"), b=("b","sum")); pri["r"] = pri.a / pri.b.replace(0, np.nan)
         p = pd.Series([pri.r.get((k, s - 1), np.nan) for k, s in zip(df[key], df.season)], index=df.index); kk = K * wcol.mean()
         g = pd.DataFrame({"n": n, "w": wcol, key: df[key], "season": df.season}).groupby([key, "season"]); cs = g.n.cumsum() - n; cn = g.w.cumsum() - wcol
         v = (cs + kk * p.fillna(0)) / (cn + kk * p.notna()); v[(cn == 0) & p.isna()] = np.nan; out["e_" + m] = v

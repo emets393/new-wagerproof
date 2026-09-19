@@ -1500,3 +1500,27 @@ Honest statement: real, two-part — a market bias worth ~+5-8 pts at low lines 
 selection within them; ~+6-8 pts over the proper null. Ship it AS THAT: low-line receiver overs the model
 agrees with. Method rule: a prop null must keep the line–actual pairing (permute residuals within line
 bucket), never shuffle actuals across players.
+
+## RETRACTION — targets / receptions / receiving yards (2026-09-19, caught while building yards)
+**The three sections above (TARGETS, RECEPTIONS with targets inside, RECEPTIONS verification) reported inflated numbers. A same-game leak.**
+Fantasy Points omits the receptions / yards / targets stat when it is zero, so the row was NaN. The entering (cumulative-minus-this-game)
+values in `exp_targets_deep.py` went NaN on exactly the games where the player caught nothing, the median fill then made those rows carry
+one identical value (e_rec 2.51, e_yds 29.10), and the gradient-boosted targets model learned "fill value = he produced nothing today".
+Found because 45 of the 56 receiving-yards UNDER picks were 0-yard games (96% winners) and the shuffled-residual null produced ZERO under
+picks. Separately, the receptions frame's `e_cr.notna()` filter dropped every zero-catch game (min actual was 1) — an over-side leak.
+Fix: `fillna(0)` on tgt/rec/yds/tsh/yprr/first before entering values; weight-zero rows contribute 0. Chain rerun.
+
+**Corrected numbers (walk-forward, best book):**
+- Targets model vs the naive baseline: direction 2024 72.6%/179, 2025 78.4%/185 (was 82-88%). Still beats a naive average — but the
+  book's implied targets is as accurate as ours, so this is not a market edge.
+- Receptions, DIRECT + targets ≥0.7: 2024 57.4%/204 +4.8%, 2025 58.1%/198 +3.2% (was 67.8% / 66.7%). Identical to the frozen DIRECT
+  model alone (55.3% / 58.1%). All-configs both-season 67% (was 100%). Agreement cell 51-56%, losing. The targets model adds NOTHING.
+- Low-line (1.5/2.5/3.5) receptions: blanket over at best book 51.3% (2024) / 52.4% (2025) — the "market skew" I reported (56-64%)
+  was the dropped zero-catch games. Model overs ≥0.7 at those lines: 61.2%/147 +12.2% (2024), 57.1%/182 +1.7% (2025); by line, 3.5
+  flips 62% → 48%. Not shippable on its own.
+- Receiving yards, every model incl. targets features: 46-54% at ≥12, all-configs both-season 0% for anything with targets in it,
+  frozen DIRECT 54.4%/226 and 53.1%/96. Proper null 39-60%. Line-shopping alone 55-57%. NOTHING here.
+**Standing state for WR/TE: the pre-existing frozen receptions model (~56-58% overs at ≥0.7, modest ROI) is all there is. Targets as a
+foundation did not transfer to any market.**
+Lesson logged in memory (leak-screen): a feature that equals its fill constant on >1% of rows must be checked against the outcome on those rows;
+the overall correlation screen (r 0.04) missed it, the proper null caught it (real found 56 unders, nulls found 0).
