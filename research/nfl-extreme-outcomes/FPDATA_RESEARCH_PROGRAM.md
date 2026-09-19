@@ -1436,3 +1436,51 @@ R.White, Gibbs, McCaffrey; least Barkley 5.6, J.Taylor 4.9 (64% over, +2.0), Hub
 Breece Hall 23% over (−2.5). Forecast (362): LINE 3.72 | HIS 4.13 52.2%/159 | BIAS 5/7 | PROFILE 50.7%/71.
 Verdict: both RB markets are line-efficient; per-back tendencies do not carry; the injury-out volume bump
 and the median-skew fact are the two things worth carrying into the cards. RB profiles = description only.
+
+## Owner hypothesis: inflated RB attempts line = market expects the favorite to run out the clock (2026-09-18)
+1,306 lead-back team-games 2023-25; inflation = his attempts line − his entering average. The script IS in
+the line: corr(inflation, spread) = −.19 (bigger favorites get more inflated lines). But it adds nothing to
+the spread: cover ~ spread + inflation → inflation t = +0.22. Favorites with an inflated line (≥+1.5):
+cover 61.0%/136 (2023), 53.1%/143 (2024), 49.6%/125 (2025) — decays to nothing; deflated favorites 45/55/48.
+Under rate for inflated favorites 58% / 47% / 46%. Verdict: the attempts line encodes the same script the
+spread already prices; no leak. Closed.
+Follow-up (`exp_prop_market_leaks.py`): pre-registered family of 8 prop-vs-game signals × 3 outcomes × 3
+seasons (72 cells) with a shuffled-outcome null. Largest real top-vs-bottom-quintile gap = 17.5 pts; the
+null's largest gap has median 19.2, 95th pct 26.0 — the whole family is at chance. One cell keeps its sign
+three seasons (lead-back rush-yards inflation → game over, +6/+5/+9) — ~2-3 such cells are expected by
+chance among 72. The 2023 RB-attempts cover cell (61%) was a one-season draw. Closed.
+
+## TARGETS — the foundation model (owner, 2026-09-18) — `exp_targets_deep.py`
+9,784 WR/TE player-games 2022-25 (8+ routes); no line, so the baseline = his K=4-seeded entering average
+(MAE 2.00). Families: role, volume, coverage (+ his share-vs-coverage sensitivity), injury, context.
+  - ridge stacks ≈ baseline (MAE 1.92-2.06); HGB on the full stack BEATS it: MAE 1.91/1.94/1.80 vs
+    1.95/2.06/1.95, r .64/.61/.64 vs .63/.57/.58, and DIRECTION (sign of pred−baseline vs actual−baseline,
+    |gap|≥1) 66.5%/828 · 75.4%/484 · 79.2%/621. Forecast window (learn ≤2025 wk12 → wk13+ & 2026 wk1,
+    921 games): HGB MAE 1.81 vs baseline 1.97, direction 81.3%/203.
+  - what moves targets vs his baseline: teammate WR/TE share out +0.2 / +0.5 / +0.9 (<15 / 15-30 / 30%+
+    out); mean reversion by share (<12% share +0.6, 28%+ share −1.25 — the K=4 baseline lags); dogs +0.3;
+    man-heavy +0.2; wind 18+ −0.15. Drop-one: every family ≤ +0.01 MAE in ridge (the gain is in the
+    HGB interactions, not any one family).
+  - profiles (156 active receivers, 20+ games): raw MAE rank is dominated by low-volume TEs — use it
+    relative to baseline. 71 of 156 carry a per-season-stable tendency (mostly WR/TE-out share, opp
+    two-high/pressure, rest). data/_wr_profiles_targets_2026.parquet.
+Verdict: targets are genuinely predictable past the naive baseline (no market prices them) — the HGB
+targets model is the input for receptions and yards. Frame: data/_targets_deep_frame.parquet.
+
+## RECEPTIONS with the targets model inside (2026-09-19) — `exp_receptions_targets.py`
+Targets frame rebuilt on ANY played game (routes ≥ 1; the 8-route cut used same-game info and dropped 10%
+of lines that went over only 31%). Targets HGB still beats the baseline: MAE 1.72/1.73/1.65 vs
+1.80/1.91/1.83, direction 73/82/83%; forecast window 88.3%/290. Receptions frame = 5,558 WR/TE lines
+2023-25 joined to a walk-forward targets projection + entering catch rate (91% of all lines; the 9% left
+out = no FP id (over 50%) or no played row that week (over 28% — DNP/limited; the cards already skip
+Out/Doubtful and grade DNP as no action, so results are conditional on the player suiting up).
+  vs the line, ≥0.7 at best-book (2024 | 2025):
+    TARGETS × catch rate (no fit)   58.2%/517 +5.6%  | 62.5%/613 +13.5%
+    DIRECT frozen receptions model  58.8%/262 +7.8%  | 64.2%/349 +16.0%   (all 9 configs profitable both seasons)
+    DIRECT + targets projection     61.2%/268 +11.6% | 65.7%/388 +18.9%   (all 9 configs profitable both seasons)
+    both agree, same side           61.7%/154 +11.1% | 68.0%/256 +21.1%
+  forecast window (≤2025 wk12 → wk13-22): DIRECT+targets 70.5%/112 +26.5%; everything-ridge 72.0%/107.
+Why receptions looked "2025-only" before: the earlier frame included the no-FP / no-played rows; on
+receivers with an FP baseline who play, it is robust both seasons. Decision: ship receptions with the
+targets projection as a feature and the FP-history + active condition; agreement with TARGETS×CR = the
+high-conviction tier. Next: receiving yards with targets + catch rate + yards/reception.
