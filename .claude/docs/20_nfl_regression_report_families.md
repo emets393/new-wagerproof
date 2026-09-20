@@ -65,3 +65,14 @@ point one way (net ≥ 2). Since 2026-09-19 it also takes `research_tells.py`:
   (pass-heavy → QB volume and receivers over; run-heavy → rushing over, pass attempts under).
 Each tell's text carries its seasons and counts. The card body groups them under "His own
 tendencies", "Storylines" and "Play-caller".
+
+**Grading.** Two graders write `nfl_prop_narratives.result` / `actual_value`, both idempotent (only
+`result IS NULL` rows):
+- `grade_props_espn.py SEASON WEEK --write` — same day. `espn_nfl_boxscores.py` pulls ESPN's public
+  summary endpoint for every FINAL game (524 player lines for 8 games in ~10 s), maps ESPN ids to gsis
+  via `data/players_xwalk.parquet`, and grades reads plus every `nfl_prop_model_preds` row (side =
+  sign of pred − line). Projection grades go to `out/prop_projection_grades_{season}_wk{week}.csv`
+  (the preds table has no result column). Runs in `grade_week.sh`.
+- `grade_nfl_prop_narratives.py` — overnight, from `nfl_player_props` (nflverse logs). Fills whatever
+  ESPN left (games not final at run time). Same box score, same answer.
+A player with no box-score line in a final game is `dnp` (not graded), matching the book's void.

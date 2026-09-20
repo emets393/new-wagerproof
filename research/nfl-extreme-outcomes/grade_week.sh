@@ -51,7 +51,9 @@ python3 run_grade_rpcs.py "$SEASON" \
   || echo "[warn] RPC step failed (non-fatal — pg_cron 'football-grade-daily' grades at 13:30 UTC)"
 echo; echo ">>> 4b) grade SHARP ACTION flags at their detection line (appends to signal_performance)"
 python3 grade_nfl_sharp_flags.py "$SEASON" || true
-echo; echo ">>> 4c) grade the Player Prop Report reads (nfl_prop_narratives) vs the props' graded actuals"
+echo; echo ">>> 4c) same-day: grade Prop Report reads + model projections vs ESPN box scores (final games only)"
+read -r _S _W < <(python3 resolve_nfl_week.py) && python3 grade_props_espn.py "$_S" "$_W" --write || true
+echo; echo ">>> 4d) grade the Player Prop Report reads (nfl_prop_narratives) vs the props' graded actuals (overnight fill)"
 python3 grade_nfl_prop_narratives.py "$SEASON" || true
 
 echo; echo ">>> 5) historical-trends warehouse: asof derived features (Stage 2, non-fatal)"
