@@ -134,8 +134,14 @@ def evaluate(r):
     df = {"rec_yds": RV, "rec": RV, "rush_yds": RU, "rush_att": RU, "pass_yds": QB, "pass_comp": QB, "pass_att": QB}[stat]; fm = form(df, key, team, stat); facts["form"] = fm
     if fm and fm["n5"] >= 3:
         gap = (fm["l5"] - line) / max(line, 1)
-        if gap >= 0.15: T("form", "over", f"last {fm['n5']} games average {fm['l5']:.1f} {label}, {100*gap:.0f}% above the line")
-        elif gap <= -0.15: T("form", "under", f"last {fm['n5']} games average {fm['l5']:.1f} {label}, {100*-gap:.0f}% below the line")
+        # QB passing markets: TRUST THE LINE vs recent form (PROPS_BRIEF1, validated both seasons — the only market where
+        # form deviation means anything): line BELOW his form -> under has paid +8-12%; line ABOVE his form -> over +6-21%.
+        # Other markets: recent form vs the line is shown as context only — it is priced (dead end, same brief).
+        if stat in ("pass_yds", "pass_comp", "pass_att") and abs(gap) >= 0.05:
+            below = gap > 0   # form above the line = the book set the number BELOW his recent form
+            T("form", "under" if below else "over", f"the sportsbook number sits {100*abs(gap):.0f}% {'below' if below else 'above'} his last-{fm['n5']} average of {fm['l5']:.1f} {label}; for quarterbacks the line has been the better guide — when it sits {'below' if below else 'above'} recent form the {'under' if below else 'over'} has paid {'8-12%' if below else '6-21%'} better than break-even (2024-25 prop lines)")
+        elif abs(gap) >= 0.15:
+            T("form", "context", f"last {fm['n5']} games average {fm['l5']:.1f} {label}, {100*abs(gap):.0f}% {'above' if gap > 0 else 'below'} the line — recent form on its own has been priced into these lines (context, not counted)")
     # defense allowed to the position
     al = allowed(stat, r.position, opp); facts["allowed"] = al
     if al:
@@ -200,9 +206,11 @@ def evaluate(r):
         for t in rt: T(t["src"], t["dir"], t["text"], t["w"])
     except Exception as ex: facts["research_error"] = str(ex)[:120]
     if not tells: return None
-    n_over = sum(t["w"] for t in tells if t["dir"] == "over"); n_under = sum(t["w"] for t in tells if t["dir"] == "under")
-    direction = "over" if n_over > n_under else "under"; n_for, n_against = (n_over, n_under) if direction == "over" else (n_under, n_over)
-    return dict(direction=direction, n_for=n_for, n_against=n_against, net=n_for - n_against, tells=tells, facts=facts, opp=opp, label=label, line=line)
+    w_over = sum(t["w"] for t in tells if t["dir"] == "over"); w_under = sum(t["w"] for t in tells if t["dir"] == "under")
+    c_over = sum(1 for t in tells if t["dir"] == "over"); c_under = sum(1 for t in tells if t["dir"] == "under")
+    direction = "over" if w_over > w_under else "under"; n_for, n_against = (c_over, c_under) if direction == "over" else (c_under, c_over)
+    # n_for / n_against are COUNTS of things (what the card says); net is the WEIGHTED margin (what ranks the cards)
+    return dict(direction=direction, n_for=n_for, n_against=n_against, net=(w_over - w_under) if direction == "over" else (w_under - w_over), tells=tells, facts=facts, opp=opp, label=label, line=line)
 def sheet(r, e):
     g = games[str(r.game_id)]; L = [f"### 🔢 The line", f"- **{e['label'].capitalize()} {e['line']:g}** ({r.team} vs {e['opp']})" + (f" — best over {r.best_over_line:g} at {r.best_over_book_name} ({int(r.best_over_price):+d})" if pd.notna(r.best_over_line) and pd.notna(r.best_over_price) else "") + (f", best under {r.best_under_line:g} at {r.best_under_book_name} ({int(r.best_under_price):+d})" if pd.notna(r.best_under_line) and pd.notna(r.best_under_price) else "")]
     fm = e["facts"].get("form")
@@ -210,21 +218,22 @@ def sheet(r, e):
     mp = e["facts"].get("model")
     if mp and mp.get("pred") is not None:
         e_ = float(mp["pred"]) - e["line"]; L.append(f"- 🧮 Prop model projects **{float(mp['pred']):.1f}** ({e_:+.1f} vs the line; this market's threshold is {float(mp['threshold']):g}, so it {'counts' if abs(e_) >= float(mp['threshold']) else 'is context only'})")
-    groups = [("🎯 Matchup", ("routes","coverage","alignment","pocket","concept","trenches","back")), ("🛡️ The defense", ("defense",)), ("📈 His own tendencies (every season, 2023-25)", ("tendency",)), ("📖 Storylines", ("storyline",)), ("🧠 Play-caller", ("coaching",)), ("🏥 Context", ("injury",)), ("🧮 Game script and model", ("script","model"))]
+    groups = [("📊 Recent form vs the line", ("form",)), ("🎯 Matchup", ("routes","coverage","alignment","pocket","concept","trenches","back")), ("🛡️ The defense", ("defense",)), ("📈 His own tendencies (every season, 2023-25)", ("tendency",)), ("📖 Storylines", ("storyline",)), ("🧠 Play-caller", ("coaching",)), ("🏥 Context", ("injury",)), ("🧮 Game script and model", ("script","model"))]
     for title, srcs in groups:
         ts = [t for t in e["tells"] if t["src"] in srcs]
         if ts: L.append(f"### {title}"); L += [f"- {'🟢' if t['dir'] == 'over' else '🔴' if t['dir'] == 'under' else '⚪'} {t['text'][0].upper() + t['text'][1:]}" for t in ts]
     L.append("### 🧭 Where the numbers point")
-    L.append(f"- **{e['n_for']:g} of {e['n_for'] + e['n_against']:g}** things point toward the **{e['direction'].upper()}**" + (f"; {e['n_against']:g} point the other way" if e["n_against"] else "") + ". A read on the numbers, not a pick.")
+    against = [t for t in e["tells"] if t["dir"] not in (e["direction"], "context")]
+    L.append(f"- **{e['n_for']} of the {e['n_for'] + e['n_against']} things we track** point toward the **{e['direction'].upper()}**" + (f"; the {e['n_against']} pointing the other way: " + "; ".join(t["text"].split(" (")[0] for t in against) if against else "") + ". A read on the numbers, not a pick.")
     return "\n".join(L)
 def summary(r, e):
-    lead = max([t for t in e["tells"] if t["dir"] in ("over", "under")], key=lambda t: (t["dir"] == e["direction"], t["w"])); return f"{e['label'].capitalize()} {e['line']:g} vs {e['opp']}: {e['n_for']:g} of {e['n_for'] + e['n_against']:g} things point {e['direction'].upper()}. {lead['text'][0].upper() + lead['text'][1:]}."
+    lead = max([t for t in e["tells"] if t["dir"] in ("over", "under")], key=lambda t: (t["dir"] == e["direction"], t["w"])); return f"{e['label'].capitalize()} {e['line']:g} vs {e['opp']}: {e['n_for']} of the {e['n_for'] + e['n_against']} things we track point {e['direction'].upper()}. {lead['text'][0].upper() + lead['text'][1:]}."
 # ---------------------------------------------------------------- run
 rows = []
 for r in props.itertuples():
     try: e = evaluate(r)
     except Exception as ex: print(f"  [skip] {r.player_name} {r.market}: {ex}"); continue
-    if e and e["n_for"] >= 3 and e["net"] >= 2: rows.append((r, e))
+    if e and e["n_for"] >= 3 and e["net"] >= 2 and e["n_for"] - e["n_against"] >= 2: rows.append((r, e))
 best = {}
 for r, e in rows:                                           # one card per player: the market with the strongest net
     k = (r.key, r.team)

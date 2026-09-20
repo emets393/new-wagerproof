@@ -66,10 +66,10 @@ for gid, x in GD.items():
         if r.drafted_by_opp: attrs.append("drafted by them")
         if not r.is_home: attrs.append("back in the old stadium")
         if pd.notna(r.drama_tier) and r.drama_tier >= 1: attrs.append("a messy exit" if r.drama_tier == 1 else "a notable exit")
-        read = ("Quarterbacks facing a former team have gone UNDER their passing-touchdown line 70% of the time (59 games, 2023-25) and under their passing-yards line 60%." if r.position == "QB"
+        read = ("Quarterbacks facing a former team have finished below their touchdown-pass number 70% of the time and below their passing-yards number 60% (59 games, 2023-25)." if r.position == "QB"
                 else "Skill players in their first season away have gone OVER their lines 60% of the time against 47% in their other games (154 lines, 2023-25); anytime-touchdown hits ran 1.3 points above the book's number." if r.seasons_since <= 1
                 else "Players facing a former team two or more seasons later have gone over 52% — no read.")
-        own = f" His own record vs former teams: {int(r.rv_games)} games, over the line {100*r.rv_over:.0f}% (elsewhere {100*r.rv_else_over:.0f}%)." if pd.notna(getattr(r, "rv_games", np.nan)) and r.rv_games >= 2 else ""
+        own = f" His own record vs former teams: finished above the sportsbook number in {int(round(r.rv_over * r.rv_lines))} of {int(r.rv_lines)} lines across {int(r.rv_games)} games (2023-25), against {100*r.rv_else_over:.0f}% of his other lines." if pd.notna(getattr(r, "rv_games", np.nan)) and r.rv_games >= 2 else ""
         items.append(((3 if r.position == "QB" or r.seasons_since <= 1 else 1) + (1 if r.drafted_by_opp or (pd.notna(r.drama_tier) and r.drama_tier >= 1) else 0), f"**{r.player_name}** ({r.position}, {r.team}) faces **{r.opp}**: {', '.join(attrs)}. {read}{own}" + (f" Lines: {lines.get(r.player_id, '')}." if lines.get(r.player_id) else "")))
     for r in fp[fp.hc.fillna(False).astype(bool)].itertuples():
         if r.player_id not in has_ou and not (pd.notna(getattr(r, "hc_games", np.nan)) and r.hc_games >= 2): continue
