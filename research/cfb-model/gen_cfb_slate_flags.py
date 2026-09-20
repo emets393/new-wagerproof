@@ -20,6 +20,14 @@ _ogf = _ogf[_ogf.season == SEASON][["home", "away", "open_spread", "close_spread
 te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
 te["spread_close"] = te["close_spread"]
 te["total_close"] = te["close_total"]
+# Opens too: an open-graded flag displays ITS line, and that must be the Odds-API open, not
+# CFBD's (37 of 58 wk4-2026 games differed, Illinois@OSU -27.5 vs -26.5).
+te["spread_open"] = te["open_spread"].where(te["open_spread"].notna(), te["spread_open"])
+te["total_open"] = te["open_total"].where(te["open_total"].notna(), te["total_open"])
+# The model's side on the bettable (close) line — what the game row and pick card show.
+te["_model_spread_side"] = np.where(te.pred_margin + te.spread_close >= 0, "HOME", "AWAY")
+te["_model_total_side"] = np.where(te.pred_total - te.total_close > 0, "OVER", "UNDER")
+MODEL_KEYS = {"model_highedge_dog", "model_total_over", "model_total_under", "model_total_over_pace", "model_road_value"}
 g7 = set(te.game_id)
 def lab(r): return f"{r.awayTeam} @ {r.homeTeam}"
 rows = []
@@ -38,6 +46,15 @@ for name, (mask, side, market, gl) in S.items():
     meta = C.classify(name); conv = meta[2] if meta else "T3"; active = meta[3] if meta else True
     mkt_norm = "total" if market == "total" else "spread"   # spot_library uses 'side' for spreads
     for _, r in sub.iterrows():
+        # A flag named "model ..." must say what the model says on the line the reader can bet.
+        # These spots trigger on the OPEN; once the market moves the model can flip (SC@Alabama
+        # wk4-2026: pace OVER at 46.5 open, model UNDER at the 53.5 close) and the flag contradicts
+        # the card it sits under. Drop it — a contextual spot keeps its own side.
+        if C.key_for(name) in MODEL_KEYS:
+            want = r._model_total_side if market == "total" else r._model_spread_side
+            if pd.isna(r.pred_total if market == "total" else r.pred_margin) or side != want:
+                print(f"  [model-key guard] {C.key_for(name)} {side} dropped on {lab(r)} — model says {want} at the close")
+                continue
         if market == "total":
             line = C.total_line(r, gl); edge = r.total_edge
         else:
@@ -383,7 +400,7 @@ try:
                              "signal_key": "backup_qb_under", "market": "total", "side": "UNDER",
                              "line": round(float(grow.total_close), 1), "price": -110, "edge": None,
                              "conviction": conv, "tier": tier, "stake_units": C.STAKE[conv],
-                             "grade_line": "open", "mammoth": False})
+                             "grade_line": "close", "mammoth": False})   # fires at T-60 and quotes the close; was tagged "open"
             if is_home and pd.notna(grow.spread_close):
                 rows.append({"game_id": int(grow.game_id), "season": SEASON, "week": WEEK,
                              "game": f"{grow.awayTeam} @ {grow.homeTeam}",
@@ -391,7 +408,7 @@ try:
                              "signal_key": "fade_home_backup_qb", "market": "spread", "side": "AWAY",
                              "line": round(float(grow.spread_close), 1), "price": -110, "edge": None,
                              "conviction": conv, "tier": tier, "stake_units": C.STAKE[conv],
-                             "grade_line": "open", "mammoth": False})
+                             "grade_line": "close", "mammoth": False})
         print(f"  [backup_qb] {len(_fired)} trigger(s) from {_inj_path.split('/')[-1]}")
     else:
         print(f"  [backup_qb] no injury file for wk{WEEK} — skipped")

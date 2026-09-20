@@ -215,7 +215,13 @@ if EARLY:
     te["side_edge"] = te.pred_margin + te.spread_close
     te["total_edge"] = te.pred_total - te.total_close
 
-def fmt_line(v): return ("+" if v > 0 else "") + f"{v:g}" if v is not None else None
+def fmt_line(v):
+    """Pick-side spread for a label: '+5.25', '-3', 'PK'. A consensus can land on a quarter
+    point, so no one-decimal rounding here; ±0 prints PK, never '-0' (Clemson -0, wk4-2026)."""
+    if v is None: return None
+    v = float(v)
+    if abs(v) < 0.05: return "PK"
+    return ("+" if v > 0 else "") + f"{v:g}"
 def driving_spread_side(gid):
     """Cold-week spread pick side = the highest-conviction CONTEXTUAL spread signal that fired
     (e.g. g5_dog_wk1_bigfav on the dog). Returns 'HOME'/'AWAY' or None. Blanket/model keys are
@@ -251,8 +257,11 @@ for _, r in te.iterrows():
         below = abs(side_edge) < C.LEAN_FLOOR and cv == "none"
         sp_conv, sp_mam, sp_sig, sp_has = cv, mam, sig, (not capped and cv != "none")
         vline = r.spread_close if ph else -r.spread_close
-        rows.append(dict(game_id=gid, card_group="spread", bet_type="spread", sort_order=1, pick_side=(None if below else pside), pick_team=(None if below else pteam),
-            pick_label=(None if below else f"{pteam} {fmt_line(bs[0] if bs else vline)}"), model_number=round(float(r.pred_margin), 1), model_line=model_line,
+        # A capped game has NO side, same as the game row (fg_spread_pick null) — a side here made
+        # the app draw a "Sam Houston +37.5" cover bar under a "No Play" headline (wk4-2026).
+        noside = below or capped
+        rows.append(dict(game_id=gid, card_group="spread", bet_type="spread", sort_order=1, pick_side=(None if noside else pside), pick_team=(None if noside else pteam),
+            pick_label=(None if noside else f"{pteam} {fmt_line(bs[0] if bs else vline)}"), model_number=round(float(r.pred_margin), 1), model_line=model_line,
             vegas_line=round(float(vline), 1), vegas_price=-110, edge=round(abs(side_edge), 1),
             best_book=bs[2] if bs else None, best_line=round(bs[0], 1) if bs else None, best_odds=bs[1] if bs else None,
             conviction=cv, is_mammoth=mam, has_play=(not capped and cv != "none"), display_only=(capped or below),

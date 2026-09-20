@@ -21,7 +21,13 @@ Join keys: `cfb_slate_flags.game_id = cfb_slate_games.game_id`; `cfb_teams.team_
 - **Walk-forward / point-in-time:** every model number trained only on data before 2025 (2016–2024); as-of
   team features computed through Week 6. No look-ahead.
 - **Grade line = signal line:** each flag's `line` is the exact line the signal fired from (`grade_line`
-  tells you which snapshot: open / close / soft / dk / best). Never substitute a different snapshot.
+  tells you which snapshot: open / close / soft / dk / best). Never substitute a different snapshot. Both
+  snapshots are The Odds API's (open and T-60 close) — never CFBD's.
+- **`model_*` flags agree with the model at the close.** Those spots trigger on the opener; if the market has
+  since moved so far that the model's own side flipped (SC@Alabama wk4-2026: pace OVER at 46.5, model UNDER at
+  53.5), the flag is dropped rather than shown contradicting the card it sits under. Contextual signals
+  (rivalry, conference, backup QB, luck fades) keep their own side and may disagree with the model — the pick
+  card counts only agreeing signals toward conviction; a disagreeing one renders in the signal list.
 - **Actuals are validation-only:** `final_home/away`, `h1_home/away` are stored so we can score the week —
   **never display them pregame.**
 
@@ -45,9 +51,15 @@ OVER at the **lowest**), `h1_spread_close/h1_total_close/h1_ml_home_close/h1_ml_
 - `fg_pred_home_pts`/`fg_pred_away_pts` — predicted team points (SINGLE SOURCE for the headline score AND the
   team-total cards; use these, don't re-derive). `tt_home_pred/tt_away_pred` mirror them; `tt_*_pick` = UNDER/OVER/null.
 - `h1_pred_margin`, `h1_pred_total`, `h1_spread_pick`, `h1_total_pick`, `h1_ml_pick`.
-- `fg_home_cover_prob` — **real** walk-forward confirm-classifier probability the home side covers (0–1).
+- `fg_home_cover_prob` — DISPLAY probability the home side covers, **derived from the same edge as the pick**
+  (`fg_spread_edge` / 15.2-pt ATS residual sd, normal CDF), so it can never point at the other team. It drives
+  the scoreboard's spread side and feed sorting. (Until 2026-09-20 it was the separate confirm classifier,
+  which only existed on spot rows and contradicted `fg_spread_pick` in 9 of 19 wk4 games; that classifier
+  now feeds the mammoth gate only.)
 - `fg_home_win_prob` — **DISPLAY-ONLY** rough logistic from margin; do NOT present as calibrated. Prefer
-  `fg_home_cover_prob` or just the predicted score; raw win-prob is overconfident OOS (our calibration finding).
+  the predicted score; raw win-prob is overconfident OOS (our calibration finding).
+- **Coherence audit:** `audit_cfb_slate_coherence.py` runs after the pick cards in `run_cfb_week.sh` and lists
+  every place a card, the cover prob, or a `model_*` flag disagrees with the game row. Zero is the only pass.
 
 **Conviction / portfolio:** `conviction_tier` ∈ {mammoth, high, med, low, lean, none}, `stake_units`
 (5/3/2/1/0.5/0), `n_flags_active`, `n_flags_tracking`, `mammoth` (bool).

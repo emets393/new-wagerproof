@@ -98,6 +98,9 @@ step "slate: slate games";  python3 gen_cfb_slate_games.py
 step "injuries (covers.com)"; python3 covers_cfb_injuries.py "$SEASON" "$WEEK" || true
 step "slate: bet flags";     python3 gen_cfb_slate_flags.py
 step "slate: pick cards";    python3 gen_cfb_picks.py
+# Every number the apps render for a game must agree (pick side vs score vs cover prob vs flags).
+# Loud, not fatal: the slate is already written; a contradiction here is a generator bug to fix.
+step "slate: coherence audit"; python3 audit_cfb_slate_coherence.py || echo "[COHERENCE] contradictions above — fix the generator"
 step "slate: team trends";   python3 gen_cfb_team_trends.py
 # Outliers trends (team splits/matchups + coach career trends). Both no-op safely if the
 # Outliers DDL (cfb_outliers_trends.sql) hasn't been applied to the data project yet.

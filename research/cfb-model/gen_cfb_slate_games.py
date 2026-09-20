@@ -8,7 +8,7 @@ Two prediction sources by week:
   - weeks 1-3 (EARLY): the opponent-adjusted betting model is COLD (no games -> null adj ratings), so FG
     predictions come from cfb_early_week.py (preseason-priors blend, DISPLAY only — no betting spots).
   - week 4+: the locked opponent-adjusted harness CSVs (preds, spots, TT, 1H)."""
-import os
+import os, math
 import numpy as np, pandas as pd, warnings
 import dry_common as C
 warnings.filterwarnings("ignore")
@@ -225,7 +225,12 @@ for _, r in m.iterrows():
         "fg_pred_total": round(float(r.pred_total), 1) if pd.notna(r.pred_total) else None,
         "fg_total_edge": round(float(tedge), 1) if tedge is not None else None,
         "fg_total_pick": tside,
-        "fg_home_cover_prob": round(float(r.p_home_conf), 3) if pd.notna(r.p_home_conf) else None,
+        # Cover prob is DERIVED from the same margin-vs-close edge the pick uses (ATS residual sd
+        # 15.2, 2022-25 model_games). It used to be the confirm classifier (p_home_conf), a separate
+        # model that only exists on spot rows and disagreed with the pick in 9 of 19 wk4-2026 games —
+        # the scoreboard derives its spread side from this field, so it showed the OTHER team covering.
+        # p_home_conf stays a mammoth-gate input only.
+        "fg_home_cover_prob": round(float(0.5 * (1 + math.erf((edge / 15.2) / math.sqrt(2)))), 3) if edge is not None else None,
         "fg_home_win_prob": round(float(1 / (1 + np.exp(-(r.pred_margin if pd.notna(r.pred_margin) else 0) / 9.5))), 3),
         "tt_home_pred": tt_pred(gid, r.homeTeam)[0], "tt_home_pick": tt_pred(gid, r.homeTeam)[1],
         "tt_away_pred": tt_pred(gid, r.awayTeam)[0], "tt_away_pick": tt_pred(gid, r.awayTeam)[1],
