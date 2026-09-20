@@ -167,7 +167,12 @@ for _, r in m.iterrows():
     edge = (r.pred_margin + r.spread_close if pd.notna(r.pred_margin) and pd.notna(r.spread_close)
             else (r.side_edge if pd.notna(r.side_edge) else None))
     mdir = ("AWAY" if edge < 0 else "HOME") if edge is not None else None          # model direction (spot agreement)
-    tdir = ("OVER" if pd.notna(r.total_edge) and r.total_edge > 0 else "UNDER") if pd.notna(r.total_edge) else None
+    # Total keys off the CLOSE too. cfb_bets' total_edge is pred − OPEN and only exists where a spot fired,
+    # so wk4-2026 had SC@Alabama OVER (open 46.5) while the pick card said UNDER (close 53.5) and the
+    # picks sign guard refused the whole week. One basis, every game.
+    tedge = (r.pred_total - r.total_close if pd.notna(r.pred_total) and pd.notna(r.total_close)
+             else (r.total_edge if pd.notna(r.total_edge) else None))
+    tdir = ("OVER" if tedge > 0 else "UNDER") if tedge is not None else None
     # conviction = only spots that AGREE with the model side count (conflicting opposite-side spots don't inflate)
     convs = []; spread_spot = False; total_spot = False
     for tok in str(r.spots or "").split(";"):
@@ -182,7 +187,7 @@ for _, r in m.iterrows():
     # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR): a bare model lean under 4 pts is not shown — it loses.
     # A same-side validated spot keeps the pick (the spot is its own signal). Numbers still render.
     mside = mdir if (edge is None or abs(edge) >= C.LEAN_FLOOR or spread_spot) else None
-    tside = tdir if (pd.isna(r.total_edge) or abs(float(r.total_edge)) >= C.LEAN_FLOOR or total_spot) else None
+    tside = tdir if (tedge is None or abs(float(tedge)) >= C.LEAN_FLOOR or total_spot) else None
     has_tt = len(tt_csv[tt_csv.game_id == gid]) > 0
     if r.mammoth == 1: tier = "mammoth"
     elif "T1" in convs: tier = "high"
@@ -218,7 +223,7 @@ for _, r in m.iterrows():
         "fg_spread_pick": (None if capped else mside),   # MODEL side (capped >14 = no-play); spots are flags
         "fg_spread_capped": capped,
         "fg_pred_total": round(float(r.pred_total), 1) if pd.notna(r.pred_total) else None,
-        "fg_total_edge": round(float(r.total_edge), 1) if pd.notna(r.total_edge) else None,
+        "fg_total_edge": round(float(tedge), 1) if tedge is not None else None,
         "fg_total_pick": tside,
         "fg_home_cover_prob": round(float(r.p_home_conf), 3) if pd.notna(r.p_home_conf) else None,
         "fg_home_win_prob": round(float(1 / (1 + np.exp(-(r.pred_margin if pd.notna(r.pred_margin) else 0) / 9.5))), 3),
