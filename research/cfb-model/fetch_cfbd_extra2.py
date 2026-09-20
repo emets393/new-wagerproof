@@ -9,6 +9,7 @@ season_advanced_asof: /stats/season/advanced per (year, endWeek=W) = stats THROU
 import os
 import pandas as pd
 import cfbd
+from cfbd_cache import live_season, stale
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data", "cfbd")
@@ -19,7 +20,7 @@ WEEKS = range(1, 16)
 def pull_weather():
     for y in YEARS:
         out = os.path.join(DATA, f"weather_{y}.parquet")
-        if os.path.exists(out):
+        if not stale(out, y):
             print(f"  weather {y}: cached"); continue
         rows = cfbd.get("/games/weather", year=y)  # year-only returns all weeks
         df = pd.json_normalize(rows)
@@ -37,10 +38,13 @@ def g(d, *path, default=None):
 
 def pull_season_asof():
     out = os.path.join(HERE, "data", "season_advanced_asof.parquet")
-    if os.path.exists(out):
+    LIVE = live_season(); have = pd.read_parquet(out) if os.path.exists(out) else pd.DataFrame()
+    years = YEARS if have.empty else ([LIVE] if stale(out, LIVE) else [])
+    if not years:
         print("  season_advanced_asof: cached"); return
+    keep = have[~have.season.isin(years)] if len(have) else pd.DataFrame()
     rows = []
-    for y in YEARS:
+    for y in years:
         for w in WEEKS:
             try:
                 res = cfbd.get("/stats/season/advanced", year=y, startWeek=1, endWeek=w)
@@ -64,8 +68,8 @@ def pull_season_asof():
                     "def_havoc_db": g(d, "havoc", "db"),
                 })
         print(f"  season_asof {y}: done")
-    pd.DataFrame(rows).to_parquet(out, index=False)
-    print(f"season_advanced_asof: {len(rows)} rows -> {out}")
+    pd.concat([keep, pd.DataFrame(rows)], ignore_index=True).to_parquet(out, index=False)
+    print(f"season_advanced_asof: {len(rows)} rows refetched for {years}, {len(keep)} kept -> {out}")
 
 
 if __name__ == "__main__":

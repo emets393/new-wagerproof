@@ -6,6 +6,7 @@ Flatten the stats list into columns we need for the over/shootout hypothesis.
 import os
 import pandas as pd
 import cfbd
+from cfbd_cache import stale
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data", "cfbd")
@@ -37,7 +38,7 @@ def comp(comp_att):
 def main():
     for y in YEARS:
         out = os.path.join(DATA, f"teamgame_box_{y}.parquet")
-        if os.path.exists(out):
+        if not stale(out, y):
             print(f"  box {y}: cached"); continue
         rows = []
         games = []

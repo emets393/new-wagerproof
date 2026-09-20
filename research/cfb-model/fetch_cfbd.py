@@ -10,6 +10,7 @@ Usage:
 import os, sys
 import pandas as pd
 import cfbd
+from cfbd_cache import stale   # live season refetches (cfbd_cache.py)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data", "cfbd")
@@ -26,7 +27,7 @@ def flat(df):
 def pull_year(year):
     # 1) per-game raw advanced stats (the adjustment backbone)
     out = os.path.join(DATA, f"game_advanced_{year}.parquet")
-    if not os.path.exists(out):
+    if stale(out, year):
         rows = cfbd.get("/stats/game/advanced", year=year)
         df = flat(rows)
         df.to_parquet(out, index=False)
@@ -36,7 +37,7 @@ def pull_year(year):
 
     # 2) games (schedule, scores, neutral site, conference, dates)
     out = os.path.join(DATA, f"games_{year}.parquet")
-    if not os.path.exists(out):
+    if stale(out, year):
         rows = cfbd.get("/games", year=year, seasonType="both")
         df = flat(rows)
         df.to_parquet(out, index=False)
@@ -46,7 +47,7 @@ def pull_year(year):
 
     # 3) betting lines (we'll pick a provider/consensus later)
     out = os.path.join(DATA, f"lines_{year}.parquet")
-    if not os.path.exists(out):
+    if stale(out, year):
         rows = cfbd.get("/lines", year=year)
         # lines come nested: each game has a 'lines' list of provider quotes
         df = pd.json_normalize(rows, record_path="lines",
