@@ -1,21 +1,19 @@
-// OnboardingATTPage.swift
-//
-// Page 10: ATT priming — mock dialog explains the prompt, then the REAL
-// `ATTrackingManager` request fires when the page becomes the ACTIVE
-// carousel page. Firing on `onAppear` would be wrong here: the pager
-// pre-mounts this page as a neighbor while the user is still reading the
-// agent pitch, and the system dialog would pop a page early.
-
 import AppTrackingTransparency
 import SwiftUI
 import WagerproofDesign
 import WagerproofServices
-import WagerproofStores
 
+/// A tappable preview of the iOS 26 ATT dialog. Only the real system request
+/// can record consent; arriving on this page never opens it automatically.
 struct OnboardingATTPage: View {
     @Environment(\.onboardingPageIsActive) private var isActive
-
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isRequestingATT = false
     @State private var didRequestATT = false
+
+    private var usageDescription: String {
+        Bundle.main.object(forInfoDictionaryKey: "NSUserTrackingUsageDescription") as? String ?? ""
+    }
 
     var body: some View {
         OnboardingPageScaffold(title: "One quick thing") {
@@ -29,85 +27,123 @@ struct OnboardingATTPage: View {
                 .padding(.horizontal, 24)
                 .pageEntrance(index: 1)
 
-            attMockup
-                .padding(.horizontal, 40)
-                .padding(.top, 16)
-                .pageEntrance(index: 2)
-
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.up")
-                    .foregroundStyle(Color.white.opacity(0.5))
-                Text("Tap Allow when the pop-up appears")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.5))
+            Button {
+                Task { await requestATTIfNeeded() }
+            } label: {
+                permissionPreview
             }
-            .padding(.top, 12)
-            .pageEntrance(index: 3)
-        }
-        .onChange(of: isActive, initial: true) { _, active in
-            guard active else { return }
-            Task { await requestATTIfNeeded() }
+            .buttonStyle(.plain)
+            .disabled(isRequestingATT || didRequestATT)
+            .accessibilityLabel("Tracking permission preview")
+            .accessibilityHint("Opens the iOS permission request, where you can allow or decline tracking.")
+            .padding(.horizontal, 24)
+            .padding(.top, 40)
+            .pageEntrance(index: 2)
+
+            Text("Tap the preview to open the iOS permission request.")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.white.opacity(0.5))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .pageEntrance(index: 3)
         }
     }
 
-    private var attMockup: some View {
-        VStack(spacing: 0) {
-            Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(.system(size: 28))
-                .foregroundStyle(Color.appPrimary)
-                .frame(width: 48, height: 48)
-                .liquidGlassBackground(
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-                    tint: Color(hex: 0x0F1117).opacity(0.6)
-                )
-                .padding(.top, 24)
-                .padding(.bottom, 12)
+    private var permissionPreview: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            trackingIcon
+                .padding(.leading, 22)
+                .padding(.top, 20)
+                .padding(.bottom, 24)
 
-            Text("Allow \"WagerProof\" to track your\nactivity across other companies'\napps and websites?")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 8)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Allow “WagerProof” to track your activity across other companies’ apps and websites?")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
 
-            Text("Your data will be used to deliver personalized ads to you.")
-                .font(.system(size: 12))
-                .foregroundStyle(Color.white.opacity(0.5))
-                .multilineTextAlignment(.center)
-                .lineSpacing(2)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 16)
+                Text(usageDescription)
+                    .font(.system(size: 15))
+                    .lineSpacing(2)
+                    .foregroundStyle(Color.white.opacity(0.55))
+            }
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 30)
 
-            Divider().background(Color.white.opacity(0.15))
-            Text("Allow")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Color.appPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-
-            Divider().background(Color.white.opacity(0.15))
-            Text("Ask App Not to Track")
-                .font(.system(size: 17))
-                .foregroundStyle(Color.white.opacity(0.5))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+            VStack(spacing: 8) {
+                previewOption("Ask App Not to Track")
+                previewOption("Allow")
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 20)
+            .padding(.bottom, 16)
         }
-        // Liquid Glass — fitting, since it's imitating a system alert.
+        .frame(maxWidth: 320, alignment: .leading)
         .liquidGlassBackground(
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous),
-            tint: Color.white.opacity(0.10)
+            in: RoundedRectangle(cornerRadius: 34, style: .continuous),
+            tint: Color.black.opacity(0.15)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .environment(\.colorScheme, .dark)
     }
 
-    /// Fires once, only while this page is front. Onboarding always advances,
-    /// but the final status is immediately pushed into RevenueCat so an
-    /// authorized user's first post-onboarding purchase carries IDFA rather
-    /// than waiting for a later app launch.
+    private func previewOption(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 17))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(Color.white.opacity(0.12), in: Capsule())
+    }
+
+    /// The orange linked-activity glyph and blue privacy badge shown by iOS 26.
+    private var trackingIcon: some View {
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Color(red: 1, green: 0.70, blue: 0.32), Color(red: 1, green: 0.55, blue: 0)],
+                    startPoint: .top, endPoint: .bottom
+                ))
+                .frame(width: 64, height: 64)
+                .overlay(alignment: .topLeading) {
+                    Path { path in
+                        path.move(to: CGPoint(x: 21, y: 18))
+                        path.addLine(to: CGPoint(x: 21, y: 26))
+                        path.addCurve(to: CGPoint(x: 43, y: 41),
+                                      control1: CGPoint(x: 21, y: 37),
+                                      control2: CGPoint(x: 43, y: 29))
+                        path.addLine(to: CGPoint(x: 43, y: 47))
+                    }
+                    .stroke(.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 64, height: 64)
+                    .overlay(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(.white)
+                            .frame(width: 13, height: 13)
+                            .offset(x: 14.5, y: 11)
+                    }
+                }
+
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(red: 0, green: 0.62, blue: 1))
+                .frame(width: 30, height: 30)
+                .overlay {
+                    Image(systemName: "hand.raised.fill")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+                .offset(x: 40, y: 40)
+        }
+        .frame(width: 70, height: 70)
+        .accessibilityHidden(true)
+    }
+
     @MainActor
     private func requestATTIfNeeded() async {
-        guard !didRequestATT else { return }
-        didRequestATT = true
+        guard isActive, scenePhase == .active, !isRequestingATT, !didRequestATT else { return }
+        isRequestingATT = true
+        defer { isRequestingATT = false }
         let initialStatus = ATTrackingManager.trackingAuthorizationStatus
         let finalStatus: ATTrackingManager.AuthorizationStatus
         if initialStatus == .notDetermined {
@@ -115,6 +151,8 @@ struct OnboardingATTPage: View {
         } else {
             finalStatus = initialStatus
         }
+        guard finalStatus != .notDetermined else { return }
+        didRequestATT = true
         await RevenueCatService.shared.refreshAttributionAfterTrackingAuthorization(
             isAuthorized: finalStatus == .authorized
         )
