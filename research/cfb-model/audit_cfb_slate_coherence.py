@@ -77,6 +77,14 @@ if len(f):
         if pd.notna(r.line) and pd.notna(odds) and abs(r.line - odds) > 0.3:
             issues.append((r.game, "flag", f"{r.signal_key} line is not the Odds-API {r.grade_line}", r.line, odds))
 
+# every flag the app shows must resolve to a definition row (the "Looking-Ahead Spot with no
+# definition" report, 2026-09-20: three paper-track keys had no cfb_signal_defs entry)
+if len(f):
+    defs = requests.get(f"{C.URL}/rest/v1/cfb_signal_defs?select=signal_key&limit=500", headers=C.H, timeout=60).json()
+    have = {d["signal_key"] for d in defs} if isinstance(defs, list) else set()
+    for k in sorted(set(f.signal_key) - have):
+        issues.append(("(all)", "flag", f"{k} has no cfb_signal_defs row — add it to gen_cfb_signal_defs.py", k, None))
+
 I = pd.DataFrame(issues, columns=["game", "where", "issue", "got", "expected"])
 print(f"cfb slate coherence {SEASON} wk{WEEK}: {len(g)} games, {len(p)} cards, {len(f)} flags -> {len(I)} contradictions")
 if len(I):
