@@ -1096,7 +1096,26 @@ struct CFBGameBottomSheet: View {
         let fallback = (row.id == "h1-spread" ? game.h1SpreadPick : game.fgSpreadPick)?.uppercased()
         if let fallback, fallback.contains("HOME") { return "HOME" }
         if let fallback, fallback.contains("AWAY") { return "AWAY" }
-        return nil
+        return numbersSide(for: row, pick: pick)
+    }
+
+    /// The team a NO-PICK spread card's numbers are written from. A card under the lean floor
+    /// has no pick side, but its model_line / vegas_line are still stored on the model's side
+    /// (the generator's rule). Everything the row shows — bar, sportsbook tile, book board —
+    /// must use that same side; VT@BC wk4-2026 showed "Sportsbook -14" (VT, the board's
+    /// default) next to "Model +11.6" (BC, the row) and no bar.
+    private func numbersSide(for row: MarketRow, pick: CFBSlatePickRow?) -> String? {
+        guard row.id == "spread" || row.id == "h1-spread" else { return nil }
+        // model_line is a pick-side fair SPREAD; the game row's number is home-side.
+        let homeModel: Double? = row.id == "spread" ? game.fgPredSpread : game.h1PredMargin.map { -$0 }
+        if let ml = pick?.modelLine, let hm = homeModel, abs(hm) >= 0.05 {
+            return abs(ml - hm) <= abs(ml + hm) ? "HOME" : "AWAY"
+        }
+        let homeClose: Double? = row.id == "spread" ? game.fgSpreadClose : game.h1SpreadClose
+        if let vl = pick?.vegasLine, let hc = homeClose, abs(hc) >= 0.05 {
+            return abs(vl - hc) <= abs(vl + hc) ? "HOME" : "AWAY"
+        }
+        return pick == nil ? nil : "HOME"
     }
 
     private func chartAbbrevs(side: String) -> (pick: String, opponent: String) {
@@ -2336,7 +2355,10 @@ struct CFBGameBottomSheet: View {
         let side = (pick?.pickSide ?? "").uppercased()
         switch row.id {
         case "spread":
+            // No pick side -> quote the side the card's numbers are written from, never a
+            // default. `chartSide` already resolves that (pick side, game pick, then numbers).
             let isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam
+                || (side.isEmpty && pick?.pickTeam == nil && chartSide(for: row, pick: pick) == "HOME")
             return .spread(isHome: isHome)
         case "total":
             let direction = pickDirection(pick?.pickSide)

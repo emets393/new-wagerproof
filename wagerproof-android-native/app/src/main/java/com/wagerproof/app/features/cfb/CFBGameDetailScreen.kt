@@ -598,7 +598,16 @@ private fun sportsbookMarket(
     val side = (pick?.pickSide ?: "").uppercase(Locale.US)
     return when (row.id) {
         "spread" -> {
-            val isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam
+            // No pick side (lean under the floor): quote the side the card's own numbers are
+            // written from — model_line is a pick-side spread, the game row's is home-side.
+            // Defaulting to AWAY put "VT -14" next to the row's "BC +11.6" (wk4-2026).
+            val numbersHome = pick?.modelLine?.let { ml ->
+                game.fgPredSpread?.takeIf { kotlin.math.abs(it) >= 0.05 }?.let { hm -> kotlin.math.abs(ml - hm) <= kotlin.math.abs(ml + hm) }
+            } ?: pick?.vegasLine?.let { vl ->
+                game.fgSpreadClose?.takeIf { kotlin.math.abs(it) >= 0.05 }?.let { hc -> kotlin.math.abs(vl - hc) <= kotlin.math.abs(vl + hc) }
+            } ?: true
+            val isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam ||
+                (side.isEmpty() && pick?.pickTeam == null && numbersHome)
             SportsbookMarket.Spread(isHome)
         }
         "total" -> {
