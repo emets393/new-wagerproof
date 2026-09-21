@@ -325,6 +325,18 @@ try:
     _pg = pd.DataFrame(_pq.json() if _pq.ok else [])
     _pg = _pg.merge(_gj[["id", "homePostgameWinProbability", "awayPostgameWinProbability"]],
                     left_on="game_id", right_on="id", how="inner")
+    # BOX-SCORE CONFIRMATION (owner catch 2026-09-20): CFBD's PWE occasionally contradicts the
+    # box score outright (Ole Miss out-gained LSU 426-330, turnovers even, PWE .15). Our own
+    # box-score win expectancy (exp_pwe_box_guard.py: probit on success-rate diff, PPA diff,
+    # turnover margin, yards; frozen 2021-25 fit) must ALSO say the winner didn't deserve it
+    # (<= .55). Double-luck fade: 63.4% where the box agrees, 50.0% where it doesn't (n=24).
+    from exp_pwe_box_guard import box_frame, box_we as _box_we
+    try:
+        _bx = box_frame([SEASON]); _bx["box_we"] = _box_we(_bx)
+        _box_home = dict(zip(_bx.id.astype(int), _bx.box_we))
+    except Exception as _e:
+        print(f"  [pwe_luck_fade] box-score frame unavailable ({_e}) — PWE unconfirmed, fades suppressed")
+        _box_home = {}
     _lastg = {}
     for _, pr in _pg.sort_values("week").iterrows():        # later weeks overwrite: most recent game wins
         for _hs in (True, False):
@@ -334,8 +346,10 @@ try:
             _osp = (pr.fg_spread_open if pd.notna(pr.fg_spread_open) else np.nan) * (1 if _hs else -1)
             if pd.isna(_pw) or pd.isna(_osp):
                 continue
+            _bw = _box_home.get(int(pr.game_id))
             _lastg[_tm] = dict(opp=pr.away_team if _hs else pr.home_team,
                                pwe=float(_pw), won=_mar > 0, covered=_mar + _osp > 0,
+                               box=(None if _bw is None else float(_bw if _hs else 1 - _bw)),
                                dcm=float(_PWE_SIGMA * _norm.ppf(min(max(_pw, .01), .99)) + _osp))
     _n_dl = _n_lw = 0
     for _, r in te.iterrows():
@@ -350,14 +364,19 @@ try:
             _lw = (not _dl) and L["pwe"] <= 0.40
             if not (_dl or _lw):
                 continue
+            if L["box"] is None or L["box"] > 0.55:
+                _bs = "n/a" if L["box"] is None else f"{L['box']:.2f}"
+                print(f"  [pwe_luck_fade] {_tm} beat {L['opp']}: CFBD PWE {L['pwe']:.2f} but the box score says {_bs} — they earned it, no fade")
+                continue
             _n_dl += _dl; _n_lw += _lw
             rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
                          "game": lab(r),
                          "source": (f"DECEPTIVE WIN: {_tm} beat {L['opp']} last time out, but the "
-                                    f"game stats say they win it only {100*L['pwe']:.0f}% of the time"
+                                    f"game stats say they win it only {100*L['pwe']:.0f}% of the time "
+                                    f"(our own box-score read: {100*L['box']:.0f}%)"
                                     + (" — and they stole the cover too" if _dl else "")
                                     + f". Fading that team next game has hit "
-                                    f"{'61%' if _dl else '56%'} across 2021-2025"),
+                                    f"{'63%' if _dl else '55%'} across 2021-2025"),
                          "signal_key": "double_luck_fade" if _dl else "lucky_win_fade",
                          "market": "spread",
                          "side": "AWAY" if _side_is_home else "HOME",   # fade = bet the opponent
