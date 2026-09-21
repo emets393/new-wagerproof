@@ -522,6 +522,10 @@ def main():
 
     if args.no_load:
         return
+    # An empty frame must never reach the wipe: a stale local props_frame (0 rows) deleted the
+    # week's 1,103 rows and then crashed on the missing columns (2026-09-21). Keep what's there.
+    if df.empty:
+        sys.exit(f"no prop rows built for {SEASON} wk{WEEK} — refusing to wipe nfl_slate_props (props_frame stale?)")
 
     hdr = {"apikey": key, "Authorization": f"Bearer {key}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
@@ -563,10 +567,16 @@ def main():
     n_a = int((df.rank_tier == "A-validated").sum()); n_b = int((df.rank_tier == "B-context").sum())
     print(f"shortlist rank: {n_a} A-validated + {n_b} B-context of {len(df)} props")
 
+    # ── FANTASY-POINTS LAYER (additive, owner 2026-09-21): the FP-era prop model's projection
+    # (fp_*) and the Player Prop Report's read (report_*) ride alongside everything above.
+    # They gate nothing — is_bettable stays the P-flag set. See fp_prop_layer.py.
+    from fp_prop_layer import fetch_layer, attach_to_props
+    df = attach_to_props(df, fetch_layer(SEASON, WEEK))
+
     # Integer DB columns must not serialize as floats: rank_pos/gp_prior are
     # nullable so pandas holds them as float64 and to_json emits 118.0 -> 22P02
     # (killed the first two 2026 loads). Nullable Int64 emits int or null.
-    for _ic in ("rank_pos", "gp_prior", "n_books", "season", "week"):
+    for _ic in ("rank_pos", "gp_prior", "n_books", "season", "week", "report_for", "report_against"):
         if _ic in df.columns:
             df[_ic] = pd.to_numeric(df[_ic], errors="coerce").round().astype("Int64")
     recs = json.loads(df.to_json(orient="records"))

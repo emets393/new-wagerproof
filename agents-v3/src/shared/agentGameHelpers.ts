@@ -1561,7 +1561,7 @@ async function fetchNFLPropsByGameId(
   try {
     const { data, error } = await cfbClient
       .from('nfl_slate_props')
-      .select('game_id, player_name, position, team, opponent, is_home, market, close_line, over_price, under_price, l3_avg, l5_avg, l10_avg, szn_avg, over_rate_l5, over_rate_l10, def_matchup_idx, report_status, flags, model_pred, model_edge, rank_tier, rank_pos')
+      .select('game_id, player_name, position, team, opponent, is_home, market, close_line, over_price, under_price, l3_avg, l5_avg, l10_avg, szn_avg, over_rate_l5, over_rate_l10, def_matchup_idx, report_status, flags, model_pred, model_edge, rank_tier, rank_pos, fp_pred, fp_edge, fp_threshold, fp_tier, fp_fires, report_read, report_score, report_for, report_against, report_tells')
       .in('game_id', gameIds);
 
     if (error || !data) {
@@ -1619,6 +1619,19 @@ function formatNFLProp(row: Record<string, unknown>): Record<string, unknown> {
     model_edge: row.model_edge,
     rank_tier: row.rank_tier,
     rank_pos: row.rank_pos,
+    // Fantasy-Points layer (additive, 2026-09-21): the FP-era prop model's projection and
+    // whether it clears that market's validated fire threshold, plus the Player Prop
+    // Report's read when this player/market made the report (n_for/n_against = independent
+    // things the research counts pointing each way; tells carry seasons + counts in text).
+    // Neither gates a bet — is_bettable is still the P-flag set.
+    fp_model_pred: row.fp_pred ?? null,
+    fp_model_edge: row.fp_edge ?? null,
+    fp_model_fires: row.fp_fires ?? null,
+    fp_model_tier: row.fp_tier ?? null,
+    report_read: row.report_read ?? null,
+    report_tells_for: row.report_for ?? null,
+    report_tells_against: row.report_against ?? null,
+    report_tells: Array.isArray(row.report_tells) ? row.report_tells : null,
     flags,
     is_bettable: Array.isArray(flags) && flags.length > 0 && GRADEABLE_PROP_MARKETS.has(String(row.market)),
   };

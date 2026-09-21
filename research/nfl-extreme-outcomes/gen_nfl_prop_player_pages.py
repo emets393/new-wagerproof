@@ -716,13 +716,17 @@ def main():
         opp_types_now = types.get((STAT_SEASON, g["opp"]), [])
         gs = game_splits(pid, opp_types_now)
         proj = projections(pid, [m["key"] for m in mkts])
+        # Fantasy-Points layer (additive): the FP-era model's projection + the Player Prop
+        # Report's read per market. The existing `projection` (2025 form / old model) stays.
+        from fp_prop_layer import fetch_layer, research_for_player
+        research = research_for_player(pid, [m["key"] for m in mkts], fetch_layer(SEASON, WEEK))
         rows.append(dict(player_id=pid, season=SEASON, week=WEEK, player_name=p.player_name,
                          position=p.position, team=team, opponent=g["opp"], is_home=g["is_home"],
                          game_label=g["label"], kickoff=g["kickoff"], headshot_url=heads.get(pid),
                          markets=clean(mkts), baseline=clean(baseline), ngs=clean(ngs),
                          scheme=clean(scheme), scheme_game_splits=clean(gs),
                          projection=clean(proj), rookie=baseline is None,
-                         highlights=clean(hl)))
+                         highlights=clean(hl), research=clean(research) or None))
 
     print(f"{len(rows)} player pages assembled | headshots {sum(1 for r in rows if r['headshot_url'])}"
           f" | w/ scheme splits {sum(1 for r in rows if 'player_splits' in (r['scheme'] or {}))}"

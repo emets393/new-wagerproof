@@ -94,13 +94,24 @@ The deep read-tool registry lives in `agents-v3/src/loop/tools/readTools.ts`
 dispatched by name instead because they don't fit the game-keyed projection loop:
 
 - `get_props` — populates the bettable-prop ledger (only `is_bettable` props can
-  be staked).
+  be staked). Since 2026-09-21 each prop also carries the ADDITIVE Fantasy-Points
+  layer from `nfl_slate_props`: `fp_model_pred` / `fp_model_edge` / `fp_model_fires`
+  / `fp_model_tier` (the FP-era prop model, `score_props_week.py` →
+  `nfl_prop_model_preds`; `fires` = clears that market's validated threshold) and
+  `report_read` / `report_tells_for` / `report_tells_against` / `report_tells` (the
+  Player Prop Report's read, `nfl_prop_narratives`, when the player/market made the
+  report). Nothing in that layer gates a bet — `is_bettable` is still the P-flag
+  set, and the older `model_pred`/`rank_tier` columns are untouched (they are empty
+  in 2026: that model's panel ends at 2025 and has no live path).
 - `get_prop_player_page` — player-keyed DB query against `nfl_prop_player_pages`
   on the CFB instance (the prop-model page contract: markets, baselines, NGS/FTN
   advanced stats, scheme-matchup splits, model projection bands). Informational
   only: it grounds nothing and does not make a prop bettable — that stays
   exclusively with `get_props`. Its output hoists the `scheme` jsonb's children
   onto the player object because `compactDeepFetch` prunes objects at depth 5.
+  `fp_research` (the page's `research` jsonb) adds, per market, the FP model block
+  and the Prop Report read with its tells; the existing `model_projection` (2025
+  form fallback while the old model is dark) stays as is.
 
 Tracking-tier signals: `{nfl,cfb}_signal_defs` rows with
 `default_conviction='track'` are paper-traded, not validated for betting. Their

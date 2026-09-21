@@ -51,8 +51,8 @@ const DEEP_TOOLS: Record<string, DeepToolDef> = {
   // get_props is dispatched by name (runProps) so it can populate
   // ctx.bettableProps, but it lives in DEEP_TOOLS so it's advertised + sport-gated
   // + budgeted like the other deep fetches. grounds:"all" → bettable props ground.
-  get_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form." },
-  get_top_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "The week's RANKED prop shortlist across the slate (or given games): tier A = a validated model cell fired (bet these first), tier B = big model edge, context only. Pass no game_ids for the whole slate." },
+  get_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form, the Fantasy-Points prop model's projection (fp_model_pred / fp_model_fires = clears its validated threshold), and the Player Prop Report's read where one exists (report_read with report_tells_for/against counts and the tells)." },
+  get_top_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "The week's RANKED prop shortlist across the slate (or given games): tier A = a validated model cell fired (bet these first), tier B = big model edge, context only. Rows also carry the FP model projection and the Prop Report read. Pass no game_ids for the whole slate." },
 
   // ── NFL/CFB-specific tools (our slate model output + validated signals) ──
   get_signals: { groups: ["signals"], sports: ["nfl", "cfb"], grounds: "all", desc: "Validated betting signals firing on this game — each with its stance (the side/market it triggers) + tier. These are our proven high-ROI SPOT triggers, not just model output; a firing signal makes the game bettable on its side. Each signal carries TWO distinct records (do not conflate): all_time = the validated backtest record (validated_hit + one_liner/why_it_works/bet_direction), and season_to_date = this season's live record so far (sample/record/hit_rate/roi, may be null early in the season). IMPORTANT: signals with tier 'tracking' / conviction 'track' (marked ⚠ TRACKING ONLY) are paper-traded to build a live record and are NOT validated for betting — treat them as informational context only, never as a reason to place a bet." },
@@ -242,7 +242,7 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
     try {
       const { data, error } = await ctx.cfb
         .from("nfl_prop_player_pages")
-        .select("player_name, position, team, opponent, game_label, rookie, markets, baseline, ngs, scheme, projection")
+        .select("player_name, position, team, opponent, game_label, rookie, markets, baseline, ngs, scheme, projection, research")
         .ilike("player_name", `%${name}%`)
         .order("season", { ascending: false })
         .order("week", { ascending: false })
@@ -269,6 +269,9 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
         player_overall: scheme.player_overall ?? null,
         player_vs_look_splits: scheme.player_splits ?? null,
         model_projection: row.projection ?? null,
+        // Fantasy-Points layer (additive): per market, the FP-era prop model (pred / edge /
+        // validated threshold / fires) and the Player Prop Report read with its tells.
+        fp_research: row.research ?? null,
       };
     } catch (e) {
       players[name] = { error: e instanceof Error ? e.message : String(e) };
@@ -277,7 +280,7 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
 
   const payload = {
     tool: "get_prop_player_page",
-    note: "model_projection bands are PREVIEW (first live season) — use as context, not as a validated edge. markets with status 'pending' have no posted line yet. Only props returned by get_props are bettable.",
+    note: "model_projection bands are PREVIEW (first live season) — use as context, not as a validated edge. fp_research.<market>.fp_model is the Fantasy-Points prop model: 'fires' means it clears that market's backtested threshold (2023-25 priced lines); fp_research.<market>.prop_report is the Player Prop Report read with n_for/n_against independent tells. markets with status 'pending' have no posted line yet. Only props returned by get_props are bettable.",
     players,
   };
   // Multi-player payloads overflow the default 4000-char compaction target and

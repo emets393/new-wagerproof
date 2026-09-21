@@ -66,6 +66,14 @@ point one way (net ≥ 2). Since 2026-09-19 it also takes `research_tells.py`:
 Each tell's text carries its seasons and counts. The card body groups them under "His own
 tendencies", "Storylines" and "Play-caller".
 
+**Agents.** `fp_prop_layer.py` joins `nfl_prop_model_preds` + `nfl_prop_narratives` onto
+`nfl_slate_props` (`fp_*`, `report_*` columns) and onto `nfl_prop_player_pages.research`, so the V3
+agents' `get_props` / `get_top_props` / `get_prop_player_page` carry the projection, the fire flag
+and the report read. Additive by owner rule (2026-09-21): the P-flag `is_bettable` gate and the
+older `model_pred` / `rank_tier` columns are unchanged. Runs inside the props / player-page
+builders every slate refresh; the layer is empty until the Tuesday 12:00 UTC fp-data-inseason job
+writes the week's projections and narratives, and fills on the next refresh.
+
 **Grading.** Two graders write `nfl_prop_narratives.result` / `actual_value`, both idempotent (only
 `result IS NULL` rows):
 - `grade_props_espn.py SEASON WEEK --write` — same day. `espn_nfl_boxscores.py` pulls ESPN's public
