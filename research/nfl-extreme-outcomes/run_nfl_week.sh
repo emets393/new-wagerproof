@@ -35,6 +35,10 @@ echo "=== NFL weekly run :: season=$SEASON week=$WEEK ==="
 step() { echo; echo ">>> $*"; }
 
 # --- 1) DATA LAYER -------------------------------------------------------------
+# Per-game player stats + schedule for THIS season, refreshed every run (nflverse overnight +
+# ESPN finals same day). The tracked parquets froze at 2025 and every 2026 prop card shipped
+# with empty form / L5 chips until 2026-09-21. Guarded: a fetch failure keeps the last copy.
+step "player game stats + schedule (nflverse + ESPN finals)"; python3 refresh_player_offense.py "$SEASON" "$WEEK" || true
 # ESPN pregame injuries FIRST: fetch.py caches nfl_injuries_raw right after, so today's
 # designations/inactives reach the props builder and prop_rank in this same run. Guarded —
 # a feed hiccup must not stop the slate build (the table just stays at the last pull).

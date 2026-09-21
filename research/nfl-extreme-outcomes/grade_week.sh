@@ -37,6 +37,8 @@ python3 fill_h1.py "$SEASON" --write
 
 echo; echo ">>> 2) NFL player game logs (nflverse), whole season (idempotent upsert)"
 python3 ingest_player_logs.py "$SEASON" --write
+echo; echo ">>> 2a) per-game player stats + schedule parquets for the props surfaces (same source)"
+python3 refresh_player_offense.py "$SEASON" || true
 
 echo; echo ">>> 2b) NFL game meta (coach + surface) -> _nab_patch (refresh_nfl_analysis_base joins it)"
 python3 load_nab_patch.py

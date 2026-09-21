@@ -305,7 +305,8 @@ services:
     # props surface tracks what books ACTUALLY post: no posted line -> no card
     # (owner rule 2026-08-27), and newly posted players appear within the hour.
     startCommand: >-
-      cd research/nfl-extreme-outcomes && python3 live_props.py --write &&
+      cd research/nfl-extreme-outcomes && { python3 refresh_player_offense.py || true; } &&
+      python3 live_props.py --write &&
       { if [ "$(date +%M)" -lt 15 ]; then
           SW=$(python3 resolve_nfl_week.py) &&
           NFL_SEASON="${SW% *}" NFL_WEEK="${SW#* }" python3 gen_nfl_prop_player_pages.py;
