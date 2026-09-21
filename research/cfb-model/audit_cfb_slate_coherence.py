@@ -26,6 +26,13 @@ issues, notes = [], []
 
 for _, r in p.merge(g, on="game_id").iterrows():
     cg, ps, lab = r.card_group, r.pick_side, f"{r.away_team} @ {r.home_team}"
+    # Market line and model line on a spread card must be written from the SAME team, pick or no
+    # pick — the bar needs both on one side (the hourly refresher flipped 17 no-side cards, wk4-2026).
+    if cg == "spread" and pd.notna(r.model_line) and pd.notna(r.vegas_line) and pd.notna(r.fg_pred_spread) and pd.notna(r.fg_spread_close) \
+            and abs(r.fg_pred_spread) >= 0.3 and abs(r.fg_spread_close) >= 0.3:
+        mo = "HOME" if abs(r.model_line - r.fg_pred_spread) <= abs(r.model_line + r.fg_pred_spread) else "AWAY"
+        vo = "HOME" if abs(r.vegas_line - r.fg_spread_close) <= abs(r.vegas_line + r.fg_spread_close) else "AWAY"
+        if mo != vo: issues.append((lab, cg, "market line and model line on different teams", f"vegas={vo} {r.vegas_line}", f"model={mo} {r.model_line}"))
     if cg == "spread" and ps in ("HOME", "AWAY"):
         exp = r.fg_pred_spread if ps == "HOME" else -r.fg_pred_spread
         if pd.notna(r.model_line) and abs(r.model_line - exp) > 0.15: issues.append((lab, cg, "model_line sign", r.model_line, exp))

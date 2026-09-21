@@ -45,7 +45,7 @@ def main():
         sys.exit("no slate")
     season, week = anchor[0]["season"], anchor[0]["week"]
     games = requests.get(
-        f"{SUPA}/cfb_slate_games?select=game_id,kickoff,fg_pred_spread,fg_pred_total,home_team,away_team"
+        f"{SUPA}/cfb_slate_games?select=game_id,kickoff,fg_pred_spread,fg_pred_total,h1_pred_margin,home_team,away_team"
         f"&season=eq.{season}&week=eq.{week}",
         headers=hdr, timeout=30).json()
     now = dt.datetime.now(dt.timezone.utc)
@@ -113,15 +113,36 @@ def main():
 
     # picks: the consensus number each card quotes (sides untouched)
     picks = requests.get(
-        f"{SUPA}/cfb_slate_picks?select=id,game_id,card_group,pick_side,pick_team,pick_label"
+        f"{SUPA}/cfb_slate_picks?select=id,game_id,card_group,pick_side,pick_team,pick_label,model_line"
         f"&season=eq.{season}&week=eq.{week}&game_id=in.({gids})",
         headers=hdr, timeout=60).json()
     fmap = {int(g): r for g, r in fills.iterrows()}
+
+    def card_side(p, home_model, model_is_margin=False):
+        """Which team a spread card is written from. A card with NO pick side (bare lean under the
+        4-pt floor) still carries model_line on the MODEL's side, so the market line must sit on
+        that same side — treating '' as AWAY (the old rule) flipped vegas_line to the other team
+        while model_line stayed put, and the bar could not draw (17 wk4-2026 cards)."""
+        s = (p.get("pick_side") or "").upper()
+        if s in ("HOME", "AWAY"):
+            return s
+        ml, hm = p.get("model_line"), home_model
+        if ml is None or hm is None or abs(float(hm)) < 0.05:
+            return "HOME"
+        home_val = -float(hm) if model_is_margin else float(hm)   # home-side fair spread
+        return "HOME" if abs(float(ml) - home_val) <= abs(float(ml) + home_val) else "AWAY"
+
     for p in picks:
         row = fmap.get(int(p["game_id"]))
         if row is None:
             continue
-        cg, side = p.get("card_group"), (p.get("pick_side") or "")
+        cg = p.get("card_group"); g0 = pred.get(int(p["game_id"])) or {}
+        if cg == "spread":
+            side = card_side(p, g0.get("fg_pred_spread"))
+        elif cg == "h1_spread":
+            side = card_side(p, g0.get("h1_pred_margin"), model_is_margin=True)
+        else:
+            side = (p.get("pick_side") or "")
         v = None
         if cg == "spread" and val(row, "fg_spread_home") is not None:
             v = val(row, "fg_spread_home") * (1 if side == "HOME" else -1)
