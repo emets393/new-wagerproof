@@ -22,7 +22,7 @@ g = q("cfb_slate_games", "game_id,away_team,home_team,fg_pred_away_pts,fg_pred_h
       "fg_total_edge,fg_total_pick,fg_home_win_prob,fg_home_cover_prob,h1_pred_margin,h1_pred_total,h1_spread_close,"
       "h1_total_close,h1_spread_pick,h1_total_pick,tt_home_close,tt_away_close")
 f = q("cfb_slate_flags", "game_id,game,signal_key,market,side,line,grade_line,tier")
-issues = []
+issues, notes = [], []
 
 for _, r in p.merge(g, on="game_id").iterrows():
     cg, ps, lab = r.card_group, r.pick_side, f"{r.away_team} @ {r.home_team}"
@@ -74,8 +74,11 @@ if len(f):
             odds = r.fg_total_open if r.grade_line == "open" else r.fg_total_close
         if r.signal_key in MODEL_KEYS and r.side != model_side:
             issues.append((r.game, "flag", f"{r.signal_key} contradicts the model", r.side, model_side))
+        # A flag keeps the line it fired at (grade line = signal line) while the hourly refresher
+        # moves the game row's close, so in-week drift is expected and only NOTED. Anything
+        # over a key number's worth (3 pts) is printed loudly so a stale flag can be re-fired.
         if pd.notna(r.line) and pd.notna(odds) and abs(r.line - odds) > 0.3:
-            issues.append((r.game, "flag", f"{r.signal_key} line is not the Odds-API {r.grade_line}", r.line, odds))
+            notes.append((r.game, "flag", f"{r.signal_key} fired at a different {r.grade_line} than the row now shows", r.line, odds))
 
 # every flag the app shows must resolve to a definition row (the "Looking-Ahead Spot with no
 # definition" report, 2026-09-20: three paper-track keys had no cfb_signal_defs entry)
@@ -85,9 +88,13 @@ if len(f):
     for k in sorted(set(f.signal_key) - have):
         issues.append(("(all)", "flag", f"{k} has no cfb_signal_defs row — add it to gen_cfb_signal_defs.py", k, None))
 
+pd.set_option("display.width", 250); pd.set_option("display.max_colwidth", 60)
 I = pd.DataFrame(issues, columns=["game", "where", "issue", "got", "expected"])
-print(f"cfb slate coherence {SEASON} wk{WEEK}: {len(g)} games, {len(p)} cards, {len(f)} flags -> {len(I)} contradictions")
+N = pd.DataFrame(notes, columns=["game", "where", "issue", "got", "expected"])
+print(f"cfb slate coherence {SEASON} wk{WEEK}: {len(g)} games, {len(p)} cards, {len(f)} flags -> {len(I)} contradictions, {len(N)} line-drift notes")
+if len(N):
+    big = N[(N.got - N.expected).abs() >= 3]
+    if len(big): print("  line moved 3+ pts since the flag fired:"); print(big.to_string(index=False))
 if len(I):
-    pd.set_option("display.width", 250); pd.set_option("display.max_colwidth", 60)
     print(I.to_string(index=False))
     sys.exit(1)
