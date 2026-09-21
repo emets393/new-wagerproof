@@ -18,6 +18,7 @@ Companion table: nfl_player_prop_trends (game logs / splits / per-opponent recor
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -68,8 +69,16 @@ H = {"apikey": KEY, "Authorization": f"Bearer {KEY}"}
 def fetch(table, params=""):
     out, off = [], 0
     while True:
-        r = requests.get(f"{BASE_URL}/{table}?{params}&limit=1000&offset={off}", headers=H, timeout=60)
-        r.raise_for_status()
+        # nfl_player_props is 10k rows/week and PostgREST offset paging gets slower with each
+        # page; a single 60s read timeout killed the Sunday-night slate run (2026-09-20). Retry
+        # with backoff, longer timeout — the query is fine, the tail latency is not.
+        for attempt in range(4):
+            try:
+                r = requests.get(f"{BASE_URL}/{table}?{params}&limit=1000&offset={off}", headers=H, timeout=120)
+                r.raise_for_status(); break
+            except (requests.Timeout, requests.ConnectionError) as e:
+                if attempt == 3: raise
+                print(f"  [fetch] {table} offset {off}: {type(e).__name__}, retry {attempt + 1}/3"); time.sleep(5 * (attempt + 1))
         rows = r.json()
         out += rows
         if len(rows) < 1000:

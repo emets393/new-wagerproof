@@ -93,9 +93,12 @@ step "game venues (weather source)"; python3 nfl_game_venues_load.py --season "$
 step "player-prop trends (Outliers)"; python3 gen_nfl_player_prop_trends.py
 step "QB/RB scheme substrates";          python3 build_qb_rb_scheme.py || true
 step "FTN player stats";                  python3 build_ftn_player_stats.py || true
-step "prop player pages (web contract)"; python3 gen_nfl_prop_player_pages.py
-step "outliers trend cards (weekly)"; python3 gen_nfl_outliers_trend_cards.py
-step "outliers trend lines (live books)"; python3 refresh_nfl_outliers_trend_lines.py
+# Outliers/props-tab content, not the slate — a Supabase read timeout in the player pages killed
+# the 2026-09-20 23:00 UTC (Sunday night) run after the slate had already written. Guarded like
+# the other non-slate steps; the next refresh refills them.
+step "prop player pages (web contract)"; python3 gen_nfl_prop_player_pages.py || true
+step "outliers trend cards (weekly)"; python3 gen_nfl_outliers_trend_cards.py || true
+step "outliers trend lines (live books)"; python3 refresh_nfl_outliers_trend_lines.py || true
 
 echo
 echo "=== DONE :: slate_* + nfl_{team,coach,referee,player_prop}_trends + outliers cards for $SEASON wk$WEEK ==="

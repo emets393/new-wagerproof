@@ -127,8 +127,17 @@ if EARLY:
     tt_csv = pd.DataFrame(columns=["game_id"])
     h1_csv = pd.DataFrame(columns=["game_id", "h1_pm", "h1_pt", "h1_spread_bet", "h1_tot_bet", "h1_ml_bet"])
 else:
-    tt_csv = pd.read_csv(f"out/cfb_team_totals_{SEASON}.csv"); tt_csv = tt_csv[tt_csv.game_id.isin(g7)]
-    h1_csv = pd.read_csv(f"out/cfb_h1_model_{SEASON}.csv"); h1_csv = h1_csv[h1_csv.game_id.isin(g7)]
+    # cfb_forecast only writes these when the books have posted team totals / 1H lines. On a
+    # Monday the week's derivative markets are not up yet, and Render's fresh clone has no
+    # stale copy from last week (out/ is git-ignored) — the 2026-09-21 weekly run died here.
+    # No file = no TT / 1H bets this run; the game rows still write.
+    def _csv_or_empty(path, cols):
+        if os.path.exists(path):
+            d = pd.read_csv(path); return d[d.game_id.isin(g7)]
+        print(f"  [derivatives] {path} not written by the forecast yet (no posted lines) — none this run")
+        return pd.DataFrame(columns=cols)
+    tt_csv = _csv_or_empty(f"out/cfb_team_totals_{SEASON}.csv", ["game_id", "team", "bet", "line", "pts"])
+    h1_csv = _csv_or_empty(f"out/cfb_h1_model_{SEASON}.csv", ["game_id", "h1_pm", "h1_pt", "h1_spread_bet", "h1_tot_bet", "h1_ml_bet"])
 def tt_pred(gid, team):  # UNIFIED: full-game-derived team points (coherent with predicted score), pick by edge vs posted
     row = m[m.game_id == gid]
     if not len(row): return None, None
