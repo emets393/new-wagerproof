@@ -89,15 +89,9 @@ public actor OutliersTrendsService {
 
     private func fetchNFLSlateGames() async throws -> [OutliersTrendsGame] {
         let cfb = await CFBSupabase.shared.client
-        let anchor: [SlateWeekRow] = try await cfb
-            .from("nfl_slate_feed")
-            .select("season,week")
-            .order("season", ascending: false)
-            .order("week", ascending: false)
-            .limit(1)
-            .execute()
-            .value
-        guard let slate = anchor.first else { return [] }
+        // Soonest UPCOMING kickoff (FootballSlateAnchor), not max week — see the Monday
+        // preview note there.
+        guard let slate = await FootballSlateAnchor.currentWeek(cfb, table: "nfl_slate_feed") else { return [] }
         let rows: [GameRow] = try await cfb
             .from("nfl_slate_feed")
             .select(Self.gameColumns)
@@ -111,15 +105,9 @@ public actor OutliersTrendsService {
 
     private func fetchCFBSlateGames() async throws -> [OutliersTrendsGame] {
         let cfb = await CFBSupabase.shared.client
-        let anchor: [SlateWeekRow] = try await cfb
-            .from("cfb_slate_feed")
-            .select("season,week")
-            .order("season", ascending: false)
-            .order("week", ascending: false)
-            .limit(1)
-            .execute()
-            .value
-        guard let slate = anchor.first else { return [] }
+        // Soonest UPCOMING kickoff (FootballSlateAnchor), not max week — see the Monday
+        // preview note there.
+        guard let slate = await FootballSlateAnchor.currentWeek(cfb, table: "cfb_slate_feed") else { return [] }
         let rows: [CFBGameRow] = try await cfb
             .from("cfb_slate_feed")
             .select(Self.cfbGameColumns)

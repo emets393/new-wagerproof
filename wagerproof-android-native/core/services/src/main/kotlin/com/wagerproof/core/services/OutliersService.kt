@@ -41,14 +41,9 @@ class OutliersService {
 
         // 1. NFL ----------------------------------------------------------
         runCatching {
-            val anchor = cfb.from("nfl_slate_feed")
-                .select(columns = Columns.raw("season,week")) {
-                    order("season", Order.DESCENDING)
-                    order("week", Order.DESCENDING)
-                    limit(1)
-                }
-                .decodeList<OutlierSlateWeekRow>()
-            val slate = anchor.firstOrNull() ?: return@runCatching
+            // Soonest UPCOMING kickoff (FootballSlateAnchor) — a max-week anchor would jump the
+            // board to next week on Monday and drop the still-bettable Monday-night game.
+            val slate = FootballSlateAnchor.currentWeek(cfb, "nfl_slate_feed") ?: return@runCatching
             val nflRows = cfb.from("nfl_slate_feed")
                 .select(
                     columns = Columns.raw(
@@ -84,14 +79,9 @@ class OutliersService {
 
         // 2. CFB ----------------------------------------------------------
         runCatching {
-            val anchor = cfb.from("cfb_slate_feed")
-                .select(columns = Columns.raw("season,week")) {
-                    order("season", Order.DESCENDING)
-                    order("week", Order.DESCENDING)
-                    limit(1)
-                }
-                .decodeList<OutlierSlateWeekRow>()
-            val slate = anchor.firstOrNull() ?: return@runCatching
+            // Soonest UPCOMING kickoff (FootballSlateAnchor) — a max-week anchor would jump the
+            // board to next week on Monday and drop the still-bettable Monday-night game.
+            val slate = FootballSlateAnchor.currentWeek(cfb, "cfb_slate_feed") ?: return@runCatching
             val rows = cfb.from("cfb_slate_feed")
                 .select(
                     columns = Columns.raw(

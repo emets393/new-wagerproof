@@ -124,14 +124,9 @@ class LiveScoresService {
 
     private suspend fun fetchNFLPredictions(): List<NFLLivePrediction> = runCatching {
         val client = SupabaseClients.cfb
-        val anchor = client.from("nfl_slate_feed")
-            .select(columns = Columns.raw("season,week")) {
-                order("season", Order.DESCENDING)
-                order("week", Order.DESCENDING)
-                limit(1)
-            }
-            .decodeList<SlateWeekRow>()
-        val slate = anchor.firstOrNull() ?: return@runCatching emptyList()
+        // Soonest UPCOMING kickoff, not max week: the Monday preview publishes next week's slate
+        // while tonight's game is still being played — the scoreboard must stay on it.
+        val slate = FootballSlateAnchor.currentWeek(client, "nfl_slate_feed") ?: return@runCatching emptyList()
 
         client.from("nfl_slate_feed")
             .select(
@@ -167,14 +162,9 @@ class LiveScoresService {
 
     private suspend fun fetchCFBPredictions(): List<CFBLivePrediction> = runCatching {
         val client = SupabaseClients.cfb
-        val anchor = client.from("cfb_slate_feed")
-            .select(columns = Columns.raw("season,week")) {
-                order("season", Order.DESCENDING)
-                order("week", Order.DESCENDING)
-                limit(1)
-            }
-            .decodeList<SlateWeekRow>()
-        val slate = anchor.firstOrNull() ?: return@runCatching emptyList()
+        // Soonest UPCOMING kickoff, not max week: the Monday preview publishes next week's slate
+        // while tonight's game is still being played — the scoreboard must stay on it.
+        val slate = FootballSlateAnchor.currentWeek(client, "cfb_slate_feed") ?: return@runCatching emptyList()
 
         client.from("cfb_slate_feed")
             .select(

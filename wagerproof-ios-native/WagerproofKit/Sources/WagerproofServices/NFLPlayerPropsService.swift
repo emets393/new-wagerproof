@@ -44,19 +44,12 @@ public actor NFLPlayerPropsService {
         let week: Int
     }
 
-    /// Latest (season, week) present in the pages table — same rule as
-    /// `NFLPropPageService.resolveSlate` / the web `resolveLatestSlate`.
+    /// The week the props surface shows: soonest UPCOMING kickoff, not max week. The Monday
+    /// preview build publishes next week's pages while this week's Monday-night props are
+    /// still bettable. Same rule as `NFLPropPageService.resolveSlate` and the web hooks.
     private func resolveSlate(client: SupabaseClient) async throws -> (season: Int, week: Int)? {
-        let rows: [SlateRow] = try await client
-            .from("nfl_prop_player_pages")
-            .select("season,week")
-            .order("season", ascending: false)
-            .order("week", ascending: false)
-            .limit(1)
-            .execute()
-            .value
-        guard let row = rows.first else { return nil }
-        return (row.season, row.week)
+        guard let slate = await FootballSlateAnchor.currentWeek(client, table: "nfl_prop_player_pages") else { return nil }
+        return (slate.season, slate.week)
     }
 
     // MARK: Trends + game-log enrichment

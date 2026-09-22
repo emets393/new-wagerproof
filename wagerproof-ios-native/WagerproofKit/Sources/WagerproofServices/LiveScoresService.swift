@@ -159,15 +159,10 @@ public actor LiveScoresService {
     private func fetchNFLPredictions() async -> [NFLPrediction] {
         do {
             let client = await CFBSupabase.shared.client
-            let anchor: [SlateWeekRow] = try await client
-                .from("nfl_slate_feed")
-                .select("season,week")
-                .order("season", ascending: false)
-                .order("week", ascending: false)
-                .limit(1)
-                .execute()
-                .value
-            guard let slate = anchor.first, let season = slate.season, let week = slate.week else { return [] }
+            // Soonest UPCOMING kickoff, not max week: the Monday preview publishes next week's
+            // slate while tonight's game is still being played — the scoreboard must stay on it.
+            guard let slate = await FootballSlateAnchor.currentWeek(client, table: "nfl_slate_feed") else { return [] }
+            let (season, week) = (slate.season, slate.week)
 
             let rows: [NFLSlateRow] = try await client
                 .from("nfl_slate_feed")
@@ -245,15 +240,8 @@ public actor LiveScoresService {
     private func fetchCFBPredictions() async -> [CFBPrediction] {
         do {
             let client = await CFBSupabase.shared.client
-            let anchor: [SlateWeekRow] = try await client
-                .from("cfb_slate_feed")
-                .select("season,week")
-                .order("season", ascending: false)
-                .order("week", ascending: false)
-                .limit(1)
-                .execute()
-                .value
-            guard let slate = anchor.first, let season = slate.season, let week = slate.week else { return [] }
+            guard let slate = await FootballSlateAnchor.currentWeek(client, table: "cfb_slate_feed") else { return [] }
+            let (season, week) = (slate.season, slate.week)
 
             let rows: [CFBSlateRow] = try await client
                 .from("cfb_slate_feed")

@@ -3,7 +3,7 @@ import { collegeFootballSupabase } from "@/integrations/supabase/college-footbal
 import { LiveGame, GamePredictions, PredictionStatus } from "@/types/liveScores";
 import { gamesMatch } from "@/utils/teamMatching";
 import debug from "@/utils/debug";
-import { resolveLatestSlate } from "@/features/games/api/footballSlate";
+import { resolveNflCurrentWeek, resolveCfbCurrentWeek } from "@/features/games/api/footballSlate";
 
 interface NFLPrediction {
   training_key: string;
@@ -267,7 +267,9 @@ function calculatePredictionStatus(
 async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
   try {
     // NEW model's weekly output (nfl_slate_feed). Latest slate = current week in-season.
-    const anchor = await resolveLatestSlate('nfl_slate_feed');
+    // Soonest upcoming kickoff, not max week — the Monday preview publishes next week while
+    // tonight's game is still pending, and the scoreboard must stay on tonight's game.
+    const anchor = await resolveNflCurrentWeek();
 
     const { data, error } = await collegeFootballSupabase
       .from('nfl_slate_feed')
@@ -315,7 +317,7 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
  */
 async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
   try {
-    const anchor = await resolveLatestSlate('cfb_slate_feed');
+    const anchor = await resolveCfbCurrentWeek();
 
     const { data, error } = await collegeFootballSupabase
       .from('cfb_slate_feed')

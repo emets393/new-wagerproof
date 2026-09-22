@@ -10,7 +10,7 @@ import {
   normalizeCfbTeamKey,
   type CfbTeamRow,
 } from '@/utils/cfbTeamAssets';
-import { resolveLatestSlate } from '@/features/games/api/footballSlate';
+import { resolveNflCurrentWeek, resolveCfbCurrentWeek } from '@/features/games/api/footballSlate';
 import { MLB_FALLBACK_BY_NAME, normalizeTeamNameKey } from '@/utils/mlbTeamLogos';
 import {
   isDivisionGame,
@@ -77,7 +77,9 @@ function toStr(value: unknown): string | null {
 // MARK: - NFL / NCAAF slates
 
 async function fetchNFLSlateGames(): Promise<OutliersTrendsGame[]> {
-  const anchor = await resolveLatestSlate('nfl_slate_feed');
+  // Soonest upcoming kickoff (see footballSlate) — a max-week anchor would jump the board to
+  // next week on Monday morning and drop the pending Monday-night game.
+  const anchor = await resolveNflCurrentWeek();
   const { data, error } = await collegeFootballSupabase
     .from('nfl_slate_feed')
     .select(NFL_GAME_COLUMNS)
@@ -102,7 +104,7 @@ async function fetchNFLSlateGames(): Promise<OutliersTrendsGame[]> {
 }
 
 async function fetchCFBSlateGames(): Promise<OutliersTrendsGame[]> {
-  const anchor = await resolveLatestSlate('cfb_slate_feed');
+  const anchor = await resolveCfbCurrentWeek();
   const { data, error } = await collegeFootballSupabase
     .from('cfb_slate_feed')
     .select(CFB_GAME_COLUMNS)

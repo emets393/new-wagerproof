@@ -54,19 +54,13 @@ class NFLPlayerPropsService {
     private data class SlateRow(val season: Int, val week: Int)
 
     /**
-     * Latest (season, week) present in the pages table — same rule as
-     * [NFLPropPageService] / the web `resolveLatestSlate`.
+     * The week the props surface shows: soonest UPCOMING kickoff, not max week. The Monday
+     * preview build publishes next week's pages while this week's Monday-night props are
+     * still bettable. Same rule as [NFLPropPageService] and the web hooks.
      */
     private suspend fun resolveSlate(): Pair<Int, Int>? {
-        val row = SupabaseClients.cfb
-            .from("nfl_prop_player_pages")
-            .select(columns = Columns.raw("season,week")) {
-                order("season", Order.DESCENDING)
-                order("week", Order.DESCENDING)
-                limit(1)
-            }
-            .decodeList<SlateRow>()
-            .firstOrNull() ?: return null
+        val row = FootballSlateAnchor.currentWeek(SupabaseClients.cfb, "nfl_prop_player_pages")
+            ?: return null
         return row.season to row.week
     }
 

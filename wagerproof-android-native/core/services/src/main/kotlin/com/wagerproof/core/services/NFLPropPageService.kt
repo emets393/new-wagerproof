@@ -96,15 +96,9 @@ class NFLPropPageService {
                 if (System.currentTimeMillis() - at < ttlMs) return season to week
             }
         }
-        val row = SupabaseClients.cfb
-            .from("nfl_prop_player_pages")
-            .select(columns = Columns.raw("season,week")) {
-                order("season", Order.DESCENDING)
-                order("week", Order.DESCENDING)
-                limit(1)
-            }
-            .decodeList<SlateRow>()
-            .firstOrNull() ?: return null
+        // Soonest UPCOMING kickoff, not max week — see FootballSlateAnchor (Monday preview).
+        val row = FootballSlateAnchor.currentWeek(SupabaseClients.cfb, "nfl_prop_player_pages")
+            ?: return null
         mutex.withLock { slate = Triple(System.currentTimeMillis(), row.season, row.week) }
         return row.season to row.week
     }

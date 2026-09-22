@@ -85,14 +85,8 @@ class OutliersTrendsService {
 
     private suspend fun fetchNFLSlateGames(): List<OutliersTrendsGame> {
         val cfb = SupabaseClients.cfb
-        val anchor = cfb.from("nfl_slate_feed")
-            .select(Columns.raw("season,week")) {
-                order("season", Order.DESCENDING)
-                order("week", Order.DESCENDING)
-                limit(1)
-            }
-            .decodeList<SlateWeekRow>()
-        val slate = anchor.firstOrNull() ?: return emptyList()
+        // Soonest UPCOMING kickoff, not max week — see FootballSlateAnchor (Monday preview).
+        val slate = FootballSlateAnchor.currentWeek(cfb, "nfl_slate_feed") ?: return emptyList()
         val rows = cfb.from("nfl_slate_feed")
             .select(Columns.raw(GAME_COLUMNS)) {
                 filter {
@@ -107,14 +101,8 @@ class OutliersTrendsService {
 
     private suspend fun fetchCFBSlateGames(): List<OutliersTrendsGame> {
         val cfb = SupabaseClients.cfb
-        val anchor = cfb.from("cfb_slate_feed")
-            .select(Columns.raw("season,week")) {
-                order("season", Order.DESCENDING)
-                order("week", Order.DESCENDING)
-                limit(1)
-            }
-            .decodeList<SlateWeekRow>()
-        val slate = anchor.firstOrNull() ?: return emptyList()
+        // Soonest UPCOMING kickoff, not max week — see FootballSlateAnchor (Monday preview).
+        val slate = FootballSlateAnchor.currentWeek(cfb, "cfb_slate_feed") ?: return emptyList()
         val rows = cfb.from("cfb_slate_feed")
             .select(Columns.raw(CFB_GAME_COLUMNS)) {
                 filter {
