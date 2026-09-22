@@ -1,5 +1,37 @@
 [
-  {"title":"The Dynamics of Price Discovery in Sports Betting","publisher":"Management Science","url":"https://pubsonline.informs.org/doi/abs/10.1287/mnsc.2022.00456","accessedAt":"2026-08-26","usedFor":"Price discovery, noise, and overreaction caveats"},
-  {"title":"Information releases and sports betting markets","publisher":"International Journal of Sport Finance","url":"https://journals.sagepub.com/doi/abs/10.32731/IJSF.171.022022.03","accessedAt":"2026-08-26","usedFor":"Timing of public information and market response"},
-  {"title":"WagerProof App Store listing","publisher":"Apple and WagerProof, LLC","url":"https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957","accessedAt":"2026-08-26","usedFor":"Current line-movement and public-data feature description"}
+  {
+    "title": "Public Betting: Money Percentages",
+    "publisher": "Action Network",
+    "url": "https://actionnetworkhq.zendesk.com/hc/en-us/articles/360037460212-Public-Betting-Money-Percentages",
+    "accessedAt": "2026-09-19",
+    "usedFor": "Provider definitions of tickets, bets and dollars, and reverse-movement example; not endorsement of sharp-money inference."
+  },
+  {
+    "title": "Betting Splits",
+    "publisher": "VSiN",
+    "url": "https://data.vsin.com/betting-splits/",
+    "accessedAt": "2026-09-19",
+    "usedFor": "Provider identifies sportsbook-specific data and DraftKings/Circa comparison. No current picks, records or profitability claims reproduced."
+  },
+  {
+    "title": "NFL Injury Report",
+    "publisher": "NFL",
+    "url": "https://www.nfl.com/injuries/",
+    "accessedAt": "2026-09-19",
+    "usedFor": "Official status starting point; not a claim about any specific player's current availability."
+  },
+  {
+    "title": "Inefficient Forecasts at the Sportsbook: An Analysis of Real-Time Betting Line Movement",
+    "publisher": "INFORMS / Management Science",
+    "url": "https://pubsonline.informs.org/doi/abs/10.1287/mnsc.2022.00456",
+    "accessedAt": "2026-09-19",
+    "usedFor": "Publisher abstract: four sportsbooks, 3681 MLB games, forecasts not monotonically improving. No replicated backtest or football extrapolation."
+  },
+  {
+    "title": "WagerProof App Store listing",
+    "publisher": "Apple and WagerProof, LLC",
+    "url": "https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957",
+    "accessedAt": "2026-09-19",
+    "usedFor": "Models, movement/public context, configurable Agents, reasoning and graded records. No price, limit or automatic reverse-movement scanner claim."
+  }
 ]

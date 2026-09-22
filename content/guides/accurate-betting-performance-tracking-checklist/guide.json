@@ -3,17 +3,17 @@
   "slug": "accurate-betting-performance-tracking-checklist",
   "canonicalPath": "/blog/accurate-betting-performance-tracking-checklist/",
   "intent": "track betting research performance without cherry picking",
-  "title": "A complete sports research performance log",
+  "title": "Sports betting ROI: how to calculate it and check the record",
   "shortTitle": "Performance tracking",
-  "seoTitle": "Sports Betting Performance Tracking Checklist",
-  "description": "Use a downloadable research log and clear formulas to track every market, price, stake, result, model version, closing reference, and rule change.",
-  "dek": "A record is credible when it includes the decisions that lost, the prices that changed, the passes that mattered, and the rule versions that stopped working.",
+  "seoTitle": "Sports Betting ROI: Formula, Examples and Review Sheet",
+  "description": "Calculate sports betting ROI with worked examples, clear rules for pushes and pending bets, and a reusable sheet for reviewing bets and AI Agent records.",
+  "dek": "A 60% win rate can still lose money. Put the prices, stakes and full record beside the percentage before you trust it.",
   "category": "Performance measurement",
   "publishedAt": "2026-03-19",
-  "updatedAt": "2026-08-26",
-  "reviewedAt": "2026-08-26",
-  "nextReviewAt": "2027-02-26",
-  "readingTimeMinutes": 10,
+  "updatedAt": "2026-09-21",
+  "reviewedAt": "2026-09-21",
+  "nextReviewAt": "2026-12-21",
+  "readingTimeMinutes": 9,
   "author": "chris-habib",
   "hero": {
     "src": "/guides/accurate-betting-performance-tracking-checklist/accurate-betting-performance-tracking-checklist-title-card-v1.webp",
@@ -22,22 +22,36 @@
     "height": 941,
     "socialWidth": 1200,
     "socialHeight": 630,
-    "alt": "A transparent research ledger with price, model version, close, and result columns",
+    "alt": "Performance tracking title card with an abstract ledger and probability curves on a green grid",
     "caption": "AI-assisted editorial illustration of a generic research ledger. It contains no real betting record or performance result.",
     "source": "WagerProof editorial composition"
   },
-  "disclosure": "The downloadable CSV contains fictional example rows for structure only. It is not a WagerProof performance report and must not be read as a result claim.",
-  "verdict": "Log every eligible decision at the moment it is made. Keep the market, price, stake, model or rule version, closing reference, result, and notes in separate fields. Report sample size and missing data beside ROI, hit rate, calibration, and CLV.",
+  "disclosure": "I am Chris Habib, founder of WagerProof. This guide is educational. All worked examples are fictional, not WagerProof results or betting recommendations.",
+  "verdict": "Divide net profit by the matching total staked, then multiply by 100. Keep losses, prices, pushes and pending bets visible. An Agent's published record and your own betting results are different records.",
   "relatedSlugs": [
     "closing-line-value-sports-betting",
+    "implied-probability-vs-true-probability",
     "how-wagerproof-analysis-works",
-    "responsible-sports-betting-research",
-    "prediction-markets-vs-sportsbook-odds"
+    "responsible-sports-betting-research"
   ],
   "redirectAliases": [],
   "faqs": [
-    {"question":"What fields belong in a sports betting research log?","answer":"At minimum record event, market, side, line, price, sportsbook, timestamp, stake, result, net profit or loss, closing reference, model or rule version, research cutoff, and notes. Keep pushes and missing values explicit."},
-    {"question":"How is ROI calculated?","answer":"Divide net profit or loss by total amount staked for the stated sample, then multiply by 100 for a percentage. Always report total staked, sample size, date range, and whether bonuses or fees are included."},
-    {"question":"Why should model version and rule version be tracked?","answer":"A changed model, filter, or selection rule creates a different process. Version fields prevent an updated rule from being mixed invisibly with the record that preceded it."}
-  ]
+    {
+      "question": "How do you calculate sports betting ROI?",
+      "answer": "Divide net profit or loss by the total amount staked for the same included bets, then multiply by 100. State the date range, settlement policy and treatment of fees and promotions. If included stake is zero, ROI is unavailable."
+    },
+    {
+      "question": "Can a winning record have a negative ROI?",
+      "answer": "Yes. In a fictional sample of five one-unit bets at -200, three wins earn 1.5 units and two losses cost 2 units. The win rate is 60%, but net profit is -0.5 units and ROI is -10%."
+    },
+    {
+      "question": "Do pushes count toward sports betting ROI?",
+      "answer": "This guide includes pushed stakes in the ROI denominator and records zero net profit for a push. Other trackers may exclude them. State the convention before comparing records. Pushes are excluded from this guide's win-rate denominator."
+    },
+    {
+      "question": "Is an AI Agent's record the same as my betting ROI?",
+      "answer": "No. The Agent's record follows its published selections. Your results depend on the picks you actually took, your prices, your stakes and your sportsbook's settlement. Keep the two records separate."
+    }
+  ],
+  "showSourcesSection": false
 }

@@ -1,0 +1,87 @@
+WAGERPROOF SPORTS BETTING ROI REVIEW SHEET
+Manual notes template, version 1. Reviewed September 21, 2026.
+Not a calculator, sportsbook sync, or WagerProof performance report.
+
+Choose one record: your own cash tickets OR published research selections.
+Do not mix them. Research stakes are not proof that money was wagered.
+
+PERIOD AND RULES
+Record owner:
+Period start and end:
+Time zone:
+Sample uses settlement date:
+Unit value and currency (keep fixed, or use actual currency throughout):
+Fees included:
+Separate promotions/bonus-bet record location:
+Agent settings or System rule version:
+Research cutoff and sources:
+
+Use settled cash wins, losses and pushes in this sheet's ROI sample.
+Push stake is included with zero net profit. Pushes are not wins or losses.
+Exclude fully voided/refunded tickets, pending bets and passes from ROI.
+Keep all excluded records visible. Separate bonus bets and promotions.
+For cash-outs/partial settlements, reconcile actual cash flows and label
+the exception before inclusion. Do not count parlay stake once per leg.
+Use a different convention only if clearly labeled and used consistently.
+
+COPY THIS ENTRY FOR EACH DECISION
+Event and sport:
+Player/team, market, side, line and period:
+Sportsbook and settlement rule:
+Entry time and time zone:
+Entry odds:
+Research source / Agent / settings version:
+Reason before the event:
+Action or pass:
+Actual amount risked:
+Settlement status and time:
+Total cash returned, including any returned stake:
+Separately charged fee (do not subtract it twice):
+Net profit = total cash returned - actual stake - separate fees:
+Closing reference, source and time (optional):
+Included in ROI? Why?
+Missing information or exception:
+
+PERIOD TOTALS
+Included settled tickets:
+Wins:
+Losses:
+Pushes:
+Other included settlements:
+Pending tickets and stake, outside settled ROI:
+Voided/refunded tickets, outside ROI:
+Passes, outside ROI:
+Incomplete records and reconciliation issues:
+Included total stake:
+Included net profit or loss:
+ROI = included net profit / included total stake x 100:
+If stake is zero or required data is missing, write "unavailable".
+Win rate = wins / (wins + losses) x 100:
+If no wins or losses exist, write "unavailable".
+Exclude cash-outs/other non-W-L results from this win-rate calculation.
+Do not average per-bet or per-week ROI percentages.
+
+FICTIONAL CHECK EXAMPLES, NOT RESULTS OR RECOMMENDATIONS
+Five 1-unit bets at -200: 3 wins earn 1.5u, 2 losses cost 2u.
+Net -0.5u / stake 5u = -10% ROI; win rate 3/5 = 60%.
+
+One 1-unit win at +200 earns 2u; one 4-unit loss costs 4u.
+Net -2u / stake 5u = -40% ROI.
+Add a 1-unit push: net -2u / stake 6u = -33.33% ROI.
+The push does not improve the money result.
+
+Full cash-out: 50u staked, 40u cash returned, no separate fee.
+Net -10u / stake 50u = -20% return. If included under the stated policy,
+keep this labeled separately from ordinary wins and losses.
+If tickets are missing, label the period incomplete and state the
+subset used. Never present that subset as a fully reconciled month.
+
+REVIEW
+Are actual prices and stakes recorded for every included ticket?
+Did any settings or selection rules change during the period?
+Which missing records prevent a fair comparison?
+How do this period's totals compare under the SAME prior rules?
+What did losing selections reveal about the original assumptions?
+Next fixed review date:
+Time and money limits:
+Do not raise stakes to repair ROI. Every wager can lose.

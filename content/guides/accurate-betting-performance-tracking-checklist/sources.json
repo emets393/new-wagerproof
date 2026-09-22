@@ -1,5 +1,23 @@
 [
-  {"title":"Strictly Proper Scoring Rules, Prediction, and Estimation","publisher":"Journal of the American Statistical Association","url":"https://doi.org/10.1198/016214506000001437","accessedAt":"2026-08-26","usedFor":"Probability forecast evaluation and separation from realized results"},
-  {"title":"WagerProof App Store listing","publisher":"Apple and WagerProof, LLC","url":"https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957","accessedAt":"2026-08-26","usedFor":"Current first-party automatic grading and visible record claims"},
-  {"title":"Closing Line Value","publisher":"OddsJam Betting Education","url":"https://dev.oddsjam.com/betting-education/closing-line-value","accessedAt":"2026-08-26","usedFor":"Common CLV terminology"}
+  {
+    "title": "Calculating Sports Betting ROI",
+    "publisher": "Sports Insights",
+    "url": "https://www.sportsinsights.com/how-to-bet-on-sports/calculating-sports-betting-roi/",
+    "accessedAt": "2026-09-21",
+    "usedFor": "Stake-based ROI definition; not results, forecasts or a universal denominator policy"
+  },
+  {
+    "title": "Agent performance and stats tracking",
+    "publisher": "WagerProof",
+    "url": "https://wagerproof.bet/support/ai-agents/agent-performance-tracking",
+    "accessedAt": "2026-09-21",
+    "usedFor": "Automatic pick grading, published line, visible wins/losses/pushes and units; minimum-pick suggestion not adopted"
+  },
+  {
+    "title": "WagerProof App Store listing",
+    "publisher": "Apple and WagerProof, LLC",
+    "url": "https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957",
+    "accessedAt": "2026-09-21",
+    "usedFor": "Current Agent research and record workflow, historical Systems with ongoing grading, not personal sportsbook syncing"
+  }
 ]
