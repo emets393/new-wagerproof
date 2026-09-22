@@ -161,11 +161,22 @@ if __name__ == "__main__":
 #       NOT a line-size proxy: by |spread| alone the public side is 55/48/52% — flat — while
 #       tickets separate INSIDE both halves (<14 pts: 59.6 vs 41.4; >=14 pts: 75.0 vs 39.1).
 #       Direction agreeing in both halves is the strongest thing in this run. Cells are 28-47.
-#   C2  TOTAL, follow a HEAVY public side. 70%+ public 62.9% (56-33, p=.019); 80%+ 71.4% (40-16,
-#       p=.002). NOT an over bias — the heavy side is OVER in only 43% of those games, and the
-#       over rate in heavy games is 55.1% vs 48.4% elsewhere, nowhere near enough to carry 71%.
-#       Its mirror, "back the handle side", loses at 39.2% (p=.009): on CFB totals in this window
-#       the square side won and the sharp indicator was upside down.
+#   C2  TOTAL, follow a heavy side — but ONLY at the 80% threshold, and follow the MONEY there.
+#       Bucketed, the crowd's win rate is 39.1 / 36.6 / 48.5 / 71.4% across 50-59 / 60-69 / 70-79 /
+#       80%+ tickets. That is not a trend building with lopsidedness, it is three flat-to-bad
+#       buckets and one hot cell (n=56). The cumulative "62.9% at 70%+" first written here blended
+#       a coin-flip bucket into the hot one and made it look like a gradient. It is not one.
+#       Inside the 80%+ cell, backing the MONEY majority (45-11, 80.4%) beats backing the TICKET
+#       majority (40-16, 71.4%); over the full 153, money 56.2% vs tickets 52.3%. NOT an over bias
+#       — the heavy side is OVER in only 43% of those games and both directions won alike.
+#
+#       DO NOT call the 39.2% cell "the handle side". H2 as coded is money% > bets%, a DIVERGENCE
+#       construct, and it is mechanical: when 87% of tickets sit on one side the money on that side
+#       still averages 75%, because a few large bets on the unpopular side pull the share toward
+#       50. So it flags the unpopular side in 68% of all games — a disguised fade-the-crowd bet,
+#       and it does worse (39.2%) than fading the crowd outright (47.7%). It is not a sharp-money
+#       read and its failure says nothing about whether handle beats tickets. Bets and money
+#       agree on the side in 88% of games; they disagree in 18, too few to read.
 #
 # Both candidates are POST-HOC cuts from ~24 cells; one p<.05 is expected by chance and we have
 # several. Neither gets wired. The test is the next block of weeks, on these exact two rules, with
