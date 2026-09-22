@@ -1585,6 +1585,8 @@ summary:focus-visible,
 .faqs summary span {
   color: var(--green);
   font-size: 1.35rem;
+  flex-shrink: 0;
+  line-height: 1;
   transition: transform 160ms ease;
 }
 
@@ -1713,6 +1715,10 @@ summary:focus-visible,
 
 .article-cta .eyebrow {
   color: #86efac;
+}
+
+[data-theme="dark"] .article-cta .eyebrow {
+  color: #057a30;
 }
 
 .corrections {

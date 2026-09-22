@@ -3,17 +3,17 @@
   "slug": "closing-line-value-sports-betting",
   "canonicalPath": "/blog/closing-line-value-sports-betting/",
   "intent": "understand closing line value as a process metric",
-  "title": "Closing line value measures price quality, not certainty",
+  "title": "Closing line value: how to calculate it and track it honestly",
   "shortTitle": "Closing line value",
-  "seoTitle": "Closing Line Value: Meaning and Limits",
-  "description": "Learn how to record and compare closing line value, why the exact market and timestamp matter, and why CLV is useful without proving future profit.",
-  "dek": "Beating a later market price can be evidence that your process found a better number. It is not proof that the wager should win or that every market improves toward close.",
+  "seoTitle": "Closing Line Value: Formula, Examples and Tracking Sheet",
+  "description": "Calculate closing line value with worked examples, distinguish price CLV from a no-vig closing benchmark, and copy a practical tracking sheet.",
+  "dek": "Compare the price you took with the same market at close. Then check which CLV calculation you are using, because price improvement and a no-vig benchmark can tell different stories.",
   "category": "Performance measurement",
   "publishedAt": "2026-04-01",
-  "updatedAt": "2026-08-26",
-  "reviewedAt": "2026-08-26",
-  "nextReviewAt": "2027-02-26",
-  "readingTimeMinutes": 8,
+  "updatedAt": "2026-09-18",
+  "reviewedAt": "2026-09-18",
+  "nextReviewAt": "2026-12-18",
+  "readingTimeMinutes": 9,
   "author": "chris-habib",
   "hero": {
     "src": "/guides/closing-line-value-sports-betting/closing-line-value-sports-betting-title-card-v1.webp",
@@ -26,8 +26,8 @@
     "caption": "AI-assisted editorial illustration using generic prices. It does not depict a real wager or outcome.",
     "source": "WagerProof editorial composition"
   },
-  "disclosure": "This guide explains a recordkeeping metric. It does not claim that positive closing line value guarantees profit, and it does not present a private WagerProof backtest.",
-  "verdict": "Track CLV because the price is observable even when a single outcome is noisy. Compare the exact same market, side, and settlement rules at consistent timestamps. Use CLV with calibration, sample size, and complete results, not as a substitute for them.",
+  "disclosure": "I build WagerProof. This guide explains a research metric using fictional prices, not an audited product backtest or a betting recommendation. WagerProof does not accept wagers or handle money.",
+  "verdict": "For the same selection, divide entry decimal odds by closing decimal odds and subtract one to get price-based CLV. Label the formula, keep a consistent closing reference and record missing closes. A better quoted price is not proof of profit.",
   "relatedSlugs": [
     "implied-probability-vs-true-probability",
     "how-to-read-line-movement",
@@ -36,8 +36,28 @@
   ],
   "redirectAliases": [],
   "faqs": [
-    {"question":"What is closing line value?","answer":"Closing line value compares the price you recorded with a defined later market price, usually near the event start. It is a price-quality measure, not the result of the wager."},
-    {"question":"Does positive CLV guarantee profit?","answer":"No. A wager with a better price can still lose, and a strategy can show positive CLV over a small or biased sample without producing durable profit. CLV should be reviewed with complete records, calibration, and sample size."},
-    {"question":"Which closing price should I use?","answer":"Choose a consistent reference before analysis, such as the same sportsbook's final available price or a documented market consensus at a fixed cutoff. Do not switch references after seeing which one makes the record look better."}
-  ]
+    {
+      "question": "How do you calculate closing line value?",
+      "answer": "For the exact same selection and settlement rules, price-based CLV is entry decimal odds divided by closing decimal odds, minus one. Multiply by 100 for a percentage. State the formula and closing reference because other calculations also use the CLV label."
+    },
+    {
+      "question": "Does positive CLV guarantee profit?",
+      "answer": "No. A better quoted price can still be worse than a no-vig closing benchmark, and the closing benchmark itself can be wrong. A selection with positive CLV can lose."
+    },
+    {
+      "question": "Can I compare CLV when a prop line changes?",
+      "answer": "Not with a simple price-only ratio across different thresholds. Record both lines and prices. Find a closing price at the original threshold or mark the comparison unavailable."
+    },
+    {
+      "question": "Does WagerProof automatically track these CLV calculations?",
+      "answer": "For this workflow, you record the closing prices and calculate CLV yourself in the linked sheet. WagerProof provides the Agent selections, reasoning and graded results to review alongside your notes."
+    }
+  ],
+  "showSourcesSection": false,
+  "cta": {
+    "eyebrow": "Research you can review",
+    "title": "Build an Agent with a record you can inspect.",
+    "copy": "Set its preferences, read the reasoning and review graded results. Keep your own closing-price notes alongside the record.",
+    "buttonLabel": "Try WagerProof"
+  }
 }

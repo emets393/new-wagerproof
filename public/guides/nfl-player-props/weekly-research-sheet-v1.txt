@@ -1,0 +1,36 @@
+WAGERPROOF: WEEKLY NFL PROPS RESEARCH SHEET
+One candidate per sheet. Record the decision before kickoff.
+This is a personal notes template, not an automatic app export.
+
+Research date, time and time zone:
+Player and opponent:
+Market, side, line and period:
+Sportsbook and price:
+Time the offer was checked:
+Settlement rules:
+Why it surfaced (Agent reasoning, signal or streak):
+Sample hit count / game count:
+Sample dates and threshold used:
+Role and opportunity assumption:
+Official availability source, status and check time:
+Alternate line and price, or not available:
+Shared dependencies with any other legs:
+Decision: review further / pass / retain for final comparison
+Reason recorded before kickoff:
+
+AFTER THE GAME
+Outcome and settlement:
+Did the role assumption hold?
+What changed after the research cutoff?
+Correction or lesson to carry into next week:
+
+FICTIONAL EXAMPLE, NOT A PICK OR A PERFORMANCE CLAIM
+Receiver receptions, oldest to newest: 4, 6, 5, 7, 3, 6, 8, 5, 7, 6.
+Over 4.5: 8/10, five straight, hypothetical price -175.
+Over 5.5: 6/10, two straight, hypothetical price +105.
+Role: not yet confirmed.
+Decision: review further.
+Reason: need current role, official availability and an actual offered price.
+Neither hit rate is a forecast of the next result.
+
+Every selection can lose. Set limits before researching. Passing is valid.
