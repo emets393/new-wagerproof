@@ -1,0 +1,269 @@
+Final
+Lions Team Icon
+Lions
+103
+Bills Team Icon
+Bills
+104
++140
+-165
++1329
+-228
+9%
+91%
+16%
+84%
++7%
+292,239
+Final
+Browns Team Icon
+Browns
+259
+Buccaneers Team Icon
+Buccaneers
+260
++200
+-245
++350
+-113
+3%
+97%
+1%
+99%
++2%
+106,361
+Final - OT
+Packers Team Icon
+Packers
+251
+Jets Team Icon
+Jets
+252
+-238
++195
+-153
++163
+91%
+9%
+93%
+7%
++2%
+95,556
+Final
+Panthers Team Icon
+Panthers
+257
+Falcons Team Icon
+Falcons
+258
++105
+-125
+-125
++1567
+80%
+20%
+84%
+16%
++4%
+91,724
+Final
+Eagles Team Icon
+Eagles
+265
+Titans Team Icon
+Titans
+266
+-205
++170
+-292
++488
+98%
+2%
+85%
+15%
++13%
+116,165
+Final
+Bengals Team Icon
+Bengals
+261
+Texans Team Icon
+Texans
+262
++114
+-135
++135
++203
+30%
+70%
+63%
+37%
++33%
+117,761
+Final
+Saints Team Icon
+Saints
+263
+Ravens Team Icon
+Ravens
+264
++280
+-355
++488
+-360
+3%
+97%
+3%
+97%
+115,817
+Final
+Vikings Team Icon
+Vikings
+253
+Bears Team Icon
+Bears
+254
++164
+-198
++190
+-156
+9%
+91%
+5%
+95%
++4%
+125,086
+Final
+Steelers Team Icon
+Steelers
+255
+Patriots Team Icon
+Patriots
+256
++185
+-225
++614
+-208
+16%
+84%
+29%
+71%
++13%
+88,922
+Final
+Raiders Team Icon
+Raiders
+267
+Chargers Team Icon
+Chargers
+268
++295
+-375
++277
+-275
+11%
+89%
+13%
+87%
++2%
+78,315
+Final
+Jaguars Team Icon
+Jaguars
+269
+Broncos Team Icon
+Broncos
+270
++120
+-142
++120
+-130
+38%
+54%
++16%
+97,329
+Final
+Commanders Team Icon
+Commanders
+271
+Cowboys Team Icon
+Cowboys
+272
++164
+-198
++210
+-190
+14%
+86%
+37%
+63%
++23%
+114,696
+Final
+Dolphins Team Icon
+Dolphins
+275
+49ers Team Icon
+49ers
+276
++470
+-650
++770
+-750
+2%
+98%
+3%
+97%
++1%
+85,964
+Final
+Seahawks Team Icon
+Seahawks
+273
+Cardinals Team Icon
+Cardinals
+274
+-550
++410
+-190
++200
+92%
+8%
+91%
+9%
++1%
+83,864
+Final - OT
+Colts Team Icon
+Colts
+277
+Chiefs Team Icon
+Chiefs
+278
++250
+-310
++257
+-251
+3%
+97%
+10%
+90%
++7%
+183,571
+Final
+Giants Team Icon
+Giants
+279
+Rams Team Icon
+Rams
+280
++300
+-380
++270
+-251
+18%
+82%
+21%
+79%
++3%
+235,840

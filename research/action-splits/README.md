@@ -51,8 +51,17 @@ column you are checking.
 
 ## Current state
 
-CFB 2026 weeks 1-3, all three markets: 726 parsed rows, 153 distinct graded games. Read the
-verdict block at the bottom of `analyze_action.py` before running anything new — fading the public,
-reverse line movement, and every moneyline cell are dead, and two candidates (C1 spread by ticket
-count, C2 heavy public totals) are pre-registered with frozen thresholds for the next block of
-weeks. Do not re-scan; test those two.
+CFB 2026 weeks 1-3 and NFL 2026 weeks 1-2: 822 parsed rows, 184 distinct graded games. Read the
+two verdict blocks at the bottom of `analyze_action.py` before running anything new.
+
+Short version: nothing here is tradeable. Fading the public, reverse line movement and every
+moneyline cell were dead on CFB; the two candidates that did survive there (C1 spread by ticket
+volume, C2 heavy public totals) were frozen, then both INVERTED on NFL weeks 1-2. Four good-looking
+cells have now each moved when new games arrived.
+
+Do not re-scan this data for new cells. If more weeks arrive, test C1 and C2 at their frozen
+thresholds, pooled, with the CFB and NFL halves reported separately.
+
+Adding NFL: `games_enriched.parquet`, joined by an exact nickname-to-abbreviation lookup rather
+than string similarity. Note `spread_line` there is positive when the HOME team is favoured, the
+opposite sign to `model_games`, so `nfl_frame()` negates it.

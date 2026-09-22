@@ -21,7 +21,21 @@ from difflib import SequenceMatcher
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAMES = os.path.join(HERE, "..", "cfb-model", "data", "model_games.parquet")
+NFL_GAMES = os.path.join(HERE, "..", "nfl-extreme-outcomes", "data", "games_enriched.parquet")
 MIN_SIM = 1.45   # out of 2.0 across the two names
+
+# Action writes NFL teams as nicknames, nflverse as abbreviations, so the NFL side gets a real
+# lookup instead of string similarity — 32 fixed names, and "Giants"/"Jets" would otherwise be a
+# coin flip against each other.
+NFL_ABBR = {
+    "cardinals": "ARI", "falcons": "ATL", "ravens": "BAL", "bills": "BUF", "panthers": "CAR",
+    "bears": "CHI", "bengals": "CIN", "browns": "CLE", "cowboys": "DAL", "broncos": "DEN",
+    "lions": "DET", "packers": "GB", "texans": "HOU", "colts": "IND", "jaguars": "JAX",
+    "chiefs": "KC", "raiders": "LV", "chargers": "LAC", "rams": "LA", "dolphins": "MIA",
+    "vikings": "MIN", "patriots": "NE", "saints": "NO", "giants": "NYG", "jets": "NYJ",
+    "eagles": "PHI", "steelers": "PIT", "49ers": "SF", "seahawks": "SEA", "buccaneers": "TB",
+    "titans": "TEN", "commanders": "WAS",
+}
 
 ABBR = {
     "st": "state", "s": "south", "n": "north", "e": "east", "w": "west",
@@ -56,16 +70,54 @@ def sim(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
 
-def main():
-    spl = pd.read_csv(os.path.join(HERE, "data", "action_splits.csv"))
+def cfb_frame():
     g = pd.read_parquet(GAMES)
     g = g[(g.season == 2026) & g.actual_margin.notna()].copy()
-    g["na"], g["nh"] = g.awayTeam.map(norm), g.homeTeam.map(norm)
-    spl["na"], spl["nh"] = spl.away.map(norm), spl.home.map(norm)
+    return g[["game_id", "season", "week", "awayTeam", "homeTeam", "spread_close", "total_close",
+              "actual_margin", "actual_total", "homePoints", "awayPoints"]]
+
+
+def nfl_frame():
+    """games_enriched -> the model_games column contract.
+
+    nflverse `spread_line` is positive when the HOME team is FAVOURED — the OPPOSITE sign to
+    model_games' home-perspective spread — so it is negated here. Getting this backwards is
+    silent: the grader still runs and just reports the wrong side."""
+    g = pd.read_parquet(NFL_GAMES)
+    g = g[(g.season == 2026) & (g.game_type == "REG") & g.home_score.notna()
+          & g.spread_line.notna()].copy()
+    return pd.DataFrame(dict(
+        game_id=g.game_id, season=g.season, week=g.week,
+        awayTeam=g.away_team, homeTeam=g.home_team,
+        spread_close=-g.spread_line, total_close=g.total_line,
+        actual_margin=g.home_score - g.away_score, actual_total=g.home_score + g.away_score,
+        homePoints=g.home_score, awayPoints=g.away_score))
+
+
+def main():
+    spl = pd.read_csv(os.path.join(HERE, "data", "action_splits.csv"))
+    g = pd.concat([cfb_frame(), nfl_frame()], ignore_index=True)
+    g["game_id"] = g.game_id.astype(str)
+    g["sport"] = np.where(g.game_id.astype(str).str.contains("_"), "nfl", "cfb")
+    # NFL is an exact abbreviation lookup on BOTH sides — never norm(), which expands team
+    # abbreviations as if they were college names ("LA" -> "louisiana", "NO" -> "north") and
+    # then nothing matches.
+    def key(col, sport_col):
+        nfl = col.str.lower().map(NFL_ABBR).fillna(col).str.lower()
+        return np.where(sport_col == "nfl", nfl, col.map(norm))
+    g["na"], g["nh"] = key(g.awayTeam, g.sport), key(g.homeTeam, g.sport)
+    spl["na"], spl["nh"] = key(spl.away, spl.sport), key(spl.home, spl.sport)
+    assert not spl[spl.sport == "nfl"].na.str.len().eq(0).any(), "unmapped NFL nickname"
+    # Validate against the 32 abbreviations, NOT against the games present: a game that has not
+    # been played yet (a Monday nighter in the newest week) legitimately has no row, and failing
+    # on that would block every in-season run.
+    valid = {v.lower() for v in NFL_ABBR.values()}
+    bad = (set(spl[spl.sport == "nfl"].na) | set(spl[spl.sport == "nfl"].nh)) - valid
+    assert not bad, f"unmapped NFL nicknames: {bad}"
 
     pairs = []
-    for (season, week), blk in spl.groupby(["season", "week"]):
-        cand = g[(g.season == season) & (g.week == week)]
+    for (sport, season, week), blk in spl.groupby(["sport", "season", "week"]):
+        cand = g[(g.sport == sport) & (g.season == season) & (g.week == week)]
         if cand.empty:
             continue
         # Score every (action game, cfbd game) pair, then assign greedily best-first with each
@@ -84,11 +136,11 @@ def main():
                 continue
             used_a.add(key); used_g.add(gi)
             b = cand.loc[gi]
-            pairs.append(dict(season=season, week=week, away=key[0], home=key[1],
+            pairs.append(dict(sport=sport, season=season, week=week, away=key[0], home=key[1],
                               game_id=b.game_id, cfbd_away=b.awayTeam, cfbd_home=b.homeTeam,
                               score=round(s, 3)))
     xw = pd.DataFrame(pairs)
-    d = spl.merge(xw.drop(columns=["score"]), on=["season", "week", "away", "home"], how="inner")
+    d = spl.merge(xw.drop(columns=["score"]), on=["sport", "season", "week", "away", "home"], how="inner")
     d = d.merge(g[["game_id", "spread_close", "total_close", "actual_margin", "actual_total", "homePoints", "awayPoints",
                    "awayTeam", "homeTeam"]], on="game_id", how="left")
 
@@ -129,10 +181,10 @@ def main():
     out = os.path.join(HERE, "data", "action_joined.parquet")
     d.to_parquet(out, index=False)
     print(f"crosswalk matched {len(xw)} distinct games | joined {len(d)} game-market rows -> {out}")
-    print(d.groupby(["week", "market"]).agg(n=("game_id", "size"),
+    print(d.groupby(["sport", "week", "market"]).agg(n=("game_id", "size"),
                                             graded=("away_result", lambda s: int((s != 0).sum()))).to_string())
     print("\nlowest-confidence matches (check these):")
-    print(xw.nsmallest(8, "score")[["week", "away", "home", "cfbd_away", "cfbd_home", "score"]].to_string(index=False))
+    print(xw.nsmallest(8, "score")[["sport", "week", "away", "home", "cfbd_away", "cfbd_home", "score"]].to_string(index=False))
 
 
 if __name__ == "__main__":

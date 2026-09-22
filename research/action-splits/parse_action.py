@@ -88,21 +88,42 @@ def parse(raw, market):
         nums = [x for x in rest if NUM.match(x) or NA.match(x)]
         pcts = [PCT.match(x).group(1) for x in rest if PCT.match(x)]
         ticks = [x for x in rest if TICK.match(x)]
-        if len(nums) < len(slots):
+        use = list(slots)
+        # Points markets sometimes arrive with NO opening pair — the block starts straight at the
+        # current line and its price. An opening line is a bare number; a price never is, and a
+        # price is always >=100 in magnitude while no spread or total ever is. So a price sitting
+        # in slot 2 means the opens are absent (NFL 2026 wk2: Jaguars @ Broncos, Commanders @
+        # Cowboys). Map those four to the close slots and leave the opens null.
+        if market in ("spread", "total") and len(nums) == 4 and abs(_f(nums[1]) or 0) >= 100:
+            use = ["away_close", "away_price", "home_close", "home_price"]
+        if len(nums) < len(use):
             # a game Action never priced (e.g. an FCS body-bag with one stale number)
-            skipped.append(f"{names[0]} @ {names[1]}: {len(nums)} nums, need {len(slots)}")
+            skipped.append(f"{names[0]} @ {names[1]}: {len(nums)} nums, need {len(use)}")
             continue
-        nums = nums[: len(slots)]
+        nums = nums[: len(use)]
         g = dict(away=names[0], home=names[1], raw_nums="|".join(nums))
-        g.update({k: _f(v) for k, v in zip(slots, nums)})
-        for k in ("away_price", "home_price"):
+        g.update({k: _f(v) for k, v in zip(use, nums)})
+        for k in ("away_open", "home_open", "away_close", "home_close", "away_price", "home_price"):
             g.setdefault(k, None)
-        # percentages: 4 when the game has action (bets away/home, money away/home), else none.
-        # The 5th value, when present, is Action's own bets-minus-money diff on the away side.
-        g.update(bets_away=int(pcts[0]) if len(pcts) >= 4 else None,
-                 bets_home=int(pcts[1]) if len(pcts) >= 4 else None,
-                 money_away=int(pcts[2]) if len(pcts) >= 4 else None,
-                 money_home=int(pcts[3]) if len(pcts) >= 4 else None,
+        # "Best Odds" scans every book, so a stale or broken book leaks in as a +9900 price
+        # against an absurd line (NFL wk1 Bills @ Texans shows the home side at -16.5 / +9900 on
+        # a pick-em game). Those are not prices anyone could bet — drop the line with them, or
+        # they poison every line-movement test.
+        if market in ("spread", "total"):
+            for sd in ("away", "home"):
+                if g[f"{sd}_price"] is not None and abs(g[f"{sd}_price"]) >= 1000:
+                    g[f"{sd}_close"] = g[f"{sd}_price"] = None
+        # Percentages: normally 4 (bets away/home, money away/home) and then Action's own diff,
+        # which is money% - bets% on the AWAY side. When a side's share is implied Action prints
+        # only 2 — the away bets% and the away money% — and the diff confirms which two they are
+        # (NFL 2026 wk2 ML: Jaguars @ Broncos, "38% 54% +16%"). A game with no action has none.
+        ba = bh = ma = mh = None
+        if len(pcts) >= 4:
+            ba, bh, ma, mh = (int(x) for x in pcts[:4])
+        elif len(pcts) == 3 and int(pcts[2]) == int(pcts[1]) - int(pcts[0]):
+            ba, ma = int(pcts[0]), int(pcts[1])
+            bh, mh = 100 - ba, 100 - ma
+        g.update(bets_away=ba, bets_home=bh, money_away=ma, money_home=mh,
                  tickets=int(ticks[-1].replace(",", "")) if ticks else None)
         games.append(g)
     d = pd.DataFrame(games)

@@ -182,3 +182,31 @@ if __name__ == "__main__":
 # several. Neither gets wired. The test is the next block of weeks, on these exact two rules, with
 # the thresholds frozen at 20,467 tickets and 70% public.
 # =================================================================================================
+
+# =================================================================================================
+# OUT-OF-SAMPLE TEST — NFL 2026 weeks 1-2 (owner pasted 2026-09-22, after the CFB verdict above).
+# 31 games, 92 graded rows. Both frozen candidates FAILED, and both INVERTED.
+#
+#   C1  spread, crowd by within-week ticket volume
+#         CFB wks1-3:  low-volume 40%  |  rest 60%   (difference p=.034)
+#         NFL wks1-2:  low-volume 62%  |  rest 32%   (n=8 and 22)
+#         pooled:      low-volume 43.6% | rest 55.2% (difference p=.195, was .034)
+#   C2  total, 80%+ of tickets on one side
+#         CFB wks1-3:  crowd 71.4% (40-16)
+#         NFL wks1-2:  crowd 18%   (2-9)
+#         pooled:      crowd 62.7% (42-25, p=.050) — carried entirely by the CFB half
+#
+# The NFL cells are far too small to refute anything on their own. What matters is that they did
+# not merely fail to replicate, they landed on the opposite side, and this is now the THIRD
+# disagreement in the same data: CFB spreads preferred tickets while CFB totals preferred money,
+# and NFL inverts both candidates. A mechanism that reverses between two sports and between two
+# markets inside one sport is not a mechanism.
+#
+# STANDING VERDICT: the Action Network splits carry nothing tradeable in this sample. Do not wire
+# any of it, and do not re-scan for new cells — this data set has now produced four
+# nice-looking cells and all four moved when new games arrived. If more weeks are ever added, the
+# only honest test is these same two rules at these same thresholds, pooled, with the CFB and NFL
+# halves reported separately. Pooled today: spread bets 51.7%, money 47.8%; total bets 51.6%,
+# money 57.1% (p=.065, the only pooled number still alive and it is one market on 184 games).
+# Moneyline remains the favourite artefact in both sports; ignore it permanently.
+# =================================================================================================
