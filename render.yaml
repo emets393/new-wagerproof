@@ -57,6 +57,33 @@ services:
       - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
         value: "3.11.9"
 
+  # --- NFL Monday PREVIEW: next week's slate a day early (owner 2026-09-21) -------------
+  # Books post next week's lines by Sunday night (wk3 2026: 14/16 games, 11 books, on the
+  # Monday). Without this the board sits on a finished week from the moment Monday night
+  # kicks off until Tuesday's 11:00 UTC build — the feed anchors to the soonest UPCOMING
+  # kickoff, so a completed week has nothing ahead of it.
+  # `--preview` = the first week with ZERO games kicked off, which is next week whether or
+  # not tonight's MNF is still pending (plain resolve()+1 would skip a week when there is
+  # no Monday game). Built WITHOUT that night's MNF result by design; Tuesday's normal run
+  # rebuilds the same week once it lands.
+  - type: cron
+    name: nfl-slate-monday-preview
+    runtime: python
+    plan: standard                         # same 2GB as the Tuesday build (fetch step OOMs on 512MB)
+    schedule: "0 12 * 9-12,1-2 1"          # Mon ~8am ET, after the 08:00 UTC grade run
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: >-
+      cd research/nfl-extreme-outcomes &&
+      SW=$(python3 resolve_nfl_week.py --preview) &&
+      bash run_nfl_week.sh ${SW% *} ${SW#* }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
+        value: "3.11.9"
+
   # --- CFB weekly slate: fetch CFBD -> build features -> model -> cfb_slate_* tables ----
   - type: cron
     name: cfb-slate-weekly

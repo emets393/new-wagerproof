@@ -63,9 +63,33 @@ def resolve():
     return season, week
 
 
+def resolve_preview(now=None):
+    """The MONDAY PREVIEW week (owner 2026-09-21): the first regular-season week where NOT ONE
+    game has kicked off yet. On a Monday that is next week, whether or not tonight's Monday-night
+    game is still pending — which is why this is not simply `resolve() + 1`: on a week with no
+    Monday game `resolve()` has ALREADY rolled forward by Monday morning, and +1 would skip a week.
+
+    The preview build runs without that night's MNF result, so the two teams playing it carry
+    six-day-old ratings until the normal Tuesday run rebuilds the week."""
+    now = now or pd.Timestamp.now(tz="UTC")
+    g = load_games()
+    g = g[g.game_type == "REG"]
+    season = int(g.season.max())
+    s = g[g.season == season].copy()
+    ko = pd.to_datetime(s.gameday.astype(str) + " " + s.gametime.fillna("").astype(str), errors="coerce")
+    ko = ko.dt.tz_localize("America/New_York", ambiguous="NaT", nonexistent="NaT").dt.tz_convert("UTC")
+    s["kicked"] = s.result.notna() | (ko.notna() & (ko <= now))
+    untouched = s.groupby("week").kicked.any()
+    untouched = untouched[~untouched]
+    if not len(untouched):
+        raise RuntimeError(f"no unstarted week left in {season} — season is over")
+    return season, int(untouched.index.min())
+
+
 if __name__ == "__main__":
+    preview = "--preview" in sys.argv
     try:
-        season, week = resolve()
+        season, week = resolve_preview() if preview else resolve()
     except Exception as e:
         # A silent default is how every Render run targeted week 1 for a night; fail loud
         # instead — run_nfl_week.sh is set -e and the next scheduled run retries.
