@@ -193,6 +193,10 @@ services:
   - type: cron
     name: fp-data-inseason
     runtime: python
+    # standard (2GB): the pull succeeds, then fp_load.py holds every pulled cell's frame in
+    # memory to upsert it and OOM-killed the default 512Mi on 2026-09-22 (week 3 — 138 cells,
+    # and the pull grows with each week of the season). Same reason nfl-slate-weekly is standard.
+    plan: standard
     schedule: "0 12 * 9-12,1-2 2,4"
     buildCommand: >-
       pip install -r research/requirements.txt &&
