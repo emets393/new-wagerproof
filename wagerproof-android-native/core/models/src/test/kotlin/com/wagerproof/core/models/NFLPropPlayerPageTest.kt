@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -231,5 +232,59 @@ class NFLPropPlayerPageTest {
             byMarket = mapOf("player_reception_yds" to NFLPropHitRate(1, 1, 1.0)),
         )
         assertNull(NFLPropVerdicts.headToHeadHeadline(thin, "player_reception_yds", "DEN"))
+    }
+
+    // MARK: research (Fantasy-Points layer)
+
+    /**
+     * Shaped from a real `nfl_prop_player_pages.research` blob. The layer is SPARSE — a market
+     * may carry only the model, only the report, or be absent entirely — so each case is asserted
+     * rather than assuming a full payload. Mirrors the iOS fixture.
+     */
+    @Test
+    fun researchDecodesModelAndReport() {
+        val json = """
+        {
+          "player_pass_yds": {
+            "fp_model": {"pred": 182.55, "line": 208.0, "edge": -25.45,
+                         "threshold": 20.0, "tier": "robust", "fires": true},
+            "prop_report": {"read": "under", "line": 207.5, "score": 4.0,
+                            "n_for": 4, "n_against": 1, "summary": "Under is the read.",
+                            "tells": [{"dir": "under", "src": "model", "text": "projects 182.6"},
+                                      {"dir": "over", "src": "usage", "text": "target share up"}]}
+          },
+          "player_pass_tds": {
+            "fp_model": {"pred": 0.95, "line": 1.5, "edge": -0.55,
+                         "threshold": 0.35, "tier": "61.0%", "fires": true}
+          },
+          "player_rush_yds": {}
+        }
+        """.trimIndent()
+        val research = NFLPropPlayerPage.mapResearch(Json.parseToJsonElement(json))
+
+        // a market with both halves
+        val yds = research["player_pass_yds"]!!
+        assertEquals(182.55, yds.model?.pred)
+        assertEquals(-25.45, yds.model?.edge)
+        assertEquals(true, yds.model?.fires)
+        assertEquals("under", yds.report?.read)
+        assertEquals(4, yds.report?.nFor)
+        assertEquals(2, yds.report?.tells?.size)
+        assertEquals("model", yds.report?.tells?.first()?.src)
+        assertTrue(yds.hasContent)
+
+        // model only — the common case
+        val tds = research["player_pass_tds"]!!
+        assertEquals("61.0%", tds.model?.tier)
+        assertNull(tds.report)
+
+        // an empty object carries nothing and must not create a hollow entry the UI would render
+        assertNull(research["player_rush_yds"])
+        assertFalse(NFLPropResearch().hasContent)
+    }
+
+    @Test
+    fun researchMissingColumnDecodesEmpty() {
+        assertTrue(NFLPropPlayerPage.mapResearch(null).isEmpty())
     }
 }

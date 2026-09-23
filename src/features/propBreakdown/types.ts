@@ -255,6 +255,55 @@ export interface NflPropPlayerPage {
   projection?: Partial<Record<string, MarketProjection>> | null;
   rookie?: boolean;
   highlights: PropHighlight[] | null;
+  /**
+   * Fantasy-Points layer, ADDITIVE to `projection` — never a replacement. It covers far fewer
+   * players and only the markets that actually backtested (pass yds/tds/completions, receptions,
+   * reception yds); rushing and anytime-TD were tested and killed, so most markets have no entry
+   * here and that absence is the expected state, not missing data.
+   */
+  research?: Partial<Record<string, MarketResearch>> | null;
+}
+
+/** Per-market Fantasy-Points research. Both halves are optional; often only one is present. */
+export interface MarketResearch {
+  fp_model?: FpModel;
+  prop_report?: PropReport;
+}
+
+export interface FpModel {
+  /** The model's projected stat total. */
+  pred: number;
+  /** The line the model scored against — can differ slightly from the live board line. */
+  line: number | null;
+  /** pred - line. The sign IS the side: positive = over, negative = under. */
+  edge: number;
+  /** This market's backtested threshold; |edge| must clear it for `fires` to be true. */
+  threshold: number;
+  /** Backtested hit rate at that threshold, or 'robust' where no single rate was pinned. */
+  tier: string;
+  /** |edge| >= threshold — the model's validated trigger is live on this market. */
+  fires: boolean;
+  note?: string;
+}
+
+/** The Player Prop Report read — the same storylines the weekly regression report publishes. */
+export interface PropReport {
+  read: 'over' | 'under' | string;
+  line: number | null;
+  score: number;
+  /** Independent tells agreeing with the read, and disagreeing with it. */
+  n_for: number;
+  n_against: number;
+  summary?: string | null;
+  tells?: PropReportTell[];
+}
+
+export interface PropReportTell {
+  /** Which side this tell points to. */
+  dir: string;
+  /** Where it came from — model, coverage, scheme, usage... */
+  src: string;
+  text: string;
 }
 
 export interface TrendGameLogEntry {

@@ -82,6 +82,82 @@ public enum NFLPropProjection: Hashable, Sendable {
     }
 }
 
+/// Fantasy-Points research for one market. ADDITIVE to `projection`, never a replacement: it
+/// covers far fewer players and only the markets that backtested (pass yds/tds/completions,
+/// receptions, reception yds). Rushing and anytime TD were tested and killed, so a market with
+/// no entry here is the expected state, not missing data.
+public struct NFLPropResearch: Hashable, Sendable {
+    public let model: NFLPropFPModel?
+    public let report: NFLPropReport?
+
+    public init(model: NFLPropFPModel? = nil, report: NFLPropReport? = nil) {
+        self.model = model
+        self.report = report
+    }
+}
+
+public struct NFLPropFPModel: Hashable, Sendable {
+    /// Projected stat total.
+    public let pred: Double
+    /// The line the model scored against — can differ slightly from the live board line.
+    public let line: Double?
+    /// pred - line. The sign IS the side: positive = over, negative = under.
+    public let edge: Double
+    /// This market's backtested threshold; |edge| must clear it for `fires`.
+    public let threshold: Double
+    /// Backtested hit rate at that threshold, or "robust" where no single rate was pinned.
+    public let tier: String
+    /// |edge| >= threshold — the validated trigger is live on this market.
+    public let fires: Bool
+
+    public init(pred: Double, line: Double?, edge: Double, threshold: Double,
+                tier: String, fires: Bool) {
+        self.pred = pred
+        self.line = line
+        self.edge = edge
+        self.threshold = threshold
+        self.tier = tier
+        self.fires = fires
+    }
+}
+
+/// The Player Prop Report read — the same storylines the weekly regression report publishes.
+public struct NFLPropReport: Hashable, Sendable {
+    public let read: String
+    public let line: Double?
+    public let score: Double
+    /// Independent tells agreeing with the read, and disagreeing with it.
+    public let nFor: Int
+    public let nAgainst: Int
+    public let summary: String?
+    public let tells: [NFLPropReportTell]
+
+    public init(read: String, line: Double?, score: Double, nFor: Int, nAgainst: Int,
+                summary: String?, tells: [NFLPropReportTell]) {
+        self.read = read
+        self.line = line
+        self.score = score
+        self.nFor = nFor
+        self.nAgainst = nAgainst
+        self.summary = summary
+        self.tells = tells
+    }
+}
+
+public struct NFLPropReportTell: Hashable, Sendable {
+    /// Side this tell points to.
+    public let dir: String
+    /// Where it came from — model, coverage, scheme, usage...
+    public let src: String
+    public let text: String
+
+    public init(dir: String, src: String, text: String) {
+        self.dir = dir
+        self.src = src
+        self.text = text
+    }
+}
+
 /// One defense-usage dim: share of snaps + league percentile.
 public struct NFLPropDefenseDim: Hashable, Sendable {
     public let rate: Double
@@ -251,6 +327,8 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
     public let rookie: Bool
     public let markets: [NFLPropPageMarket]
     public let projection: [String: NFLPropProjection]
+    /// Fantasy-Points layer, keyed by market. Sparse by design — see NFLPropResearch.
+    public let research: [String: NFLPropResearch]
     public let scheme: NFLPropScheme?
     public let schemeGameSplits: NFLPropGameSplits?
 
@@ -263,7 +341,7 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
         case gameLabel = "game_label"
         case kickoff
         case headshotUrl = "headshot_url"
-        case rookie, markets, projection, scheme
+        case rookie, markets, projection, research, scheme
         case schemeGameSplits = "scheme_game_splits"
     }
 
@@ -283,6 +361,7 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
         rookie = (try? c.decodeIfPresent(Bool.self, forKey: .rookie)) ?? false
         markets = Self.mapMarkets((try? c.decodeIfPresent(JSONValue.self, forKey: .markets)) ?? nil)
         projection = Self.mapProjection((try? c.decodeIfPresent(JSONValue.self, forKey: .projection)) ?? nil)
+        research = Self.mapResearch((try? c.decodeIfPresent(JSONValue.self, forKey: .research)) ?? nil)
         scheme = Self.mapScheme((try? c.decodeIfPresent(JSONValue.self, forKey: .scheme)) ?? nil)
         schemeGameSplits = Self.mapGameSplits((try? c.decodeIfPresent(JSONValue.self, forKey: .schemeGameSplits)) ?? nil)
     }
@@ -294,6 +373,7 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
         headshotUrl: String? = nil, rookie: Bool = false,
         markets: [NFLPropPageMarket] = [],
         projection: [String: NFLPropProjection] = [:],
+        research: [String: NFLPropResearch] = [:],
         scheme: NFLPropScheme? = nil,
         schemeGameSplits: NFLPropGameSplits? = nil
     ) {
@@ -311,6 +391,7 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
         self.rookie = rookie
         self.markets = markets
         self.projection = projection
+        self.research = research
         self.scheme = scheme
         self.schemeGameSplits = schemeGameSplits
     }
@@ -367,6 +448,53 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
                 out[market] = .rate(scoreRate: rate, status: status, source: source)
             default:
                 continue
+            }
+        }
+        return out
+    }
+
+    /// `research` is sparse: most markets have no entry, and a present entry may carry only the
+    /// model or only the report. Anything unparseable is dropped rather than defaulted, so the
+    /// UI can rely on "present means real".
+    public static func mapResearch(_ json: JSONValue?) -> [String: NFLPropResearch] {
+        guard let byMarket = json?.objectValue else { return [:] }
+        var out: [String: NFLPropResearch] = [:]
+        for (market, raw) in byMarket {
+            guard let o = raw.objectValue else { continue }
+            var model: NFLPropFPModel?
+            if let m = o["fp_model"]?.objectValue,
+               let pred = m["pred"]?.doubleValue,
+               let edge = m["edge"]?.doubleValue,
+               let threshold = m["threshold"]?.doubleValue {
+                model = NFLPropFPModel(
+                    pred: pred,
+                    line: m["line"]?.doubleValue,
+                    edge: edge,
+                    threshold: threshold,
+                    tier: m["tier"]?.stringValue ?? "",
+                    fires: m["fires"]?.boolValue ?? false)
+            }
+            var report: NFLPropReport?
+            if let r = o["prop_report"]?.objectValue,
+               let read = r["read"]?.stringValue {
+                let tells: [NFLPropReportTell] = (r["tells"]?.arrayValue ?? []).compactMap { t in
+                    guard let t = t.objectValue, let text = t["text"]?.stringValue else { return nil }
+                    return NFLPropReportTell(
+                        dir: t["dir"]?.stringValue ?? "",
+                        src: t["src"]?.stringValue ?? "",
+                        text: text)
+                }
+                report = NFLPropReport(
+                    read: read,
+                    line: r["line"]?.doubleValue,
+                    score: r["score"]?.doubleValue ?? 0,
+                    nFor: r["n_for"]?.intValue ?? 0,
+                    nAgainst: r["n_against"]?.intValue ?? 0,
+                    summary: r["summary"]?.stringValue,
+                    tells: tells)
+            }
+            if model != nil || report != nil {
+                out[market] = NFLPropResearch(model: model, report: report)
             }
         }
         return out

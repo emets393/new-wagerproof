@@ -62,6 +62,7 @@ import com.wagerproof.app.features.props.detail.nflpage.NflBestLinesBlock
 import com.wagerproof.app.features.props.detail.nflpage.NflHeadToHeadBlock
 import com.wagerproof.app.features.props.detail.nflpage.NflMatchupComparison
 import com.wagerproof.app.features.props.detail.nflpage.NflProjectionStrip
+import com.wagerproof.app.features.props.detail.nflpage.NflPropResearchStrip
 import com.wagerproof.app.features.props.detail.nflpage.NflRecentGamesChart
 import com.wagerproof.app.features.props.detail.nflpage.NflSituationsGrid
 import com.wagerproof.app.features.props.nflTeamColors
@@ -327,6 +328,17 @@ private fun NflPropDetailScreenContent(
                                 line = if (market.isYesNo) null else line,
                                 vegasOdds = odds,
                             )
+                        }
+                    }
+
+                    // 1b. Fantasy-Points prop model + Player Prop Report. Only the markets that
+                    // backtested carry this, so the section is omitted rather than shown empty.
+                    page?.research?.get(market.key)?.takeIf { it.hasContent }?.let { research ->
+                        WidgetCollapsingSection(
+                            title = widgetTitle("Prop Model & Report", market),
+                            systemImage = "chart.line.uptrend.xyaxis",
+                        ) {
+                            NflPropResearchStrip(research = research)
                         }
                     }
 

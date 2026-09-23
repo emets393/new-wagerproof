@@ -7,6 +7,7 @@ import { useNflPropPlayerPage, useNflPropPlayerTrends } from './hooks';
 import { MarketToggle } from './components/MarketToggle';
 import { OrbitHero } from './components/OrbitHero';
 import { ModelStrip } from './components/ModelStrip';
+import { FpResearchStrip } from './components/FpResearchStrip';
 import { ComparisonBlock } from './components/ComparisonBlock';
 import { VsTeamCluster } from './components/VsTeamCluster';
 import { Last10Strip } from './components/Last10Strip';
@@ -170,6 +171,10 @@ export function PropBreakdownContent({
 
           {/* 2. WagerProof projection. */}
           <ModelStrip page={page} marketKey={marketKey} market={selectedMarket} marketLine={chartLine} vegasOdds={bestOverOdds} />
+
+          {/* 2b. Fantasy-Points prop model + Player Prop Report — additive to the strip above,
+              and it renders nothing on the markets the model deliberately does not cover. */}
+          <FpResearchStrip page={page} marketKey={marketKey} />
 
           {/* 3. Recent market results. */}
           <Last10Strip log={trendsQ.data?.recent_game_log} marketKey={marketKey} line={chartLine} />

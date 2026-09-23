@@ -490,6 +490,18 @@ struct NFLPropDetailView: View {
             }
         }
 
+        // 1b. Fantasy-Points prop model + Player Prop Report. Only the markets that backtested
+        // carry this, so the whole section is omitted rather than rendered empty.
+        if NFLPropResearchStrip.hasContent(page?.research[market.key]) {
+            WidgetCollapsingSection(
+                title: widgetTitle("Prop Model & Report", market: market),
+                systemImage: "chart.line.uptrend.xyaxis",
+                accessory: .tapHint(expanded: false)
+            ) {
+                NFLPropResearchStrip(research: page?.research[market.key])
+            }
+        }
+
         // 2. Recent Games (renders from the feed log until trends arrive).
         WidgetCollapsingSection(
             title: widgetTitle("Recent Games", market: market),
