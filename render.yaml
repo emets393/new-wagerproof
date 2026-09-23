@@ -148,6 +148,35 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.9"
 
+  # --- NFL Player Prop Report, DAILY (owner 2026-09-23). The report's storylines used to be
+  # rebuilt only by fp-data-inseason (Tue + Thu), which meant it was written on Tuesday against
+  # a board that was ~10% posted and then not refreshed again until Thursday — kickoff day. Books
+  # post anytime-TD early and the yardage markets late, so on the Tuesday run week 3 had 19
+  # reception-yard lines against 193 in a finished week, and only 2 of the report's 10 slots
+  # filled. This runs the same chain once a day so the report tracks the board as lines post AND
+  # picks up that morning's injury news: ESPN injuries -> slate props -> model scores -> report.
+  # 15:00 UTC (11am ET) is deliberately AFTER nfl-slate-refresh's 14:00 run.
+  # No NFL_SEASON/NFL_WEEK here on purpose: unlike run_nfl_week.sh this does not resolve and
+  # export a week, so every script in the chain resolves the current slate itself.
+  - type: cron
+    name: nfl-prop-report-daily
+    runtime: python
+    # standard (2GB): score_props_week.py trains a model per market over the full priced-line
+    # history — same memory profile that OOM-killed fp-data-inseason on the 512Mi default.
+    plan: standard
+    schedule: "0 15 * 9-12,1-2 *"          # daily 11am ET, NFL season
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    # Each step guarded: a thin board or a stale upstream must not stop the later steps, and
+    # every one of these is idempotent for the week (they replace, not append).
+    startCommand: cd research/nfl-extreme-outcomes && { python3 espn_nfl_injuries.py || true; } && { python3 nfl_slate_props_build.py || true; } && { python3 score_props_week.py || true; } && python3 nfl_prop_narratives.py
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
   # --- NFL GAME-DAY injury re-score (owner 2026-09-15). Inactives post 90 min before
   # kickoff, so the 14/18/22 UTC refresh misses every Sunday 1pm inactive and every
   # primetime one. These re-run the SAME idempotent runner (ESPN injuries -> fetch ->

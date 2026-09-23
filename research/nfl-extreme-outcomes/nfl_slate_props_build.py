@@ -1,11 +1,16 @@
-"""Week 12 2025 DRY RUN — player props staging load.
+"""Player-props slate load — one row per (player, market) for the CURRENT slate week.
 
-One row per (player, market): consensus close line/price (median across the
-4 US books), point-in-time L5/L10 trends through Week 11, P-flags fired
-(PROPS_BRIEF1 P1-P10; the game-level P11 lives in nfl_slate_flags), and the
-headshot join via nfl_player_profiles. Loads nfl_slate_props.
+Consensus close line/price (median across the 4 US books), point-in-time L5/L10 trends through
+the prior week, P-flags fired (PROPS_BRIEF1 P1-P10; the game-level P11 lives in nfl_slate_flags),
+and the headshot join via nfl_player_profiles. Loads nfl_slate_props, which is what the Player
+Prop Report (nfl_prop_narratives.py) reads — so a thin load here is a thin report.
+
+Week: NFL_SEASON / NFL_WEEK if set (run_nfl_week.sh exports them for the whole chain), else the
+current slate resolved from nfl_slate_games. It originally DEFAULTED to 2025 wk12; see the note
+on that block for why a constant there is a trap.
 
 Usage:  python3 nfl_slate_props_build.py [--no-load]
+        NFL_SEASON=2025 NFL_WEEK=12 python3 nfl_slate_props_build.py    # rebuild a past week
 """
 import argparse
 import json
@@ -20,10 +25,36 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-# Target slate — override per week via env NFL_SEASON / NFL_WEEK; defaults to the
-# Wk12-2025 slate so an unparameterized run stays byte-for-byte the original.
-SEASON = int(os.environ.get("NFL_SEASON", 2025))
-WEEK = int(os.environ.get("NFL_WEEK", 12))
+# Target slate — env NFL_SEASON / NFL_WEEK wins (run_nfl_week.sh resolves the week once and
+# exports both, so the whole chain agrees). A bare run resolves the CURRENT slate the same way
+# score_props_week.py and nfl_prop_narratives.py do.
+#
+# This used to default to the 2025 wk12 slate "so an unparameterized run stays byte-for-byte the
+# original". That default is a trap: a bare run silently rebuilt a finished 2025 week out of
+# TODAY's odds and injuries — point-in-time nonsense written under a historical key, with no
+# error. It bit on 2026-09-23. Resolving beats a constant: being wrong loudly (no slate row)
+# beats being wrong quietly (the wrong slate).
+def _current_slate():
+    # Runs at import time, before load_key() is defined, so it reads the key itself.
+    key = ""
+    for line in (Path(__file__).resolve().parent.parent.parent / ".env.local").read_text().splitlines():
+        if line.startswith("SUPABASE_SERVICE_KEY="):
+            key = line.split("=", 1)[1].strip()
+    r = requests.get(f"{BASE_URL}/nfl_slate_games?select=season,week"
+                     f"&order=season.desc,week.desc&limit=1",
+                     headers={"apikey": key, "Authorization": f"Bearer {key}"}, timeout=30)
+    r.raise_for_status()
+    rows = r.json()
+    if not rows:
+        sys.exit("[slate-props] no nfl_slate_games rows — cannot resolve the current slate")
+    return int(rows[0]["season"]), int(rows[0]["week"])
+
+
+if os.environ.get("NFL_SEASON"):
+    SEASON = int(os.environ["NFL_SEASON"])
+    WEEK = int(os.environ["NFL_WEEK"])      # deliberately KeyError if only one is set
+else:
+    SEASON, WEEK = _current_slate()
 BATCH = 500
 STAT_OF = {
     "player_pass_yds": "passing_yards", "player_pass_tds": "passing_tds",
