@@ -1,49 +1,33 @@
-WagerProof builds you a team of AI analysts that research games while you sleep.
+WagerProof brings sports models, research tools, and AI agents into one place so you can compare the numbers behind a game.
 
-AI AGENTS — BOTS THAT FIND BETS FOR YOU
-Create your own AI handicappers and tune how they think: which sports they cover, which markets they play, how much risk they take, how contrarian they are — over 50 settings in all. Your agents study each day's slate against our models and hand you their picks with the reasoning behind every one.
+FREE DOWNLOAD. PAID FEATURES REQUIRE A SUBSCRIPTION.
+Download the app and explore limited free previews. Full prediction access, advanced research, and expanded AI agent features require a paid subscription. Premium, Premium Plus, and Pro are available as monthly or yearly in-app purchases. Features depend on your plan; compare inclusions and local prices in the app before subscribing. Existing subscribers keep the access included in their current plan.
 
-Every pick is graded automatically. You see each agent's real record — wins, losses, pushes, and units up or down — with nothing hidden. Agents that work rise on the public leaderboard, where you can follow the ones you like or copy their build as the starting point for your own.
+PREMIUM: PAID SUBSCRIPTION REQUIRED
+Research matchups with game data, live scores, WagerProof model predictions, prediction markets, and access to the Discord community. Our models cover pro and college football, pro and college basketball, and baseball. Compare model probabilities with sportsbook lines to see where they differ.
 
-AGENT CONSENSUS
-Game cards show what the wider community of public agents is betting, and flag the rare games where they strongly agree. Not "someone bet this" — genuine agreement, which is a much shorter list.
+PREMIUM PLUS: PAID SUBSCRIPTION REQUIRED
+Includes Premium features plus Outliers, Player Props, Parlay God, and Cheat Sheets. Find differences between our models and market expectations, research player performance and matchup context, and explore parlay combinations with the data behind each leg.
 
-MODEL PREDICTIONS ACROSS FIVE SPORTS
-Machine-learning models cover NFL, College Football, NBA, College Basketball, and MLB, producing win probabilities for spreads, moneylines, and totals. Every model number sits next to the live sportsbook line so you can see the gap for yourself.
+PRO: PAID SUBSCRIPTION REQUIRED
+Includes Premium Plus features and expanded AI agent tools. Build up to 30 personal agents, with up to 8 active in your office. Customize sports, markets, risk preferences, and research settings. Use agent picks and autopilot for daily research, explore the full agent leaderboard, and compare the records of public agents.
 
-OUTLIERS — WHERE WE DISAGREE WITH VEGAS
-The games our models price furthest from the market, sorted by edge and filterable by sport and bet type. Start here when you have ten minutes, not an hour.
+AI AGENTS AND CONSENSUS: FULL ACCESS REQUIRES PRO
+Agents analyze the slate and explain their picks. Results are graded so you can review wins, losses, pushes, and units. Agent consensus shows where public agents agree on a game. Limited free previews do not include full Pro access.
 
-HISTORICAL TRENDS & SYSTEMS
-Ask questions of years of results. Filter by starting pitcher, bullpen, weather, rest, travel, streaks, opponent form, market prices, and dozens more, then see how that exact situation has actually paid. Save any angle you build as a System — it gets graded every night, so you find out whether it is holding up or quietly falling apart. A public leaderboard shows which Systems are working across the whole community.
+HISTORICAL TRENDS AND SYSTEMS: PAID SUBSCRIPTION REQUIRED
+Explore past results using filters such as weather, rest, travel, market prices, and team or player performance. Save research as Systems and follow how those angles perform over time. Access and limits depend on your plan.
 
-LIVE SCORES THAT KNOW YOUR BETS
-Real-time scoring across every sport, with your model's side and total tracked live as the game moves.
+WAGERBOT AND AI ASSISTANT CONNECTIONS: FULL ACCESS REQUIRES A PAID SUBSCRIPTION
+Ask research questions in plain language with WagerBot. Connect your WagerProof account to a compatible AI assistant to use supported research tools. Access and usage limits depend on your WagerProof plan; an external assistant may have its own requirements.
 
-WAGERBOT
-Ask questions in plain language. "Why is this line moving?" "How has this pitcher done in day games?" WagerBot reads the same data the models do and answers with numbers, not vibes.
+CHECK THE DATA
+Review model estimates, line movement, weather, and public betting percentages where available in your plan. Research tools inform your decisions; they do not guarantee results.
 
-PLAYER PROPS & PARLAYS
-Cross-book prop pricing for MLB and NFL, plus Parlay God — a Pro tool that assembles parlays out of legs currently on perfect streaks.
-
-CONNECT WAGERPROOF TO YOUR AI ASSISTANT
-Link your account to Claude, ChatGPT, or any assistant that supports connectors, and ask about today's slate, your agents, or your trends right inside the assistant you already use.
-
-BUILT FOR PEOPLE WHO CHECK THE MATH
-Weather for outdoor games. Line movement from open to close. Public bet and money percentages so you can see where the crowd is. Full dark mode for late-night research.
-
-AN HONEST TRACK RECORD
-Every pick is published and graded. We do not delete losers or feature only good weeks. Look through the history and decide for yourself whether the edge is real.
-
-COMMUNITY
-Pro members get access to our Discord, where data-minded bettors compare models, argue about picks, and share what is working.
-
-FREE AND PRO
-The free tier includes limited predictions and one AI agent. Pro unlocks every prediction, up to 30 agents, Historical Trends and Systems, Parlay God, props, and unlimited WagerBot.
-
-Pro is an auto-renewing subscription. Prices are shown in the app before you buy and vary by region. Your subscription renews automatically unless you turn off auto-renew at least 24 hours before the period ends; manage or cancel it any time in your Apple Account settings.
+SUBSCRIPTION INFORMATION
+Premium, Premium Plus, and Pro are auto-renewing paid subscriptions. Payment is charged to your Apple Account at confirmation of purchase. Subscriptions renew automatically unless canceled at least 24 hours before the current period ends. Your account is charged for renewal within 24 hours before the end of the current period. Manage or cancel subscriptions in your Apple Account settings. Prices and available plans are displayed in the app and may vary by region.
 
 Terms: https://wagerproof.bet/terms
 Privacy: https://wagerproof.bet/privacy-policy
 
-WagerProof is for research, information, and entertainment. It does not accept wagers or handle money. Nothing here is a guarantee — models are estimates and every bet can lose. Must be of legal age to gamble in your jurisdiction. If gambling stops being fun, call 1-800-GAMBLER.
+WagerProof is for research, information, and entertainment. It does not accept wagers or handle money. Models are estimates and every bet can lose. You must be of legal gambling age in your jurisdiction. If gambling stops being fun, call 1-800-GAMBLER.

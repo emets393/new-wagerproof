@@ -1,3 +1,4 @@
+import AppTrackingTransparency
 import Foundation
 import RevenueCat
 import WagerproofModels
@@ -59,23 +60,7 @@ public final class RevenueCatService: @unchecked Sendable {
         Purchases.logLevel = .debug
         #endif
         configured = true
-        // Best-effort device identifier collection — matches RN's
-        // `collectDeviceIdentifiers()` fire-and-forget call.
-        Purchases.shared.attribution.collectDeviceIdentifiers()
-
-        // Apple Search Ads attribution token — unrelated to Meta, but this is
-        // the only place RC attribution is configured, and it costs nothing.
-        Purchases.shared.attribution.enableAdServicesAttributionTokenCollection()
-
-        // Hand Meta's anonymous install ID to RevenueCat as the `$fbAnonId`
-        // subscriber attribute. RevenueCat's server-side Meta integration sends
-        // purchase/trial conversions to the Conversions API, and WITHOUT this ID
-        // those server events cannot be joined back to the install — which is
-        // the only attribution path that survives an ATT denial. Closes the open
-        // acceptance criterion in docs/wagerproof-migration/tickets/055-meta-sdk-events.md.
-        if let fbAnonymousID = MetaAnalyticsService.shared.anonymousID(), !fbAnonymousID.isEmpty {
-            Purchases.shared.attribution.setFBAnonymousID(fbAnonymousID)
-        }
+        applyTrackingConsent()
     }
 
     /// Push every trustworthy signed-in identity field available to RevenueCat.
@@ -104,6 +89,7 @@ public final class RevenueCatService: @unchecked Sendable {
     }
 
     private func applySubscriberIdentity(_ identity: SubscriberIdentity) {
+        guard ATTrackingManager.trackingAuthorizationStatus == .authorized else { return }
         Purchases.shared.attribution.setEmail(Self.nonEmpty(identity.email))
         Purchases.shared.attribution.setDisplayName(Self.nonEmpty(identity.displayName))
         Purchases.shared.attribution.setPhoneNumber(Self.nonEmpty(identity.phoneNumber))
@@ -131,20 +117,33 @@ public final class RevenueCatService: @unchecked Sendable {
         Purchases.shared.attribution.collectDeviceIdentifiers()
     }
 
-    /// Refresh RevenueCat's attribution state immediately after the ATT prompt.
-    ///
-    /// `collectDeviceIdentifiers` captures the newly available IDFA only for an
-    /// authorized user. The explicit attribute sync runs for every final status
-    /// so `$attConsentStatus`, `$fbAnonId`, IDFV and IP are on RevenueCat before
-    /// the post-onboarding paywall can complete a purchase.
+    /// Purchase and entitlement management work regardless of ATT. Advertising
+    /// identifiers and matching attributes are attached only with authorization.
+    private func applyTrackingConsent() {
+        guard configured else { return }
+        if ATTrackingManager.trackingAuthorizationStatus == .authorized {
+            if let subscriberIdentity { applySubscriberIdentity(subscriberIdentity) }
+            Purchases.shared.attribution.collectDeviceIdentifiers()
+            if let anonymousID = MetaAnalyticsService.shared.anonymousID() {
+                Purchases.shared.attribution.setFBAnonymousID(anonymousID)
+            }
+        } else {
+            // Clear attributes saved by older builds or a previous authorization.
+            Purchases.shared.attribution.setEmail(nil)
+            Purchases.shared.attribution.setDisplayName(nil)
+            Purchases.shared.attribution.setPhoneNumber(nil)
+            Purchases.shared.attribution.setAttributes([
+                "$fbAnonId": "", "$idfa": "", "$idfv": "", "$ip": "",
+                "wagerproof_auth_provider": "", "wagerproof_username": "",
+                "wagerproof_account_created_at": ""
+            ])
+        }
+    }
+
     public func refreshAttributionAfterTrackingAuthorization(isAuthorized: Bool) async {
         guard configured else { return }
-        if isAuthorized {
-            Purchases.shared.attribution.collectDeviceIdentifiers()
-        }
-        if let fbAnonymousID = MetaAnalyticsService.shared.anonymousID(), !fbAnonymousID.isEmpty {
-            Purchases.shared.attribution.setFBAnonymousID(fbAnonymousID)
-        }
+        // Read the OS again rather than trusting a caller's cached choice.
+        applyTrackingConsent()
         do {
             _ = try await Purchases.shared.syncAttributesAndOfferingsIfNeeded()
         } catch {
@@ -178,9 +177,7 @@ public final class RevenueCatService: @unchecked Sendable {
         // AuthStore and RevenueCatStore observe the same Supabase event
         // independently. Re-applying here makes the destination deterministic
         // whether profile loading or RevenueCat logIn completes first.
-        if let subscriberIdentity {
-            applySubscriberIdentity(subscriberIdentity)
-        }
+        applyTrackingConsent()
         return (result.customerInfo, result.created)
     }
 

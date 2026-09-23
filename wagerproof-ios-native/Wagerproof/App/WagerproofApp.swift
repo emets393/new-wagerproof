@@ -65,10 +65,7 @@ struct WagerproofApp: App {
         // Configure Google Sign-In once at process launch — matches the RN
         // configureGoogleSignIn() call in contexts/AuthContext.tsx.
         GoogleSignInCoordinator.configureIfNeeded()
-        // Boot the Meta SDK here, at process launch, rather than lazily from a
-        // view — the SDK has to install its lifecycle observers in time to
-        // auto-log `fb_mobile_activate_app` for THIS cold launch (Meta's install
-        // signal) and to register for SKAdNetwork inside Apple's launch window.
+        // Meta remains disabled until the device has authorized tracking.
         MetaAnalyticsService.shared.initialize()
         // Mixpanel. This call was missing entirely, and every AnalyticsService
         // method early-returns until it lands — so the whole paywall funnel was
