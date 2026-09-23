@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Load Fantasy Points Data cells -> Supabase `fp_data` (CFB warehouse), LEAN.
+"""Load Fantasy Points Data cells -> Supabase `fp_data` (CFB warehouse).
 
-One row per player-game / team-game per tool+scope, identity columns typed and every
-non-null stat field in a `stats` jsonb. Upsert on (tool, scope, season, week, entity_id).
+Each cell (one tool/scope/season/week JSON pulled by fp_pull.py) becomes one row per entity with
+every non-null stat field in a `stats` jsonb. Upsert on (tool, scope, season, week, entity_id), so
+re-running any season is safe and an interrupted run is simply repeated.
 
-Why lean: the full 2021+ warehouse is ~1M player-game rows x ~80 fields; a bulk jsonb load
-of that size is what tripped the Supabase disk into read-only during the MLB props backfill
-(memory: mlb-props-odds-backfill). So by default this loads the CURRENT and PRIOR season
-only — what the props builder, agents and MCP need in-season — and the parquet files under
-data/fpdata/ remain the research copy of everything back to 2021.
+Seasons: defaults to CURRENT + PRIOR, which is what the in-season weekly cron needs. The full
+2021-present history IS loaded (1.6M rows, done 2026-09-22 via fp_backfill.py) and the MCP
+connector exposes it to users, so do not "tidy up" old seasons out of this table — use
+fp_backfill.py, which carries the disk guards, if a season ever needs reloading.
 
-Usage:
+After adding rows for a NEW tool or a new stat field, refresh the key catalog users discover
+columns through:  select public.refresh_fp_data_keys('<tool>')   (see scripts/sql/fp_data_keys.sql)
+
   python3 fp_load.py                       # seasons {now-1, now}, all tool/scopes on disk
   python3 fp_load.py --seasons 2025-2026 --weeks 1-3 --tools receivingAdvanced
 Reads the raw cells (data/fpdata/raw/<tool>/<scope>/<season>_w<week>.json) written by fp_pull.py.
