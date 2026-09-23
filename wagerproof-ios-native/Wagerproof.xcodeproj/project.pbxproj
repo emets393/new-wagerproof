@@ -61,6 +61,7 @@
 		1E6F5FF4A58E456FCD53D23C /* WagerBotToolCallsPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38504381E39FC377AB620BB3 /* WagerBotToolCallsPill.swift */; };
 		1EB92662874447A7EC55941C /* AgentPickFocusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8948FFFCAD2B1ADF832497 /* AgentPickFocusView.swift */; };
 		1EE29F4289FF92E6F35BAE11 /* AgentStatsSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A8C381049AC390555C452BF /* AgentStatsSkeleton.swift */; };
+		2009B7918D8F3462E68ABA38 /* TrackingPermissionGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 155D46C7C9EF1B77470DB3B0 /* TrackingPermissionGate.swift */; };
 		2020AB3A82825E3B62555A4E /* Slide5_Outliers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3960582DF54F31B4A8858F /* Slide5_Outliers.swift */; };
 		2055E45C05D9AC9E57C4DBF3 /* WagerproofModels in Frameworks */ = {isa = PBXBuildFile; productRef = 1D8FEFF60C12D636791819D7 /* WagerproofModels */; };
 		21F5C70639E731FE8C6CC0D9 /* AuthGateBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EEB505B9813E9C772B1F38 /* AuthGateBackground.swift */; };
@@ -218,6 +219,7 @@
 		7695CD8652B0C874FAD56A10 /* OnboardingGenerationCinematic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27963929FA5CE1B1BAF35AAC /* OnboardingGenerationCinematic.swift */; };
 		779BE9A3EDDA8DB42BDD3E10 /* AgentsView+TopPicks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47523D1871C163DD459E2BE0 /* AgentsView+TopPicks.swift */; };
 		7821D4F5EF6B24CB67C48A52 /* achievement_FullLineup_locked.png in Resources */ = {isa = PBXBuildFile; fileRef = 99603FAC765DF24FF5CB46AF /* achievement_FullLineup_locked.png */; };
+		791D516E64E985F920FC8126 /* WagerproofServices in Frameworks */ = {isa = PBXBuildFile; productRef = BC980552752753DB14C5B575 /* WagerproofServices */; };
 		794D88F929849F78D3AFE1DC /* NFLHeadToHeadBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08E04198D59B0A83CC2B9A18 /* NFLHeadToHeadBlock.swift */; };
 		79A494F230B8DC67CC990530 /* achievement_Streak10_locked.png in Resources */ = {isa = PBXBuildFile; fileRef = 045601FF88D14DC7BAEB6EAF /* achievement_Streak10_locked.png */; };
 		79FEBCA50D9B67265F769886 /* AgentCreationGenerationIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED40AF29E0D31B5667368FE4 /* AgentCreationGenerationIntroView.swift */; };
@@ -265,6 +267,7 @@
 		9614E431495F590D2539411B /* PropsFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF853BEA3D4656EE099A4256 /* PropsFixtures.swift */; };
 		9806AA22EBBC8DA48059FA18 /* streaks.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 3D98BECB1184BD2A084B45C5 /* streaks.usdz */; };
 		98DF2DE0F55C944B112896BB /* MLBGameCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D92868D0D10EE0E907E4718 /* MLBGameCard.swift */; };
+		990EEC6BCFF320CDFC48B7BC /* TrackingAuthorizationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175457189AD411CAC3D82595 /* TrackingAuthorizationServiceTests.swift */; };
 		9A0020BF277BC33A55E4C8F6 /* RegressionNarrativeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74EADF75E8C737A2D13E8C4D /* RegressionNarrativeCard.swift */; };
 		9A05EE7D55F104FC301C7F9D /* PropContextTiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF8A9E138D46CFCA5D55D86F /* PropContextTiles.swift */; };
 		9C36A1A402D7E9BF2FEB8CE7 /* F5SplitsDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD18077ADB18415E8086934 /* F5SplitsDetailSheet.swift */; };
@@ -512,7 +515,9 @@
 		147C444766B7F44C99164120 /* AgentGenerationControlSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentGenerationControlSheets.swift; sourceTree = "<group>"; };
 		14D1D7448A832E6DAB681CD4 /* achievement_Streak15.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = achievement_Streak15.png; sourceTree = "<group>"; };
 		1512633D08178DD1F1B71B1A /* SecretSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretSettingsView.swift; sourceTree = "<group>"; };
+		155D46C7C9EF1B77470DB3B0 /* TrackingPermissionGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingPermissionGate.swift; sourceTree = "<group>"; };
 		16014D3C01AB8780B2ACD315 /* achievement_Streak3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = achievement_Streak3.png; sourceTree = "<group>"; };
+		175457189AD411CAC3D82595 /* TrackingAuthorizationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingAuthorizationServiceTests.swift; sourceTree = "<group>"; };
 		17563DDBD3F2A660DA716687 /* AgentStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStatsView.swift; sourceTree = "<group>"; };
 		18C0659AA10A25366B515DEB /* ScreenshotHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHarness.swift; sourceTree = "<group>"; };
 		18DA21A8961AFF7CE4787D67 /* MLBMatchupPropsWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBMatchupPropsWidget.swift; sourceTree = "<group>"; };
@@ -606,6 +611,7 @@
 		4C26507F4DDEDD2676E77C26 /* EmailLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailLoginView.swift; sourceTree = "<group>"; };
 		4C5908BFB314E644BBF720F8 /* achievement_Top100_locked.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = achievement_Top100_locked.png; sourceTree = "<group>"; };
 		4E459C36D45EAECD05B3952E /* OnboardingGenesisModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGenesisModel.swift; sourceTree = "<group>"; };
+		4FD0EDD8C422D603E3A10707 /* WagerproofTrackingTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WagerproofTrackingTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4FD2E8A2BF7D049B629B7713 /* OnboardingSlide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSlide.swift; sourceTree = "<group>"; };
 		5022171A4B0061D23B716C9A /* NFLGameBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFLGameBottomSheet.swift; sourceTree = "<group>"; };
 		505CEB1D6CB01BE71DFF7754 /* NBAInjuryReportWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NBAInjuryReportWidget.swift; sourceTree = "<group>"; };
@@ -929,6 +935,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1C5F6B7F2B671ADEFF6D210F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				791D516E64E985F920FC8126 /* WagerproofServices in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C40CF4CBDC1D95EBD3AED4FB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -983,6 +997,7 @@
 			isa = PBXGroup;
 			children = (
 				64901047AA97D02CF1EA14F8 /* Sources */,
+				8D8C8638F522BFE75A7BCF58 /* Tests */,
 			);
 			path = WagerproofKit;
 			sourceTree = "<group>";
@@ -1551,6 +1566,14 @@
 			name = Packages;
 			sourceTree = "<group>";
 		};
+		8D8C8638F522BFE75A7BCF58 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				ADE2EF9BC06074450CDFFAF1 /* WagerproofStoresTests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
 		9148D9F91A0CB029441FEB6A /* Features */ = {
 			isa = PBXGroup;
 			children = (
@@ -1672,8 +1695,17 @@
 				8F27A17CD93471D3E97DA149 /* PostOnboardingPaywall.swift */,
 				FB18C1D3CF81A83D245308A0 /* README.md */,
 				58DAAE7A74466213A604F7BE /* ResearchTime.swift */,
+				155D46C7C9EF1B77470DB3B0 /* TrackingPermissionGate.swift */,
 			);
 			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		ADE2EF9BC06074450CDFFAF1 /* WagerproofStoresTests */ = {
+			isa = PBXGroup;
+			children = (
+				175457189AD411CAC3D82595 /* TrackingAuthorizationServiceTests.swift */,
+			);
+			path = WagerproofStoresTests;
 			sourceTree = "<group>";
 		};
 		AE9F434833827E5EB1A64B8E /* Sheets */ = {
@@ -1961,6 +1993,7 @@
 			isa = PBXGroup;
 			children = (
 				8B31C2101C4EA566359DD1F6 /* Wagerproof.app */,
+				4FD0EDD8C422D603E3A10707 /* WagerproofTrackingTests.xctest */,
 				5B6A2A34F316323522912F66 /* WagerProofWidgetExtension.appex */,
 			);
 			name = Products;
@@ -2075,6 +2108,25 @@
 			productReference = 8B31C2101C4EA566359DD1F6 /* Wagerproof.app */;
 			productType = "com.apple.product-type.application";
 		};
+		562A18925F4BFBC7AB96C47E /* WagerproofTrackingTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0DE68508D6C86BBEB9188327 /* Build configuration list for PBXNativeTarget "WagerproofTrackingTests" */;
+			buildPhases = (
+				AE0375C72A7BC8C4FDF59F0D /* Sources */,
+				1C5F6B7F2B671ADEFF6D210F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WagerproofTrackingTests;
+			packageProductDependencies = (
+				BC980552752753DB14C5B575 /* WagerproofServices */,
+			);
+			productName = WagerproofTrackingTests;
+			productReference = 4FD0EDD8C422D603E3A10707 /* WagerproofTrackingTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -2091,6 +2143,9 @@
 					353784436AA615A352AB9123 = {
 						DevelopmentTeam = 88DXY6L653;
 						ProvisioningStyle = Automatic;
+					};
+					562A18925F4BFBC7AB96C47E = {
+						DevelopmentTeam = 88DXY6L653;
 					};
 				};
 			};
@@ -2117,6 +2172,7 @@
 			targets = (
 				1F22B97DB644EB5347FF7834 /* WagerProofWidgetExtension */,
 				353784436AA615A352AB9123 /* Wagerproof */,
+				562A18925F4BFBC7AB96C47E /* WagerproofTrackingTests */,
 			);
 		};
 /* End PBXProject section */
@@ -2599,6 +2655,7 @@
 				D1D58091D3C53D9A6CABD4A2 /* ToolExplainerBanner.swift in Sources */,
 				5CA763AA743252BAE55058FB /* ToolRouter.swift in Sources */,
 				89FF154E4DFAC4B37DFFA15E /* TopAgentPicksFeed.swift in Sources */,
+				2009B7918D8F3462E68ABA38 /* TrackingPermissionGate.swift in Sources */,
 				DE50423B009228327A3BB2B6 /* TrendsHeroGauge.swift in Sources */,
 				39A7F48ACD1F4D03BF155CDD /* TrendsMatrixView.swift in Sources */,
 				E08BA119C68205602F7C36D8 /* WagerBotActionPreview.swift in Sources */,
@@ -2624,6 +2681,14 @@
 				00D83ED8223DC67A88990428 /* WeatherPrecipitationPreviewView.swift in Sources */,
 				0ED59796036B10CDC430EBFB /* WeekLongParlaysSection.swift in Sources */,
 				FE1D589032EF6EF790765B2C /* WidgetSyncCoordinator.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AE0375C72A7BC8C4FDF59F0D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				990EEC6BCFF320CDFC48B7BC /* TrackingAuthorizationServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2722,6 +2787,38 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		922ED868139B029AD1C33BA1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.wagerproof.tracking-tests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A7D5E7E16375206DE96B5C94 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.wagerproof.tracking-tests";
+				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -2856,6 +2953,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0DE68508D6C86BBEB9188327 /* Build configuration list for PBXNativeTarget "WagerproofTrackingTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				922ED868139B029AD1C33BA1 /* Debug */,
+				A7D5E7E16375206DE96B5C94 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		6F0BB27A8DDE245E0BD409EA /* Build configuration list for PBXNativeTarget "WagerProofWidgetExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2981,6 +3087,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 72595964B99E2453BDC960C9 /* XCRemoteSwiftPackageReference "mixpanel-swift" */;
 			productName = Mixpanel;
+		};
+		BC980552752753DB14C5B575 /* WagerproofServices */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WagerproofServices;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

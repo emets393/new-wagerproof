@@ -134,7 +134,7 @@ struct ScreenshotHarnessView: View {
     @ViewBuilder
     private var primaryClusters: some View {
         switch ScreenshotHarness.target {
-        case .mainTabs, .login, .emailLogin, .signup, .forgotPassword:
+        case .mainTabs, .returningTracking, .login, .emailLogin, .signup, .forgotPassword:
             authAndShellTargets
         case .scoreboardEmpty, .scoreboardLoaded, .scoreboardError:
             scoreboardTargets
@@ -270,6 +270,15 @@ struct ScreenshotHarnessView: View {
     @ViewBuilder
     private var authAndShellTargets: some View {
         switch ScreenshotHarness.target {
+        case .returningTracking:
+            RootView()
+                .onAppear {
+                    authStore.debugSet(
+                        phase: .authenticated(userId: SettingsFixtures.sampleUserId),
+                        profile: nil
+                    )
+                    router.resolve(authPhase: authStore.phase, onboardingComplete: true)
+                }
         case .mainTabs:
             MainTabView(
                 initialTab: ScreenshotHarness.initialTab,
@@ -1303,6 +1312,7 @@ enum InsightWidgetFixtures {
 enum ScreenshotHarness {
     enum Target: String {
         case mainTabs
+        case returningTracking
         case login
         case emailLogin
         case signup

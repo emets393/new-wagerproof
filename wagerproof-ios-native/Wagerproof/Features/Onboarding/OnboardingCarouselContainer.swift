@@ -2,6 +2,7 @@ import SwiftUI
 import WagerproofDesign
 import WagerproofModels
 import WagerproofStores
+import WagerproofServices
 
 /// Hosts carousel steps 1...18 in ONE `OnboardingPageShell` wrapping a
 /// custom directional-slide pager. The chrome (progress bar, Liquid Glass
@@ -54,8 +55,8 @@ struct OnboardingCarouselContainer: View {
             progress: store.currentStep.progress,
             continueTitle: spec.ctaTitle,
             isCTAEnabled: spec.isCTAEnabled(store) && !store.isTransitioning,
-            isCTALoading: store.isTransitioning,
-            canGoBack: store.currentStep > .terms,
+            isCTALoading: store.isTransitioning || TrackingAuthorizationService.shared.isRequesting,
+            canGoBack: store.currentStep > .terms && !TrackingAuthorizationService.shared.isRequesting,
             // Custom chrome, NOT the NavigationStack variant: the nav
             // stack's hosting layer paints an opaque system background that
             // hides the root pixelwave. The custom band is transparent and

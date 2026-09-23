@@ -7,9 +7,7 @@ import WagerproofServices
 /// can record consent; arriving on this page never opens it automatically.
 struct OnboardingATTPage: View {
     @Environment(\.onboardingPageIsActive) private var isActive
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var isRequestingATT = false
-    @State private var didRequestATT = false
+    @State private var tracking = TrackingAuthorizationService.shared
 
     private var usageDescription: String {
         Bundle.main.object(forInfoDictionaryKey: "NSUserTrackingUsageDescription") as? String ?? ""
@@ -28,19 +26,19 @@ struct OnboardingATTPage: View {
                 .pageEntrance(index: 1)
 
             Button {
-                Task { await requestATTIfNeeded() }
+                Task { if isActive { await tracking.request() } }
             } label: {
                 permissionPreview
             }
             .buttonStyle(.plain)
-            .disabled(isRequestingATT || didRequestATT)
+            .disabled(tracking.isRequesting || tracking.status != .notDetermined)
             .accessibilityLabel("Tracking permission preview")
             .accessibilityHint("Opens the iOS permission request, where you can allow or decline tracking.")
             .padding(.horizontal, 24)
             .padding(.top, 40)
             .pageEntrance(index: 2)
 
-            Text("Tap the preview to open the iOS permission request.")
+            Text("Tap the preview or Continue to open the iOS permission request.")
                 .font(.system(size: 14))
                 .foregroundStyle(Color.white.opacity(0.5))
                 .multilineTextAlignment(.center)
@@ -139,22 +137,4 @@ struct OnboardingATTPage: View {
         .accessibilityHidden(true)
     }
 
-    @MainActor
-    private func requestATTIfNeeded() async {
-        guard isActive, scenePhase == .active, !isRequestingATT, !didRequestATT else { return }
-        isRequestingATT = true
-        defer { isRequestingATT = false }
-        let initialStatus = ATTrackingManager.trackingAuthorizationStatus
-        let finalStatus: ATTrackingManager.AuthorizationStatus
-        if initialStatus == .notDetermined {
-            finalStatus = await ATTrackingManager.requestTrackingAuthorization()
-        } else {
-            finalStatus = initialStatus
-        }
-        guard finalStatus != .notDetermined else { return }
-        didRequestATT = true
-        await RevenueCatService.shared.refreshAttributionAfterTrackingAuthorization(
-            isAuthorized: finalStatus == .authorized
-        )
-    }
 }

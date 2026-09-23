@@ -239,14 +239,18 @@ public final class AuthStore {
         }
     }
 
-    /// Bind the signed-in user to every analytics/attribution SDK.
-    ///
-    /// Meta Advanced Matching is the single biggest match-rate lever on iOS:
-    /// when a user declines ATT there is no IDFA, so device-graph matching
-    /// fails and hashed email/name is the only way Meta can still attribute the
-    /// conversion. Called after `loadProfile` so the profile's display name is
-    /// available — `setAdvancedMatching` REPLACES the whole hashed set rather
-    /// than merging, so this must be the one and only call site.
+    /// Refresh advertising identity after an explicit grant. SDK wrappers still
+    /// enforce the OS authorization status at every call.
+    public func refreshAdvertisingIdentity() async {
+        guard case .authenticated(let userID) = phase else { return }
+        let client = await MainSupabase.shared.client
+        guard let user = try? await client.auth.session.user,
+              user.id == userID else { return }
+        lastIdentifiedUserId = nil
+        identifyForAnalytics(user: user)
+    }
+
+    /// Bind the signed-in identity; advertising wrappers require ATT consent.
     private func identifyForAnalytics(user: User) {
         // Lowercased to match RevenueCat / web / Android, which all key on the
         // lowercase Supabase uuid.

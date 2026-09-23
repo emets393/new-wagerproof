@@ -25,6 +25,7 @@ struct RootView: View {
     @Environment(RevenueCatStore.self) private var revenueCat
     @Environment(\.requestReview) private var requestReview
     @Environment(\.scenePhase) private var scenePhase
+    @State private var tracking = TrackingAuthorizationService.shared
     @State private var reviewPromptCoordinator = ReviewPromptCoordinator.shared
 
     /// Set to `true` when the user purchases / restores / explicitly
@@ -34,7 +35,7 @@ struct RootView: View {
     @State private var paywallDismissed: Bool = false
 
     private var shouldPresentPaywall: Bool {
-        guard router.phase == .ready else { return false }
+        guard router.phase == .ready, tracking.status != .notDetermined, !tracking.isRequesting else { return false }
         // Hold the predicate at false until BOTH paths that grant Pro
         // access have resolved: RevenueCat's `attachUser` (live customer
         // info) AND `AdminModeStore.roleResolved` (admin row lookup).
@@ -82,24 +83,33 @@ struct RootView: View {
             case .onboarding:
                 OnboardingView()
             case .ready:
-                MainTabView()
-                    .fullScreenCover(isPresented: paywallBinding) {
-                        PostOnboardingPaywall(onUserDismissed: {
-                            paywallDismissed = true
-                            router.clearTestPaywallOverride()
-                        })
-                            // Re-inject the environment — `fullScreenCover` in
-                            // SwiftUI doesn't always propagate `@Observable`
-                            // values through the new presentation host, so the
-                            // paywall needs the same stores as the parent.
-                            .environment(auth)
-                            .environment(onboarding)
-                            .environment(revenueCat)
-                            .environment(proAccess)
-                    }
+                if tracking.status == .notDetermined || tracking.isRequesting {
+                    TrackingPermissionGate()
+                } else {
+                    MainTabView()
+                        .fullScreenCover(isPresented: paywallBinding) {
+                            PostOnboardingPaywall(onUserDismissed: {
+                                paywallDismissed = true
+                                router.clearTestPaywallOverride()
+                            })
+                                // Re-inject the environment — `fullScreenCover` in
+                                // SwiftUI doesn't always propagate `@Observable`
+                                // values through the new presentation host, so the
+                                // paywall needs the same stores as the parent.
+                                .environment(auth)
+                                .environment(onboarding)
+                                .environment(revenueCat)
+                                .environment(proAccess)
+                        }
+                }
             }
         }
         .animation(.appStandard, value: router.phase)
+        .onChange(of: tracking.status) { _, status in
+            if status == .authorized {
+                Task { await auth.refreshAdvertisingIdentity() }
+            }
+        }
         .onChange(of: router.testPaywallOverride) { _, isActive in
             // A tester re-running "Reset Onboarding" within the same session
             // may have already dismissed a paywall earlier — clear that flag
@@ -123,11 +133,13 @@ struct RootView: View {
             if case .unauthenticated = newPhase { paywallDismissed = false }
         }
         .task {
+            await tracking.refresh()
             reviewPromptCoordinator.recordAppActive()
             PicksExpiryService.shared.reconcile(isPro: proAccess.hasSubscription)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                Task { await tracking.refresh() }
                 reviewPromptCoordinator.recordAppActive()
                 // Pull a picks-hold Live Activity the user can no longer act on
                 // — they subscribed elsewhere, or the hold lapsed while the app
@@ -145,6 +157,8 @@ struct RootView: View {
             guard !Task.isCancelled,
                   scenePhase == .active,
                   router.phase == .ready,
+                  tracking.status != .notDetermined,
+                  !tracking.isRequesting,
                   !shouldPresentPaywall
             else {
                 reviewPromptCoordinator.cancel(request)

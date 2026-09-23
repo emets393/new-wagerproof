@@ -131,6 +131,19 @@ targets:
           fi
         basedOnDependencyAnalysis: false
 
+  WagerproofTrackingTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: WagerproofKit/Tests/WagerproofStoresTests/TrackingAuthorizationServiceTests.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.wagerproof.tracking-tests
+    dependencies:
+      - package: WagerproofKit
+        product: WagerproofServices
+
   WagerProofWidgetExtension:
     type: app-extension
     platform: iOS
@@ -185,6 +198,8 @@ schemes:
       config: Debug
     test:
       config: Debug
+      targets:
+        - WagerproofTrackingTests
     profile:
       config: Release
     analyze:
