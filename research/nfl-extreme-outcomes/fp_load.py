@@ -107,14 +107,23 @@ def main():
             seen[x["entity_id"]] = x
         rows = list(seen.values())
         for i in range(0, len(rows), 500):
-            for attempt in range(4):
-                r = requests.post(f"{SUPA}?on_conflict=tool,scope,season,week,entity_id", headers=H,
-                                  json=rows[i:i + 500], timeout=120)
-                if r.status_code in (200, 201):
-                    break
+            why = "?"
+            for attempt in range(5):
+                # Retry on RAISED errors too, not just bad status codes. A single SSL handshake
+                # timeout used to propagate out of requests.post and kill an entire season load
+                # 400 batches in (2026-09-22, the 2021/2023 backfill runs) — the status-code-only
+                # loop never saw it. Upserts are idempotent, so retrying a batch is always safe.
+                try:
+                    r = requests.post(f"{SUPA}?on_conflict=tool,scope,season,week,entity_id",
+                                      headers=H, json=rows[i:i + 500], timeout=120)
+                    if r.status_code in (200, 201):
+                        break
+                    why = f"{r.status_code} {r.text[:150]}"
+                except requests.RequestException as e:
+                    why = f"{type(e).__name__}: {str(e)[:150]}"
                 time.sleep(3 * (attempt + 1))
             else:
-                sys.exit(f"[fp-load] upsert failed {tool}/{scope} {season} w{wk}: {r.status_code} {r.text[:200]}")
+                sys.exit(f"[fp-load] upsert failed {tool}/{scope} {season} w{wk}: {why}")
         n_rows += len(rows); n_cells += 1
     print(f"[fp-load] {n_cells} cells, {n_rows} rows -> fp_data (seasons {sorted(seasons)}) in {time.time() - t0:.0f}s")
 
