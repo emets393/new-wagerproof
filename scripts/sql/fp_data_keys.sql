@@ -1,7 +1,7 @@
 -- Key catalog for public.fp_data (CFB warehouse, project jpxnjuwglavsjbgbasnl).
 --
 -- fp_data holds the Fantasy Points Data Suite, 2021-present, ~1.6M rows across 28 tools, and the
--- per-tool stats live in a `stats` jsonb. There are 1,136 distinct keys and the names are long and
+-- per-tool stats live in a `stats` jsonb. There are ~2,400 catalogued keys and the names are long and
 -- unguessable (playerStatsFantasyPointsHalfPpr, marketShareReceivingYardsTotal). A user — or an AI
 -- writing SQL through the MCP connector — that guesses a key gets zero rows back with no error,
 -- which reads as "no data" rather than "wrong key". This table is the fix: query it first.
@@ -33,7 +33,7 @@ create table if not exists public.fp_data_keys (
 
 grant select on public.fp_data_keys to mcp_explorer;
 
--- Rebuild. Loops one (tool, scope) at a time on purpose: expanding jsonb_each across all ~1.6M
+-- Rebuild. Loops one (tool, scope) at a time on purpose: expanding jsonb across all ~1.6M
 -- fp_data rows in one statement takes long enough to hit a gateway timeout (it did, on
 -- receivingSeparationByCoverage), and a per-slice loop also lets a single tool be refreshed
 -- cheaply after a weekly load. Pass p_tool to do just one.
@@ -46,15 +46,36 @@ begin
            where p_tool is null or tool = p_tool
   loop
     delete from public.fp_data_keys k where k.tool = r.tool and k.scope = r.scope;
+
+    -- Top-level keys.
     insert into public.fp_data_keys
       (tool, scope, stat_key, n_rows, first_season, last_season, value_kind, sample_value, refreshed_at)
     select r.tool, r.scope, kv.key, count(*), min(f.season), max(f.season),
            mode() within group (order by jsonb_typeof(kv.value)),
-           (array_agg(kv.value::text order by f.season desc))[1],
-           now()
+           (array_agg(kv.value::text order by f.season desc))[1], now()
     from public.fp_data f, lateral jsonb_each(f.stats) kv
     where f.tool = r.tool and f.scope = r.scope
     group by kv.key;
+
+    -- The "by X" tools (separation by coverage/alignment/breaks, man-vs-zone, snap share, PROE…)
+    -- keep their real measurements TWO levels down, under stats->'bucket'->'<bucketName>'. The
+    -- top-level pass sees only a single `bucket` object, which hid 8 buckets x 26 fields on
+    -- receivingSeparationByCoverage alone — i.e. exactly the charting splits people want. Those
+    -- are catalogued here, keyed by their query path.
+    insert into public.fp_data_keys
+      (tool, scope, stat_key, n_rows, first_season, last_season, value_kind, sample_value, refreshed_at)
+    select r.tool, r.scope, 'bucket.' || b.key || '.' || f2.key, count(*),
+           min(f.season), max(f.season),
+           mode() within group (order by jsonb_typeof(f2.value)),
+           (array_agg(f2.value::text order by f.season desc))[1], now()
+    from public.fp_data f,
+         lateral jsonb_each(f.stats->'bucket') b,
+         lateral jsonb_each(b.value) f2
+    where f.tool = r.tool and f.scope = r.scope
+      and jsonb_typeof(f.stats->'bucket') = 'object'
+    group by b.key, f2.key
+    on conflict (tool, scope, stat_key) do nothing;
+
     total := total + 1;
   end loop;
   return total;
@@ -63,11 +84,13 @@ end $fn$;
 grant execute on function public.refresh_fp_data_keys(text) to service_role;
 
 comment on table public.fp_data_keys is
-'Key catalog for public.fp_data. One row per (tool, scope, stat_key) naming every stat inside that
- tool''s `stats` jsonb, with how many fp_data rows carry it, the seasons it spans, its JSON type and
- an example value. START HERE before querying fp_data: the jsonb keys are long and unguessable, and
- picking a key that does not exist for a tool silently returns zero rows. Add "where is_measure"
- to skip the *Label / *GamesPlayed bookkeeping keys. Rebuilt by public.refresh_fp_data_keys().';
+'Key catalog for public.fp_data. One row per (tool, scope, stat_key). A stat_key of the form
+ bucket.<bucketName>.<field> lives TWO levels down and is queried as
+ stats->''bucket''->''<bucketName>''->>''<field>'' — that is where the "by coverage / by alignment /
+ man vs zone" splits actually are. Plain keys are stats->>''<key>''. START HERE before querying
+ fp_data: the names are long and unguessable and a key that does not exist silently returns zero
+ rows. Add "where is_measure" to skip the *Label / *GamesPlayed bookkeeping keys.
+ Rebuilt by public.refresh_fp_data_keys().';
 
 comment on table public.fp_data is
 'Fantasy Points Data Suite (data.fantasypoints.com): one row per player-game or team-game per
@@ -84,3 +107,11 @@ comment on table public.fp_data is
 --   select season, round(avg((stats->>'playerStatsReceivingRoutesTotal')::numeric), 1)
 --     from fp_data where tool = 'receivingManVsZone' and scope = 'player'
 --       and stats ? 'playerStatsReceivingRoutesTotal' group by 1 order by 1;
+-- And a NESTED one — note the two-level path, and that rate fields are 0-1 fractions:
+--   select entity_name, round(avg((stats->'bucket'->'bucketReceivingSeparationMan'
+--            ->>'playerStatsReceivingSeparationWinsPercentage')::numeric), 3) win_rate_vs_man
+--     from fp_data where tool = 'receivingSeparationByCoverage' and scope = 'player'
+--       and season = 2025
+--       and stats->'bucket'->'bucketReceivingSeparationMan'
+--             ? 'playerStatsReceivingSeparationWinsPercentage'
+--     group by 1 having count(*) >= 10 order by 2 desc;
