@@ -154,10 +154,19 @@ services:
   # post anytime-TD early and the yardage markets late, so on the Tuesday run week 3 had 19
   # reception-yard lines against 193 in a finished week, and only 2 of the report's 10 slots
   # filled. This runs the same chain once a day so the report tracks the board as lines post AND
-  # picks up that morning's injury news: ESPN injuries -> slate props -> model scores -> report.
-  # 15:00 UTC (11am ET) is deliberately AFTER nfl-slate-refresh's 14:00 run.
+  # picks up that morning's injury news and newly posted lines.
+  #
+  # It runs ONLY the two steps nothing else covers — model scores, then the report. The first
+  # version also ran espn_nfl_injuries.py and nfl_slate_props_build.py and died on its first real
+  # run (2026-09-25): nfl-slate-refresh's run_nfl_week.sh ALREADY does both three times a day, and
+  # calling nfl_slate_props_build.py standalone pulls in nfl_slate_games_build, which wants a
+  # git-ignored team_mapping.parquet that only the earlier pipeline steps produce and which
+  # re-syncs a 643k-row odds history into pandas — OOM over 2Gi. Injuries reach the report through
+  # nfl_slate_props, which the 14:00 refresh has already rebuilt by the time this runs.
+  #
+  # 15:00 UTC (11am ET) is deliberately AFTER nfl-slate-refresh's 14:00 run, which takes ~11 min.
   # No NFL_SEASON/NFL_WEEK here on purpose: unlike run_nfl_week.sh this does not resolve and
-  # export a week, so every script in the chain resolves the current slate itself.
+  # export a week, so both scripts resolve the current slate from nfl_slate_games themselves.
   - type: cron
     name: nfl-prop-report-daily
     runtime: python
@@ -171,7 +180,7 @@ services:
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
     # Each step guarded: a thin board or a stale upstream must not stop the later steps, and
     # every one of these is idempotent for the week (they replace, not append).
-    startCommand: cd research/nfl-extreme-outcomes && { python3 espn_nfl_injuries.py || true; } && { python3 nfl_slate_props_build.py || true; } && { python3 score_props_week.py || true; } && python3 nfl_prop_narratives.py
+    startCommand: cd research/nfl-extreme-outcomes && { python3 score_props_week.py || true; } && python3 nfl_prop_narratives.py
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION
