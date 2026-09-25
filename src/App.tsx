@@ -289,6 +289,7 @@ function AppRoutes() {
     '/onboarding', // Add onboarding to public routes to avoid nested layouts
     '/paywall-test', // Add paywall test to public routes
     '/plans/tiers',
+    '/access-denied', // Legacy upgrade links redirect before the onboarding guard.
     '/free-picks', // Free picks landing page - public access
     '/ai-agents', // New separate landing page for the AI Agent feature
     '/mcp', // Public WagerProof MCP connector tutorial
@@ -312,7 +313,7 @@ function AppRoutes() {
             element={
               import.meta.env.DEV ? (
                 // Local QA must be able to reach the authenticated-only paywall
-                // without already owning Pro. CustomPaywall itself still refuses
+                // without already owning Pro. TieredPlansPage still refuses
                 // to render plans until a real Supabase user is present.
                 <PaywallTest />
               ) : (
@@ -321,6 +322,7 @@ function AppRoutes() {
             }
           />
           <Route path="/plans/tiers" element={<TieredPlansPage />} />
+          <Route path="/access-denied" element={<AccessDenied />} />
           <Route path="/free-picks" element={<FreePicks />} />
           <Route path="/ai-agents" element={<AgentLanding />} />
           <Route path="/mcp" element={<McpTutorial />} />
@@ -338,7 +340,6 @@ function AppRoutes() {
       <AuthenticatedLayout>
         <Routes>
           <Route path="/account" element={<Account />} />
-          <Route path="/access-denied" element={<AccessDenied />} />
           <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
           <Route path="/games" element={<ProtectedRoute allowFreemium={true}><GamesPage /></ProtectedRoute>} />
           <Route path="/todays-trends" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><TrendsTodayPage /></ProtectedRoute>} />
