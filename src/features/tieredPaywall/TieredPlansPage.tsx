@@ -41,7 +41,13 @@ function StarRow({ size, fill = 1, label }: { size: number; fill?: number; label
   </span>;
 }
 
-export default function TieredPlansPage() {
+interface TieredPlansPageProps {
+  origin?: string;
+  onDismiss?: () => void;
+  onPurchased?: () => void;
+}
+
+export default function TieredPlansPage({ origin: entryOrigin, onDismiss, onPurchased }: TieredPlansPageProps = {}) {
   const [params, setParams] = useSearchParams();
   const minimumIndex = Math.max(0, catalog.plans.findIndex(plan => plan.id === params.get('minimum')));
   const selected = catalog.plans.findIndex(plan => plan.id === params.get('tier'));
@@ -55,7 +61,7 @@ export default function TieredPlansPage() {
   const [showLogin, setShowLogin] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const origin = checkoutOrigin(params.get('origin'));
+  const origin = checkoutOrigin(entryOrigin ?? params.get('origin'));
   const [placement, setPlacement] = useState<{ userID: string; origin: string; offering: Offering | null; error?: string } | null>(null);
   const [retry, setRetry] = useState(0);
   const currentPlacement = placement?.userID === user?.id && placement?.origin === origin ? placement : null;
@@ -114,7 +120,8 @@ export default function TieredPlansPage() {
       const result = await purchase(checkoutPackage);
       if (includesTier(resolveSubscriptionTier(Object.keys(result.customerInfo.entitlements.active)), tier.id as 'standard' | 'premium' | 'pro')) {
         await refreshCustomerInfo();
-        setMessage('Your subscription is active. Return to WagerProof on your phone to continue.');
+        setMessage('Your subscription is active. You can continue using WagerProof.');
+        onPurchased?.();
       } else setMessage('Your payment is processing. Refresh your subscription status before trying again.');
     } catch (error) {
       if (!isUserCancelledPurchaseError(error)) setMessage(error instanceof Error ? error.message : 'Checkout could not be completed.');
@@ -129,7 +136,7 @@ export default function TieredPlansPage() {
       <div className="tiered-layout" data-unavailable={optionsUnavailable}>
       <section className="tiered-options" aria-label="Choose a subscription">
       <header className="tiered-header">
-        <nav><Link to="/">WAGERPROOF</Link><Link to="/" aria-label="Close plans"><X size={20} /></Link></nav>
+        <nav><Link to="/">WAGERPROOF</Link><Link to="/" aria-label="Close plans" onClick={onDismiss ? event => { event.preventDefault(); onDismiss(); } : undefined}><X size={20} /></Link></nav>
         <h1>Choose your plan</h1>
         <div className="tiered-period"><button onClick={() => select(tier.id, false)} disabled={busy}>Monthly</button><button role="switch" aria-checked={yearly} aria-label="Yearly billing" onClick={() => select(tier.id, !yearly)} disabled={busy} className="tiered-switch"><span /></button><button onClick={() => select(tier.id, true)} disabled={busy}>Yearly</button></div>
       </header>
@@ -180,7 +187,7 @@ export default function TieredPlansPage() {
       </div>
       <footer className="tiered-legal">
         {user && <><button disabled={busy} onClick={async () => { await refreshCustomerInfo(); setMessage('Subscription status refreshed.'); }}>Refresh subscription</button><button disabled={busy} onClick={() => signOut()}>Sign out</button></>}
-        <div><Link to="/terms-and-conditions">Terms of Use</Link><Link to="/privacy-policy">Privacy Policy</Link></div>
+        <div>{onDismiss && <button disabled={busy} onClick={onDismiss}>Not right now</button>}<Link to="/terms-and-conditions">Terms of Use</Link><Link to="/privacy-policy">Privacy Policy</Link></div>
         <p>Subscriptions renew automatically. Cancel before your next renewal through your billing portal. Prices are in USD; applicable taxes appear at checkout.</p>
         <p>© {new Date().getFullYear()} WagerProof. All rights reserved.</p>
       </footer>

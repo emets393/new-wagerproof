@@ -2,7 +2,7 @@
  * Onboarding — web port of the iOS native flow: a 21-page carousel
  * (survey → cost reveal → agent pitch → agent builder) with shared
  * Continue/Back chrome, followed by the generation cinematic, reveal,
- * time summary and the custom paywall.
+ * time summary and the tiered paywall.
  */
 import { useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -41,7 +41,7 @@ import {
   BuilderSportRulesStep,
 } from '@/components/onboarding/steps/PersonalitySteps';
 import { GenerationStep, RevealStep, TimeSummaryStep } from '@/components/onboarding/steps/CinematicSteps';
-import { CustomPaywall } from '@/components/paywall/CustomPaywall';
+import TieredPlansPage from '@/features/tieredPaywall/TieredPlansPage';
 import { DEFAULT_AUTHENTICATED_ROUTE } from '@/lib/routes';
 
 const CAROUSEL_COMPONENTS: Partial<Record<OnboardingStepId, React.ComponentType>> = {
@@ -91,8 +91,6 @@ function OnboardingContent() {
     nextStep,
     prevStep,
     markComplete,
-    draft,
-    survey,
   } = useOnboarding();
   const navigate = useNavigate();
 
@@ -129,6 +127,10 @@ function OnboardingContent() {
   // The pitch-intro page keys its slide so Continue animates between slides.
   const contentKey = step === 'agentValueIntro' ? `${step}-${pitchSlide}` : step;
 
+  if (step === 'paywall') {
+    return <TieredPlansPage origin="onboarding" onDismiss={handlePaywallDismiss} onPurchased={finishToApp} />;
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-[#05070c]">
       {/* Animated accent backdrop */}
@@ -147,12 +149,7 @@ function OnboardingContent() {
       </div>
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/70" />
 
-      <div
-        className={cn(
-          'relative z-10 mx-auto flex h-full w-full flex-col',
-          step === 'paywall' ? 'max-w-2xl' : 'max-w-xl'
-        )}
-      >
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-xl flex-col">
         {onCarousel ? (
           <>
             {/* Top bar: back + progress */}
@@ -224,23 +221,7 @@ function OnboardingContent() {
           <div className="flex-1 overflow-y-auto">
             <TimeSummaryStep onFinish={handleTimeSummaryFinish} />
           </div>
-        ) : (
-          /* Paywall — fill viewport so the feature carousel can take remaining height */
-          <div className="flex min-h-0 flex-1 flex-col">
-            <CustomPaywall
-              source="onboarding"
-              personalization={{
-                agentName: draft.name.trim() || undefined,
-                spriteIndex: draft.sprite_index,
-                avatarColor: draft.avatar_color,
-                researchTimeBucket: survey.researchTimeBucket,
-                weeklyStakesBucket: survey.weeklyStakesBucket,
-              }}
-              onDismiss={handlePaywallDismiss}
-              onPurchased={finishToApp}
-            />
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
