@@ -184,29 +184,38 @@ if __name__ == "__main__":
 # =================================================================================================
 
 # =================================================================================================
-# OUT-OF-SAMPLE TEST — NFL 2026 weeks 1-2 (owner pasted 2026-09-22, after the CFB verdict above).
-# 31 games, 92 graded rows. Both frozen candidates FAILED, and both INVERTED.
+# NFL 2026 weeks 1-2 (31 games) — A SEPARATE LEAGUE, NOT A HOLDOUT FOR THE CFB RULES.
 #
-#   C1  spread, crowd by within-week ticket volume
-#         CFB wks1-3:  low-volume 40%  |  rest 60%   (difference p=.034)
-#         NFL wks1-2:  low-volume 62%  |  rest 32%   (n=8 and 22)
-#         pooled:      low-volume 43.6% | rest 55.2% (difference p=.195, was .034)
-#   C2  total, 80%+ of tickets on one side
-#         CFB wks1-3:  crowd 71.4% (40-16)
-#         NFL wks1-2:  crowd 18%   (2-9)
-#         pooled:      crowd 62.7% (42-25, p=.050) — carried entirely by the CFB half
+# Corrected 2026-09-26 after the owner pushed back, and he is right. An earlier version of this
+# block treated the NFL failing C1/C2 as evidence against them in CFB. That is invalid: different
+# talent dispersion, different roster turnover, and college lines are materially softer than NFL
+# lines, so a public-betting effect can exist in one league and not the other. Cross-league failure
+# is a limit on generality, never a refutation. Grade each league on its own data.
 #
-# The NFL cells are far too small to refute anything on their own. What matters is that they did
-# not merely fail to replicate, they landed on the opposite side, and this is now the THIRD
-# disagreement in the same data: CFB spreads preferred tickets while CFB totals preferred money,
-# and NFL inverts both candidates. A mechanism that reverses between two sports and between two
-# markets inside one sport is not a mechanism.
+# NFL, on its own terms: C1 quiet-third 62% / rest 32% (n=8 and 22); C2 80%+ public 18% (2-9).
+# Three seasons do not exist here — this is TWO WEEKS. These cells are far too thin to establish
+# anything in either direction, which is the honest reading, not "the rules inverted".
 #
-# STANDING VERDICT: the Action Network splits carry nothing tradeable in this sample. Do not wire
-# any of it, and do not re-scan for new cells — this data set has now produced four
-# nice-looking cells and all four moved when new games arrived. If more weeks are ever added, the
-# only honest test is these same two rules at these same thresholds, pooled, with the CFB and NFL
-# halves reported separately. Pooled today: spread bets 51.7%, money 47.8%; total bets 51.6%,
-# money 57.1% (p=.065, the only pooled number still alive and it is one market on 184 games).
-# Moneyline remains the favourite artefact in both sports; ignore it permanently.
+# ============================== VERDICT, PER LEAGUE ==============================
+# CFB (153 graded games, weeks 1-3):
+#   DEAD: fade the public on spreads (47.3%), reverse line movement (exactly 50.0%), every
+#     moneyline cell (back-the-ticket-majority returns +22.8% but blind favourites returned +19.7%
+#     over the same games, and the rule sits inside its own shuffle null).
+#   C1 — spread, crowd's side by ticket volume — IS SUPPORTED BY THE CFB DATA:
+#       quiet third 19-28 (40.4%)   rest 61-41 (59.8%)   difference p=0.034
+#       same direction all three weeks (33/64, 40/55, 47/61)
+#       same direction in both spread bands (<14 pts 44/58, >=14 pts 38/62)
+#     Not a favourite proxy (favourites cover ~50% in both halves) and not a line-size proxy.
+#     Treat as a LIVE candidate on 149 games, not as a null.
+#   C2 — totals, follow a heavy public side — is ONE HOT CELL, and the doubt is CFB-INTERNAL:
+#       50-59% 39.1% | 60-69% 36.6% | 70-79% 48.5% | 80%+ 71.4% (40-16, p=0.002)
+#     The 80%+ cell is strong on its own, but the crowd is actively WRONG at mild lopsidedness,
+#     so the pattern is a sign flip rather than a threshold building with conviction.
+#     Live but weaker than C1, and see the week-4 note below.
+#
+# FIRST REAL CFB HOLDOUT: week 4 (71 games, archived 2026-09-26 before kickoff). On that board C2
+# fires 12 times and ELEVEN point OVER — against a 43% over-share in weeks 1-3 — so this week the
+# flags are one market-wide over lean counted twelve times, not twelve independent reads. C1's
+# quiet third is 7-of-20 FBS-hosting-non-FBS, games the study never covered because they are not
+# in model_games. Grade both rules on week 4 once scores land; that is the test that counts.
 # =================================================================================================

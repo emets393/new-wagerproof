@@ -64,7 +64,9 @@ def _f(v):
 
 def parse(raw, market):
     slots = LAYOUT[market]
-    blocks = re.split(r'(?m)^\s*Final(?:\s*-\s*\d?OT)?\s*$', raw)
+    # A board pulled BEFORE kickoff heads each game with its start time instead of 'Final',
+    # and a mid-week pull mixes both. Split on either.
+    blocks = re.split(r'(?m)^\s*(?:Final(?:\s*-\s*\d?OT)?|\d{1,2}:\d{2}\s*(?:AM|PM))\s*$', raw)
     games, skipped = [], []
     for b in blocks:
         L = [x.strip() for x in b.strip().split("\n") if x.strip()]
