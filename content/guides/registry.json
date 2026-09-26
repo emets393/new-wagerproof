@@ -1,7 +1,12 @@
 {
   "version": 1,
-  "expectedCount": 11,
+  "expectedCount": 12,
   "entries": [
+    {
+      "slug": "what-is-kalshi",
+      "canonicalPath": "/guides/what-is-kalshi/",
+      "intent": "understand what Kalshi is, how its prices work, and how to research contracts"
+    },
     {
       "slug": "best-sports-betting-research-apps",
       "canonicalPath": "/guides/best-sports-betting-research-apps/",
