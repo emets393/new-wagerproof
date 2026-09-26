@@ -39,9 +39,9 @@ def payout(american):
     return np.where(a > 0, a / 100.0, 100.0 / -a)
 
 
-def show(name, s, side):
+def show(name, s, side, min_n=40):
     """side: +1 bet away/over, -1 bet home/under, or an array of per-row sides."""
-    if len(s) < 40:
+    if len(s) < min_n:
         print(f"  {name:46s} n={len(s):4d}   (too few to read)")
         return
     side = np.asarray(side) if hasattr(side, "__len__") else np.full(len(s), side)
@@ -63,8 +63,51 @@ def show(name, s, side):
         nul[i] = 100 * np.where(w2, payout(np.where(sh > 0, ad, hd)), -1.0).mean()
     pv = binomtest(w, n, 0.5).pvalue
     byw = s.assign(won=won).groupby("week").won.mean().mul(100).round(0).astype(int).to_dict()
+    thin = "  <THIN>" if n < 40 else ""
     print(f"  {name:46s} n={n:4d}  {w}-{n-w}  {100*w/n:5.1f}%  roi {roi:+6.1f}%  "
-          f"p={pv:.3f}  null {nul.mean():+.1f}±{nul.std():.1f}  wk {byw}")
+          f"p={pv:.3f}  null {nul.mean():+.1f}±{nul.std():.1f}  wk {byw}{thin}")
+
+
+
+def true_split(d):
+    """H5 — TRUE MAJORITY SPLIT (owner's spec, 2026-09-26): the TICKET majority on one side and the
+    MONEY majority on the OTHER. This is NOT the money%-minus-bets% gap that H2 uses: 88% tickets
+    and 75% money on the same side is a -13 gap with no split at all, and the gap version is
+    mechanically contrarian in a way this is not. Both majorities must actually cross 50%.
+
+    Pre-registered rule: when a split is present, BACK THE MONEY SIDE. Graded per market and per
+    league, never pooled — see the per-league note in the verdict.
+    """
+    d = d[d.bets_away.notna() & d.money_away.notna() & (d.away_result != 0)].copy()
+    d["split"] = (d.bets_away > 50) != (d.money_away > 50)
+    for sport in ("cfb", "nfl"):
+        x = d[d.sport == sport]
+        if not len(x):
+            continue
+        print(f"\n{'='*100}\nH5 TRUE MAJORITY SPLIT — {sport.upper()} "
+              f"({int(x.split.sum())} splits of {len(x)} rows, {100*x.split.mean():.0f}%)\n{'='*100}")
+        for mk in ("total", "spread", "ml"):
+            m = x[x.market == mk]
+            sp = m[m.split]
+            if not len(sp):
+                continue
+            mny = np.where(sp.money_away > 50, +1, -1)
+            show(f"  {mk}: back the MONEY side", sp, mny, min_n=6)
+            show(f"  {mk}: back the TICKET side", sp, -mny, min_n=6)
+            ns = m[~m.split]
+            if len(ns) >= 20:
+                show(f"    control, both agree — that side", ns,
+                    np.where(ns.money_away > 50, +1, -1))
+        # direction check: the split is usually tickets-UNDER / money-OVER, so confirm the edge is
+        # not just an over bias wearing a split costume
+        tt = x[(x.market == "total") & x.split]
+        if len(tt):
+            print("  totals split, by shape:")
+            for lbl, sel in (("tix UNDER / money OVER", tt.money_away > 50),
+                             ("tix OVER / money UNDER", tt.money_away <= 50)):
+                g = tt[sel]
+                if len(g):
+                    show(f"    {lbl} — back the money", g, np.where(g.money_away > 50, +1, -1), min_n=5)
 
 
 def main():
@@ -131,6 +174,7 @@ def main():
             show(f"fade the public, SMALL games (<{int(med):,} tix)", m[small], low[small.values])
             show(f"fade the public, BIG games (>={int(med):,} tix)", m[big], low[big.values])
         print()
+    true_split(d)
 
 
 if __name__ == "__main__":
@@ -184,6 +228,31 @@ if __name__ == "__main__":
 # =================================================================================================
 
 # =================================================================================================
+# =================================================================================================
+# H5 — TRUE MAJORITY SPLIT (owner's spec 2026-09-26). THE BEST-LOOKING THING IN THIS PROJECT, and
+# the one rule worth tracking forward. Tickets majority on ONE side, money majority on the OTHER.
+# Distinct from H2: the H2 gap flags the unpopular side in 68% of ALL games and is mechanically
+# contrarian; a true split requires BOTH majorities to cross 50% and occurs in only ~18-22% of rows.
+#
+# BACK THE MONEY SIDE. Reported per league, never pooled:
+#     CFB totals   12-6  (66.7%, p=.24)      NFL totals   6-2  (75.0%, p=.29)
+#     CFB spreads  19-24 (44.2%)             NFL spreads  4-6  (40.0%)
+#     CFB ml       7-11  (38.9%)             NFL ml       1-1
+#
+# Why totals and not the other two is the interesting part, and why this is not just an over bias:
+# inside CFB the totals result holds in BOTH shapes at the same rate — tickets-under/money-over
+# 8-4 (67%) and tickets-over/money-under 4-2 (67%). A direction-independent effect is a different
+# animal from C2, which was 11-of-12 OVER on one board.
+#
+# On spreads and moneyline the TICKET side wins both leagues (56%/60% and 61%/50%), which is the
+# opposite of the folk story and, at these samples, indistinguishable from noise.
+#
+# SAMPLES ARE 8-18 PER CELL. Nothing is established. What earns it tracking rather than dismissal:
+# two independent leagues agree on the same market in the same direction, and within CFB it survives
+# the over/under-shape control. Log every week, grade totals splits by backing the money side, and
+# revisit at n>=60 per league. Do NOT bet it off these numbers.
+# =================================================================================================
+
 # NFL 2026 weeks 1-2 (31 games) — A SEPARATE LEAGUE, NOT A HOLDOUT FOR THE CFB RULES.
 #
 # Corrected 2026-09-26 after the owner pushed back, and he is right. An earlier version of this
