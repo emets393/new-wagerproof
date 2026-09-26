@@ -44,7 +44,7 @@ Limited to user-approved claims: WagerProof shows prediction market odds next to
 
 ## Video
 
-YouTube URL unknown at drafting. Placeholder YOUTUBE_VIDEO_ID_TBD in content.md must be replaced before publication. The renderer and style check forbid iframes, so the video is linked, not embedded.
+YouTube video published 2026-09-26: https://www.youtube.com/watch?v=-27XDMjpqPU (linked in content.md). The renderer and style check forbid iframes, so the video is linked, not embedded.
 
 ## Assets
 

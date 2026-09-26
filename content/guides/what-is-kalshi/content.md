@@ -2,7 +2,7 @@ What is Kalshi? Kalshi is a U.S. prediction market, regulated by the Commodity F
 
 That one idea explains most of how Kalshi works. It also explains why the conversation around it is so noisy: some people call it the smartest way to bet on sports, others call it gambling with a federal license. This guide covers what the platform is, how the prices and fees actually work, where the legal fight stands, and how to research a contract instead of guessing.
 
-**Prefer to watch?** The companion video walks through the same material in about four minutes: [What is Kalshi? How it works for sports, explained simply](https://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_TBD).
+**Prefer to watch?** The companion video walks through the same material in about four minutes: [What is Kalshi? How it works for sports, explained simply](https://www.youtube.com/watch?v=-27XDMjpqPU).
 
 This is education, not legal or financial advice, and nothing here is a recommendation to trade any contract.
 
