@@ -14,11 +14,10 @@ import UIKit
 
 // MARK: - Working desk avatar (character + laptop)
 
-/// The agent's pixel character seated + typing (`frontSitWork` frames) with an
-/// open laptop composited in front of it, over a soft accent floor glow so the
-/// little scene reads on pure black. Nearest-neighbor scaling keeps the pixel
-/// art crisp; the seated frames are cropped from the same `avatar_N` sheet the
-/// office HQ walks (see `PixelSpriteAvatar` for the standing/idle sibling).
+/// The agent at work over a soft accent floor glow, so the little scene reads on
+/// pure black. With the HD art this is `AgentDeskSprite` (seated at a desk behind a
+/// laptop, typing and researching); otherwise the legacy seated `frontSitWork`
+/// frames with the laptop sprite composited in front.
 struct WorkingDeskAvatar: View {
     let spriteIndex: Int
     var accent: Color
@@ -41,14 +40,20 @@ struct WorkingDeskAvatar: View {
                 .blur(radius: 28)
                 .offset(y: charHeight * 0.36)
 
-            SitWorkSprite(spriteIndex: spriteIndex)
-                .frame(width: charWidth, height: charHeight)
+            if AgentDeskSprite.isAvailable(spriteIndex) {
+                AgentDeskSprite(spriteIndex: spriteIndex)
+                    .frame(height: charHeight * 1.08)
+                    .offset(y: charHeight * 0.02)
+            } else {
+                SitWorkSprite(spriteIndex: spriteIndex)
+                    .frame(width: charWidth, height: charHeight)
 
-            // Laptop art is centered in its 64px frame; nudge it down onto the
-            // character's hands/desk line and draw it last so it sits in FRONT.
-            LaptopSprite()
-                .frame(width: laptopWidth, height: laptopHeight)
-                .offset(y: charHeight * 0.22)
+                // Laptop art is centered in its 64px frame; nudge it down onto the
+                // character's hands/desk line and draw it last so it sits in FRONT.
+                LaptopSprite()
+                    .frame(width: laptopWidth, height: laptopHeight)
+                    .offset(y: charHeight * 0.22)
+            }
         }
         .frame(height: charHeight * 1.12)
     }
@@ -83,6 +88,94 @@ struct SitWorkSprite: View {
 
     private static func frameIndex(at date: Date, count: Int) -> Int {
         Int(date.timeIntervalSinceReferenceDate * fps) % count
+    }
+}
+
+/// The agent's HD "Laptop Research" art — seated at a desk behind an open laptop,
+/// one piece (character + desk + laptop) from `avatar_hd_desk_N`. It types for a
+/// few seconds, then leans in to read and rubs its chin, and repeats. The screen's
+/// light flickers on its face. Callers check `isAvailable` and fall back to
+/// `SitWorkSprite` + `LaptopSprite` for sheets without desk art.
+struct AgentDeskSprite: View {
+    let spriteIndex: Int
+
+    private static let typeFps: Double = 8
+    private static let researchFps: Double = 6
+    private static let typeLoops = 3
+
+    var body: some View {
+        let clips = DeskFrames.clips(for: spriteIndex)
+        if let first = clips.type.first {
+            TimelineView(.periodic(from: .now, by: 1.0 / 12)) { context in
+                let t = context.date.timeIntervalSinceReferenceDate + Double(spriteIndex) * 1.3
+                Image(uiImage: Self.frame(at: t, clips: clips) ?? first)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .overlay {
+                        // Screen light on the face: the lid faces the agent, so it washes the face and chest.
+                        GeometryReader { geo in
+                            Ellipse()
+                                .fill(RadialGradient(colors: [Color(hex: 0x7DD3FC).opacity(0.6), .clear],
+                                                     center: .center, startRadius: 0, endRadius: geo.size.width * 0.3))
+                                .frame(width: geo.size.width * 0.62, height: geo.size.height * 0.34)
+                                .scaleEffect(0.92 + 0.08 * sin(t * 3.1))
+                                .opacity(0.34 + 0.08 * sin(t * 7.3) + 0.06 * sin(t * 13.7))
+                                .blendMode(.plusLighter)
+                                .position(x: geo.size.width / 2, y: geo.size.height * 0.3)
+                        }
+                        .allowsHitTesting(false)
+                    }
+            }
+        } else {
+            Color.clear
+        }
+    }
+
+    /// Type loop ×3, then one research beat, on a shared clock.
+    private static func frame(at t: TimeInterval, clips: DeskFrames.Clips) -> UIImage? {
+        let typeLen = Double(clips.type.count) / typeFps
+        let researchLen = Double(clips.research.count) / researchFps
+        let local = t.truncatingRemainder(dividingBy: typeLen * Double(typeLoops) + researchLen)
+        if local < typeLen * Double(typeLoops) || clips.research.isEmpty {
+            let i = Int(local * typeFps) % max(clips.type.count, 1)
+            return clips.type.indices.contains(i) ? clips.type[i] : nil
+        }
+        let i = min(clips.research.count - 1, Int((local - typeLen * Double(typeLoops)) * researchFps))
+        return clips.research[i]
+    }
+
+    @MainActor static func isAvailable(_ index: Int) -> Bool {
+        !DeskFrames.clips(for: index).type.isEmpty
+    }
+}
+
+/// Crops + caches the desk clips from `avatar_hd_desk_N` (9 cols × 2 rows: type, research), all to
+/// one box — the union of every frame's pixels plus a margin — so the loop never jitters.
+private enum DeskFrames {
+    struct Clips { var type: [UIImage] = []; var research: [UIImage] = [] }
+
+    @MainActor private static var cache: [Int: Clips] = [:]
+
+    @MainActor
+    static func clips(for index: Int) -> Clips {
+        let idx = max(0, min(7, index))
+        if let cached = cache[idx] { return cached }
+        var clips = Clips()
+        defer { cache[idx] = clips }
+        guard let sheet = UIImage(named: "avatar_hd_desk_\(idx)", in: .wagerproofDesign, with: nil),
+              let cg = sheet.cgImage else { return clips }
+        let cell = cg.height / 2
+        let cells = (0..<18).map { CGRect(x: ($0 % 9) * cell, y: ($0 / 9) * cell, width: cell, height: cell) }
+        guard let bounds = PixelSpriteAvatar.alphaBounds(in: cg, cells: cells) else { return clips }
+        let box = bounds.insetBy(dx: -2, dy: -2).intersection(CGRect(x: 0, y: 0, width: cell, height: cell))
+        let crops = cells.compactMap { c in
+            cg.cropping(to: box.offsetBy(dx: c.minX, dy: c.minY)).map { UIImage(cgImage: $0, scale: sheet.scale, orientation: .up) }
+        }
+        guard crops.count == 18 else { return clips }
+        clips.type = Array(crops[0..<9])
+        clips.research = Array(crops[9..<18])
+        return clips
     }
 }
 

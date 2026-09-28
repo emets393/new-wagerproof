@@ -8,6 +8,10 @@
 > `agent_thoughts`, `pick_veto`, `agent_relationships`, and `bond_level` have zero references
 > anywhere in the codebase outside this document. Treat everything here as a design proposal,
 > not a description of shipped behavior.
+>
+> The experimental branch `agent-hq-fidelity` adds HD art, lighting, and client-side performance
+> moods (`AgentMood`: expressions driven by win rate and streak). That is not this spec's mood system.
+> See `26_AGENT_HQ_HD_ART.md`.
 
 > Living agents that think, feel, argue, celebrate, and make your betting life better.
 

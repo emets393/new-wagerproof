@@ -205,7 +205,8 @@ struct OnboardingLeaderboardPage: View {
             Circle().fill(LinearGradient(
                 colors: AgentColorPalette.avatarGradient(for: entry.avatarColor),
                 startPoint: .topLeading, endPoint: .bottomTrailing))
-            PixelSpriteAvatar(spriteIndex: entry.spriteIndex)
+            PixelSpriteAvatar(spriteIndex: entry.spriteIndex,
+                              mood: AgentMood(winRate: entry.winRate, streak: entry.streak))
                 .padding(entry.rank <= 3 ? 3 : 2)
         }
         .frame(width: entry.rank <= 3 ? 44 : 36, height: entry.rank <= 3 ? 44 : 36)

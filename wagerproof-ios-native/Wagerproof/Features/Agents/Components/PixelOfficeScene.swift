@@ -62,6 +62,24 @@ final class PixelOfficeScene: SKScene {
     private var lastUpdateTime: TimeInterval = 0
     private var particleTimer: CGFloat = 0
 
+    // Lighting: a cool multiply grade over floor + characters at night, then additive light pools
+    // at the lamps/screens baked into the floor art, and a monitor glow on every agent actually working.
+    private var darkness: SKSpriteNode!
+    private let lightLayer = SKNode()
+    private var lights: [(node: SKSpriteNode, base: CGFloat, phase: CGFloat, speed: CGFloat)] = []
+    private var monitorGlows: [SKSpriteNode] = []
+    private var sceneTime: CGFloat = 0
+
+    // Live wall screen in the conference room: cycles real team stats (see PixelOfficeScreenStats).
+    private var screenNodes: [SKSpriteNode] = []
+    private var screenGlow: SKSpriteNode!
+    private var screenDot: SKShapeNode!
+    private var screenPages: [UIImage] = []
+    private var screenPage = 0
+    private var screenFront = 0
+    private var screenTimer: CGFloat = 0
+    private var screenFade: CGFloat = 1
+
     // MARK: - Init
 
     init(size: CGSize, floorKey: String) {
@@ -127,7 +145,7 @@ final class PixelOfficeScene: SKScene {
 
         // ── Particle layer ── above characters (z≈3.x), below foreground (z=4).
         particleLayer.position = .zero
-        particleLayer.zPosition = 3.92
+        particleLayer.zPosition = 4.3   // above the night grade so the glow reads
         addChild(particleLayer)
 
         // ── Foreground overlay ──
@@ -137,7 +155,172 @@ final class PixelOfficeScene: SKScene {
             officeFgSprite.anchorPoint = CGPoint(x: 0, y: 0)
             officeFgSprite.position = .zero
             officeFgSprite.zPosition = 4
+            // The overlay's white chairs belong to the original office; on the Future floor they sit on top
+            // of that art's own dark chairs, so only the Standard floor shows them.
+            officeFgSprite.isHidden = floorKey.hasPrefix("future")
             addChild(officeFgSprite)
+        }
+        buildLighting()
+        buildWallScreen()
+        applyTimeOfDay()
+    }
+
+    // MARK: - Lighting
+
+    private func buildLighting() {
+        darkness = SKSpriteNode(color: UIColor(red: 0.60, green: 0.66, blue: 0.88, alpha: 1),
+                                size: CGSize(width: PixelOfficeGeo.mapWidth, height: PixelOfficeGeo.mapHeight))
+        darkness.anchorPoint = .zero
+        darkness.blendMode = .multiply
+        darkness.zPosition = 4.1
+        addChild(darkness)
+        lightLayer.zPosition = 4.2
+        addChild(lightLayer)
+        // (x, y top-down map px, radius, rgb, alpha) — positions read off floor_future_night's lamps/screens.
+        let cool = (0.55, 0.86, 1.0), warm = (1.0, 0.74, 0.40), cyan = (0.35, 0.90, 1.0)
+        let specs: [(CGFloat, CGFloat, CGFloat, (Double, Double, Double), CGFloat)] = [
+            (145, 478, 150, cool, 0.34), (332, 478, 150, cool, 0.34), (102, 292, 110, cool, 0.26), (575, 78, 120, cool, 0.24),
+            (143, 596, 175, cyan, 0.20), (336, 596, 175, cyan, 0.20),
+            (80, 556, 58, warm, 0.55), (207, 612, 58, warm, 0.55), (332, 612, 58, warm, 0.55), (630, 532, 58, warm, 0.5),
+            (747, 515, 58, warm, 0.5), (497, 137, 72, warm, 0.45), (790, 145, 72, warm, 0.5),
+            (250, 742, 300, (0.45, 0.60, 1.0), 0.14),
+        ]
+        for (i, sp) in specs.enumerated() {
+            let n = SKSpriteNode(texture: PixelOfficeTextureCache.shared.radialLight)
+            n.size = CGSize(width: sp.2 * 2, height: sp.2 * 2)
+            n.color = UIColor(red: sp.3.0, green: sp.3.1, blue: sp.3.2, alpha: 1)
+            n.colorBlendFactor = 1
+            n.blendMode = .add
+            n.position = CGPoint(x: sp.0, y: Self.flipY(sp.1))
+            lightLayer.addChild(n)
+            lights.append((n, sp.4, CGFloat(i) * 1.7, sp.2 < 80 ? 2.6 : 1.1))   // small lamps flicker faster
+        }
+    }
+
+    /// Night: cool grade + full lights. Day: no grade, lights at a quarter (lamps read as "on", not glowing).
+    private func applyTimeOfDay() {
+        darkness?.isHidden = !isNight
+        lightLayer.alpha = isNight ? 1 : 0.25
+        officeFgSprite?.isHidden = floorKey.hasPrefix("future")
+    }
+
+    private func stepLighting(dt: CGFloat) {
+        sceneTime += dt
+        for l in lights {
+            l.node.alpha = l.base * (1 + 0.07 * sin(sceneTime * l.speed + l.phase) + 0.03 * sin(sceneTime * 7.3 + l.phase * 3))
+        }
+        // Monitor glow on each agent working at a desk: lights the face from the screen side.
+        while monitorGlows.count < agents.count {
+            let g = SKSpriteNode(texture: PixelOfficeTextureCache.shared.radialLight)
+            g.size = CGSize(width: 78, height: 78)
+            g.color = UIColor(red: 0.30, green: 0.95, blue: 0.85, alpha: 1)
+            g.colorBlendFactor = 1
+            g.blendMode = .add
+            lightLayer.addChild(g)
+            monitorGlows.append(g)
+        }
+        for (i, g) in monitorGlows.enumerated() {
+            guard i < agents.count else { g.isHidden = true; continue }
+            let a = agents[i]
+            let atDesk = a.arrived && a.claimedPointKey.hasPrefix("desk_") && (a.state == "working" || a.state == "thinking")
+            g.isHidden = !atDesk
+            guard atDesk else { continue }
+            let facingDown = PixelOfficePoints.byKey[a.claimedPointKey]?.facing == "down"
+            g.position = CGPoint(x: a.mapX, y: Self.flipY(facingDown ? a.mapY + 4 : a.mapY - 44))
+            g.alpha = (isNight ? 0.55 : 0.2) * (1 + 0.12 * sin(sceneTime * 9 + CGFloat(i) * 2.1))
+        }
+    }
+
+    // MARK: - Wall screen
+
+    /// The curved display on the conference room's top wall (map x ≈ 606–770, y ≈ 324–376).
+    private static let screenCenter = CGPoint(x: 688, y: 350)
+    private static let screenSize = CGSize(width: 164, height: 52)
+
+    private func buildWallScreen() {
+        screenGlow = SKSpriteNode(texture: PixelOfficeTextureCache.shared.radialLight)
+        screenGlow.size = CGSize(width: 300, height: 170)
+        screenGlow.color = UIColor(red: 0.30, green: 0.85, blue: 1.0, alpha: 1)
+        screenGlow.colorBlendFactor = 1
+        screenGlow.blendMode = .add
+        screenGlow.alpha = 0.35
+        screenGlow.position = CGPoint(x: Self.screenCenter.x, y: Self.flipY(Self.screenCenter.y + 8))
+        screenGlow.zPosition = 4.24
+        addChild(screenGlow)
+        for _ in 0..<2 {
+            let n = SKSpriteNode(color: .clear, size: Self.screenSize)
+            n.position = CGPoint(x: Self.screenCenter.x, y: Self.flipY(Self.screenCenter.y))
+            n.zPosition = 4.25
+            addChild(n)
+            screenNodes.append(n)
+        }
+        screenDot = SKShapeNode(circleOfRadius: 2.6)
+        screenDot.fillColor = UIColor(red: 0.13, green: 0.77, blue: 0.37, alpha: 1)
+        screenDot.strokeColor = .clear
+        screenDot.position = CGPoint(x: Self.screenCenter.x + Self.screenSize.width / 2 - 9, y: Self.flipY(Self.screenCenter.y - Self.screenSize.height / 2 + 8))
+        screenDot.zPosition = 4.26
+        addChild(screenDot)
+    }
+
+    private func refreshScreen(_ specs: [PixelOfficeAgentSpec]) {
+        screenPages = PixelOfficeScreenStats(specs: specs).pages().map { Self.renderScreen(label: $0.label, value: $0.value, accent: $0.accent) }
+        screenPage = 0
+        screenTimer = 0
+        screenFade = 1
+        guard let first = screenPages.first, screenNodes.count == 2 else { return }
+        screenNodes[screenFront].texture = SKTexture(image: first)
+        screenNodes[screenFront].alpha = 1
+        screenNodes[1 - screenFront].alpha = 0
+    }
+
+    private func stepScreen(dt: CGFloat) {
+        guard screenPages.count > 0, screenNodes.count == 2 else { return }
+        screenDot.alpha = 0.45 + 0.55 * abs(sin(sceneTime * 3))
+        screenGlow.alpha = 0.30 + 0.06 * sin(sceneTime * 1.4)
+        screenTimer += dt
+        if screenPages.count > 1 && screenTimer > 3.2 {
+            screenTimer = 0
+            screenPage = (screenPage + 1) % screenPages.count
+            let back = 1 - screenFront
+            let tex = SKTexture(image: screenPages[screenPage]); tex.filteringMode = .linear
+            screenNodes[back].texture = tex
+            screenFront = back
+            screenFade = 0
+        }
+        if screenFade < 1 {
+            screenFade = min(1, screenFade + dt / 0.35)
+            let k = screenFade * screenFade * (3 - 2 * screenFade)
+            screenNodes[screenFront].alpha = k
+            screenNodes[1 - screenFront].alpha = 1 - k
+            screenNodes[screenFront].position.y = Self.flipY(Self.screenCenter.y) + (1 - k) * 4
+        }
+    }
+
+    /// One screen page as an image (3× the map size, so it stays crisp when the card scales it down).
+    private static func renderScreen(label: String, value: String, accent: UIColor) -> UIImage {
+        let W = screenSize.width * 3, H = screenSize.height * 3
+        return UIGraphicsImageRenderer(size: CGSize(width: W, height: H)).image { ctx in
+            let c = ctx.cgContext
+            let r = CGRect(x: 3, y: 3, width: W - 6, height: H - 6)
+            let path = UIBezierPath(roundedRect: r, cornerRadius: 18)
+            c.saveGState(); path.addClip()
+            let bg = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                colors: [UIColor(red: 0.02, green: 0.09, blue: 0.14, alpha: 0.96).cgColor, UIColor(red: 0.04, green: 0.20, blue: 0.25, alpha: 0.96).cgColor] as CFArray,
+                                locations: [0, 1])!
+            c.drawLinearGradient(bg, start: CGPoint(x: 0, y: 0), end: CGPoint(x: W, y: H), options: [])
+            UIColor(white: 1, alpha: 0.05).setFill()
+            stride(from: CGFloat(0), to: H, by: 6).forEach { c.fill(CGRect(x: 0, y: $0, width: W, height: 2)) }
+            c.restoreGState()
+            UIColor(red: 0.35, green: 0.9, blue: 1.0, alpha: 0.85).setStroke()
+            path.lineWidth = 4; path.stroke()
+            let para = NSMutableParagraphStyle(); para.alignment = .left
+            let lab = NSAttributedString(string: label, attributes: [.font: UIFont.systemFont(ofSize: 25, weight: .heavy), .kern: 2.4,
+                                                                     .foregroundColor: UIColor(red: 0.55, green: 0.92, blue: 1.0, alpha: 0.9), .paragraphStyle: para])
+            lab.draw(at: CGPoint(x: 22, y: 16))
+            let size: CGFloat = value.count > 12 ? 50 : 62
+            let val = NSAttributedString(string: value, attributes: [.font: UIFont.systemFont(ofSize: size, weight: .black), .kern: -1,
+                                                                     .foregroundColor: accent, .paragraphStyle: para])
+            val.draw(at: CGPoint(x: 20, y: H - size * 1.2 - 12))
         }
     }
 
@@ -151,6 +334,7 @@ final class PixelOfficeScene: SKScene {
         if let tex = PixelOfficeTextureCache.shared.staticTexture(named: "floor_\(key)") {
             floorSprite.texture = tex
         }
+        applyTimeOfDay()
     }
 
     /// Replace the agent roster. Spawns each agent at a random spot and then
@@ -187,6 +371,7 @@ final class PixelOfficeScene: SKScene {
             node.facing = "down"
             node.arrived = true
             node.isActive = spec.isActive
+            node.mood = AgentMood(winRate: spec.winRate, streak: spec.currentStreak)
             node.animKey = "front_idle"
             // Seed the pill with the derived state/label so the color reads
             // correctly during the brief pre-route window.
@@ -197,6 +382,7 @@ final class PixelOfficeScene: SKScene {
             agents.append(node)
         }
 
+        refreshScreen(capped)
         guard !agents.isEmpty else {
             refreshLaptopOccupancy()
             return
@@ -322,6 +508,9 @@ final class PixelOfficeScene: SKScene {
         if dt <= 0 { return }
 
         stepAgents(dt: dt)
+        // Walking judders at 30fps, but seated/idle agents don't need 60 — only pay for it while someone moves.
+        let fps = agents.contains { !$0.arrived } ? 60 : 30
+        if let view, view.preferredFramesPerSecond != fps { view.preferredFramesPerSecond = fps }
         relaxLabels(dt: dt)
 
         particleTimer += dt
@@ -331,6 +520,8 @@ final class PixelOfficeScene: SKScene {
         }
         updateParticles(dt: dt)
         renderParticles()
+        stepLighting(dt: dt)
+        stepScreen(dt: dt)
 
         refreshLaptopOccupancy()
     }
@@ -428,7 +619,9 @@ final class PixelOfficeScene: SKScene {
                 }
             }
 
-            a.applyTextureFrame()
+            if !a.stepEmote(dt: TimeInterval(dt), canEmote: a.arrived && a.animKey == "front_idle") {
+                a.applyTextureFrame()
+            }
             a.syncSceneNode()
         }
     }
@@ -626,6 +819,45 @@ struct PixelOfficeAgentSpec {
     let state: String      // working | thinking | done | idle | error
     let stateLabel: String // pill text (OFF / PICKS READY / WORKING / …)
     let isActive: Bool
+    /// Graded record + units for the wall screen (0 when the roster has no performance, e.g. demo rosters).
+    var wins: Int = 0
+    var losses: Int = 0
+    var pushes: Int = 0
+    var netUnits: Double = 0
+    /// Drive the agent's performance mood (emotes + icons); nil/0 = neutral.
+    var winRate: Double? = nil
+    var currentStreak: Int = 0
+}
+
+/// Numbers the conference-room screen cycles through, all derived from the roster the scene already has.
+struct PixelOfficeScreenStats {
+    let working: Int, ready: Int, total: Int
+    let wins: Int, losses: Int, pushes: Int, units: Double
+    let top: PixelOfficeAgentSpec?
+
+    init(specs: [PixelOfficeAgentSpec]) {
+        working = specs.filter { $0.isActive && ($0.state == "working" || $0.state == "thinking") }.count
+        ready = specs.filter { $0.state == "done" }.count
+        total = specs.count
+        wins = specs.reduce(0) { $0 + $1.wins }; losses = specs.reduce(0) { $0 + $1.losses }; pushes = specs.reduce(0) { $0 + $1.pushes }
+        units = specs.reduce(0) { $0 + $1.netUnits }
+        top = specs.filter { $0.wins + $0.losses > 0 }.max { $0.netUnits < $1.netUnits }
+    }
+
+    func pages() -> [(label: String, value: String, accent: UIColor)] {
+        let white = UIColor.white, green = UIColor(red: 0.49, green: 0.85, blue: 0.34, alpha: 1), red = UIColor(red: 0.94, green: 0.39, blue: 0.35, alpha: 1)
+        let u = (units >= 0 ? "+" : "−") + String(format: "%.1fu", abs(units))
+        var out: [(String, String, UIColor)] = [("AGENT HQ · LIVE", "\(working) working · \(ready) ready", white)]
+        if wins + losses + pushes > 0 {
+            out.append(("TEAM RECORD", "\(wins)-\(losses)-\(pushes)", white))
+            out.append(("NET UNITS", u, units >= 0 ? green : red))
+        }
+        if let top {
+            let tu = (top.netUnits >= 0 ? "+" : "−") + String(format: "%.1fu", abs(top.netUnits))
+            out.append(("TOP AGENT · \(tu)", top.displayName, white))
+        }
+        return out
+    }
 }
 
 extension PixelOfficeAgentSpec {
@@ -650,7 +882,13 @@ extension PixelOfficeAgentSpec {
             spriteIndex: row.agent.spriteIndex,
             state: state,
             stateLabel: label,
-            isActive: row.agent.isActive
+            isActive: row.agent.isActive,
+            wins: row.performance?.wins ?? 0,
+            losses: row.performance?.losses ?? 0,
+            pushes: row.performance?.pushes ?? 0,
+            netUnits: row.performance?.netUnits ?? 0,
+            winRate: AgentMood.winRate(row.performance),
+            currentStreak: row.performance?.currentStreak ?? 0
         )
     }
 }

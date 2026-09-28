@@ -71,7 +71,7 @@ struct AgentIdCard: View {
                     .fill(LinearGradient(
                         colors: AgentColorPalette.avatarGradient(for: agent.agent.avatarColor),
                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                PixelSpriteAvatar(spriteIndex: agent.agent.spriteIndex)
+                PixelSpriteAvatar(spriteIndex: agent.agent.spriteIndex, mood: AgentMood(agent.performance))
                     .padding(2)
             }
             .frame(width: 40, height: 40)

@@ -330,6 +330,7 @@ Sheet: `LiveScoreDetailModal`.
 | TopAgentPicksFeed (sectioned feed; reuses OutlierMatchupCardView) | 1 | `Agents/Components/TopAgentPicksFeed.swift:23` | feed store entries |
 | CompanyDashboardBanner / PixelOffice / FloatingOfficeWidget | 3 | `Agents/Components/` | `[AgentWithPerformance]` |
 | PixelSpriteAvatar / AgentFormChart / GlowingCardWrapper / GlowAccentBar / AgentColorPalette | 3 | `Agents/Components/` | sprite index / performance / color hex |
+| AgentDeskSprite (laptop research loop; branch `agent-hq-fidelity` only, see `agents/26_AGENT_HQ_HD_ART.md`) | 3 | `Agents/Components/AgentResearchIdleCard.swift` | sprite index |
 
 ### Agent detail (`AgentDetailView.swift`, `PublicAgentDetailView.swift`)
 

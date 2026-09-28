@@ -69,6 +69,9 @@ struct PixelOffice: View {
     /// SKView, textures, and pathfinding setup until Agents is actually visible,
     /// then retain and pause that scene on later tab hops.
     @State private var hasActivatedScene = false
+    /// False while the office is scrolled out of view in the Agents list, so the scene stops rendering
+    /// behind the cards. Hosts without a ScrollView (paywall, onboarding) never report and stay true.
+    @State private var isOnScreen = true
 
     var body: some View {
         // Anchor the scene at the natural map aspect ratio. The ScrollView
@@ -86,7 +89,7 @@ struct PixelOffice: View {
                 PixelOfficeSceneRepresentable(
                     floorKey: currentFloorKey,
                     agentSpecs: agentSpecs,
-                    isPaused: !isActive || scenePhase != .active,
+                    isPaused: !isActive || scenePhase != .active || !isOnScreen,
                     onSceneCreated: { newScene in
                         scene = newScene
                     }
@@ -122,6 +125,7 @@ struct PixelOffice: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .onScrollVisibilityChange(threshold: 0.02) { isOnScreen = $0 }
         // Push the floor key through the SKScene when the user toggles a chip.
         .onChange(of: currentFloorKey) { _, newKey in
             scene?.updateFloor(key: newKey)
@@ -272,7 +276,7 @@ struct PixelOfficeSceneRepresentable: UIViewRepresentable {
         // Pixel-art mode: turn off everything that smooths or blends frames.
         view.ignoresSiblingOrder = true
         view.isAsynchronous = true
-        view.preferredFramesPerSecond = 30
+        view.preferredFramesPerSecond = 30   // the scene raises this to 60 while anyone walks
         view.backgroundColor = UIColor(red: 0x0f / 255, green: 0x11 / 255, blue: 0x18 / 255, alpha: 1)
 
         // The scene runs in the RN coordinate space (864x800). SKView will
@@ -317,7 +321,10 @@ extension PixelOfficeAgentSpec: Equatable {
         lhs.spriteIndex == rhs.spriteIndex &&
         lhs.state == rhs.state &&
         lhs.stateLabel == rhs.stateLabel &&
-        lhs.isActive == rhs.isActive
+        lhs.isActive == rhs.isActive &&
+        lhs.wins == rhs.wins && lhs.losses == rhs.losses && lhs.pushes == rhs.pushes &&
+        lhs.netUnits == rhs.netUnits &&
+        lhs.winRate == rhs.winRate && lhs.currentStreak == rhs.currentStreak
     }
 }
 

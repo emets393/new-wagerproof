@@ -103,7 +103,8 @@ struct AgentRowCard: View {
         AgentPixelAvatarTile(
             spriteIndex: agent.agent.spriteIndex,
             avatarColor: agent.agent.avatarColor,
-            animated: animationsActive
+            animated: animationsActive,
+            mood: AgentMood(agent.performance)
         )
         // Unread-picks dot, notification-badge style on the avatar corner.
         .overlay(alignment: .topTrailing) {

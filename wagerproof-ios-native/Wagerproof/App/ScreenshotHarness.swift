@@ -647,7 +647,9 @@ struct ScreenshotHarnessView: View {
         case .topAgentPicks:
             makeTopAgentPicks()
         case .agentHeaderShowcase:
-            AgentHeaderShowcase(agent: AgentsFixtures.sample[0].agent)
+            // `-showcaseAgent <n>` picks which fixture agent (and so which character) the showcase uses.
+            let pick = UserDefaults.standard.integer(forKey: "showcaseAgent")
+            AgentHeaderShowcase(agent: AgentsFixtures.sample[min(max(pick, 0), AgentsFixtures.sample.count - 1)].agent)
         case .agentStats:
             makeAgentStats()
         default:
@@ -706,10 +708,13 @@ struct ScreenshotHarnessView: View {
         rc.debugSet(status: .granted, subscriptionType: "monthly", isLoading: false)
         let admin = AdminModeStore()
         admin.debugSet(isAdmin: false)
+        // PixelOffice only mounts its SpriteKit scene while the Agents tab is selected; the store defaults to Games.
+        let tabs = MainTabStore()
+        tabs.selected = .agents
         return AgentsView(store: store)
             .environment(auth)
             .environment(ProAccessStore(revenueCat: rc, adminMode: admin))
-            .environment(MainTabStore())
+            .environment(tabs)
     }
 
     /// B08 — first slice of settings/paywall cluster targets. Split across
@@ -1485,6 +1490,18 @@ struct AgentHeaderShowcase: View {
                 }
                 section("Idle · autopilot off") {
                     idlePrompt(auto: false).padding(14)
+                }
+                section("Research (ready to generate)") {
+                    AgentGenerationCard(
+                        spriteIndex: agent.spriteIndex,
+                        accent: accent,
+                        state: nil,
+                        isGenerating: false,
+                        canGenerate: true,
+                        lockedLabel: "Daily limit reached",
+                        onGenerate: {}
+                    )
+                    .padding(6)
                 }
                 section("Generating (live sim)") {
                     AgentGenerationCard(

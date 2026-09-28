@@ -137,7 +137,11 @@ struct AgentGlassHero: View {
     /// "working" pose (character + laptop) while a run is in flight.
     @ViewBuilder
     private func discContent(size: CGFloat) -> some View {
-        if isGenerating {
+        if isGenerating, AgentDeskSprite.isAvailable(agent.spriteIndex) {
+            AgentDeskSprite(spriteIndex: agent.spriteIndex)
+                .padding(size * 0.14)
+                .transition(.opacity)
+        } else if isGenerating {
             ZStack {
                 SitWorkSprite(spriteIndex: agent.spriteIndex)
                     .frame(width: size * 0.60, height: size * 0.80)
@@ -147,7 +151,7 @@ struct AgentGlassHero: View {
             }
             .transition(.opacity)
         } else {
-            PixelSpriteAvatar(spriteIndex: agent.spriteIndex)
+            PixelSpriteAvatar(spriteIndex: agent.spriteIndex, mood: AgentMood(performance))
                 .padding(size * 0.18)
                 .transition(.opacity)
         }

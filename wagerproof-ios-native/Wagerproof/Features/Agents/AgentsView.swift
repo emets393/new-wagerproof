@@ -670,7 +670,8 @@ struct AgentsView: View {
                             VStack(spacing: 6) {
                                 AgentPixelAvatarTile(
                                     spriteIndex: AgentSpriteIndex.forSeed(followed.avatarId),
-                                    avatarColor: followed.avatarColor
+                                    avatarColor: followed.avatarColor,
+                                    mood: AgentMood(followed.performance)
                                 )
                                 .overlay(alignment: .topTrailing) {
                                     if hasUnreadPicks(followed) {

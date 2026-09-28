@@ -382,12 +382,13 @@ private struct AgentSectionView: View {
                         .opacity(0.85)
                 )
                 .overlay(shape.strokeBorder(Color.appSurfaceElevated, lineWidth: 1.5))
+                // Halo on the static tile only, so sprite frames don't re-blur it.
+                .shadow(color: primary.opacity(0.32), radius: 6, x: 0, y: 0)
+                .shadow(color: primary.opacity(0.18), radius: 10, x: 0, y: 2)
             PixelSpriteAvatar(spriteIndex: AgentSpriteIndex.forSeed(row.avatarId))
                 .padding(3)
         }
         .frame(width: 52, height: 52)
-        .shadow(color: primary.opacity(0.32), radius: 6, x: 0, y: 0)
-        .shadow(color: primary.opacity(0.18), radius: 10, x: 0, y: 2)
         .contentShape(shape)
         .onTapGesture(perform: onAgentTap)
     }

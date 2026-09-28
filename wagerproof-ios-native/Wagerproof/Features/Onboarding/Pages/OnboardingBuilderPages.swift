@@ -369,7 +369,7 @@ struct OnboardingBuilderIdentityPage: View {
                             Button {
                                 creation.draft.spriteIndex = idx
                             } label: {
-                                PixelSpriteAvatar(spriteIndex: idx, animated: isSelected)
+                                PixelSpriteAvatar(spriteIndex: idx, animated: isSelected, framing: .fullBody)
                                     .frame(width: 42, height: 56)
                                     .padding(.horizontal, 7)
                                     .padding(.vertical, 6)

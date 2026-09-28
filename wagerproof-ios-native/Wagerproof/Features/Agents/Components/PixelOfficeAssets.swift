@@ -86,6 +86,13 @@ enum PixelOfficeGeo {
     static let arriveThreshold: CGFloat = 2  // px — "arrived" tolerance
     /// Tile size for the A* pathfinder grid.
     static let tile: CGFloat = 32
+    /// HD agent sheets (`avatar_hd_N`): the same 8×9 PixelAnim layout with 96×96 art-px cells, drawn at
+    /// `hdScale` map units per art px. At that scale the figure matches the legacy frames' height while
+    /// carrying ~2.5× the detail, so desks, tags and paths need no re-layout.
+    static let hdCell: CGFloat = 96
+    static let hdScale: CGFloat = 0.74
+    /// Art px from the bottom of an HD cell to the character's feet (the sheet builder puts feet on this line).
+    static let hdFootFromBottom: CGFloat = 10
 }
 
 // MARK: - State colors / labels
@@ -499,8 +506,58 @@ final class PixelOfficeTextureCache {
     private init() {}
 
     private var sheetCache: [Int: SKTexture] = [:]
+    private var hdSheetCache: [Int: SKTexture?] = [:]
+    private var fxSheetCache: [Int: SKTexture?] = [:]
     private var frameCache: [String: SKTexture] = [:]
     private var staticCache: [String: SKTexture] = [:]
+
+    /// HD sheet for this character, or nil when only the legacy 48×64 sheet ships. Linear filtering:
+    /// HD art is drawn at ~1.25 device px per art px, where nearest-neighbour would double random columns.
+    func hdSheet(forAvatarIdx idx: Int) -> SKTexture? {
+        let bounded = max(0, min(7, idx))
+        if let cached = hdSheetCache[bounded] { return cached }
+        var tex: SKTexture?
+        if let img = UIImage(named: "avatar_hd_\(bounded)", in: .designModule, with: nil) {
+            tex = SKTexture(image: img); tex?.filteringMode = .linear
+        }
+        hdSheetCache[bounded] = tex
+        return tex
+    }
+    func isHD(_ idx: Int) -> Bool { hdSheet(forAvatarIdx: idx) != nil }
+
+    /// One frame of an HD emote (`avatar_hd_fx_N`: 9 cols × one row per `AgentEmote`, 96px cells on the
+    /// same foot line as the office sheet, so an emote drops into the idle pose without a jump).
+    func emoteFrame(forAvatarIdx idx: Int, emote: AgentEmote, col: Int) -> SKTexture? {
+        let bounded = max(0, min(7, idx))
+        let key = "fx\(bounded)_\(emote.rawValue)_\(col)"
+        if let cached = frameCache[key] { return cached }
+        if fxSheetCache[bounded] == nil {
+            var tex: SKTexture?
+            if let img = UIImage(named: "avatar_hd_fx_\(bounded)", in: .designModule, with: nil) {
+                tex = SKTexture(image: img); tex?.filteringMode = .linear
+            }
+            fxSheetCache[bounded] = tex
+        }
+        guard let sheet = fxSheetCache[bounded] ?? nil else { return nil }
+        let rows = sheet.size().height / PixelOfficeGeo.hdCell
+        let rect = CGRect(x: CGFloat(col) / 9, y: 1 - CGFloat(emote.rawValue + 1) / rows, width: 1.0 / 9, height: 1 / rows)
+        let cropped = SKTexture(rect: rect, in: sheet)
+        cropped.filteringMode = .linear
+        frameCache[key] = cropped
+        return cropped
+    }
+
+    /// Soft radial light (opaque white centre → clear edge), tinted per light with color + colorBlendFactor.
+    lazy var radialLight: SKTexture = {
+        let size = CGSize(width: 128, height: 128)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let colors = [UIColor(white: 1, alpha: 1).cgColor, UIColor(white: 1, alpha: 0.32).cgColor, UIColor(white: 1, alpha: 0).cgColor] as CFArray
+            guard let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.38, 1]) else { return }
+            ctx.cgContext.drawRadialGradient(g, startCenter: CGPoint(x: 64, y: 64), startRadius: 0, endCenter: CGPoint(x: 64, y: 64), endRadius: 64, options: [])
+        }
+        let t = SKTexture(image: img); t.filteringMode = .linear
+        return t
+    }()
 
     /// Load an avatar sprite sheet (avatar_0 .. avatar_7) as one big SKTexture.
     /// We rely on SKTexture(rect:in:) to crop frames on demand.
@@ -522,9 +579,10 @@ final class PixelOfficeTextureCache {
     /// Crop a single 48x64 frame out of a sheet. Frames index left-to-right,
     /// top-to-bottom across an 8x9 grid.
     func frame(forAvatarIdx avatarIdx: Int, frameIndex: Int) -> SKTexture? {
-        let key = "\(avatarIdx)_\(frameIndex)"
+        let hd = hdSheet(forAvatarIdx: avatarIdx)
+        let key = "\(hd == nil ? "" : "hd")\(avatarIdx)_\(frameIndex)"
         if let cached = frameCache[key] { return cached }
-        guard let sheet = sheet(forAvatarIdx: avatarIdx) else { return nil }
+        guard let sheet = hd ?? sheet(forAvatarIdx: avatarIdx) else { return nil }
         let col = frameIndex % PixelOfficeGeo.sheetCols
         let row = frameIndex / PixelOfficeGeo.sheetCols
         // SKTexture.rect uses normalized (0..1) coords with origin at the
@@ -538,7 +596,7 @@ final class PixelOfficeTextureCache {
             height: fh
         )
         let cropped = SKTexture(rect: rect, in: sheet)
-        cropped.filteringMode = .nearest
+        cropped.filteringMode = hd == nil ? .nearest : .linear
         frameCache[key] = cropped
         return cropped
     }

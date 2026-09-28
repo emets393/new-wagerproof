@@ -52,15 +52,24 @@ final class PixelOfficeAgentNode: SKSpriteNode {
     var bubbleEmoji: String = ""
 
     var animKey: String = "front_idle"
+    /// Performance mood: an idle agent facing the camera plays its expression every ~10s, with the
+    /// mood icon popping over its head (the avatar version lives in `PixelSpriteAvatar`).
+    var mood: AgentMood = .neutral
+    var nextEmoteIn: TimeInterval = .random(in: 3...8)
+    private var emoteCount = 0
+    private var emote: AgentEmote?
+    private var emoteTime: TimeInterval = 0
     var frameIdx: Int = 0
     var animTimer: TimeInterval = 0        // accumulates dt for fps-gated frame steps
 
     /// Skip redundant texture swaps — only re-fetch when (animKey, frameIdx) moves.
     private var lastTextureKey: String = ""
 
-    /// Scene-Y lift applied to the center-anchored sprite so it foot-anchors to
-    /// the map point like RN (`destY = y - FH + 8`). FH/2 - 8 = 24px.
-    static let footAnchorLift: CGFloat = PixelOfficeGeo.frameHeight / 2 - 8
+    /// Scene-Y lift applied to the center-anchored sprite so its feet land on the map point. Legacy frames
+    /// match RN (`destY = y - FH + 8`, i.e. FH/2 - 8 = 24px); HD cells put the feet `hdFootFromBottom` up.
+    let footLift: CGFloat
+    /// True when this character renders from its HD sheet (see PixelOfficeTextureCache.hdSheet).
+    let isHD: Bool
 
     // MARK: - Child nodes
 
@@ -145,15 +154,27 @@ final class PixelOfficeAgentNode: SKSpriteNode {
         bubbleNode.isHidden = true
 
         // ── Sprite init ──
+        let hd = PixelOfficeTextureCache.shared.isHD(avatarIdx)
+        let side = PixelOfficeGeo.hdCell * PixelOfficeGeo.hdScale
+        let nodeSize = hd ? CGSize(width: side, height: side) : CGSize(width: PixelOfficeGeo.frameWidth, height: PixelOfficeGeo.frameHeight)
+        isHD = hd
+        footLift = hd ? side / 2 - PixelOfficeGeo.hdFootFromBottom * PixelOfficeGeo.hdScale : PixelOfficeGeo.frameHeight / 2 - 8
         let frames = PixelOfficeTextureCache.shared.frames(forAvatarIdx: avatarIdx, anim: .frontIdle)
         let firstTexture = frames.first ?? SKTexture()
-        super.init(
-            texture: firstTexture,
-            color: .clear,
-            size: CGSize(width: PixelOfficeGeo.frameWidth, height: PixelOfficeGeo.frameHeight)
-        )
-        texture?.filteringMode = .nearest
+        super.init(texture: firstTexture, color: .clear, size: nodeSize)
+        texture?.filteringMode = hd ? .linear : .nearest
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        // Contact shadow: grounds the character on the floor (sprites used to float). Sits just under the
+        // sprite in z and at the feet, so it slides with every walk frame.
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: hd ? 30 : 26, height: hd ? 9 : 8))
+        shadow.fillColor = UIColor(white: 0, alpha: 0.38)
+        shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 0, y: -footLift + 1.5)
+        shadow.zPosition = -0.02
+        addChild(shadow)
+        // HD heads sit a touch higher; shift the tag's children (the container's own position is the
+        // per-frame de-collision offset that relaxLabels drives back toward 0).
+        if hd { nameTagNode.children.forEach { $0.position.y += 4 }; bubbleNode.position.y += 4 }
         addChild(nameTagNode)
         addChild(bubbleNode)
         lastTextureKey = "front_idle#0"
@@ -176,6 +197,50 @@ final class PixelOfficeAgentNode: SKSpriteNode {
 
     /// Swap the sprite to the current (animKey, frameIdx). No-ops when nothing
     /// changed since the last call so the loop doesn't churn textures.
+    /// Advance the emote clock. Returns true while an emote owns the texture.
+    func stepEmote(dt: TimeInterval, canEmote: Bool) -> Bool {
+        if let current = emote {
+            emoteTime += dt
+            let col = Int(emoteTime * 7)
+            guard canEmote, col < 9,
+                  let tex = PixelOfficeTextureCache.shared.emoteFrame(forAvatarIdx: avatarIdx, emote: current, col: col) else {
+                emote = nil
+                lastTextureKey = ""   // let the idle frame re-apply
+                return false
+            }
+            texture = tex
+            return true
+        }
+        guard canEmote, isHD, !mood.emotes.isEmpty else { return false }
+        nextEmoteIn -= dt
+        guard nextEmoteIn <= 0 else { return false }
+        let next = mood.emotes[emoteCount % mood.emotes.count]
+        emoteCount += 1
+        nextEmoteIn = .random(in: 8...13)
+        emote = next
+        emoteTime = 0
+        if let icon = next.icon { popIcon(icon) }
+        return stepEmote(dt: 0, canEmote: true)
+    }
+
+    private func popIcon(_ name: String) {
+        guard let tex = PixelOfficeTextureCache.shared.staticTexture(named: name) else { return }
+        tex.filteringMode = .nearest
+        let icon = SKSpriteNode(texture: tex, size: CGSize(width: 22, height: 22))
+        icon.position = CGPoint(x: 17, y: size.height / 2 - 10)
+        // Relative z: lifts the icon above the night grade and lights (absolute ≈ 4.4+), still under the tags (+100).
+        icon.zPosition = 1.4
+        icon.alpha = 0
+        icon.setScale(0.2)
+        addChild(icon)
+        icon.run(.sequence([
+            .group([.fadeIn(withDuration: 0.12), .scale(to: 1.15, duration: 0.18)]),
+            .scale(to: 1, duration: 0.1),
+            .group([.moveBy(x: 0, y: 12, duration: 1.5), .sequence([.wait(forDuration: 0.9), .fadeOut(withDuration: 0.6)])]),
+            .removeFromParent(),
+        ]))
+    }
+
     func applyTextureFrame() {
         let texKey = "\(animKey)#\(frameIdx)"
         if texKey == lastTextureKey { return }
@@ -195,7 +260,7 @@ final class PixelOfficeAgentNode: SKSpriteNode {
         // same amount; without it agents render ~24px too low (feet sinking below
         // their desks/seats). Particles/laptops keep the plain flip — RN draws
         // those un-anchored.
-        position = CGPoint(x: mapX, y: PixelOfficeGeo.mapHeight - mapY + Self.footAnchorLift)
+        position = CGPoint(x: mapX, y: PixelOfficeGeo.mapHeight - mapY + footLift)
         // Keep agents between the laptop layer (z=2) and foreground (z=4).
         zPosition = 3 + (mapY / PixelOfficeGeo.mapHeight) * 0.9
         let showBubble = arrived && !bubbleEmoji.isEmpty

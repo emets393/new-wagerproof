@@ -1667,7 +1667,7 @@ private struct PaywallLeaderboardHero: View {
             .foregroundStyle(rankColor)
             .frame(width: tight ? 18 : 26)
 
-            PixelSpriteAvatar(spriteIndex: leader.sprite)
+            PixelSpriteAvatar(spriteIndex: leader.sprite, framing: .fullBody)
                 .frame(width: tight ? 23 : 30, height: tight ? 30 : 39)
 
             VStack(alignment: .leading, spacing: 1) {
