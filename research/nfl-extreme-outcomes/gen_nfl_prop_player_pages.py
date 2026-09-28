@@ -32,6 +32,9 @@ SEASON = int(os.environ.get("NFL_SEASON", 2026))
 WEEK = int(os.environ.get("NFL_WEEK", 1))
 STAT_SEASON = 2025          # baseline/NGS/scheme snapshot season (last completed)
 POSITIONS = {"WR", "TE", "RB", "QB"}
+# Markets that are a yes/no proposition and correctly carry no line.
+YES_NO_MARKETS = {"player_anytime_td"}
+
 MARKET_LABEL = {
     "player_receptions": "Receptions", "player_reception_yds": "Receiving Yards",
     "player_rush_yds": "Rushing Yards", "player_rush_attempts": "Rush Attempts",
@@ -408,8 +411,21 @@ def main():
                 hit = props[(props.player_id == pid) & (props.market == mk)] if "player_id" in props.columns else []
                 if len(hit):
                     hr = hit.iloc[0]
-                    row.update(line=hr.get("line"), over_price=hr.get("over_price"),
-                               under_price=hr.get("under_price"), status="posted")
+                    # nfl_slate_props stores the number as close_line (best_over_line as backup) —
+                    # there is NO "line" column, so hr.get("line") silently returned None and every
+                    # posted market on every page shipped with line: null while the prices came
+                    # through fine. Worse, status was still stamped "posted", so the live-board
+                    # fallback below could never repair it. (Found 2026-09-28: 687 of 1,146 rows.)
+                    _ln = hr.get("close_line")
+                    if _ln is None or (isinstance(_ln, float) and pd.isna(_ln)):
+                        _ln = hr.get("best_over_line")
+                    _has_line = _ln is not None and not (isinstance(_ln, float) and pd.isna(_ln))
+                    # Only claim "posted" when we actually have a number, except for the yes/no
+                    # markets that legitimately have none — otherwise fall through to the live board.
+                    if _has_line or mk in YES_NO_MARKETS:
+                        row.update(line=(float(_ln) if _has_line else None),
+                                   over_price=hr.get("over_price"),
+                                   under_price=hr.get("under_price"), status="posted")
                     fl = hr.get("flags")
                     if fl is not None and len(fl):
                         row["signals"] = resolve_signals(list(fl))
