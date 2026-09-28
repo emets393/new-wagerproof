@@ -232,7 +232,7 @@ function renderPage({ title, description, canonicalUrl, bodyHtml, jsonLd = [], c
 <meta name="twitter:title" content="${escapeHtml(title)}" />
 <meta name="twitter:description" content="${escapeHtml(description)}" />
 <meta name="twitter:image" content="${SITE_URL}/wagerproof-landing.png" />
-<meta name="twitter:site" content="@wagerproof" />
+<meta name="twitter:site" content="@WagerProofAI" />
 ${jsonLdScripts}
 ${cssBundlePath ? `<link rel="stylesheet" href="${cssBundlePath}" />` : ''}
 ${getThemeScript()}
