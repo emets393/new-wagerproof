@@ -12,6 +12,8 @@ Checks (football season, both sports):
   4. missing lines     — upcoming games kicking within 48h that have NO spread posted
                          (catches provider event drops like UMass@Rutgers 2026-09-02)
   5. grading lag       — games final for >36h whose flags are still ungraded
+  6. prop lines        — NFL: a POSTED prop market with a null line (the card renders
+                         with no number; prices still populate, so nothing else catches it)
 
 Runs daily ~6:45am ET via render.yaml (football-health-sweep). Read-only.
 """
@@ -132,6 +134,35 @@ def main():
             check(f"{sport} pick cards", page_h < 26, f"last regenerated {page_h:.1f}h ago")
         except Exception as e:
             check(f"{sport} pick cards", False, f"probe failed: {e}")
+
+        # 6. prop pages carry their numbers (NFL only — it is the NFL prop contract).
+        # A posted market with a null line renders a prop card with no number on it. This shipped
+        # silently for an unknown stretch and nothing caught it: the PRICES came through fine, so
+        # every freshness and row-count probe stayed green. gen_nfl_prop_player_pages was reading
+        # hr.get("line") from nfl_slate_props, which stores it as close_line, and pandas .get()
+        # returns None for a missing column instead of raising (fixed 2026-09-28, 625 markets).
+        # Anytime TD is a yes/no market and correctly has no line, so it is excluded.
+        if sport == "NFL":
+            try:
+                # CURRENT week only. Pages built before the fix keep their nulls forever, so a
+                # season-wide probe would alarm on history that will never be rebuilt.
+                wk = q(f"nfl_prop_player_pages?select=week&season=eq.{season}"
+                       f"&order=week.desc&limit=1")
+                cur_wk = wk[0]["week"] if wk else None
+                pages = q(f"nfl_prop_player_pages?select=markets&season=eq.{season}"
+                          f"&week=eq.{cur_wk}&limit=600") if cur_wk is not None else []
+                posted = nulls = 0
+                for row in pages:
+                    for m in (row.get("markets") or []):
+                        if m.get("status") != "posted":
+                            continue
+                        posted += 1
+                        if m.get("line") is None and m.get("key") != "player_anytime_td":
+                            nulls += 1
+                check(f"{sport} prop lines", posted == 0 or nulls == 0,
+                      f"{nulls} of {posted} posted prop markets have no line")
+            except Exception as e:
+                check(f"{sport} prop lines", False, f"probe failed: {e}")
 
     print(f"FOOTBALL HEALTH SWEEP — {NOW.isoformat(timespec='minutes')}")
     for line in RED + WARN + OK:
