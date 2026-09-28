@@ -281,6 +281,27 @@ def _seed_universe(fall_cols):
     return f
 
 
+
+def _csv_or_empty(path, cols):
+    """Read an out/ CSV, or return an empty frame with these columns.
+
+    These are written by earlier steps of run_nfl_week.sh from whatever the books have posted.
+    On a MONDAY PREVIEW build the next week's derivative markets are not up yet, so the writer
+    produces a header-less/empty file, out/ is git-ignored so a fresh Render clone has no stale
+    copy from last week, and pandas raises EmptyDataError — that killed the first
+    nfl-slate-monday-preview run (2026-09-28). No rows here means no totals/ledger flags this
+    run; the game rows still write, which is the whole point of a preview build.
+    """
+    try:
+        d = pd.read_csv(path)
+        if len(d.columns):
+            return d
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        pass
+    print(f"  [slate] {os.path.basename(str(path))} missing/empty — continuing without it")
+    return pd.DataFrame(columns=cols)
+
+
 def build_games():
     fall = pd.read_parquet(DATA / "h1tt_frame.parquet")
     f = fall[(fall.season == SEASON) & (fall.week == WEEK)].copy()
@@ -323,7 +344,9 @@ def build_games():
             g[col] = g[src]
 
     # FG totals model (locked consensus ensemble, strict-open artifact)
-    ct = pd.read_csv(ROOT / "out" / f"predictions_totals_{SEASON}.csv")
+    ct = _csv_or_empty(ROOT / "out" / f"predictions_totals_{SEASON}.csv",
+                       ["season", "week", "home_ab", "away_ab", "display_total",
+                        "edge_open", "direction", "tier", "bet_quality"])
     ct = ct[ct.week == WEEK].copy()
     ct["home_ab"] = norm_ab(ct.home_ab); ct["away_ab"] = norm_ab(ct.away_ab)
     g = g.merge(ct[["season", "week", "home_ab", "away_ab", "display_total",
@@ -528,7 +551,8 @@ def build_flags(g):
             grade_line=GRADE_LINE.get(source, "close")))
 
     # ---- FG harness ledger (already generated walk-forward at the opener)
-    led = pd.read_csv(ROOT / "out" / f"forecast_ledger_{SEASON}.csv")
+    led = _csv_or_empty(ROOT / "out" / f"forecast_ledger_{SEASON}.csv",
+                        ["week", "game", "side", "conviction", "source"])
     led = led[led.week == WEEK]
     gmap = {f"{r.away_ab}@{r.home_ab}": r for _, r in g.iterrows()}
     for _, p in led.iterrows():
@@ -814,7 +838,13 @@ def build_flags(g):
             f"OVER {r.total_close_total_point:g}", r.total_close_total_point,
             amer(r.total_close_pay_total_over_price), r.p11_resid)
 
-    return pd.DataFrame(flags)
+    # Keep the columns even with zero rows: a preview build fires no flags, and an empty frame
+    # with no columns KeyErrors every downstream groupby instead of just producing nothing.
+    return pd.DataFrame(flags, columns=None if flags else
+                        ["bet_team", "bet_direction", "bet_line", "game_id", "season", "week",
+                         "game", "source", "rule", "tier", "market", "side", "line", "price",
+                         "edge", "mammoth", "signal_key", "conviction", "stake_units",
+                         "grade_line"])
 
 
 def grade_play(kind, pick_side, line, r):
@@ -1092,7 +1122,12 @@ def build_picks(g, fl, books, kickoff, meta):
              recommendation="Predicted Winner", has_play=False, display_only=True,
              signal_keys=[], signals=[], result=None)
 
-    return pd.DataFrame(picks)
+    # Same reason as build_flags: zero picks is a valid preview slate, not an error.
+    return pd.DataFrame(picks, columns=None if picks else
+                        ["game_id", "season", "week", "best_book_name", "best_book_logo",
+                         "is_mammoth", "stake_units", "result", "card_group", "bet_type",
+                         "sort_order", "pick_side", "pick_team", "pick_label", "model_number",
+                         "model_line", "vegas_line", "vegas_price", "edge", "conviction"])
 
 
 def game_conviction(pk):
@@ -1122,11 +1157,19 @@ def main():
     g = p11_flag(g)
     fl = build_flags(g)
 
-    counts = fl.groupby(["game_id", "tier"]).size().unstack(fill_value=0)
-    g["flags_active"] = g.game_id.map(counts.get("active", pd.Series(dtype=int))).fillna(0).astype(int)
-    g["flags_tracking"] = g.game_id.map(counts.get("tracking", pd.Series(dtype=int))).fillna(0).astype(int)
-    mam = fl[fl.mammoth].game_id.unique()
-    g["mammoth"] = g.game_id.isin(mam)
+    # A preview build can legitimately produce ZERO flags — next week's derivative markets are not
+    # posted yet, so the totals/ledger inputs are empty and nothing fires. An empty frame has no
+    # columns, so grouping by game_id raises KeyError; zero flags is a valid slate, not an error.
+    if len(fl):
+        counts = fl.groupby(["game_id", "tier"]).size().unstack(fill_value=0)
+        g["flags_active"] = g.game_id.map(counts.get("active", pd.Series(dtype=int))).fillna(0).astype(int)
+        g["flags_tracking"] = g.game_id.map(counts.get("tracking", pd.Series(dtype=int))).fillna(0).astype(int)
+        g["mammoth"] = g.game_id.isin(fl[fl.mammoth].game_id.unique())
+    else:
+        print("  [slate] no flags fired this build — writing game rows with zero flags")
+        g["flags_active"] = 0
+        g["flags_tracking"] = 0
+        g["mammoth"] = False
 
     books, kickoff = load_books(g)
     meta = book_meta() if not args.no_load else {}
