@@ -62,6 +62,33 @@ STAT_OF = {
     "player_rush_yds": "rushing_yards", "player_anytime_td": "td_any",
 }
 
+
+# ---- American-odds averaging ----------------------------------------------------------------
+# American prices are DISCONTINUOUS around zero: nothing exists between -100 and +100. Taking an
+# arithmetic median of two books that straddle it produces a number that is not a price —
+# median(-105, +101) = -2. That shipped on 17 rows in 2026 wk3 (Hurts completions -2, Swift rush
+# attempts -1, Dobbins -26), always on 2-book rows where the prices straddled. Average in implied
+# PROBABILITY space and convert back, which is the only meaningful way to combine them.
+def _am_to_prob(o):
+    o = pd.to_numeric(o, errors="coerce")
+    return np.where(o > 0, 100.0 / (o + 100.0), np.where(o < 0, -o / (-o + 100.0), np.nan))
+
+
+def _prob_to_am(p):
+    if p is None or not np.isfinite(p) or not (0 < p < 1):
+        return np.nan
+    return round(-100.0 * p / (1.0 - p)) if p >= 0.5 else round(100.0 * (1.0 - p) / p)
+
+
+def median_american(s):
+    """Median of a series of American odds, taken in probability space."""
+    pr = _am_to_prob(s)
+    pr = pr[np.isfinite(pr)]
+    if not len(pr):
+        return np.nan
+    return _prob_to_am(float(np.median(pr)))
+
+
 def load_key():
     for line in (ROOT.parent.parent / ".env.local").read_text().splitlines():
         if line.startswith("SUPABASE_SERVICE_KEY="):
@@ -93,7 +120,7 @@ def consensus(pf):
     g = w.groupby(keys, dropna=False)
     c = g.agg(
         close_line=("close_line", "median"), open_line=("open_line", "median"),
-        over_price=("close_over", "median"), under_price=("close_under", "median"),
+        over_price=("close_over", median_american), under_price=("close_under", median_american),
         book_line_spread=("close_line", lambda s: s.max() - s.min()),
         n_books=("bookmaker", "nunique"),
         close_yes_prob=("close_yes_prob", "median"),
@@ -288,7 +315,8 @@ def attempts_consensus():
     keys = ["event_id", "player_id", "player_name", "position", "team", "market",
             "home_team", "away_team"]
     snaps = ex.groupby(keys + ["snap", "mins"]).agg(
-        line=("line", "median"), over=("over_odds", "median"), under=("under_odds", "median"),
+        line=("line", "median"), over=("over_odds", median_american),
+        under=("under_odds", median_american),
         nb=("bookmaker", "nunique"), lo=("line", "min"), hi=("line", "max")
     ).reset_index().sort_values(keys + ["snap"])
     op = snaps.groupby(keys).first().reset_index()[keys + ["line"]].rename(columns={"line": "open_line"})
