@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { X_SITE_HANDLE } from '@/lib/socialLinks';
 
 interface SEOProps {
   title: string;
@@ -64,7 +65,7 @@ export const SEO: React.FC<SEOProps> = ({
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
       <meta name="twitter:image:alt" content={fullTitle} />
-      <meta name="twitter:site" content="@wagerproof" />
+      <meta name="twitter:site" content={X_SITE_HANDLE} />
 
       {/* Article Specific */}
       {article && ogType === 'article' && (

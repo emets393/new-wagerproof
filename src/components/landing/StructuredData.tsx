@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { ALL_SOCIALS } from '@/lib/socialLinks';
 
 interface OrganizationDataProps {
   type: 'organization';
@@ -74,11 +75,7 @@ export const StructuredData: React.FC<StructuredDataProps> = (props) => {
             name: 'WagerProof Team',
           },
         ],
-        sameAs: [
-          'https://twitter.com/wagerproofai',
-          'https://www.instagram.com/wagerproof.official/',
-          'https://www.tiktok.com/@wagerproof',
-        ],
+        sameAs: ALL_SOCIALS.map((s) => s.url),
         contactPoint: {
           '@type': 'ContactPoint',
           email: 'support@wagerproof.bet',

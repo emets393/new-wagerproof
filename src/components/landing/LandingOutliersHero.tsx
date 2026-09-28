@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bot } from 'lucide-react';
 import type { Transition } from 'framer-motion';
@@ -6,6 +6,7 @@ import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { GradientText } from '@/components/ui/gradient-text';
 import { OutliersDashboard } from '@/features/outliers/components/OutliersDashboard';
 import { trackCTAClick } from '@/lib/mixpanel';
+import { HEADER_SOCIALS } from '@/lib/socialLinks';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const HERO_HEADLINE = 'Build bots that find plays for you';
@@ -102,13 +103,14 @@ export default function LandingOutliersHero() {
 
             <p className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
               Follow us on
-              <a href="https://twitter.com/wagerproofai" target="_blank" rel="noopener noreferrer" aria-label="WagerProof on X" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-              </a>
-              &amp;
-              <a href="https://instagram.com/wagerproof.official" target="_blank" rel="noopener noreferrer" aria-label="WagerProof on Instagram" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0 3.675A6.162 6.162 0 1 0 12 18.162 6.162 6.162 0 0 0 12 5.838zm0 10.162a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 1 0 2.88 1.44 1.44 0 0 1 0-2.88z" /></svg>
-              </a>
+              {HEADER_SOCIALS.map((s, i) => (
+                <Fragment key={s.platform}>
+                  {i > 0 && '&'}
+                  <a href={s.url} target="_blank" rel="noopener noreferrer" aria-label={`WagerProof on ${s.label}`} className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d={s.iconPath} /></svg>
+                  </a>
+                </Fragment>
+              ))}
               for daily picks.
             </p>
           </div>

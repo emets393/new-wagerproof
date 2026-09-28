@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { X_SITE_HANDLE } from '@/lib/socialLinks';
 
 interface SupportLayoutProps {
   children: React.ReactNode;
@@ -32,7 +33,7 @@ export default function SupportLayout({ children, title, description, canonicalP
         <meta name="twitter:title" content={pageTitle} />
         <meta name="twitter:description" content={pageDescription} />
         <meta name="twitter:image" content={defaultImage} />
-        <meta name="twitter:site" content="@wagerproof" />
+        <meta name="twitter:site" content={X_SITE_HANDLE} />
       </Helmet>
       <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-800/50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
