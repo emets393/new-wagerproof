@@ -26,7 +26,7 @@ Every leg has to win, so the payout compounds. The calculation has four steps, a
 
 For negative odds, the conversion is `1 + 100 / 110 = 1.9091`. For positive odds, it is `1 + 150 / 100 = 2.50`.
 
-**Step 2: multiply the decimal odds.** `1.9091 × 1.9091 × 2.50 = 9.1116`. Keep the unrounded values while you calculate. Rounding each leg to two decimals first would give 9.11 and a payout a few cents off.
+**Step 2: multiply the decimal odds.** `1.9091 × 1.9091 × 2.50 = 9.1116`. Keep the unrounded values while you calculate. Rounding each leg to two decimals first (`1.91 × 1.91 × 2.50`) would give 9.12 and a $91.20 payout, eight cents too high.
 
 **Step 3: multiply by the stake.** `$10 × 9.1116 = $91.12` total payout. Subtract the stake and the profit is $81.12.
 
