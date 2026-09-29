@@ -375,7 +375,12 @@ services:
   - type: cron
     name: football-health-sweep
     runtime: python
-    schedule: "45 10 * 8-12,1-2 *"        # daily 6:45am ET, football season
+    # 12:45 UTC, NOT 10:45: the weekly slate builds run at 11:00 (cfb-slate-weekly Mon,
+    # nfl-slate-weekly Tue) and take 10-20 min. At 10:45 the sweep checked for next week's
+    # slate 13 minutes BEFORE the job that builds it, so every Monday it raised "week over,
+    # next week's slate NOT BUILT" + "pick cards stale" and failed the run (2026-09-28).
+    # A watchdog that cries wolf on a schedule is worse than no watchdog.
+    schedule: "45 12 * 8-12,1-2 *"        # daily 8:45am ET, football season — after the 11:00 weekly builds
     buildCommand: pip install requests
     startCommand: cd research && python3 health_sweep.py
     envVars:
