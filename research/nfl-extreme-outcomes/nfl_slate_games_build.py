@@ -100,6 +100,13 @@ REG_CAP = 7.0
 # the line a signal was computed from -> the line we GRADE against (grading framework)
 GRADE_LINE = {"fg_harness": "open", "consensus_totals": "open",
               "props": "close", "h1_model": "close", "k_signal": "close", "late_defense": "close"}
+# Per-RULE override of the source default. The legacy rules come from fg_harness, whose other
+# rules are opener-triggered and graded at the opener — but nfl-predictions now runs DAILY on
+# that morning's board (owner 2026-09-29), so a legacy trigger can first cross its threshold on
+# any day of the week. Grading a Friday trigger at Monday's opener books a price that was no
+# longer available; per the grade-at-the-line-the-signal-uses rule these grade at DETECTION,
+# and forecast_harness writes the model's own home_spread as the line.
+GRADE_LINE_BY_RULE = {"legacy_fade": "detection", "legacy_primetime": "detection"}
 # default conviction per source/tier for a flag row (mirrors nfl_signal_defs.default_conviction)
 ACTIVE_HIGH = {"legacy_primetime", "legacy_fade", "tight_soft_ml_fade_home",
                "top_vs_top_pt_home", "dk_heavy_home_juice", "dk_giant_fav_over",
@@ -548,7 +555,7 @@ def build_flags(g):
             price=price, edge=float(edge) if pd.notna(edge) else None,
             mammoth=bool(mammoth),
             signal_key=rule, conviction=conv, stake_units=STAKE[conv],
-            grade_line=GRADE_LINE.get(source, "close")))
+            grade_line=GRADE_LINE_BY_RULE.get(rule, GRADE_LINE.get(source, "close"))))
 
     # ---- FG harness ledger (already generated walk-forward at the opener)
     led = _csv_or_empty(ROOT / "out" / f"forecast_ledger_{SEASON}.csv",

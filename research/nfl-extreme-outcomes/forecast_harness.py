@@ -114,14 +114,19 @@ def load_legacy():
     Empty -> legacy rules just don't fire."""
     try:
         from fetch import fetch_table
-        leg=fetch_table("nfl_predictions_epa", select="unique_id,home_away_spread_cover_prob,as_of_ts")
-        if leg is None or len(leg)==0: return pd.DataFrame(columns=["unique_id","leg_sp"])
+        leg=fetch_table("nfl_predictions_epa", select="unique_id,home_away_spread_cover_prob,home_spread,as_of_ts")
+        if leg is None or len(leg)==0: return pd.DataFrame(columns=["unique_id","leg_sp","leg_line"])
         leg["leg_sp"]=pd.to_numeric(leg.home_away_spread_cover_prob,errors="coerce")
+        # The line the model actually computed from, carried on the same row. This is the
+        # DETECTION line the legacy rules are graded at (owner 2026-09-29) — the prediction and
+        # its line travel together, so they can never drift apart.
+        leg["leg_line"]=pd.to_numeric(leg.home_spread,errors="coerce")
         leg["as_of_ts"]=pd.to_datetime(leg.as_of_ts,errors="coerce",utc=True)
         leg=leg.sort_values("as_of_ts").groupby("unique_id",as_index=False).last()
-        return leg[["unique_id","leg_sp"]]
+        return leg[["unique_id","leg_sp","leg_line"]]
     except Exception as e:
-        print(f"  ! legacy preds unavailable ({e}); legacy rules disabled"); return pd.DataFrame(columns=["unique_id","leg_sp"])
+        print(f"  ! legacy preds unavailable ({e}); legacy rules disabled")
+        return pd.DataFrame(columns=["unique_id","leg_sp","leg_line"])
 
 def load_bye_collisions(target, gap_thr=BYE_GAP, min_n=BYE_MIN_N):
     """Bye-collision signal for target season: coach career pre/post-bye ATS% from seasons < target (walk-forward
@@ -894,17 +899,24 @@ def generate(m, BASE, target, week=None):
         # features need ~2 weeks of games, so its early output is shadow-validation noise —
         # it fed 4 ACTIVE high-conviction wk1 flags off predictions computed on empty features.
         lsp=g.get("leg_sp",np.nan)
-        if pd.notna(lsp) and pd.notna(g.open_spread) and int(g.week)>=4:
+        # DETECTION line, not the opener (owner 2026-09-29). nfl-predictions now runs daily on
+        # that morning's board, so the legacy probability moves through the week with the line —
+        # a trigger that can fire on Friday must be priced at Friday's number, not Monday's
+        # opener, which is no longer available. leg_line is the home_spread the model itself
+        # computed from. Falls back to the opener only if the prediction row has no line.
+        lln=g.get("leg_line",np.nan)
+        gline=lln if pd.notna(lln) else g.open_spread
+        if pd.notna(lsp) and pd.notna(gline) and int(g.week)>=4:
             if int(g.primetime_i)==1:                                  # FOLLOW legacy in primetime (61.8% in 2025)
                 home_pick=lsp>=0.5
                 rows.append(dict(pick_id=gid+"-LPT",season=g.season,week=int(g.week),game=mtchp,rule="legacy_primetime",
-                    market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
-                    bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(lsp-0.5,3)))
+                    market="spread",side=(f"{g.home_ab} {gline:+g}" if home_pick else f"{g.away_ab} {-gline:+g}"),
+                    bet_home=int(home_pick),open_num=gline,close_num=g.close_spread,edge=round(lsp-0.5,3)))
             elif lsp>=FADE_HI or lsp<=FADE_LO:                          # FADE legacy at non-primetime extremes (dose-response to 65%+)
                 home_pick=lsp<=FADE_LO                                 # model loves away(<=.20)->bet home; loves home(>=.80)->bet away
                 rows.append(dict(pick_id=gid+"-LF",season=g.season,week=int(g.week),game=mtchp,rule="legacy_fade",
-                    market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
-                    bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(abs(lsp-0.5),3)))
+                    market="spread",side=(f"{g.home_ab} {gline:+g}" if home_pick else f"{g.away_ab} {-gline:+g}"),
+                    bet_home=int(home_pick),open_num=gline,close_num=g.close_spread,edge=round(abs(lsp-0.5),3)))
         # WEEK-1 WATCH: defenses out-class offenses -> UNDER (b35 ~60%, thin -> tracking flag only)
         omd=g.get("o_minus_d",np.nan)
         if int(g.week)==1 and W1CUT is not None and pd.notna(omd) and omd<=W1CUT and pd.notna(g.open_total):
