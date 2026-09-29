@@ -1,7 +1,12 @@
 {
   "version": 1,
-  "expectedCount": 12,
+  "expectedCount": 13,
   "entries": [
+    {
+      "slug": "parlay-calculator",
+      "canonicalPath": "/guides/parlay-calculator/",
+      "intent": "calculate parlay odds, payout and no-vig probability"
+    },
     {
       "slug": "what-is-kalshi",
       "canonicalPath": "/guides/what-is-kalshi/",

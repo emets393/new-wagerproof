@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { marked } from 'marked'
 import sanitizeHtml from 'sanitize-html'
+import { validateTool, validateVideo } from './guide-embeds.mjs'
 
 export const SITE_URL = 'https://wagerproof.bet'
 export const ROOT = process.cwd()
@@ -177,6 +178,8 @@ export function validateGuide(meta, sources, context) {
       if (!shot.width || !shot.height || !shot.alt || !shot.caption) throw new Error(`${context}: complete screenshot metadata required`)
     }
   }
+  validateTool(meta, context)
+  validateVideo(meta, context)
   if (meta.faqs) {
     if (!Array.isArray(meta.faqs) || meta.faqs.length < 2) throw new Error(`${context}: FAQs require at least two entries`)
     for (const faq of meta.faqs) {
