@@ -30,10 +30,41 @@ def carry(df, key, cols):
         v = (p.fillna(0) * K + s) / (K + n); v[p.isna() & (n == 0)] = np.nan; out[c] = v
     return pd.DataFrame(out, index=idx).rename_axis(key).reset_index()
 # ---------------------------------------------------------------- board (latest line per book -> consensus)
-raw = pd.DataFrame(fetch("nfl_player_props", f"select=player_id,player_name,position,team,market,bookmaker,line,over_odds,under_odds,home_team,away_team,snapshot_time&season=eq.{SEASON}&week=eq.{WEEK}&limit=50000"))
-if not len(raw): sys.exit("no props on the board")
-raw["snapshot_time"] = pd.to_datetime(raw.snapshot_time, utc=True); raw = raw[raw.line.notna()]
-L = raw.sort_values("snapshot_time").groupby(["player_id", "market", "bookmaker"], as_index=False).last()
+def latest_board(season, week, page=10000):
+    """Latest line per (player, market, bookmaker), paged NEWEST-FIRST.
+
+    PostgREST caps a response at 10,000 rows however big `limit` is, and this table holds a
+    snapshot per book per refresh — 237,794 rows for 2026 wk3 alone. The old single GET with
+    `limit=50000` therefore took an arbitrary, UNORDERED 4% slice and silently scored it: wk3
+    came back with 23 priced markets when 644 were actually on the board. Nothing errored.
+
+    Paging newest-first and keeping the first row seen per key gives the same "latest line per
+    book" the old sort_values().groupby().last() produced, while holding only the ~3.5k unique
+    keys in memory instead of the whole snapshot history — this script is also the one that
+    OOM-killed fp-data-inseason at 2Gi, so the smaller footprint matters.
+    `id` breaks ties so the page walk is deterministic."""
+    cols = ("player_id,player_name,position,team,market,bookmaker,line,over_odds,under_odds,"
+            "home_team,away_team,snapshot_time")
+    seen, out, off = set(), [], 0
+    while True:
+        j = fetch("nfl_player_props",
+                  f"select={cols}&season=eq.{season}&week=eq.{week}&line=not.is.null"
+                  f"&order=snapshot_time.desc,id.desc&limit={page}&offset={off}")
+        if not j:
+            break
+        for r in j:
+            k = (r["player_id"], r["market"], r["bookmaker"])
+            if k not in seen:
+                seen.add(k); out.append(r)
+        if len(j) < page:
+            break
+        off += page
+    return pd.DataFrame(out)
+
+
+L = latest_board(SEASON, WEEK)
+if not len(L): sys.exit("no props on the board")
+print(f"  board: {len(L)} latest (player,market,book) rows from {L.player_id.nunique()} players")
 b = L.groupby(["player_id", "player_name", "position", "team", "market", "home_team", "away_team"], as_index=False).agg(close_line=("line", "median"), over_odds=("over_odds", "median"), books=("bookmaker", "nunique"))
 b = b[(b.books >= 2) & b.close_line.notna() & (b.close_line > 0)]
 b["home"] = b.home_team.map(N2A); b["away"] = b.away_team.map(N2A); b["team"] = b.team.map(lambda a: E.AB_NV.get(a, a)).replace({"LAR": "LA"})
