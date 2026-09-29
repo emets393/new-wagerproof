@@ -13,3 +13,9 @@ Derivatives (cwebp q86):
 - parlay-calculator-social-v1.webp, 1200x630: separate render of the same layout at 1200x630, screenshot 700 px wide.
 
 Both were inspected visually; the title and the payout block are fully inside each frame. To regenerate after a UI change, re-capture and bump to -v2 rather than overwriting.
+
+## Video thumbnail: `parlay-calculator-video-v1.webp`
+
+- 1280 × 720 WebP made from the YouTube thumbnail for https://www.youtube.com/watch?v=6GAiAI44p6g (uploaded 2026-09-29).
+- The image is AI-generated (GPT Image 2.5 via Higgsfield, 2026-09-29): a stylised calculator showing +811 and the text "HOW TO CALCULATE PARLAYS". It is not product UI. +811 is the calculator's default example (-110, -110, +150).
+- Scaled from the 1536 × 864 source PNG with ffmpeg (libwebp, quality 85).
