@@ -96,15 +96,29 @@ def build_spread_lookup():
     return dict(zip(m.groupby("sp_b").fav_won.mean().index, m.groupby("sp_b").fav_won.mean().values))
 
 def load_legacy():
-    """Legacy EPA model's spread cover prob per game (earliest=pregame snapshot). Empty -> legacy rules just don't fire.
-    Pulled FRESH each run so 2026 weekly use picks up new predictions from nfl_predictions_epa."""
+    """Legacy EPA model's spread cover prob per game — the LATEST run for each game.
+
+    Every row in nfl_predictions_epa is pregame by construction (the model only scores
+    UPCOMING games), so "latest" carries no look-ahead; it is simply the most recent read.
+
+    This took .first() (the EARLIEST snapshot) while nfl-predictions ran Sun/Mon/Thu. Once
+    that went daily (owner 2026-09-29: lines move every day and home_spread / over_line are
+    model INPUTS, so the prediction moves with them), earliest would have pinned the signal
+    to the first run of the week and quietly thrown away every refresh — the daily cadence
+    would have changed nothing downstream. Take the newest instead.
+
+    NOTE the grading consequence: legacy_fade still triggers off `open_spread` and is graded
+    at the opener, but its TRIGGER now moves through the week with the line. Per the
+    grade-vs-the-line-the-signal-uses rule, a daily-refreshed trigger wants trigger-time
+    grading, not opener grading. Flagged for the owner; not changed here.
+    Empty -> legacy rules just don't fire."""
     try:
         from fetch import fetch_table
         leg=fetch_table("nfl_predictions_epa", select="unique_id,home_away_spread_cover_prob,as_of_ts")
         if leg is None or len(leg)==0: return pd.DataFrame(columns=["unique_id","leg_sp"])
         leg["leg_sp"]=pd.to_numeric(leg.home_away_spread_cover_prob,errors="coerce")
         leg["as_of_ts"]=pd.to_datetime(leg.as_of_ts,errors="coerce",utc=True)
-        leg=leg.sort_values("as_of_ts").groupby("unique_id",as_index=False).first()
+        leg=leg.sort_values("as_of_ts").groupby("unique_id",as_index=False).last()
         return leg[["unique_id","leg_sp"]]
     except Exception as e:
         print(f"  ! legacy preds unavailable ({e}); legacy rules disabled"); return pd.DataFrame(columns=["unique_id","leg_sp"])
