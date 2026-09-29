@@ -2,6 +2,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import { SITE_URL, ROOT, absoluteUrl, escapeHtml, loadEditorialSystem, slugify } from './lib/guides.mjs'
+import { hasPublishedVideo, videoSchema } from './lib/guide-embeds.mjs'
+import { MAX_LEGS, MIN_LEGS, PARLAY_DEFAULTS, calculateParlay, parlayDisplay } from '../src/lib/parlay-math.js'
 
 const DIST = path.join(ROOT, 'dist')
 const failures = []
@@ -233,6 +235,18 @@ function verifyArticleSchemas(html, guide, context) {
     if (article.author?.['@id'] !== `${SITE_URL}/guides/#chris-habib`) fail(`${context}: Article author identity mismatch`)
     if (article.publisher?.legalName !== 'WagerProof, LLC') fail(`${context}: publisher legal identity missing`)
   }
+  const expectedTypes = [articleType, 'Person', 'BreadcrumbList']
+  if (guide.layout === 'feature') expectedTypes.push('ItemList')
+  if (guide.faqs?.length) expectedTypes.push('FAQPage')
+  if (guide.howTo) expectedTypes.push('HowTo')
+  if (hasPublishedVideo(guide)) expectedTypes.push('VideoObject')
+  if (JSON.stringify([...types].sort()) !== JSON.stringify([...expectedTypes].sort())) {
+    fail(`${context}: JSON-LD type set ${[...types].sort().join(', ')} does not match expected ${[...expectedTypes].sort().join(', ')}`)
+  }
+  if (hasPublishedVideo(guide)) {
+    const video = schemas.find((schema) => schema['@type'] === 'VideoObject')
+    if (JSON.stringify(video) !== JSON.stringify(videoSchema(guide, SITE_URL))) fail(`${context}: VideoObject schema mismatch`)
+  }
   const person = schemas.find((schema) => schema['@type'] === 'Person')
   if (person) {
     if (person['@context'] !== 'https://schema.org') fail(`${context}: Person schema.org context missing`)
@@ -269,6 +283,61 @@ function verifyArticleSchemas(html, guide, context) {
       if (schemaStep.position !== index + 1 || schemaStep.name !== step.name || schemaStep.text !== step.text) fail(`${context}: HowTo schema mismatch at ${index + 1}`)
       if (!html.includes(`<h3>${escapeHtml(step.name)}</h3><p>${escapeHtml(step.text)}</p>`)) fail(`${context}: HowTo visible text mismatch at ${index + 1}`)
     })
+  }
+}
+
+function verifyParlayCalculator(html, context) {
+  assertCount(html, /<form class="parlay-calc" data-parlay-calculator\b/g, 1, `${context} parlay calculator form`)
+  const formStart = html.indexOf('data-parlay-calculator')
+  const bodyStart = html.indexOf('<article class="article-body">')
+  const heroStart = html.indexOf('<figure class="article-hero')
+  if (formStart < 0 || bodyStart < 0 || formStart > bodyStart || formStart > heroStart) fail(`${context}: parlay calculator must render before the hero and article body`)
+  const form = /<form class="parlay-calc"[\s\S]*?<\/form>/.exec(html)?.[0] || ''
+  if (!form.includes(`data-max-legs="${MAX_LEGS}"`) || !form.includes(`data-min-legs="${MIN_LEGS}"`)) fail(`${context}: parlay calculator leg limits missing`)
+  assertCount(form, /data-pc-leg>/g, PARLAY_DEFAULTS.legs.length, `${context} default parlay legs`)
+  for (const [index, leg] of PARLAY_DEFAULTS.legs.entries()) {
+    const n = index + 1
+    for (const key of ['odds', 'opposite']) {
+      if (!form.includes(`<label for="pc-${key}-${n}"`) || !form.includes(`id="pc-${key}-${n}"`)) fail(`${context}: leg ${n} ${key} input is not labelled`)
+    }
+    if (!form.includes(`id="pc-odds-${n}" name="odds" type="text" inputmode="text" autocomplete="off" spellcheck="false" value="${escapeHtml(leg.odds)}"`)) fail(`${context}: leg ${n} default odds missing`)
+  }
+  for (const id of ['pc-format', 'pc-stake']) {
+    if (!form.includes(`<label for="${id}"`) || !form.includes(`id="${id}"`)) fail(`${context}: ${id} is not labelled`)
+  }
+  // The no-JS document must already show the correct default example result.
+  const display = parlayDisplay(calculateParlay(PARLAY_DEFAULTS))
+  for (const key of ['payout', 'profit', 'american', 'decimal', 'impliedSentence']) {
+    if (!form.includes(`data-pc-out="${key}">${escapeHtml(display[key])}<`) && !form.includes(`data-pc-out="${key}" aria-live="polite">${escapeHtml(display[key])}<`)) {
+      fail(`${context}: static default ${key} is not ${display[key]}`)
+    }
+  }
+  for (const control of ['data-pc-add', 'data-pc-reset', 'data-pc-remove']) {
+    const tags = form.match(new RegExp(`<button\\b[^>]*${control}[^>]*>`, 'g')) || []
+    if (!tags.length || tags.some((tag) => !/\shidden\b/.test(tag))) fail(`${context}: ${control} must be hidden until JavaScript enhances the form`)
+  }
+  if (!/same-game parlays/i.test(form) || !/push or void/i.test(form)) fail(`${context}: parlay calculator caveats missing`)
+}
+
+async function verifyVideo(guide, html, context) {
+  const facades = count(html, /data-youtube-embed/g)
+  if (!hasPublishedVideo(guide)) {
+    if (facades) fail(`${context}: video facade rendered without a published youtubeId`)
+    return
+  }
+  assertCount(html, /data-youtube-embed/g, 1, `${context} video facade`)
+  const id = guide.video.youtubeId
+  if (!html.includes(`data-youtube-id="${id}"`) || !html.includes(`<a class="guide-video__link" href="https://www.youtube.com/watch?v=${id}"`)) fail(`${context}: video facade must link to youtube.com/watch?v=${id}`)
+  if (!html.includes(`src="${guide.video.thumbnail}"`)) fail(`${context}: video facade thumbnail missing`)
+  const thumbnail = path.join(DIST, guide.video.thumbnail.replace(/^\//, ''))
+  if (!await exists(thumbnail)) fail(`${context}: missing video thumbnail ${guide.video.thumbnail}`)
+  else {
+    try {
+      const { width, height } = imageDimensions(await fs.readFile(thumbnail))
+      if (width * 9 !== height * 16) fail(`${context}: video thumbnail must be 16:9, found ${width}x${height}`)
+    } catch (error) {
+      fail(`${context}: cannot inspect video thumbnail: ${error.message}`)
+    }
   }
 }
 
@@ -354,6 +423,9 @@ async function verifyArticleOutput(guide, guideMap, html) {
       await verifyImage(shot.src, shot.width, shot.height, context)
     }
   }
+  if (guide.tool === 'parlay-calculator') verifyParlayCalculator(html, context)
+  else if (/data-parlay-calculator|class="guide-tool/.test(html)) fail(`${context}: tool markup rendered on a page that does not declare it`)
+  await verifyVideo(guide, html, context)
   verifyArticleSchemas(html, guide, context)
 }
 
@@ -550,6 +622,10 @@ async function main() {
       if (!css.includes(token)) fail(`guides CSS missing required responsive/accessibility token: ${token}`)
     }
     if (/body\s*\{[^}]*overflow:\s*hidden/s.test(css)) fail('guides CSS clips page scrolling on body')
+    for (const token of ['var WagerProofParlayMath = (function', "querySelectorAll('[data-parlay-calculator]')", "querySelectorAll('[data-youtube-embed]')", 'https://www.youtube-nocookie.com/embed/']) {
+      if (!js.includes(token)) fail(`guides JS missing tool/video enhancement: ${token}`)
+    }
+    if (/^\s*(?:import|export)\b/m.test(js)) fail('guides JS must stay a classic script without import/export')
     if (!js.includes("search.closest('.find-guides, .all-guides')") || !js.includes("results.querySelectorAll('[data-guide-row]')")) {
       fail('guide search must stay scoped to its own result container')
     }
