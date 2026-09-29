@@ -36,13 +36,32 @@ while True:
         break
     _off += 1000
 acts = pd.DataFrame(acts_rows)
-if not len(acts): print("no graded props yet"); sys.exit(0)
-acts["key"] = acts.player_name.map(nn); acts["team"] = acts.team.map(lambda a: AB.get(str(a), str(a)))
-act = acts.groupby(["week","key","team","market"]).actual_value.first()
+# Do NOT exit when this is empty: the remaining reads may all be DNPs, which still need
+# voiding below. Exiting here left them pending forever.
+if len(acts):
+    acts["key"] = acts.player_name.map(nn); acts["team"] = acts.team.map(lambda a: AB.get(str(a), str(a)))
+    act = acts.groupby(["week","key","team","market"]).actual_value.first()
+else:
+    print("no actuals for these reads yet — checking for DNPs only")
+    act = pd.Series(dtype=float, index=pd.MultiIndex.from_tuples([], names=["week","key","team","market"]))
+# DNP: the game was played but the player was not. Without this a scratched player's card
+# sits result=NULL forever and quietly counts as "pending" (Puka Nacua, 2026 wk2 — hurt in
+# wk1, Questionable/Doubtful/Out since, so his prop can never produce an actual). A DNP is a
+# void, not a pending result, and `dnp` is the value the props grader already uses. The
+# record queries count only win/loss, so a dnp correctly scores nothing either way.
+played = {(int(g["week"]), nn(g["player_name"]))
+          for g in fetch("nfl_player_game_logs",
+                         f"select=week,player_name&season=eq.{SEASON}"
+                         f"&week=in.({','.join(map(str, weeks))})&limit=10000")}
 n = 0
 for r in rows:
     k = (r["week"], nn(r["player_name"]), AB.get(str(r["team"]), str(r["team"])), r["market"])
-    if k not in act.index: continue
+    if k not in act.index:
+        if played and (int(r["week"]), nn(r["player_name"])) not in played:
+            requests.patch(f"{lib.SUPA}/nfl_prop_narratives?id=eq.{requests.utils.quote(r['id'], safe='')}",
+                           headers=H, json={"result": "dnp", "graded_at": "now()"}, timeout=30)
+            print(f"  wk{r['week']} {r['player_name']:24s} {r['market'].replace('player_',''):16s} DID NOT PLAY -> dnp (void)")
+        continue
     a = float(act[k]); line = float(r["line"]); res = "push" if a == line else ("win" if (a > line) == (r["direction"] == "over") else "loss")
     x = requests.patch(f"{lib.SUPA}/nfl_prop_narratives?id=eq.{requests.utils.quote(r['id'], safe='')}", headers=H, json={"actual_value": a, "result": res, "graded_at": "now()"}, timeout=30); n += x.status_code in (200, 204)
     print(f"  wk{r['week']} {r['player_name']:24s} {r['market'].replace('player_',''):16s} {line:g} -> {r['direction']:5s} actual {a:g} = {res}")
