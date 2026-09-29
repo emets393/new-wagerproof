@@ -15,6 +15,7 @@ of the side that actually covered — anything under 100% ex-push aborts the loa
 
 Rebuilds (sport, season) in full each run. Usage: football_model_record.py [cfb|nfl]
 """
+import re
 import sys
 from pathlib import Path
 
@@ -50,13 +51,63 @@ def ml_profit(price):
 
 
 def grade_side(pick, diff):
-    """pick HOME/AWAY/OVER/UNDER vs a home-/over-perspective diff (>0 = home covers / over)."""
+    """pick HOME/AWAY/OVER/UNDER vs a home-/over-perspective diff (>0 = home covers / over).
+
+    Raises on anything else. This used to fall through to `return "loss" if hit else "win"`
+    for ANY unrecognised value, which silently graded them as an away/under bet — see
+    canon_side() for what that cost."""
+    if pick not in ("HOME", "AWAY", "OVER", "UNDER"):
+        raise ValueError(f"grade_side got an ungradeable side: {pick!r}")
     if diff == 0:
         return "push"
     hit = diff > 0
     if pick in ("HOME", "OVER"):
         return "win" if hit else "loss"
     return "loss" if hit else "win"
+
+
+def canon_side(pick, g, kind):
+    """Resolve a STORED pick to HOME/AWAY/OVER/UNDER, or None meaning 'no bet'.
+
+    The slate stores DISPLAY strings, not canonical sides: fg_spread_pick is "GB -5.5",
+    h1_spread_pick is "Chicago Bears 1H +2.5", h1_total_pick is "1H Over 10.5", and a game
+    the model declines is the literal "NEUTRAL". grade_side() only ever tested
+    `pick in ("HOME","OVER")` and treated everything else as the away/under side, so:
+
+      * every pick on the HOME team graded INVERTED (10 of 29 spread picks in 2026),
+      * every "NEUTRAL" became a phantom away bet (19 more spread games, 18 totals),
+      * every "1H Over ..." graded as an under.
+
+    Reported fg_spread was 21-23-4 (47.7%) against an actual 10-17-2 (37.0%). It is what
+    made the record move on PHI@CHI wk3 — a NEUTRAL game counted as a loss.
+    None here means the bet is not placed, which is the whole point of NEUTRAL."""
+    if pick is None:
+        return None
+    u = str(pick).strip().upper()
+    if not u or u == "NEUTRAL":
+        return None
+    if u in ("HOME", "AWAY", "OVER", "UNDER"):
+        return u
+    if kind == "total":
+        if re.search(r"\bOVER\b", u):
+            return "OVER"
+        if re.search(r"\bUNDER\b", u):
+            return "UNDER"
+        return None
+    # spread / ML: the pick names a team. Match the abbreviation token exactly first so
+    # "LA" can never swallow "LAC"/"LAR", then fall back to a full team-name prefix.
+    tok = u.split()[0]
+    ha, aa = str(g.get("home_ab") or "").upper(), str(g.get("away_ab") or "").upper()
+    if tok and tok == ha:
+        return "HOME"
+    if tok and tok == aa:
+        return "AWAY"
+    ht, at = str(g.get("home_team") or "").upper(), str(g.get("away_team") or "").upper()
+    if ht and u.startswith(ht):
+        return "HOME"
+    if at and u.startswith(at):
+        return "AWAY"
+    return None
 
 
 def derived_side(pred_diff, pos, neg):
@@ -79,12 +130,13 @@ def bets_for_game(g):
     margin, total = fh - fa, fh + fa
     out = []
 
-    def point_bet(market, pick, diff, edge, team=None):
+    def point_bet(market, pick, diff, edge, team=None, kind="spread"):
         # team: a TT bet belongs to ONE team's record; every other market is a
         # game-level bet and attributes to both participants (team=None).
-        if not pick:
+        side = canon_side(pick, g, kind)
+        if side is None:          # NEUTRAL / unparseable -> the model did not bet it
             return
-        res = grade_side(pick, diff)
+        res = grade_side(side, diff)
         roi = {"win": 100 / 110, "loss": -1.0, "push": 0.0}[res]
         out.append((market, res, roi, bucket(edge, PT_BUCKETS), team))
 
@@ -103,7 +155,7 @@ def bets_for_game(g):
         edge = g.get("fg_total_edge")
         if edge is None and ptot is not None:
             edge = ptot - tc
-        point_bet("fg_total", pick, total - tc, edge)
+        point_bet("fg_total", pick, total - tc, edge, kind="total")
 
     # FG moneyline: the model's side is its win prob; push on a tie.
     prob = fnum(g.get("fg_home_win_prob"))
@@ -121,7 +173,7 @@ def bets_for_game(g):
         if c is not None:
             p = g.get(f"tt_{side_key}_pick") or (derived_side(pred - c, "OVER", "UNDER") if pred is not None else None)
             point_bet("tt", p, final_pts - c, (pred - c) if pred is not None else None,
-                      team=g.get(f"{side_key}_team"))
+                      team=g.get(f"{side_key}_team"), kind="total")
 
     h1h, h1a = fnum(g.get("h1_home")), fnum(g.get("h1_away"))
     if h1h is not None and h1a is not None:
@@ -135,8 +187,8 @@ def bets_for_game(g):
         hpt = fnum(g.get("h1_pred_total"))
         if c is not None:
             p = g.get("h1_total_pick") or (derived_side(hpt - c, "OVER", "UNDER") if hpt is not None else None)
-            point_bet("h1_total", p, h1t - c, (hpt - c) if hpt is not None else None)
-        p = g.get("h1_ml_pick") or (derived_side(hpm, "HOME", "AWAY") if hpm is not None else None)
+            point_bet("h1_total", p, h1t - c, (hpt - c) if hpt is not None else None, kind="total")
+        p = canon_side(g.get("h1_ml_pick") or (derived_side(hpm, "HOME", "AWAY") if hpm is not None else None), g, "spread")
         if p in ("HOME", "AWAY"):
             res = "push" if h1m == 0 else ("win" if (h1m > 0) == (p == "HOME") else "loss")
             price = g.get("h1_ml_home_close") if p == "HOME" else g.get("h1_ml_away_close")
@@ -167,6 +219,22 @@ def oracle_check(games):
             if diff != 0:
                 oracle = "OVER" if diff > 0 else "UNDER"
                 assert grade_side(oracle, diff) == "win", f"oracle total loss on {g.get('game_id')}"
+        # SIDE-RESOLUTION oracle. The cover-side check above only ever feeds grade_side the
+        # literals HOME/AWAY/OVER/UNDER, so it passed happily for a year while every stored
+        # display pick ("GB -5.5", "1H Over 10.5") was being graded as the away/under side.
+        # A record is only meaningful if every pick we DO count resolved to a real side, so
+        # assert that here: unresolvable must mean NEUTRAL (a deliberate no-bet), nothing else.
+        for col, kind in (("fg_spread_pick", "spread"), ("fg_total_pick", "total"),
+                          ("tt_home_pick", "total"), ("tt_away_pick", "total"),
+                          ("h1_spread_pick", "spread"), ("h1_total_pick", "total"),
+                          ("h1_ml_pick", "spread")):
+            raw = g.get(col)
+            if raw is None or str(raw).strip() == "":
+                continue
+            if canon_side(raw, g, kind) is None and str(raw).strip().upper() != "NEUTRAL":
+                raise AssertionError(
+                    f"{col}={raw!r} on {g.get('game_id')} resolves to no side — it would be "
+                    f"silently graded as away/under. Teach canon_side this format.")
 
 
 def run(sport):
