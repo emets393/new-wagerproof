@@ -49,7 +49,16 @@ def wavg(df, val, wt):
 SUF = re.compile(r"\s+(jr|sr|ii|iii|iv|v)\.?$", re.I); nn = lambda s: SUF.sub("", str(s).lower()).replace(".", "").replace("'", "").replace("-", " ").strip()
 # ---------------------------------------------------------------- internal
 games = {str(g["game_id"]): g for g in fetch("nfl_slate_games", f"select=game_id,home_ab,away_ab,home_team,away_team,kickoff,fg_spread_close,fg_spread_pick,fg_pred_total,fg_total_close,fg_total_pick,fg_home_cover_prob,wx_wind_mph,wx_temp_f,wx_summary&season=eq.{SEASON}&week=eq.{WEEK}")}
-now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"); games = {k: g for k, g in games.items() if g.get("kickoff") and str(g["kickoff"])[:19] > now_iso}
+# Only games still ahead of kickoff — a card for a game already being played is not a read.
+# NARRATIVES_ASOF backdates that clock so a finished week can be REBUILT (e.g. 2026 wk3, whose
+# graded cards were destroyed before the delete-guard below existed). A rebuild is inherently
+# approximate: nfl_slate_props holds the board as it stands NOW, not as it stood then, so the
+# selection can differ from what originally shipped. Never set this on the live cron.
+now_iso = (os.environ.get("NARRATIVES_ASOF")
+           or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"))[:19]
+if os.environ.get("NARRATIVES_ASOF"):
+    print(f"  ! REBUILD MODE: treating {now_iso} as 'now' — selection is approximate")
+games = {k: g for k, g in games.items() if g.get("kickoff") and str(g["kickoff"])[:19] > now_iso}
 props = pd.DataFrame(fetch("nfl_slate_props", f"select=game_id,player_id,player_name,position,team,opponent,market,close_line,best_over_line,best_over_price,best_over_book_name,best_under_line,best_under_price,best_under_book_name,headshot_url,report_status,practice_status&season=eq.{SEASON}&week=eq.{WEEK}&limit=5000"))
 MK = {"player_reception_yds": ("rec_yds", "receiving yards"), "player_receptions": ("rec", "receptions"), "player_rush_yds": ("rush_yds", "rushing yards"), "player_rush_attempts": ("rush_att", "rushing attempts"), "player_pass_yds": ("pass_yds", "passing yards"), "player_pass_completions": ("pass_comp", "completions"), "player_pass_attempts": ("pass_att", "pass attempts")}
 props = props[props.market.isin(MK) & props.game_id.astype(str).isin(games) & props.close_line.notna()].copy()

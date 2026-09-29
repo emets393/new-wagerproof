@@ -17,7 +17,25 @@ now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 rows = [r for r in rows if r.get("kickoff") and str(r["kickoff"])[:19] < now]
 if not rows: print("nothing to grade"); sys.exit(0)
 weeks = sorted({r["week"] for r in rows})
-acts = pd.DataFrame(fetch("nfl_player_props", f"select=week,player_name,team,market,actual_value&season=eq.{SEASON}&week=in.({','.join(map(str, weeks))})&actual_value=not.is.null&limit=20000"))
+# Scope to the players we are actually grading, then PAGE. `limit=20000` was a no-op: PostgREST
+# caps a response at 10,000 rows however big the limit, and nfl_player_props holds a snapshot per
+# book per refresh — 215k graded rows for one 2026 week. The old single GET took an arbitrary
+# unordered 10k slice, so a read whose player happened to fall outside it silently never graded
+# (2026 wk3 rebuild: 0 of 11 matched). Ordering makes the page walk deterministic.
+_names = sorted({str(r["player_name"]) for r in rows})
+_in = ",".join('"' + n.replace('"', '') + '"' for n in _names)
+acts_rows, _off = [], 0
+while True:
+    _chunk = fetch("nfl_player_props",
+                   f"select=week,player_name,team,market,actual_value&season=eq.{SEASON}"
+                   f"&week=in.({','.join(map(str, weeks))})&player_name=in.({_in})"
+                   f"&actual_value=not.is.null&order=week,player_name,market"
+                   f"&limit=1000&offset={_off}")
+    acts_rows += _chunk
+    if len(_chunk) < 1000:
+        break
+    _off += 1000
+acts = pd.DataFrame(acts_rows)
 if not len(acts): print("no graded props yet"); sys.exit(0)
 acts["key"] = acts.player_name.map(nn); acts["team"] = acts.team.map(lambda a: AB.get(str(a), str(a)))
 act = acts.groupby(["week","key","team","market"]).actual_value.first()
