@@ -42,19 +42,60 @@
     "name": "How to calculate parlay odds",
     "description": "Work out a parlay's odds and payout by hand, using the calculator's default three-leg example at -110, -110 and +150 with a $10 stake.",
     "steps": [
-      {"name": "Convert every leg to decimal odds", "text": "For negative American odds, divide 100 by the odds and add 1: -110 becomes 1.9091. For positive odds, divide by 100 and add 1: +150 becomes 2.50. For fractional odds, divide and add 1: 5/2 becomes 3.50."},
-      {"name": "Multiply the decimal odds together", "text": "1.9091 x 1.9091 x 2.50 = 9.1116. Keep the unrounded values until the end. Leave out any leg that pushed or was voided."},
-      {"name": "Multiply by your stake for the payout", "text": "$10 x 9.1116 = $91.12 total payout, which includes your $10 back, so the profit is $81.12."},
-      {"name": "Convert back to American odds", "text": "For decimal odds of 2.00 or more, subtract 1 and multiply by 100: (9.1116 - 1) x 100 = 811, so the parlay pays +811."},
-      {"name": "Read the implied probability", "text": "Divide 1 by the decimal odds: 1 / 9.1116 = 10.98%. That is the break-even rate the price implies, not the real chance, because each leg still includes the sportsbook's margin."}
+      {
+        "name": "Convert every leg to decimal odds",
+        "text": "For negative American odds, divide 100 by the odds and add 1: -110 becomes 1.9091. For positive odds, divide by 100 and add 1: +150 becomes 2.50. For fractional odds, divide and add 1: 5/2 becomes 3.50."
+      },
+      {
+        "name": "Multiply the decimal odds together",
+        "text": "1.9091 x 1.9091 x 2.50 = 9.1116. Keep the unrounded values until the end. Leave out any leg that pushed or was voided."
+      },
+      {
+        "name": "Multiply by your stake for the payout",
+        "text": "$10 x 9.1116 = $91.12 total payout, which includes your $10 back, so the profit is $81.12."
+      },
+      {
+        "name": "Convert back to American odds",
+        "text": "For decimal odds of 2.00 or more, subtract 1 and multiply by 100: (9.1116 - 1) x 100 = 811, so the parlay pays +811."
+      },
+      {
+        "name": "Read the implied probability",
+        "text": "Divide 1 by the decimal odds: 1 / 9.1116 = 10.98%. That is the break-even rate the price implies, not the real chance, because each leg still includes the sportsbook's margin."
+      }
     ]
   },
   "faqs": [
-    {"question": "How do you calculate parlay odds?", "answer": "Convert each leg to decimal odds, multiply them together, and multiply the result by your stake for the total payout. For -110, -110 and +150, that is 1.9091 x 1.9091 x 2.50 = 9.1116, or +811 in American odds."},
-    {"question": "How much does a $10 3-leg parlay pay?", "answer": "It depends on the legs. Three legs at -110 pay $69.58 in total on $10 (+596), a $59.58 profit. Swap one leg for +150 and the same $10 pays $91.12 (+811), an $81.12 profit."},
-    {"question": "Why is my sportsbook's parlay payout different?", "answer": "The usual reasons are rounding (books round each leg or the final price differently), a same-game parlay priced with a correlation adjustment, a boost or promotion, a price that moved before you placed the bet, or a house rule. Check each leg's current price and your book's parlay rules."},
-    {"question": "What happens to a parlay if one leg pushes?", "answer": "At most U.S. sportsbooks the pushed or voided leg drops out and the parlay is paid at the odds of the remaining legs. If only one leg is left, it is usually settled as a straight bet. Boosted and some promotional parlays can void entirely, so check your book's house rules."},
-    {"question": "What is the true probability of a parlay?", "answer": "No calculator knows it. A no-vig estimate removes the book's margin from each leg and multiplies the results, which assumes the legs are independent. Two -110 legs come out at 25% fair, while the offered +264 price implies 27.44%."},
-    {"question": "Can I use this for same-game parlays?", "answer": "Only as a rough check. Legs from the same game are often correlated, so multiplying them as if they were independent can overstate or understate the real chance. Sportsbooks price same-game parlays with their own correlation adjustments."}
-  ]
+    {
+      "question": "How do you calculate parlay odds?",
+      "answer": "Convert each leg to decimal odds, multiply them together, and multiply the result by your stake for the total payout. For -110, -110 and +150, that is 1.9091 x 1.9091 x 2.50 = 9.1116, or +811 in American odds."
+    },
+    {
+      "question": "How much does a $10 3-leg parlay pay?",
+      "answer": "It depends on the legs. Three legs at -110 pay $69.58 in total on $10 (+596), a $59.58 profit. Swap one leg for +150 and the same $10 pays $91.12 (+811), an $81.12 profit."
+    },
+    {
+      "question": "Why is my sportsbook's parlay payout different?",
+      "answer": "The usual reasons are rounding (books round each leg or the final price differently), a same-game parlay priced with a correlation adjustment, a boost or promotion, a price that moved before you placed the bet, or a house rule. Check each leg's current price and your book's parlay rules."
+    },
+    {
+      "question": "What happens to a parlay if one leg pushes?",
+      "answer": "At most U.S. sportsbooks the pushed or voided leg drops out and the parlay is paid at the odds of the remaining legs. If only one leg is left, it is usually settled as a straight bet. Boosted and some promotional parlays can void entirely, so check your book's house rules."
+    },
+    {
+      "question": "What is the true probability of a parlay?",
+      "answer": "No calculator knows it. A no-vig estimate removes the book's margin from each leg and multiplies the results, which assumes the legs are independent. Two -110 legs come out at 25% fair, while the offered +264 price implies 27.44%."
+    },
+    {
+      "question": "Can I use this for same-game parlays?",
+      "answer": "Only as a rough check. Legs from the same game are often correlated, so multiplying them as if they were independent can overstate or understate the real chance. Sportsbooks price same-game parlays with their own correlation adjustments."
+    }
+  ],
+  "video": {
+    "youtubeId": "6GAiAI44p6g",
+    "title": "Parlay Calculator: How to Calculate Parlay Odds & Payouts (Step by Step)",
+    "description": "A walkthrough of the free WagerProof parlay calculator: how parlay odds and payouts are calculated in four steps, odds conversions, and how much vig a parlay really costs.",
+    "uploadDate": "2026-09-29",
+    "duration": "PT3M13S",
+    "thumbnail": "/guides/parlay-calculator/parlay-calculator-video-v1.webp"
+  }
 }
