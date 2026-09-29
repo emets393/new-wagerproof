@@ -245,8 +245,36 @@ for r, e in sorted(best.values(), key=lambda x: (-x[1]["net"], -x[1]["n_for"])):
     used[grp] = used.get(grp, 0) + 1; sel.append((r, e))
     if len(sel) >= 10: break
 print(f"{SEASON} week {WEEK}: {len(props)} posted props evaluated, {len(rows)} with 3+ tells one way, {len(sel)} featured")
-requests.delete(f"{lib.SUPA}/nfl_prop_narratives?season=eq.{SEASON}&week=eq.{WEEK}", headers=H, timeout=30)
+
+# A GRADED CARD IS A RESULT, NOT A DRAFT — never delete or overwrite one.
+#
+# This used to blow the whole week away (DELETE season=eq&week=eq) and re-insert whatever the
+# board supported right now. That was harmless while the job ran Tue+Thu, i.e. before kickoff.
+# When it went daily (2026-09-23) it became destructive: on Mon 2026-09-28 15:09 the current
+# slate was still week 3 (MNF pending), so the run deleted week 3's GRADED cards and rewrote 4
+# ungraded ones against an almost-finished board. The report's player-prop record fell from
+# 12-7 to 5-4 — week 3 simply stopped existing. The re-insert upserts on `id`, so even without
+# the delete it would have nulled `result`/`graded_at` on any card it re-picked.
+#
+# A card is off-limits once it is graded OR once its game has kicked off. Grading runs
+# 08:00/13:00/16:00 UTC and this rebuild runs 15:00 daily, so a card that kicked off but has
+# not reached the next grade pass is still a pending RESULT, not a draft — deleting it loses
+# the play entirely. Only cards still ahead of kickoff get refreshed.
+_now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+keep = requests.get(
+    f"{lib.SUPA}/nfl_prop_narratives?select=id,result,kickoff&season=eq.{SEASON}&week=eq.{WEEK}",
+    headers=H, timeout=30).json()
+keep = keep if isinstance(keep, list) else []
+keep_ids = {k["id"] for k in keep
+            if k.get("result") is not None or (k.get("kickoff") and str(k["kickoff"])[:19] < _now)}
+requests.delete(
+    f"{lib.SUPA}/nfl_prop_narratives?season=eq.{SEASON}&week=eq.{WEEK}"
+    f"&result=is.null&or=(kickoff.is.null,kickoff.gt.{_now})", headers=H, timeout=30)
+if keep_ids:
+    print(f"  keeping {len(keep_ids)} card(s) for {SEASON} wk{WEEK} (graded or already kicked off)")
 for r, e in sel:
+    if f"{r.game_id}|{r.player_name}|{r.market}" in keep_ids:
+        continue                       # graded, or already kicked off: that card IS the record
     g = games[str(r.game_id)]; body = sheet(r, e); f = json.loads(json.dumps({**e["facts"], "tells": e["tells"]}, default=lambda o: None if (isinstance(o, float) and np.isnan(o)) else (float(o) if isinstance(o, (np.floating, np.integer)) else str(o))))
     row = dict(id=f"{r.game_id}|{r.player_name}|{r.market}", season=SEASON, week=WEEK, game_id=str(r.game_id), kickoff=g.get("kickoff"), player_id=str(r.player_id) if pd.notna(r.player_id) else None, player_name=r.player_name, team=r.team, opp=e["opp"], position=r.position, market=r.market, line=e["line"],
                best_over_line=None if pd.isna(r.best_over_line) else float(r.best_over_line), best_over_price=None if pd.isna(r.best_over_price) else float(r.best_over_price), best_over_book=r.best_over_book_name, best_under_line=None if pd.isna(r.best_under_line) else float(r.best_under_line), best_under_price=None if pd.isna(r.best_under_price) else float(r.best_under_price), best_under_book=r.best_under_book_name,
