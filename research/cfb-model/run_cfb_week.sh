@@ -42,6 +42,17 @@ step "fetch CFBD extras2";                         python3 fetch_cfbd_extra2.py 
 step "fetch CFBD teams";                           python3 fetch_cfbd_teams.py            || true
 # returning production + transfer portal (feed the wk1-3 early-roster signals; returning loads ~August)
 step "fetch CFBD returning-production + portal";    python3 fetch_cfbd_roster.py "$SEASON"  || true
+# QB starts -> data/cfbd/qb_starts.parquet. This was MISSING from the runner entirely, so on
+# Render's ephemeral disk the file never existed and cfb_forecast logged
+#   [qb_feature] live overlay skipped / [backup_qb] skipped
+# on every single run of 2026 — the validated backup-QB trigger was silently dead all season.
+# --force because the cached file goes stale every Saturday once the season is underway.
+step "QB starts per game (backup-QB trigger + live overlay)"; python3 fetch_qb.py --force || true
+# Prior CFBD seasons. The runner only ever fetched "$SEASON", and research/.gitignore blocks
+# **/*.parquet and */data/cfbd/ — so a fresh Render clone carried ONLY the current year, and
+# model_games.parquet came out as 271 games / seasons=[2026] with every spot backtest at n=0.
+# fetch_cfbd.py caches per year, so this is a no-op on a warm disk.
+step "backfill prior CFBD seasons (model history)"; python3 fetch_cfbd.py 2021 2022 2023 2024 2025 || true
 step "sync cfb_game_advanced (MCP warehouse)";      python3 load_cfb_game_advanced.py "$SEASON" || true
 step "sync roster profile + schedule (MCP)";        python3 load_cfb_mcp_roster_schedule.py "$SEASON" || true
 # player-level roster layer (rosters/recruits/player-PPA -> roster_scores) — feeds the early-week
