@@ -123,25 +123,27 @@ Your agent will warn you that the connector is unverified or custom. That is exp
 
 ### Grok Bot
 
-[[VERIFY: exact menu path, captured from a real session, with screenshot]]
+Grok Bot has a documented route for remote MCP connections, which is the kind of connector WagerProof is. Look for the plugin or connector settings, add a new remote connector, paste the WagerProof address, and complete the WagerProof sign-in when it opens. Grok Bot is in beta for eligible SuperGrok subscribers, and on business accounts an admin may need to allow custom connectors first.
 
 ### ChatGPT Dots
 
-[[VERIFY: whether a Dot can use a custom ChatGPT connector, the exact steps, with screenshot]]
+Dots use the app connections in your ChatGPT account. Add WagerProof as a custom connector in ChatGPT's connector settings first, then give your Dot access to it. OpenAI is rolling Dots out gradually to Pro and Business Premium users, and we have not yet confirmed that every Dot can use a custom connector, so check that WagerProof shows up in your Dot's list of connected apps.
 
 ### Meta Muse
 
-[[VERIFY: whether Muse accepts a remote connector address; if not, say so plainly]]
+Meta describes Muse as able to build its own connectors for services that have an API. At the time of writing we have not confirmed that Muse accepts a connector address directly. If you do not see an option to add one, ask Muse to connect to the address above, and use Grok Bot or ChatGPT in the meantime if it cannot.
+
+We are recording each setup step by step and will add screenshots to this guide as each one is confirmed.
 
 ## Make it run every day
 
 The reason to use an always-on agent instead of a chat window is that it can do the work on a schedule. Give it a standing job in plain words:
 
-- "Every morning at 9, tell me which games today have the biggest gap between WagerProof's model and the line."
+- "Every morning at 9, tell me today's strongest picks and any player streaks, and show me the evidence."
 - "Every Sunday at 11 a.m., list injuries for my teams and how the line moved since Wednesday."
 - "After the games tonight, check how my WagerProof agents did and send me the record."
 
-[[VERIFY: a real scheduled run and its output]]
+Each agent words its scheduling feature differently, but all three are built to run a task on a timer and report back.
 
 ## What the connector can and cannot do
 

@@ -3,7 +3,10 @@
 October 2, 2026, America/Chicago. New article, DRAFT, not published. Companion post for the WagerProof YouTube tutorial
 (video project `video-pipeline/projects/2026-10-02-wp-yt-agents-real-data`). The article must be live before the video.
 
-## Status gates before publish
+## Status gates (updated 2026-10-02 at publish)
+Published at the user's request before the agent sessions were recorded. Agent sections state only what PortEden documents, and mark Dots and Muse as unconfirmed. lastTestedAt removed (no hands-on agent test). Add screenshots and exact menus after real sessions.
+
+## Original gates
 - Every `[[VERIFY: ...]]` marker in content.md must be replaced with steps and screenshots captured in a real Grok Bot, Dots and Muse session. Any agent that cannot take a remote connector is described as not supported, never shown as working.
 - sources.json: replace the PortEden secondary source with first-party xAI, OpenAI and Meta documentation found during setup, and cite each inline.
 - Re-pull every example number on publish day; the answers are dated in the copy.
