@@ -94,6 +94,12 @@ struct SettingsView: View {
                 // Hero banners (kept) double as the "Plan" affordance.
                 VStack(spacing: 10) {
                     heroCard
+                    if proAccess.hasSubscription && !proAccess.isPro {
+                        Button("Manage subscription", action: handleManageSubscriptionTap)
+                            .font(AppFont.caption)
+                            .foregroundStyle(Color.appTextSecondary)
+                            .disabled(proAccess.isLoading)
+                    }
                     discordCard
                 }
                 .padding(.horizontal, Spacing.lg)
@@ -152,7 +158,7 @@ struct SettingsView: View {
             SecretSettingsView()
         }
         .sheet(isPresented: $isPaywallPresented) {
-            RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
+            RevenueCatPaywallView(placementId: RevenueCatService.Placement.tierUpgradePro)
         }
         .sheet(isPresented: $isCustomerCenterPresented) {
             CustomerCenterView()
@@ -194,13 +200,13 @@ struct SettingsView: View {
     @ViewBuilder
     private var heroCard: some View {
         let isLoading = proAccess.isLoading
-        let isPro = proAccess.hasSubscription
+        let isPro = proAccess.isPro
         let title = isLoading
             ? "Verifying access"
-            : (isPro ? "WagerProof \(proAccess.subscriptionTier?.title ?? "Pro")" : "Explore WagerProof")
+            : (isPro ? "WagerProof \(proAccess.subscriptionTier?.title ?? "Pro")" : "Upgrade to Pro")
         let subtitle = isLoading
             ? "Checking plan"
-            : (proAccess.isPreviewing ? "Previewing \(proAccess.planTitle) access" : (isPro ? "Your membership is active" : "Find the plan for your research"))
+            : (proAccess.isPreviewing ? "Previewing \(proAccess.planTitle) access" : (isPro ? "Your membership is active" : "Current plan: \(proAccess.planTitle)"))
         let actionWord = isLoading ? "Hold" : (proAccess.isPreviewing ? "Preview" : (isPro ? "Manage" : "Upgrade"))
 
         HoneydewOptionCard(
@@ -670,7 +676,7 @@ struct SettingsView: View {
     private func handleHeroTap() {
         if proAccess.isLoading { return }
         if proAccess.isPreviewing { isPaywallPresented = true; return }
-        if proAccess.hasSubscription {
+        if proAccess.isPro {
             handleManageSubscriptionTap()
         } else {
             isPaywallPresented = true
