@@ -1359,6 +1359,41 @@ def main():
                                "&game_id=in.(" + ",".join(_stale) + ")", headers=hdr, timeout=60)
         if resp.status_code not in (200, 204):
             sys.exit(f"delete stale nfl_slate_games: {resp.status_code} {resp.text[:300]}")
+    # A kicked-off game's PREGAME VERDICT is history — carry the STORED values forward rather
+    # than upserting freshly-computed ones. The picks/flags tables are protected by the freeze
+    # above, but `games` is a merge-duplicates upsert that rewrites every column, so without
+    # this the row's verdict is still rewritten after kickoff: PIT@CLE wk4-2026 went from a
+    # published "PIT -2.5" to NEUTRAL 23 hours after it kicked. Market lines, finals, weather,
+    # referee and kickoff all keep refreshing — only the model's own verdict is pinned.
+    _VERDICT_COLS = [
+        "fg_spread_pick", "fg_pred_spread", "fg_pred_margin", "fg_spread_edge",
+        "fg_pred_home_pts", "fg_pred_away_pts", "fg_pred_total",
+        "fg_home_cover_prob", "fg_home_win_prob", "fg_spread_confluence",
+        "fg_total_pick", "fg_total_edge", "fg_total_tier",
+        "conviction_tier", "conviction_summary", "stake_units", "mammoth",
+        "tt_home_pick", "tt_away_pick", "tt_home_pred", "tt_away_pred",
+        "tt_home_edge", "tt_away_edge",
+        "h1_spread_pick", "h1_total_pick", "h1_ml_pick",
+        "h1_pred_margin", "h1_pred_total", "h1_home_win_prob", "h1_cover_tilt",
+    ]
+    if _ko_ids:
+        _vcols = [c for c in _VERDICT_COLS if c in games.columns]
+        _exq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                            f"&select=game_id,{','.join(_vcols)}", headers=hdr, timeout=30)
+        _ex = {str(x["game_id"]): x for x in (_exq.json() if _exq.ok else [])}
+        for _c in _vcols:                      # object dtype so None / list values assign cleanly
+            games[_c] = games[_c].astype(object)
+        _pinned = 0
+        for _i, _r in games.iterrows():
+            _gid = str(_r.game_id)
+            if _gid not in _ko_ids or _gid not in _ex:
+                continue
+            for _c in _vcols:
+                games.at[_i, _c] = _ex[_gid].get(_c)
+            _pinned += 1
+        if _pinned:
+            print(f"  pinning the pregame verdict on {_pinned} kicked-off game(s) "
+                  f"({len(_vcols)} columns held)")
     _up_hdr = {**hdr, "Prefer": "resolution=merge-duplicates,return=minimal"}
     for t, df, url, h in (
             ("nfl_slate_games", games, f"{BASE_URL}/nfl_slate_games?on_conflict=game_id", _up_hdr),
