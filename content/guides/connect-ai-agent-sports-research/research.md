@@ -21,3 +21,9 @@ Raw notes: `video-pipeline/projects/2026-10-02-wp-yt-agents-real-data/research/e
 
 ## Keyword notes
 YouTube search 2026-10-02: on-topic videos for grok bot sports betting and chatgpt dots sports betting are few and small (top on-topic about 2.4k views); general Dots explainers drew 30k to 150k views in two days. Ahrefs volumes not pulled yet.
+
+## Added 2026-10-02 (user: parlays, streaks, strong picks with evidence, hunches)
+- Strong picks = highest model cover probability (spread_confidence = home cover prob; verified equal to fg_home_cover_prob on DET@CAR). CFB Saturday: UConn +7 77.7%, Colorado State +6.5 70.5% (model CSU by 1.7), USF -6 70.1%, La Tech +1.5 68.8%, Iowa +14.5 67.4%.
+- Streaks: nfl_player_props_current (lines priced -140 to +120, median across books) vs last 10 games in nfl_player_game_logs ordered by season, week (game_date is NULL for every row). Quoted only plausible main lines: Stafford o249.5 pass 9/10 avg 316.1; McBride o6.5 rec 8/10, L5 5/5, avg 8.1 (-137); Odunze o31.5 rec yds 8/10, L5 5/5, avg 41.5; Pollard o47.5 rush 8/10 avg 75.3. Excluded suspicious low lines (Singletary 5.5 rush, Ridley 6.5 rec yds).
+- Parlay: UConn +7 (-110 assumed) x McBride o6.5 (-137) x Stafford o249.5 (-113) = decimal 6.23, +523, implied 16.1%.
+- Hunches (nfl_analysis_base, regular season 2018-2025 unless noted): Lions road ATS 2023-2026 19-9 (67.9%); after losing by 14+ cover 50.7% (661); division dogs 52.6% (753); division favorites under 7 46.2% (511).
