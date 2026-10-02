@@ -20,11 +20,25 @@ p = q("cfb_slate_picks", "game_id,card_group,pick_side,pick_team,pick_label,mode
 g = q("cfb_slate_games", "game_id,away_team,home_team,fg_pred_away_pts,fg_pred_home_pts,fg_pred_margin,fg_pred_spread,"
       "fg_spread_open,fg_spread_close,fg_spread_edge,fg_spread_pick,fg_spread_capped,fg_pred_total,fg_total_open,fg_total_close,"
       "fg_total_edge,fg_total_pick,fg_home_win_prob,fg_home_cover_prob,h1_pred_margin,h1_pred_total,h1_spread_close,"
-      "h1_total_close,h1_spread_pick,h1_total_pick,tt_home_close,tt_away_close")
+      "h1_total_close,h1_spread_pick,h1_total_pick,tt_home_close,tt_away_close,final_home")
 f = q("cfb_slate_flags", "game_id,game,signal_key,market,side,line,grade_line,tier")
 issues, notes = [], []
 
-for _, r in p.merge(g, on="game_id").iterrows():
+# Cards for COMPLETED games are frozen on purpose: gen_cfb_picks excludes them from its wipe so
+# grades survive, while the game row keeps refreshing (line moves, final score, pick -> None).
+# Comparing a frozen pre-kickoff card against a post-kickoff row is guaranteed to "contradict"
+# and says nothing about generator correctness — North Texas @ Tulsa (final 45-44) reported
+# model_line -7.1 against an expected -6.1 for exactly this reason, and chasing it wasted a
+# review cycle. Scope every card-vs-row check to games that have NOT finished; the flag checks
+# further down are unaffected.
+_done = set(g.loc[g.final_home.notna(), "game_id"]) if "final_home" in g.columns else set()
+if _done:
+    print(f"[scope] {len(_done)} completed game(s) excluded from card-vs-row checks "
+          f"(their cards are frozen pre-kickoff by design)")
+_live = p.merge(g, on="game_id")
+_live = _live[~_live.game_id.isin(_done)]
+
+for _, r in _live.iterrows():
     cg, ps, lab = r.card_group, r.pick_side, f"{r.away_team} @ {r.home_team}"
     # Market line and model line on a spread card must be written from the SAME team, pick or no
     # pick — the bar needs both on one side (the hourly refresher flipped 17 no-side cards, wk4-2026).

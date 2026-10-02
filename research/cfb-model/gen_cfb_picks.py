@@ -214,6 +214,39 @@ if EARLY:
     # Recompute edges off the blend — the harness edges belong to the cold model we just replaced.
     te["side_edge"] = te.pred_margin + te.spread_close
     te["total_edge"] = te.pred_total - te.total_close
+else:
+    # ONE BASIS. gen_cfb_slate_games writes the game row from out/cfb_predictions_<season>.csv;
+    # build_season() above is a SECOND, independent evaluation of the same model. When anything
+    # differs between the two runs the cards and the row they sit on disagree — wk5-2026 showed
+    # model_line 12.1 against the row's 16.0 and both team-total sides inverted on
+    # Bowling Green @ Miami (OH), because the backup-QB overlay landed between the two
+    # evaluations. The runner now scrapes injuries before the model so the inputs match, and this
+    # pins the cards to the row's own numbers so they CANNOT drift apart again. With the order
+    # fixed this is a no-op (verified identical to 3.6e-15 on wk4), so any delta it reports is a
+    # new divergence worth chasing, not noise.
+    _cp = f"out/cfb_predictions_{SEASON}.csv"
+    if os.path.exists(_cp):
+        _c = pd.read_csv(_cp)
+        _c = _c[_c.week == WEEK] if "week" in _c.columns else _c
+        _c = _c[["homeTeam", "awayTeam", "pred_spread", "pred_total"]].rename(
+            columns={"pred_spread": "_csv_spread", "pred_total": "_csv_total"})
+        te = te.merge(_c, on=["homeTeam", "awayTeam"], how="left")
+        _dm = (te.pred_margin - (-te._csv_spread)).abs()
+        _dt = (te.pred_total - te._csv_total).abs()
+        _off = te[(_dm > 0.05) | (_dt > 0.05)]
+        if len(_off):
+            print(f"  [one-basis] {len(_off)} game(s) where this run's model differs from the game "
+                  f"row's CSV — aligning cards to the CSV (the row's basis):")
+            for _, _r in _off.iterrows():
+                print(f"     {_r.awayTeam} @ {_r.homeTeam}: margin {_r.pred_margin:+.1f} vs row "
+                      f"{-_r._csv_spread:+.1f} | total {_r.pred_total:.1f} vs row {_r._csv_total:.1f}")
+        te["pred_margin"] = (-te._csv_spread).fillna(te.pred_margin)
+        te["pred_total"] = te._csv_total.fillna(te.pred_total)
+        te["side_edge"] = te.pred_margin + te.spread_close
+        te["total_edge"] = te.pred_total - te.total_close
+        te = te.drop(columns=["_csv_spread", "_csv_total"])
+    else:
+        print(f"  [one-basis] {_cp} missing — cards keep this run's own model output")
 
 def fmt_line(v):
     """Pick-side spread for a label: '+5.25', '-3', 'PK'. A consensus can land on a quarter
@@ -289,11 +322,19 @@ for _, r in te.iterrows():
         if vg is None:
             pside, edge, bt, ckey = None, None, None, None
         else:
-            edge = proj - vg; pside = "OVER" if proj >= vg else "UNDER"
-            # Weeks 1-3 the projections are the early blend, which tt_conv_key was never
-            # validated on — model TT conviction off until wk4; flag signals still promote.
-            ckey = None if EARLY else C.tt_conv_key(edge, pside, p5)
-            bt = best_tt(gid, team, pside)
+            edge = proj - vg
+            # Side off the DISPLAYED numbers (see the 1H total card): equal after rounding means
+            # the card would state a side next to two identical figures, and `>=` additionally
+            # called an exact tie OVER while the coherence audit calls it UNDER. No side on a
+            # displayed tie — the edge is zero there anyway, so nothing is lost.
+            pside = None if round(float(proj), 1) == round(float(vg), 1) else ("OVER" if proj > vg else "UNDER")
+            if pside is None:
+                ckey, bt = None, None
+            else:
+                # Weeks 1-3 the projections are the early blend, which tt_conv_key was never
+                # validated on — model TT conviction off until wk4; flag signals still promote.
+                ckey = None if EARLY else C.tt_conv_key(edge, pside, p5)
+                bt = best_tt(gid, team, pside)
         play = ckey is not None
         cv = {"T1": "high", "T2": "med"}.get(ckey, "none")
         # Attach REAL flag keys (tt_away_under et al) so signal_performance can roll
@@ -378,7 +419,14 @@ for _, r in te.iterrows():
                 signal_keys=[], stake_units=0))
         if tline is not None:
             bht = best_h1_total(gid, "OVER")
-            _lean = ("Over" if h1_proj_t > tline else "Under") if h1_proj_t is not None else None
+            # Lean off the DISPLAYED numbers, not the raw ones. A raw gap under a tenth of a point
+            # ("Over" on 23.52 vs 23.5) rendered as "1H Over 23.5" next to model 23.5 and vegas
+            # 23.5 — a card contradicting the two figures printed beneath it (Army @ Louisiana
+            # Tech, wk5-2026). Equal after rounding => state no side; the no-side branch already
+            # renders "1H O/U <line>".
+            _lean = None
+            if h1_proj_t is not None and round(float(h1_proj_t), 1) != round(float(tline), 1):
+                _lean = "Over" if h1_proj_t > tline else "Under"
             rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6,
                 pick_side=(_lean.upper() if _lean else None), pick_team=None,
                 pick_label=(f"1H {_lean} {tline:g}" if _lean else f"1H O/U {tline:g}"),
@@ -407,12 +455,16 @@ for _, r in te.iterrows():
             conviction=cv, is_mammoth=False, has_play=bool(play), display_only=not play, signal_keys=sig, stake_units=1.0 if play else 0))
         # 1H TOTAL
         tline = h1t_cons(gid)
-        pside_t = ("OVER" if h1pt > tline else "UNDER") if tline is not None else None
-        bht = best_h1_total(gid, pside_t) if tline is not None else None
+        # Side off the DISPLAYED numbers — same rule as the other 1H total card above.
+        pside_t = None
+        if tline is not None and round(float(h1pt), 1) != round(float(tline), 1):
+            pside_t = "OVER" if h1pt > tline else "UNDER"
+        bht = best_h1_total(gid, pside_t) if pside_t is not None else None
         play_t = inrow is not None and isinstance(inrow.h1_tot_bet, str) and pside_t is not None and inrow.h1_tot_bet.startswith(pside_t)
         cv, mam, sig = conv_for(gid, "h1_total", side=pside_t) if play_t else ("none", False, [])
         rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6, pick_side=pside_t, pick_team=None,
-            pick_label=(f"1H {pside_t.title()} {bht[0] if bht else tline:g}" if tline is not None else f"1H total proj {h1pt:.1f} (no line)"),
+            pick_label=(f"1H {pside_t.title()} {bht[0] if bht else tline:g}" if pside_t is not None
+                        else (f"1H O/U {tline:g}" if tline is not None else f"1H total proj {h1pt:.1f} (no line)")),
             model_number=round(float(h1pt), 1), model_line=round(float(h1pt), 1),
             vegas_line=round(float(tline), 1) if tline is not None else None, vegas_price=-110 if tline is not None else None,
             edge=round(abs(h1pt - tline), 1) if tline is not None else None,

@@ -160,6 +160,18 @@ def main():
             v = val(row, "h1_total")
         if v is not None:
             rec = {"id": p["id"], "vegas_line": round(v, 1)}
+            # Write model_line on the SAME side, from the game row's own projection. card_side()
+            # infers the side FROM model_line, so refreshing only vegas_line leaves the two
+            # numbers on opposite teams as soon as model_line later changes — Bowling Green @
+            # Miami (OH) wk5-2026 ended up vegas +13.5 (away) against model -16.0 (home) exactly
+            # that way: the refresher read a then-divergent model_line of 12.1, inferred AWAY from
+            # it, and the model number was corrected afterwards while the market number stayed
+            # put. Pinning both to the row's projection makes them move together or not at all.
+            if cg in ("spread", "h1_spread"):
+                _hm = g0.get("fg_pred_spread") if cg == "spread" else g0.get("h1_pred_margin")
+                if _hm is not None:
+                    _home_val = -float(_hm) if cg == "h1_spread" else float(_hm)
+                    rec["model_line"] = round(_home_val if side == "HOME" else -_home_val, 1)
             # pick_label bakes the number into text ("North Carolina Over 19.5")
             # — rebuild its numeric tail so the card can't contradict itself.
             lbl = p.get("pick_label") or ""

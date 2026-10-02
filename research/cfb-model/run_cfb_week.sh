@@ -97,6 +97,16 @@ fi
 step "train/serve feature drift guard"
 python3 ../feature_drift_guard.py cfb --season "$SEASON" --week "$WEEK" \
   || echo "[DRIFT] ^^ features are outside their training distribution — DO NOT SHIP THIS BOARD until the upstream feed is fixed"
+# covers.com injuries BEFORE the model (moved 2026-10-02). home_backup_qb / away_backup_qb are
+# MODEL FEATURES that build_season() fills live from this scrape. Running it after cfb_forecast
+# meant the CSVs gen_cfb_slate_games reads were computed WITHOUT the overlay, while gen_cfb_picks
+# re-runs build_season() later and got it WITH — two model evaluations on different inputs, so
+# cards and the game row disagreed by 1-4 pts on the same game in the same run (and the TT sides
+# inverted on Bowling Green @ Miami (OH), wk5-2026). Order is now
+# injuries -> model -> games -> flags -> picks, which also keeps the 2026-08-27 flags-before-picks
+# constraint intact. Guarded: a scrape failure must never block the slate.
+step "injuries (covers.com) — feeds the backup-QB MODEL FEATURE, must precede the model"
+python3 covers_cfb_injuries.py "$SEASON" "$WEEK" || true
 step "run locked CFB model -> prediction/spot/TT/1H CSVs (frozen ${SEASON} .pkl)"
 python3 cfb_forecast.py --season "$SEASON" --week "$WEEK"
 
@@ -112,9 +122,7 @@ python3 gen_cfb_sportsbooks.py
 # cfb_slate_flags for per-card conviction (conv_for), so picks-first ran every
 # fresh week against the PREVIOUS week's flags.
 step "slate: slate games";  python3 gen_cfb_slate_games.py
-# covers.com injuries -> backup-QB pregame trigger (live 2026-08-27). Guarded:
-# a scrape failure must never block the slate — the flags block skips silently.
-step "injuries (covers.com)"; python3 covers_cfb_injuries.py "$SEASON" "$WEEK" || true
+# (injuries now run BEFORE the model — see the note above the forecast step)
 step "slate: bet flags";     python3 gen_cfb_slate_flags.py
 step "slate: pick cards";    python3 gen_cfb_picks.py
 # Every number the apps render for a game must agree (pick side vs score vs cover prob vs flags).
