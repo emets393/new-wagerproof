@@ -46,6 +46,46 @@ confluence. They carry real signal — they were just being served a different s
 drift the moment two callers load different windows. Backfill and weekly writer must load the same
 window, and `off_drives_seen`-style counters are the canary — check one before trusting a feed.
 
+### The guard — `research/feature_drift_guard.py` (added the same day)
+
+Nothing compared a feature's serve distribution to its training distribution, which is the only
+reason this survived four weeks: there was no null, no exception, no missing row. The MEANS were
+fine — only the SPREAD changed. The guard asserts the contract a frozen `.pkl` makes with a
+distribution, runs in BOTH weekly runners before the models, and is loud-not-fatal.
+
+Checks per feature the frozen model actually consumes: sd ratio (the signal that caught this),
+share outside the training 1st-99th band, serve-vs-train null delta, absent columns, and
+constant-at-serve. Calibration notes that cost real iterations:
+
+- **Band week-matched, not pooled.** CFB season-to-date features are genuinely wilder in week 2
+  than week 12. Pooled, a healthy CFB wk2 board reads 21.8 features out of range; week-matched it
+  reads 6.6 at a 1.07x sd ratio. Pooling cries wolf every September until the guard gets removed.
+- **No lower bound on sd ratio.** A cumulative-since-2018 stat narrows every year by construction,
+  so those features sit at 0.33-0.40x against week-matched history forever.
+- **An empty serve frame is a FAILURE, not a pass.** The first version reported CFB wk5 "clean"
+  with `n_serve=0` — it had checked nothing.
+- **Out-of-range needs a count floor and a blunt rate.** An NFL week is 16 games, so one
+  out-of-band game is already 6.25%.
+
+### Two more silent-zero bugs the guard found immediately
+
+1. **`player_stats_def` was frozen at 2024.** nflverse moved current seasons to the
+   `stats_player` release; the old combined file still serves 200 and 239,955 rows. With
+   `fillna(0)` downstream, `h_dpt` / `a_dpt` / `dprod_team_diff` were ZERO for all of 2025 and
+   2026. Fixed in `fetch.py` (per-season pull + a loud warning if the newest season lags).
+2. **`dpt` had no entering row for the unplayed week.** `dteam` only carried PLAYED weeks, so on
+   every live slate the current week's merge returned NaN and `fillna(0)` zeroed it — 2026 wk4 read
+   mean 1.25 against ~21 in 2022-25. **This was broken on every board ever built this way**, not
+   just 2026. Fixed with the same week-grid-through-last_played+1 pattern
+   `build_team_week_seasonal.py` uses. Oracle: every completed season's value is unchanged
+   (2022 21.81 / 2023 22.77 / 2024 21.69 / 2025 20.73 before and after).
+
+Board effect, wk4: MAE vs market 5.09 → 3.37 (feed fix) → **3.94** (dpt fix), corr 0.372 → 0.714 →
+**0.675**. The dpt fix moved it slightly AWAY from the market. That is not evidence against it —
+three features were constant-zero at serve against real training values, which is wrong on its
+face, and this model is an originator whose edge comes from disagreeing. Reported as measured
+rather than selected.
+
 ## Dose response of the production sides models (owner question, 2026-09-18) — `dose_response.py`
 Walk-forward 2021-25 (openers 2023+), exact harness recipe (train < season, weeks 4+).
 **Classifier (the bet signal) is a HUMP, not a slope.** Confidence vs opener: .03-.06 → 50.0% (fires in

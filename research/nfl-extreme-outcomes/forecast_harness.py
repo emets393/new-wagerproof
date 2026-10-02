@@ -189,8 +189,26 @@ def build():
     miss=inj[inj.report_status.isin(["Out","Doubtful"])].merge(air,on=["season","week","player_id"],how="left")
     miss["air_w"]=np.where(miss.position.astype(str).str.strip().isin(["WR","TE","RB","FB"]),miss.airshare.clip(lower=0).fillna(0),0)
     ai=miss.groupby(["season","week","team"]).air_w.sum().reset_index(); ai["ab"]=ai.team.replace(nv2our)
-    dteam=dfd.groupby(["season","week","team"]).dprod.sum().reset_index().sort_values(["team","season","week"])
-    dteam["dpt"]=dteam.groupby(["team","season"]).dprod.transform(lambda s:s.shift(1).expanding().mean()); dteam["ab"]=dteam.team.replace(nv2our)
+    # ENTERING defensive production, emitted on a week grid through last_played+1 per
+    # (team, season). The old form was groupby.shift(1).expanding().mean() over PLAYED
+    # weeks only, so the current week had no row for any team whose game hadn't kicked
+    # yet — the merge below returned NaN and the fillna(0) two lines down silently zeroed
+    # h_dpt / a_dpt / dprod_team_diff for the entire live slate, while every training row
+    # carried a real ~21. Three of the sides model's 54 features were therefore dead at
+    # serve on every board ever built this way (2026 wk4 read mean 1.25 vs ~21 in
+    # 2022-25). Found 2026-10-02 by research/feature_drift_guard.py: sd ratio ~1.0 but 94%
+    # of serve rows outside the training 1st-99th band — a location shift, not a rescale.
+    # Values for completed weeks are UNCHANGED (mean of prior weeks either way); this only
+    # adds the entering row the unplayed week needs. Still leak-free: week w uses w-1 back.
+    _dw=dfd.groupby(["season","week","team"],as_index=False).dprod.sum()
+    _rows=[]
+    for (team,season),g in _dw.groupby(["team","season"]):
+        g=g.sort_values("week"); last=int(g.week.max())
+        for wk in range(1,last+2):
+            prior=g.loc[g.week<wk,"dprod"]
+            _rows.append({"season":season,"week":wk,"team":team,
+                          "dpt":float(prior.mean()) if len(prior) else np.nan})
+    dteam=pd.DataFrame(_rows); dteam["ab"]=dteam.team.replace(nv2our)
     for side,p in [("home","h_"),("away","a_")]:
         m=m.merge(ai.rename(columns={"ab":f"{side}_ab","air_w":f"{p}air"})[["season","week",f"{side}_ab",f"{p}air"]],on=["season","week",f"{side}_ab"],how="left")
         m=m.merge(dteam.rename(columns={"ab":f"{side}_ab","dpt":f"{p}dpt"})[["season","week",f"{side}_ab",f"{p}dpt"]],on=["season","week",f"{side}_ab"],how="left")

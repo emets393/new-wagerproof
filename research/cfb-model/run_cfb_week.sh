@@ -89,6 +89,14 @@ if [ "$WEEK" -le 3 ]; then
 fi
 # run the LOCKED model AS A SCRIPT so it WRITES out/cfb_{predictions,bets,team_totals,h1_model}_$SEASON.csv —
 # the slate generators (gen_cfb_slate_games/picks/flags) read these; harness_week() alone does NOT write them.
+# Train/serve drift guard — see the NFL runner. Banded WEEK-MATCHED against prior seasons,
+# because CFB season-to-date features are genuinely wilder in week 2 than week 12: pooled,
+# a healthy wk2 board reads 21.8 features "out of range"; week-matched it reads 6.6 at a
+# 1.07x sd ratio. It also FAILS on an empty serve frame — a guard that passes when it
+# checked nothing is worse than no guard.
+step "train/serve feature drift guard"
+python3 ../feature_drift_guard.py cfb --season "$SEASON" --week "$WEEK" \
+  || echo "[DRIFT] ^^ features are outside their training distribution — DO NOT SHIP THIS BOARD until the upstream feed is fixed"
 step "run locked CFB model -> prediction/spot/TT/1H CSVs (frozen ${SEASON} .pkl)"
 python3 cfb_forecast.py --season "$SEASON" --week "$WEEK"
 

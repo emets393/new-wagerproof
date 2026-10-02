@@ -120,9 +120,39 @@ def nflverse_games():
 
 def player_stats_def():
     """Defensive weekly player stats from nflverse (no cfb_automation table exists for these).
-    NOTE: validate column parity vs the historical player_stats_def.parquet before Week 1."""
-    return pd.read_parquet(
+
+    ⛔ The combined `player_stats/player_stats_def.parquet` is FROZEN AT 2024. It still
+    serves 200 and 239,955 rows, so nothing errored — but build() does
+    `m[c] = m[c].fillna(0)` on h_dpt / a_dpt, so the model's three defensive-production
+    features (h_dpt, a_dpt, dprod_team_diff) were identically ZERO for every 2026 game.
+    Silent, like the pregame-feed break: no null, no exception, just a dead feature.
+    Caught 2026-10-02 by research/feature_drift_guard.py flagging sd_ratio 0.000.
+
+    nflverse moved current seasons to the `stats_player` release
+    (`stats_player_week_<season>.parquet`). Pull those per season and fall back to the
+    frozen combined file for the older years it still covers.
+    """
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cur = now.year if now.month >= 3 else now.year - 1   # NFL season rolls in March
+    base = pd.read_parquet(
         "https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats_def.parquet")
+    frames = [base]
+    newest = int(pd.to_numeric(base.season, errors="coerce").max())
+    for y in range(newest + 1, cur + 1):
+        try:
+            d = pd.read_parquet(
+                f"https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_{y}.parquet")
+            frames.append(d[[c for c in base.columns if c in d.columns]])
+            print(f"  [player_stats_def] +{len(d)} rows for {y} from stats_player")
+        except Exception as e:
+            print(f"  [player_stats_def] {y} unavailable ({type(e).__name__}) — skipped")
+    out = pd.concat(frames, ignore_index=True)
+    # Loud, because a silently-2024 feed is exactly what this wrapper exists to prevent.
+    if int(pd.to_numeric(out.season, errors="coerce").max()) < cur:
+        print(f"  ⚠ [player_stats_def] newest season is {out.season.max()}, expected {cur} — "
+              f"h_dpt/a_dpt/dprod_team_diff will be ZERO for the live slate")
+    return out
 
 
 # local name -> nflverse loader fn (pulled directly, not from Supabase)

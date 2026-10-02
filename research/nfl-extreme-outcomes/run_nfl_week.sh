@@ -63,6 +63,14 @@ step "offense-matchup frame";          python3 b23_matchup_build.py
 
 # --- 3) MODELS (frozen-.pkl load+predict once task #13 lands) -------------------
 step "totals model -> predictions csv"; python3 consensus_totals.py --season "$SEASON" --week "$WEEK"
+# Train/serve drift guard — BEFORE the models run, so a broken feed is caught while the
+# board can still be held back rather than after it ships. A frozen .pkl is a contract
+# with a distribution; this asserts it. Loud, not fatal (same posture as the CFB coherence
+# audit): the 2026 wk4 break produced no null and no exception, only a 2.4-7.2x widening,
+# and it flattened the board for four weeks before a human noticed two bad numbers.
+step "train/serve feature drift guard"
+python3 ../feature_drift_guard.py nfl --season "$SEASON" --week "$WEEK" \
+  || echo "[DRIFT] ^^ features are outside their training distribution — DO NOT SHIP THIS BOARD until the upstream feed is fixed"
 step "sides model + spot ledger";       python3 forecast_harness.py --season "$SEASON" --week "$WEEK"
 
 # --- 3b) 1H SUB-PIPELINE (market-anchored residual GBM; LOCKED_MODELS.md §8) ----
