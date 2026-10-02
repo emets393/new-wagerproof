@@ -152,7 +152,21 @@ services:
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
     # Each step guarded: a thin board or a stale upstream must not stop the later steps, and
     # every one of these is idempotent for the week (they replace, not append).
-    startCommand: cd research/nfl-extreme-outcomes && { python3 score_props_week.py || true; } && python3 nfl_prop_narratives.py
+    # FP pull FIRST. read_fp() reads PARQUET; fp_load.py (on fp-data-inseason) writes
+    # SUPABASE — different stores, so "runs three hours after that job lands the data" was
+    # never true for this one. On this disk data/fpdata is empty and the only FP parquet is
+    # the git-tracked data/fpdata_hist, frozen at 2026 wk1, so every Fantasy Points
+    # aggregate here ran on week 1 alone from week 2 onward. Pull just the 9 tools the
+    # scorer reads (19 tool/scopes, ~50-250 cells depending on how deep the season is, 50s
+    # at 3 workers) rather than all 45, then consolidate: fp_pull gates pull and
+    # consolidate separately, so it takes two invocations.
+    startCommand: >-
+      cd research/nfl-extreme-outcomes &&
+      FPT=receivingAdvanced,receivingSeparationByAlignment,rushingAdvanced,rushingBellCow,passingAdvanced,coverageMatrix,proeReport,runPassReport,lineMatchups &&
+      FPS=$(python3 -c "from fp_pull import current_season_week; print(current_season_week()[0])") &&
+      { python3 fp_pull.py --tools "$FPT" --seasons "$FPS" --weeks 1-18 --workers 3 || true; } &&
+      { python3 fp_pull.py --tools "$FPT" --consolidate || true; } &&
+      { python3 score_props_week.py || true; } && python3 nfl_prop_narratives.py
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION

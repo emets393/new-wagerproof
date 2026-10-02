@@ -119,6 +119,36 @@ def cell_path(tool, scope, season, week):
     return os.path.join(RAW, tool["property"], scope, f"{season}_w{week}.json")
 
 
+# Set once in main(): (current season, last completed week). Used to tell a legitimately
+# empty cell (an unplayed week) from a transient API failure that returned 200 + zero rows.
+_EXPECT = (None, None)
+
+
+def _cached_empty_hole(tool, scope, season, week):
+    """True when a cell is already on disk but holds ZERO rows for a week that should have
+    data. Those are the cached transient failures described in pull_cell; without this the
+    only way to heal one is a blanket --force, so they persist on any warm disk."""
+    if not _expected_nonempty(season, week):
+        return False
+    p = cell_path(tool, scope, season, week)
+    if not os.path.exists(p):
+        return False
+    try:
+        with open(p) as fh:
+            return int(json.load(fh).get("nrows") or 0) == 0
+    except Exception:
+        return True                       # unreadable cell is also a hole worth re-pulling
+
+
+def _expected_nonempty(season, week):
+    s_now, wk_done = _EXPECT
+    if s_now is None:
+        return False                      # unknown window -> keep the old permissive behaviour
+    if season < s_now:
+        return True                       # a completed prior season always has rows
+    return season == s_now and week <= wk_done
+
+
 def pull_cell(H, tool, scope, season, week):
     url, b = body(tool, scope, season, week)
     for attempt in range(5):
@@ -135,6 +165,16 @@ def pull_cell(H, tool, scope, season, week):
         errs = j.get("errors") or []
         if errs and not rows:
             time.sleep(3); err = str(errs)[:200]; continue
+        # A 200 with ZERO rows and no error is normal for an unplayed week and a silent
+        # data hole for a played one. The old code cached it either way, so a transient
+        # blip wrote a 148-byte "nrows: 0" cell that force=False then treated as done
+        # FOREVER: 2026 week 2 sat empty across every tool until a --force re-pull brought
+        # back 1.1 MB. Retry when the week should have data, and fail loudly rather than
+        # cache the hole.
+        if not rows and _expected_nonempty(season, week):
+            time.sleep(3 * (attempt + 1))
+            err = f"empty rows for a PLAYED week ({season} w{week}) — transient API blip?"
+            continue
         p = cell_path(tool, scope, season, week)
         os.makedirs(os.path.dirname(p), exist_ok=True)
         json.dump({"tool": tool["property"], "scope": scope, "season": season, "week": week,
@@ -225,6 +265,8 @@ def main():
         if "-" in s: x, y = s.split("-"); return list(range(int(x), int(y) + 1))
         return [int(s)]
     season_now, wk_done = current_season_week()
+    global _EXPECT
+    _EXPECT = (season_now, wk_done)
     if a.inseason:
         seasons, weeks, force = [season_now], [w for w in (wk_done - 1, wk_done, wk_done + 1) if 1 <= w <= 18], True
     else:
@@ -233,7 +275,8 @@ def main():
         # "other" is a scope the catalog lists for run/pass + OL/DL that the app has no route for; skip
         cells = [(t, sc, s, w) for t in tools for sc in t["scopes"] if sc in SCOPES for s in seasons for w in weeks
                  if not (s == season_now and w > wk_done + 1)      # unplayed weeks: nothing to pull
-                 and (force or not os.path.exists(cell_path(t, sc, s, w)))]
+                 and (force or not os.path.exists(cell_path(t, sc, s, w))
+                      or _cached_empty_hole(t, sc, s, w))]
         print(f"[fp] {len(cells)} cells to pull (seasons {seasons[0]}-{seasons[-1]}, weeks {weeks[0]}-{weeks[-1]}, "
               f"season_now={season_now} last_completed_week={wk_done})")
         done = fails = 0; t0 = time.time()
