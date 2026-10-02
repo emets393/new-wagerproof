@@ -524,16 +524,24 @@ if _bad:
 print(f"  sign guard: {len(df[(df.bet_type == 'spread') & df.pick_side.notna()])} spread + "
       f"{len(df[(df.bet_type == 'total') & df.pick_side.notna()])} total sides agree with games table")
 
-# COMPLETED games keep their existing pick rows: the 3x-daily regen was wiping the
-# grader's results back to NULL every afternoon (found by health_sweep 2026-09-03 —
-# 12 played wk1 picks ungraded), and re-deriving a card from post-game odds is wrong
-# anyway. Wipe + reinsert only the games still to be played.
+# KICKED-OFF AND COMPLETED games keep their existing pick rows: the 3x-daily regen was wiping
+# the grader's results back to NULL every afternoon (found by health_sweep 2026-09-03 — 12
+# played wk1 picks ungraded), and re-deriving a card from post-game odds is wrong anyway.
+# ⛔ The gate was `final_home=not.is.null` alone, which leaves a window as wide as the grader's
+# lag: a game kicks off, a regen runs, and a PUBLISHED pick is rewritten on a game already in
+# progress. The NFL build had the identical bug and PIT@CLE wk4-2026 fell into it — kicked at
+# 00:15 UTC, pick flipped from "PIT -2.5" to NEUTRAL 23 hours later while the final was still
+# unwritten. Freeze on KICKOFF too (CFB's Tue/Wed MACtion games sit un-graded for hours).
+import datetime as _dtmod
+_kick_now = _dtmod.datetime.now(_dtmod.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 _fin = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
                     f"&final_home=not.is.null&select=game_id", headers={**C.H, "Prefer": ""}).json()
-_fin_ids = {int(x["game_id"]) for x in _fin}
+_ko = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                   f"&kickoff=lt.{_kick_now}&select=game_id", headers={**C.H, "Prefer": ""}).json()
+_fin_ids = {int(x["game_id"]) for x in _fin} | {int(x["game_id"]) for x in (_ko if isinstance(_ko, list) else [])}
 if _fin_ids:
     df = df[~df.game_id.astype(int).isin(_fin_ids)]
-    print(f"  skipping {len(_fin_ids)} completed games (grades preserved)")
+    print(f"  freezing {len(_fin_ids)} kicked-off/completed games (published picks preserved)")
 _scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
 if _fin_ids:
     _scope += f"&game_id=not.in.({','.join(str(i) for i in sorted(_fin_ids))})"

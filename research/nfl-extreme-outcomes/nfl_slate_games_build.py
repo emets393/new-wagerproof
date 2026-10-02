@@ -1311,23 +1311,31 @@ def main():
     # grader's results every regen (CFB had the same bug, health_sweep 2026-09-03) and
     # re-derives cards from post-game odds. Games/flags still rebuild (games carry the
     # finals forward; flags hold no results).
+    # ⛔ PICKS FREEZE AT KICKOFF, not when the final score arrives. This used to key on
+    # `final_home=not.is.null`, which leaves a window as wide as the grader's lag — a game
+    # kicks off, the slate is rebuilt, and a PUBLISHED pick is silently rewritten on a game
+    # already in progress. PIT@CLE wk4-2026 fell straight into it: it kicked at 00:15 UTC and
+    # 23 hours later, with the final still unwritten, a rebuild flipped its pick from
+    # "PIT -2.5" to NEUTRAL. That erases a live bet from the record and is the same hindsight
+    # problem the flag freeze below was already written to prevent — so both now use the same
+    # kickoff basis. Finals stay in the set too, in case a final ever lands without a kickoff.
+    import datetime as _dtmod
+    _kick_now = _dtmod.datetime.now(_dtmod.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     _finq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
                          f"&final_home=not.is.null&select=game_id", headers=hdr, timeout=30)
-    _fin_ids = {str(x["game_id"]) for x in (_finq.json() if _finq.ok else [])}
+    _koq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                        f"&kickoff=lt.{_kick_now}&select=game_id", headers=hdr, timeout=30)
+    _ko_ids = {str(x["game_id"]) for x in (_koq.json() if _koq.ok else [])}
+    _fin_ids = {str(x["game_id"]) for x in (_finq.json() if _finq.ok else [])} | _ko_ids
     if _fin_ids:
         picks = picks[~picks.game_id.astype(str).isin(_fin_ids)]
-        print(f"  skipping picks for {len(_fin_ids)} completed games (grades preserved)")
+        print(f"  freezing picks on {len(_fin_ids)} kicked-off/completed games (published picks preserved)")
     _pick_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
     if _fin_ids:
         _pick_scope += "&game_id=not.in.(" + ",".join(sorted(_fin_ids)) + ")"
     # KICKED-OFF games keep their existing FLAG rows too — frozen pregame history.
     # A played game's regenerated flags use post-game inputs, which turns any
     # later signal grading into hindsight (CFB regime_* audit, 2026-09-16).
-    import datetime as _dtmod
-    _kick_now = _dtmod.datetime.now(_dtmod.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    _koq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
-                        f"&kickoff=lt.{_kick_now}&select=game_id", headers=hdr, timeout=30)
-    _ko_ids = {str(x["game_id"]) for x in (_koq.json() if _koq.ok else [])}
     if _ko_ids:
         fl = fl[~fl.game_id.astype(str).isin(_ko_ids)]
         print(f"  freezing flags on {len(_ko_ids)} kicked-off games (pregame history preserved)")
