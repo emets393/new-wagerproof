@@ -76,8 +76,10 @@ type FootballTrendGameLog = {
   h1_ou_margin?: number | null;
 };
 
+// season,through_week are selected so the newest-snapshot ordering below is explicit in the
+// payload rather than relying on PostgREST sorting by a column the client never sees.
 const NFL_TREND_COLUMNS =
-  'team_abbr,team_name,su_w,su_l,su_record,ats_w,ats_l,ats_p,ats_pct,ou_o,ou_u,ou_p,over_pct,tt_o,tt_u,tt_over_pct,h1_ats_w,h1_ats_l,h1_ats_p,h1_ats_pct,h1_ou_o,h1_ou_u,h1_over_pct,last5_su,last5_ats,last5_ou,game_log';
+  'team_abbr,team_name,season,through_week,su_w,su_l,su_record,ats_w,ats_l,ats_p,ats_pct,ou_o,ou_u,ou_p,over_pct,tt_o,tt_u,tt_over_pct,h1_ats_w,h1_ats_l,h1_ats_p,h1_ats_pct,h1_ou_o,h1_ou_u,h1_over_pct,last5_su,last5_ats,last5_ou,game_log';
 
 const CFB_TREND_COLUMNS =
   'team_name,season,through_week,games,su_w,su_l,su_record,ats_w,ats_l,ats_p,ats_pct,ou_o,ou_u,ou_p,over_pct,tt_o,tt_u,tt_games,tt_over_pct,h1_ats_w,h1_ats_l,h1_ats_p,h1_ats_games,h1_ats_pct,h1_ou_o,h1_ou_u,h1_ou_games,h1_over_pct,last5_su,last5_ats,last5_ou,game_log';
@@ -178,15 +180,23 @@ export async function fetchFootballTeamTrends(args: {
   if (sport === 'nfl') {
     const abbrs = [away.abbrev, home.abbrev].map((a) => String(a || '').toUpperCase()).filter(Boolean);
     if (abbrs.length === 0) return {};
+    // nfl_team_trends keeps ONE SNAPSHOT PER WEEK per team (through_week 0,1,2,3...) — unlike
+    // cfb_team_trends below, which is one row per team per season. Without an order this returns
+    // every snapshot and the loop below (last write wins) was landing on the through_week=0
+    // preseason row: 0-0-0 with a null pct, rendering "Season ATS 0-0-0 —" on the game card while
+    // the database held the real record. Newest first + first-write-wins pins it to this week.
     const { data, error } = await client
       .from('nfl_team_trends')
       .select(NFL_TREND_COLUMNS)
-      .in('team_abbr', abbrs);
+      .in('team_abbr', abbrs)
+      .order('season', { ascending: false })
+      .order('through_week', { ascending: false });
     if (error) throw error;
     const byKey: Record<string, FootballTeamTrend> = {};
     for (const row of data || []) {
       const mapped = mapNflTrend(row as Record<string, unknown>);
-      if (mapped.key) byKey[mapped.key.toUpperCase()] = mapped;
+      const k = mapped.key?.toUpperCase();
+      if (k && !byKey[k]) byKey[k] = mapped;   // keep the newest snapshot only
     }
     return byKey;
   }

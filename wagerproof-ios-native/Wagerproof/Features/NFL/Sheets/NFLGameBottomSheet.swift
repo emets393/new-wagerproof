@@ -1360,10 +1360,18 @@ struct NFLGameBottomSheet: View {
             .execute()
             .value) ?? [])
 
+        // nfl_team_trends keeps ONE SNAPSHOT PER WEEK per team (through_week 0,1,2,3...), so an
+        // unordered fetch returns four rows per team and whichever lands first wins the Dictionary
+        // built below (uniquingKeysWith: { first, _ in first }). The through_week=0 preseason row
+        // is 0-0-0 with a null pct — exactly what the card rendered ("Season ATS 0-0-0 —") while
+        // the database held the correct 2-1. Order newest-first so "first" IS the current week.
+        // The Outliers page never had this: OutliersTrendsService filters season + through_week.
         async let trendsTask: [NFLTeamTrendRow] = ((try? await cfb
             .from("nfl_team_trends")
             .select()
             .in("team_abbr", values: [awayAbbr, homeAbbr])
+            .order("season", ascending: false)
+            .order("through_week", ascending: false)
             .execute()
             .value) ?? [])
 
