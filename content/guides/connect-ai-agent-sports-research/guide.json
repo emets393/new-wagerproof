@@ -1,0 +1,83 @@
+{
+  "layout": "standard",
+  "slug": "connect-ai-agent-sports-research",
+  "canonicalPath": "/guides/connect-ai-agent-sports-research/",
+  "intent": "connect Grok Bot, ChatGPT Dots or Meta Muse to real sports betting data",
+  "title": "How to connect Grok Bot, ChatGPT Dots or Meta Muse to real sports data",
+  "shortTitle": "Connect your AI agent",
+  "seoTitle": "Grok Bot, ChatGPT Dots and Muse for Sports Betting: Use Real Data",
+  "description": "Connect Grok Bot, ChatGPT Dots or Meta Muse to live lines, WagerProof model projections, injuries and betting history, with real example questions and answers.",
+  "dek": "AI agents can research games while you sleep, but out of the box they guess from web search. Paste one address and they answer from live lines, a model, injury reports and years of results.",
+  "category": "AI research",
+  "publishedAt": "2026-10-02",
+  "updatedAt": "2026-10-02",
+  "reviewedAt": "2026-10-02",
+  "nextReviewAt": "2026-11-02",
+  "readingTimeMinutes": 8,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/connect-ai-agent-sports-research/connect-ai-agent-sports-research-title-card-v1.webp",
+    "socialSrc": "/guides/connect-ai-agent-sports-research/connect-ai-agent-sports-research-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "The WagerProof app icon at the center of a carousel of AI agent icons: Muse, Grok Bot, ChatGPT and any AI, under the title Give your AI agent real sports data",
+    "caption": "WagerProof editorial title card. The Muse, Grok Bot and ChatGPT icons are their owners' official App Store icons, shown only to identify each product. WagerProof is not affiliated with Meta, xAI or OpenAI.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "I am Chris Habib, founder of WagerProof, and the connector in this guide is ours. WagerProof is not affiliated with xAI, OpenAI or Meta. The connector is read-only and cannot place bets. Example answers were pulled on October 2, 2026 and will have changed.",
+  "verdict": "Grok Bot, ChatGPT Dots and Meta Muse are strong at doing work on a schedule but weak at sports facts, because they rely on web search. Adding the WagerProof connector lets them answer everyday questions such as who wins, what the line is and who is injured from live lines, a model projection, injury reports and historical results. The model's numbers are estimates, not guarantees.",
+  "showSourcesSection": false,
+  "relatedSlugs": [
+    "how-wagerproof-analysis-works",
+    "best-sports-betting-research-apps",
+    "prediction-markets-vs-sportsbook-odds",
+    "responsible-sports-betting-research"
+  ],
+  "redirectAliases": [],
+  "howTo": {
+    "name": "Connect an AI agent to WagerProof sports data",
+    "description": "Add the WagerProof connector to Grok Bot, ChatGPT Dots or Meta Muse and ask your first question.",
+    "steps": [
+      {
+        "name": "Open connector settings",
+        "text": "Open your agent on the web and find the option to add a custom connector."
+      },
+      {
+        "name": "Paste the address",
+        "text": "Paste https://wagerproof-mcp.habib225.workers.dev/mcp and confirm the unverified-connector warning after checking the address."
+      },
+      {
+        "name": "Sign in",
+        "text": "Sign in with the account you use in the WagerProof app and approve read-only access."
+      },
+      {
+        "name": "Ask a question",
+        "text": "Ask a plain question such as who wins a game, what the line is, or which players are injured."
+      }
+    ]
+  },
+  "faqs": [
+    {
+      "question": "Can Grok Bot, ChatGPT Dots or Meta Muse do sports betting research?",
+      "answer": "They can run research tasks on a schedule, but on their own they rely on web search, which can return stale lines and old injury news. Connecting a sports data source such as the WagerProof connector lets them answer from live lines, model projections, injury reports and historical results."
+    },
+    {
+      "question": "What is the WagerProof connector address?",
+      "answer": "https://wagerproof-mcp.habib225.workers.dev/mcp. Add it as a custom connector in your agent, then sign in with the account you use in the WagerProof app."
+    },
+    {
+      "question": "Why does my agent say the connector is unverified?",
+      "answer": "WagerProof is not listed in any AI connector directory yet, so agents label it as a custom connector. Confirm the address ends in wagerproof-mcp.habib225.workers.dev/mcp before you continue."
+    },
+    {
+      "question": "Can the connector place bets or change my account?",
+      "answer": "No. It is read-only. It can read WagerProof's model projections, market prices, injury reports, editor analyses and your own agents and records, but it cannot place a bet, move money or change your data."
+    },
+    {
+      "question": "Which sports does it cover?",
+      "answer": "The NFL, college football, the NBA, college basketball and MLB, along with prediction market prices and a historical database of results and betting lines. Coverage depends on the season; on October 2, 2026 there were no MLB games and the NBA season had not started."
+    }
+  ]
+}

@@ -1,7 +1,12 @@
 {
   "version": 1,
-  "expectedCount": 13,
+  "expectedCount": 14,
   "entries": [
+    {
+      "slug": "connect-ai-agent-sports-research",
+      "canonicalPath": "/guides/connect-ai-agent-sports-research/",
+      "intent": "connect Grok Bot, ChatGPT Dots or Meta Muse to real sports betting data"
+    },
     {
       "slug": "parlay-calculator",
       "canonicalPath": "/guides/parlay-calculator/",
