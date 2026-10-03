@@ -7,13 +7,18 @@ SITUATIONS: primetime, divisional, cold, windy, home/away, favorite/underdog, sh
 leading 8+ / trailing 8+, second half, two-minute, 3rd-and-short, 3rd-and-long, inside the 20 / 10 / 5, goal-to-go.
 For each DC x situation: his blitz rate vs his base vs the league's shift in that spot; per-season sign; STABLE = same sign every season
 with 60+ plays and a 4-point relative gap. Writes out/dc_profiles_2026.md, data/_dc_identity.parquet, data/_dc_situations.parquet."""
-import glob, numpy as np, pandas as pd, warnings, nfl_data_py as nfl
+import glob, os, numpy as np, pandas as pd, warnings, nfl_data_py as nfl
 warnings.filterwarnings("ignore"); num = lambda s: pd.to_numeric(s, errors="coerce")
 COLS = ["game_id","play_id","season","week","season_type","posteam","defteam","home_team","away_team","play_type","pass","rush","qb_dropback","qb_kneel","qb_spike","qb_scramble","down","ydstogo","yardline_100","goal_to_go","score_differential","game_seconds_remaining","half_seconds_remaining","epa","roof","temp","wind","spread_line","div_game"]
-pbp = pd.concat([pd.read_parquet(f, columns=COLS) for f in ["data/pbp_cache/_dl_2022.parquet"] + sorted(glob.glob("data/pbp_cache/pbp_202[345].parquet"))], ignore_index=True)
+# Current season included, same reason as coach_tendencies.py: a coordinator's pressure and
+# box identity was being reported from a window that ENDED before this season.
+pbp = pd.concat([pd.read_parquet(f, columns=COLS) for f in
+                 ["data/pbp_cache/_dl_2022.parquet"] + sorted(glob.glob("data/pbp_cache/pbp_202[345].parquet"))
+                 + sorted(glob.glob("data/pbp_cache/_pbp202[6789].parquet"))], ignore_index=True)
 pbp = pbp[(pbp.season_type == "REG") & pbp.defteam.notna() & pbp.play_type.isin(["pass","run"]) & (pbp.qb_kneel != 1) & (pbp.qb_spike != 1)].copy()
 for c in ("posteam","defteam","home_team","away_team"): pbp[c] = pbp[c].replace({"LAR":"LA"})
-ftn = pd.concat([pd.read_parquet("data/ftn_charting.parquet"), pd.read_parquet("data/ftn_charting_2025.parquet")], ignore_index=True)
+ftn = pd.concat([pd.read_parquet(f) for f in ["data/ftn_charting.parquet", "data/ftn_charting_2025.parquet"]
+                 + sorted(glob.glob("data/ftn_charting_202[6789].parquet")) if os.path.exists(f)], ignore_index=True)
 for x, y in (("nflverse_game_id","game_id"), ("nflverse_play_id","play_id")):
     if y in ftn.columns and x in ftn.columns: ftn[y] = ftn[y].fillna(ftn[x]); ftn = ftn.drop(columns=x)
     elif x in ftn.columns: ftn = ftn.rename(columns={x: y})
@@ -36,6 +41,29 @@ P["h2"] = P.game_seconds_remaining <= 1800; P["two_min"] = P.half_seconds_remain
 P["rz20"] = P.yardline_100 <= 20; P["rz10"] = P.yardline_100 <= 10; P["rz5"] = P.yardline_100 <= 5; P["gtg"] = P.goal_to_go == 1
 def ident(x): return pd.Series(dict(plays=len(x), dropbacks=int((x.qb_dropback == 1).sum()), blitz=x.blitz.mean(), rush6=x.rush6.mean(), heavy_box=x.heavy.mean(), stacked=x.stacked_box.mean(), light_box=x.light.mean(), blitz_3rd_long=x[x.third_long].blitz.mean(), blitz_rz=x[x.rz20].blitz.mean(), blitz_two_min=x[x.two_min].blitz.mean(), heavy_rz=x[x.rz10].heavy.mean(), epa_allowed=x.epa.mean()))
 ID = pd.concat([ident(x).rename(c) for c, x in P.groupby("coach")], axis=1).T; ID.index.name = "coach"; ID = ID.reset_index(); LG = ident(P)
+# Recency blend by GAMES, K = 4 — identical rule to coach_tendencies.py so the offensive and
+# defensive tells are quoted on the same basis. prior_/cur_ kept so a shift can be stated.
+CUR = int(P.season.max()); K_GAMES = 4.0
+_MEAS = [c for c in ID.columns if c not in ("coach", "plays", "dropbacks")]
+_pr, _cu = P[P.season < CUR], P[P.season == CUR]
+IDp = pd.concat([ident(x).rename(c) for c, x in _pr.groupby("coach")], axis=1).T if len(_pr) else pd.DataFrame()
+IDc = pd.concat([ident(x).rename(c) for c, x in _cu.groupby("coach")], axis=1).T if len(_cu) else pd.DataFrame()
+_ng = _cu.groupby("coach").game_id.nunique()
+ID = ID.set_index("coach")
+for c in ID.index:
+    n = float(_ng.get(c, 0.0))
+    for col in _MEAS:
+        pv = IDp.at[c, col] if c in IDp.index and col in IDp.columns else np.nan
+        cv = IDc.at[c, col] if c in IDc.index and col in IDc.columns else np.nan
+        ID.at[c, f"prior_{col}"] = pv; ID.at[c, f"cur_{col}"] = cv
+        if pd.notna(pv) and pd.notna(cv) and n > 0: ID.at[c, col] = (K_GAMES * pv + n * cv) / (K_GAMES + n)
+        elif pd.notna(cv) and not pd.notna(pv): ID.at[c, col] = cv
+    ID.at[c, "cur_games"] = n; ID.at[c, "cur_weight"] = (n / (K_GAMES + n)) if n > 0 else 0.0
+ID = ID.reset_index()
+_bs = (ID.cur_blitz - ID.prior_blitz).abs()
+print(f"[recency] DC: blended {int((ID.cur_games > 0).sum())} coordinators with {CUR} plays "
+      f"(current weight {ID.loc[ID.cur_games > 0, 'cur_weight'].median():.0%} at the median); "
+      f"{int((_bs >= 0.05).sum())} shifted >=5 blitz-rate points vs their prior record")
 SIT = {"primetime":"primetime","divisional":"div","cold (≤40°F outdoors)":"cold","windy (≥15 mph)":"windy","home":"is_home_b","favorite (−3 or more)":"fav","underdog (+3 or more)":"dog","short rest (≤5 days)":"short_rest","off a bye":"off_bye","vs top-10 offense":"vs_top10_off","vs bottom-10 offense":"vs_bot10_off","defense leading by 8+":"lead8","defense trailing by 8+":"trail8","second half":"h2","two-minute":"two_min","3rd-and-short (≤2)":"third_short","3rd-and-long (≥7)":"third_long","inside the 20":"rz20","inside the 10":"rz10","inside the 5":"rz5","goal-to-go":"gtg"}
 D = P[P.qb_dropback == 1].copy(); base_c = D.groupby("coach").blitz.mean(); base_cs = D.groupby(["coach","season"]).blitz.mean(); lg_base = D.blitz.mean(); rows = []
 for lab, col in SIT.items():

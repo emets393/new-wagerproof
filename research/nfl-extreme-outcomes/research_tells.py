@@ -4,7 +4,7 @@ research, turned into per-prop tells that nfl_prop_narratives.py adds to its mat
 Every tell says where its number comes from.
   tendency   the player's own tendency that holds every season (data/_qb_profiles_<stat>_<season>.parquet) whose trigger is
              live this week: wind, heat/cold, favorite/underdog, game total, home/road, rest, blitz-heavy or low-blitz opponent
-             (the opposing coordinator's 2022-25 blitz rate)                                         weight 1.5
+             (the opposing coordinator's blitz rate, current season weighted)                                         weight 1.5
   storyline  QB vs a former team -> passing yards UNDER (60% under across 59 games 2023-25; TDs 70%); skill player in his first
              season away vs the old team -> OVER (60% over, 154 lines 2023-25, vs 47% elsewhere); QB birthday week -> passing
              yards OVER (69%, 42 lines — small, weight 1.0); a player's OWN homecoming record when 3+ games and lopsided   1.5 / 1.0
@@ -82,7 +82,7 @@ class ResearchTells:
         elif f == "is_home": hi, cond = c["is_home"], "at home" if c["is_home"] else "on the road"
         elif f == "rest" and (c["short_rest"] or c["off_bye"]): hi, cond = c["off_bye"], "off a bye" if c["off_bye"] else "on short rest"
         elif f == "primetime" and c["primetime"]: hi, cond = True, "in primetime"
-        elif f == "opp_rate_blitz" and (c["opp_blitz_high"] or c["opp_blitz_low"]): hi, cond = c["opp_blitz_high"], f"against {'blitz-heavy' if c['opp_blitz_high'] else 'low-blitz'} defenses ({c['opp_dc']} blitzes {pct(c['opp_blitz'])}, 2022-25)"
+        elif f == "opp_rate_blitz" and (c["opp_blitz_high"] or c["opp_blitz_low"]): hi, cond = c["opp_blitz_high"], f"against {'blitz-heavy' if c['opp_blitz_high'] else 'low-blitz'} defenses ({c['opp_dc']} blitzes {pct(c['opp_blitz'])}, current season weighted)"
         else: return None
         up = (r > 0) == bool(hi); return ("over" if up else "under"), f"his {mk} have run {'above' if up else 'below'} the line {cond}"
     def tells(self, r):
@@ -165,7 +165,7 @@ class ResearchTells:
                     out.append(dict(src="coaching", dir=d, text=f"{team} is {'favored by' if c['fav'] else 'an underdog by'} {abs(c['spread']):g}; when {sit.replace('by 8+', 'by a touchdown or more')}, {pc} {'throws' if passy else 'runs'} about {abs(x.relative):.0f} points more than a typical coach does in that spot, every season including this one ({int(x.plays)} plays through {self.season})", w=0.5 if d != "context" else 0.0))
         dc = self.dc.get(c["opp"])
         if dc and len(self.DID) and dc in self.DID.index:
-            d_ = self.DID.loc[dc]; n_db = f"{int(d_.dropbacks):,} passing plays since 2022"
+            d_ = self.DID.loc[dc]; n_db = f"{int(d_.dropbacks):,} passing plays, this season weighted {float(d_.cur_weight):.0%}" if "cur_weight" in d_.index and pd.notna(d_.cur_weight) and float(d_.cur_weight) > 0 else f"{int(d_.dropbacks):,} passing plays since 2022"
             if is_pass_vol or is_pass_td: out.append(dict(src="coaching", dir="context", text=f"the defense under {dc} sends an extra rusher on {pct(d_.blitz)} of passing plays (a typical defense: {pct(self.lg_blitz)}), {pct(d_.blitz_3rd_long)} on 3rd-and-long{', ' + pct(d_.blitz_rz) + ' in the red zone' if is_pass_td else ''} ({n_db})", w=0.0))
             if is_recv and abs(d_.blitz - self.lg_blitz) >= 0.07: out.append(dict(src="coaching", dir="context", text=f"the defense under {dc} blitzes on {pct(d_.blitz)} of passing plays (a typical defense: {pct(self.lg_blitz)}) — quick throws and hot reads are more likely ({n_db})", w=0.0))
             if is_rush: out.append(dict(src="coaching", dir="context", text=f"the defense under {dc} loads seven or more defenders near the line against the run {pct(d_.heavy_box)} of the time and stacks eight {pct(d_.stacked)} (a typical defense: about 46% and 11%)", w=0.0))
