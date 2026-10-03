@@ -20,7 +20,18 @@ def get(url, cols=None):
     df=pd.read_parquet(io.BytesIO(r.content))
     return df[[c for c in cols if c in df.columns]] if cols else df
 parts=[]
-for yr in range(2018,2027):  # go-live: 2026 incl; missing files skipped by the try below
+# Through the CURRENT season, derived — not a hardcoded end year that silently stops
+# including new seasons (the same hardcoded-window bug that froze coach_tendencies at 2025
+# and the pregame feeds at wk1). NFL season rolls in March.
+_now=__import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+_CUR=_now.year if _now.month>=3 else _now.year-1
+# pbp_participation LAGS: as of 2026-10-02 the 2026 file is a 404 upstream while 2024/2025
+# are both published, so man/zone + coverage shells have no current-season rows. The try
+# below skips the missing year and this runs weekly from run_nfl_week.sh, so the season is
+# picked up automatically the week nflverse posts it. The man/blitz GATES no longer wait on
+# it — build_opp_scheme_rates.py serves those from Fantasy Points — so this is now an
+# enrichment that back-fills rather than a dependency that blocks.
+for yr in range(2018,_CUR+1):
     try:
         pa=get(f"{REL}/pbp_participation/pbp_participation_{yr}.parquet",PART).rename(columns={"nflverse_game_id":"game_id"})
         pb=get(f"{REL}/pbp/play_by_play_{yr}.parquet",PBP)
