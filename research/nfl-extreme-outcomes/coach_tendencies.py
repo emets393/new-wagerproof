@@ -13,14 +13,24 @@ For each coach x situation: his pass rate over expected and pass rate, vs his ow
 (so 'he gets MORE pass-happy in primetime than everyone else does' is explicit); per-season sign; STABLE = same sign every season with
 60+ plays. Writes out/coach_profiles_2026.md, data/_coach_situations.parquet, data/_coach_identity.parquet.
 Then the prop link: lead backs' anytime-TD hit vs implied by the coach's PRIOR-season inside-5 lead-back carry share."""
-import glob, sys, numpy as np, pandas as pd, warnings, nfl_data_py as nfl
+import glob, os, sys, numpy as np, pandas as pd, warnings, nfl_data_py as nfl
 KEY = sys.argv[1] if len(sys.argv) > 1 else "hc"   # hc = head coach (nflverse), pc = offensive play-caller (data/play_callers.csv)
 warnings.filterwarnings("ignore"); num = lambda s: pd.to_numeric(s, errors="coerce")
 COLS = ["game_id","play_id","season","week","season_type","posteam","defteam","home_team","away_team","play_type","pass","rush","qb_dropback","qb_kneel","qb_spike","qb_scramble","down","ydstogo","yardline_100","goal_to_go","score_differential","game_seconds_remaining","half_seconds_remaining","xpass","pass_oe","shotgun","no_huddle","rusher_player_id","rusher_player_name","receiver_player_id","receiver_player_name","passer_player_id","fourth_down_converted","fourth_down_failed","punt_attempt","field_goal_attempt","epa","touchdown","td_team","wp","roof","temp","wind","spread_line","total_line","div_game","drive"]
-pbp = pd.concat([pd.read_parquet(f, columns=COLS) for f in ["data/pbp_cache/_dl_2022.parquet"] + sorted(glob.glob("data/pbp_cache/pbp_202[345].parquet"))], ignore_index=True)
+# ⛔ The CURRENT season belongs in this window. It used to stop at 2025, so every tell
+# described a coach as he was BEFORE this year — and play-calling identity moves: 15 of the
+# 28 2026 play-callers with a prior record had shifted >=3 PROE points, 10 of them >=5, median
+# |shift| 3.9. The tell threshold is |proe| >= 3, so the typical year-over-year shift is bigger
+# than the gap needed to assert a tendency (Mike McCarthy: -1.8 pooled over his Dallas years,
+# +4.1 in 2026 at Pittsburgh — the most pass-first offense of his career, reported as
+# run-neutral). _pbp2026.parquet was already sitting in the cache unused.
+pbp = pd.concat([pd.read_parquet(f, columns=COLS) for f in
+                 ["data/pbp_cache/_dl_2022.parquet"] + sorted(glob.glob("data/pbp_cache/pbp_202[345].parquet"))
+                 + sorted(glob.glob("data/pbp_cache/_pbp202[6789].parquet"))], ignore_index=True)
 pbp = pbp[(pbp.season_type == "REG") & pbp.posteam.notna() & pbp.play_type.isin(["pass","run","punt","field_goal","qb_kneel","qb_spike","no_play"])].copy()
 pbp = pbp[~pbp.play_type.isin(["no_play"])]; pbp["posteam"] = pbp.posteam.replace({"LAR":"LA"}); pbp["defteam"] = pbp.defteam.replace({"LAR":"LA"}); pbp["home_team"] = pbp.home_team.replace({"LAR":"LA"}); pbp["away_team"] = pbp.away_team.replace({"LAR":"LA"})
-ftn = pd.concat([pd.read_parquet("data/ftn_charting.parquet"), pd.read_parquet("data/ftn_charting_2025.parquet")], ignore_index=True)
+ftn = pd.concat([pd.read_parquet(f) for f in ["data/ftn_charting.parquet", "data/ftn_charting_2025.parquet"]
+                 + sorted(glob.glob("data/ftn_charting_202[6789].parquet")) if os.path.exists(f)], ignore_index=True)
 for x, y in (("nflverse_game_id","game_id"), ("nflverse_play_id","play_id")):
     if y in ftn.columns and x in ftn.columns: ftn[y] = ftn[y].fillna(ftn[x]); ftn = ftn.drop(columns=x)
     elif x in ftn.columns: ftn = ftn.rename(columns={x: y})
@@ -70,8 +80,51 @@ def ident(x, r):
     t = pl[pl.rz20 & (pl["pass"] == 1) & pl.receiver_player_id.notna()].copy(); t["tpos"] = t.receiver_player_id.map(pos)
     d.update(rz_tgt_rb=(t.tpos == "RB").mean() if len(t) else np.nan, rz_tgt_wr=(t.tpos == "WR").mean() if len(t) else np.nan, rz_tgt_te=(t.tpos == "TE").mean() if len(t) else np.nan); return pd.Series(d)
 ID = pd.concat([ident(x, RB[RB.coach == c]).rename(c) for c, x in P.groupby("coach")], axis=1).T; ID.index.name = "coach"; ID = ID.reset_index()
-IDS = pd.concat([ident(x, RB[(RB.coach == c) & (RB.season == s)]).rename((c, s)) for (c, s), x in P.groupby(["coach","season"]) if len(x) >= 300], axis=1).T; IDS.index = pd.MultiIndex.from_tuples(IDS.index, names=["coach","season"]); IDS = IDS.reset_index()
+# Partial current season: ~160-195 plays after 3 games, so the flat 300 gate would drop it from
+# the per-season frame entirely — and the per-season frame is what the "every season" consistency
+# test runs on. A coach who broke his pattern THIS year has to be able to fail that test.
+CUR = int(P.season.max()); CUR_MIN_PLAYS = 120
+IDS = pd.concat([ident(x, RB[(RB.coach == c) & (RB.season == s)]).rename((c, s)) for (c, s), x in P.groupby(["coach","season"])
+                 if len(x) >= (CUR_MIN_PLAYS if s == CUR else 300)], axis=1).T
+IDS.index = pd.MultiIndex.from_tuples(IDS.index, names=["coach","season"]); IDS = IDS.reset_index()
 LG = ident(P, RB)
+
+# ---------------------------------------------------------------- recency blend (owner, 2026-10-02)
+# `ID` above pools every play equally, so 3,300 Dallas plays bury 184 Pittsburgh ones and a coach
+# who has genuinely changed still reads as his old self. Blend the CURRENT season against the prior
+# pooled record by GAMES, the same K-shaped rule build_team_week_seasonal.py and score_props_week's
+# carry() use: (K*prior + n*current) / (K + n), K = 4 games. At 3 games that is 43% current, at 4
+# half, crossing into mostly-current by midseason — which is the right shape for a trait that is
+# sticky but not fixed. Raw pooled and current-only values are kept alongside so the narrative can
+# quote the shift instead of silently averaging it away.
+K_GAMES = 4.0
+_MEAS = [c for c in ID.columns if c not in ("coach",)]
+_prior = P[P.season < CUR]; _cur = P[P.season == CUR]
+IDp = pd.concat([ident(x, RB[(RB.coach == c) & (RB.season < CUR)]).rename(c) for c, x in _prior.groupby("coach")], axis=1).T if len(_prior) else pd.DataFrame()
+IDc = pd.concat([ident(x, RB[(RB.coach == c) & (RB.season == CUR)]).rename(c) for c, x in _cur.groupby("coach")], axis=1).T if len(_cur) else pd.DataFrame()
+_ngames = _cur.groupby("coach").game_id.nunique()
+ID = ID.set_index("coach")
+for c in ID.index:
+    n = float(_ngames.get(c, 0.0))
+    has_prior, has_cur = c in IDp.index, c in IDc.index
+    for col in _MEAS:
+        pv = IDp.at[c, col] if has_prior and col in IDp.columns else np.nan
+        cv = IDc.at[c, col] if has_cur and col in IDc.columns else np.nan
+        if col in ("plays", "n_fourth", "n_in5_rb_carries"):
+            continue                                   # counts stay as the true pooled totals
+        ID.at[c, f"prior_{col}"] = pv
+        ID.at[c, f"cur_{col}"] = cv
+        if pd.notna(pv) and pd.notna(cv) and n > 0:
+            ID.at[c, col] = (K_GAMES * pv + n * cv) / (K_GAMES + n)
+        elif pd.notna(cv) and not pd.notna(pv):
+            ID.at[c, col] = cv                         # first-year coach: current season is all there is
+    ID.at[c, "cur_games"] = n
+    ID.at[c, "cur_weight"] = (n / (K_GAMES + n)) if n > 0 else 0.0
+ID = ID.reset_index()
+_sh = (ID.cur_proe - ID.prior_proe).abs()
+print(f"[recency] blended {int((ID.cur_games > 0).sum())} coaches with {CUR} plays "
+      f"(K={K_GAMES:g} games -> current weight {ID.loc[ID.cur_games > 0, 'cur_weight'].median():.0%} at the median); "
+      f"{int((_sh >= 3).sum())} shifted >=3 PROE pts vs their prior record, {int((_sh >= 5).sum())} >=5")
 # ---------------------------------------------------------------- situations
 SIT = {"primetime": "primetime", "divisional": "div", "cold (≤40°F outdoors)": "cold", "windy (≥15 mph)": "windy", "home": "is_home", "favorite (−3 or more)": "fav", "underdog (+3 or more)": "dog", "short rest (≤5 days)": "short_rest", "off a bye": "off_bye",
        "vs top-10 pass defense": "vs_top10_passD", "vs bottom-10 pass defense": "vs_bot10_passD", "vs blitz-heavy defense": "vs_blitz_heavy", "vs man-heavy defense": "vs_man_heavy", "leading by 8+": "lead8", "trailing by 8+": "trail8", "second half": "h2", "two-minute": "two_min",
