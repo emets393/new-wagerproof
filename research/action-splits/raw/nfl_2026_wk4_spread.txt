@@ -1,0 +1,286 @@
+Scheduled     Open    Best Odds    % of Bets     % of Money     Diff     Bets 
+Sun 10/04, 8:30 AM
+Colts Team Icon
+Colts
+251
+Commanders Team Icon
+Commanders
+252
++1.5
+-1.5
+-4.5
++102
++4.5
+-102
+32%
+68%
+42%
+58%
++10%
+27,737
+Sun 10/04, 12:00 PM
+Rams Team Icon
+Rams
+265
+Eagles Team Icon
+Eagles
+266
+-1.5
++1.5
+-3.5
++102
++3.5
++100
+50%
+50%
+60%
+40%
++10%
+27,121
+Sun 10/04, 12:00 PM
+Packers Team Icon
+Packers
+263
+Buccaneers Team Icon
+Buccaneers
+264
+-1.5
++1.5
+-3.5
++111
++3.5
+-111
+47%
+53%
+50%
+50%
++3%
+22,648
+Sun 10/04, 12:00 PM
+Jets Team Icon
+Jets
+255
+Bears Team Icon
+Bears
+256
++8.5
+-8.5
++3.5
++102
+-3.5
++100
+44%
+56%
+40%
+60%
++4%
+19,084
+Sun 10/04, 12:00 PM
+Patriots Team Icon
+Patriots
+253
+Bills Team Icon
+Bills
+254
++3
+-3
++6.5
++115
+-7
+-102
+40%
+60%
+35%
+65%
++5%
+27,020
+Sun 10/04, 12:00 PM
+Jaguars Team Icon
+Jaguars
+261
+Bengals Team Icon
+Bengals
+262
++2.5
+-2.5
++2.5
++111
+-2.5
+-108
+63%
+37%
+62%
+38%
++1%
+29,272
+Sun 10/04, 12:00 PM
+Titans Team Icon
+Titans
+267
+Ravens Team Icon
+Ravens
+268
++8.5
+-8.5
++10.5
++111
+-11.5
++100
+34%
+66%
+29%
+71%
++5%
+21,043
+Sun 10/04, 12:00 PM
+Cardinals Team Icon
+Cardinals
+257
+Giants Team Icon
+Giants
+258
++7
+-7
+-2.5
+-102
++2.5
++102
+62%
+38%
+69%
+31%
++7%
+22,178
+Sun 10/04, 3:05 PM
+Dolphins Team Icon
+Dolphins
+269
+Vikings Team Icon
+Vikings
+270
++7.5
+-7.5
++9.5
++106
+-9.5
+-106
+31%
+69%
+46%
+54%
++15%
+20,416
+Sun 10/04, 3:25 PM
+Broncos Team Icon
+Broncos
+271
+49ers Team Icon
+49ers
+272
++2.5
+-2.5
++2.5
++111
+-2.5
+-108
+40%
+60%
+36%
+64%
++4%
+22,976
+Sun 10/04, 3:25 PM
+Chargers Team Icon
+Chargers
+275
+Seahawks Team Icon
+Seahawks
+276
++3
+-3
++7.5
+-111
+-7.5
++111
+48%
+52%
+40%
+60%
++8%
+17,715
+Sun 10/04, 3:25 PM
+Chiefs Team Icon
+Chiefs
+273
+Raiders Team Icon
+Raiders
+274
+-5.5
++5.5
+-4.5
++102
++4.5
+-102
+52%
+48%
+54%
+46%
++2%
+23,572
+Sun 10/04, 7:20 PM
+Lions Team Icon
+Lions
+277
+Panthers Team Icon
+Panthers
+278
+-3
++3
+-3.5
+-102
++3.5
++104
+64%
+36%
+70%
+30%
++6%
+29,454
+Mon 10/05, 7:15 PM
+Falcons Team Icon
+Falcons
+279
+Saints Team Icon
+Saints
+280
++2.5
+-2.5
++2.5
+-102
+-2.5
++104
+52%
+48%
+50%
+50%
++2%
+13,368
+Final
+Steelers Team Icon
+Steelers
+101
+Browns Team Icon
+Browns
+102
+-2.5
++2.5
+-2.5
+-115
++3.5
+-108
+41%
+59%
+47%
+53%
++6%
+211,359

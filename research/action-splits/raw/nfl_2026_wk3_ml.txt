@@ -1,0 +1,238 @@
+Scheduled     Open    Best Odds    % of Bets     % of Money     Diff     Bets 
+Final
+Ravens Team Icon
+Ravens
+485
+Cowboys Team Icon
+Cowboys
+486
+-135
++115
+-130
++167
+81%
+19%
+79%
+21%
++2%
+113,131
+Final
+Falcons Team Icon
+Falcons
+301
+Packers Team Icon
+Packers
+302
++295
+-375
++257
+-217
+11%
+89%
+46%
+54%
++35%
+246,180
+Final
+Titans Team Icon
+Titans
+467
+Giants Team Icon
+Giants
+468
++140
+-166
++233
+-130
+39%
+61%
+20%
+80%
++19%
+64,381
+Final
+Bengals Team Icon
+Bengals
+463
+Steelers Team Icon
+Steelers
+464
+-125
++105
+-153
++163
+91%
+9%
+92%
+8%
++1%
+114,868
+Final
+Seahawks Team Icon
+Seahawks
+461
+Commanders Team Icon
+Commanders
+462
+-185
++154
+-270
++344
+98%
+2%
+90%
+10%
++8%
+97,682
+Final
+Chargers Team Icon
+Chargers
+477
+Bills Team Icon
+Bills
+478
++136
+-162
++308
+-300
+3%
+97%
+3%
+97%
+131,044
+Final
+Panthers Team Icon
+Panthers
+475
+Browns Team Icon
+Browns
+476
+-125
++105
+-115
++138
+87%
+13%
+95%
+5%
++8%
+93,941
+Final
+Texans Team Icon
+Texans
+473
+Colts Team Icon
+Colts
+474
+-125
++105
+-111
++117
+65%
+35%
+70%
+30%
++5%
+85,742
+Final
+Jets Team Icon
+Jets
+465
+Lions Team Icon
+Lions
+466
++320
+-410
++280
+-277
+5%
+95%
+2%
+98%
++3%
+111,096
+Final
+Vikings Team Icon
+Vikings
+479
+Buccaneers Team Icon
+Buccaneers
+480
++110
+-130
+-105
++122
+68%
+32%
+65%
+35%
++3%
+91,316
+Final
+Cardinals Team Icon
+Cardinals
+481
+49ers Team Icon
+49ers
+482
++470
+-650
++355
+-344
+2%
+98%
+1%
+99%
++1%
+92,628
+Final
+Raiders Team Icon
+Raiders
+483
+Saints Team Icon
+Saints
+484
++154
+-185
++185
+-163
+22%
+78%
+29%
+71%
++7%
+91,558
+Final
+Rams Team Icon
+Rams
+487
+Broncos Team Icon
+Broncos
+488
+-155
++130
+-102
++127
+77%
+23%
+35%
+65%
++42%
+151,082
+Final
+Eagles Team Icon
+Eagles
+489
+Bears Team Icon
+Bears
+490
+-102
+-118
+-174
++174
+91%
+9%
+87%
+13%
++4%
+224,859

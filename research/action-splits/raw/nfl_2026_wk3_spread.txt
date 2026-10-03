@@ -1,0 +1,286 @@
+Scheduled     Open    Best Odds    % of Bets     % of Money     Diff     Bets 
+Final
+Ravens Team Icon
+Ravens
+485
+Cowboys Team Icon
+Cowboys
+486
+-2.5
++2.5
+-1.5
+-110
++3.5
+-110
+53%
+47%
+67%
+33%
++14%
+113,131
+Final
+Falcons Team Icon
+Falcons
+301
+Packers Team Icon
+Packers
+302
++7.5
+-7.5
++4.5
++106
+-4.5
+-106
+47%
+53%
+60%
+40%
++13%
+246,180
+Final
+Titans Team Icon
+Titans
+467
+Giants Team Icon
+Giants
+468
++3
+-3
++2.5
++102
+-2.5
+-102
+67%
+33%
+66%
+34%
++1%
+64,381
+Final
+Chiefs Team Icon
+Chiefs
+471
+Dolphins Team Icon
+Dolphins
+472
+-7.5
++7.5
+-9.5
+-105
++9.5
++106
+86%
+14%
+64%
+36%
++22%
+92,068
+Final
+Bengals Team Icon
+Bengals
+463
+Steelers Team Icon
+Steelers
+464
+-1.5
++1.5
+-3.5
++120
++3
+-102
+72%
+28%
+44%
+56%
++28%
+114,868
+Final
+Seahawks Team Icon
+Seahawks
+461
+Commanders Team Icon
+Commanders
+462
+-3.5
++3.5
+-7.5
+-106
++7.5
++108
+88%
+12%
+85%
+15%
++3%
+97,682
+Final
+Chargers Team Icon
+Chargers
+477
+Bills Team Icon
+Bills
+478
++3
+-3
++7
+-108
+-7.5
++115
+26%
+74%
+30%
+70%
++4%
+131,044
+Final
+Panthers Team Icon
+Panthers
+475
+Browns Team Icon
+Browns
+476
+-1.5
++1.5
+-1.5
+-106
++1.5
++106
+73%
+27%
+45%
+55%
++28%
+93,941
+Final
+Texans Team Icon
+Texans
+473
+Colts Team Icon
+Colts
+474
+-1.5
++1.5
++1.5
++525
++1.5
+-105
+48%
+52%
+42%
+58%
++6%
+85,742
+Final
+Jets Team Icon
+Jets
+465
+Lions Team Icon
+Lions
+466
++9.5
+-9.5
++6.5
++111
+-6.5
+-111
+26%
+74%
+15%
+85%
++11%
+111,096
+Final
+Vikings Team Icon
+Vikings
+479
+Buccaneers Team Icon
+Buccaneers
+480
++1.5
+-1.5
++0.5
+-106
++4.5
++1150
+57%
+43%
+46%
+54%
++11%
+91,316
+Final
+Cardinals Team Icon
+Cardinals
+481
+49ers Team Icon
+49ers
+482
++11.5
+-11.5
++7.5
++102
+-7.5
+-102
+16%
+84%
+21%
+79%
++5%
+92,628
+Final
+Raiders Team Icon
+Raiders
+483
+Saints Team Icon
+Saints
+484
++3.5
+-3.5
++3.5
++102
+-3.5
++104
+53%
+47%
+64%
+36%
++11%
+91,558
+Final
+Rams Team Icon
+Rams
+487
+Broncos Team Icon
+Broncos
+488
+-3
++3
++3.5
++245
++1.5
+-115
+59%
+41%
+39%
+61%
++20%
+151,082
+Final
+Eagles Team Icon
+Eagles
+489
+Bears Team Icon
+Bears
+490
++1.5
+-1.5
+-3.5
++111
++3.5
+-105
+58%
+42%
+73%
+27%
++15%
+224,859

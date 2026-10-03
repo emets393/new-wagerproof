@@ -66,7 +66,14 @@ def parse(raw, market):
     slots = LAYOUT[market]
     # A board pulled BEFORE kickoff heads each game with its start time instead of 'Final',
     # and a mid-week pull mixes both. Split on either.
-    blocks = re.split(r'(?m)^\s*(?:Final(?:\s*-\s*\d?OT)?|\d{1,2}:\d{2}\s*(?:AM|PM))\s*$', raw)
+    # A board for a FUTURE week also carries the day and date ahead of the time
+    # ("Sun 10/04, 12:00 PM") — NFL pastes always do, because the week spans Thu-Mon. Without
+    # the optional prefix the splitter matched only the games that happened to be 'Final' and a
+    # 16-game NFL board silently parsed as 2 (wk4 2026). The date itself is not captured: the
+    # kickoff we trust comes from the slate, not the paste.
+    blocks = re.split(
+        r'(?m)^\s*(?:Final(?:\s*-\s*\d?OT)?'
+        r'|(?:[A-Z][a-z]{2},?\s+\d{1,2}/\d{1,2},?\s*)?\d{1,2}:\d{2}\s*(?:AM|PM))\s*$', raw)
     games, skipped = [], []
     for b in blocks:
         L = [x.strip() for x in b.strip().split("\n") if x.strip()]

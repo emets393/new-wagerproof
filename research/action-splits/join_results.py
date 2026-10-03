@@ -22,6 +22,7 @@ from difflib import SequenceMatcher
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAMES = os.path.join(HERE, "..", "cfb-model", "data", "model_games.parquet")
 NFL_GAMES = os.path.join(HERE, "..", "nfl-extreme-outcomes", "data", "games_enriched.parquet")
+NFLVERSE_GAMES = os.path.join(HERE, "..", "nfl-extreme-outcomes", "data", "nflverse_games.parquet")
 MIN_SIM = 1.45   # out of 2.0 across the two names
 
 # Action writes NFL teams as nicknames, nflverse as abbreviations, so the NFL side gets a real
@@ -135,9 +136,22 @@ def nfl_frame():
     nflverse `spread_line` is positive when the HOME team is FAVOURED — the OPPOSITE sign to
     model_games' home-perspective spread — so it is negated here. Getting this backwards is
     silent: the grader still runs and just reports the wrong side."""
-    g = pd.read_parquet(NFL_GAMES)
+    # games_enriched.parquet is a BUILT artifact and lags: on 2026-10-03 it carried week-3 rows
+    # with ZERO scores while the week had been over for five days, so NFL wk3 graded as 0 rows —
+    # the same stale-results trap cfb_slate_frame() exists to cover. data/nflverse_games.parquet
+    # is the same nflverse feed with the same column semantics, refreshed by fetch.py --force
+    # every run, and had wk3 at 16/16. Take both and keep whichever row actually has a score.
+    frames = []
+    for pth in (NFLVERSE_GAMES, NFL_GAMES):
+        if os.path.exists(pth):
+            try: frames.append(pd.read_parquet(pth))
+            except Exception as e: print(f"[nfl] {os.path.basename(pth)} unreadable ({type(e).__name__})")
+    if not frames:
+        return pd.DataFrame()
+    g = pd.concat(frames, ignore_index=True)
     g = g[(g.season == 2026) & (g.game_type == "REG") & g.home_score.notna()
           & g.spread_line.notna()].copy()
+    g = g.drop_duplicates(subset=["game_id"], keep="first")
     return pd.DataFrame(dict(
         game_id=g.game_id, season=g.season, week=g.week,
         awayTeam=g.away_team, homeTeam=g.home_team,
