@@ -215,38 +215,66 @@ if EARLY:
     te["side_edge"] = te.pred_margin + te.spread_close
     te["total_edge"] = te.pred_total - te.total_close
 else:
-    # ONE BASIS. gen_cfb_slate_games writes the game row from out/cfb_predictions_<season>.csv;
-    # build_season() above is a SECOND, independent evaluation of the same model. When anything
-    # differs between the two runs the cards and the row they sit on disagree — wk5-2026 showed
-    # model_line 12.1 against the row's 16.0 and both team-total sides inverted on
-    # Bowling Green @ Miami (OH), because the backup-QB overlay landed between the two
-    # evaluations. The runner now scrapes injuries before the model so the inputs match, and this
-    # pins the cards to the row's own numbers so they CANNOT drift apart again. With the order
-    # fixed this is a no-op (verified identical to 3.6e-15 on wk4), so any delta it reports is a
-    # new divergence worth chasing, not noise.
-    _cp = f"out/cfb_predictions_{SEASON}.csv"
-    if os.path.exists(_cp):
-        _c = pd.read_csv(_cp)
-        _c = _c[_c.week == WEEK] if "week" in _c.columns else _c
-        _c = _c[["homeTeam", "awayTeam", "pred_spread", "pred_total"]].rename(
-            columns={"pred_spread": "_csv_spread", "pred_total": "_csv_total"})
-        te = te.merge(_c, on=["homeTeam", "awayTeam"], how="left")
-        _dm = (te.pred_margin - (-te._csv_spread)).abs()
-        _dt = (te.pred_total - te._csv_total).abs()
+    # ONE BASIS. build_season() above is a SECOND, independent evaluation of the same model that
+    # produced the game row, so anything differing between the two runs (wk5-2026: the backup-QB
+    # overlay landing between them) puts a card at odds with the row it sits on.
+    # Basis = cfb_slate_games ITSELF, the row each card renders under, read back after the games
+    # step wrote it earlier in this same runner. The CSV was the old basis and it failed silently
+    # on 2026-10-03: `_c[_c.week == WEEK]` came back without a usable row, every `_csv_total` was
+    # NaN, `(NaN > 0.05)` is False so the divergence report printed NOTHING, and `.fillna()`
+    # quietly handed the cards back this run's own harness numbers. Bowling Green @ Miami (OH)
+    # then carded UNDER against a row that said OVER on a 0.5 edge, the sign guard refused the
+    # write (correctly), and cfb_slate_picks went 17 hours stale into a Saturday slate with
+    # nobody paged. Reading the row direct makes the card arithmetically incapable of
+    # contradicting it, and a missing row is now a named failure instead of a silent fallback.
+    _rows = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                         f"&select=game_id,fg_pred_margin,fg_pred_total,fg_spread_close,fg_total_close",
+                         headers={**C.H, "Prefer": ""}).json()
+    _rb = pd.DataFrame(_rows) if isinstance(_rows, list) else pd.DataFrame()
+    if len(_rb):
+        _rb["game_id"] = _rb.game_id.astype("int64")
+        _rb = _rb.rename(columns={"fg_pred_margin": "_row_margin", "fg_pred_total": "_row_total",
+                                  "fg_spread_close": "_row_sc", "fg_total_close": "_row_tc"})
+        te = te.merge(_rb, on="game_id", how="left")
+        _dm = (te.pred_margin - te._row_margin).abs()
+        _dt = (te.pred_total - te._row_total).abs()
         _off = te[(_dm > 0.05) | (_dt > 0.05)]
         if len(_off):
             print(f"  [one-basis] {len(_off)} game(s) where this run's model differs from the game "
-                  f"row's CSV — aligning cards to the CSV (the row's basis):")
+                  f"row — aligning cards to the ROW (the basis users see):")
             for _, _r in _off.iterrows():
                 print(f"     {_r.awayTeam} @ {_r.homeTeam}: margin {_r.pred_margin:+.1f} vs row "
-                      f"{-_r._csv_spread:+.1f} | total {_r.pred_total:.1f} vs row {_r._csv_total:.1f}")
-        te["pred_margin"] = (-te._csv_spread).fillna(te.pred_margin)
-        te["pred_total"] = te._csv_total.fillna(te.pred_total)
+                      f"{_r._row_margin:+.1f} | total {_r.pred_total:.1f} vs row {_r._row_total:.1f}")
+        # ⛔ No fillna. A carded game with no row basis is the exact hole that produced the
+        # 2026-10-03 stall, so name it and stop rather than card it off a second opinion.
+        _miss = te[te._row_total.isna() | te._row_margin.isna()]
+        if len(_miss):
+            raise SystemExit("[one-basis] no cfb_slate_games basis for "
+                             + ", ".join(f"{r.awayTeam} @ {r.homeTeam}" for _, r in _miss.iterrows())
+                             + " — run gen_cfb_slate_games for this week before the picks step")
+        te["pred_margin"] = te._row_margin
+        te["pred_total"] = te._row_total
+        # The LINE is part of the basis too: side = pred - close, so a half-point move between the
+        # games step and this one flips any thin edge and trips the guard on the whole week. The
+        # games step ran minutes ago in this same runner and ensure_fresh_odds_frame can rebuild
+        # the parquet in between, which is exactly the 41.5-vs-42.0 race behind the 2026-10-03
+        # stall. Sides derive from the row's close; the displayed best_book line stays live.
+        _lm = te[(te._row_sc.notna() & (te.spread_close - te._row_sc).abs().gt(0.01))
+                 | (te._row_tc.notna() & (te.total_close - te._row_tc).abs().gt(0.01))]
+        if len(_lm):
+            print(f"  [one-basis] {len(_lm)} game(s) whose line moved since the games row — sides "
+                  f"key off the row's close:")
+            for _, _r in _lm.iterrows():
+                print(f"     {_r.awayTeam} @ {_r.homeTeam}: spread {_r.spread_close} vs row "
+                      f"{_r._row_sc} | total {_r.total_close} vs row {_r._row_tc}")
+        te["spread_close"] = te._row_sc.fillna(te.spread_close)
+        te["total_close"] = te._row_tc.fillna(te.total_close)
         te["side_edge"] = te.pred_margin + te.spread_close
         te["total_edge"] = te.pred_total - te.total_close
-        te = te.drop(columns=["_csv_spread", "_csv_total"])
+        te = te.drop(columns=["_row_margin", "_row_total", "_row_sc", "_row_tc"])
     else:
-        print(f"  [one-basis] {_cp} missing — cards keep this run's own model output")
+        raise SystemExit(f"[one-basis] cfb_slate_games is empty for {SEASON} wk{WEEK} — the games "
+                         f"step must run before the picks step")
 
 def fmt_line(v):
     """Pick-side spread for a label: '+5.25', '-3', 'PK'. A consensus can land on a quarter
