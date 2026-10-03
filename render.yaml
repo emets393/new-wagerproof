@@ -142,9 +142,13 @@ services:
   - type: cron
     name: nfl-prop-report-daily
     runtime: python
-    # standard (2GB): score_props_week.py trains a model per market over the full priced-line
+    # pro (4GB): score_props_week.py trains a model per market over the full priced-line
     # history — same memory profile that OOM-killed fp-data-inseason on the 512Mi default.
-    plan: standard
+    # Was standard (2GB) and outgrew it on 2026-10-03, the run after week 4's Fantasy Points
+    # data landed ("Out of memory (used over 2Gi)" at 15:07, clean on 10-01 and 10-02). Peak
+    # is in the per-market training, not the FP consolidation that precedes it, so a profile
+    # pass on score_props_week could earn this back down to standard.
+    plan: pro
     schedule: "0 15 * 9-12,1-2 *"          # daily 11am ET, NFL season
     buildCommand: >-
       pip install -r research/requirements.txt &&
