@@ -1,0 +1,1073 @@
+Scheduled     Open    Best Odds    % of Bets     % of Money     Diff     Bets 
+Final
+W. Kentucky Team Icon
+W. Kentucky
+103
+N. Mexico St Team Icon
+N. Mexico St
+104
+o52.5
+u52.5
+o55.5
+-110
+u55.5
++111
+60%
+40%
+58%
+42%
++2%
+21,118
+Final - OT
+North Texas Team Icon
+North Texas
+105
+Tulsa Team Icon
+Tulsa
+106
+o56.5
+u56.5
+o57.5
++111
+u57.5
+-111
+63%
+37%
+62%
+38%
++1%
+31,943
+Final
+Pittsburgh Team Icon
+Pittsburgh
+107
+VA Tech Team Icon
+VA Tech
+108
+o56.5
+u56.5
+o53.5
+-102
+u53.5
++102
+59%
+41%
+74%
+26%
++15%
+55,369
+Final
+Liberty Team Icon
+Liberty
+109
+Delaware Team Icon
+Delaware
+110
+o50.5
+u50.5
+o51.5
++102
+u51.5
+-102
+54%
+46%
+56%
+44%
++2%
+30,302
+Final
+Penn State Team Icon
+Penn State
+111
+Northwestern Team Icon
+Northwestern
+112
+o48.5
+u48.5
+o47.5
++102
+u47.5
+-102
+81%
+19%
+80%
+20%
++1%
+54,909
+10:00 AM
+Memphis Team Icon
+Memphis
+137
+Charlotte Team Icon
+Charlotte
+138
+o54.5
+u54.5
+o51.5
+-106
+u51.5
++106
+36%
+64%
+36%
+64%
+6,618
+11:00 AM
+Michigan Team Icon
+Michigan
+157
+Minnesota Team Icon
+Minnesota
+158
+o44.5
+u44.5
+o43.5
++111
+u43.5
+-110
+81%
+19%
+77%
+23%
++4%
+22,598
+11:00 AM
+West Virginia Team Icon
+West Virginia
+197
+Iowa State Team Icon
+Iowa State
+198
+o52.5
+u52.5
+o53.5
++106
+u53.5
+-106
+34%
+66%
+37%
+63%
++3%
+16,145
+11:00 AM
+UCF Team Icon
+UCF
+155
+Houston Team Icon
+Houston
+156
+o50.5
+u50.5
+o51.5
++106
+u51.5
+-106
+41%
+59%
+42%
+58%
++1%
+18,473
+11:00 AM
+Alabama Team Icon
+Alabama
+189
+Mississippi St Team Icon
+Mississippi St
+190
+o58.5
+u58.5
+o61.5
+-102
+u61.5
++102
+42%
+58%
+76%
+24%
++34%
+57,196
+11:00 AM
+Navy Team Icon
+Navy
+153
+Air Force Team Icon
+Air Force
+154
+o50.5
+u50.5
+o45.5
+-102
+u45.5
++102
+74%
+26%
+47%
+53%
++27%
+13,379
+11:00 AM
+Notre Dame Team Icon
+Notre Dame
+149
+UNC Team Icon
+UNC
+150
+o55.5
+u55.5
+o47.5
++111
+u47.5
+-111
+84%
+16%
+86%
+14%
++2%
+21,764
+11:00 AM
+Boston Col Team Icon
+Boston Col
+171
+SMU Team Icon
+SMU
+172
+o57.5
+u57.5
+o55.5
++106
+u55.5
+-106
+27%
+73%
+27%
+73%
+12,949
+11:00 AM
+Stanford Team Icon
+Stanford
+133
+Wake Forest Team Icon
+Wake Forest
+134
+o51.5
+u51.5
+o53.5
+-111
+u53.5
++111
+31%
+69%
+33%
+67%
++2%
+10,329
+11:00 AM
+Syracuse Team Icon
+Syracuse
+113
+UConn Team Icon
+UConn
+114
+o52.5
+u52.5
+o51.5
++111
+u51.5
+-111
+45%
+55%
+46%
+54%
++1%
+9,294
+11:00 AM
+Middle Tenn Team Icon
+Middle Tenn
+159
+Kansas Team Icon
+Kansas
+160
+o52.5
+u52.5
+o51.5
++111
+u51.5
+-111
+49%
+51%
+46%
+54%
++3%
+5,952
+11:30 AM
+Michigan St Team Icon
+Michigan St
+165
+Wisconsin Team Icon
+Wisconsin
+166
+o44.5
+u44.5
+o43.5
++104
+u43.5
+-104
+76%
+24%
+78%
+22%
++2%
+13,222
+11:45 AM
+Vanderbilt Team Icon
+Vanderbilt
+123
+Georgia Team Icon
+Georgia
+124
+o57.5
+u57.5
+o51.5
++115
+u50.5
+-105
+47%
+53%
+45%
+55%
++2%
+29,444
+12:00 PM
+W. Michigan Team Icon
+W. Michigan
+139
+Buffalo Team Icon
+Buffalo
+140
+o51.5
+u51.5
+o45.5
+-102
+u45.5
++102
+77%
+23%
+68%
+32%
++9%
+7,270
+1:00 PM
+Toledo Team Icon
+Toledo
+115
+Ball State Team Icon
+Ball State
+116
+o51.5
+u51.5
+o51.5
+-102
+u51.5
++102
+24%
+76%
+26%
+74%
++2%
+3,675
+2:30 PM
+Ohio State Team Icon
+Ohio State
+185
+Iowa Team Icon
+Iowa
+186
+o44.5
+u44.5
+o45.5
++102
+u45.5
+-102
+83%
+17%
+85%
+15%
++2%
+41,677
+2:30 PM
+Old Dominion Team Icon
+Old Dominion
+143
+Georgia State Team Icon
+Georgia State
+144
+o51.5
+u51.5
+o51.5
+-105
+u51.5
++106
+20%
+80%
+20%
+80%
+6,492
+2:30 PM
+Virginia Team Icon
+Virginia
+121
+Florida St Team Icon
+Florida St
+122
+o51.5
+u51.5
+o51.5
++102
+u51.5
+-102
+30%
+70%
+30%
+70%
+10,728
+2:30 PM
+Wyoming Team Icon
+Wyoming
+199
+ND State Team Icon
+ND State
+200
+o47.5
+u47.5
+o43.5
+-111
+u43.5
++111
+67%
+33%
+56%
+44%
++11%
+4,811
+2:30 PM
+E. Michigan Team Icon
+E. Michigan
+129
+UMass Team Icon
+UMass
+130
+o48.5
+u48.5
+o49.5
++115
+u48.5
+-104
+57%
+43%
+48%
+52%
++9%
+10,546
+2:30 PM
+Auburn Team Icon
+Auburn
+151
+Tennessee Team Icon
+Tennessee
+152
+o57.5
+u57.5
+o53.5
+-106
+u53.5
++106
+16%
+84%
+14%
+86%
++2%
+20,740
+2:30 PM
+Bowling Green Team Icon
+Bowling Green
+119
+Miami (OH) Team Icon
+Miami (OH)
+120
+o50.5
+u50.5
+o41.5
+-111
+u41.5
++111
+77%
+23%
+78%
+22%
++1%
+5,543
+2:30 PM
+California Team Icon
+California
+201
+UNLV Team Icon
+UNLV
+202
+o54.5
+u54.5
+o53.5
++111
+u53.5
+-111
+11%
+89%
+11%
+89%
+9,627
+2:30 PM
+Florida Team Icon
+Florida
+195
+Missouri Team Icon
+Missouri
+196
+o53.5
+u53.5
+o57.5
+-102
+u57.5
++102
+18%
+82%
+67%
+33%
++49%
+39,374
+2:30 PM
+Ohio Team Icon
+Ohio
+125
+Kent State Team Icon
+Kent State
+126
+o50.5
+u50.5
+o51.5
++111
+u51.5
+-111
+54%
+46%
+56%
+44%
++2%
+4,533
+2:30 PM
+Akron Team Icon
+Akron
+163
+C. Michigan Team Icon
+C. Michigan
+164
+o46.5
+u46.5
+o47.5
++102
+u47.5
+-102
+69%
+31%
+68%
+32%
++1%
+6,129
+2:30 PM
+Louisville Team Icon
+Louisville
+135
+NC State Team Icon
+NC State
+136
+o59.5
+u59.5
+o57.5
+-102
+u57.5
++102
+13%
+87%
+13%
+87%
+12,934
+2:30 PM
+Samford Team Icon
+Samford
+UAB Team Icon
+UAB
+o50.5
+u50.5
+o53.5
+-111
+u53.5
++111
+54%
+46%
+59%
+41%
++5%
+1,120
+2:45 PM
+Marshall Team Icon
+Marshall
+147
+JMU Team Icon
+JMU
+148
+o56.5
+u56.5
+o55.5
+-104
+u55.5
++104
+22%
+78%
+26%
+74%
++4%
+8,269
+3:00 PM
+Maryland Team Icon
+Maryland
+141
+Nebraska Team Icon
+Nebraska
+142
+o53.5
+u53.5
+o53.5
++111
+u53.5
+-111
+20%
+80%
+20%
+80%
+11,526
+3:00 PM
+UTEP Team Icon
+UTEP
+175
+New Mexico Team Icon
+New Mexico
+176
+o53.5
+u53.5
+o47.5
+-108
+u47.5
++108
+78%
+22%
+70%
+30%
++8%
+5,063
+3:15 PM
+Kentucky Team Icon
+Kentucky
+127
+S. Carolina Team Icon
+S. Carolina
+128
+o49.5
+u49.5
+o53.5
++111
+u54.5
+-115
+15%
+85%
+16%
+84%
++1%
+24,556
+3:15 PM
+Purdue Team Icon
+Purdue
+167
+Illinois Team Icon
+Illinois
+168
+o58.5
+u58.5
+o61.5
+-111
+u61.5
++111
+28%
+72%
+45%
+55%
++17%
+11,647
+5:00 PM
+Oregon St Team Icon
+Oregon St
+203
+Colorado St Team Icon
+Colorado St
+204
+o56.5
+u56.5
+o61.5
+-102
+u61.5
++102
+34%
+66%
+46%
+54%
++12%
+8,860
+6:00 PM
+UTSA Team Icon
+UTSA
+161
+Rice Team Icon
+Rice
+162
+o52.5
+u52.5
+o55.5
+-102
+u55.5
++102
+38%
+62%
+40%
+60%
++2%
+6,048
+6:00 PM
+GA Southern Team Icon
+GA Southern
+145
+Coastal Car Team Icon
+Coastal Car
+146
+o52.5
+u52.5
+o53.5
++102
+u53.5
+-102
+51%
+49%
+51%
+49%
+4,755
+6:00 PM
+LA-Monroe Team Icon
+LA-Monroe
+169
+S. Alabama Team Icon
+S. Alabama
+170
+o54.5
+u54.5
+o57.5
++111
+u57.5
+-111
+34%
+66%
+36%
+64%
++2%
+4,362
+6:00 PM
+BYU Team Icon
+BYU
+187
+TCU Team Icon
+TCU
+188
+o52.5
+u52.5
+o48.5
+-102
+u47.5
++111
+64%
+36%
+65%
+35%
++1%
+21,123
+6:00 PM
+Arkansas Team Icon
+Arkansas
+183
+Texas A&M Team Icon
+Texas A&M
+184
+o51.5
+u51.5
+o49.5
+-108
+u49.5
++108
+77%
+23%
+76%
+24%
++1%
+12,939
+6:30 PM
+Army  Team Icon
+Army
+191
+LA Tech Team Icon
+LA Tech
+192
+o44.5
+u44.5
+o47.5
++111
+u47.5
+-109
+72%
+28%
+69%
+31%
++3%
+12,010
+6:30 PM
+Temple Team Icon
+Temple
+117
+S. Florida Team Icon
+S. Florida
+118
+o53.5
+u53.5
+o49.5
++111
+u49.5
+-111
+82%
+18%
+80%
+20%
++2%
+11,526
+6:30 PM
+Utah State Team Icon
+Utah State
+205
+Boise State Team Icon
+Boise State
+206
+o52.5
+u52.5
+o51.5
++100
+u51.5
++100
+65%
+35%
+64%
+36%
++1%
+7,361
+6:30 PM
+Texas Tech Team Icon
+Texas Tech
+173
+Colorado Team Icon
+Colorado
+174
+o52.5
+u52.5
+o49.5
+-106
+u49.5
++106
+66%
+34%
+72%
+28%
++6%
+18,962
+6:30 PM
+Miami (FL) Team Icon
+Miami (FL)
+131
+Clemson Team Icon
+Clemson
+132
+o55.5
+u55.5
+o47.5
+-110
+u47.5
++111
+68%
+32%
+66%
+34%
++2%
+23,006
+6:30 PM
+Washington Team Icon
+Washington
+181
+USC Team Icon
+USC
+182
+o57.5
+u57.5
+o57.5
++102
+u57.5
+-102
+25%
+75%
+26%
+74%
++1%
+24,360
+7:00 PM
+Arkansas St Team Icon
+Arkansas St
+193
+Louisiana Team Icon
+Louisiana
+194
+o49.5
+u49.5
+o49.5
++111
+u49.5
+-111
+81%
+19%
+83%
+17%
++2%
+5,614
+7:00 PM
+Indiana Team Icon
+Indiana
+207
+Rutgers Team Icon
+Rutgers
+208
+o53.5
+u53.5
+o57.5
++108
+u57.5
+-108
+34%
+66%
+32%
+68%
++2%
+7,456
+8:30 PM
+Fresno State Team Icon
+Fresno State
+209
+Washington St Team Icon
+Washington St
+210
+o45.5
+u45.5
+o45.5
++106
+u45.5
+-106
+75%
+25%
+76%
+24%
++1%
+5,881
+9:30 PM
+Baylor Team Icon
+Baylor
+177
+Arizona St Team Icon
+Arizona St
+178
+o52.5
+u52.5
+o49.5
++106
+u49.5
+-106
+80%
+20%
+80%
+20%
+11,223
+9:30 PM
+Texas St Team Icon
+Texas St
+211
+San Diego St Team Icon
+San Diego St
+212
+o59.5
+u59.5
+o57.5
++100
+u57.5
++100
+24%
+76%
+25%
+75%
++1%
+9,860
+10:00 PM
+Cincinnati Team Icon
+Cincinnati
+179
+Arizona Team Icon
+Arizona
+180
+o54.5
+u54.5
+o55.5
++102
+u55.5
+-102
+31%
+69%
+29%
+71%
++2%
+15,903
+11:00 PM
+San Jose St Team Icon
+San Jose St
+213
+Hawaii Team Icon
+Hawaii
+214
+o57.5
+u57.5
+o51.5
++102
+u51.5
+-102
+41%
+59%
+27%
+73%
++14%
+8,678

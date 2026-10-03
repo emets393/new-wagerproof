@@ -214,6 +214,25 @@ if __name__ == "__main__":
 #       majority (40-16, 71.4%); over the full 153, money 56.2% vs tickets 52.3%. NOT an over bias
 #       — the heavy side is OVER in only 43% of those games and both directions won alike.
 #
+#   ⛔⛔ WITH WEEK 4 (2026-10-03) THE MONEY CONDITION IS THE WHOLE SIGNAL. The 80%+ cell is
+#       47-18 (72.3%) pooled, and it DECOMPOSES CLEANLY on whether the money agrees:
+#           money AGREES with the tickets -> 47-13 (78.3%), n=60   -> follow the tickets
+#           money OPPOSES the tickets     ->  0-5  (0.0%),  n=5    -> follow the MONEY (5-0)
+#       EVERY loss in the cell is in the money-opposes subset. Never quote 72.3% without saying
+#       which half you are in: an unconditioned "follow the 82% of tickets on the under" was
+#       recommended on Florida/Missouri wk5 and that is the exact shape that has never won.
+#       And the cell is not lean-riding — direction flips across weeks and wins both ways:
+#       wk1 11-7 (over 2/18) · wk2 13-4 (over 0/17) · wk3 16-5 (over 21/21) · wk4 7-2 (over 9/9);
+#       heavy=OVER 24-8 (75.0%) vs heavy=UNDER 23-10 (69.7%).
+#
+#       The STRICT split (ticket majority one side, MONEY MAJORITY the other) is a different and
+#       legitimate construct from the H2 money%>bets% one warned about below — it requires the
+#       majority to actually FLIP, not just the share to drift. On TOTALS, back the money side:
+#       15-8 (65.2%) vs a 52.4% both-agree control, 4/4 weeks, and it strengthens with the gap
+#       (>=20pp 10-3 / 76.9%; >=40pp 5-1 / 83.3%). It INVERTS on the other markets, so it is
+#       totals-only: spreads money side 45.6% (ticket side 54.4%, worse at a bigger gap),
+#       moneyline money side 34.8% (ticket side 65.2%, and ML overall is a favourite proxy).
+#
 #       DO NOT call the 39.2% cell "the handle side". H2 as coded is money% > bets%, a DIVERGENCE
 #       construct, and it is mechanical: when 87% of tickets sit on one side the money on that side
 #       still averages 75%, because a few large bets on the unpopular side pull the share toward
