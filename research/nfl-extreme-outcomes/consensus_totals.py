@@ -231,12 +231,43 @@ def build_b55(target, strict_open=False):
         d=sub.groupby("defteam").agg(man_rate=("mz",lambda x:(x=="M").mean()),pressure_rate=("pr","mean")).reset_index()
         d["zone_rate"]=1-d.man_rate
         return qM,qZ,w,d
+    def _season_passes(Y):
+        """Pass plays for season Y, from scheme_plays if it has them, else from PLAIN pbp.
+
+        nflverse's pbp_participation lags — the 2026 file was still a 404 on 2026-10-02 while
+        2024/2025 were published — so b46_pull_scheme skips the season entirely and
+        scheme_plays has NO current-season rows. This frame is used only to find each
+        team-week's primary passer and its receivers' target counts; the man/zone VALUES come
+        from _scheme_priors(Y-2..Y-1), which is unaffected. Plain pbp carries that identity and
+        we do have it, so there is no reason to lose the features.
+        """
+        s=sp[(sp["pass"]==1)&(sp.season==Y)].copy()
+        if len(s): return s
+        import glob as _g
+        want=["season","week","posteam","passer_player_id","receiver_player_id","pass"]
+        for f in sorted(_g.glob(os.path.join(DATA,"pbp_cache","*.parquet"))):
+            if str(Y) not in os.path.basename(f): continue
+            try: d=pd.read_parquet(f, columns=want)
+            except Exception: continue
+            d=d[(pd.to_numeric(d.season,errors="coerce")==Y)&(pd.to_numeric(d["pass"],errors="coerce")==1)].copy()
+            if len(d):
+                d["posteam"]=d.posteam.replace(nv2our)
+                print(f"  [b50] scheme_plays has no {Y}; primary-passer/target identity taken from plain pbp ({len(d):,} pass plays)")
+                return d
+        return s
     all_off=[]; all_def=[]
     for Y in sorted(tg.season.unique().tolist()+[target]):
         if Y<2020: continue
         qM,qZ,wr,dpri=_scheme_priors(Y)
-        p=sp[(sp["pass"]==1)&(sp.season==Y)].copy()
-        if len(p)==0: continue  # future year may have no PBP yet
+        # DEFENSIVE priors first: they are built purely from Y-2..Y-1 and need nothing from the
+        # current season, but they used to sit AFTER the bail below — so a season missing from
+        # scheme_plays lost def_man_rate / def_pressure_rate / def_zone_rate (and the two
+        # interaction terms built on them) for no reason. 8 of the totals model's features were
+        # NaN on every 2026 game because of that ordering.
+        dd=dpri.rename(columns={"defteam":"def_abv","man_rate":"def_man_rate","pressure_rate":"def_pressure_rate","zone_rate":"def_zone_rate"})
+        dd["season"]=Y; all_def.append(dd)
+        p=_season_passes(Y)
+        if len(p)==0: continue  # genuinely no plays yet (a future season)
         qc=p.groupby(["season","week","posteam","passer_player_id"]).size().reset_index(name="n")
         qprim=qc.sort_values("n",ascending=False).drop_duplicates(["season","week","posteam"])
         qprim=qprim.merge(qM,on="passer_player_id",how="left").merge(qZ,on="passer_player_id",how="left")
@@ -246,8 +277,7 @@ def build_b55(target, strict_open=False):
         ww=wt.groupby(["season","week","posteam"]).apply(lambda g:(g.wr_epa_zNP*g.tgts).sum()/g.tgts.sum() if g.tgts.sum()>0 else np.nan).reset_index(name="wr_zNP_w")
         ww=ww.rename(columns={"posteam":"off_abv"})
         off_feats=off_q.merge(ww,on=["season","week","off_abv"],how="outer"); all_off.append(off_feats)
-        dd=dpri.rename(columns={"defteam":"def_abv","man_rate":"def_man_rate","pressure_rate":"def_pressure_rate","zone_rate":"def_zone_rate"})
-        dd["season"]=Y; all_def.append(dd)
+        # (the defensive priors were appended before the bail above — not duplicated here)
     off_sch=pd.concat(all_off,ignore_index=True) if all_off else pd.DataFrame()
     def_sch=pd.concat(all_def,ignore_index=True) if all_def else pd.DataFrame()
     for frame in [tg, tg_predict]:
@@ -260,6 +290,23 @@ def build_b55(target, strict_open=False):
         if frame is tg: tg=frame_
         else: tg_predict=frame_
     NEW=["qb_epa_vs_man","qb_epa_vs_zone","wr_zNP_w","def_man_rate","def_pressure_rate","def_zone_rate","int_qbman_x_def","int_wrzNP_x_def"]
+    # b50 coverage, loudly. These 8 were NaN on every 2026 game — the loop bailed whenever
+    # scheme_plays lacked the season, which nflverse's participation lag guarantees — and a
+    # HistGBM swallows NaN silently, so the only symptom was a quietly worse total. Print the
+    # current-season null rate against training every run: same medicine as feature_drift_guard
+    # (which covers the SIDES model, not this one).
+    try:
+        _ty=int(tg_predict.season.max()) if len(tg_predict) else target
+        _tr, _cu = tg[tg.season < _ty], tg_predict[tg_predict.season == _ty]
+        if len(_cu):
+            _bad=[c for c in NEW if _cu[c].isna().mean() - (_tr[c].isna().mean() if len(_tr) else 0) > 0.5]
+            _msg=" ".join(f"{c}={_cu[c].isna().mean():.0%}" for c in NEW)
+            print(f"  [b50] {_ty} null rate per scheme feature: {_msg}")
+            if _bad:
+                print(f"  ⛔ [b50] {len(_bad)} scheme feature(s) >50pp more null at serve than in "
+                      f"training — the totals model is flying blind on them: {_bad}")
+    except Exception as _e:
+        print(f"  [b50] coverage check skipped ({type(_e).__name__})")
 
     # ---- feature selection: top-N from b54 importance + scheme priors ----
     top_b54=imp_b54.sort_values('imp',ascending=False).head(TOP_N).feature.tolist()
