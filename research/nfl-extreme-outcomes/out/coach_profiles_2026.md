@@ -105,7 +105,6 @@ Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or le
 - **Goal-line back:** the lead back gets 57% of all RB carries, 70% inside the 10, 74% inside the 5 (77 RB carries inside the 5); QB designed runs are 8% of inside-5 runs. **Rides the No. 1 back at the goal line.**
 - **Shifts by situation (relative to how the league shifts, every season):**
   - 3rd-and-long (≥7): pass rate 96% (league 92%); PROE moves +5.7 vs his base while the league moves +1.0 → +4.7 more pass-heavy than the league in this spot; by season 2022:+5 2023:+0 2024:+11 2025:+4; n=365
-  - vs blitz-heavy defense: pass rate 61% (league 61%); PROE moves +3.6 vs his base while the league moves +0.6 → +3.0 more pass-heavy than the league in this spot; by season 2023:+0 2024:+3 2025:+5; n=1097
 
 ## HOU — DeMeco Ryans (3402 plays 2022-25)
 - **Identity:** pass rate over expected -1.4 (early downs, neutral: -2.6, pass 55%); motion 51%, play-action 21% of passes, screens 6%, RPO 2%, no-huddle 7%, shotgun 64%; 4th-and-short in go range: goes 68% (n=57).
@@ -155,7 +154,8 @@ Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or le
 - **Identity:** pass rate over expected -3.9 (early downs, neutral: -4.2, pass 51%); motion 63%, play-action 27% of passes, screens 6%, RPO 3%, no-huddle 4%, shotgun 69%; 4th-and-short in go range: goes 52% (n=23).
 - **Red zone:** pass rate inside the 20 53% / inside the 10 51% / inside the 5 37% (league 54% / 51% / 47%); PROE inside the 5 -8.5. RZ targets go RB 14% / WR 60% / TE 26%.
 - **Goal-line back:** the lead back gets 62% of all RB carries, 62% inside the 10, 67% inside the 5 (42 RB carries inside the 5); QB designed runs are 12% of inside-5 runs. Same split at the goal line as everywhere else.
-- No situational shift holds every season — he calls it the same way everywhere.
+- **Shifts by situation (relative to how the league shifts, every season):**
+  - vs blitz-heavy defense: pass rate 62% (league 58%); PROE moves +2.9 vs his base while the league moves -0.5 → +3.4 more pass-heavy than the league in this spot; by season 2024:+3 2025:+2; n=957
 
 ## LV — Klint Kubliak (184 plays 2022-25)
 - **Identity:** pass rate over expected -2.6 (early downs, neutral: +1.4, pass 59%); motion 64%, play-action 24% of passes, screens 7%, RPO 3%, no-huddle 3%, shotgun 48%; 4th-and-short in go range: goes 33% (n=3).
@@ -224,7 +224,6 @@ Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or le
 - **Goal-line back:** the lead back gets 76% of all RB carries, 68% inside the 10, 71% inside the 5 (51 RB carries inside the 5); QB designed runs are 6% of inside-5 runs. Same split at the goal line as everywhere else.
 - **Shifts by situation (relative to how the league shifts, every season):**
   - two-minute: pass rate 82% (league 77%); PROE moves +5.3 vs his base while the league moves -1.3 → +6.6 more pass-heavy than the league in this spot; by season 2022:+8 2023:+7 2024:+6; n=359
-  - vs blitz-heavy defense: pass rate 61% (league 61%); PROE moves +5.0 vs his base while the league moves +0.6 → +4.4 more pass-heavy than the league in this spot; by season 2023:+2 2024:+2; n=616
   - off a bye: pass rate 65% (league 60%); PROE moves +4.6 vs his base while the league moves +0.3 → +4.3 more pass-heavy than the league in this spot; by season 2022:+3 2023:+12; n=197
 
 ## SEA — Mike Macdonald (2193 plays 2022-25)
@@ -238,7 +237,6 @@ Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or le
   - short rest (≤5 days): pass rate 61% (league 62%); PROE moves -4.5 vs his base while the league moves +1.0 → -5.6 more run-heavy than the league in this spot; by season 2024:-9 2025:-1; n=251
   - divisional: pass rate 54% (league 60%); PROE moves -5.2 vs his base while the league moves -0.3 → -4.9 more run-heavy than the league in this spot; by season 2024:-5 2025:-5 2026:-8; n=819
   - two-minute: pass rate 74% (league 77%); PROE moves -5.4 vs his base while the league moves -1.3 → -4.1 more run-heavy than the league in this spot; by season 2024:-1 2025:-6; n=271
-  - vs blitz-heavy defense: pass rate 64% (league 61%); PROE moves +4.5 vs his base while the league moves +0.6 → +3.9 more pass-heavy than the league in this spot; by season 2024:+9 2025:+4; n=340
 
 ## SF — Kyle Shanahan (4265 plays 2022-25)
 - **Identity:** pass rate over expected +0.6 (early downs, neutral: +0.4, pass 54%); motion 71%, play-action 24% of passes, screens 9%, RPO 1%, no-huddle 2%, shotgun 52%; 4th-and-short in go range: goes 64% (n=53).
@@ -263,7 +261,6 @@ Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or le
 - **Goal-line back:** the lead back gets 69% of all RB carries, 62% inside the 10, 57% inside the 5 (30 RB carries inside the 5); QB designed runs are 13% of inside-5 runs. **Spreads goal-line carries / subs the spell back.**
 - **Shifts by situation (relative to how the league shifts, every season):**
   - inside the 10: pass rate 66% (league 51%); PROE moves +8.7 vs his base while the league moves -2.4 → +11.1 more pass-heavy than the league in this spot; by season 2022:+0 2024:+22; n=204
-  - vs blitz-heavy defense: pass rate 68% (league 61%); PROE moves +6.3 vs his base while the league moves +0.6 → +5.7 more pass-heavy than the league in this spot; by season 2023:+2 2024:+3; n=386
 
 ## WAS — Dan Quinn (2267 plays 2022-25)
 - **Identity:** pass rate over expected -2.7 (early downs, neutral: +0.2, pass 55%); motion 51%, play-action 25% of passes, screens 8%, RPO 6%, no-huddle 39%, shotgun 81%; 4th-and-short in go range: goes 77% (n=32).
@@ -274,7 +271,6 @@ Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or le
   - inside the 10: pass rate 42% (league 51%); PROE moves -8.4 vs his base while the league moves -2.4 → -6.0 more run-heavy than the league in this spot; by season 2024:-8 2025:-5; n=216
   - two-minute: pass rate 69% (league 77%); PROE moves -6.7 vs his base while the league moves -1.3 → -5.4 more run-heavy than the league in this spot; by season 2024:-6 2025:-3; n=252
   - trailing by 8+: pass rate 63% (league 71%); PROE moves -5.3 vs his base while the league moves -0.5 → -4.9 more run-heavy than the league in this spot; by season 2024:-1 2025:-5 2026:-1; n=565
-  - vs blitz-heavy defense: pass rate 56% (league 61%); PROE moves -3.7 vs his base while the league moves +0.6 → -4.3 more run-heavy than the league in this spot; by season 2024:-8 2025:-1; n=658
   - leading by 8+: pass rate 52% (league 49%); PROE moves +4.0 vs his base while the league moves +0.5 → +3.5 more pass-heavy than the league in this spot; by season 2024:+2 2025:+7; n=383
   - off a bye: pass rate 64% (league 60%); PROE moves +3.5 vs his base while the league moves +0.3 → +3.2 more pass-heavy than the league in this spot; by season 2024:+6 2025:+2; n=159
   - goal-to-go: pass rate 44% (league 51%); PROE moves -5.0 vs his base while the league moves -1.9 → -3.1 more run-heavy than the league in this spot; by season 2024:-5 2025:-4; n=160

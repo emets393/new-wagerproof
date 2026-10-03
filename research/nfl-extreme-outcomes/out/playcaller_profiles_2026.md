@@ -97,7 +97,6 @@ Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or le
 - **Goal-line back:** the lead back gets 57% of all RB carries, 70% inside the 10, 74% inside the 5 (77 RB carries inside the 5); QB designed runs are 8% of inside-5 runs. **Rides the No. 1 back at the goal line.**
 - **Shifts by situation (relative to how the league shifts, every season):**
   - 3rd-and-long (≥7): pass rate 96% (league 92%); PROE moves +5.7 vs his base while the league moves +1.0 → +4.7 more pass-heavy than the league in this spot; by season 2022:+5 2023:+0 2024:+11 2025:+4; n=365
-  - vs blitz-heavy defense: pass rate 61% (league 61%); PROE moves +3.6 vs his base while the league moves +0.6 → +3.0 more pass-heavy than the league in this spot; by season 2023:+0 2024:+3 2025:+5; n=1097
 
 ## HOU — Nick Caley (1278 plays 2022-25)
 - **Identity:** pass rate over expected -1.4 (early downs, neutral: -0.9, pass 57%); motion 52%, play-action 21% of passes, screens 4%, RPO 2%, no-huddle 5%, shotgun 64%; 4th-and-short in go range: goes 64% (n=28).
@@ -150,6 +149,7 @@ Plays 2022-25 (regular season). 'Pass rate over expected' = how much more (or le
   - cold (≤40°F outdoors): pass rate 70% (league 59%); PROE moves +6.0 vs his base while the league moves -0.9 → +6.9 more pass-heavy than the league in this spot; by season 2022:+11 2024:+5 2025:+6; n=342
   - short rest (≤5 days): pass rate 63% (league 62%); PROE moves -4.1 vs his base while the league moves +1.0 → -5.1 more run-heavy than the league in this spot; by season 2022:-7 2023:-11 2024:-3 2025:-1; n=389
   - windy (≥15 mph): pass rate 61% (league 58%); PROE moves +2.6 vs his base while the league moves -2.5 → +5.1 more pass-heavy than the league in this spot; by season 2023:+2 2024:+8 2025:+3; n=516
+  - vs man-heavy defense: pass rate 60% (league 60%); PROE moves +4.7 vs his base while the league moves +0.2 → +4.5 more pass-heavy than the league in this spot; by season 2023:+5 2024:+4; n=507
 
 ## LV — Klint Kubiak (2207 plays 2022-25)
 - **Identity:** pass rate over expected -4.5 (early downs, neutral: -3.1, pass 54%); motion 58%, play-action 23% of passes, screens 7%, RPO 2%, no-huddle 6%, shotgun 50%; 4th-and-short in go range: goes 49% (n=33).

@@ -53,10 +53,32 @@ P["short_rest"] = num(P.rest) <= 5; P["off_bye"] = num(P.rest) >= 13; P["div"] =
 # opponent pass defense (same-season EPA allowed per dropback rank) and entering blitz / man rates
 dq = P[P.qb_dropback == 1].groupby(["season","defteam"]).epa.mean().rename("d_pass_epa").reset_index(); dq["d_rank"] = dq.groupby("season").d_pass_epa.rank(); P = P.merge(dq[["season","defteam","d_rank"]], on=["season","defteam"], how="left")
 P["vs_top10_passD"] = P.d_rank <= 10; P["vs_bot10_passD"] = P.d_rank >= 23
+# Opponent MAN + BLITZ rates. Prefer data/_opp_scheme_rates.parquet
+# (build_opp_scheme_rates.py): man from Fantasy Points coverageMatrix, blitz from FTN
+# charting, carried through the CURRENT season. The old _completions_deep_frame held
+# 2023-25 only — its man/zone labels come from nflverse pbp_participation and
+# pbp_participation_2026 is a 404, so it can never be made current — which meant every
+# 2026 play silently dropped out of the vs_man_heavy / vs_blitz_heavy splits.
+# FP and nflverse disagree on LEVEL (~27% vs ~41% man) but agree on RANKING, which is all
+# the tercile gate below needs: spearman +0.80 (2024) / +0.89 (2025) by team-season, with
+# 81% / 94% top-third agreement. The gate thresholds against the source's OWN 2/3
+# quantile, so the level offset cancels. See the builder's docstring for the orientation
+# test — the FP scope is easy to read backwards and was asserted by experiment.
+_QP = "data/_opp_scheme_rates.parquet"
 try:
-    Q = pd.read_parquet("data/_completions_deep_frame.parquet")[["opp","season","week","opp_rate_blitz","opp_rate_man"]].drop_duplicates(["opp","season","week"]).rename(columns={"opp":"defteam"}); P = P.merge(Q, on=["defteam","season","week"], how="left")
+    if os.path.exists(_QP):
+        Q = pd.read_parquet(_QP)[["defteam","season","week","opp_rate_blitz","opp_rate_man"]].drop_duplicates(["defteam","season","week"])
+    else:
+        print("  [opp-scheme] _opp_scheme_rates.parquet missing — falling back to the 2023-25 frame (no current season)")
+        Q = pd.read_parquet("data/_completions_deep_frame.parquet")[["opp","season","week","opp_rate_blitz","opp_rate_man"]].drop_duplicates(["opp","season","week"]).rename(columns={"opp":"defteam"})
+    P = P.merge(Q, on=["defteam","season","week"], how="left")
     P["vs_blitz_heavy"] = P.opp_rate_blitz >= Q.opp_rate_blitz.quantile(2/3); P["vs_man_heavy"] = P.opp_rate_man >= Q.opp_rate_man.quantile(2/3)
-except Exception: P["vs_blitz_heavy"] = False; P["vs_man_heavy"] = False
+    _cs = int(P.season.max()); _cov = P.loc[P.season == _cs, "opp_rate_man"].notna().mean()
+    print(f"  [opp-scheme] man/blitz rates cover {Q.season.min():.0f}-{Q.season.max():.0f}; "
+          f"{_cov:.0%} of {_cs} plays have an opponent man rate")
+except Exception as _e:
+    print(f"  [opp-scheme] unavailable ({type(_e).__name__}: {_e}) — man/blitz splits OFF")
+    P["vs_blitz_heavy"] = False; P["vs_man_heavy"] = False
 # game state
 P["lead8"] = P.score_differential >= 8; P["trail8"] = P.score_differential <= -8; P["close7"] = P.score_differential.abs() <= 7; P["h1"] = P.game_seconds_remaining > 1800; P["h2"] = ~P.h1
 P["two_min"] = (P.half_seconds_remaining <= 120); P["third_short"] = (P.down == 3) & (P.ydstogo <= 2); P["third_long"] = (P.down == 3) & (P.ydstogo >= 7); P["early_neutral"] = P.down.isin([1, 2]) & P.close7 & P.h1
