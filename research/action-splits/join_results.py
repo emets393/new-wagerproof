@@ -77,6 +77,58 @@ def cfb_frame():
               "actual_margin", "actual_total", "homePoints", "awayPoints"]]
 
 
+def cfb_slate_frame(have):
+    """Week-4+ CFB games that model_games cannot grade YET, straight from cfb_slate_games.
+
+    cfb_frame() filters on actual_margin, which only lands when the research frame is rebuilt
+    after a week finishes. The FIRST HOLDOUT WEEK therefore stays ungradeable for days even
+    though the finals and the Odds-API closes are both already sitting in cfb_slate_games —
+    which is exactly when the holdout answer matters. 2026 wk4: 58 games pasted, 58 final,
+    0 gradeable, so the whole C1/C2 holdout silently returned nothing.
+
+    `fg_spread_close` is the HOME spread on the SAME sign convention as model_games'
+    spread_close (negative = home favoured), so it maps across with NO negation. The oracle in
+    main() re-derives every result from the raw scoreboard and will fail loudly if that is wrong.
+
+    `have` = (season, week) pairs model_games already grades; those are left alone so the
+    research frame stays the preferred source once it catches up.
+    """
+    import pathlib, requests
+    env = {}
+    for line in (pathlib.Path(HERE).parent.parent / ".env.local").read_text().splitlines():
+        if "=" in line and not line.strip().startswith("#"):
+            k, v = line.split("=", 1); env[k.strip()] = v.strip()
+    key = env.get("SUPABASE_SERVICE_KEY")
+    if not key:
+        print("[slate-fallback] no SUPABASE_SERVICE_KEY — skipping"); return pd.DataFrame()
+    r = requests.get("https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1/cfb_slate_games",
+                     headers={"apikey": key, "Authorization": f"Bearer {key}"},
+                     params={"season": "eq.2026", "select":
+                             "game_id,season,week,home_team,away_team,final_home,final_away,"
+                             "fg_spread_close,fg_total_close"}, timeout=60)
+    if r.status_code >= 300:
+        print(f"[slate-fallback] {r.status_code} — skipping"); return pd.DataFrame()
+    d = pd.DataFrame(r.json())
+    if d.empty:
+        return d
+    for c in ("final_home", "final_away", "fg_spread_close", "fg_total_close", "season", "week"):
+        d[c] = pd.to_numeric(d[c], errors="coerce")
+    d = d[d.final_home.notna() & d.final_away.notna()
+          & d.fg_spread_close.notna() & d.fg_total_close.notna()]
+    d = d[~d.set_index(["season", "week"]).index.isin(have)]
+    if d.empty:
+        print("[slate-fallback] nothing to add — model_games already grades every pasted week")
+        return pd.DataFrame()
+    print(f"[slate-fallback] +{len(d)} CFB games model_games cannot grade yet "
+          f"(weeks {sorted(d.week.unique().tolist())})")
+    return pd.DataFrame(dict(
+        game_id=d.game_id.astype(str), season=d.season, week=d.week,
+        awayTeam=d.away_team, homeTeam=d.home_team,
+        spread_close=d.fg_spread_close, total_close=d.fg_total_close,
+        actual_margin=d.final_home - d.final_away, actual_total=d.final_home + d.final_away,
+        homePoints=d.final_home, awayPoints=d.final_away))
+
+
 def nfl_frame():
     """games_enriched -> the model_games column contract.
 
@@ -96,7 +148,9 @@ def nfl_frame():
 
 def main():
     spl = pd.read_csv(os.path.join(HERE, "data", "action_splits.csv"))
-    g = pd.concat([cfb_frame(), nfl_frame()], ignore_index=True)
+    _c = cfb_frame()
+    _have = set(map(tuple, _c[["season", "week"]].drop_duplicates().values.tolist()))
+    g = pd.concat([_c, cfb_slate_frame(_have), nfl_frame()], ignore_index=True)
     g["game_id"] = g.game_id.astype(str)
     g["sport"] = np.where(g.game_id.astype(str).str.contains("_"), "nfl", "cfb")
     # NFL is an exact abbreviation lookup on BOTH sides — never norm(), which expands team
