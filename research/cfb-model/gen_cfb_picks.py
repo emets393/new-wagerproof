@@ -246,12 +246,16 @@ else:
                 print(f"     {_r.awayTeam} @ {_r.homeTeam}: margin {_r.pred_margin:+.1f} vs row "
                       f"{_r._row_margin:+.1f} | total {_r.pred_total:.1f} vs row {_r._row_total:.1f}")
         # ⛔ No fillna. A carded game with no row basis is the exact hole that produced the
-        # 2026-10-03 stall, so name it and stop rather than card it off a second opinion.
+        # 2026-10-03 stall, so name it — but DROP that game rather than raising. Hard-failing
+        # here would trade a one-game gap for another whole-week stale slate, which is the
+        # fragility that cost 17 hours in the first place. A game with no row has nothing to
+        # render under anyway, so 55 fresh games beat 56 stale ones.
         _miss = te[te._row_total.isna() | te._row_margin.isna()]
         if len(_miss):
-            raise SystemExit("[one-basis] no cfb_slate_games basis for "
-                             + ", ".join(f"{r.awayTeam} @ {r.homeTeam}" for _, r in _miss.iterrows())
-                             + " — run gen_cfb_slate_games for this week before the picks step")
+            print(f"  ⛔ [one-basis] {len(_miss)} game(s) have no cfb_slate_games basis and get NO "
+                  f"cards this run — the games step must cover them: "
+                  + ", ".join(f"{r.awayTeam} @ {r.homeTeam}" for _, r in _miss.iterrows()))
+            te = te[te._row_total.notna() & te._row_margin.notna()].copy()
         te["pred_margin"] = te._row_margin
         te["pred_total"] = te._row_total
         # The LINE is part of the basis too: side = pred - close, so a half-point move between the
