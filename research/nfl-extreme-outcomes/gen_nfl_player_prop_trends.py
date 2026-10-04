@@ -26,9 +26,45 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-SEASON = int(os.environ.get("NFL_SEASON", 2025))
-THROUGH_WEEK = int(os.environ.get("NFL_WEEK", 12)) - 1
 GAMES_CSV = "https://github.com/nflverse/nfldata/raw/master/data/games.csv"
+
+
+def _resolve_window():
+    """(season, through_week) — env wins, otherwise RESOLVED from the logged games.
+
+    The defaults used to be `NFL_SEASON=2025` / `NFL_WEEK=12`, which is the same
+    hardcoded-window pattern that let this table rot: run without env (as the daily grade
+    chain does, since it is season-scoped and exports no week) and it silently rebuilt a
+    2025 wk11 view and stamped it as current. Resolving means a bare run is always right.
+
+    through_week = the newest week with player game logs, i.e. the last week whose results
+    exist. Nothing to add beyond that, and claiming more in through_week is what made the
+    stale table look fresh.
+    """
+    season = os.environ.get("NFL_SEASON")
+    if os.environ.get("NFL_WEEK") and season:
+        return int(season), int(os.environ["NFL_WEEK"]) - 1
+    import datetime as _dt
+    _now = _dt.datetime.now(_dt.timezone.utc)
+    season = int(season) if season else (_now.year if _now.month >= 3 else _now.year - 1)
+    key = ""
+    for line in (ROOT.parent.parent / ".env.local").read_text().splitlines():
+        if line.startswith("SUPABASE_SERVICE_KEY="):
+            key = line.split("=", 1)[1].strip(); break
+    try:
+        rows = requests.get(
+            f"{BASE_URL}/nfl_player_game_logs", timeout=60,
+            headers={"apikey": key, "Authorization": f"Bearer {key}"},
+            params={"season": f"eq.{season}", "select": "week",
+                    "order": "week.desc", "limit": "1"}).json()
+        wk = int(rows[0]["week"]) if isinstance(rows, list) and rows else 1
+    except Exception as e:
+        sys.exit(f"[window] cannot resolve the current week ({e}) — set NFL_SEASON/NFL_WEEK")
+    print(f"[window] resolved season={season} through_week={wk} (newest logged game week)")
+    return season, wk
+
+
+SEASON, THROUGH_WEEK = _resolve_window()
 
 PROP_MKT = {"player_pass_yds": ("O", "U"), "player_pass_tds": ("O", "U"),
             "player_receptions": ("O", "U"), "player_reception_yds": ("O", "U"),

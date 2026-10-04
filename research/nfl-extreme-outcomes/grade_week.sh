@@ -8,6 +8,8 @@
 #   1) finals       -> {nfl,cfb}_slate_games.final_home/away   (fill_finals.py)
 #   1b) 1H finals   -> {nfl,cfb}_slate_games.h1_home/h1_away   (fill_h1.py: NFL PBP + CFB line scores)
 #   2) player logs  -> nfl_player_game_logs (nflverse, all weeks)  (ingest_player_logs.py)
+#   2c) prop trends -> nfl_player_prop_trends (gen_nfl_player_prop_trends.py; DAILY so the
+#       recent_game_log cannot go a season stale the way it did through 2026 wk4)
 #   3) grade props  -> nfl_player_props.actual_value/result, all weeks (grade_nfl_props)
 #   4) grade picks + roll up signals (refresh_all_signal_performance: game AND prop signals)
 #      + append completed games -> {nfl,cfb}_analysis_base (historical-trends warehouse, Stage 1)
@@ -42,6 +44,14 @@ python3 refresh_player_offense.py "$SEASON" || true
 
 echo; echo ">>> 2b) NFL game meta (coach + surface) -> _nab_patch (refresh_nfl_analysis_base joins it)"
 python3 load_nab_patch.py
+
+# 2c) Player prop trends. Lives here, in the DAILY chain, because it reads step 2's game logs
+# and because living only in the weekly runner is how it went a season stale unnoticed: it
+# advertised through_week (2026,3) while its newest game was 2025 wk22, so the app's
+# "last 10 games" strip was ten bars of last season. It resolves its own window, so no week
+# needs exporting. Non-fatal: a trends miss must not block grading.
+echo; echo ">>> 2c) NFL player prop trends (recent_game_log + splits + career-vs-opponent)"
+python3 gen_nfl_player_prop_trends.py || echo "  [warn] prop trends failed — table keeps its prior snapshot"
 
 echo; echo ">>> 3-4) grade NFL props + grade picks + refresh signal_performance"
 # NON-FATAL since 2026-09-01: the AUTHORITATIVE grader is now pg_cron job
