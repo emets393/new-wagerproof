@@ -105,10 +105,22 @@ public actor NFLPlayerPropsService {
             for market in markets {
                 let games = enriched.prefix(10).reversed().compactMap { game -> NFLPropRecentGame? in
                     guard let actual = game.actuals[market] else { return nil }
-                    // Don't bake last year's O/U letter in as `cleared` —
-                    // the widget grades actuals against THIS week's line.
+                    // Carry the line THAT game was priced at, plus the grade the
+                    // generator already computed at that price. Dropping both and
+                    // re-grading against this week's number is what produced the
+                    // false perfect streaks (Ridley 10/10 on receiving yards when
+                    // he was 5-10 at the posted prices; 173 of 540 player-markets
+                    // read high). gen_nfl_player_prop_trends grades each game off
+                    // its own T-60 close, so this is the honest basis.
+                    let letter = game.markets[market]
+                    let cleared: Bool? = switch letter {
+                    case "O", "Y": true
+                    case "U", "N": false
+                    default: nil            // "P" push, or ungraded
+                    }
                     return NFLPropRecentGame(
-                        opp: game.opp, week: game.week, actual: actual, cleared: nil
+                        opp: game.opp, week: game.week, actual: actual,
+                        cleared: cleared, line: game.lines[market]
                     )
                 }
                 if !games.isEmpty { result["\(trend.playerId)|\(market)"] = games }

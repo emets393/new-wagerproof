@@ -113,13 +113,62 @@ final class NFLPropsInsightTests: XCTestCase {
         XCTAssertFalse(summary?.headline.contains("Backup Back") == true)
     }
 
-    func testHitsUsePostedLineNotHistoricalGrade() {
+    /// This test previously asserted the DEFECT: ten games the generator had
+    /// already graded as misses (`cleared: false`) were re-graded against
+    /// today's line and reported as 10 hits. A hit rate is a claim about
+    /// beating the posted price, so the served grade wins.
+    func testHitsUseTheGradeFromTheGamesOwnPrice() {
         let games = (1...10).map { week in
             NFLPropRecentGame(opp: "CHI", week: week, actual: 90, cleared: false)
         }
-        let market = NFLPropMarket(
+        let market = Self.market(closeLine: 84.5, games: games)
+        XCTAssertEqual(market.l10Hits.hits, 0, "served misses must not become hits")
+        XCTAssertEqual(market.l10Hits.n, 10)
+    }
+
+    /// Calvin Ridley, 2026 wk4: today's receiving-yards line was 5.5, so every
+    /// one of his last ten games cleared it and the app read "10/10". Against
+    /// the lines he was actually priced at he was 5-10. Numbers are the real
+    /// shape of that row — five games over their own line, five under.
+    func testLowCurrentLineCannotManufactureAPerfectStreak() {
+        let hist: [(Double, Double)] = [            // (actual, line posted then)
+            (84, 60.5), (40, 55.5), (90, 70.5), (22, 48.5), (65, 44.5),
+            (31, 52.5), (12, 39.5), (77, 58.5), (18, 41.5), (26, 49.5),
+        ]
+        let games = hist.enumerated().map { i, g in
+            NFLPropRecentGame(opp: "IND", week: i + 1, actual: g.0, cleared: nil, line: g.1)
+        }
+        let market = Self.market(closeLine: 5.5, games: games)
+        XCTAssertEqual(market.l10Hits, (hits: 5, n: 10), "must grade at each game's own price")
+        XCTAssertEqual(market.l10HistoricalBasisShare, 1.0)
+        // The strip and the fraction have to agree — that mismatch is the bug.
+        XCTAssertEqual(market.miniStrip.filter(\.cleared).count, 5)
+    }
+
+    /// A push is not a miss: it leaves the denominator.
+    func testPushDropsOutOfTheDenominator() {
+        let games = [
+            NFLPropRecentGame(opp: "IND", week: 1, actual: 60, cleared: nil, line: 50.5),
+            NFLPropRecentGame(opp: "IND", week: 2, actual: 50, cleared: nil, line: 50),
+            NFLPropRecentGame(opp: "IND", week: 3, actual: 70, cleared: nil, line: 50.5),
+        ]
+        let market = Self.market(closeLine: 50.5, games: games)
+        XCTAssertEqual(market.l10Hits, (hits: 2, n: 2))
+    }
+
+    /// With no historical basis at all we fall back to today's line, and the
+    /// basis share has to say so rather than passing it off as a hit rate.
+    func testNoHistoricalBasisIsReported() {
+        let games = (1...4).map { NFLPropRecentGame(opp: "IND", week: $0, actual: 90) }
+        let market = Self.market(closeLine: 84.5, games: games)
+        XCTAssertEqual(market.l10Hits, (hits: 4, n: 4))
+        XCTAssertEqual(market.l10HistoricalBasisShare, 0.0)
+    }
+
+    private static func market(closeLine: Double, games: [NFLPropRecentGame]) -> NFLPropMarket {
+        NFLPropMarket(
             market: "player_reception_yds",
-            closeLine: 84.5,
+            closeLine: closeLine,
             openLine: nil, lineDelta: nil, lineRange: nil,
             overPrice: -110, underPrice: -110,
             nBooks: nil, closeYesProb: nil, openYesProb: nil,
@@ -129,8 +178,6 @@ final class NFLPropsInsightTests: XCTestCase {
             flags: [],
             recentGames: games
         )
-        XCTAssertEqual(market.l10Hits.hits, 10)
-        XCTAssertEqual(market.l10Hits.n, 10)
     }
         let empty = NFLPropPlayer(
             playerName: "Rookie",

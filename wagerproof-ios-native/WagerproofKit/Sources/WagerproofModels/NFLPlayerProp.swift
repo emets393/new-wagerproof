@@ -11,12 +11,21 @@ public struct NFLPropRecentGame: Codable, Hashable, Sendable {
     /// Historical result served by the trends table (O/Y = true, U/N = false).
     /// This preserves the line that was available for that specific game.
     public let cleared: Bool?
+    /// The line actually posted for THAT game (`recent_game_log.lines[market]`).
+    /// Grading history against today's number instead of this one is what made
+    /// Calvin Ridley read "10/10" on receiving yards when he was 5-10 against
+    /// the lines he was actually priced at — today's 5.5 clears on any catch.
+    /// A hit rate is a claim about beating the posted price, so it has to be
+    /// graded at the price. Nil for ATD (no numeric line) — `cleared` covers it.
+    public let line: Double?
 
-    public init(opp: String?, week: Int?, actual: Double?, cleared: Bool? = nil) {
+    public init(opp: String?, week: Int?, actual: Double?, cleared: Bool? = nil,
+                line: Double? = nil) {
         self.opp = opp
         self.week = week
         self.actual = actual
         self.cleared = cleared
+        self.line = line
     }
 }
 
@@ -311,32 +320,56 @@ public struct NFLPropMarket: Hashable, Sendable, Identifiable {
     /// markets (scored a TD).
     public var clearThreshold: Double { closeLine ?? (isYesNo ? 0.5 : 1) }
 
-    /// Last-10 strip for the feed card, oldest → newest.
+    /// Last-10 strip for the feed card, oldest → newest. Bars are colored by
+    /// the SAME grade the fraction uses — at each game's posted price — so the
+    /// strip and the "x/y" under it can never tell two different stories.
+    /// A push shows as not-cleared in the strip but is excluded from the
+    /// fraction, which is the one place the two legitimately differ.
     public var miniStrip: [(cleared: Bool, value: Double)] {
         recentGames.suffix(10).compactMap { g in
             guard let v = g.actual else { return nil }
-            return (cleared: clearsPostedLine(actual: v, historical: g.cleared), value: v)
+            return (cleared: gradeAtPostedPrice(g) ?? false, value: v)
         }
     }
 
-    /// L10 hit count vs TODAY's posted line (same rule as the detail chart
-    /// and web Last10Strip). Historical O/U letters are last year's close,
-    /// so they only fill in when this week's line or the actual is missing.
+    /// Hits over the last 10 logged games, each graded AT THE PRICE IT WAS
+    /// POSTED. Pushes (actual exactly on that game's line) drop out of `n`
+    /// rather than counting as misses.
     public var l10Hits: (hits: Int, n: Int) {
-        let games = recentGames.suffix(10).compactMap { game -> Bool? in
-            if let actual = game.actual {
-                return clearsPostedLine(actual: actual, historical: game.cleared)
-            }
-            return game.cleared
-        }
+        let games = recentGames.suffix(10).compactMap(gradeAtPostedPrice)
         return (games.filter { $0 }.count, games.count)
     }
 
-    /// Grade one result against the posted line when we have both numbers.
-    private func clearsPostedLine(actual: Double, historical: Bool?) -> Bool {
-        if let line = closeLine { return actual > line }
+    /// True/false if the game is decided, nil if it pushed or cannot be graded.
+    /// Precedence: that game's own line, then the served O/U letter, and only
+    /// then today's line — which is an approximation, not a hit rate.
+    private func gradeAtPostedPrice(_ game: NFLPropRecentGame) -> Bool? {
+        if let actual = game.actual, let line = game.line {
+            if actual == line { return nil }                 // push: not a hit, not a miss
+            return actual > line
+        }
+        if let cleared = game.cleared { return cleared }      // already graded at its price
+        guard let actual = game.actual else { return nil }
         if isYesNo { return actual >= 1 }
-        return historical ?? (actual > clearThreshold)
+        if let line = closeLine { return actual == line ? nil : actual > line }
+        return actual > clearThreshold
+    }
+
+    /// Last-10 grades, oldest → newest, each at the price it was posted.
+    /// nil = push or ungradeable. Parlay God needs the per-game verdicts, not
+    /// just the total, so a "perfect streak" leg means perfect AT THE PRICE.
+    public var recentGradesAtPostedPrice: [Bool?] {
+        recentGames.suffix(10).map(gradeAtPostedPrice)
+    }
+
+    /// Share of the last 10 that carry a real historical basis. Below 1.0 the
+    /// fraction is partly graded against today's number, so a surface that
+    /// calls it a hit rate is overclaiming — see `l10Hits`.
+    public var l10HistoricalBasisShare: Double {
+        let last = recentGames.suffix(10)
+        guard !last.isEmpty else { return 0 }
+        let backed = last.filter { $0.line != nil || $0.cleared != nil }.count
+        return Double(backed) / Double(last.count)
     }
 
     public var l10HitRate: Double? {

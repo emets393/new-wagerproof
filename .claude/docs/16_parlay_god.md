@@ -41,6 +41,38 @@ Guards: sample ≥ 3 (`minSample`), juice floor −350 (`oddsFloor`), alternate
 lines need a ≥ 7 streak (`altLineMinStreak`). All tunables sit at the top of
 `ParlayGodEngine`.
 
+## Streaks are graded AT THE PRICE (fixed 2026-10-04)
+
+A streak leg is a claim that the player **beat the posted prop**, so every game
+in the window is graded against the line *that game* was priced at —
+`recent_game_log.lines[market]`, or the served O/U letter, both of which
+`gen_nfl_player_prop_trends` computes off each game's own T-60 close.
+
+It used to compare raw actuals to **today's** line, which manufactured perfect
+streaks wherever a line had since dropped. Calvin Ridley read `10/10` on
+receiving yards against a 5.5 line he clears on any catch; at the prices he was
+actually posted at he was **5-10**. Across the wk4 board **173 of 540
+player-markets (32%) read high** and 5 showed a false perfect run — and those
+low-line rows are exactly what a streak harvester surfaces first.
+
+Rules now in force:
+
+- `NFLPropRecentGame.line` carries the per-game line; `cleared` carries the
+  per-game grade. `NFLPropMarket.gradeAtPostedPrice` applies the precedence
+  (own line → served grade → today's line, which is a fallback, not a hit rate).
+- A **push** (actual exactly on that game's line) returns nil: it breaks a run
+  and leaves the denominator instead of counting as a miss.
+- A recent-form leg requires `l10HistoricalBasisShare == 1.0` — every game in
+  the window must have a real basis before the card advertises a streak.
+- `miniStrip` colors bars with the same grade the fraction uses, so the strip
+  and the "x/y" under it cannot disagree.
+
+⚠ `nfl_slate_props.recent_games` ships `{opp, week, actual}` with **no line**,
+so anything fed from that table has no historical basis and falls back to
+today's number. The props surfaces read `nfl_prop_player_pages` +
+`nfl_player_prop_trends` (which do carry lines); `slatePreviewEnabled` is false.
+Check `l10HistoricalBasisShare` before trusting a fraction from any new source.
+
 ## Categories
 
 `ParlayGodCategory` — each rail card is one category; every leg on it is

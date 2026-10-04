@@ -15,12 +15,15 @@ public struct NFLPropTrendGame: Hashable, Sendable {
     public let isHome: Bool?
     public let isDiv: Bool?
     public let isPrimetime: Bool?
-    /// Served grade letters per market: O/U/P (over/under/push) or Y/N (ATD).
-    /// Decoded for tooltips; the Last-10 chart grades vs TODAY's line instead.
+    /// Served grade letters per market: O/U/P (over/under/push) or Y/N (ATD),
+    /// graded by gen_nfl_player_prop_trends against each game's own T-60 close.
+    /// This is the authoritative basis for every hit rate and streak claim.
     public let markets: [String: String]
     /// Actual stat totals keyed by market — merged from `nfl_player_game_logs`.
     public var actuals: [String: Double]
-    /// Historical closing line used to grade each result (unused for bar color).
+    /// The closing line each result was graded against. Carried into
+    /// `NFLPropRecentGame.line` so the chart, the fraction and Parlay God all
+    /// grade at the price rather than against today's number.
     public let lines: [String: Double]
 
     public init(

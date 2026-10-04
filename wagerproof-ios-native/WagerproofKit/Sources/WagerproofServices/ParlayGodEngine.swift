@@ -482,8 +482,14 @@ public enum ParlayGodEngine {
 
             for market in player.markets {
                 guard let line = market.closeLine else { continue }   // ATD yes-markets have no line
-                let games = market.recentGames.compactMap(\.actual)   // oldest → newest
-                let recent = Array(games.suffix(10))
+                // Grade every past game at the line IT was posted at. Comparing raw
+                // actuals to TODAY's number manufactured perfect streaks on markets
+                // whose line has since dropped — Ridley's receiving yards read 10/10
+                // against today's 5.5 while he was 5-10 at the posted prices. A leg
+                // that advertises a streak has to mean a streak against the price.
+                // Pushes come back nil and break the run rather than extending it.
+                let grades = market.recentGradesAtPostedPrice      // oldest → newest
+                let recent = Array(grades.suffix(10))
                 let marketLabel = NFLPlayerProps.marketLabel(market.market)
 
                 func nflLeg(category: ParlayGodCategory, over: Bool, odds: Int?, evidence: String, n: Int) -> ParlayLeg? {
@@ -497,24 +503,32 @@ public enum ParlayGodEngine {
                     )
                 }
 
-                if recent.count >= minSample {
-                    if recent.allSatisfy({ $0 > line }) {
+                // A streak claim needs a real basis for every game in it, so require
+                // the whole window to be historically graded before advertising one.
+                if recent.count >= minSample, market.l10HistoricalBasisShare >= 1.0,
+                   recent.allSatisfy({ $0 != nil }) {
+                    let hits = recent.compactMap { $0 }
+                    if hits.allSatisfy({ $0 }) {
                         if let leg = nflLeg(category: .recentForm, over: true, odds: market.overPrice,
-                                            evidence: "Hit in \(recent.count) straight games", n: recent.count) {
+                                            evidence: "Hit in \(hits.count) straight games", n: hits.count) {
                             legs.append(leg)
                         }
-                    } else if recent.allSatisfy({ $0 < line }) {
+                    } else if hits.allSatisfy({ !$0 }) {
                         if let leg = nflLeg(category: .recentForm, over: false, odds: market.underPrice,
-                                            evidence: "Stayed under in \(recent.count) straight", n: recent.count) {
+                                            evidence: "Stayed under in \(hits.count) straight", n: hits.count) {
                             legs.append(leg)
                         }
                     }
                 }
 
+                // Same rule vs-opponent: graded at the posted price, pushes excluded.
                 let vsOpp = market.recentGames
                     .filter { $0.opp?.uppercased() == opponent.uppercased() }
-                    .compactMap(\.actual)
-                if vsOpp.count >= minSample, vsOpp.allSatisfy({ $0 > line }) {
+                    .compactMap { g -> Bool? in
+                        if let a = g.actual, let l = g.line { return a == l ? nil : a > l }
+                        return g.cleared
+                    }
+                if vsOpp.count >= minSample, vsOpp.allSatisfy({ $0 }) {
                     if let leg = nflLeg(category: .versusOpponent, over: true, odds: market.overPrice,
                                         evidence: "Hit in all \(vsOpp.count) vs \(opponent.uppercased())", n: vsOpp.count) {
                         legs.append(leg)
