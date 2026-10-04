@@ -80,15 +80,23 @@ Still check `l10HistoricalBasisShare` before trusting a fraction from any new
 source: a partial basis is a blend of "beat the price" and "would clear today's
 number", and only the first is a hit rate.
 
-⚠ **`nfl_player_prop_trends.recent_game_log` is a season stale.** It carries
-`through_season/through_week = (2026, 3)` while its games stop at **2025 wk22**
-— zero 2026 entries, because the generator reads `props_frame.parquet` /
-`props_rows_extra.parquet` and those backfills end at 2025. That is why a
-"last 10 games" strip has ten bars in week 4 of a three-week-old season: they
-are all last year. Grading them at their own price (above) makes the number
-honest, but the window is still the wrong games. Fixing it means pointing
-`gen_nfl_player_prop_trends` at `nfl_player_prop_lines_history` (784k rows for
-2026 wks1-3, so it needs server-side aggregation, not paging) — NOT done.
+`nfl_player_prop_trends.recent_game_log` carries the current season as of
+2026-10-04. It used to advertise `through_season/through_week = (2026, 3)` with
+its newest game at **2025 wk22** — zero 2026 entries, because the generator read
+only `props_frame.parquet` / `props_rows_extra.parquet` and those backfills end
+at 2025. A "last 10 games" strip four weeks into the season was ten bars of last
+year, and every hit rate and career-vs-opponent record described 2025.
+
+`current_season_rows()` now adds this season: actuals from
+`nfl_player_game_logs`, lines from our own `nfl_slate_props` boards. A game with
+no posted line yields no row, so it adds no basis rather than a guess. Verified
+on wk4 — 3,059 current-season rows, log by season 2023:1000 2024:1159 2025:3299
+2026:1091, players 810 → 886.
+
+⚠ Both this generator and the slate build take the historical line from **our own
+published boards**, not from the raw capture. That is deliberate (the capture is
+784k rows for three weeks and grows weekly), and it means a week we never built
+a board for has no basis at all — it will read as missing, not as a guess.
 
 ## Categories
 
