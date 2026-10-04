@@ -139,7 +139,8 @@ final class NFLPropsInsightTests: XCTestCase {
             NFLPropRecentGame(opp: "IND", week: i + 1, actual: g.0, cleared: nil, line: g.1)
         }
         let market = Self.market(closeLine: 5.5, games: games)
-        XCTAssertEqual(market.l10Hits, (hits: 5, n: 10), "must grade at each game's own price")
+        XCTAssertEqual(market.l10Hits.hits, 5, "must grade at each game's own price")
+        XCTAssertEqual(market.l10Hits.n, 10)
         XCTAssertEqual(market.l10HistoricalBasisShare, 1.0)
         // The strip and the fraction have to agree — that mismatch is the bug.
         XCTAssertEqual(market.miniStrip.filter(\.cleared).count, 5)
@@ -153,7 +154,8 @@ final class NFLPropsInsightTests: XCTestCase {
             NFLPropRecentGame(opp: "IND", week: 3, actual: 70, cleared: nil, line: 50.5),
         ]
         let market = Self.market(closeLine: 50.5, games: games)
-        XCTAssertEqual(market.l10Hits, (hits: 2, n: 2))
+        XCTAssertEqual(market.l10Hits.hits, 2)
+        XCTAssertEqual(market.l10Hits.n, 2, "the push must leave the denominator")
     }
 
     /// With no historical basis at all we fall back to today's line, and the
@@ -161,7 +163,8 @@ final class NFLPropsInsightTests: XCTestCase {
     func testNoHistoricalBasisIsReported() {
         let games = (1...4).map { NFLPropRecentGame(opp: "IND", week: $0, actual: 90) }
         let market = Self.market(closeLine: 84.5, games: games)
-        XCTAssertEqual(market.l10Hits, (hits: 4, n: 4))
+        XCTAssertEqual(market.l10Hits.hits, 4)
+        XCTAssertEqual(market.l10Hits.n, 4)
         XCTAssertEqual(market.l10HistoricalBasisShare, 0.0)
     }
 
@@ -179,6 +182,12 @@ final class NFLPropsInsightTests: XCTestCase {
             recentGames: games
         )
     }
+
+    /// A player whose markets array is empty yields no insight.
+    /// NOTE: this test body was orphaned — its `func` line has been missing since the file
+    /// was added in ca27d4c0 (PR #120), so WagerproofModelsTests never compiled and none of
+    /// these assertions have ever run. That is why nothing caught the prop-grading bug.
+    func testPlayerWithNoMarketsIsIgnored() {
         let empty = NFLPropPlayer(
             playerName: "Rookie",
             playerId: "x",
