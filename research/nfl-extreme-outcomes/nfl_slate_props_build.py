@@ -144,6 +144,98 @@ def consensus(pf):
     return c
 
 
+_PRIOR_CLOSES = None          # memoized; None = not built yet, {} = nothing to find
+
+
+def prior_week_closes():
+    """{(player_id, market, week): close_line} for the EARLIER weeks of this season,
+    read back off our own `nfl_slate_props` rows.
+
+    WHY (owner, 2026-10-04). `recent_games` shipped `{week, opp, actual}` with no line,
+    so every consumer had to grade history against TODAY's number. That read Calvin
+    Ridley 10/10 on receiving yards against a 5.5 line he clears on any catch, when he
+    was 5-10 at the prices he was actually posted at; 32% of the wk4 board read high.
+    A hit rate is a claim about beating the posted price, so the price has to travel
+    with the result.
+
+    The line for week W is the `close_line` we published on the week-W board — the
+    number users actually saw, which makes the strip self-consistent by construction.
+    Two sources were rejected: `props_frame.parquet` holds no 2026 close lines (its
+    backfill stops at 2025), and `nfl_player_prop_lines_history` is 784k rows for
+    three weeks and grows weekly — too big to page on every build when our own rows
+    already record the answer.
+
+    ~57% of entries resolve; the rest are weeks no book posted that market, and they
+    get a null line. Callers must treat a missing line as NO historical basis rather
+    than falling back silently — the iOS side gates streak claims on
+    `l10HistoricalBasisShare`. See .claude/docs/16_parlay_god.md.
+    """
+    global _PRIOR_CLOSES
+    if _PRIOR_CLOSES is not None:
+        return _PRIOR_CLOSES
+    out = {}
+    if WEEK <= 1:
+        _PRIOR_CLOSES = out
+        return out
+    key = load_key()
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+    for wk in range(1, WEEK):
+        try:
+            rows = requests.get(
+                f"{BASE_URL}/nfl_slate_props", headers=hdr, timeout=90,
+                params={"season": f"eq.{SEASON}", "week": f"eq.{wk}",
+                        "select": "player_id,market,close_line", "limit": "5000"}).json()
+        except Exception as e:                      # a missing week must not kill the build
+            print(f"  [prior-closes] wk{wk} fetch failed ({e}) — those games get no line")
+            continue
+        if not isinstance(rows, list):
+            print(f"  [prior-closes] wk{wk} returned {rows} — those games get no line")
+            continue
+        for r in rows:
+            if r.get("close_line") is not None:
+                out[(str(r["player_id"]), r["market"], wk)] = float(r["close_line"])
+    print(f"  [prior-closes] {len(out)} posted lines from weeks 1-{WEEK - 1}")
+    _PRIOR_CLOSES = out
+    return out
+
+
+def _recent_entry(player_id, market, week, opp, actual, closes):
+    """One `recent_games` element, carrying the line THAT week if we published one."""
+    return dict(week=int(week), opp=opp, actual=float(actual),
+                line=closes.get((str(player_id), market, int(week))))
+
+
+def _over_rate(entries, today_line, n):
+    """Share of the last `n` games that went OVER, graded AT THE PRICE EACH WAS POSTED.
+
+    Falls back to `today_line` only for games we never posted a line on. Pushes
+    (actual exactly on that game's line) leave the denominator instead of counting
+    as misses. Returns (rate, basis_share) where basis_share is the fraction graded
+    on a real historical line — anything below 1.0 means the rate is partly "would
+    clear today's number", which is NOT a hit rate.
+
+    These columns are read by the V3 agent prompt builder (agentGameHelpers.ts), so
+    an inflated rate here becomes a false claim inside a generated pick.
+    """
+    tail = entries[-n:]
+    if not tail:
+        return None, 0.0
+    hits = decided = backed = 0
+    for e in tail:
+        line = e.get("line")
+        if line is None:
+            line = today_line
+        else:
+            backed += 1
+        if line is None or e["actual"] == line:
+            continue                                  # no basis, or a push
+        decided += 1
+        hits += e["actual"] > line
+    if not decided:
+        return None, backed / len(tail)
+    return round(hits / decided, 3), round(backed / len(tail), 3)
+
+
 def recent_form(c):
     """L10 trends + per-game history from player_offense, weeks < 12 only."""
     po = pd.read_parquet(DATA / "player_offense.parquet")
@@ -158,6 +250,7 @@ def recent_form(c):
     po["opp"] = [opp_map.get((w, t)) for w, t in zip(po.week, po.team)]
 
     l10_avg, rate5, rate10, recent = [], [], [], []
+    closes = prior_week_closes()
     hist = {pid: d.sort_values("week") for pid, d in po.groupby("player_id")}
     for _, r in c.iterrows():
         # Books add markets without warning (player_rush_attempts appeared 2026-09-05
@@ -170,14 +263,12 @@ def recent_form(c):
         s = d.dropna(subset=[stat]).tail(10)
         vals = s[stat].astype(float)
         l10_avg.append(round(vals.mean(), 2) if len(vals) else None)
-        if pd.notna(r.close_line) and len(vals):
-            rate10.append(round((vals > r.close_line).mean(), 3))
-            v5 = vals.tail(5)
-            rate5.append(round((v5 > r.close_line).mean(), 3))
-        else:
-            rate5.append(None); rate10.append(None)
-        recent.append([dict(week=int(w), opp=o, actual=float(v))
-                       for w, o, v in zip(s.week, s.opp, vals)])
+        entries = [_recent_entry(r.player_id, r.market, w, o, v, closes)
+                   for w, o, v in zip(s.week, s.opp, vals)]
+        tl = float(r.close_line) if pd.notna(r.close_line) else None
+        rate10.append(_over_rate(entries, tl, 10)[0])
+        rate5.append(_over_rate(entries, tl, 5)[0])
+        recent.append(entries)
     c["l10_avg"] = l10_avg
     c["over_rate_l5"] = rate5
     c["over_rate_l10"] = rate10
@@ -341,6 +432,7 @@ def attempts_form(d):
         opp_map[(r.week, r.home_team)] = r.away_team
         opp_map[(r.week, r.away_team)] = r.home_team
     po["opp"] = [opp_map.get((w, t)) for w, t in zip(po.week, po.team)]
+    closes = prior_week_closes()
     hist = {pid: g.sort_values("week") for pid, g in po.groupby("player_id")}
     cols = {k: [] for k in ("gp_prior", "last_game", "l3_avg", "l5_avg", "l10_avg",
                             "szn_avg", "szn_max", "szn_min", "over_rate_l5", "over_rate_l10", "recent_games")}
@@ -361,14 +453,13 @@ def attempts_form(d):
         cols["szn_avg"].append(round(float(vals.mean()), 2) if len(vals) else None)
         cols["szn_max"].append(round(float(vals.max()), 2) if len(vals) else None)
         cols["szn_min"].append(round(float(vals.min()), 2) if len(vals) else None)
-        if pd.notna(r.close_line) and len(vals):
-            cols["over_rate_l10"].append(round(float((vals.tail(10) > r.close_line).mean()), 3))
-            cols["over_rate_l5"].append(round(float((vals.tail(5) > r.close_line).mean()), 3))
-        else:
-            cols["over_rate_l10"].append(None); cols["over_rate_l5"].append(None)
         t = s.tail(10)
-        cols["recent_games"].append([dict(week=int(w), opp=o, actual=float(v))
-                                     for w, o, v in zip(t.week, t.opp, t[stat].astype(float))])
+        entries = [_recent_entry(r.player_id, r.market, w, o, v, closes)
+                   for w, o, v in zip(t.week, t.opp, t[stat].astype(float))]
+        tl = float(r.close_line) if pd.notna(r.close_line) else None
+        cols["over_rate_l10"].append(_over_rate(entries, tl, 10)[0])
+        cols["over_rate_l5"].append(_over_rate(entries, tl, 5)[0])
+        cols["recent_games"].append(entries)
     for k, v in cols.items():
         d[k] = v
     return d

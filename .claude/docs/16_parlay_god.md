@@ -67,11 +67,28 @@ Rules now in force:
 - `miniStrip` colors bars with the same grade the fraction uses, so the strip
   and the "x/y" under it cannot disagree.
 
-⚠ `nfl_slate_props.recent_games` ships `{opp, week, actual}` with **no line**,
-so anything fed from that table has no historical basis and falls back to
-today's number. The props surfaces read `nfl_prop_player_pages` +
-`nfl_player_prop_trends` (which do carry lines); `slatePreviewEnabled` is false.
-Check `l10HistoricalBasisShare` before trusting a fraction from any new source.
+`nfl_slate_props.recent_games` now ships `{opp, week, actual, line}` too
+(`nfl_slate_props_build.prior_week_closes`): the line for week W is the
+`close_line` we published on the week-W board, so the strip is self-consistent
+with what users saw. About 57% of entries resolve — the rest are weeks no book
+posted that market and carry `line: null`. The same build grades its stored
+`over_rate_l5` / `over_rate_l10` at the posted price now, which matters because
+the **V3 agent prompt builder reads those columns** (`agentGameHelpers.ts`), so
+an inflated rate there became a false claim inside a generated pick.
+
+Still check `l10HistoricalBasisShare` before trusting a fraction from any new
+source: a partial basis is a blend of "beat the price" and "would clear today's
+number", and only the first is a hit rate.
+
+⚠ **`nfl_player_prop_trends.recent_game_log` is a season stale.** It carries
+`through_season/through_week = (2026, 3)` while its games stop at **2025 wk22**
+— zero 2026 entries, because the generator reads `props_frame.parquet` /
+`props_rows_extra.parquet` and those backfills end at 2025. That is why a
+"last 10 games" strip has ten bars in week 4 of a three-week-old season: they
+are all last year. Grading them at their own price (above) makes the number
+honest, but the window is still the wrong games. Fixing it means pointing
+`gen_nfl_player_prop_trends` at `nfl_player_prop_lines_history` (784k rows for
+2026 wks1-3, so it needs server-side aggregation, not paging) — NOT done.
 
 ## Categories
 

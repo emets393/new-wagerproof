@@ -133,7 +133,7 @@ final class NFLPropsInsightTests: XCTestCase {
     func testLowCurrentLineCannotManufactureAPerfectStreak() {
         let hist: [(Double, Double)] = [            // (actual, line posted then)
             (84, 60.5), (40, 55.5), (90, 70.5), (22, 48.5), (65, 44.5),
-            (31, 52.5), (12, 39.5), (77, 58.5), (18, 41.5), (26, 49.5),
+            (31, 52.5), (12, 39.5), (77, 58.5), (18, 41.5), (56, 49.5),
         ]
         let games = hist.enumerated().map { i, g in
             NFLPropRecentGame(opp: "IND", week: i + 1, actual: g.0, cleared: nil, line: g.1)
