@@ -2,7 +2,7 @@
 + 1H half scores (quarter_scores, 2023-25) into the _nab_patch staging table, keyed on nflverse
 game_id. refresh_nfl_analysis_base() LEFT JOINs this to fill coach/opp_coach/surface on the
 exploded rows (those aren't in nfl_slate_games), so the live-season append gets them too.
-Idempotent (delete-all + insert). Run before the refresh RPC (wired into grade_week.sh)."""
+Idempotent UPSERT on game_id. Run before the refresh RPC (wired into grade_week.sh)."""
 import io
 import json
 import sys
@@ -42,10 +42,11 @@ def main():
     # quarter_scores.parquet is a local research artifact that does NOT exist on Render's
     # ephemeral disk — degrade to coach/surface-only rather than crash the grade run.
     qsp = DATA / "quarter_scores.parquet"
-    if qsp.exists():
+    have_h1 = qsp.exists()
+    if have_h1:
         qs = pd.read_parquet(qsp)[["game_id", "h1_home", "h1_away"]]
     else:
-        print("[nab_patch] quarter_scores.parquet absent (ephemeral env) — h1 columns null")
+        print("[nab_patch] quarter_scores.parquet absent (ephemeral env) — h1 left as stored")
         qs = pd.DataFrame(columns=["game_id", "h1_home", "h1_away"])
     patch = g.merge(qs, on="game_id", how="left")
     for c in ("h1_home", "h1_away"):
@@ -56,14 +57,39 @@ def main():
 
     k = key()
     hdr = {"apikey": k, "Authorization": f"Bearer {k}", "Content-Type": "application/json",
-           "Prefer": "return=minimal"}
-    requests.delete(f"{BASE}/_nab_patch?game_id=neq.__none__", headers=hdr, timeout=60)
+           "Prefer": "return=minimal,resolution=merge-duplicates"}
     recs = json.loads(patch.to_json(orient="records"))
+
+    # UPSERT on game_id, no delete. The old delete-all ran
+    # `DELETE /_nab_patch?game_id=neq.__none__` — a whole-table wipe whose cost grows with
+    # the table, and at 2,499 rows it blew the 60s read timeout and failed the entire
+    # nfl-cfb-grade-daily run (2026-10-04 16:05, ReadTimeout). Nothing here needs a wipe:
+    # game_id is unique, the source is nflverse schedules, and schedules only ever gain
+    # games. An upsert is also restartable, where delete-then-insert leaves the table EMPTY
+    # if the insert dies in the middle. See .claude memory `postgrest-slate-write-laws`.
+    if not have_h1:
+        # Never overwrite good h1 values with nulls. quarter_scores.parquet does not exist on
+        # Render, so every scheduled run shipped h1_home/h1_away = null and the wipe-and-
+        # insert made that stick. PostgREST builds its column list from the payload keys, so
+        # dropping these two keys leaves whatever is already stored untouched.
+        for r in recs:
+            r.pop("h1_home", None)
+            r.pop("h1_away", None)
+        print("  [nab_patch] h1 columns omitted from the payload — existing values preserved")
+
     for i in range(0, len(recs), 500):
-        r = requests.post(f"{BASE}/_nab_patch", headers=hdr, json=recs[i:i + 500], timeout=120)
+        chunk = recs[i:i + 500]
+        for attempt in range(3):
+            try:
+                r = requests.post(f"{BASE}/_nab_patch", headers=hdr, json=chunk, timeout=120)
+                break
+            except requests.exceptions.RequestException as e:
+                if attempt == 2:
+                    sys.exit(f"upsert {i}: {type(e).__name__} after 3 tries: {e}")
+                print(f"  [nab_patch] chunk {i} {type(e).__name__} — retry {attempt + 1}/2")
         if r.status_code not in (200, 201, 204):
-            sys.exit(f"insert {i}: {r.status_code} {r.text[:300]}")
-    print(f"loaded {len(recs)} rows -> _nab_patch")
+            sys.exit(f"upsert {i}: {r.status_code} {r.text[:300]}")
+    print(f"upserted {len(recs)} rows -> _nab_patch")
 
 
 if __name__ == "__main__":
