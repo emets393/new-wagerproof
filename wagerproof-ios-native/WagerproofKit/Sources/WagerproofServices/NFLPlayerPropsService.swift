@@ -120,7 +120,7 @@ public actor NFLPlayerPropsService {
                     }
                     return NFLPropRecentGame(
                         opp: game.opp, week: game.week, actual: actual,
-                        cleared: cleared, line: game.lines[market]
+                        cleared: cleared, line: game.lines[market], season: game.season
                     )
                 }
                 if !games.isEmpty { result["\(trend.playerId)|\(market)"] = games }

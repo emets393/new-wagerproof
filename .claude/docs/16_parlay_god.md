@@ -66,6 +66,11 @@ Rules now in force:
   the window must have a real basis before the card advertises a streak.
 - `miniStrip` colors bars with the same grade the fraction uses, so the strip
   and the "x/y" under it cannot disagree.
+- Streak evidence carries its DATE RANGE (`ParlayGodEngine.spanLabel`):
+  "Hit in 3 straight — 2024 wk2 to 2025 wk17". `NFLPropRecentGame.season` makes
+  that possible. Willis's pass-TD run really was two seasons old, and "3
+  straight" on its own reads as current form; a window that spans seasons now
+  says so. One season reads "— 2025 wks 6-12"; undated games add nothing.
 
 `nfl_slate_props.recent_games` now ships `{opp, week, actual, line}` too
 (`nfl_slate_props_build.prior_week_closes`): the line for week W is the

@@ -18,14 +18,19 @@ public struct NFLPropRecentGame: Codable, Hashable, Sendable {
     /// A hit rate is a claim about beating the posted price, so it has to be
     /// graded at the price. Nil for ATD (no numeric line) — `cleared` covers it.
     public let line: Double?
+    /// Season the game was played in. A streak of "3 straight" can span two seasons —
+    /// Malik Willis's pass-TD run was 2024 wk2, wk3 and 2025 wk17 — so a surface that
+    /// says "straight" without a date implies a recency it does not have.
+    public let season: Int?
 
     public init(opp: String?, week: Int?, actual: Double?, cleared: Bool? = nil,
-                line: Double? = nil) {
+                line: Double? = nil, season: Int? = nil) {
         self.opp = opp
         self.week = week
         self.actual = actual
         self.cleared = cleared
         self.line = line
+        self.season = season
     }
 }
 
