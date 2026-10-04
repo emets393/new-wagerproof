@@ -80,7 +80,9 @@ def _primetime(t):
 def game_context():
     """{(season,week,home_ab,away_ab): (div_game, is_primetime)} from nflverse, 2024-25."""
     g = pd.read_csv(io.StringIO(requests.get(GAMES_CSV, timeout=90).text))
-    g = g[g.season.isin([2024, 2025])].copy()
+    # Derived, not a hardcoded [2024, 2025]: that list silently gave every 2026 game
+    # (False, False), so the division and primetime dims quietly described nothing.
+    g = g[(g.season >= 2024) & (g.season <= SEASON)].copy()
     g["home_ab"] = g.home_team.replace(NORM)
     g["away_ab"] = g.away_team.replace(NORM)
     return {(int(r.season), int(r.week), r.home_ab, r.away_ab):
@@ -115,12 +117,98 @@ def attempts_games():
     return cl[keys + ["close_line", "actual", "result_close"]]
 
 
+# Game-log column behind each market's actual (nfl_player_game_logs).
+GAMELOG_STAT = {"player_pass_yds": "pass_yds", "player_pass_tds": "pass_tds",
+                "player_receptions": "receptions", "player_reception_yds": "rec_yds",
+                "player_rush_yds": "rush_yds", "player_pass_attempts": "pass_attempts",
+                "player_rush_attempts": "carries", "player_pass_completions": "completions"}
+ABBR_NAME = {v: k for k, v in TEAM_NAMES.items()}
+
+
+def current_season_rows(key):
+    """Rows for THIS season in `props_frame` shape — line + actual per (player, market, game).
+
+    WHY (owner, 2026-10-04). props_frame.parquet and props_rows_extra.parquet are
+    backfills that stop at 2025, so this generator shipped `recent_game_log` with
+    ZERO 2026 games while `through_season/through_week` advertised (2026, 3). Four
+    weeks into the season the app's "last 10 games" strip was ten bars of LAST
+    season, and every hit rate and career-vs-opponent record described 2025.
+
+    Actuals come from `nfl_player_game_logs` (current, and the same table the iOS
+    enrichment merges). Lines come from our own `nfl_slate_props` boards — the
+    `close_line` we published that week, which is the number users saw. A game with
+    no posted line yields no row, so it contributes no basis rather than a guess.
+
+    Rejected: `nfl_player_prop_lines_history` is the raw capture (784k rows for three
+    weeks of 2026 and growing weekly), which needs server-side aggregation to be
+    worth paging. Our own board rows already record the T-60 consensus.
+    """
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+
+    def get(table, params):
+        r = requests.get(f"{BASE_URL}/{table}", headers=hdr, timeout=120, params=params)
+        j = r.json()
+        return j if isinstance(j, list) else []
+
+    logs = get("nfl_player_game_logs",
+               {"season": f"eq.{SEASON}", "week": f"lte.{THROUGH_WEEK}", "limit": "20000",
+                "select": ("player_id,player_name,position,team,opponent,home_away,season,week,"
+                           + ",".join(sorted(set(GAMELOG_STAT.values()))) + ",anytime_td")})
+    closes = {}
+    for wk in range(1, THROUGH_WEEK + 1):
+        for r in get("nfl_slate_props",
+                     {"season": f"eq.{SEASON}", "week": f"eq.{wk}", "limit": "5000",
+                      "select": "player_id,market,close_line"}):
+            if r.get("close_line") is not None:
+                closes[(str(r["player_id"]), r["market"], wk)] = float(r["close_line"])
+    if not logs:
+        print(f"  [current-season] no {SEASON} game logs through wk{THROUGH_WEEK} — "
+              f"trends will be prior seasons only")
+        return pd.DataFrame()
+
+    rows = []
+    for g in logs:
+        tm = NORM.get(g["team"], g["team"])
+        op = NORM.get(g["opponent"], g["opponent"])
+        if tm not in ABBR_NAME or op not in ABBR_NAME:
+            continue                                  # unmapped abbr -> skip, never guess a game
+        is_home = str(g.get("home_away", "")).lower().startswith("h")
+        home_ab, away_ab = (tm, op) if is_home else (op, tm)
+        wk = int(g["week"])
+        for market, col in GAMELOG_STAT.items():
+            line = closes.get((str(g["player_id"]), market, wk))
+            if line is None or g.get(col) is None:
+                continue                              # no posted line = no basis for a trend
+            rows.append(dict(
+                season=int(g["season"]), week=wk, player_id=g["player_id"],
+                player_name=g["player_name"], position=g["position"], team=tm,
+                home_team=ABBR_NAME[home_ab], away_team=ABBR_NAME[away_ab],
+                market=market, close_line=line, actual=float(g[col]), result_close=None))
+        if g.get("anytime_td") is not None:
+            rows.append(dict(
+                season=int(g["season"]), week=wk, player_id=g["player_id"],
+                player_name=g["player_name"], position=g["position"], team=tm,
+                home_team=ABBR_NAME[home_ab], away_team=ABBR_NAME[away_ab],
+                market="player_anytime_td", close_line=np.nan,
+                actual=float(g["anytime_td"]),
+                result_close=("yes" if float(g["anytime_td"]) >= 1 else "no")))
+    d = pd.DataFrame(rows)
+    if not d.empty:
+        print(f"  [current-season] {len(d)} {SEASON} rows through wk{THROUGH_WEEK} "
+              f"({d.week.nunique()} weeks, {d.player_id.nunique()} players, "
+              f"{d.market.nunique()} markets)")
+    return d
+
+
 def build_logs():
     pf = pd.read_parquet(DATA / "props_frame.parquet")
     pf = pf[pf.market.isin(PROP_MKT)].copy()
     ag = attempts_games()
     if not ag.empty:
         pf = pd.concat([pf, ag], ignore_index=True)          # volume markets alongside the 6
+    cur = current_season_rows(load_key())                    # backfills end at 2025
+    if not cur.empty:
+        pf = pd.concat([pf, cur], ignore_index=True)
     pf = pf[(pf.season < SEASON) | ((pf.season == SEASON) & (pf.week <= THROUGH_WEEK))]
     pf["home_ab"] = pf.home_team.map(TEAM_NAMES)
     pf["away_ab"] = pf.away_team.map(TEAM_NAMES)
