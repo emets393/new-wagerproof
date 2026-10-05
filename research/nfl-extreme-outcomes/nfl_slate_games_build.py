@@ -914,6 +914,22 @@ def sig_objs(sub, pick_side, market, home_ab):
     return sorted(out, key=lambda x: (x["stance"] != "support", x["key"]))
 
 
+def split_keys(objs):
+    """(agreeing, contradicting) signal keys for a card.
+
+    signal_keys is what refresh_signal_performance grades: it joins each key to the card
+    and credits the CARD's result to that signal. So a key here that points at the other
+    side books the wrong bet. legacy_primetime read 2-0 in 2026 off exactly that — the
+    PIT@CLE flag took Pittsburgh -3 (lost by 3) while the card was Cleveland +3 (won), and
+    the roll-up counted Cleveland's win under the Pittsburgh signal.
+
+    sig_objs already resolves stance per signal; this just keeps the two apart. CFB has
+    carried counter_signal_keys since its pick build; NFL never got the port.
+    """
+    return ([o["key"] for o in objs if o["stance"] == "support"],
+            [o["key"] for o in objs if o["stance"] != "support"])
+
+
 def build_picks(g, fl, books, kickoff, meta):
     """Eight normalized prediction rows per game (7 card groups; team_total = 2 rows).
     Mirrors cfb_slate_picks. team_total / moneyline / 1H cards are display-only for
@@ -975,6 +991,8 @@ def build_picks(g, fl, books, kickoff, meta):
         bbk, bln, bod = best_pick(bdf, "spread", side.lower())
         model_line = round(-r.pred_margin, 1) if side == "HOME" else round(r.pred_margin, 1)
         disp = conv == "none"
+        _sp_objs = sig_objs(act_sp, side, "spread", r.home_ab)
+        _sp_sup, _sp_cnt = split_keys(_sp_objs)
         emit(r, card_group="spread", bet_type="spread", sort_order=1, pick_side=side,
              pick_team=team, pick_label=f"{team} {(bln if bln is not None else vline):+g}",
              model_number=model_line, model_line=model_line,
@@ -983,8 +1001,7 @@ def build_picks(g, fl, books, kickoff, meta):
              best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
              is_mammoth=is_mam,
              has_play=not disp, display_only=disp,
-             signal_keys=sorted(act_sp.signal_key.tolist()),
-             signals=sig_objs(act_sp, side, "spread", r.home_ab),
+             signal_keys=_sp_sup, counter_signal_keys=_sp_cnt, signals=_sp_objs,
              result=None if disp else grade_play("spread", side, vline, r))
 
         # ---- 2. total ----
@@ -1007,6 +1024,8 @@ def build_picks(g, fl, books, kickoff, meta):
         edge = abs(r.edge_open) if pd.notna(r.edge_open) else None
         bbk, bln, bod = best_pick(bdf, "total", tdir.lower())
         disp = conv == "none"
+        _tot_objs = sig_objs(act_tot, tdir, "total", r.home_ab)
+        _tot_sup, _tot_cnt = split_keys(_tot_objs)
         emit(r, card_group="total", bet_type="total", sort_order=2, pick_side=tdir,
              pick_team=None,
              pick_label=f"{tdir.title()} {(bln if bln is not None else vline):g}",
@@ -1016,8 +1035,7 @@ def build_picks(g, fl, books, kickoff, meta):
              edge=round(edge, 2) if edge is not None else None,
              best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
              has_play=not disp, display_only=disp,
-             signal_keys=sorted(act_tot.signal_key.tolist()),
-             signals=sig_objs(act_tot, tdir, "total", r.home_ab),
+             signal_keys=_tot_sup, counter_signal_keys=_tot_cnt, signals=_tot_objs,
              result=None if disp else grade_play("total", tdir, vline, r))
 
         # ---- 3-4. team totals (display-only; conviction only if a K-signal attaches) ----
@@ -1034,6 +1052,8 @@ def build_picks(g, fl, books, kickoff, meta):
             side_key = ("home" if "home" in bt else "away") + "_" + tside.lower()
             bbk, bln, bod = best_pick(bdf, "tt", side_key)
             edge = (abs(pred - close) if pd.notna(pred) and pd.notna(close) else None)
+            _tt_objs = sig_objs(ksig, tside, "team_total", r.home_ab)
+            _tt_sup, _tt_cnt = split_keys(_tt_objs)
             emit(r, card_group="team_total", bet_type=bt, sort_order=so, pick_side=tside,
                  pick_team=nm,
                  pick_label=f"{nm} {tside.title()} {(bln if bln is not None else close):g}"
@@ -1045,8 +1065,7 @@ def build_picks(g, fl, books, kickoff, meta):
                  edge=round(edge, 2) if edge is not None else None,
                  best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
                  recommendation=REC[conv], has_play=False, display_only=True,
-                 signal_keys=sorted(ksig.signal_key.tolist()),
-                 signals=sig_objs(ksig, tside, "team_total", r.home_ab), result=None)
+                 signal_keys=_tt_sup, counter_signal_keys=_tt_cnt, signals=_tt_objs, result=None)
 
         # ---- 5. moneyline (display-only "Predicted Winner") ----
         ml_home = pd.notna(r.fg_home_win_prob) and r.fg_home_win_prob >= 0.5
@@ -1061,7 +1080,7 @@ def build_picks(g, fl, books, kickoff, meta):
              vegas_line=None, vegas_price=(r.close_ml_home if ml_home else r.close_ml_away),
              edge=None, best_book=bbk, best_line=None, best_odds=bod, conviction="none",
              recommendation="Predicted Winner", has_play=False, display_only=True,
-             signal_keys=[], signals=[], result=None)
+             signal_keys=[], counter_signal_keys=[], signals=[], result=None)
 
         # ---- 6. h1 spread (tracking/display-only) ----
         # Single source: the 1H margin model (pred_m_anch). Pick the side that COVERS the
@@ -1074,11 +1093,12 @@ def build_picks(g, fl, books, kickoff, meta):
             else r.pred_m_anch
         side = "HOME" if (pd.notna(h1_cov) and h1_cov >= 0) else "AWAY"
         conv = "low" if not h1f.empty else "none"
-        sk = sorted(h1f.signal_key.tolist())
         vline = h1c if side == "HOME" else (-h1c if pd.notna(h1c) else None)
         bbk, bln, bod = best_pick(bdf, "h1_spread", side.lower())
         m_line = (round(-r.pred_m_anch, 1) if side == "HOME" else round(r.pred_m_anch, 1)) \
             if pd.notna(r.pred_m_anch) else None
+        _h1s_objs = sig_objs(h1f, side, "h1_spread", r.home_ab)
+        _h1s_sup, _h1s_cnt = split_keys(_h1s_objs)
         emit(r, card_group="h1_spread", bet_type="h1_spread", sort_order=6, pick_side=side,
              pick_team=home_nm if side == "HOME" else away_nm,
              pick_label=f"{home_nm if side=='HOME' else away_nm} 1H "
@@ -1090,7 +1110,7 @@ def build_picks(g, fl, books, kickoff, meta):
                               else r.h1_spread_close_pay_h1_spread_away_price),
              edge=None, best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
              recommendation=REC[conv], has_play=False, display_only=True,
-             signal_keys=sk, signals=sig_objs(h1f, side, "h1_spread", r.home_ab),
+             signal_keys=_h1s_sup, counter_signal_keys=_h1s_cnt, signals=_h1s_objs,
              result=None)
 
         # ---- 7. h1 total (tracking/display-only) ----
@@ -1100,6 +1120,8 @@ def build_picks(g, fl, books, kickoff, meta):
         conv = "low" if not h1tf.empty else "none"
         h1t = r.h1_total_close_h1_total_point
         bbk, bln, bod = best_pick(bdf, "h1_total", tside.lower())
+        _h1t_objs = sig_objs(h1tf, tside, "h1_total", r.home_ab)
+        _h1t_sup, _h1t_cnt = split_keys(_h1t_objs)
         emit(r, card_group="h1_total", bet_type="h1_total", sort_order=7, pick_side=tside,
              pick_team=None,
              pick_label=f"1H {tside.title()} {(bln if bln is not None else h1t):g}"
@@ -1111,8 +1133,7 @@ def build_picks(g, fl, books, kickoff, meta):
                               else r.h1_total_close_pay_h1_total_under_price),
              edge=None, best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
              recommendation=REC[conv], has_play=False, display_only=True,
-             signal_keys=sorted(h1tf.signal_key.tolist()),
-             signals=sig_objs(h1tf, tside, "h1_total", r.home_ab), result=None)
+             signal_keys=_h1t_sup, counter_signal_keys=_h1t_cnt, signals=_h1t_objs, result=None)
 
         # ---- 8. h1 moneyline (display-only "Predicted Winner") ----
         h1_home = pd.notna(r.prob_home_1h) and r.prob_home_1h >= 0.5
@@ -1127,7 +1148,7 @@ def build_picks(g, fl, books, kickoff, meta):
              vegas_price=amer(r.h1_ml_close_pay_h1_ml_home if h1_home else r.h1_ml_close_pay_h1_ml_away),
              edge=None, best_book=bbk, best_line=None, best_odds=bod, conviction="none",
              recommendation="Predicted Winner", has_play=False, display_only=True,
-             signal_keys=[], signals=[], result=None)
+             signal_keys=[], counter_signal_keys=[], signals=[], result=None)
 
     # Same reason as build_flags: zero picks is a valid preview slate, not an error.
     return pd.DataFrame(picks, columns=None if picks else

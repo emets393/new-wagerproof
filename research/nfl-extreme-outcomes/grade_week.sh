@@ -61,7 +61,11 @@ echo; echo ">>> 3-4) grade NFL props + grade picks + refresh signal_performance"
 # (idempotent, so double-running is harmless); its failure must not fail the run.
 python3 run_grade_rpcs.py "$SEASON" \
   || echo "[warn] RPC step failed (non-fatal — pg_cron 'football-grade-daily' grades at 13:30 UTC)"
-echo; echo ">>> 4b) grade SHARP ACTION flags at their detection line (appends to signal_performance)"
+# 4b) EVERY signal flag, graded on its own side and line — not through the pick cards, which
+# can only measure a signal where the model agreed with it and credited the wrong side when it
+# did not (legacy_primetime read 2-0 off a Cleveland card while the signal took Pittsburgh).
+# Must run AFTER run_grade_rpcs: that rebuilds the season, this overwrites the flag-derived keys.
+echo; echo ">>> 4b) grade ALL NFL signal flags on their own side/line (overwrites signal_performance)"
 python3 grade_nfl_sharp_flags.py "$SEASON" || true
 echo; echo ">>> 4c) same-day: grade Prop Report reads + model projections vs ESPN box scores (final games only)"
 read -r _S _W < <(python3 resolve_nfl_week.py) && python3 grade_props_espn.py "$_S" "$_W" --write || true
