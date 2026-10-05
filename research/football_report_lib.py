@@ -118,11 +118,30 @@ def fetch_model_record(env, sport, season):
     just these headline records, which is the sanctioned public surface.
     """
     rows = requests.get(
-        f"{SUPA}/football_model_record?select=market,wins,losses,pushes,roi_units,roi_n"
+        f"{SUPA}/football_model_record?select=market,wins,losses,pushes,roi_units,roi_n,updated_at"
         f"&sport=eq.{sport}&season=eq.{season}&scope=eq.overall&order=market",
         headers=hdr(env), timeout=30).json()
     if not isinstance(rows, list):
         return []
+    # STALENESS GUARD. football_model_record.py runs first in this cron's startCommand, wrapped
+    # in `|| true` so one sport's failure cannot block the reports. The cost of that is silence:
+    # on 2026-10-02 the side-resolution oracle correctly refused to grade h1_ml_pick="AWAY ML",
+    # the AssertionError was swallowed, and six report runs over three days embedded records
+    # frozen at Oct 2 while every cron reported success. The report cannot fix the rebuild, but
+    # it must never present a stale record as current — grep the cron log for this marker.
+    import datetime as _dt
+    import re as _rex
+    newest = max((r.get("updated_at") or "" for r in rows), default="")
+    if newest:
+        try:
+            age = _dt.datetime.now(_dt.timezone.utc) - _dt.datetime.fromisoformat(
+                _rex.sub(r"\.\d+", "", newest).replace("Z", "+00:00"))
+            if age > _dt.timedelta(hours=20):
+                print(f"  ⛔ [model-record-stale] {sport} {season}: football_model_record was last "
+                      f"rebuilt {age} ago — the record in this report is NOT current. "
+                      f"Run research/football_model_record.py {sport} and read its traceback.")
+        except Exception:
+            pass
     order = list(MARKET_LABELS)
     rows.sort(key=lambda r: order.index(r["market"]) if r["market"] in order else 99)
     return [dict(market=r["market"], label=MARKET_LABELS.get(r["market"], r["market"]),

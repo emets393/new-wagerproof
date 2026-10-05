@@ -88,6 +88,16 @@ def canon_side(pick, g, kind):
         return None
     if u in ("HOME", "AWAY", "OVER", "UNDER"):
         return u
+    # Canonical side carrying a MARKET SUFFIX. gen_cfb_slate_flags writes h1_ml_pick as
+    # f"{side} ML", so the column holds "HOME ML" / "AWAY ML": the bare-literal test above
+    # misses it, and the team-token match below cannot resolve it either because the token
+    # is "AWAY", not an abbreviation. canon_side returned None, the side-resolution oracle
+    # did exactly what it exists for and refused to grade — and because the cron wraps this
+    # script in `|| true`, the AssertionError was swallowed and football_model_record froze
+    # at 2026-10-02 while six report runs reported success on top of stale records.
+    head = u.split()[0]
+    if head in ("HOME", "AWAY", "OVER", "UNDER"):
+        return head
     if kind == "total":
         if re.search(r"\bOVER\b", u):
             return "OVER"
