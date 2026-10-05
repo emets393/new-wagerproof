@@ -118,6 +118,11 @@ function PropCard({ r }: { r: PropRow }) {
           </div>
         </div>
       </div>
+      {!r.result && kick && kick.getTime() <= Date.now() && (
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+          ⏳ Game under way · result lands after the final whistle
+        </div>
+      )}
       {r.result && (
         <div className={cn('mt-3 inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11px] font-bold', r.result === 'win' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : r.result === 'loss' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400' : 'bg-muted text-muted-foreground')}>
           {r.result === 'win' ? '✅ Read was right' : r.result === 'loss' ? '❌ Read was wrong' : '➖ Push'} · actual {r.actual_value} vs {r.line}
@@ -181,8 +186,16 @@ export function PropNarrativesPage() {
           .order('score', { ascending: false }),
       ]);
       if (!cancelled) {
+        // Keep cards whose game has started. They used to be filtered out here, which put a
+        // kicked-off-but-ungraded card in a hole: gone from this list, and not yet in `graded`
+        // (that query needs result != null). On a Sunday night the week emptied out to the one
+        // Monday game while 400+ player pages sat there — McMillan's card vanished mid-game.
+        // A read is most interesting WHILE it plays out and right after, so show it with its
+        // state and let `graded` be the season archive it already is.
         const now = Date.now();
-        setRows(((data ?? []) as PropRow[]).filter((r) => !r.kickoff || new Date(r.kickoff).getTime() > now));
+        const all = (data ?? []) as PropRow[];
+        const started = (r: PropRow) => !!r.kickoff && new Date(r.kickoff).getTime() <= now;
+        setRows([...all.filter((r) => !started(r)), ...all.filter(started)]);
         setGraded((past ?? []) as PropRow[]);
         setLoading(false);
       }
@@ -238,7 +251,7 @@ export function PropNarrativesPage() {
       {loading && <p className="text-[13px] text-muted-foreground">Loading…</p>}
       {!loading && shown.length === 0 && (
         <section className="rounded-xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
-          No featured props right now. The report rebuilds after the Tuesday and Thursday data pulls, and cards drop off once their game kicks off.
+          No featured props right now. The report rebuilds after the Tuesday and Thursday data pulls. Cards stay up once their game kicks off and pick up a result when it ends.
         </section>
       )}
       {shown.map((r) => <PropCard key={r.id} r={r} />)}
