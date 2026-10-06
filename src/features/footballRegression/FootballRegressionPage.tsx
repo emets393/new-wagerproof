@@ -27,6 +27,8 @@ type UpcomingFlagRow = {
   kickoff: string | null;
   /** Readable pick for the popup row — see buildPickLabel. */
   pick: string;
+  /** Kickoff has passed but no final yet: the game is under way, not bettable. */
+  started: boolean;
 };
 
 type SignalDefRow = {
@@ -215,6 +217,46 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
   const [signalPerf, setSignalPerf] = React.useState<SignalPerformanceRow[]>([]);
   const [signalDefs, setSignalDefs] = React.useState<Record<string, SignalDefRow>>({});
   const [upcomingBySignal, setUpcomingBySignal] = React.useState<Record<string, UpcomingFlagRow[]>>({});
+  const reportSeason = report?.season ?? null;
+
+  // FLAGS GO STALE. The report/storylines are written once a week, but flags move every time the
+  // slate regenerates (daily) and a game stops being bettable the moment it kicks. The page used
+  // to fetch everything once on mount, so a tab left open showed a board that no longer existed.
+  // Refresh just the flags — cheap, two small selects — on an interval and whenever the tab is
+  // refocused. The heavy report fetch stays on mount.
+  const loadUpcoming = React.useCallback(async () => {
+    if (!reportSeason) return;
+    const [{ data: flagRows, error: flagErr }, { data: gameRows, error: gameErr }] =
+      await Promise.all([
+        collegeFootballSupabase
+          .from(SLATE_FLAGS_TABLE[sport])
+          .select('signal_key,game,market,side,tier,game_id,bet_team,bet_line,line')
+          .eq('season', reportSeason),
+        collegeFootballSupabase
+          .from(SLATE_GAMES_TABLE[sport])
+          .select('game_id,kickoff,final_home,home_team,away_team')
+          .eq('season', reportSeason),
+      ]);
+    if (flagErr) console.warn('[football-regression] slate_flags', flagErr.message);
+    if (gameErr) console.warn('[football-regression] slate_games', gameErr.message);
+    setUpcomingBySignal(groupUpcoming(flagRows, gameRows));
+  }, [sport, reportSeason]);
+
+  React.useEffect(() => {
+    if (!reportSeason) return;
+    void loadUpcoming();
+    const id = window.setInterval(() => void loadUpcoming(), 5 * 60 * 1000);
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') void loadUpcoming();
+    };
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loadUpcoming, reportSeason]);
   const { isSuccess: logosReady } = useEnsureCompTeamAssets();
 
   // Edge/team splits live behind an authed edge function — the raw table is
@@ -254,8 +296,6 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
           { data: rows, error: storyErr },
           { data: perfRows, error: perfErr },
           { data: defRows, error: defErr },
-          { data: flagRows, error: flagErr },
-          { data: gameRows, error: gameErr },
         ] = await Promise.all([
           collegeFootballSupabase
             .from('football_regression_storylines')
@@ -272,23 +312,10 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
           collegeFootballSupabase
             .from(SIGNAL_DEFS_TABLE[sport])
             .select('signal_key,display_name,one_liner,definition,why_it_works,bet_direction,typical_hit,market'),
-          // Live flags + their games, so the signal popup can list the UPCOMING games it is on.
-          // Joined client-side rather than via an embed: the two slate tables have no FK between
-          // them, and cfb_slate_flags.game_id is an INT while the NFL one is TEXT.
-          collegeFootballSupabase
-            .from(SLATE_FLAGS_TABLE[sport])
-            .select('signal_key,game,market,side,tier,game_id,bet_team,bet_line,line')
-            .eq('season', r.season),
-          collegeFootballSupabase
-            .from(SLATE_GAMES_TABLE[sport])
-            .select('game_id,kickoff,final_home,home_team,away_team')
-            .eq('season', r.season),
         ]);
         if (storyErr) console.warn('[football-regression] storylines', storyErr.message);
         if (perfErr) console.warn('[football-regression] signal_performance', perfErr.message);
         if (defErr) console.warn('[football-regression] signal_defs', defErr.message);
-        if (flagErr) console.warn('[football-regression] slate_flags', flagErr.message);
-        if (gameErr) console.warn('[football-regression] slate_games', gameErr.message);
         if (cancelled) return;
         setStorylines((rows ?? []) as StorylineRow[]);
         // Coerce n — PostgREST occasionally returns numeric columns as strings.
@@ -302,39 +329,6 @@ export function FootballRegressionPage({ sport }: { sport: 'nfl' | 'cfb' }) {
         }
         setSignalDefs(byKey);
 
-        // Only games that have NOT been played: a signal's popup is about what is still bettable.
-        const gameById = new Map<
-          string,
-          { kickoff: string | null; played: boolean; home: string | null; away: string | null }
-        >();
-        for (const g of (gameRows ?? []) as Array<Record<string, unknown>>) {
-          gameById.set(String(g.game_id), {
-            kickoff: (g.kickoff as string | null) ?? null,
-            played: g.final_home !== null && g.final_home !== undefined,
-            home: (g.home_team as string | null) ?? null,
-            away: (g.away_team as string | null) ?? null,
-          });
-        }
-        const upcoming: Record<string, UpcomingFlagRow[]> = {};
-        for (const f of (flagRows ?? []) as Array<Record<string, unknown>>) {
-          const g = gameById.get(String(f.game_id));
-          if (!g || g.played) continue;
-          const key = String(f.signal_key ?? '');
-          if (!key) continue;
-          (upcoming[key] ||= []).push({
-            signal_key: key,
-            game: (f.game as string | null) ?? null,
-            market: (f.market as string | null) ?? null,
-            side: (f.side as string | null) ?? null,
-            tier: (f.tier as string | null) ?? null,
-            kickoff: g.kickoff,
-            pick: buildPickLabel(f, g.home, g.away),
-          });
-        }
-        for (const k of Object.keys(upcoming)) {
-          upcoming[k].sort((a, b) => (a.kickoff ?? '').localeCompare(b.kickoff ?? ''));
-        }
-        setUpcomingBySignal(upcoming);
       }
       if (!cancelled) setLoading(false);
     })();
@@ -801,6 +795,54 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
   );
 }
 
+/** Group live flags by signal, keeping only games that have not FINISHED.
+ *
+ * "Upcoming" used to mean final_home is null, which also matches a game currently being played —
+ * so a signal popup listed an in-progress game as if you could still bet it. A game that has
+ * kicked off is kept (the signal did fire on it, and hiding it mid-game makes the list look wrong
+ * to anyone watching) but flagged `started` so the row can say so instead of implying a price.
+ */
+function groupUpcoming(
+  flagRows: unknown,
+  gameRows: unknown,
+): Record<string, UpcomingFlagRow[]> {
+  const now = Date.now();
+  const gameById = new Map<
+    string,
+    { kickoff: string | null; played: boolean; home: string | null; away: string | null }
+  >();
+  for (const g of (gameRows ?? []) as Array<Record<string, unknown>>) {
+    gameById.set(String(g.game_id), {
+      kickoff: (g.kickoff as string | null) ?? null,
+      played: g.final_home !== null && g.final_home !== undefined,
+      home: (g.home_team as string | null) ?? null,
+      away: (g.away_team as string | null) ?? null,
+    });
+  }
+  const out: Record<string, UpcomingFlagRow[]> = {};
+  for (const f of (flagRows ?? []) as Array<Record<string, unknown>>) {
+    const g = gameById.get(String(f.game_id));
+    if (!g || g.played) continue;
+    const key = String(f.signal_key ?? '');
+    if (!key) continue;
+    const kt = g.kickoff ? Date.parse(g.kickoff) : NaN;
+    (out[key] ||= []).push({
+      signal_key: key,
+      game: (f.game as string | null) ?? null,
+      market: (f.market as string | null) ?? null,
+      side: (f.side as string | null) ?? null,
+      tier: (f.tier as string | null) ?? null,
+      kickoff: g.kickoff,
+      started: Number.isFinite(kt) && kt <= now,
+      pick: buildPickLabel(f, g.home, g.away),
+    });
+  }
+  for (const k of Object.keys(out)) {
+    out[k].sort((a, b) => (a.kickoff ?? '').localeCompare(b.kickoff ?? ''));
+  }
+  return out;
+}
+
 /** One readable pick per flag: "Southern Miss +3.5", "OVER 49.5", "Missouri State UNDER 27.5".
  *
  * NFL flags already store a readable side ("DAL -8.5"), so anything containing a number is used
@@ -1044,7 +1086,9 @@ function SeasonSignalsSection({
           <div className="mt-3 border-t border-border/60 pt-3">
             <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               On the board now
-              {selected && selected.live.length > 0 ? ` · ${selected.live.length}` : ''}
+              {selected && selected.live.length > 0
+                ? ` · ${selected.live.filter((f) => !f.started).length}`
+                : ''}
             </p>
             {selected && selected.live.length > 0 ? (
               <ul className="space-y-1">
@@ -1058,7 +1102,7 @@ function SeasonSignalsSection({
                       {f.pick}
                     </span>
                     <span className="shrink-0 text-[10px] text-muted-foreground">
-                      {formatKickoff(f.kickoff)}
+                      {f.started ? '⏳ under way' : formatKickoff(f.kickoff)}
                       {f.tier === 'tracking' ? ' · tracking' : ''}
                     </span>
                   </li>
