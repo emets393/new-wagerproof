@@ -891,7 +891,35 @@ def book_meta():
     return {b["book_key"]: (b["display_name"], b["logo_url"]) for b in resp.json()}
 
 
-def sig_objs(sub, pick_side, market, home_ab):
+def _fired_vs_board(f, market, ab, home_ab, board_home, board_total):
+    """(line the signal FIRED at, same side's line on the board NOW) — both from the bet's view.
+
+    A signal is priced when it triggers and the market keeps moving, so a card was printing
+    "Baltimore Ravens -2.5" next to a board of "Baltimore +3" with nothing saying those are two
+    different moments. That reads as a bug (the owner reported it as one) even though -2.5 was
+    correct at trigger time — BAL@ATL wk5 2026 moved 5.5 points on a QB change. Surface both so
+    the card can say which is which instead of leaving the user to guess.
+    """
+    import numpy as _np
+    def _n(v):
+        try:
+            return None if v is None or (isinstance(v, float) and _np.isnan(v)) else float(v)
+        except Exception:
+            return None
+    if market in ("spread", "h1_spread"):
+        fired = _n(getattr(f, "bet_line", None))
+        if fired is None:                       # derive: `line` is home-perspective
+            raw = _n(getattr(f, "line", None))
+            fired = None if raw is None else (raw if ab == home_ab else -raw)
+        bh = _n(board_home)
+        board = None if bh is None else (bh if ab == home_ab else -bh)
+        return fired, board
+    if market in ("total", "h1_total"):
+        return _n(getattr(f, "line", None)), _n(board_total)
+    return _n(getattr(f, "line", None)), None
+
+
+def sig_objs(sub, pick_side, market, home_ab, board_home=None, board_total=None):
     """Per-signal display objects for a card: which TEAM/side each fired signal backs
     and whether it agrees with the card's pick. The frontend groups these under
     'Supporting Signals' (stance=support) vs 'Contradicting Signals' (stance=counter)
@@ -919,8 +947,15 @@ def sig_objs(sub, pick_side, market, home_ab):
             stance = "support" if tok[0].upper() == pick_side else "counter"
             dirn = "Over" if tok[0].upper() == "OVER" else ("Under" if tok[0].upper() == "UNDER" else None)
             action = f"{dirn}{half}" if dirn else side
+        fired, board = _fired_vs_board(f, market, (tok[0] if tok else None), home_ab,
+                                       board_home, board_total)
+        moved = (fired is not None and board is not None and abs(fired - board) >= 0.5)
+        if moved:
+            # name the drift in the human-readable line so it cannot read as a wrong number
+            action = f"{action} — priced at {fired:+g}, now {board:+g}"
         out.append(dict(key=f.signal_key, label=side, team=team,
-                        action=action, stance=stance, tier=f.tier))
+                        action=action, stance=stance, tier=f.tier,
+                        fired_line=fired, board_line=board, line_moved=bool(moved)))
     return sorted(out, key=lambda x: (x["stance"] != "support", x["key"]))
 
 
@@ -1016,7 +1051,8 @@ def build_picks(g, fl, books, kickoff, meta):
         _shown_side = side
         if disp and pd.notna(_board_home) and pd.notna(r.pred_margin):
             _shown_side = "HOME" if float(r.pred_margin) > -float(_board_home) else "AWAY"
-        _sp_objs = sig_objs(act_sp, _shown_side, "spread", r.home_ab)
+        _sp_objs = sig_objs(act_sp, _shown_side, "spread", r.home_ab,
+                            board_home=_board_home)
         _sp_sup, _sp_cnt = split_keys(_sp_objs)
         emit(r, card_group="spread", bet_type="spread", sort_order=1, pick_side=side,
              pick_team=team, pick_label=f"{team} {(bln if bln is not None else vline):+g}",
@@ -1049,7 +1085,8 @@ def build_picks(g, fl, books, kickoff, meta):
         edge = abs(r.edge_open) if pd.notna(r.edge_open) else None
         bbk, bln, bod = best_pick(bdf, "total", tdir.lower())
         disp = conv == "none"
-        _tot_objs = sig_objs(act_tot, tdir, "total", r.home_ab)
+        _tot_objs = sig_objs(act_tot, tdir, "total", r.home_ab,
+                             board_total=(cons.iloc[0].line if not cons.empty else r.open_total))
         _tot_sup, _tot_cnt = split_keys(_tot_objs)
         emit(r, card_group="total", bet_type="total", sort_order=2, pick_side=tdir,
              pick_team=None,
@@ -1122,7 +1159,7 @@ def build_picks(g, fl, books, kickoff, meta):
         bbk, bln, bod = best_pick(bdf, "h1_spread", side.lower())
         m_line = (round(-r.pred_m_anch, 1) if side == "HOME" else round(r.pred_m_anch, 1)) \
             if pd.notna(r.pred_m_anch) else None
-        _h1s_objs = sig_objs(h1f, side, "h1_spread", r.home_ab)
+        _h1s_objs = sig_objs(h1f, side, "h1_spread", r.home_ab, board_home=h1c)
         _h1s_sup, _h1s_cnt = split_keys(_h1s_objs)
         emit(r, card_group="h1_spread", bet_type="h1_spread", sort_order=6, pick_side=side,
              pick_team=home_nm if side == "HOME" else away_nm,
@@ -1145,7 +1182,8 @@ def build_picks(g, fl, books, kickoff, meta):
         conv = "low" if not h1tf.empty else "none"
         h1t = r.h1_total_close_h1_total_point
         bbk, bln, bod = best_pick(bdf, "h1_total", tside.lower())
-        _h1t_objs = sig_objs(h1tf, tside, "h1_total", r.home_ab)
+        _h1t_objs = sig_objs(h1tf, tside, "h1_total", r.home_ab,
+                             board_total=r.h1_total_close_h1_total_point)
         _h1t_sup, _h1t_cnt = split_keys(_h1t_objs)
         emit(r, card_group="h1_total", bet_type="h1_total", sort_order=7, pick_side=tside,
              pick_team=None,
@@ -1425,6 +1463,18 @@ def main():
     # published "PIT -2.5" to NEUTRAL 23 hours after it kicked. Market lines, finals, weather,
     # referee and kickoff all keep refreshing — only the model's own verdict is pinned.
     _VERDICT_COLS = [
+        # ⛔ THE LINES BELONG IN THE PINNED SET. The verdict (edge, margin, pick) froze at kickoff
+        # while fg_spread_open / fg_spread_close kept refreshing, so a frozen edge sat beside live
+        # line columns and `fg_spread_edge` reconciled to NO published line: on the 64 rows where
+        # the line moved it matched pred_margin + open on 59%, + close on 16%, and NEITHER on
+        # weeks 4-5 (12 of 16, 7 of 15). Nobody could reconstruct a published edge, and conviction
+        # tiers key off it. Once a game has KICKED OFF its close is final by definition, so
+        # freezing the lines with the verdict is not a loss of information — it is what makes the
+        # row self-consistent and auditable: edge == pred_margin + fg_spread_open, always.
+        # This matters more now that build_odds.py bounds the opener (OPEN_MAX_DAYS): rebuilding
+        # odds_consensus legitimately MOVES historical openers, which would silently break every
+        # already-published edge if the lines were not pinned alongside it.
+        "fg_spread_open", "fg_spread_close", "fg_total_open", "fg_total_close",
         "fg_spread_pick", "fg_pred_spread", "fg_pred_margin", "fg_spread_edge",
         "fg_pred_home_pts", "fg_pred_away_pts", "fg_pred_total",
         "fg_home_cover_prob", "fg_home_win_prob", "fg_spread_confluence",
