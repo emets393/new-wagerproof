@@ -797,10 +797,11 @@ function RecordSplits({ splits, sport, logosReady, teamQuery, setTeamQuery }: {
 
 /** Group live flags by signal, keeping only games that have not FINISHED.
  *
- * "Upcoming" used to mean final_home is null, which also matches a game currently being played —
- * so a signal popup listed an in-progress game as if you could still bet it. A game that has
- * kicked off is kept (the signal did fire on it, and hiding it mid-game makes the list look wrong
- * to anyone watching) but flagged `started` so the row can say so instead of implying a price.
+ * THE RULE IS FINAL, NOT KICKOFF (owner, 2026-10-06): a game stays on this list until a final
+ * score lands, and it is counted the whole time. `started` exists only so the row can show
+ * "under way" in place of a kickoff time that has already passed — it never filters and never
+ * changes the count. An earlier version excluded started games from the header count, which made
+ * the number disagree with the rows underneath it.
  */
 function groupUpcoming(
   flagRows: unknown,
@@ -1086,9 +1087,7 @@ function SeasonSignalsSection({
           <div className="mt-3 border-t border-border/60 pt-3">
             <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               On the board now
-              {selected && selected.live.length > 0
-                ? ` · ${selected.live.filter((f) => !f.started).length}`
-                : ''}
+              {selected && selected.live.length > 0 ? ` · ${selected.live.length}` : ''}
             </p>
             {selected && selected.live.length > 0 ? (
               <ul className="space-y-1">
