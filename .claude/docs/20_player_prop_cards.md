@@ -163,6 +163,24 @@ its `bucket` dict (`bucketReceivingSeparationRouteGo`, `…Slant`, `…InDig`, `
 Per-target separation is graded `playPassReceiverSeparationName` ∈ {Tight, Step, Closing, Open,
 Wide Open} — colour the branch by how open he gets on it.
 
+**★ USE THE ROUTE TABLE, NOT THE TARGETED-PLAY CUBE.** `receivingSeparationByRoutes__player` is the
+right source: 73.7 rows/game, 549 qualifying players, ~100 routes per player-season across 11-12
+families, and each `bucket` carries routes RUN (`ReceivingSeparationRoutesTotal`), targets per route
+(`ReceivingTargetsPerRoute`), separation win rate (`ReceivingSeparationWinsPercentage`) and
+yards per route. The targeted-play cube only records a family on ~21% of rows and yields 2-7
+families per player-season, which is a sample, not a route tree.
+
+**★ TOP 3 OVERALL, CROSSED WITH THE DEFENSE LEAGUE-WIDE — measured, not chosen by taste.**
+| option | sample | verdict |
+|---|---|---|
+| his top 3 routes **overall** | ~100 routes/season, 11-12 families | top 3 = **52%** of his routes; H1 top-3 vs H2 top-3 overlap **2.3 of 3** — his identity is STABLE |
+| his top 3 **vs that defense** | median **14 routes** vs one opponent, median **2** per (opponent, route) | 2 routes is noise — the same trap as head-to-head production (§3) |
+
+So: **branches = his top 3 routes overall. Colour/threat = how THIS defense performs against those
+routes across its whole season**, computed over every receiver it has faced, not the one or two
+meetings with him. Both sides of that cross have a real sample; "his top 3 vs this defense" has
+neither.
+
 **⛔ DEFENSE-vs-ROUTE NEEDS A VALIDATED DENOMINATOR BEFORE IT SHIPS.**
 `player_receiving-routes-run` is a LONG-FORMAT CUBE: alignment, route family, coverage scheme and
 separation are all split dimensions **in the same file**, so one target appears in several rows.
