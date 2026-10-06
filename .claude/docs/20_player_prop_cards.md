@@ -121,8 +121,32 @@ NGS is the FALLBACK when an FP field is thin, never the first choice.
 | BELL | `rushingBellCow__player` | player share of team snaps / routes / targets / XFP |
 | ALLOW | `fantasyPointsAllowed__player` | what the opponent allows **to that position** — the matchup arm |
 
+### ★ DEF_ALIGN — the defense against WHERE HE LINES UP, not just his position
+`player_receiving-routes-run` carries per-alignment **targets and yards** on every player-game
+(`playerStatsReceivingAlignmentSlot/Wide/Inline/BackfieldTargetsTotal` and `…YardsTotal`) with
+`opponentAbbreviation` on the row. Group by opponent and you get, per game, what that defense
+surrenders to slot vs wide vs inline vs backfield receivers. `receivingSeparationByAlignment__player`
+adds separation allowed per alignment via its `bucket` dict
+(`bucketReceivingSeparationSlot/Wide/Inline/Backfield`).
+
+**This is not a cosmetic split — it is a different matchup.** Measured on 2025:
+
+| defense | slot yds/g allowed | wide yds/g allowed |
+|---|---|---|
+| GB | **48.5** | 108.9 |
+| MIN | 50.1 | 88.0 |
+| WAS | **98.4** | 98.4 |
+| PIT | 89.8 | 111.0 |
+
+League spread: slot 48-98, wide 76-127, and **corr(slot, wide) across defenses = +0.14**. A defense
+that smothers the slot is close to uninformative about the boundary. So a slot receiver facing GB
+and a boundary receiver facing GB are opposite bets, and a position-only allowance would call them
+the same. ⚠ Weight the arm by HIS alignment share (ROUTE `marketShareReceivingAlignmentSlotRoutesTotal`
+etc.) — a 70%-slot receiver reads the slot number; a balanced one reads a blend of both.
+
 Common frame, so every card reads the same:
 **1 BASELINE · 2 ROLE · 3 EFFICIENCY · 4 MATCHUP · 5 SCHEME · 6 SITUATION**
+Arm 4 carries BOTH halves: *vs his position* (ALLOW) and *vs his alignment* (DEF_ALIGN).
 
 ### QB
 | market | 1 BASELINE | 2 ROLE | 3 EFFICIENCY | 4 MATCHUP | 5 SCHEME | 6 SITUATION |
@@ -137,15 +161,15 @@ Common frame, so every card reads the same:
 |---|---|---|---|---|---|---|
 | rush yds | blended (k=2.5) | BELL share of team rush attempts | RUSHB `RunsFiveOrMorePercentage` | ALLOW rush yds to RB | RUSHC `StuffsPercentage` vs this front | §5 |
 | rush attempts | blended (k=1.0) | SNAP `marketShareSnapsOffenseRush` | RUSHC `SuccessPercentage` | ALLOW rush attempts | SNAP team `Inside5SnapsOffenseTotal` share | §5 |
-| receptions | blended (k=2.75) | ROUTE `marketShareReceivingAlignmentBackfieldRoutesTotal` | RECADV `TargetsPerRoute` | ALLOW receptions to RB | MVZ `bucketMan` vs `bucketZone` TPR | §5 |
+| receptions | blended (k=2.75) | ROUTE `marketShareReceivingAlignmentBackfieldRoutesTotal` | RECADV `TargetsPerRoute` | ALLOW receptions to RB **+ DEF_ALIGN backfield** | MVZ `bucketMan` vs `bucketZone` TPR | §5 |
 | anytime TD | blended | SNAP team `Inside5/10SnapsOffenseTotal` share | RUSHC `ScrimmageTouchdownsExpectedTotal` | ALLOW RZ TDs | RUSHC `StuffsPercentage` | §5 |
 
 ### WR / TE
 | market | 1 BASELINE | 2 ROLE | 3 EFFICIENCY | 4 MATCHUP | 5 SCHEME | 6 SITUATION |
 |---|---|---|---|---|---|---|
-| receptions | blended (k=2.75) | TGT `marketShareReceivingTargetsTotal` | RECADV `TargetsPerRoute`, `TargetsCatchablePercentage` | ALLOW receptions to position | MVZ `bucketMan`/`bucketZone` TPR vs this D's rate | §5 |
-| rec yds | blended (k=4.0) | ROUTE slot / wide / backfield share — **where he lines up** | MVZ `AveragesPerRouteYardsTotal` | ALLOW rec yds to position | SEPC separation vs this D's main coverage | §5 |
-| targets | blended (k=2.25) | TGT share + ROUTE `marketShareReceivingRoutesTotal` | RECADV `TargetsContestedTotal` | ALLOW targets to position | MVZ `bucketSingleHigh`/`bucketTwoHigh` | §5 |
+| receptions | blended (k=2.75) | TGT `marketShareReceivingTargetsTotal` | RECADV `TargetsPerRoute`, `TargetsCatchablePercentage` | ALLOW receptions to position **+ DEF_ALIGN targets allowed to his alignment** | MVZ `bucketMan`/`bucketZone` TPR vs this D's rate | §5 |
+| rec yds | blended (k=4.0) | ROUTE slot / wide / backfield share — **where he lines up** | MVZ `AveragesPerRouteYardsTotal` | ALLOW rec yds to position **+ DEF_ALIGN yds allowed to his alignment** | SEPC separation vs this D's main coverage | §5 |
+| targets | blended (k=2.25) | TGT share + ROUTE `marketShareReceivingRoutesTotal` | RECADV `TargetsContestedTotal` | ALLOW targets to position **+ DEF_ALIGN** | MVZ `bucketSingleHigh`/`bucketTwoHigh` | §5 |
 | anytime TD | blended | SNAP team `Inside10/20SnapsOffenseTotal` share | RUSHC/`XfpPprTotal` expected TDs | ALLOW RZ TDs to position | SEPC separation inside 20 | §5 |
 
 ⚠ An arm with no FP data **collapses — it never renders a zero.** Deep-bench players have empty
@@ -192,3 +216,7 @@ the first time.
 4. **Add the situational splits** (home/away, primetime, divisional) and the three narrative
    triggers with their historical records.
 5. **Keep head-to-head as history** with its n, styled apart from projections.
+6. **Build DEF_ALIGN** as a derived weekly table: group `player_receiving-routes-run` by
+   (season, week, opponent) summing alignment targets/yards, then take the entering-game mean per
+   defense, shrunk toward the league mean like any other allowance. Join separation allowed from
+   `receivingSeparationByAlignment__player`. Weight by the player's own alignment share.
