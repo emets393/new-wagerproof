@@ -1003,7 +1003,20 @@ def build_picks(g, fl, books, kickoff, meta):
         bbk, bln, bod = best_pick(bdf, "spread", side.lower())
         model_line = round(-r.pred_margin, 1) if side == "HOME" else round(r.pred_margin, 1)
         disp = conv == "none"
-        _sp_objs = sig_objs(act_sp, side, "spread", r.home_ab)
+        # STANCE MUST BE AGAINST WHAT THE CARD SHOWS (owner screenshot, BAL@ATL wk5 2026).
+        # `side` is the BET side and is chosen against the OPENER (reg_edge). A projection-only
+        # card renders the MODEL's lean against the board instead. Those diverge whenever the line
+        # moves across the model's own number — that game moved ~6.5 pts on a QB change, so the
+        # card displayed "Baltimore +3" while `side` was ATL, and every Baltimore signal was
+        # stamped "Contradicts" on a card that was telling the user Baltimore.
+        # A play card is answerable against its bet; a projection-only card must be answered
+        # against the projection it is actually displaying.
+        _close_home = r.get("spread_close_spread_home", np.nan)
+        _board_home = _close_home if pd.notna(_close_home) else r.open_spread
+        _shown_side = side
+        if disp and pd.notna(_board_home) and pd.notna(r.pred_margin):
+            _shown_side = "HOME" if float(r.pred_margin) > -float(_board_home) else "AWAY"
+        _sp_objs = sig_objs(act_sp, _shown_side, "spread", r.home_ab)
         _sp_sup, _sp_cnt = split_keys(_sp_objs)
         emit(r, card_group="spread", bet_type="spread", sort_order=1, pick_side=side,
              pick_team=team, pick_label=f"{team} {(bln if bln is not None else vline):+g}",
