@@ -16,7 +16,7 @@ Verified-correct findings are recorded too, so nobody re-investigates them.
 | 5 | `nfl_training_data_epa` archiver behind (31 vs 60 rows) | data lag | 🟡 GUARDED, re-run needed |
 | 6 | `net_rz_td_rate_s2d` 100% NULL on all 2,265 rows | dead feature | ⬜ OPEN |
 | 7 | `h_third_road` constant 0 on all rows (logically impossible) | dead feature | ⬜ OPEN |
-| 8 | **The "opener" is a PRESEASON line (avg 78.7 days out)** | **worst found** | 🟡 DIAGNOSED |
+| 8 | The "opener" had no lookback bound | small, real | ✅ FIXED (severity overstated) |
 | 9 | `nfl_team_stats` keeps no rating snapshot history | unrecoverable gaps | ⬜ OPEN |
 | 10 | `last5_pr`/`consistency_pr` NULL for 2026 wks 1-3 | data loss (permanent) | ⬜ OPEN |
 | 11 | `nfl_player_game_logs` has ZERO rows for 2023 | data loss | ⬜ OPEN |
@@ -98,39 +98,38 @@ inserting them today stamps post-game values onto a pregame row — the same loo
 power-rating snapshot gap (#9/#10). They are permanently lost. The 2-hour bound exists for this
 reason and must stay short.
 
-## 🟡 #8 — diagnosed, and it is the worst thing in this audit
+## ✅ #8 — fixed, and my severity call was wrong
 
-I opened this as "`fg_spread_edge` reconciles to no published line". That was the symptom.
+I opened this as "`fg_spread_edge` reconciles to no published line", escalated it to the worst
+finding in the audit, and the measurement did not support that. Both halves are recorded.
 
-**⛔ `build_odds.py` puts NO LOOKBACK BOUND on the opener.** It filters only
-`pre = oh[oh.snap_ts < oh.commence_time]`, then takes `groupby("book").snap_ts.idxmin()` — each
-book's earliest snapshot EVER. NFL books post season-long lookahead lines in July and our capture
-begins 2026-07-26, so for most games the "opener" is a July futures number.
+**THE DEFECT (real).** `build_odds.py` filtered only `pre = oh[oh.snap_ts < oh.commence_time]`,
+then took each book's earliest snapshot EVER. Books post season-long lookahead lines in July and
+our capture starts 2026-07-26, so a game far from kickoff got a preseason futures number as its
+"opener" — and that value drives `reg_edge`, `REG_CAP`, the price printed on every published pick,
+`spread_move`, and the grading basis (`GRADE_LINE = {"fg_harness": "open"}`).
 
-MEASURED IN PROD (`nfl_historical_odds`, 2026, 326 games): **average 78.7 days before kickoff**;
-53 games at 0-7 days, 107 at 45-90, **165 at 92-165 days**.
+**⚠ WHERE I WAS WRONG.** I led with "average 78.7 days before kickoff". That average was dominated
+by games still MONTHS out that only had July snapshots. Per season, on games that actually
+approached kickoff, the unbounded opener was **already a weekly number** — mean age 6.6d (2023),
+8.6d (2024), 8.2d (2025), 17.5d (2026). Bounding moves the line by a mean of **0.02 / 0.04 / 0.04 /
+0.14 points**; 1.8% of games move >= 1pt; **no game in any season moves 3+**. The locked
+opener-graded record is NOT materially inflated by this and it does not explain a marginal model.
 
-That one value drives `reg_edge`, `REG_CAP = 7.0` and the conviction ladder, the price printed on
-every pick (`fg_spread_pick = f"{team} {open_spread:+g}"`), `spread_move`, and — the serious part —
-**the grading basis** (`GRADE_LINE = {"fg_harness": "open", "consensus_totals": "open"}`).
+**THE FIX (applied).** `OPEN_MAX_DAYS = 11` bounds the filter; a new `open_days_out` column
+publishes the opener's age so nobody has to trust it blindly again. 11 was measured, not guessed:
+snapshot volume holds through day 11 (10,091 snaps / 777 games) and collapses at day 12 (3,163 /
+205). Verified after: 2023/24/25 keep ALL games (285/286/282); 193 dropped, **every one still in
+the future**; the CLOSE is untouched (mean delta 0.005); the current week keeps all 15 games.
+⚠ Because capture is continuous the earliest in-window snap sits at the boundary, so the opener is
+now effectively **"the consensus line 11 days out"** — a fixed-horizon policy symmetric with the
+owner's T-60 close rule, not "the first line ever posted". `OPEN_MAX_DAYS` is the knob; 7 would
+mean "the week's board as it posts".
 
-**So the published record grades a week-N pick, made from week-N features, against a July line.
-You could not have placed that bet, and a preseason line is much softer than a weekly opener, so
-the edge reads high.** The locked opener-graded sides 53.4% / totals ~57% are suspect for this
-reason.
-⚠ My audit's **52.3% is UNAFFECTED** — it grades at the CLOSE. The model's capability estimate
-stands; it is the PUBLISHED record that is inflated, and this is most of the gap between them.
-
-SECOND DEFECT, same area, which is what made it visible: `fg_spread_edge` and `fg_pred_margin` are
-in `_VERDICT_COLS` and **pinned at kickoff**, while `fg_spread_open`/`_close` keep refreshing. A
-frozen edge beside live line columns must drift. Basis flip on moved lines: wks 1-3 open-basis
-11/12, 13/14, 13/14; **wks 4-5 close-basis 10/12, 12/12**.
-
-FIX (deliberately NOT applied — it re-rates the whole product): bound the `pre` filter to the
-earliest snap within ~7-10 days of kickoff, use ONE opener definition everywhere, then re-derive
-REG_CAP and the conviction ladder and re-grade the locked record. **Expect the opener-graded record
-to FALL.** There is an owner policy for the close ("closing line" = T-60) and none for the opener;
-that gap is what allowed this. This needs an owner decision, not a silent patch.
+**STILL OPEN, same area:** `fg_spread_edge` / `fg_pred_margin` are in `_VERDICT_COLS` and pinned at
+kickoff while `fg_spread_open`/`_close` keep refreshing, so a frozen edge sits beside live line
+columns and must drift. Basis flip on moved lines: wks 1-3 open 11/12, 13/14, 13/14; wks 4-5 close
+10/12, 12/12. Fix by pinning the line columns with the verdict, or recomputing from the pinned pair.
 
 ## ⬜ Open — with the evidence needed to fix each
 
