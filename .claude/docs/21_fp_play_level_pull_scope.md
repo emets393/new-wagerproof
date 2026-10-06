@@ -44,6 +44,15 @@ Our roles: `role_uJb30OfZpu4pFfS7VQEq` (+ anonymous/authenticated). **18 tools a
 `role_oBzJymzDetdpkUr0gfXD`**, including `passingManVsZone`, `receivingTargets`,
 `targetDistribution`, `pressureReport`, `personnel`, `gameLogs`.
 
+## ⚠ AMENDED 2026-10-06 — most of this is reachable WITHOUT the pull
+The owner pushed back: defensive tendencies should come from game-level data we already have. They
+were right, and it narrows this scope sharply. Player-scope rows all carry `opponentAbbreviation`,
+so grouping by it yields **defense vs route** (85,038 cells, 2023-25, all 32 defenses — HST allows
++7.69 ypr on posts, NE is stingiest on Go and leakiest on Slant), **defense vs alignment**, and
+**defense vs coverage shell**, with no new pull and no tier upgrade. See
+`22_defensive_tendencies_available.md`. What remains out of reach is only the INTERACTION
+(coverage x route x separation on one row). The paths below apply to that alone.
+
 ## Three paths
 
 **A — copy the request out of the FP web app (do this first).** Their site renders coverage and
