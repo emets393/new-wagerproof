@@ -85,48 +85,71 @@ He faces them once or twice a year; that mean is noise. So:
 
 ---
 
-## 4. The arms, per position x market
+## 4. The arms, per position x market — FANTASY POINTS FIRST
 
-Common frame, so the card reads the same everywhere:
+**Owner rule: almost everything comes from Fantasy Points.** A first draft of this spec leaned on
+NFL Next Gen Stats (`cpoe`, `time_to_throw`, `separation`, `cushion`) because those are what
+`nfl_prop_player_pages.ngs` already carries. That was wrong: FP is the charted data people care
+about, and we hold **39 player-level FP tables, 2021-2026**, in `research/nfl-extreme-outcomes/data/fpdata`.
+NGS is the FALLBACK when an FP field is thin, never the first choice.
 
-1. **BASELINE** — the blended rate + % this season
-2. **ROLE** — how much of the offence he is
-3. **EFFICIENCY** — the position metric that drives *this* market
-4. **MATCHUP** — defense allowance vs his position
-5. **SCHEME** — his production vs the look this defense runs most
-6. **SITUATION** — context (§5), or head-to-head history when a narrative is live
+### How the FP player tables are shaped
+* One row per **player-game**, wide: splits live in column names
+  (`playerStatsReceivingAlignmentSlotRoutesTotal`).
+* The split tables carry a **`bucket` dict** keyed `bucketOverall`, `bucketMan`, `bucketZone`,
+  `bucketSingleHigh`, `bucketTwoHigh`, and it goes down to PLAY level — `playDownNumber`,
+  `playStartClockQuarter`, `playOffensePersonnelKey`, `playDefenseCoverageSchemeParent`,
+  `playPlayerAlignmentSide`. Quarter/down/personnel splits are therefore available, not aspirational.
+* `marketShare*` columns are already the player's share of his own team — use them directly rather
+  than dividing by a team total.
+* ⚠ Join on `playerPlayerId` (FP's own id) via `fpdata/player_crosswalk.parquet`. FP uses `BLT` for
+  Baltimore and `LA`/`LAR` inconsistently — the crosswalk is the only safe path.
 
-Sources: `P` = `nfl_prop_player_pages`, `G` = `nfl_player_game_logs`, `S` = `nfl_slate_props`,
-`F` = FP warehouse (`data/fpdata`, see §6 — not yet wired).
+### Source tables (all `fpdata/`)
+| short | file | what it gives |
+|---|---|---|
+| SNAP | `offenseSnaps__player` | `marketShareSnapsOffenseTotal/Pass/Rush`, team `Inside5/10/20SnapsOffenseTotal` |
+| ROUTE | `receivingRoutesRun__player` | `marketShareReceivingAlignmentSlot/Wide/BackfieldRoutesTotal` — **where he lines up** |
+| TGT | `receivingTargetShareReport__player` | `marketShareReceivingTargetsTotal` |
+| RECADV | `receivingAdvanced__player` | `TargetsPerRoute`, `TargetsCatchablePercentage`, `TargetsContestedTotal` |
+| MVZ | `receivingManVsZone__player` | per `bucket`: `TargetsPerRoute`, `AveragesPerRouteYardsTotal` |
+| SEPC | `receivingSeparationByCoverage__player` | per `bucket`: `ReceivingSeparationRoutesTotal` |
+| QBCOV | `qbCoverageMatchup__player` | `CoverageSchemeMan/Cover2/Cover3 FantasyPointsPprTotal` + `DropbacksPercentage` |
+| PDEPTH | `passingDepth__player` | depth-of-target buckets, `PassingHeroThrowTotal`, `AttemptsCatchablePercentage` |
+| RUSHC | `rushingConcepts__player` | `RushingAttemptsStuffsPercentage`, `SuccessPercentage`, `ScrimmageTouchdownsExpectedTotal`, `XfpPprTotal` |
+| RUSHB | `rushingBasic__player` | `RunsOneOrMore/ThreeOrMore/FiveOrMore/TenOrMore/FifteenOrMorePercentage` — **consistency** |
+| BELL | `rushingBellCow__player` | player share of team snaps / routes / targets / XFP |
+| ALLOW | `fantasyPointsAllowed__player` | what the opponent allows **to that position** — the matchup arm |
+
+Common frame, so every card reads the same:
+**1 BASELINE · 2 ROLE · 3 EFFICIENCY · 4 MATCHUP · 5 SCHEME · 6 SITUATION**
 
 ### QB
 | market | 1 BASELINE | 2 ROLE | 3 EFFICIENCY | 4 MATCHUP | 5 SCHEME | 6 SITUATION |
 |---|---|---|---|---|---|---|
-| pass yds | blended pass_yds/g (k=1.5) | `P.ngs.intended_air_yds` | `P.ngs.cpoe` | pass yds allowed to QBs | `P.scheme.player_splits.pressure` vs `look_focus` | §5 |
-| pass TDs | blended pass_tds/g (k=4.25) | RZ pass share `F` | `P.ngs.aggressiveness` | pass TDs allowed | `player_splits.man` / `.zone` | §5 |
-| pass attempts | blended attempts/g (k=1.0) | team pass rate over expected `F` | `P.ngs.time_to_throw` | plays allowed / pace | `player_splits.two_high` (shells invite throws) | §5 |
-| rush yds | blended rush_yds/g (k=2.5) | designed-run share `F` | `P.ngs.time_to_throw` (scramble proxy) | rush yds allowed to QBs | `player_splits.blitz` | §5 |
+| pass yds | blended (k=1.5) | SNAP `marketShareSnapsOffensePass` | PDEPTH `AttemptsCatchablePercentage` + aDOT | ALLOW pass yds to QB | QBCOV ppr vs the coverage this D runs most | §5 |
+| pass TDs | blended (k=4.25) | SNAP team `Inside10SnapsOffenseTotal` | PDEPTH `PassingHeroThrowTotal` | ALLOW pass TDs to QB | QBCOV `CoverageSchemeMan…` vs `…DropbacksPercentage` | §5 |
+| pass attempts | blended (k=1.0) | SNAP `marketShareSnapsOffensePass` | PDEPTH `PassingDropbacksTotal` per game | ALLOW dropbacks faced | QBCOV two-high share (shells invite throws) | §5 |
+| rush yds | blended (k=2.5) | RUSHC `RushingAttemptsTotal` share | RUSHC `SuccessPercentage` | ALLOW QB rush yds | QBCOV pressure/blitz label split | §5 |
 
 ### RB
 | market | 1 BASELINE | 2 ROLE | 3 EFFICIENCY | 4 MATCHUP | 5 SCHEME | 6 SITUATION |
 |---|---|---|---|---|---|---|
-| rush yds | blended (k=2.5) | carry share `F` | `P.ngs.ryoe_per_att` | rush yds allowed to RBs | `P.scheme.rush_splits` vs `rush_look_focus` | §5 |
-| rush attempts | blended (k=1.0) | carry share + `P.ngs.rz_carry_share` | `P.ngs.time_to_los` | rush attempts allowed | `scheme_game_splits.heavy_box` / `.light_box` | §5 |
-| receptions | blended (k=2.75) | route share `F` | `P.ngs.efficiency` | receptions allowed to RBs | `player_splits.man` / `.zone` | §5 |
-| anytime TD | blended total_td/g | `P.ngs.rz_carry_share` | goal-line share `F` | RZ TDs allowed | `scheme_game_splits.heavy_box` | §5 |
+| rush yds | blended (k=2.5) | BELL share of team rush attempts | RUSHB `RunsFiveOrMorePercentage` | ALLOW rush yds to RB | RUSHC `StuffsPercentage` vs this front | §5 |
+| rush attempts | blended (k=1.0) | SNAP `marketShareSnapsOffenseRush` | RUSHC `SuccessPercentage` | ALLOW rush attempts | SNAP team `Inside5SnapsOffenseTotal` share | §5 |
+| receptions | blended (k=2.75) | ROUTE `marketShareReceivingAlignmentBackfieldRoutesTotal` | RECADV `TargetsPerRoute` | ALLOW receptions to RB | MVZ `bucketMan` vs `bucketZone` TPR | §5 |
+| anytime TD | blended | SNAP team `Inside5/10SnapsOffenseTotal` share | RUSHC `ScrimmageTouchdownsExpectedTotal` | ALLOW RZ TDs | RUSHC `StuffsPercentage` | §5 |
 
 ### WR / TE
 | market | 1 BASELINE | 2 ROLE | 3 EFFICIENCY | 4 MATCHUP | 5 SCHEME | 6 SITUATION |
 |---|---|---|---|---|---|---|
-| receptions | blended (k=2.75) | `P.ngs.air_share` + route share `F` | `P.ngs.catch_pct`, `drop_rate` | receptions allowed to the position | `player_splits.man` vs `.zone` x `look_focus` | §5 |
-| rec yds | blended (k=4.0) | target share `F` | `P.ngs.separation`, `yac_above_exp` | rec yds allowed | `player_splits` vs `look_focus` | §5 |
-| targets | blended (k=2.25) | `P.ngs.air_share` | `P.ngs.cushion`, `adot` | targets allowed | `player_splits.two_high` | §5 |
-| anytime TD | blended (k=4.25-ish) | `P.ngs.rz_tgt_share` | `P.ngs.created_rate` | RZ TDs allowed to position | `scheme_game_splits.single_high` | §5 |
+| receptions | blended (k=2.75) | TGT `marketShareReceivingTargetsTotal` | RECADV `TargetsPerRoute`, `TargetsCatchablePercentage` | ALLOW receptions to position | MVZ `bucketMan`/`bucketZone` TPR vs this D's rate | §5 |
+| rec yds | blended (k=4.0) | ROUTE slot / wide / backfield share — **where he lines up** | MVZ `AveragesPerRouteYardsTotal` | ALLOW rec yds to position | SEPC separation vs this D's main coverage | §5 |
+| targets | blended (k=2.25) | TGT share + ROUTE `marketShareReceivingRoutesTotal` | RECADV `TargetsContestedTotal` | ALLOW targets to position | MVZ `bucketSingleHigh`/`bucketTwoHigh` | §5 |
+| anytime TD | blended | SNAP team `Inside10/20SnapsOffenseTotal` share | RUSHC/`XfpPprTotal` expected TDs | ALLOW RZ TDs to position | SEPC separation inside 20 | §5 |
 
-⚠ `P.ngs` is populated for real contributors and EMPTY for deep bench players (verified: a WR4 has
-`ngs: []`). An arm with no data **collapses** — it does not render a zero.
-
----
+⚠ An arm with no FP data **collapses — it never renders a zero.** Deep-bench players have empty
+rows, and a zero reads as data. Fall back to `nfl_prop_player_pages.ngs` only where noted.
 
 ## 5. Situation — context only, never an input
 
@@ -157,9 +180,12 @@ the first time.
 
 ## 6. What has to be built before this ships
 
-1. **Wire the FP research layer in.** `nfl_prop_player_pages.research` is NULL and the column that
-   should carry FP (`fp_edge`) is carrying the projection model instead. Every `F` source above
-   depends on this. The warehouse exists (`data/fpdata`, 2021+); it is not reaching the page.
+1. **Wire Fantasy Points into the page payload — this is the whole job.** Every arm in §4 reads an
+   FP table. Today `nfl_prop_player_pages.research` is NULL and the column that should carry FP
+   (`fp_edge`) is carrying the projection model instead, so NONE of it reaches the client. The
+   warehouse exists (39 player tables, 2021-2026, `data/fpdata`) and is loaded weekly by
+   `fp_pull.py` / `fp_load.py`. Build a per player-week FP payload keyed by `playerPlayerId`
+   through `player_crosswalk.parquet`, entering-game (shift(1)) like every other feature here.
 2. **Extend the narratives engine to every prop** so each one carries its data, while the GRADED
    picks stay only those the regression report selects.
 3. **Add the blend + weight** to the page payload (k table in §2), with the rookie flag.
