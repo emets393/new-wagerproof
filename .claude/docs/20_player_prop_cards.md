@@ -144,9 +144,39 @@ and a boundary receiver facing GB are opposite bets, and a position-only allowan
 the same. ⚠ Weight the arm by HIS alignment share (ROUTE `marketShareReceivingAlignmentSlotRoutesTotal`
 etc.) — a 70%-slot receiver reads the slot number; a balanced one reads a blend of both.
 
+### ★ THE PLAYSHEET + ROUTE TREE (owner, 2026-10-06)
+Two interactive pieces sit beside the arms, both straight out of FP.
+
+**Where he lines up — a field diagram.** `player_receiving-routes-run` carries
+`playPlayerAlignmentFamily` ∈ {**Backfield, Inline, Slot, Wide**} and `playPlayerAlignmentSide` ∈
+{**Left, Right**} — eight renderable spots. Weight each spot by his route count there and the
+diagram IS his alignment profile: a boundary X lights up Wide-Left, a movable slot lights up four.
+Hover a spot -> his production from it (`playerStatsReceivingAlignment{Slot,Wide,Inline,Backfield}
+{Routes,Targets,Yards}Total`) and what this defense allows there (DEF_ALIGN).
+
+**What he runs — a route tree.** `playPassTargetedRouteFamily` has **18 families**: Go, Post,
+Corner, Slant, Hitch, In, Out, Comeback, Flat, Wheel, Screen, Flare, Mid/Deep Cross,
+Shallow Cross/Trick, End Zone Fade, Backfield Out, Backfield Screen, Circle/Texas. Size each branch
+by his target share on it. `receivingSeparationByRoutes__player` gives separation per route through
+its `bucket` dict (`bucketReceivingSeparationRouteGo`, `…Slant`, `…InDig`, `…Post`, `…Corner`,
+`…Out`, `…Hitch`, `…Crossers`, `…Flat`, `…Screens`, `…Comeback`, `…Backfield`, `…Overall`).
+Per-target separation is graded `playPassReceiverSeparationName` ∈ {Tight, Step, Closing, Open,
+Wide Open} — colour the branch by how open he gets on it.
+
+**⛔ DEFENSE-vs-ROUTE NEEDS A VALIDATED DENOMINATOR BEFORE IT SHIPS.**
+`player_receiving-routes-run` is a LONG-FORMAT CUBE: alignment, route family, coverage scheme and
+separation are all split dimensions **in the same file**, so one target appears in several rows.
+Summing across it double-counts — a naive group-by produced "PIT allows 48 Go routes per game",
+which is impossible. Build defense-vs-route from the dedicated bucket table
+(`receivingSeparationByRoutes__player`) or by filtering the cube to ONE dimension at a time, and
+sanity-check the league mean against a known total before it reaches a card.
+⚠ FP team codes differ: **ARZ** not ARI, **BLT** not BAL, **CLV** not CLE, **HST** not HOU.
+Go through `player_crosswalk.parquet`; a raw join silently drops those teams and reads as 0.0.
+
 Common frame, so every card reads the same:
 **1 BASELINE · 2 ROLE · 3 EFFICIENCY · 4 MATCHUP · 5 SCHEME · 6 SITUATION**
 Arm 4 carries BOTH halves: *vs his position* (ALLOW) and *vs his alignment* (DEF_ALIGN).
+The playsheet and route tree are the interactive centre, not arms — they do not count against six.
 
 ### QB
 | market | 1 BASELINE | 2 ROLE | 3 EFFICIENCY | 4 MATCHUP | 5 SCHEME | 6 SITUATION |
@@ -216,7 +246,10 @@ the first time.
 4. **Add the situational splits** (home/away, primetime, divisional) and the three narrative
    triggers with their historical records.
 5. **Keep head-to-head as history** with its n, styled apart from projections.
-6. **Build DEF_ALIGN** as a derived weekly table: group `player_receiving-routes-run` by
+6. **Build the playsheet + route tree payload**: alignment family x side route counts, his route
+   mix by family, separation per route, and the defense's allowance on both — denominator
+   validated per the cube warning above.
+7. **Build DEF_ALIGN** as a derived weekly table: group `player_receiving-routes-run` by
    (season, week, opponent) summing alignment targets/yards, then take the entering-game mean per
    defense, shrunk toward the league mean like any other allowance. Join separation allowed from
    `receivingSeparationByAlignment__player`. Weight by the player's own alignment share.
