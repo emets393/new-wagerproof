@@ -66,7 +66,15 @@ def cover_margin(flag, game, *, side_override=None, line_override=None):
         return None
     mkt = flag["market"]
     side = str(side_override if side_override is not None else (flag.get("side") or "")).upper()
-    is_home = flag.get("bet_team") == game.get("home_team")
+    # CFB moneyline rows carry bet_team = NULL and encode the side in the string ("AWAY ML"),
+    # so read the side first and fall back to the team name.
+    _side_raw = str(side_override if side_override is not None else (flag.get("side") or "")).upper()
+    if _side_raw.startswith("HOME"):
+        is_home = True
+    elif _side_raw.startswith("AWAY"):
+        is_home = False
+    else:
+        is_home = flag.get("bet_team") == game.get("home_team")
     # `side` is authoritative; bet_direction is only a fallback for rows whose side string
     # does not name a direction. OR-ing the two let bet_direction override an explicit side —
     # the oracle caught it on 2026_01_SF_LA, where a synthetic UNDER graded as an OVER
@@ -78,17 +86,29 @@ def cover_margin(flag, game, *, side_override=None, line_override=None):
         bd = str(flag.get("bet_direction") or "").lower()
         over, under = bd == "over", bd == "under"
 
-    if mkt in ("h1_spread", "h1_total"):
+    if mkt in ("h1_spread", "h1_total", "h1_ml"):
         hh, ha = _num(game.get("h1_home")), _num(game.get("h1_away"))
         if hh is None or ha is None:
             return None                     # 1H score not filled yet
         fh, fa = hh, ha
 
+    if mkt in ("ml", "h1_ml"):
+        # A MONEYLINE NEEDS NO LINE — only a winner. These were skipped outright because the
+        # function had no moneyline branch at all: 17 `ml` + 10 `h1_ml` CFB flags graded as
+        # nothing. `line`/`price` on these rows hold the PRICE (+114..+195), not a spread.
+        return (fh - fa) if is_home else (fa - fh)
+
     if mkt in ("spread", "h1_spread"):
-        # bet_line is ALREADY signed from the bet side's view (PIT -3 -> -3.0). `line` is
-        # home-perspective, so falling back to it silently inverts every away bet — skip
-        # instead (8 of 134 rows carry no bet_line).
+        # bet_line is ALREADY signed from the bet side's view (PIT -3 -> -3.0). When it is
+        # missing, DERIVE it: `line` is home-perspective, so it is the bet's line for a home bet
+        # and its negation for an away bet. This used to `return None` on the grounds that a raw
+        # fallback inverts away bets — true, but the fix is the sign flip, not dropping the row.
+        # Verified on all 8 NFL h1_spread rows: line == h1_spread_close and the derived value
+        # reproduces the stored side string exactly (GB 1H +0.5 from line -0.5 away, etc).
         ln = line_override if line_override is not None else _num(flag.get("bet_line"))
+        if ln is None:
+            raw = _num(flag.get("line"))
+            ln = None if raw is None else (raw if is_home else -raw)
         if ln is None:
             return None
         margin = (fh - fa) if is_home else (fa - fh)
@@ -104,9 +124,6 @@ def cover_margin(flag, game, *, side_override=None, line_override=None):
             return None
         pts = fh if is_home else fa
         return (pts - ln) * (1 if over else -1)
-    if mkt == "ml":
-        margin = (fh - fa) if is_home else (fa - fh)
-        return margin                        # a tie is a push, which is correct for ML
     return None
 
 
@@ -119,7 +136,7 @@ def oracle_check(flags, finals):
             continue
         mkt = f["market"]
         fh, fa = _num(g.get("final_home")), _num(g.get("final_away"))
-        if mkt in ("h1_spread", "h1_total"):
+        if mkt in ("h1_spread", "h1_total", "h1_ml"):
             fh, fa = _num(g.get("h1_home")), _num(g.get("h1_away"))
         if fh is None or fa is None:
             continue
@@ -140,6 +157,20 @@ def oracle_check(flags, finals):
             assert cm is not None and cm > 0, f"oracle {mkt} OVER on {f['game_id']} ({cm})"
             cm = cover_margin(f, g, side_override="UNDER", line_override=pts + 0.5)
             assert cm is not None and cm > 0, f"oracle {mkt} UNDER on {f['game_id']} ({cm})"
+            checked[mkt] += 1
+        elif mkt in ("ml", "h1_ml"):
+            # Moneyline takes no line, so the oracle is the side itself: back the team that
+            # actually won and it must grade a win; back the loser and it must grade a loss.
+            # Worth asserting because these rows carry bet_team = NULL and the side is read out
+            # of the string ("AWAY ML") — exactly where a sign flip hides.
+            if fh == fa:
+                continue                      # a tie is a push; nothing to assert
+            win_side = "HOME ML" if fh > fa else "AWAY ML"
+            lose_side = "AWAY ML" if fh > fa else "HOME ML"
+            cm = cover_margin(f, g, side_override=win_side)
+            assert cm is not None and cm > 0, f"oracle {mkt} winner on {f['game_id']} ({cm})"
+            cm = cover_margin(f, g, side_override=lose_side)
+            assert cm is not None and cm < 0, f"oracle {mkt} loser on {f['game_id']} ({cm})"
             checked[mkt] += 1
     print(f"  [oracle] passed in {dict(checked)}")
 
