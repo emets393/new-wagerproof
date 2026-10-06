@@ -24,6 +24,9 @@ Verified-correct findings are recorded too, so nobody re-investigates them.
 | 13 | `\|\| true` on the Render epa-archive step hides failures | latent | ✅ FIXED |
 | 14 | 4 stale wk1 slate rows escaped the clf/reg veto (all lost) | cosmetic/record | ⬜ OPEN |
 | 15 | Stale `Oakland` row in `nfl_team_stats` (33 teams) | cosmetic | ⬜ OPEN |
+| 16 | **TOTALS: slate published 58 of 61 picks on DISPLAY-ONLY tiers** | **real edge loss** | ✅ FIXED |
+| 17 | **TOTALS: edge-to-outcome INVERTED on 2026 (corr −0.285)** | **unvalidated model** | ⬜ OPEN |
+| 18 | `scheme_plays.parquet` stale — no 2026 rows | degraded features | ⬜ OPEN |
 
 ## ✅ Fixed
 
@@ -130,6 +133,56 @@ mean "the week's board as it posts".
 kickoff while `fg_spread_open`/`_close` keep refreshing, so a frozen edge sits beside live line
 columns and must drift. Basis flip on moved lines: wks 1-3 open 11/12, 13/14, 13/14; wks 4-5 close
 10/12, 12/12. Fix by pinning the line columns with the verdict, or recomputing from the pinned pair.
+
+## ✅ #16 — the totals board was 95% picks the model says not to bet
+
+Every earlier pass in this audit was on the SIDES model. The totals model claims the BIGGER edge
+(~57-58% / +8-10%) and had never been checked.
+
+`consensus_totals.py` is explicit: `HC` is "THE BET" (both sub-models agree AND
+`3 <= min|edge| <= 7`); `EXTREME` (>7, "model overconfident", historically ~50%), `LEAN`, `WEAK`
+and `LEAN_EARLY` (b55-only, weeks 1-3) are **display only**. The slate emitted
+`fg_total_pick=r.direction` for ALL of them. Graded at the OPEN, which is the line this signal bets:
+
+| tier | contract | n | record | hit |
+|---|---|---|---|---|
+| HC | **the bet** | 3 | 1-2 | 33.3% |
+| LEAN_EARLY | display only | 27 | 8-19 | 29.6% |
+| WEAK | display only | 8 | 2-6 | 25.0% |
+| LEAN | display only | 1 | 0-1 | — |
+| NONE | **no direction at all** | 6 | 1-5 | 16.7% |
+| **all published** | | **45** | **12-33** | **26.7%** (ROI −49.1%) |
+
+The model's own ledger had **4 rows all season**. The slate was showing 61.
+Fix: `fg_total_pick` emits a direction only for `tier == "HC"`, mirroring `fg_spread_pick`.
+Removes 43 losing-tier picks. ⚠ This does NOT establish that HC works — n=3.
+
+## ⬜ #17 — the totals model's edge is INVERTED on 2026, and the claimed 57% is unreproducible
+
+64 graded games: `corr(pred_total - close, actual - close) = **-0.285**` (t≈-2.3, p≈0.02), sign
+agreement 35.9%, and monotone the wrong way:
+
+| pred − close | n | actual − close | went OVER |
+|---|---|---|---|
+| ≤ −6 | 7 | **+8.36** | **85.7%** |
+| −6..−3 | 5 | +6.10 | 80.0% |
+| −3..0 | 15 | +4.80 | 53.3% |
+| 0..+3 | 14 | −3.14 | 35.7% |
+| +3..+6 | 13 | −1.12 | 46.2% |
+| ≥ +6 | 10 | −2.20 | 30.0% |
+
+Mean calibration is FINE (pred 46.08, actual 46.22, close 44.96) and MAE is only modestly worse
+than the market (12.86 vs 10.80) — it is the DIRECTION that is backwards. Fading it = 33-13.
+⚠ The claimed 57-58% came from a 2024+2025 strict-open backtest (n=172) that **cannot be
+reproduced here**: `data/totals_b15_2025.pkl` fails with `PCG64 is not a known BitGenerator`.
+**Treat the totals product as unvalidated and do not quote 57% until that is resolved.**
+
+## ⬜ #18 — `scheme_plays.parquet` is stale (mtime 2026-09-01, seasons 2023-2025, no 2026)
+
+`consensus_totals.py` says to refresh it weekly via `b46_pull_scheme.py`. It has not been touched
+since before the season. ⚠ NOT the cause of #17: the code already falls back to plain pbp and
+prints a loud b50 coverage line — measured null rates 21-24% on five scheme features, 0% on three,
+and the >50pp drift guard did not fire. Worth refreshing; not the smoking gun.
 
 ## ⬜ Open — with the evidence needed to fix each
 

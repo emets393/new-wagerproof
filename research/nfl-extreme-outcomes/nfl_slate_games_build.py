@@ -1253,7 +1253,20 @@ def main():
             h1_ml_home_close=amer(r.h1_ml_close_pay_h1_ml_home),
             h1_ml_away_close=amer(r.h1_ml_close_pay_h1_ml_away),
             fg_pred_total=round(float(r.display_total), 2) if pd.notna(r.display_total) else None,
-            fg_total_edge=r.edge_open, fg_total_pick=r.direction, fg_total_tier=r.tier,
+            fg_total_edge=r.edge_open,
+            # TOTALS PICK = THE DOCUMENTED BET ONLY (2026-10-06). consensus_totals.py is explicit:
+            # HC is "THE BET"; EXTREME / LEAN / WEAK / LEAN_EARLY are all "display only" — EXTREME
+            # because the model is overconfident past edge 7 and historically ~50%, the rest because
+            # the edge is too small to mean anything. The slate published r.direction for ALL of
+            # them, so 58 of 61 directional totals picks on the 2026 board were tiers the model says
+            # not to bet, and they graded 11-31 (26.2%) at the open vs 1-2 for HC. Nine rows even
+            # carried tier NONE with a direction, which predict_all cannot emit — that is pinned
+            # verdict columns drifting apart (same family as the fg_spread_edge basis flip).
+            # This mirrors what fg_spread_pick already does: carry a side only when it is a play,
+            # and let fg_total_tier + the display total speak for everything else.
+            fg_total_pick=(r.direction if (r.tier == "HC" and r.direction in ("OVER", "UNDER"))
+                           else "NEUTRAL"),
+            fg_total_tier=r.tier,
             fg_home_cover_prob=round(float(r.ph), 4) if pd.notna(r.ph) else None,
             fg_pred_margin=round(float(r.pred_margin), 2) if pd.notna(r.pred_margin) else None,
             # slate spread pick = the margin model's covering side (matches the spread card).
