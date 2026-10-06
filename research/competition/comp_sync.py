@@ -77,14 +77,27 @@ def http_json(url: str, headers: dict | None = None, payload: dict | None = None
     # Transient 5xx/URLError from Supabase or the Odds API shouldn't fail the whole hourly
     # run (2026-08-09: a single 502 paged the owner). SQL calls are idempotent upserts, so
     # retrying is safe. 4xx = real bug -> raise immediately.
-    last = None
-    for attempt in range(4):
+    # 6 attempts / ~93s of backoff, widened from 4 / ~21s: the 2026-10-06 07:33 run burned all
+    # four on a Supabase Management API 500 and failed, and the same statement succeeded by hand
+    # minutes later. A platform blip can outlast 21 seconds.
+    last = last_body = None
+    for attempt in range(6):
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 return json.loads(r.read().decode())
         except urllib.error.HTTPError as e:
+            # /database/query answers 500 for a SQL ERROR as well as for infrastructure, and the
+            # Postgres message is in the BODY. Discarding it made a permanent SQL bug and a
+            # transient blip look identical in the log — the 10-06 failure had to be reproduced
+            # by hand to tell them apart. Read it once and print it.
+            try:
+                last_body = e.read().decode()[:400]
+            except Exception:
+                last_body = None
             if e.code < 500:
                 raise
+            print(f"  [http] {e.code} attempt {attempt + 1}/6"
+                  + (f" — {last_body}" if last_body else ""))
             last = e
         except urllib.error.URLError as e:
             last = e
@@ -94,7 +107,9 @@ def http_json(url: str, headers: dict | None = None, payload: dict | None = None
             # run. HTTPError/URLError are caught above, so this arm is pure
             # socket-level flake; same idempotent-retry logic applies.
             last = e
-        time.sleep(2 ** attempt * 3)   # 3s, 6s, 12s
+        time.sleep(2 ** attempt * 3)   # 3, 6, 12, 24, 48s
+    if last_body:
+        print(f"  [http] giving up after 6 attempts; last body: {last_body}")
     raise last
 
 

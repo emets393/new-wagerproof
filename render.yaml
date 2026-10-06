@@ -170,6 +170,7 @@ services:
       FPS=$(python3 -c "from fp_pull import current_season_week; print(current_season_week()[0])") &&
       { python3 fp_pull.py --tools "$FPT" --seasons "$FPS" --weeks 1-18 --workers 3 || true; } &&
       { python3 fp_pull.py --tools "$FPT" --consolidate || true; } &&
+      { python3 gen_nfl_player_prop_trends.py || true; } &&
       { python3 score_props_week.py || true; } && python3 nfl_prop_narratives.py
     envVars:
       - fromGroup: wagerproof-model-secrets

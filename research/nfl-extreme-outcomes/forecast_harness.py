@@ -182,7 +182,15 @@ def build():
     dfd=pd.read_parquet(os.path.join(DATA,"player_stats_def.parquet")); tg=pd.read_parquet(os.path.join(DATA,"tg.parquet"))
     mad_p=os.path.join(DATA,"madden_ratings.parquet"); mad=pd.read_parquet(mad_p) if os.path.exists(mad_p) else None
     m["actual_margin"]=m.home_score-m.away_score; m["actual_total"]=m.home_score+m.away_score
-    m["home_cover"]=(m.actual_margin+m.home_spread>0).astype(int)
+    # NaN-SAFE LABEL. This was `(m.actual_margin+m.home_spread>0).astype(int)`, and
+    # NaN + spread > 0 is False -> 0, so every game without a result yet was labelled
+    # "home did NOT cover". Audit 2026-10-05: all 16 week-4 rows carried home_cover=0 with
+    # actual_margin NaN. Two consequences — any evaluation of a partly-played season reads
+    # those as losses, and the `dropna(subset=["home_cover"])` guard in train_predict could
+    # never fire because the column was never NaN, so a result-less row could enter TRAINING
+    # with a fabricated label. Unknown must stay unknown.
+    _gradeable = m.actual_margin.notna() & m.home_spread.notna()
+    m["home_cover"]=np.where(_gradeable, (m.actual_margin+m.home_spread>0), np.nan)
     # ---- sides BASE features (locked b14) ----
     air=carry(rec,"player_id","percent_share_of_intended_air_yards","airshare")
     dfd["dprod"]=dfd.def_sacks.fillna(0)*2+dfd.def_qb_hits.fillna(0)+dfd.def_pass_defended.fillna(0)+dfd.def_interceptions.fillna(0)*2+dfd.def_tackles_for_loss.fillna(0)
