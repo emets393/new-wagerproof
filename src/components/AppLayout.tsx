@@ -20,7 +20,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { LogOut, Settings, ChevronRight, ChevronLeft } from "lucide-react";
+import { LogOut, Settings, Crown, ChevronRight, ChevronLeft } from "lucide-react";
 import { AppleLogo, GooglePlayLogo } from "phosphor-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +60,7 @@ const GOOGLE_PLAY_URL = 'https://play.google.com/store/apps/details?id=com.wager
 export function AppLayout() {
   const { user, signOut } = useAuth();
   const { adminModeEnabled } = useAdminMode();
-  const { hasProAccess } = useRevenueCatWeb();
+  const { hasProAccess, loading: subscriptionLoading } = useRevenueCatWeb();
   const location = useLocation();
   const navigate = useNavigate();
   const { state, toggleSidebar } = useSidebar();
@@ -368,6 +368,16 @@ export function AppLayout() {
       {/* Footer Section */}
       <SidebarFooter className="border-t border-sidebar-border bg-sidebar px-1 py-2 group-data-[collapsible=icon]:px-0">
         <SidebarMenu>
+          {user && !subscriptionLoading && !hasProAccess && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Upgrade to Pro" className="text-primary">
+                <Link to="/plans/tiers?tier=pro&minimum=pro&origin=tier_upgrade_pro" aria-label="Upgrade to Pro">
+                  <Crown className="h-4 w-4" />
+                  <span>Upgrade to Pro</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
             <div className="grid grid-cols-2 gap-1.5 px-1 pb-2">
               <a
