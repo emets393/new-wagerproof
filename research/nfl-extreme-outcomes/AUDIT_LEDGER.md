@@ -12,8 +12,8 @@ Verified-correct findings are recorded too, so nobody re-investigates them.
 | 1 | Weeks 1-3 bet at 50.0% (model never trained on them) | **real edge loss** | ✅ FIXED |
 | 2 | ~~Drift guard passes vacuously on empty serve frame~~ | — | ❌ NOT A DEFECT |
 | 3 | Monday-night game dropped from `nfl_training_data` every week | data loss | 🟡 DIAGNOSED, fix blocked |
-| 4 | 2026 week 1 missing from 3 pregame team-week tables | data loss | ⬜ OPEN |
-| 5 | `nfl_training_data_epa` archiver behind (31 vs 60 rows) | data lag | ⬜ OPEN |
+| 4 | 2026 week 1 missing from 3 pregame team-week tables | data loss | 🟡 GUARDED, re-run needed |
+| 5 | `nfl_training_data_epa` archiver behind (31 vs 60 rows) | data lag | 🟡 GUARDED, re-run needed |
 | 6 | `net_rz_td_rate_s2d` 100% NULL on all 2,265 rows | dead feature | ⬜ OPEN |
 | 7 | `h_third_road` constant 0 on all rows (logically impossible) | dead feature | ⬜ OPEN |
 | 8 | `fg_spread_edge` reconciles to no published line (wks 4-5) | un-auditable | ⬜ OPEN |
@@ -21,7 +21,7 @@ Verified-correct findings are recorded too, so nobody re-investigates them.
 | 10 | `last5_pr`/`consistency_pr` NULL for 2026 wks 1-3 | data loss (permanent) | ⬜ OPEN |
 | 11 | `nfl_player_game_logs` has ZERO rows for 2023 | data loss | ⬜ OPEN |
 | 12 | Scraper falls back from "Rating" to "Rank" with no assertion | latent | ⬜ OPEN |
-| 13 | `\|\| true` on the Render epa-archive step hides failures | latent | ⬜ OPEN |
+| 13 | `\|\| true` on the Render epa-archive step hides failures | latent | ✅ FIXED |
 | 14 | 4 stale wk1 slate rows escaped the clf/reg veto (all lost) | cosmetic/record | ⬜ OPEN |
 | 15 | Stale `Oakland` row in `nfl_team_stats` (33 teams) | cosmetic | ⬜ OPEN |
 
@@ -35,6 +35,34 @@ season. Fix: `MIN_PLAY_WEEK = 4` in `nfl_slate_games_build.py` forces `conv = "n
 ⛔ Do NOT instead train on weeks 1-3: measured, that takes wks1-3 to 48.4% AND wks4+ from 52.3% to
 49.7%. Scoped to the SPREAD side — the totals model is a separate fit, untested for this.
 
+
+## ✅ Fixed (continued)
+
+**13 + the silent-partial-write class.** Nothing asserted that a weekly writer produced rows, so
+gaps sat for five weeks with every cron green: 2026 wk1 had **0 of 32** in adv/ngs/ftn (those jobs
+wrote nothing and exited 0) while injuries had 32; wk4 injuries was 27 of 32 and the epa archiver
+wrote **1 of 15**. `|| true` on the archive step hid the last one outright — and that archiver is
+the ONLY thing that INSERTs epa rows, because `sync_training_to_training_epa()` only UPDATEs rows
+that already exist (`where e.unique_id = NEW.unique_id`).
+Fix: `cfb_automation/scripts/cfb/verify_nfl_week_coverage.py`, wired into both Thursday crons and
+scoped per cron (epa at 13:00, pregame upserts at 13:10, so neither can assert the other's tables).
+`|| true` removed.
+
+⚠ FOUR CALIBRATION LESSONS, each of which false-alarmed before it was right:
+  * **Games per week is NOT 16** — 32 minus byes. 2026 wk5 = 15 games, wks 6-8 = 14. Read the
+    schedule, never hardcode.
+  * **`nfl_pregame_injuries_team_week` does NOT carry 32 teams.** Injury reports are per GAME, so a
+    bye team has no row. Expecting 32 flagged **17 healthy historical weeks** whose counts are
+    exactly the teams not on bye. The pbp tables (adv/ngs/ftn) DO carry all 32.
+  * **An unplayed week legitimately has 0 training/epa rows** (they fill at kickoff), so those
+    checks must be non-fatal until the week completes — otherwise every Thursday run fails.
+  * **Short by exactly one on `nfl_training_data` is the known last-game race** — permanently lost,
+    not fixable by re-running, so it WARNs instead of painting every week red.
+
+★ **The clean sweep is the real headline: across 36 full weeks of 2024-2025 there is exactly ONE
+genuine gap (2024 wk1 injuries 31/32). The training history is essentially complete.** The missing
+data is confined to 2026. Re-running the 2026 wk1 pregame upserts and the epa archiver is safe and
+reproducible (pbp is immutable) — unlike #3/#9/#10, which cannot be reconstructed.
 
 ## 🟡 Diagnosed, fix written, BLOCKED on permission
 
