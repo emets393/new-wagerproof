@@ -97,6 +97,16 @@ CONV_RANK = {"none": 0, "lean": 1, "low": 2, "med": 3, "high": 4, "mammoth": 5}
 # is display-only regardless. The regression magnitude no longer sets the tier (it never ranked).
 PLAY_CONF = 0.06
 REG_CAP = 7.0
+# EARLY-SEASON SUPPRESSION (audit_nfl_prod_parity.py, 2026-10-06). forecast_harness.train_predict
+# trains on `week >= 4` but predicts EVERY week, so weeks 1-3 are scored by a model that has never
+# seen an early-season game. Walk-forward 2021-25 those weeks are 97-97 — exactly 50.0%, ROI -4.5%
+# on 194 bets, and no season is positive (21-18, 18-23, 16-21, 19-20, 23-15). That is ~17% of all
+# volume at zero edge. Suppressing them takes the full season from 51.9% to 52.3%.
+# ⛔ Do NOT "fix" this by training on weeks 1-3 instead: measured, that drops wks1-3 to 48.4% AND
+# wrecks wks4+ from 52.3% to 49.7% (early s2d features are unreliable and poison the fit). The
+# training filter is correct; the bet is what has to go. Scoped to the SPREAD side, which is what
+# was measured — the totals model is a separate fit and has not been tested for this.
+MIN_PLAY_WEEK = 4
 # the line a signal was computed from -> the line we GRADE against (grading framework)
 GRADE_LINE = {"fg_harness": "open", "consensus_totals": "open",
               "props": "close", "h1_model": "close", "k_signal": "close", "late_defense": "close"}
@@ -976,8 +986,10 @@ def build_picks(g, fl, books, kickoff, meta):
         # confidence, not the regression magnitude — regression size never ranked outcomes and
         # inverts past REG_CAP. .06+ classifier confidence with agreement = 58-60% at the opener.
         clf_conf = abs(float(r.ph) - 0.5) if pd.notna(r.ph) else 0.0
-        if not agree or clf_conf < PLAY_CONF or re_mag >= REG_CAP:
-            conv = "none"                       # split / under the floor / inverted extreme -> number only
+        _early = pd.notna(r.week) and int(r.week) < MIN_PLAY_WEEK
+        if not agree or clf_conf < PLAY_CONF or re_mag >= REG_CAP or _early:
+            conv = "none"                       # split / under the floor / inverted extreme /
+                                                # weeks 1-3 (untrained slice) -> number only
         elif spot_aligned:
             conv = "high"
         else:

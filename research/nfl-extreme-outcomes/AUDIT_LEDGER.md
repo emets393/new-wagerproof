@@ -1,0 +1,98 @@
+# NFL model + pipeline audit ledger
+
+Every defect found in the 2026-10-05/06 audit, with status. **Nothing gets closed here without a
+measurement.** Added because issues were being found, reported, and then abandoned one by one.
+
+Verified-correct findings are recorded too, so nobody re-investigates them.
+
+## Status summary
+
+| # | issue | severity | status |
+|---|---|---|---|
+| 1 | Weeks 1-3 bet at 50.0% (model never trained on them) | **real edge loss** | ✅ FIXED |
+| 2 | ~~Drift guard passes vacuously on empty serve frame~~ | — | ❌ NOT A DEFECT |
+| 3 | Monday-night game dropped from `nfl_training_data` every week | data loss | ⬜ OPEN |
+| 4 | 2026 week 1 missing from 3 pregame team-week tables | data loss | ⬜ OPEN |
+| 5 | `nfl_training_data_epa` archiver behind (31 vs 60 rows) | data lag | ⬜ OPEN |
+| 6 | `net_rz_td_rate_s2d` 100% NULL on all 2,265 rows | dead feature | ⬜ OPEN |
+| 7 | `h_third_road` constant 0 on all rows (logically impossible) | dead feature | ⬜ OPEN |
+| 8 | `fg_spread_edge` reconciles to no published line (wks 4-5) | un-auditable | ⬜ OPEN |
+| 9 | `nfl_team_stats` keeps no rating snapshot history | unrecoverable gaps | ⬜ OPEN |
+| 10 | `last5_pr`/`consistency_pr` NULL for 2026 wks 1-3 | data loss (permanent) | ⬜ OPEN |
+| 11 | `nfl_player_game_logs` has ZERO rows for 2023 | data loss | ⬜ OPEN |
+| 12 | Scraper falls back from "Rating" to "Rank" with no assertion | latent | ⬜ OPEN |
+| 13 | `\|\| true` on the Render epa-archive step hides failures | latent | ⬜ OPEN |
+| 14 | 4 stale wk1 slate rows escaped the clf/reg veto (all lost) | cosmetic/record | ⬜ OPEN |
+| 15 | Stale `Oakland` row in `nfl_team_stats` (33 teams) | cosmetic | ⬜ OPEN |
+
+## ✅ Fixed
+
+**1. Weeks 1-3 published with zero edge.** `forecast_harness.train_predict` trains on `week >= 4`
+but predicts every week, so weeks 1-3 are scored by a model that never saw an early-season game.
+Walk-forward 2021-25: **97-97, 50.0%, ROI −4.5% on 194 bets** (~17% of volume), no positive
+season. Fix: `MIN_PLAY_WEEK = 4` in `nfl_slate_games_build.py` forces `conv = "none"` for weeks
+1-3, so the card shows a number and no play. Full season goes 51.9% → 52.3%.
+⛔ Do NOT instead train on weeks 1-3: measured, that takes wks1-3 to 48.4% AND wks4+ from 52.3% to
+49.7%. Scoped to the SPREAD side — the totals model is a separate fit, untested for this.
+
+
+## ⬜ Open — with the evidence needed to fix each
+
+**3. MNF dropped every week.** `nfl_training_data` 2026 has 15 of 16 games for weeks 1-4, missing
+exactly the Monday 20:15 game each time: wk1 DEN@KC, wk2 NYG@LA, wk3 PHI@CHI, wk4 ATL@NO. History
+is complete (2024 = 272), so it is a timing bug: the week is written before MNF finishes and never
+backfilled. Fix: backfill the 4 games and add a post-MNF re-run. ⚠ Verify counts against the
+nflverse schedule, NOT a hardcoded 16 — weeks with byes legitimately have 15 or 14 games.
+
+**6 + 7. Two dead features.** `net_rz_td_rate_s2d` has never held a value (its upstream column is
+dropped by `build_matchup.py` as "broken/empty" but the derived net stayed in the list).
+`h_third_road` is 0 on all 2,265 rows because a home team cannot be on a road trip (the away twin
+fires 49 times). **Cost measured: ZERO** — removing both gives a byte-identical 518-465, because a
+GBM cannot split on an all-null or constant column. So this is hygiene, not performance. Removing
+them from `BASE` requires a `--train` refit because the frozen pickle stores its own feature list.
+
+**8. `fg_spread_edge` matches no published line.** On the 64 rows where the line moved, edge =
+`pred_margin + fg_spread_open` on 59%, `+ fg_spread_close` on 16%, and **neither on wks 4-5**
+(12/16 and 7/15). The generator reruns daily and the stored edge is pinned to the line at write
+time while the open/close columns say something else. Stored values are also signed (min −8.10)
+while the card code writes `abs(re_mag)`. Conviction tiers key off this field.
+
+**9 + 10. No rating snapshot history.** `nfl_team_stats` writes `on_conflict="season_year,team"`
+after truncating the season — one row per team per season, `as_of_date` not in the key. A missed
+week's point-in-time rating is **permanently lost**, and back-filling stamps today's rating on an
+old game (look-ahead). Hence 10 is unrecoverable: leave `last5_pr`/`consistency_pr` NULL for wks
+1-3 rather than fabricate them. Fix 9 by re-keying to `(season_year, team, as_of_date)`.
+
+## ❌ Claimed as a defect, then withdrawn
+
+**2. The drift guard does NOT pass vacuously — I misread it.** `feature_drift_guard.py:195` sets
+`drift = True` on an empty serve frame and `main()` returns 1; verified empirically, `nfl --season
+2026 --week 6` exits **1**. The code even carries a comment saying a vacuous pass "is worse than no
+guard at all". I saw the ⛔ message, judged it "pass-shaped" without checking the exit code, and
+listed it in this ledger as FIXED before verifying the problem existed. No code was changed.
+
+## ✅ Verified correct — do not re-investigate
+
+* **Power ratings are exact.** 32/32 teams match TeamRankings live, abs diff **0.000**, on both
+  predictive and last-5. Source: a TeamRankings scrape, not our own computation.
+* **Offensive EPA s2d definition and scale are intact.** Canary `off_plays_seen` climbs
+  monotonically 6,555 (2024 wk2) → 8,857 (2026 wk4) with no reset; `off_pass_epa_neutral_s2d`
+  holds 0.0559-0.0580 across 2024/2025/2026. The cumulative-since-2018 defect is FIXED.
+* **No look-ahead in `_s2d`.** Built from games where `season < S` OR (`season == S` AND
+  `week < W`), enforced before aggregation.
+* **No second feature pipeline.** `nfl_slate_games_build.py:364` imports the same
+  `forecast_harness.build()`. The frames cannot diverge.
+* **Nulls are not why the model loses.** Simulating the 2026 null condition (65% null on
+  `last5_diff` + both `consistency_pr`) on the training window costs **0.2 points** of hit rate.
+* **The clf/reg two-head disagreement is already vetoed** in the generator; the 4 rows that ever
+  escaped went 0-4.
+* **15 games in a week is normal** when 2 teams are on bye (wks 6-8 2026 have 4 byes = 14 games).
+* **The drift guard fails loudly on an empty serve frame** (exit 1). See the withdrawn item above.
+
+## The honest bottom line
+
+With production hyperparameters (`max_depth=3, max_iter=300, min_samples_leaf=40`) the sides model
+is **52.3% against the close, ROI −0.1%**, versus a 52.38% break-even. By season: 52.3 / 52.7 /
+47.5 / 53.5 / 57.7. Fixing every item above is worth well under a point. **The model is marginal,
+not broken, and no data fix found so far changes that.** Earlier figures in this audit quoting
+52.7% / +0.6% used library-default hyperparameters and were 0.4 points optimistic.
