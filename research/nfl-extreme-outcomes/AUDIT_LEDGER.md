@@ -11,7 +11,7 @@ Verified-correct findings are recorded too, so nobody re-investigates them.
 |---|---|---|---|
 | 1 | Weeks 1-3 bet at 50.0% (model never trained on them) | **real edge loss** | ✅ FIXED |
 | 2 | ~~Drift guard passes vacuously on empty serve frame~~ | — | ❌ NOT A DEFECT |
-| 3 | Monday-night game dropped from `nfl_training_data` every week | data loss | ⬜ OPEN |
+| 3 | Monday-night game dropped from `nfl_training_data` every week | data loss | 🟡 DIAGNOSED, fix blocked |
 | 4 | 2026 week 1 missing from 3 pregame team-week tables | data loss | ⬜ OPEN |
 | 5 | `nfl_training_data_epa` archiver behind (31 vs 60 rows) | data lag | ⬜ OPEN |
 | 6 | `net_rz_td_rate_s2d` 100% NULL on all 2,265 rows | dead feature | ⬜ OPEN |
@@ -36,13 +36,41 @@ season. Fix: `MIN_PLAY_WEEK = 4` in `nfl_slate_games_build.py` forces `conv = "n
 49.7%. Scoped to the SPREAD side — the totals model is a separate fit, untested for this.
 
 
-## ⬜ Open — with the evidence needed to fix each
+## 🟡 Diagnosed, fix written, BLOCKED on permission
 
-**3. MNF dropped every week.** `nfl_training_data` 2026 has 15 of 16 games for weeks 1-4, missing
-exactly the Monday 20:15 game each time: wk1 DEN@KC, wk2 NYG@LA, wk3 PHI@CHI, wk4 ATL@NO. History
-is complete (2024 = 272), so it is a timing bug: the week is written before MNF finishes and never
-backfilled. Fix: backfill the 4 games and add a post-MNF re-run. ⚠ Verify counts against the
-nflverse schedule, NOT a hardcoded 16 — weeks with byes legitimately have 15 or 14 games.
+**3. The last game of every week is never snapshotted — a one-second race.**
+
+ROOT CAUSE. `nfl_training_data` is written by pg_cron `nfl_training_kickoff_snapshot_every_min`
+calling `fn_upsert_nfl_training_kickoff()`, which selects from `nfl_input_values_view`
+WHERE `kickoff_tstz <= now()`. That view's `active_week` CTE is *the week of the next FUTURE
+kickoff* (`kickoff_et_ts >= now() ORDER BY kickoff_et_ts LIMIT 1`). For the LAST game of a week
+the row becomes snapshot-eligible at the same instant the view stops showing it — a **~1 second
+window against a 60-second cron**. Every other game has later kickoffs in its own week keeping it
+visible for hours, which is exactly why ONLY last-games are lost.
+
+EVIDENCE: last-game-of-week missing 2024 **0 of 18**, 2025 **1 of 18**, 2026 **4 of 4**; games
+that are NOT the last of their week missing: **0 in every season**. The 2026 losses are wk1
+DEN@KC, wk2 NYG@LA, wk3 PHI@CHI, wk4 ATL@NO — all Monday 20:15.
+
+FIX (half applied):
+  * ✅ DONE — `public.nfl_input_values_all_weeks` created in prod 2026-10-06: the same view with
+    its `active_week` join removed. Verified: 364 rows, exposes 2026 wk4 with all 16 games.
+    Nothing else reads it, so creating it is inert.
+  * ⛔ BLOCKED — replacing `fn_upsert_nfl_training_kickoff()` to read that view with
+    `kickoff_tstz between now() - interval '2 hours' and now()`. Denied by the permission
+    classifier as a shared-resource change (a live pg_cron function — a fair gate). Two lines
+    change; every column and cast stays byte-identical:
+        from public.nfl_input_values_view iv   ->   from public.nfl_input_values_all_weeks iv
+        where kickoff_tstz <= now()            ->   where kickoff_tstz <= now()
+                                                      and kickoff_tstz >= now() - interval '2 hours'
+    Dry-run confirmed it would insert **0 rows right now**, which is correct.
+
+⛔ DO NOT BACKFILL THE 4 LOST GAMES. The view derives pregame features from CURRENT team state, so
+inserting them today stamps post-game values onto a pregame row — the same look-ahead trap as the
+power-rating snapshot gap (#9/#10). They are permanently lost. The 2-hour bound exists for this
+reason and must stay short.
+
+## ⬜ Open — with the evidence needed to fix each
 
 **6 + 7. Two dead features.** `net_rz_td_rate_s2d` has never held a value (its upstream column is
 dropped by `build_matchup.py` as "broken/empty" but the derived net stayed in the list).
