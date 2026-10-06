@@ -23,7 +23,13 @@ Every market is oracle-checked before anything is written: build the side the re
 result makes a winner and assert it grades as a win. A sign flip in any branch is a silent
 inversion of a published record, so it fails the run instead.
 
-Usage: grade_nfl_sharp_flags.py [season]
+CFB TOO (2026-10-06). cfb_slate_flags has IDENTICAL columns, and the CFB block of
+refresh_signal_performance still rebuilds from cfb_slate_picks.signal_keys — so every CFB
+signal was undercounted exactly as NFL was: key_dog published 16 of 42 fired, soft_book_gap
+36 of 66, ret_prod_edge 48 of 78, and home_dog_ml / conf_sunbelt_fade published NOTHING while
+firing 17 and 3 times. Pass the sport; the tables are symmetric.
+
+Usage: grade_nfl_sharp_flags.py [season] [sport]      # sport = nfl (default) | cfb
 """
 import collections
 import os
@@ -108,7 +114,7 @@ def oracle_check(flags, finals):
     """Grade a bet that KNOWS the result. Must win every time, in every market branch."""
     checked = collections.Counter()
     for f in flags:
-        g = finals.get(f["game_id"])
+        g = finals.get(str(f["game_id"]))
         if not g:
             continue
         mkt = f["market"]
@@ -140,24 +146,29 @@ def oracle_check(flags, finals):
 
 def main():
     season = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
+    sport = (sys.argv[2] if len(sys.argv) > 2 else "nfl").lower()
+    if sport not in ("nfl", "cfb"):
+        sys.exit(f"sport must be nfl or cfb, got {sport!r}")
     sk = _key()
     hdr = {"apikey": sk, "Authorization": f"Bearer {sk}", "Content-Type": "application/json"}
-    fl = requests.get(f"{SUPA}/nfl_slate_flags?season=eq.{season}&select=game_id,week,signal_key,"
+    fl = requests.get(f"{SUPA}/{sport}_slate_flags?season=eq.{season}&select=game_id,week,signal_key,"
                       f"market,side,bet_team,bet_direction,bet_line,line,tier&limit=20000",
                       headers=hdr, timeout=90).json()
     if not isinstance(fl, list) or not fl:
-        print("[signal-grade] no flags yet"); return
-    gids = ",".join(sorted({f["game_id"] for f in fl}))
-    gm = requests.get(f"{SUPA}/nfl_slate_games?game_id=in.({gids})"
+        print(f"[signal-grade] {sport}: no flags yet"); return
+    # cfb_slate_flags.game_id is an INT while nfl_slate_flags.game_id is TEXT, so normalise to
+    # str on both the URL filter and the lookup key — otherwise the finals dict never matches.
+    gids = ",".join(sorted({str(f["game_id"]) for f in fl}))
+    gm = requests.get(f"{SUPA}/{sport}_slate_games?game_id=in.({gids})"
                       f"&select=game_id,home_team,final_home,final_away,h1_home,h1_away",
                       headers=hdr, timeout=90).json()
-    finals = {g["game_id"]: g for g in gm if g.get("final_home") is not None}
+    finals = {str(g["game_id"]): g for g in gm if g.get("final_home") is not None}
     oracle_check(fl, finals)
 
     rec = collections.defaultdict(lambda: [0, 0, 0, 0])      # key -> w, l, p, last_week
     skipped = collections.Counter()
     for f in fl:
-        g = finals.get(f["game_id"])
+        g = finals.get(str(f["game_id"]))
         if not g:
             continue
         cm = cover_margin(f, g)
@@ -171,7 +182,7 @@ def main():
     for key, (w, l, p, last) in sorted(rec.items()):
         n = w + l + p
         units = w * (100 / 110) - l
-        out.append({"sport": "nfl", "signal_key": key, "season": season, "n": n, "wins": w,
+        out.append({"sport": sport, "signal_key": key, "season": season, "n": n, "wins": w,
                     "losses": l, "pushes": p,
                     "hit_rate": round(w / (w + l), 4) if (w + l) else None,
                     "units": round(units, 3), "roi": round(units / n, 4) if n else None,

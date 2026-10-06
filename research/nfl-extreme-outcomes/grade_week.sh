@@ -63,8 +63,14 @@ python3 run_grade_rpcs.py "$SEASON" \
 # can only measure a signal where the model agreed with it and credited the wrong side when it
 # did not (legacy_primetime read 2-0 off a Cleveland card while the signal took Pittsburgh).
 # Must run AFTER run_grade_rpcs: that rebuilds the season, this overwrites the flag-derived keys.
-echo; echo ">>> 4b) grade ALL NFL signal flags on their own side/line (overwrites signal_performance)"
-python3 grade_nfl_sharp_flags.py "$SEASON" || true
+echo; echo ">>> 4b) grade ALL signal flags on their own side/line, NFL *and* CFB"
+# Both sports: *_slate_flags carry the side, the bet's own line and the stake, so a signal is
+# graded as the bet it is — no agreement with the pick card required. The RPC above no longer
+# rebuilds either sport's game signals (migrations 20261006180000 / 20261006190000); it still
+# owns the prop keys. Without the CFB line, key_dog published 16 of 42 fired, home_dog_ml
+# published nothing while firing 17 times, and regime_fade_hc hid a 7-28-1 (20.0%) record.
+python3 grade_nfl_sharp_flags.py "$SEASON" nfl || true
+python3 grade_nfl_sharp_flags.py "$SEASON" cfb || true
 echo; echo ">>> 4c) same-day: grade Prop Report reads + model projections vs ESPN box scores (final games only)"
 read -r _S _W < <(python3 resolve_nfl_week.py) && python3 grade_props_espn.py "$_S" "$_W" --write || true
 echo; echo ">>> 4d) grade the Player Prop Report reads (nfl_prop_narratives) vs the props' graded actuals (overnight fill)"
