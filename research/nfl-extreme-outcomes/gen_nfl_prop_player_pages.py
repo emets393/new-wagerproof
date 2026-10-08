@@ -736,14 +736,20 @@ def main():
         # Report's read per market. The existing `projection` (2025 form / old model) stays.
         from fp_prop_layer import fetch_layer, research_for_player
         research = research_for_player(pid, [m["key"] for m in mkts], fetch_layer(SEASON, WEEK))
+        # the granular card blobs — the stats half of the prop pivot. Separate column from
+        # `research`, which both native clients type as a market-keyed map.
+        from fp_cards_layer import fetch_cards, cards_for_player
+        fp_cards = cards_for_player(pid, fetch_cards(SEASON, WEEK))
         rows.append(dict(player_id=pid, season=SEASON, week=WEEK, player_name=p.player_name,
                          position=p.position, team=team, opponent=g["opp"], is_home=g["is_home"],
                          game_label=g["label"], kickoff=g["kickoff"], headshot_url=heads.get(pid),
                          markets=clean(mkts), baseline=clean(baseline), ngs=clean(ngs),
                          scheme=clean(scheme), scheme_game_splits=clean(gs),
                          projection=clean(proj), rookie=baseline is None,
-                         highlights=clean(hl), research=clean(research) or None))
+                         highlights=clean(hl), research=clean(research) or None,
+                         fp_cards=fp_cards))
 
+    print(f"  fp_cards attached to {sum(1 for r in rows if r.get('fp_cards'))} of {len(rows)} pages")
     print(f"{len(rows)} player pages assembled | headshots {sum(1 for r in rows if r['headshot_url'])}"
           f" | w/ scheme splits {sum(1 for r in rows if 'player_splits' in (r['scheme'] or {}))}"
           f" | w/ highlights {sum(1 for r in rows if r['highlights'])}")
