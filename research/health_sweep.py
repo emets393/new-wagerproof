@@ -164,6 +164,50 @@ def main():
             except Exception as e:
                 check(f"{sport} prop lines", False, f"probe failed: {e}")
 
+            # 7. the prop cards actually reached the database.
+            # fp_cards is the granular half of the prop page — route tree, alignment allowance,
+            # coverage splits, throw depth. It is built into a parquet by fp_prop_payload.py and
+            # only lands in the DB when gen_nfl_prop_player_pages runs ON THE BOX THAT HAS THAT
+            # PARQUET. Every step of that chain is wrapped in `|| true`, so a failed payload build
+            # is swallowed, pages rebuilds without it, and the column is simply never written.
+            # fp_cards_layer._from_db carries the old value forward on later runs — but it has
+            # nothing to carry if the column was never populated once, so an empty week stays
+            # empty forever and no freshness or row-count probe notices: the rows exist, the
+            # markets are posted, the lines are there. Found 2026-10-09 at 0 of 387 for week 5
+            # while a complete 365-player payload sat on disk. Fix is push_fp_cards.py, which
+            # PATCHes the one column instead of rebuilding the week.
+            try:
+                tot = q(f"nfl_prop_player_pages?select=player_id&season=eq.{season}"
+                        f"&week=eq.{cur_wk}&limit=1000") if cur_wk is not None else []
+                have = q(f"nfl_prop_player_pages?select=player_id&season=eq.{season}"
+                         f"&week=eq.{cur_wk}&fp_cards=not.is.null&limit=1000") if cur_wk else []
+                n, h = len(tot), len(have)
+                pct = (h / n * 100) if n else 0
+                # Thin warehouse coverage is normal — rookies, mid-season signings, low-snap
+                # players legitimately have no blobs, and ~80% is a healthy week. Red only when
+                # the number implies the push did not happen at all.
+                check(f"{sport} prop cards", n == 0 or pct >= 40,
+                      f"fp_cards on {h} of {n} week-{cur_wk} pages ({pct:.0f}%)"
+                      + ("" if pct >= 65 else " — run push_fp_cards.py"),
+                      warn_only=(40 <= pct < 65))
+            except Exception as e:
+                check(f"{sport} prop cards", False, f"probe failed: {e}")
+
+    # 8. is Render running what render.yaml says? Editing the blueprint does not deploy it, and
+    # a stale service runs green forever — nfl-prop-report-daily spent an unknown stretch on a
+    # pre-2026-10-07 command, missing the payload build and the page generator, while every data
+    # probe passed because a different cron was writing the rows they check.
+    try:
+        import subprocess
+        d = subprocess.run([sys.executable, str(Path(__file__).parent / "render_drift.py")],
+                           capture_output=True, text=True, timeout=120)
+        tail = (d.stdout or d.stderr).strip().splitlines()
+        check("render blueprint", d.returncode == 0,
+              tail[-1][:160] if tail else "no output",
+              warn_only=("no RENDER_API_KEY" in (d.stdout or "")))
+    except Exception as e:
+        check("render blueprint", False, f"probe failed: {e}", warn_only=True)
+
     print(f"FOOTBALL HEALTH SWEEP — {NOW.isoformat(timespec='minutes')}")
     for line in RED + WARN + OK:
         print(" ", line)

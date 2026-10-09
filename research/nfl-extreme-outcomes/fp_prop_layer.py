@@ -64,7 +64,8 @@ def fetch_layer(season, week, max_tells=8):
 
 def attach_to_props(df, layer):
     """Add the fp_* / report_* columns to the props frame (player_id + market keyed)."""
-    cols = ["fp_pred", "fp_edge", "fp_threshold", "fp_tier", "fp_fires", "report_read", "report_score", "report_for", "report_against", "report_tells"]
+    # fp_* deliberately absent: computed upstream, never surfaced (see research_for_player)
+    cols = ["report_read", "report_score", "report_for", "report_against", "report_tells"]
     vals = {c: [] for c in cols}
     for pid, mk in zip(df.player_id.astype(str), df.market):
         v = layer.get((pid, mk), {})
@@ -80,13 +81,14 @@ def research_for_player(pid, markets, layer):
         v = layer.get((str(pid), mk))
         if not v: continue
         block = {}
-        if "fp_pred" in v:
-            block["fp_model"] = dict(pred=v["fp_pred"], line=v.get("fp_line"), edge=v["fp_edge"], threshold=v["fp_threshold"],
-                                     tier=v["fp_tier"], fires=v["fp_fires"],
-                                     note="fires = clears this market's validated threshold (Fantasy Points-era prop model, 2023-25 priced lines)")
-        if "report_read" in v:
-            block["prop_report"] = dict(read=v["report_read"], line=v.get("report_line"), score=v["report_score"],
-                                        n_for=v["report_for"], n_against=v["report_against"],
-                                        summary=v.get("report_summary"), tells=v["report_tells"])
+        # ⛔ THE PROJECTION IS COMPUTED BUT NEVER SURFACED (owner, 2026-10-07). score_props_week.py
+        # still writes nfl_prop_model_preds and the fp_* columns, because three prop signals are
+        # derived from them (P14, P17, P18) — but no client sees a per-market forecast. The product
+        # is stats, the posted line, and a pick on the spotlight players only.
+        # Do NOT re-add fp_model here without that instruction being reversed.
+        # ⛔ The regression-report prop picks are retired (owner 2026-10-07) and replaced by the
+        # spotlight board. Nothing from nfl_prop_narratives is surfaced.
+        if False:
+            pass
         if block: out[mk] = block
     return out

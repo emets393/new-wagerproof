@@ -168,10 +168,42 @@ services:
       cd research/nfl-extreme-outcomes &&
       FPT=receivingAdvanced,receivingSeparationByAlignment,rushingAdvanced,rushingBellCow,passingAdvanced,coverageMatrix,proeReport,runPassReport,lineMatchups &&
       FPS=$(python3 -c "from fp_pull import current_season_week; print(current_season_week()[0])") &&
+      FPW=$(python3 -c "from fp_pull import current_season_week; print(current_season_week()[1]+1)") &&
       { python3 fp_pull.py --tools "$FPT" --seasons "$FPS" --weeks 1-18 --workers 3 || true; } &&
       { python3 fp_pull.py --tools "$FPT" --consolidate || true; } &&
       { python3 gen_nfl_player_prop_trends.py || true; } &&
-      { python3 score_props_week.py || true; } && python3 nfl_prop_narratives.py
+      { python3 score_props_week.py || true; } &&
+      { FP_SUPABASE=1 FP_SEASONS="$(( FPS - 1 )),$FPS" python3 fp_prop_payload.py --season "$FPS" --upcoming "$FPW" --routes 6 --out data/fp_prop_payload_current.parquet || true; } &&
+      { python3 fp_spotlight.py --payload data/fp_prop_payload_current.parquet --season "$FPS" --week "$FPW" --emit --write || true; } &&
+      { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 fp_spotlight_write.py "out/spotlight_${FPS}w${FPW}.json" --write --season "$FPS" --week "$FPW" || true; } &&
+      { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 gen_nfl_prop_player_pages.py || true; } &&
+      { python3 grade_spotlight_picks.py --season "$FPS" || true; }
+    # nfl_prop_narratives.py is RETIRED from this chain (owner 2026-10-07). The spotlight picks
+    # replace the regression-report prop picks. score_props_week.py STAYS: the projection is still
+    # computed because P14/P17/P18 derive from it — it is simply never surfaced.
+    #
+    # ORDER IS LOAD-BEARING, four steps that each depend on the one before:
+    #   payload   -> the parquet every card blob comes from
+    #   spotlight -> --emit builds the board, --write STAMPS the picks (side + line of record)
+    #   write     -> PATCHes each narrative onto the row the step above created; it cannot run
+    #                first, and it reports loudly if a board row is missing rather than silently
+    #   pages     -> must run HERE, on the box that has the parquet. nfl-live-props-hourly also
+    #                rebuilds pages but has no parquet, so it carries fp_cards forward from the
+    #                DB instead (fp_cards_layer._from_db) — that is what stops its DELETE +
+    #                reinsert from emptying the column every 15 minutes.
+    #   grade     -> scores whatever now has a game log; a week finishes across four days, so it
+    #                runs daily and leaves the rest alone. Season-wide, no --week.
+    #
+    # ⛔ FP_SUPABASE=1 IS REQUIRED HERE, not an optimisation. The payload's richest blobs — the
+    # route tree, coverage shells, throw-depth bands — come from each row's `bucket` dict, and
+    # FOUR of the six tables carrying them (receivingSeparationByRoutes, receivingManVsZone,
+    # passingDepth, receivingSeparationByCoverage) are not in FPT above, so on this box they had
+    # no local parquet at all: read_fp raised, load() printed "! missing" and returned an empty
+    # frame, and those blobs were silently absent from every Render-built payload. The buckets
+    # were already in Supabase (fp_load never dropped them — `bucket` matches no IDENT_PREFIX),
+    # so only the READ path was missing. fp_hist merges Supabase at lowest priority, so a cell
+    # this job just pulled still wins. FP_SEASONS is current + prior because that is all the
+    # blend's prior term needs, and it keeps the fetch to ~25k rows per table instead of 83k.
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION

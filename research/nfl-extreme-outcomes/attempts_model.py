@@ -28,6 +28,14 @@ MKT = {"player_pass_attempts": "attempts", "player_rush_attempts": "carries",
 USE_FLOOR = {"attempts": 8.0, "completions": 5.0, "carries": 4.0}
 T60 = 60.0
 
+# ⛔ random_state is LOAD-BEARING, not hygiene. sklearn's early_stopping="auto" turns on above
+# 10,000 samples and carves a random 10% validation split, so with random_state=None the same
+# panel refit twice gave rush-yds predictions up to 3.8 yards apart (mean 0.96). P17 triggers at
+# `pred <= close_line - 10` and P18 at `pred >= close_line + 0.5`, so a player sitting near the
+# boundary flipped between runs of the 15-minute props cron — the flag would appear and vanish
+# on unchanged inputs and its graded record would be noise. Found 2026-10-07.
+SEED = 17
+
 OFF = ["off_plays_per_game_s2d", "off_proe_s2d", "off_sec_per_play_neutral_s2d",
        "off_no_huddle_rate_s2d", "off_pass_success_rate_s2d", "off_rush_success_rate_s2d",
        "off_three_and_out_rate_s2d", "off_plays_per_drive_s2d",
@@ -45,10 +53,26 @@ def amer_profit(o):
 
 
 def team_feats():
+    """Opponent/offense season-to-date context, keyed so row W = ENTERING week W.
+
+    team_week.parquet stops at the last PLAYED week, so the week being priced had no row and
+    every prop model's test set came back empty for an upcoming slate. Each season's last row is
+    carried forward one week to supply it. Two reasons that is safe rather than lazy:
+      * it cannot leak — row W is built from weeks < W, so the carried row for W+1 contains no
+        week-W or later information. It is one game STALE, which is the harmless direction.
+      * these `_s2d` columns barely move anyway, because they are not season-to-date at all:
+        they never reset by season (Buffalo's 2025 wk1 row equals its 2024 wk18 row), so they
+        are 8-season franchise averages. BUF 2025 off_plays_per_game_s2d moved 63.42 -> 63.34
+        across eight weeks. See the nfl-team-week-cumulative-defect memory and
+        build_team_week_seasonal.py, which rebuilds 7 of these properly from play-by-play.
+    """
     tw = pd.read_parquet(DATA / "team_week.parquet")
     tm = pd.read_parquet(DATA / "team_mapping.parquet")[["Team Abbrev", "team_name"]]
     tw = tw.merge(tm, left_on="team", right_on="team_name", how="left")
     tw["ab"] = tw["Team Abbrev"].replace(NORM)
+    nxt = tw[tw.week == tw.groupby("season").week.transform("max")].copy()
+    nxt["week"] += 1
+    tw = pd.concat([tw, nxt], ignore_index=True)
     off = tw[["season", "week", "ab"] + OFF].rename(columns={"ab": "team"})
     dfn = tw[["season", "week", "ab"] + DEF].rename(columns={"ab": "opp"})
     return off, dfn
@@ -85,9 +109,53 @@ def props_t60():
     return op.merge(cl, on=keys)
 
 
-def panel():
+def upcoming_spine(season, week, stat_cols):
+    """One stat-less player row per (player with a posted line) for an UNPLAYED week.
+
+    `stat_cols` are the actual-columns to NaN-fill, so each model passes its own
+    market map (prop_model has 8 markets, this module 3).
+
+    player_offense.parquet only holds games already PLAYED, so the panel had no row for the
+    slate being priced and `te` came back empty for every upcoming week. That is why P17/P18
+    only ever appeared on retrospective rebuilds — scored after the games they flagged had
+    already finished. Found 2026-10-07.
+
+    The appended rows carry NaN for every stat, which is what makes them safe: panel() derives
+    l3/l5/szn with shift(1), so an appended row picks up the player's PRIOR games and nothing
+    else, and it is excluded from training by the `dropna(actual)` on the train split. Players
+    who already have a player_offense row for that week are skipped, so running this on a week
+    that has since been played cannot duplicate a real row.
+    """
+    fp = DATA / "props_frame.parquet"
+    if not fp.exists():
+        return pd.DataFrame()
+    w = pd.read_parquet(fp)
+    w = w[(w.season == season) & (w.week == week) & w.player_id.notna()]
+    if w.empty:
+        return pd.DataFrame()
+    po = pd.read_parquet(DATA / "player_offense.parquet")
+    played = set(po[(po.season == season) & (po.week == week)].player_id)
+    w = w[~w.player_id.isin(played)]
+    if w.empty:
+        return pd.DataFrame()
+    sp = w.groupby("player_id", as_index=False).agg(
+        player_name=("player_name", "first"), position=("position", "first"),
+        team=("team", "first"))
+    sp["season"], sp["week"], sp["season_type"] = season, week, "REG"
+    sp["team"] = sp.team.replace(NORM)
+    for col in stat_cols:
+        sp[col] = np.nan
+    return sp
+
+
+
+def panel(upcoming=None):
     po = pd.read_parquet(DATA / "player_offense.parquet")
     po["team"] = po.team.replace(NORM)
+    if upcoming is not None:
+        sp = upcoming_spine(*upcoming, stat_cols=set(MKT.values()))
+        if not sp.empty:
+            po = pd.concat([po, sp], ignore_index=True)
     off, dfn = team_feats()
     gm = games()
     frames = []
@@ -124,7 +192,8 @@ def walk_forward(p, mkt):
         if len(tr) < 500 or len(te) == 0:
             continue
         mdl = HistGradientBoostingRegressor(max_depth=4, learning_rate=0.05,
-                                            max_iter=400, min_samples_leaf=40, l2_regularization=1.0)
+                                            max_iter=400, min_samples_leaf=40, l2_regularization=1.0,
+                                            random_state=SEED)
         mdl.fit(tr[FEATS], tr.actual)
         m.loc[m.t == t, "pred"] = mdl.predict(te[FEATS])
     return m[m.pred.notna()]
