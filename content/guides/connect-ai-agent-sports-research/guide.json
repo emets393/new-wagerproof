@@ -10,7 +10,7 @@
   "dek": "AI agents can research games while you sleep, but out of the box they guess from web search. Paste one address and they answer from live lines, a model, injury reports and years of results.",
   "category": "AI research",
   "publishedAt": "2026-10-02",
-  "updatedAt": "2026-10-02",
+  "updatedAt": "2026-10-09",
   "reviewedAt": "2026-10-02",
   "nextReviewAt": "2026-11-02",
   "readingTimeMinutes": 8,
@@ -79,5 +79,13 @@
       "question": "Which sports does it cover?",
       "answer": "The NFL, college football, the NBA, college basketball and MLB, along with prediction market prices and a historical database of results and betting lines. Coverage depends on the season; on October 2, 2026 there were no MLB games and the NBA season had not started."
     }
-  ]
+  ],
+  "video": {
+    "youtubeId": "wFqwI9ml6Cg",
+    "title": "Grok Bot, ChatGPT Dots & Meta Muse for Sports Betting: Give Your AI Agent Real Data",
+    "description": "How to connect Grok Bot, ChatGPT Dots or Meta Muse to WagerProof's real sports data (live lines, model projections, injury reports, player prop streaks and years of results) and what to ask once you do.",
+    "uploadDate": "2026-10-02",
+    "duration": "PT4M31S",
+    "thumbnail": "/guides/connect-ai-agent-sports-research/connect-ai-agent-sports-research-video-v1.webp"
+  }
 }
