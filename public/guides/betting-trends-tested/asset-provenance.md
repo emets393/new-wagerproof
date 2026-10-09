@@ -1,0 +1,4 @@
+# Asset provenance: betting-trends-tested
+
+- `betting-trends-tested-title-card-v1.webp` (1672x941) and `betting-trends-tested-social-v1.webp` (1200x630): HTML composition rendered with headless Chrome on 2026-10-09. The dot plot is drawn from the study's own 38 results (WagerProof sports database, queried 2026-10-09). No photos or third-party marks.
+- `win-rate-value-v1.webp`, `all-hunches-by-sport-v1.webp`, `long-shots-by-sport-v1.webp`, `referee-trends-faded-v1.webp`, `nfl-primetime-unders-by-season-v1.webp`: charts drawn as SVG from the WagerProof sports database (closing lines and final scores, queried 2026-10-09) and rendered with headless Chrome. The win-rate chart is pure arithmetic at -110. Source script: video-pipeline `projects/2026-10-09-wp-yt-betting-hunches-tested/guide/charts/make_charts.mjs`.
