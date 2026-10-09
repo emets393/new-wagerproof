@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "expectedCount": 14,
+  "expectedCount": 15,
   "entries": [
     {
       "slug": "connect-ai-agent-sports-research",
@@ -71,6 +71,11 @@
       "slug": "responsible-sports-betting-research",
       "canonicalPath": "/guides/responsible-sports-betting-research/",
       "intent": "set responsible limits for sports betting research"
+    },
+    {
+      "slug": "betting-trends-tested",
+      "canonicalPath": "/guides/betting-trends-tested/",
+      "intent": "find out whether popular betting trends and hunches actually win, judged against break-even and a professional bettor's win rate"
     }
   ]
 }

@@ -1,0 +1,37 @@
+[
+  {
+    "title": "WagerProof sports database (nfl_analysis_base, cfb_analysis_base, mlb_analysis_base, v_nba_team_results_enriched, nba_schedule, nfl_betting_lines)",
+    "publisher": "WagerProof",
+    "url": "https://wagerproof.bet/",
+    "accessedAt": "2026-10-09",
+    "usedFor": "Every win rate, sample size and return in the article. Queries recorded in research.md and in the video project's SYSTEMS_TEST.md."
+  },
+  {
+    "title": "Best bettor",
+    "publisher": "The University of Chicago Magazine (Mar–Apr 2014)",
+    "url": "https://mag.uchicago.edu/economics-business/best-bettor",
+    "accessedAt": "2026-10-09",
+    "usedFor": "David Frohardt-Lane, SM'00: \"The best sports bettors have a success rate of about 54 percent\" and \"anything higher is luck\"; won $557,850 in Las Vegas's largest handicapping contest (the SuperContest) the previous December. Verified on the page 2026-10-09."
+  },
+  {
+    "title": "Chicago trader wins football handicapping contest",
+    "publisher": "The Columbian (Associated Press)",
+    "url": "https://columbian.com/news/2013/dec/30/chicago-trader-wins-football-handicapping-contest",
+    "accessedAt": "2026-10-09",
+    "usedFor": "Corroborates the 2013 Las Vegas handicapping contest win (search result; the magazine page itself confirms the win)."
+  },
+  {
+    "title": "Jeff Haney on how a professional gambler proved it",
+    "publisher": "Las Vegas Sun",
+    "url": "https://m.lasvegassun.com/news/2007/jan/29/jeff-haney-on-how-a-professional-gambler-proved-it/",
+    "accessedAt": "2026-10-09",
+    "usedFor": "Background only: a competing view that elite handicappers hit about 52.5% to 53% on their own wagers. Not quoted in the article."
+  },
+  {
+    "title": "1-800-GAMBLER",
+    "publisher": "National Council on Problem Gambling",
+    "url": "https://www.ncpgambling.org/help-treatment/",
+    "accessedAt": "2026-10-09",
+    "usedFor": "U.S. problem-gambling helpline named in the closing line"
+  }
+]

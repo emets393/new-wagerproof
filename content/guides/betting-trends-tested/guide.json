@@ -1,0 +1,65 @@
+{
+  "layout": "standard",
+  "slug": "betting-trends-tested",
+  "canonicalPath": "/guides/betting-trends-tested/",
+  "intent": "find out whether popular betting trends and hunches actually win, judged against break-even and a professional bettor's win rate",
+  "title": "Do betting trends work? We tested 11 popular hunches on 20,419 real games",
+  "shortTitle": "Betting trends tested",
+  "seoTitle": "Do Betting Trends Work? 11 Hunches Tested on 20,000+ Games",
+  "description": "We tested 11 popular betting trends, from home underdogs to primetime unders, on 20,419 NFL, college football, MLB and NBA games. Most lose to the vig.",
+  "dek": "Home dogs, rested teams, long shots, referee trends and primetime unders, checked against real closing lines in four sports and judged against a professional's win rate.",
+  "category": "Market research",
+  "publishedAt": "2026-10-09",
+  "updatedAt": "2026-10-09",
+  "reviewedAt": "2026-10-09",
+  "nextReviewAt": "2027-02-15",
+  "readingTimeMinutes": 13,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/betting-trends-tested/betting-trends-tested-title-card-v1.webp",
+    "socialSrc": "/guides/betting-trends-tested/betting-trends-tested-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "Title Do betting trends work? beside a dot plot of 38 betting-hunch results in four sport colours, almost all left of a white break-even line at 52.4%, with three NFL dots in a gold zone marked Pro about 55%",
+    "caption": "WagerProof editorial title card. Every dot is a real result from this study.",
+    "source": "WagerProof editorial composition"
+  },
+  "disclosure": "I am Chris Habib, founder of WagerProof. Every number in this guide comes from WagerProof's own sports database of closing lines and final scores. WagerProof does not accept wagers. This guide is educational research, not betting advice.",
+  "verdict": "Almost every popular betting hunch we tested landed between 47% and 52%, short of the 52.4% needed to break even at -110. Long-shot moneylines were the worst bet in all four sports. Only three NFL results reached a professional's roughly 55%: primetime unders, windy-game unders and fading heavy public sides, and the last two rest on small samples. The strongest, Sunday and Monday night unders, has nearly closed over the last two seasons.",
+  "showSourcesSection": false,
+  "relatedSlugs": [
+    "closing-line-value-sports-betting",
+    "implied-probability-vs-true-probability",
+    "connect-ai-agent-sports-research",
+    "responsible-sports-betting-research"
+  ],
+  "redirectAliases": [],
+  "faqs": [
+    {
+      "question": "Do betting trends work?",
+      "answer": "Most don't. We tested 11 popular hunches across 20,419 NFL, college football, MLB and NBA games, and 34 of the 38 results fell short of the 52.4% win rate needed to break even at -110. Only three NFL results reached a professional's win rate of about 55%, and two of those rest on small samples."
+    },
+    {
+      "question": "What win percentage do you need to be profitable in sports betting?",
+      "answer": "At standard -110 odds you need to win 52.4% of your bets to break even, because you risk $110 to win $100. Winning exactly half your bets loses about $4.55 for every $100 risked. At 55% you make about $5 per $100."
+    },
+    {
+      "question": "What win rate do professional sports bettors have?",
+      "answer": "The best sports bettors are usually put at about 54% to 55% against the spread. David Frohardt-Lane, a Chicago trader and handicapping contest winner, told the University of Chicago Magazine in 2014 that the best win about 54% and that anything higher is luck."
+    },
+    {
+      "question": "Do primetime unders still work in the NFL?",
+      "answer": "From 2018 to 2025, NFL primetime games went under the closing total 56.8% of the time, and Sunday and Monday night games went under 59.9%. Thursday night went under only 50.8%. The edge has shrunk: Sunday and Monday night unders hit 52.5% in 2024 and 53.8% in 2025."
+    },
+    {
+      "question": "Do home underdogs cover the spread?",
+      "answer": "Not often enough to profit. NFL home underdogs covered 50.9% from 2018 to 2025 and college home underdogs covered 50.2% from 2016 to 2025, both below the 52.4% break-even. MLB home underdogs lost $2.90 per $100 on the moneyline."
+    },
+    {
+      "question": "Is betting long shots a good strategy?",
+      "answer": "In our data it was the worst one. NFL underdogs of +300 or longer lost $13.50 per $100, NBA long shots lost $17.20 and MLB underdogs of +200 or longer lost $21.50. This matches the favorite-longshot bias, where bettors overpay for small chances at big payouts."
+    }
+  ]
+}
