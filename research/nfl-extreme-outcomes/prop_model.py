@@ -18,7 +18,7 @@ import pandas as pd
 from pathlib import Path
 from sklearn.ensemble import HistGradientBoostingRegressor
 from stats_helpers import wilson_ci
-from attempts_model import team_feats, games, amer_profit, FEATS
+from attempts_model import SEED, upcoming_spine, team_feats, games, amer_profit, FEATS
 
 DATA = Path(__file__).resolve().parent / "data"
 NORM = {"LAR": "LA", "WSH": "WAS", "JAC": "JAX", "OAK": "LV", "SD": "LAC", "STL": "LA"}
@@ -34,6 +34,7 @@ USE_FLOOR = {"passing_yards": 100.0, "passing_tds": 0.4, "receptions": 2.0,
              "receiving_yards": 18.0, "rushing_yards": 5.0,
              "attempts": 8.0, "carries": 4.0, "completions": 5.0}
 T60 = 60.0
+
 
 
 def t60_lines():
@@ -58,11 +59,15 @@ def t60_lines():
     return op.merge(cl, on=keys)
 
 
-def panel():
+def panel(upcoming=None):
     """All player-games 2018-2025 with the market's actual + form + team/opp/script features.
     Training uses every row; evaluation only the 2023-25 rows that have a T-60 line."""
     po = pd.read_parquet(DATA / "player_offense.parquet")
     po["team"] = po.team.replace(NORM)
+    if upcoming is not None:
+        sp = upcoming_spine(*upcoming, stat_cols=set(MKT_STAT.values()))
+        if not sp.empty:
+            po = pd.concat([po, sp], ignore_index=True)
     off, dfn = team_feats()
     gm = games()
     frames = []
@@ -95,7 +100,8 @@ def walk_forward(p, mkt):
         if len(tr) < 500 or len(te) == 0:
             continue
         mdl = HistGradientBoostingRegressor(max_depth=4, learning_rate=0.05, max_iter=400,
-                                            min_samples_leaf=40, l2_regularization=1.0)
+                                            min_samples_leaf=40, l2_regularization=1.0,
+                                            random_state=SEED)
         mdl.fit(tr[FEATS], tr.actual)
         m.loc[m.t == t, "pred"] = mdl.predict(te[FEATS])
     return m[m.pred.notna()]
@@ -107,18 +113,24 @@ def predict_slate(season, week, markets=None, p=None):
     but for the original markets — used by the props generator to fire the model prop flags.
     Model number stays internal (drives the flag only, never displayed)."""
     if p is None:
-        p = panel()
+        p = panel(upcoming=(season, week))
     p = p.copy()
     p["t"] = p.season * 100 + p.week
     target = season * 100 + week
     out = []
     for mkt in (markets or list(MKT_STAT)):
-        m = p[p.market == mkt].dropna(subset=["actual", "team_spread"])
-        tr, te = m[m.t < target], m[m.t == target]
+        # `actual` must be dropped from TRAINING only. Dropping it before the split made the
+        # test set empty for every UPCOMING slate — an unplayed game has no actual — so this
+        # returned nothing on a live board and P17/P18 only ever appeared on retrospective
+        # rebuilds, after the games they flagged had been played. Found 2026-10-07.
+        m = p[p.market == mkt].dropna(subset=["team_spread"])
+        tr = m[m.t < target].dropna(subset=["actual"])
+        te = m[m.t == target]
         if len(tr) < 500 or len(te) == 0:
             continue
         mdl = HistGradientBoostingRegressor(max_depth=4, learning_rate=0.05, max_iter=400,
-                                            min_samples_leaf=40, l2_regularization=1.0)
+                                            min_samples_leaf=40, l2_regularization=1.0,
+                                            random_state=SEED)
         mdl.fit(tr[FEATS], tr.actual)
         out.append(te.assign(pred=mdl.predict(te[FEATS]))[["season", "week", "player_id", "market", "pred"]])
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
