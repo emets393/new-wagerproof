@@ -28,7 +28,7 @@ DATA = HERE / "data"
 # "measured, nothing there" which is a different and wrong claim.
 BLOBS = ("baseline", "role", "efficiency", "matchup", "scheme", "playsheet", "coverage",
          "route_overall", "routes", "run_concept", "run_consistency", "throw_depth",
-         "redzone", "situational")
+         "redzone", "situational", "trenches")
 
 _CACHE = {}
 

@@ -1025,7 +1025,47 @@ def _def_entering(game_level, extra_keys, cols, k):
         prior = e["lg_" + c].where(e["lg_" + c].notna(), e["pri_" + c])
         e[c + "_allowed"] = shrink(e["e_" + c], e.e_n, prior, k)
         e[c + "_lg"] = prior
-    return e
+    return _carry_byes(e, ek, cols, k)
+
+
+def _carry_byes(e, ek, cols, k):
+    """Carry every defense onto every week of its season, forward-filling a bye.
+
+    ⛔ A BYE SILENTLY DROPS A DEFENSE OUT OF THE RANK. The entering frame is built from GAME rows,
+    so a team on bye has no row that week and `_rank` then counts only the teams that played: the
+    cards printed "12 of 28" in a 4-bye week and would print "of 26" in a 6-bye week. A defense on
+    bye still has a perfectly good season-to-date allowance and belongs in the ranking.
+
+    Measured, 2025 week 12 (DEN/LAC/MIA/WAS on bye, WR receiving yards): 27 of the 28 printed ranks
+    moved, and CLE read "28th of 28" — dead last in the league — when the truth was 31st of 32.
+    The count also made ranks incomparable ACROSS weeks, since the denominator swung 26 to 32.
+
+    The forward fill is safe for leakage: every `e_*` column is already entering-game, so carrying
+    week 11's value into a week-12 bye row copies a number built from games 1-10, which is exactly
+    what that defense enters week 12 with.
+    """
+    if e.empty:
+        return e
+    grid = e[["season", "week"]].drop_duplicates().merge(
+        e[["season", "def_team"]].drop_duplicates(), on="season")
+    if ek:
+        grid = grid.merge(e[["season"] + ek].drop_duplicates(), on="season")
+    full = grid.merge(e, on=["season", "week", "def_team"] + ek, how="left")
+    gk = ["def_team", "season"] + ek
+    ff = [c for c in full.columns
+          if c.startswith(("e_", "own_")) or c == "window" or c.endswith("_allowed")]
+    full = full.sort_values(gk + ["week"])
+    full[ff] = full.groupby(gk, dropna=False)[ff].ffill()
+    # the league prior belongs to the WEEK, not the team, so take the real one for that week and
+    # re-shrink the filled rows rather than carrying a stale prior in with the allowance
+    lg = [c for c in full.columns if c.endswith("_lg")]
+    if lg:
+        full[lg] = full.groupby(["season", "week"] + ek, dropna=False)[lg].transform(
+            lambda s: s.ffill().bfill())
+    for c in cols:
+        if ("e_" + c) in full.columns and (c + "_lg") in full.columns:
+            full[c + "_allowed"] = shrink(full["e_" + c], full.e_n, full[c + "_lg"], k)
+    return full[full.e_n.notna()].reset_index(drop=True)
 
 
 def _rank(e, within, cols):
@@ -1217,6 +1257,66 @@ def defense_shells():
     return e
 
 
+def trenches():
+    """Both sides of the line, per team-week, entering-game — the half the page was missing.
+
+    The prop page shipped a trench card built from `scheme.defense.heavy_box` / `light_box`,
+    which are box-count rates and say almost nothing. The real comparison is two-sided and the
+    OFFENSIVE half was never in the payload at all, so no renderer could draw it: there was no
+    field for what the player's own line allows.
+
+    ⛔ ORIENTATION, AND IT IS COUNTER-INTUITIVE. In `lineMatchups__team` the row's own team is
+    BOTH sides, split by prefix:
+        teamStats*      — what this team's OFFENSE faced   (its line ALLOWS this)
+        opponentStats*  — what this team's DEFENSE did     (its front GENERATES this)
+    Verified against a known case: Philadelphia's `teamStatsPassingPressuredPercentage` is 42.8%
+    and Jalen Hurts was pressured on 42.5% of his dropbacks. Reading these the other way round
+    publishes every line's protection as though it were its pass rush.
+
+    Four measures, each entering-game and ranked out of 32:
+        ol_pressure_faced     pressure the offence takes       lower is a better line
+        dl_pressure_generated pressure the defence creates     higher is a better front
+        ol_ybc_per_att        yards before contact it opens    higher is a better line
+        dl_ybc_allowed        yards before contact it concedes lower is a better front
+    """
+    d = load("lineMatchups__team")
+    cols = ["teamStatsPassingPressuredPercentage", "opponentStatsPassingPressuredPercentage",
+            "teamStatsRushingYardsBeforeContactTotal", "teamStatsRushingAttemptsTotal",
+            "opponentStatsRushingYardsBeforeContactTotal", "opponentStatsRushingAttemptsTotal"]
+    have = [c for c in cols if c in d.columns]
+    if not len(d) or "teamAbbreviation" not in d.columns or len(have) < 4:
+        print("  trenches: lineMatchups__team unavailable — skipped")
+        return pd.DataFrame()
+    d = d.copy()
+    d["def_team"] = ab(d.teamAbbreviation)        # keyed `def_team` only so _def_entering matches
+    for c in have:
+        d[c] = num(d[c])
+    G = d.groupby(["def_team", "season", "week"], as_index=False)[have].mean()
+    e = _def_entering(G, [], have, k=3.0)
+    # ratios from the two entering means — same denominator games, so this is sum/sum
+    for out, a, b in (("ol_ybc_per_att", "e_teamStatsRushingYardsBeforeContactTotal",
+                       "e_teamStatsRushingAttemptsTotal"),
+                      ("dl_ybc_allowed", "e_opponentStatsRushingYardsBeforeContactTotal",
+                       "e_opponentStatsRushingAttemptsTotal")):
+        if a in e.columns and b in e.columns:
+            e[out] = e[a] / e[b].where(e[b] > 0)
+    e = e.rename(columns={"e_teamStatsPassingPressuredPercentage": "ol_pressure_faced",
+                          "e_opponentStatsPassingPressuredPercentage": "dl_pressure_generated"})
+    keep = [c for c in ("ol_pressure_faced", "dl_pressure_generated",
+                        "ol_ybc_per_att", "dl_ybc_allowed") if c in e.columns]
+    # rank within the week. ⛔ direction differs per measure: for a LINE, less pressure faced is
+    # better, so rank 1 is the lowest; for a FRONT, more pressure generated is better.
+    for c in keep:
+        asc = c in ("ol_pressure_faced", "dl_ybc_allowed")
+        g = e.groupby(["season", "week"])[c]
+        e[c + "_rank"] = g.rank(ascending=asc, method="min")
+        e[c + "_of"] = g.transform(lambda x: x.notna().sum())
+        e[c + "_league"] = g.transform("mean")
+    print(f"  trenches: {len(e)} team-weeks, {len(keep)} measures + ranks")
+    return e[["def_team", "season", "week"] + keep
+             + [f"{c}{sfx}" for c in keep for sfx in ("_rank", "_of", "_league")]]
+
+
 # ------------------------------------------------------------------ assembly
 # short plain keys for the client, so a renderer never has to know an FP column name.
 ROLE_KEYS = {
@@ -1360,6 +1460,7 @@ def build(top_routes=4):
     dalign = defense_by_alignment()
     droute = defense_by_route()
     dshell = defense_shells()
+    dtrench = trenches()
     vac = vacancies(role)
 
     # the spine: every (player, season, week) that has a market baseline
@@ -1402,6 +1503,7 @@ def build(top_routes=4):
     dam = G(dalign, dkey)
     drm = G1(droute, dkey + ["bucket"]) if len(droute) else {}
     dsm = G1(dshell, dkey)
+    dtm = G1(dtrench, dkey) if len(dtrench) else {}
 
     out, n_align_w = [], 0
     print(f"  spine: {len(spine)} player-weeks to assemble", flush=True)
@@ -1485,10 +1587,43 @@ def build(top_routes=4):
             scheme_d[s_["bucket"]] = {"routes": s_["e_routes"], "targets_per_route": s_["e_tpr"],
                                       "yards_per_route": s_["e_ypr"], "ppr": s_["e_ppr"],
                                       "games": s_["e_n"]}
+        own_ab_early = ab(pd.Series([t.teamAbbreviation]))[0]
         for q in qmk.get(pk, ()):
             scheme_d[q["bucket"]] = {"ppr": q["e_ppr"], "dropbacks": q["e_dropbacks"],
                                      "dropback_share": q["e_share"],
                                      "ppr_per_dropback": q["e_ppr_per_db"], "games": q["e_n"]}
+        # TRENCHES — the two-sided line read. His own team supplies the OFFENSIVE half
+        # (what its line allows) and the opponent the DEFENSIVE half (what its front does).
+        # Both come from the same table keyed on each team's own row; see trenches().
+        trench = {}
+        if dtm:
+            own = dtm.get((own_ab_early, t.season, t.week))
+            opp = dtm.get(dk)
+            def _side(r, *names):
+                o = {}
+                for n in names:
+                    if r is None or r.get(n) is None:
+                        continue
+                    o[n] = r.get(n)
+                    for sfx in ("_league", "_rank", "_of"):
+                        o[n + sfx] = r.get(n + sfx)
+                return o
+            trench = {"line": _side(own, "ol_pressure_faced", "ol_ybc_per_att"),
+                      "front": _side(opp, "dl_pressure_generated", "dl_ybc_allowed")}
+            # the two comparisons a reader actually wants, precomputed so no client re-derives them
+            if own is not None and opp is not None:
+                lg_p = own.get("ol_pressure_faced_league")
+                if own.get("ol_pressure_faced") is not None and opp.get("dl_pressure_generated") is not None and lg_p:
+                    # positive = the OFFENCE is favoured: its line is better than average AND
+                    # the front it faces is worse than average
+                    trench["pass_pro_edge"] = ((lg_p - own["ol_pressure_faced"])
+                                               + (lg_p - opp["dl_pressure_generated"]))
+                lg_y = own.get("ol_ybc_per_att_league")
+                if own.get("ol_ybc_per_att") is not None and opp.get("dl_ybc_allowed") is not None and lg_y:
+                    trench["run_block_edge"] = ((own["ol_ybc_per_att"] - lg_y)
+                                                + (opp["dl_ybc_allowed"] - lg_y))
+            trench = {k: v for k, v in trench.items() if v or v == 0}
+
         shells, traits = {}, {}
         row = dsm.get(dk)
         if row is not None:
@@ -1698,6 +1833,7 @@ def build(top_routes=4):
             "route_overall": json.dumps(_clean(overall_rt or {})),
             "run_concept": json.dumps(_clean({"by": concept, "overall": concept_ovr})),
             "run_consistency": json.dumps(_clean(cons)),
+            "trenches": json.dumps(_clean(trench)),
             "throw_depth": json.dumps(_clean({"by": depth, "overall": depth_ovr})),
             "redzone": json.dumps(_clean(rz)),
             "situational": json.dumps(_clean(sit)),
