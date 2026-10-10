@@ -18,15 +18,218 @@ export const TABLE_LABEL: Record<string, string> = {
   pass_off: 'Passing attack',
   pass_def: 'Pass defense',
   rush_off: 'Run game',
-  rush_def_RB: 'Run defense vs backs',
-  rush_def_QB: 'Run defense vs quarterbacks',
+  rush_def_RB: 'Run defense',
+  rush_def_QB: 'Run defense',
   recv_off: 'Receiving corps',
-  recv_def_WR: 'Pass defense vs wide receivers',
-  recv_def_TE: 'Pass defense vs tight ends',
-  recv_def_RB: 'Pass defense vs backs',
-  recv_def_slot: 'Pass defense vs the slot',
-  recv_def_wide: 'Pass defense vs outside',
+  recv_def_WR: 'Pass defense',
+  recv_def_TE: 'Pass defense',
+  recv_def_RB: 'Pass defense',
+  recv_def_slot: 'Pass defense',
+  recv_def_wide: 'Pass defense',
 };
+
+/** One board per family and side. Position and alignment choose which rows it shows. */
+export interface CheatSlice {
+  value: string;
+  label: string;
+  tableKey: string;
+  kind: 'position' | 'alignment';
+}
+
+export interface CheatSheetDef {
+  id: string;
+  family: string;
+  side: string;
+  label: string;
+  tableKey: string;
+  slices: CheatSlice[];
+}
+
+export const SHEETS: CheatSheetDef[] = [
+  { id: 'pass_off', family: 'passing', side: 'offense', label: 'Passing attack', tableKey: 'pass_off', slices: [] },
+  { id: 'pass_def', family: 'passing', side: 'defense', label: 'Pass defense', tableKey: 'pass_def', slices: [] },
+  { id: 'rush_off', family: 'rushing', side: 'offense', label: 'Run game', tableKey: 'rush_off', slices: [] },
+  {
+    id: 'rush_def',
+    family: 'rushing',
+    side: 'defense',
+    label: 'Run defense',
+    tableKey: 'rush_def_RB',
+    slices: [
+      { value: 'RB', label: 'RB', tableKey: 'rush_def_RB', kind: 'position' },
+      { value: 'QB', label: 'QB', tableKey: 'rush_def_QB', kind: 'position' },
+    ],
+  },
+  { id: 'recv_off', family: 'receiving', side: 'offense', label: 'Receiving corps', tableKey: 'recv_off', slices: [] },
+  {
+    id: 'recv_def',
+    family: 'receiving',
+    side: 'defense',
+    label: 'Receiving defense',
+    tableKey: 'recv_def_WR',
+    slices: [
+      { value: 'WR', label: 'WR', tableKey: 'recv_def_WR', kind: 'position' },
+      { value: 'TE', label: 'TE', tableKey: 'recv_def_TE', kind: 'position' },
+      { value: 'RB', label: 'RB', tableKey: 'recv_def_RB', kind: 'position' },
+      { value: 'slot', label: 'Slot', tableKey: 'recv_def_slot', kind: 'alignment' },
+      { value: 'wide', label: 'Wide', tableKey: 'recv_def_wide', kind: 'alignment' },
+    ],
+  },
+];
+
+export function defaultSlice(sheet: CheatSheetDef): string | null {
+  return sheet.slices[0]?.value ?? null;
+}
+
+export function sheetTableKey(sheet: CheatSheetDef, slice: string | null): string {
+  if (!slice) return sheet.tableKey;
+  return sheet.slices.find((item) => item.value === slice)?.tableKey ?? sheet.tableKey;
+}
+
+export function rowsForSheet(rows: CheatRow[], sheet: CheatSheetDef, slice: string | null): CheatRow[] {
+  const tableKey = sheetTableKey(sheet, slice);
+  return rows.filter((row) => row.tableKey === tableKey);
+}
+
+const ALIGNMENTS = [
+  { value: 'slot', label: 'Slot', tableKey: 'recv_def_slot' },
+  { value: 'wide', label: 'Wide', tableKey: 'recv_def_wide' },
+] as const;
+
+export interface ActiveCheat {
+  kind: 'trenches' | 'metrics';
+  tableKey: string | null;
+  title: string;
+  description: string;
+  showSide: boolean;
+  positions: { value: string; label: string }[];
+  alignments: { value: string; label: string }[];
+}
+
+const VIEW_COPY: Record<string, { title: string; description: string }> = {
+  pass_off: {
+    title: 'Passing attack',
+    description: 'This team’s own passing game. The player is their starting quarterback. Every number is the offense against the league.',
+  },
+  pass_def: {
+    title: 'Pass defense',
+    description: 'How this defense defends the pass. The player is the opponent’s starting quarterback. Every number is the defense against the league.',
+  },
+  rush_off: {
+    title: 'Run game',
+    description: 'This team’s own run game. The player is their lead back. Every number is the offense against the league.',
+  },
+  rush_def_RB: {
+    title: 'Run defense',
+    description: 'Run defense against running backs. The player is the opponent’s lead back. Every number is the defense against the league.',
+  },
+  rush_def_QB: {
+    title: 'Run defense',
+    description: 'Run defense against quarterback runs. The player is the opponent’s starting quarterback. Every number is the defense against the league.',
+  },
+  recv_off: {
+    title: 'Receiving corps',
+    description: 'This team’s own receiving game. The player is their WR1 by target share. Every number is the offense against the league.',
+  },
+  recv_def_WR: {
+    title: 'Receiving defense',
+    description: 'Pass defense against wide receivers. The player is the opponent’s WR1. Every number is the defense against the league.',
+  },
+  recv_def_TE: {
+    title: 'Receiving defense',
+    description: 'Pass defense against tight ends. The player is the opponent’s TE1. Every number is the defense against the league.',
+  },
+  recv_def_RB: {
+    title: 'Receiving defense',
+    description: 'Pass defense against backs out of the backfield. The player is the opponent’s pass-catching back. Every number is the defense against the league.',
+  },
+  recv_def_slot: {
+    title: 'Receiving defense',
+    description: 'Pass defense against slot routes. The player is whoever runs the most slot routes for the opponent. Every number is the defense against the league.',
+  },
+  recv_def_wide: {
+    title: 'Receiving defense',
+    description: 'Pass defense against outside routes. The player is whoever runs the most wide routes for the opponent. Every number is the defense against the league.',
+  },
+};
+
+/** One filter combination, one table. Alignment only exists on receiving, and it replaces the position cut. */
+export function activeCheat(selection: { family: string; side: string; position: string; alignment: string }): ActiveCheat {
+  if (selection.family === 'trenches') {
+    return {
+      kind: 'trenches',
+      tableKey: null,
+      title: 'Trenches',
+      description: 'One offensive line against the front it faces this week. Positive means the line has the edge. Pass is pressure. Run is yards before contact.',
+      showSide: false,
+      positions: [],
+      alignments: [],
+    };
+  }
+  const alignments = selection.family === 'receiving' ? ALIGNMENTS.map((item) => ({ value: item.value, label: item.label })) : [];
+  const align = selection.family === 'receiving' ? ALIGNMENTS.find((item) => item.value === selection.alignment) : undefined;
+  if (align) {
+    const copy = VIEW_COPY[align.tableKey];
+    return {
+      kind: 'metrics',
+      tableKey: align.tableKey,
+      title: copy.title,
+      description: copy.description,
+      showSide: true,
+      positions: [],
+      alignments,
+    };
+  }
+  const sheet = SHEETS.find((item) => item.family === selection.family && item.side === selection.side)
+    ?? SHEETS.find((item) => item.family === selection.family)!;
+  const positions = sheet.slices.filter((item) => item.kind === 'position').map((item) => ({ value: item.value, label: item.label }));
+  const position = positions.find((item) => item.value === selection.position) ?? positions[0];
+  const tableKey = position
+    ? sheet.slices.find((item) => item.value === position.value)?.tableKey ?? sheet.tableKey
+    : sheet.tableKey;
+  const copy = VIEW_COPY[tableKey] ?? { title: sheet.label, description: 'This team against the league.' };
+  return {
+    kind: 'metrics',
+    tableKey,
+    title: copy.title,
+    description: copy.description,
+    showSide: true,
+    positions,
+    alignments,
+  };
+}
+
+export const METRIC_HELP: Record<string, string> = {
+  cpoe: 'Completion percentage over expected, versus the league rate.',
+  sack_rate: 'Share of dropbacks that end in a sack.',
+  pressure_oe: 'Pressure over expected, in percentage points versus the league.',
+  off_target_rate: 'Share of throws that miss the target.',
+  deep_rate: 'Share of throws that travel deep.',
+  explosive_rate: 'Share of plays that gain an explosive chunk.',
+  success_rate: 'Share of plays that count as a success for the offense.',
+  td_rate: 'Share of plays that score a touchdown.',
+  stuff_rate: 'Share of runs stopped at or behind the line.',
+  mtf_per_att: 'Missed tackles forced per rush attempt.',
+  yac_per_att: 'Yards after the catch per reception.',
+  yoe_per_target: 'Receiving yards over expected per target.',
+  targets_per_route: 'Targets earned per route run.',
+  catch_rate: 'Share of targets that are caught.',
+  target_catchable_rate: 'Share of targets the receiver can catch.',
+  first_read_rate: 'Share of targets that are the quarterback’s first read.',
+  checkdown_rate: 'Share of dropbacks thrown as a checkdown.',
+  man_share: 'Share of coverage snaps played in man.',
+  zone_share: 'Share of coverage snaps played in zone.',
+  man_success: 'Success rate when the defense is in man.',
+  zone_success: 'Success rate when the defense is in zone.',
+  slot_share: 'Share of routes run from the slot.',
+  wide_share: 'Share of routes run outside.',
+  inline_share: 'Share of routes run inline.',
+  backfield_share: 'Share of targets that come from the backfield.',
+};
+
+export function metricHelp(key: string): string {
+  return METRIC_HELP[key] ?? 'This team against the league at the same denominator.';
+}
 
 /** Columns that mean something on this table. Every row carries the other keys too. */
 export const CHEAT_COLUMNS: Record<string, string[]> = {
@@ -91,6 +294,56 @@ export interface CheatPlayer {
 
 export type CheatTone = 'pos' | 'neg' | 'nil';
 
+/**
+ * Whether a higher raw value helps an offense. Defense rows store what that defense allows,
+ * so the offense's good is the defense's bad. `neutral` is a mix (share, depth) with no edge.
+ * Rank in the database is 1 = highest value, not 1 = best for the team on the row.
+ */
+type RowPolarity = 'high' | 'low' | 'neutral';
+
+const OFFENSE_POLARITY: Record<string, RowPolarity> = {
+  success_rate: 'high',
+  stuff_rate: 'low',
+  yac_per_att: 'high',
+  mtf_per_att: 'high',
+  explosive_rate: 'high',
+  td_rate: 'high',
+  zone_success: 'high',
+  man_success: 'high',
+  zone_share: 'neutral',
+  man_share: 'neutral',
+  cpoe: 'high',
+  pressure_oe: 'low',
+  sack_rate: 'low',
+  off_target_rate: 'low',
+  deep_rate: 'neutral',
+  checkdown_rate: 'neutral',
+  yoe_per_target: 'high',
+  targets_per_route: 'high',
+  catch_rate: 'high',
+  target_catchable_rate: 'high',
+  first_read_rate: 'neutral',
+  slot_share: 'neutral',
+  wide_share: 'neutral',
+  inline_share: 'neutral',
+  backfield_share: 'neutral',
+};
+
+export function rowPolarity(side: string, key: string): RowPolarity {
+  const offense = OFFENSE_POLARITY[key] ?? 'neutral';
+  if (offense === 'neutral') return 'neutral';
+  if (side === 'defense') return offense === 'high' ? 'low' : 'high';
+  return offense;
+}
+
+export function metricDirection(side: string, key: string): string {
+  const polarity = rowPolarity(side, key);
+  const who = side === 'defense' ? 'this defense' : 'this offense';
+  if (polarity === 'neutral') return 'This is a mix, not an edge, so it stays grey.';
+  if (polarity === 'high') return `Higher favors ${who}. Green means it does. 1st is the best for them.`;
+  return `Lower favors ${who}. Green means it does. 1st is the best for them.`;
+}
+
 export function metricLabel(key: string): string {
   return METRIC[key]?.label ?? key;
 }
@@ -126,37 +379,88 @@ export function formatActual(key: string, actual: number | null): string {
   return unit ? `${actual.toFixed(2)} ${unit}` : actual.toFixed(2);
 }
 
-/** The gap a reader should see: yards for per-play measures, percent for rates. */
-export function formatGap(key: string, metric: CheatMetric): { text: string; tone: CheatTone } | null {
+/**
+ * Grey only a real tie. The old bands (0.5 yards, 0.05 targets, 3 pp) were wider than
+ * the gap between most teams, so missed tackles, yards after catch, and targets per route
+ * rendered with no color at all.
+ */
+const DEAD_ABS: Record<string, number> = {
+  mtf_per_att: 0.02,
+  yac_per_att: 0.15,
+  yoe_per_target: 0.25,
+  targets_per_route: 0.004,
+};
+
+function deadFor(key: string): number {
+  if (key in DEAD_ABS) return DEAD_ABS[key];
+  const kind = kindOf(key);
+  if (kind === 'pp') return 1;
+  if (kind === 'yards') return 0.25;
+  if (kind === 'decimal') return 0.004;
+  return 0.01;
+}
+
+function toneFor(side: string, key: string, gap: number): CheatTone {
+  const polarity = rowPolarity(side, key);
+  if (polarity === 'neutral' || Math.abs(gap) < deadFor(key)) return 'nil';
+  const higherHelps = polarity === 'high';
+  return higherHelps === gap > 0 ? 'pos' : 'neg';
+}
+
+function rawGap(key: string, metric: CheatMetric | null): number | null {
+  if (!metric) return null;
   const kind = kindOf(key);
   if (kind === 'pp') {
     if (metric.actual == null || metric.league == null) return null;
-    const gap = (metric.actual - metric.league) * 100;
-    return { text: `${signed(gap, 1)} pp`, tone: Math.abs(gap) < 3 ? 'nil' : gap > 0 ? 'pos' : 'neg' };
+    return (metric.actual - metric.league) * 100;
   }
   if (kind === 'yards' || kind === 'decimal') {
     if (metric.actual == null || metric.league == null) return null;
-    const gap = metric.actual - metric.league;
-    const dead = Math.abs(gap) < (kind === 'yards' ? 0.5 : 0.05);
-    const unit = measureUnit(key);
-    return { text: `${signed(gap, kind === 'yards' ? 2 : 3)}${unit ? ` ${unit}` : ''}`, tone: dead ? 'nil' : gap > 0 ? 'pos' : 'neg' };
+    return metric.actual - metric.league;
   }
-  if (metric.lift == null) return null;
-  const dead = Math.abs(metric.lift) < 0.03;
-  return { text: `${signed(metric.lift * 100, 1)}%`, tone: dead ? 'nil' : metric.lift > 0 ? 'pos' : 'neg' };
+  return metric.lift;
 }
 
-export function rankLabel(metric: CheatMetric): string | null {
-  if (metric.rank == null || metric.of == null) return null;
-  const n = Math.round(metric.rank);
+/** Positive when the gap helps the team the row is about. */
+function teamEdge(side: string, key: string, metric: CheatMetric | null): number | null {
+  const gap = rawGap(key, metric);
+  if (gap == null) return null;
+  return rowPolarity(side, key) === 'low' ? -gap : gap;
+}
+
+/** The gap a reader should see. Color is for the team on the row, not for a higher number. */
+export function formatGap(key: string, metric: CheatMetric, side = 'offense'): { text: string; tone: CheatTone } | null {
+  const kind = kindOf(key);
+  const gap = rawGap(key, metric);
+  if (gap == null) return null;
+  if (kind === 'pp') return { text: `${signed(gap, 1)} pp`, tone: toneFor(side, key, gap) };
+  if (kind === 'yards' || kind === 'decimal') {
+    const unit = measureUnit(key);
+    return { text: `${signed(gap, kind === 'yards' ? 2 : 3)}${unit ? ` ${unit}` : ''}`, tone: toneFor(side, key, gap) };
+  }
+  return { text: `${signed(gap * 100, 1)}%`, tone: toneFor(side, key, gap) };
+}
+
+function ordinal(n: number): string {
   const mod = n % 100;
   const suffix = mod >= 11 && mod <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
-  return `${n}${suffix} of ${Math.round(metric.of)}`;
+  return `${n}${suffix}`;
+}
+
+/** 1st is the best result for the team on the row. Stored rank 1 is only the highest raw value. */
+export function rankLabel(metric: CheatMetric, side = 'offense', key = 'success_rate'): string | null {
+  if (metric.rank == null || metric.of == null) return null;
+  const stored = Math.round(metric.rank);
+  const n = Math.round(metric.of);
+  const shown = rowPolarity(side, key) === 'low' ? n - stored + 1 : stored;
+  return `${ordinal(shown)} of ${n}`;
 }
 
 export interface CheatRow {
   family: string;
   tableKey: string;
+  positionFilter: string | null;
+  alignmentFilter: string | null;
   side: string;
   team: string;
   opponent: string;
@@ -214,6 +518,8 @@ export function parseCheatRows(rows: unknown[]): CheatRow[] {
     return [{
       family: typeof record.family === 'string' ? record.family : '',
       tableKey,
+      positionFilter: typeof record.position_filter === 'string' ? record.position_filter : null,
+      alignmentFilter: typeof record.alignment_filter === 'string' ? record.alignment_filter : null,
       side: typeof record.side === 'string' ? record.side : '',
       team: typeof record.team === 'string' ? record.team : '',
       opponent: typeof record.opponent === 'string' ? record.opponent : '',
@@ -225,15 +531,15 @@ export function parseCheatRows(rows: unknown[]): CheatRow[] {
   });
 }
 
-export function sortRows<T extends { metrics: Record<string, CheatMetric | null> }>(
+export function sortRows<T extends { side?: string; metrics: Record<string, CheatMetric | null> }>(
   rows: T[],
   key: string,
   direction: 'asc' | 'desc',
 ): T[] {
   const sign = direction === 'desc' ? -1 : 1;
   return [...rows].sort((a, b) => {
-    const av = a.metrics[key]?.lift;
-    const bv = b.metrics[key]?.lift;
+    const av = teamEdge(a.side ?? 'offense', key, a.metrics[key] ?? null);
+    const bv = teamEdge(b.side ?? 'offense', key, b.metrics[key] ?? null);
     if (av == null && bv == null) return 0;
     if (av == null) return 1;
     if (bv == null) return -1;

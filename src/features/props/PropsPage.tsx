@@ -18,7 +18,9 @@ import { bestMarket, playerHasLean } from '@/features/nflTools/propMatchups/prop
 import { PropsFeedPanel } from './PropsFeedPanel';
 import { NflPropPlayerBrowser } from './NflPropPlayerBrowser';
 import { NflCheatSheet } from './NflCheatSheet';
-import { NflRecordStrip } from './NflRecordStrip';
+import { NflRecordSheet } from './NflRecordSheet';
+import { Button } from '@/components/ui/button';
+import { usePageHeaderActions } from '@/components/pageHeaderActions';
 import { usePropsUrlState, type PropsBrowse, type PropsFocus, type PropsPanel, type PropsRail, type PropsSport } from './usePropsUrlState';
 
 interface WorkspaceProps {
@@ -82,6 +84,27 @@ function NflPropsWorkspace(props: WorkspaceProps) {
   const ledgerQ = useNflPropSpotlightLedger();
   const cheatQ = useNflPropCheatsheet(season, week);
   const [cheatOpen, setCheatOpen] = React.useState(false);
+  const [recordOpen, setRecordOpen] = React.useState(false);
+  const openCheat = React.useCallback(() => {
+    setRecordOpen(false);
+    setCheatOpen(true);
+  }, []);
+  const openRecord = React.useCallback(() => {
+    setCheatOpen(false);
+    setRecordOpen(true);
+  }, []);
+  const headerActions = usePageHeaderActions(
+    <div className="ml-3 flex items-center gap-2">
+      <Button type="button" size="sm" onClick={openCheat} className="h-8 rounded-full px-3.5 text-[13px] font-bold shadow-sm">
+        <span aria-hidden className="text-[15px] leading-none">📊</span>
+        Cheat sheet
+      </Button>
+      <Button type="button" size="sm" variant="secondary" onClick={openRecord} className="h-8 rounded-full px-3.5 text-[13px] font-bold shadow-sm">
+        <span aria-hidden className="text-[15px] leading-none">🏆</span>
+        Record
+      </Button>
+    </div>,
+  );
   const booksQ = useNflPropBooks(season, week);
   const picks = spotlightQ.data ?? [];
   const spotlightRank = React.useMemo(() => spotlightRankMap(picks), [picks]);
@@ -154,14 +177,13 @@ function NflPropsWorkspace(props: WorkspaceProps) {
   const showingPlayerCard = Boolean(playerPage);
 
   return (
+    <>
+    {headerActions}
     <SplitViewLayout
       storageId="wagerproof-props-split"
-      showDetailOnMobile={showingPlayerCard || cheatOpen}
-      onBackFromDetail={() => {
-        if (cheatOpen) setCheatOpen(false);
-        else props.selectPlayer(null);
-      }}
-      detailBackLabel={cheatOpen ? 'Cheat sheet' : 'Players'}
+      showDetailOnMobile={showingPlayerCard}
+      onBackFromDetail={() => props.selectPlayer(null)}
+      detailBackLabel="Players"
       list={
         <NflPropPlayerBrowser
           players={listedPlayers}
@@ -170,6 +192,7 @@ function NflPropsWorkspace(props: WorkspaceProps) {
           spotlightRank={spotlightRank}
           leanIds={leanIds}
           spotlightRecord={spotlightRecord}
+          books={booksQ.data}
           rail={props.rail}
           onRail={props.onRailChange}
           selectedPlayerId={props.selectedPlayerId}
@@ -177,27 +200,9 @@ function NflPropsWorkspace(props: WorkspaceProps) {
           onSportChange={props.onSportChange}
           isLoading={pagesQ.isLoading}
           onRefresh={() => { pagesQ.refetch(); spotlightQ.refetch(); ledgerQ.refetch(); }}
-          onOpenCheat={() => setCheatOpen((open) => !open)}
-          cheatOpen={cheatOpen}
-          record={<NflRecordStrip rows={ledgerQ.data ?? []} isLoading={ledgerQ.isLoading} />}
         />
       }
-      detail={cheatOpen ? (
-        <NflCheatSheet
-          rows={cheatQ.data ?? []}
-          games={items}
-          isLoading={cheatQ.isLoading}
-          onClose={() => setCheatOpen(false)}
-          onTeam={(gameId) => {
-            setCheatOpen(false);
-            props.onRailChange(`g:${gameId}`);
-          }}
-          onPlayer={(playerId) => {
-            setCheatOpen(false);
-            props.selectPlayer(playerId);
-          }}
-        />
-      ) : playerPage ? (
+      detail={playerPage ? (
         <div className="h-full overflow-y-auto px-3 py-4">
           {shownPicks.map((pick) => (
             <div key={`${pick.market}-${pick.side}`} className="mb-4">
@@ -219,6 +224,31 @@ function NflPropsWorkspace(props: WorkspaceProps) {
         </div>
       )}
     />
+    {recordOpen ? (
+      <NflRecordSheet
+        rows={ledgerQ.data ?? []}
+        isLoading={ledgerQ.isLoading}
+        onClose={() => setRecordOpen(false)}
+      />
+    ) : null}
+    {cheatOpen ? (
+      <NflCheatSheet
+        rows={cheatQ.data ?? []}
+        pages={pages}
+        games={items}
+        isLoading={cheatQ.isLoading || pagesQ.isLoading}
+        onClose={() => setCheatOpen(false)}
+        onTeam={(gameId) => {
+          setCheatOpen(false);
+          props.onRailChange(`g:${gameId}`);
+        }}
+        onPlayer={(playerId) => {
+          setCheatOpen(false);
+          props.selectPlayer(playerId);
+        }}
+      />
+    ) : null}
+    </>
   );
 }
 

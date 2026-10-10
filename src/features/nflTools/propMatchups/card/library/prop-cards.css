@@ -94,9 +94,20 @@
 .prop-cards .col .zl {height:1px;background:transparent}
 .prop-cards .col i {display:block;width:100%;border-radius:3px 3px 0 0;background:var(--pc-leak)}
 .prop-cards .col .dn i {border-radius:0 0 3px 3px;background:var(--pc-stingy)}
-.prop-cards .wklabels {display:grid;gap:4px;margin-top:5px}
-.prop-cards .wklabels span {font-size:10px;color:hsl(var(--muted-foreground));text-align:center;line-height:1.25}
-.prop-cards .wklabels img {display:block;width:16px;height:16px;margin:0 auto 2px;object-fit:contain}
+.prop-cards .log-bars {display:grid;gap:4px;align-items:end}
+.prop-cards .log-col {min-width:0;display:flex;flex-direction:column;align-items:center}
+.prop-cards .log-val {font-size:11px;font-weight:800;line-height:1;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.prop-cards .log-track {position:relative;width:100%;height:72px;display:flex;align-items:flex-end;border-radius:4px;background:hsl(var(--foreground) / 0.05)}
+.prop-cards .log-track i {display:block;width:100%;border-radius:3px 3px 0 0;background:var(--pc-flat)}
+.prop-cards .log-track i.pos {background:var(--pc-leak)}
+.prop-cards .log-track i.neg {background:var(--pc-stingy)}
+.prop-cards .log-mark {position:absolute;left:0;right:0;height:0;border-top:1.5px solid hsl(var(--foreground));z-index:1}
+.prop-cards .wklabels {display:grid;gap:4px;margin-top:6px}
+.prop-cards .wklabels > span {display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:hsl(var(--muted-foreground));text-align:center;line-height:1.15}
+.prop-cards .wklabels .log-wk {font-weight:800;color:hsl(var(--foreground))}
+.prop-cards .wklabels .log-opp {display:flex;align-items:center;justify-content:center;gap:3px;font-weight:700}
+.prop-cards .wklabels img {display:block;width:16px;height:16px;object-fit:contain}
+.prop-cards .wklabels .log-line {font-weight:600;font-variant-numeric:tabular-nums}
 .prop-cards .glog .ft {display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;padding-top:10px;border-top:1px solid var(--pc-rule);font-size:12px;color:var(--pc-fg-2)}
 .prop-cards .glog .ft b {font-size:15px;font-weight:700;color:hsl(var(--foreground))}
 .prop-cards .rows {display:flex;flex-direction:column;gap:11px}

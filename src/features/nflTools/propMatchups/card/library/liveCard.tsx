@@ -267,6 +267,7 @@ export function gradedWeeks(log: TrendGameLogEntry[] | null | undefined, market:
       label: `W${game.week}`,
       opponent: game.opp,
       line,
+      actual,
       ...(typeof game.is_home === 'boolean' ? { home: game.is_home } : {}),
       margin: Math.round((actual - line) * 10) / 10,
     });
