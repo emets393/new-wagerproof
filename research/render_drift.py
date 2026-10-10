@@ -16,6 +16,7 @@ Exits non-zero on drift so a cron wrapper can alert. Skips cleanly when RENDER_A
 import json
 import os
 import sys
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -64,11 +65,25 @@ def main():
     blue = {s["name"]: norm(s["startCommand"])
             for s in yaml.safe_load((ROOT / "render.yaml").read_text()).get("services", [])
             if s.get("startCommand")}
-    req = urllib.request.Request("https://api.render.com/v1/services?limit=100",
-                                 headers={"Authorization": f"Bearer {k}",
-                                          "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=90) as r:
-        rows = [x.get("service", x) for x in json.load(r)]
+    # ⛔ MUST PAGINATE. `?limit=100` does NOT return every service: on 2026-10-10 the account
+    # had 50 cron jobs and a single limit=100 call came back with 49, omitting
+    # nfl-pregame-injuries-daily. A drift checker that silently cannot see a service is worse
+    # than none — the missing one lands in "not found live" and reads as a blueprint typo.
+    rows, cursor = [], None
+    while True:
+        url = "https://api.render.com/v1/services?limit=100"
+        if cursor:
+            url += "&cursor=" + urllib.parse.quote(cursor)
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {k}",
+                                                   "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=90) as r:
+            page = json.load(r)
+        if not page:
+            break
+        rows += [x.get("service", x) for x in page]
+        cursor = page[-1].get("cursor")
+        if not cursor:
+            break
 
     drift, seen = [], set()
     for s in rows:
