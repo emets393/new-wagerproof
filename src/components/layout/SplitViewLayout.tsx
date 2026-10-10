@@ -77,10 +77,10 @@ export function SplitViewLayout({
                 {detailBackLabel}
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">{detail}</div>
+            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">{detail}</div>
           </>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto">{list}</div>
+          <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">{list}</div>
         )}
       </div>
     );
@@ -93,11 +93,11 @@ export function SplitViewLayout({
       className={cn('h-full min-h-0', className)}
     >
       <ResizablePanel defaultSize={listDefaultSize} minSize={listMinSize} maxSize={listMaxSize}>
-        <div className="h-full min-h-0 overflow-y-auto">{list}</div>
+        <div className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto">{list}</div>
       </ResizablePanel>
       <ResizableHandle className="bg-border/40 hover:bg-primary/40" />
       <ResizablePanel defaultSize={100 - listDefaultSize}>
-        <div className="h-full min-h-0 overflow-y-auto">{detail}</div>
+        <div className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto">{detail}</div>
       </ResizablePanel>
     </ResizablePanelGroup>
   );

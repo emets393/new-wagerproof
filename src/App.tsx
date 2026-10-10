@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useParams, Navigate } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { logMixpanelStatus } from "@/lib/mixpanel";
@@ -23,6 +23,14 @@ import { PropNarrativesPage } from "./features/footballRegression/PropNarratives
 import { PlayerPropsReportPage } from "./features/mlbTools/playerPropsReport";
 import PropBreakdownPage from "./features/propBreakdown/PropBreakdownPage";
 import PropsPage from "./features/props/PropsPage";
+
+const PropCardHarness = import.meta.env.DEV
+  ? lazy(() =>
+      import("./features/nflTools/propMatchups/card/library/PropWorkflow").then((module) => ({
+        default: module.PropWorkflow,
+      })),
+    )
+  : null;
 import CompetitionPage from "./features/competition/CompetitionPage";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
@@ -293,6 +301,7 @@ function AppRoutes() {
     '/free-picks', // Free picks landing page - public access
     '/ai-agents', // New separate landing page for the AI Agent feature
     '/mcp', // Public WagerProof MCP connector tutorial
+    ...(import.meta.env.DEV ? ['/props-card'] : []),
   ].includes(location.pathname) || location.pathname.startsWith('/support');
 
   // Pages that should not have the layout (landing, welcome)
@@ -326,6 +335,16 @@ function AppRoutes() {
           <Route path="/free-picks" element={<FreePicks />} />
           <Route path="/ai-agents" element={<AgentLanding />} />
           <Route path="/mcp" element={<McpTutorial />} />
+          {PropCardHarness ? (
+            <Route
+              path="/props-card"
+              element={
+                <Suspense fallback={null}>
+                  <PropCardHarness />
+                </Suspense>
+              }
+            />
+          ) : null}
           <Route path="/support" element={<SupportCenter />} />
           <Route path="/support/:collectionSlug" element={<SupportCollection />} />
           <Route path="/support/:collectionSlug/:articleSlug" element={<SupportArticle />} />
