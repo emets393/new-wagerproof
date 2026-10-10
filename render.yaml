@@ -114,7 +114,7 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; }
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION
@@ -177,7 +177,12 @@ services:
       { python3 fp_spotlight.py --payload data/fp_prop_payload_current.parquet --season "$FPS" --week "$FPW" --emit --write || true; } &&
       { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 fp_spotlight_write.py "out/spotlight_${FPS}w${FPW}.json" --write --season "$FPS" --week "$FPW" || true; } &&
       { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 gen_nfl_prop_player_pages.py || true; } &&
-      { python3 grade_spotlight_picks.py --season "$FPS" || true; }
+      { python3 grade_spotlight_picks.py --season "$FPS" || true; } &&
+      { if [ "$(date +%u)" = "2" ]; then
+          python3 cheatsheet_write.py --season "$FPS" --week "$FPW" --write;
+        else
+          python3 cheatsheet_write.py --season "$FPS" --week "$FPW" --players-only;
+        fi || true; }
     # nfl_prop_narratives.py is RETIRED from this chain (owner 2026-10-07). The spotlight picks
     # replace the regression-report prop picks. score_props_week.py STAYS: the projection is still
     # computed because P14/P17/P18 derive from it — it is simply never surfaced.
@@ -191,6 +196,13 @@ services:
     #                rebuilds pages but has no parquet, so it carries fp_cards forward from the
     #                DB instead (fp_cards_layer._from_db) — that is what stops its DELETE +
     #                reinsert from emptying the column every 15 minutes.
+    #   cheatsheet-> the prop cheat sheet. TWO CLOCKS ON PURPOSE: the team productivity measures
+    #                only move when games are played, so the full build runs TUESDAY only
+    #                (date +%u = 2, after Monday night). The NAMED PLAYER depends on the injury
+    #                report, which lands all week — a Tuesday-built sheet would still point a
+    #                reader at someone ruled out on Friday, so --players-only re-resolves just
+    #                that column every other day and never touches a measure.
+    #                ⛔ Must run HERE: it reads the FP __team / __opponent parquets this box pulls.
     #   grade     -> scores whatever now has a game log; a week finishes across four days, so it
     #                runs daily and leaves the rest alone. Season-wide, no --week.
     #
@@ -224,7 +236,7 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; }
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION
@@ -239,7 +251,7 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; }
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION
