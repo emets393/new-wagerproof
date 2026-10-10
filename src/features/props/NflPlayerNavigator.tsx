@@ -1,7 +1,8 @@
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { NflPropPlayerPage, NflPropPlayerTrends } from '@/features/propBreakdown/types';
-import type { NflPropGameFeedItem } from '@/features/nflTools/propMatchups/model';
+import { LeanMark } from '@/features/nflTools/propMatchups/LeanMark';
+import { EMPTY_SPOTLIGHT_RANK, sortNflPropPlayers, type NflPropGameFeedItem } from '@/features/nflTools/propMatchups/model';
 import { compactMarketLabel, getPlayerBestMarket } from '@/features/nflTools/propMatchups/NflPropPlayerCard';
 
 function TeamGroup({
@@ -10,12 +11,14 @@ function TeamGroup({
   selectedPlayerId,
   trendsByPlayer,
   onSelectPlayer,
+  spotlightRank,
 }: {
   team: NflPropGameFeedItem['home'];
   players: NflPropPlayerPage[];
   selectedPlayerId: string;
   trendsByPlayer: Record<string, NflPropPlayerTrends>;
   onSelectPlayer: (playerId: string) => void;
+  spotlightRank: ReadonlyMap<string, number>;
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-black/5 bg-white/45 dark:border-white/10 dark:bg-white/[0.035]">
@@ -32,7 +35,7 @@ function TeamGroup({
         </div>
       </div>
       <div className="p-1.5">
-        {players.map((player) => {
+        {sortNflPropPlayers(players, spotlightRank).map((player) => {
           const selected = player.player_id === selectedPlayerId;
           const best = getPlayerBestMarket(player, trendsByPlayer[player.player_id]);
           const hitPercent = best && best.games.length > 0 ? Math.round(best.rate * 100) : null;
@@ -50,7 +53,11 @@ function TeamGroup({
                 {player.headshot_url ? <img src={player.headshot_url} alt="" className="h-full w-full object-cover object-top" /> : <div className="flex h-full items-center justify-center text-[9px] font-bold text-muted-foreground">{player.position}</div>}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[12px] font-bold">{player.player_name}</div>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <div className="truncate text-[12px] font-bold">{player.player_name}</div>
+                  {spotlightRank.has(player.player_id) && <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">Spotlight</span>}
+                  <LeanMark highlights={player.highlights} />
+                </div>
                 <div className="flex min-w-0 items-center justify-between gap-2 whitespace-nowrap text-[9px] font-semibold text-muted-foreground">
                   <div className="flex min-w-0 items-center gap-1">
                     <span>{player.position}</span>
@@ -83,12 +90,14 @@ export function NflPlayerNavigator({
   trendsByPlayer,
   onSelectPlayer,
   onBack,
+  spotlightRank = EMPTY_SPOTLIGHT_RANK,
 }: {
   game: NflPropGameFeedItem;
   selectedPlayerId: string;
   trendsByPlayer: Record<string, NflPropPlayerTrends>;
   onSelectPlayer: (playerId: string) => void;
   onBack: () => void;
+  spotlightRank?: ReadonlyMap<string, number>;
 }) {
   return (
     <div className="h-full overflow-y-auto px-3 pb-10 pt-3">
@@ -102,8 +111,8 @@ export function NflPlayerNavigator({
         <p className="text-[11px] text-muted-foreground">Choose another player without leaving this matchup.</p>
       </div>
       <div className="space-y-3">
-        <TeamGroup team={game.away} players={game.awayPlayers} selectedPlayerId={selectedPlayerId} trendsByPlayer={trendsByPlayer} onSelectPlayer={onSelectPlayer} />
-        <TeamGroup team={game.home} players={game.homePlayers} selectedPlayerId={selectedPlayerId} trendsByPlayer={trendsByPlayer} onSelectPlayer={onSelectPlayer} />
+        <TeamGroup team={game.away} players={game.awayPlayers} selectedPlayerId={selectedPlayerId} trendsByPlayer={trendsByPlayer} onSelectPlayer={onSelectPlayer} spotlightRank={spotlightRank} />
+        <TeamGroup team={game.home} players={game.homePlayers} selectedPlayerId={selectedPlayerId} trendsByPlayer={trendsByPlayer} onSelectPlayer={onSelectPlayer} spotlightRank={spotlightRank} />
       </div>
     </div>
   );
