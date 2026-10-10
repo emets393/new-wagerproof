@@ -264,12 +264,34 @@ except Exception as e:
 #    2024 (7-2) and 2025 (5-3); unranked-favorite placebo clean. Graded vs close.
 try:
     _sched = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")
-    _rank = {}
-    for _, r in te.iterrows():
-        if pd.notna(r.get("home_self_rank")):
-            _rank[r.homeTeam] = float(r.home_self_rank)
-        if pd.notna(r.get("away_self_rank")):
-            _rank[r.awayTeam] = float(r.away_self_rank)
+    # ⛔ RANKS COME FROM THE AP TABLE, NEVER FROM `te`. `te` holds only games that have not
+    # kicked, so building the rank lookup from it silently turned "next opponent must be
+    # ranked" into "...AND must still have an unplayed game THIS week". By Saturday afternoon
+    # next week's opponents have mostly already played, so the gate could not be satisfied:
+    # lookahead_fade fired TWICE all 2026 (wk4, wk5) and both rows were written before
+    # 10:20am ET on a Saturday. 2026 wk6 lost two textbook spots to this —
+    # #3 Notre Dame (next: at #8 BYU, which played Friday) and #5 Ohio State (next: at #7
+    # Indiana, which kicked at 11am). A team's ranking is a property of (season, week, team)
+    # and has nothing to do with whether that team has an unplayed game.
+    _rk = (pd.read_parquet("data/rankings_weekly.parquet")
+             .rename(columns={"year": "season"}))
+    _rk = _rk[(_rk.season == SEASON) & (_rk.poll == "AP Top 25")
+              & (_rk.asof_week <= WEEK)]
+    if _rk.empty:
+        raise RuntimeError(f"no AP Top 25 rows at or before {SEASON} wk{WEEK} in "
+                           f"rankings_weekly.parquet — cannot evaluate rank signals")
+    # The week-N poll lands Sunday, so early in the week asof_week == WEEK does not exist yet
+    # (CFBD returns 0 AP teams for an unpublished week). Fall back to the most recent published
+    # poll instead of evaluating against nothing, and say which one was used — an empty _rank
+    # is indistinguishable from "nobody qualifies" in the output, which is how this stayed
+    # invisible for six weeks.
+    _asof = int(_rk.asof_week.max())
+    _rk = _rk[_rk.asof_week == _asof]
+    _rank = {t: float(v) for t, v in zip(_rk.team, _rk["rank"])}
+    if _asof != WEEK:
+        print(f"  [rank] wk{WEEK} AP poll not published yet — using wk{_asof} ({len(_rank)} teams)")
+    else:
+        print(f"  [rank] AP poll asof wk{_asof}: {len(_rank)} teams")
     for _, r in te.iterrows():
         if pd.isna(r.spread_close) or abs(r.spread_close) < 14:
             continue
