@@ -88,7 +88,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
-    q = f"season=eq.{a.season}&select=id,season,week,player_id,player_name,market,side,line,result"
+    q = f"season=eq.{a.season}&select=id,season,week,player_id,player_name,market,side,line,result,price"
     if a.week:
         q += f"&week=eq.{a.week}"
     if not a.regrade:
@@ -125,7 +125,11 @@ def main():
         if res is None:
             nomarket += 1
             continue
+        # settle units on the STAMPED price — a graded pick with no units is a record that
+        # cannot state ROI, which is the whole point of keeping one
+        import backfill_spotlight_price as BP
         upd.append(dict(id=p["id"], actual_value=float(actual), result=res,
+                        units=BP.units_for(res, p.get("price")),
                         graded_at="now()", updated_at="now()"))
 
     tally = {}
@@ -143,15 +147,22 @@ def main():
 
     k = key()
     hdr = {"apikey": k, "Authorization": f"Bearer {k}", "Content-Type": "application/json",
-           "Prefer": "resolution=merge-duplicates,return=minimal"}
-    # upsert on the primary key: every row already exists, so this is an id-matched update that
-    # leaves the stamped pick (side/line/tells/narrative) untouched.
-    for i in range(0, len(upd), 200):
-        r = requests.post(f"{SUPA}/nfl_prop_spotlight?on_conflict=id", headers=hdr,
-                          json=upd[i:i + 200], timeout=120)
-        if r.status_code not in (200, 201, 204):
-            sys.exit(f"[grade] write failed ({r.status_code}): {r.text[:300]}")
-    print(f"[grade] wrote {len(upd)} results")
+           "Prefer": "return=minimal"}
+    # ⛔ PATCH PER ROW, NEVER AN UPSERT. The first version POSTed with
+    # `resolution=merge-duplicates&on_conflict=id`, which reads like an id-matched update and is
+    # not one: PostgREST attempts an INSERT first, so every column absent from the payload is
+    # NULL and the row fails NOT NULL on `season` before the conflict clause is ever reached.
+    # Result: the grader computed a correct record and then wrote nothing, every single run, and
+    # exited non-zero inside a `|| true` so the cron stayed green. Found 2026-10-09 with the
+    # table at 0 graded of 14. A PATCH touches only the columns supplied and cannot do this.
+    done = 0
+    for u in upd:
+        r = requests.patch(f"{SUPA}/nfl_prop_spotlight?id=eq.{u['id']}", headers=hdr,
+                           json={kk: vv for kk, vv in u.items() if kk != "id"}, timeout=60)
+        if r.status_code not in (200, 204):
+            sys.exit(f"[grade] write failed on id={u['id']} ({r.status_code}): {r.text[:200]}")
+        done += 1
+    print(f"[grade] wrote {done} results")
 
 
 if __name__ == "__main__":
