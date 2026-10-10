@@ -21,11 +21,13 @@ import os
 import sys
 import datetime as dt
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 
 SUPA = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
 NOW = dt.datetime.now(dt.timezone.utc)
+ET = ZoneInfo("America/New_York")
 RED, WARN, OK = [], [], []
 
 
@@ -69,23 +71,29 @@ def main():
     for sport, hist, tscol, slate, picks in (
             ("CFB", "ncaaf_odds_history", "snapshot", "cfb_slate_games", "cfb_slate_picks"),
             ("NFL", "nfl_historical_odds", "snap_ts", "nfl_slate_games", "nfl_slate_picks")):
-        # 1. odds freshness. The collectors snapshot today's games hourly but future-day
-        # games only 3x/day (8/14/20 ET), so on no-game days the overnight gap is ~12h BY
-        # DESIGN — a 3h alarm there is a false positive (fired 2026-09-04, NFL off-week).
-        # Threshold: 3h when that sport has a game within +/-24h, else 13h (covers the
-        # set-hour gap; a dead collector still trips within a day).
+        # 1. odds freshness. The collectors snapshot TODAY's games hourly but future-day
+        # games only 3x/day (8/14/20 ET), so a 3h alarm is only correct when a game kicks
+        # TODAY. Earlier versions used "within 24h", which reds on a Saturday morning whose
+        # games are tomorrow: the 8->14 ET gap is 6h and the 20->8 overnight gap is 12h, both
+        # BY DESIGN (false RED 2026-09-04 off-week, and again 2026-10-10 15:47Z at 3.8h with
+        # one Sunday game inside 24h). Gate on the ET CALENDAR DATE, which is what the
+        # collector itself switches on, not on an hours-until-kickoff window.
         try:
             # UPCOMING games only — a slate whose last game kicked hours ago has nothing
             # pre-game to capture, and counting played games tightened the limit on the
             # idle Monday-morning gap between weeks (false RED 2026-09-08).
-            near = q(f"{slate}?select=game_id&season=eq.{season}"
-                     f"&kickoff=gte.{NOW.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-                     f"&kickoff=lte.{(NOW + dt.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')}", count=True)
-            limit_h = 3 if near else 13
+            upcoming = q(f"{slate}?select=kickoff&season=eq.{season}"
+                         f"&kickoff=gte.{NOW.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+                         f"&kickoff=lte.{(NOW + dt.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')}")
+            today_et = NOW.astimezone(ET).date()
+            kicks_today = sum(1 for x in upcoming
+                              if x.get("kickoff") and ts(x["kickoff"]).astimezone(ET).date() == today_et)
+            limit_h = 3 if kicks_today else 13
             snap = q(f"{hist}?select={tscol}&season=eq.{season}&order={tscol}.desc&limit=1")
             age_h = (NOW - ts(snap[0][tscol])).total_seconds() / 3600 if snap else 999
             check(f"{sport} odds feed", age_h < limit_h,
-                  f"latest snapshot {age_h:.1f}h old (limit {limit_h}h, {near} game(s) within 24h)")
+                  f"latest snapshot {age_h:.1f}h old (limit {limit_h}h, {kicks_today} game(s) "
+                  f"kicking today ET, {len(upcoming)} within 24h)")
         except Exception as e:
             check(f"{sport} odds feed", False, f"probe failed: {e}")
 
@@ -202,9 +210,13 @@ def main():
         d = subprocess.run([sys.executable, str(Path(__file__).parent / "render_drift.py")],
                            capture_output=True, text=True, timeout=120)
         tail = (d.stdout or d.stderr).strip().splitlines()
+        # Only exit code 2 means real drift. 1 means the probe could not run (no pyyaml,
+        # no key, network) — that is a WARN, never a RED, or the watchdog fails the whole
+        # sweep over its own missing dependency and hides 14 green checks. See the
+        # exit-code contract at the top of render_drift.py.
         check("render blueprint", d.returncode == 0,
               tail[-1][:160] if tail else "no output",
-              warn_only=("no RENDER_API_KEY" in (d.stdout or "")))
+              warn_only=d.returncode != 2)
     except Exception as e:
         check("render blueprint", False, f"probe failed: {e}", warn_only=True)
 
