@@ -321,6 +321,7 @@ describe('live prop card', () => {
       week: 1,
       opponent: 'BUF',
       line: 60,
+      actual: 80,
     }]);
   });
 
@@ -431,10 +432,12 @@ describe('live prop card', () => {
     expect(html).toContain('bar neg');
     expect(html).not.toContain('bar nil');
     expect(html).toMatch(/bar pos" style="left:50%;width:[1-9]/);
-    expect(html).toContain('class="log-zero"');
+    expect(html).toContain('class="log-val neg">53');
+    expect(html).toContain('class="log-val pos">93');
+    expect(html).not.toContain('class="log-zero"');
     expect(html.indexOf('2025')).toBeLessThan(html.indexOf('2026'));
-    expect(html.indexOf('vs DET')).toBeLessThan(html.indexOf('vs GB'));
-    expect(html.indexOf('vs GB')).toBeLessThan(html.indexOf('@ DAL'));
+    expect(html.indexOf('>DET<')).toBeLessThan(html.indexOf('>GB<'));
+    expect(html.indexOf('>GB<')).toBeLessThan(html.indexOf('@ DAL'));
     expect(html).toContain('87.5');
     expect(html).toContain('2 of 3 · +5.5');
   });

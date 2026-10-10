@@ -2,6 +2,7 @@ import { useLocation } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ChevronRight } from "lucide-react";
 import { navItems } from "@/nav-items";
+import { PageHeaderActionsSlot } from "@/components/pageHeaderActions";
 
 interface MinimalHeaderProps {
   rightContent?: React.ReactNode;
@@ -76,6 +77,7 @@ export function MinimalHeader({ rightContent }: MinimalHeaderProps) {
               </span>
             </div>
           ))}
+          <PageHeaderActionsSlot />
         </div>
       </div>
       

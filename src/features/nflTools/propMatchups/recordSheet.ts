@@ -19,6 +19,7 @@ export interface MarketRecord {
   label: string;
   wins: number;
   losses: number;
+  pushes: number;
   units: number;
   graded: number;
   roi: number | null;
@@ -48,7 +49,7 @@ export function summarizeLedger(rows: LedgerRow[]): LedgerSummary {
   let pushes = 0;
   let units = 0;
   let pending = 0;
-  const byLabel = new Map<string, { wins: number; losses: number; units: number; graded: number }>();
+  const byLabel = new Map<string, { wins: number; losses: number; pushes: number; units: number; graded: number }>();
   for (const row of rows) {
     const result = resultOf(row);
     if (!result) {
@@ -59,10 +60,11 @@ export function summarizeLedger(rows: LedgerRow[]): LedgerSummary {
     else if (result === 'loss') losses += 1;
     else pushes += 1;
     if (typeof row.units === 'number') units += row.units;
-    const bucket = byLabel.get(row.market_label) ?? { wins: 0, losses: 0, units: 0, graded: 0 };
+    const bucket = byLabel.get(row.market_label) ?? { wins: 0, losses: 0, pushes: 0, units: 0, graded: 0 };
     bucket.graded += 1;
     if (result === 'win') bucket.wins += 1;
     else if (result === 'loss') bucket.losses += 1;
+    else bucket.pushes += 1;
     if (typeof row.units === 'number') bucket.units += row.units;
     byLabel.set(row.market_label, bucket);
   }
@@ -73,6 +75,7 @@ export function summarizeLedger(rows: LedgerRow[]): LedgerSummary {
       label,
       wins: bucket.wins,
       losses: bucket.losses,
+      pushes: bucket.pushes,
       units: bucket.units,
       graded: bucket.graded,
       roi: bucket.graded > 0 ? bucket.units / bucket.graded : null,
