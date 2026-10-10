@@ -262,6 +262,129 @@ export interface NflPropPlayerPage {
    * here and that absence is the expected state, not missing data.
    */
   research?: Partial<Record<string, MarketResearch>> | null;
+  /**
+   * Granular stat blobs. A missing key means no coverage for this player, not zero.
+   * Separate from `research` on purpose — see .claude/docs/29_cursor_props_build_brief.md.
+   */
+  fp_cards?: FpCards | null;
+}
+
+export interface FpBaselineArm {
+  blended?: number | null;
+  season_to_date?: number | null;
+  prior_season?: number | null;
+  games?: number | null;
+  weight_this_season?: number | null;
+  rookie?: boolean;
+  prior_unavailable?: boolean;
+}
+
+export interface FpRouteLeaf {
+  route?: string;
+  share?: number | null;
+  routes?: number | null;
+  games?: number | null;
+  targets_per_route?: number | null;
+  yards_per_route?: number | null;
+  sep_score?: number | null;
+  sep_win?: number | null;
+  def_yards_per_route?: number | null;
+  def_yards_per_route_actual?: number | null;
+  def_yards_per_route_league?: number | null;
+  def_rank?: number | null;
+  def_of?: number | null;
+  def_routes_faced?: number | null;
+  def_games?: number | null;
+}
+
+export interface FpSitBucket {
+  pass_rate?: number | null;
+  snaps?: number | null;
+  pass_rate_rank?: number | null;
+  pass_rate_of?: number | null;
+}
+
+/** Nested jsonb on `nfl_prop_player_pages.fp_cards`. Every blob is optional. */
+export interface FpCards {
+  baseline?: Record<string, FpBaselineArm>;
+  role?: Record<string, number | null>;
+  efficiency?: Record<string, number | null>;
+  matchup?: {
+    vs_position?: Record<string, number | string | null>;
+    vs_alignment?: Record<string, Record<string, number | null>>;
+    vs_his_alignment?: Record<string, number | null>;
+  };
+  scheme?: {
+    player?: Record<string, Record<string, number | null>>;
+    player_overall?: Record<string, number | null>;
+    defense_shells?: Record<string, number | null>;
+    defense_traits?: Record<string, number | null>;
+  };
+  playsheet?: {
+    spots?: Record<string, Record<string, number | null>>;
+    overall?: Record<string, number | null>;
+  };
+  coverage?: {
+    by?: Record<string, Record<string, number | null>>;
+    overall?: Record<string, number | null>;
+  };
+  route_overall?: Record<string, number | null>;
+  routes?: FpRouteLeaf[];
+  run_concept?: {
+    by?: Record<string, Record<string, number | null>>;
+    overall?: Record<string, number | null>;
+  };
+  run_consistency?: Record<string, number | null>;
+  throw_depth?: {
+    by?: Record<string, Record<string, number | null>>;
+    overall?: Record<string, number | null>;
+  };
+  redzone?: {
+    him?: Record<string, number | null>;
+    team?: Record<string, number | null>;
+    defense?: Record<string, number | null>;
+  };
+  situational?: Record<string, FpSitBucket>;
+  /** His line against this week's front. Absent on the rows the warehouse has not filled. */
+  trenches?: {
+    line?: Record<string, number | null>;
+    front?: Record<string, number | null>;
+    pass_pro_edge?: number | null;
+    run_block_edge?: number | null;
+  };
+}
+
+export interface SpotlightTell {
+  family?: string;
+  dir: string;
+  w?: number;
+  src?: string;
+  text: string;
+}
+
+export interface NflPropSpotlight {
+  season: number;
+  week: number;
+  player_id: string;
+  player_name: string;
+  position: string;
+  team: string;
+  opponent: string;
+  market: string;
+  market_label: string;
+  side: string;
+  line: number | null;
+  net: number | null;
+  n_for: number | null;
+  n_against: number | null;
+  board_rank: number | null;
+  tells: SpotlightTell[];
+  narrative: string | null;
+  narrative_model?: string | null;
+  result: string | null;
+  actual_value: number | null;
+  kickoff?: string | null;
+  headshot_url?: string | null;
 }
 
 /** Per-market Fantasy-Points research. Both halves are optional; often only one is present. */

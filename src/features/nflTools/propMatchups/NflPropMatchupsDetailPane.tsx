@@ -1,7 +1,7 @@
 import { BarChart3 } from 'lucide-react';
 import { HeroChip, MlbToolDetailShell } from '@/features/mlbTools/shared/MlbToolDetailShell';
 import type { NflPropPlayerTrends } from '@/features/propBreakdown/types';
-import { shortPlayerName, type NflPropGameFeedItem } from './model';
+import type { NflPropGameFeedItem } from './model';
 import { NflPropMatchupsSections } from './sections';
 
 export function NflPropMatchupsDetailPane({
@@ -9,13 +9,19 @@ export function NflPropMatchupsDetailPane({
   isFeedLoading,
   trendsByPlayer,
   onSelectPlayer,
+  spotlightIds,
+  spotlightRank,
 }: {
   item: NflPropGameFeedItem | null;
   isFeedLoading: boolean;
   trendsByPlayer: Record<string, NflPropPlayerTrends>;
   onSelectPlayer?: (playerId: string) => void;
+  spotlightIds?: ReadonlySet<string>;
+  spotlightRank?: ReadonlyMap<string, number>;
 }) {
-  const top = item?.topHighlight ?? null;
+  const spotlightCount = item
+    ? [...item.homePlayers, ...item.awayPlayers].filter((player) => spotlightIds?.has(player.player_id)).length
+    : 0;
 
   return (
     <MlbToolDetailShell
@@ -35,20 +41,14 @@ export function NflPropMatchupsDetailPane({
             <HeroChip label="Players">
               <span className="text-foreground">{item.playerCount}</span>
             </HeroChip>
-            <HeroChip label="Edge">
-              {top ? (
-                <span className="truncate text-foreground">
-                  {shortPlayerName(top.player.player_name)}
-                </span>
-              ) : (
-                <span className="text-muted-foreground">—</span>
-              )}
+            <HeroChip label="Spotlight">
+              <span className="text-foreground">{spotlightCount}</span>
             </HeroChip>
           </>
         ) : undefined
       }
     >
-      {item && <NflPropMatchupsSections item={item} trendsByPlayer={trendsByPlayer} onSelectPlayer={onSelectPlayer} />}
+      {item && <NflPropMatchupsSections item={item} trendsByPlayer={trendsByPlayer} onSelectPlayer={onSelectPlayer} spotlightIds={spotlightIds} spotlightRank={spotlightRank} />}
     </MlbToolDetailShell>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { CollegeTeamMark } from './shared';
 import type { TeamRef } from '../../../types';
+import { sportsbookMarkUrl } from '@/features/games/detail/sportsbooks/marks';
 
 /**
  * Season-to-date team performance by market — web port of the native
@@ -610,8 +611,10 @@ function trendNumber(value?: number | null, signed = false) {
   return `${signed && number > 0 ? '+' : ''}${number % 1 === 0 ? number : number.toFixed(1)}`;
 }
 
-/** Resolve a sportsbook logo URL with DuckDuckGo favicon fallback (native parity). */
+/** Resolve a sportsbook logo URL. Bundled marks first, then a favicon. */
 export function sportsbookFallbackUrl(bookKey?: string | null, bookName?: string | null): string | null {
+  const bundled = sportsbookMarkUrl(bookKey);
+  if (bundled) return bundled;
   const key = (bookKey || '').toLowerCase();
   const name = (bookName || '').toLowerCase();
   let domain: string | null = null;
