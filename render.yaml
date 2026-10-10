@@ -444,7 +444,7 @@ services:
     # next week's slate NOT BUILT" + "pick cards stale" and failed the run (2026-09-28).
     # A watchdog that cries wolf on a schedule is worse than no watchdog.
     schedule: "45 12 * 8-12,1-2 *"        # daily 8:45am ET, football season — after the 11:00 weekly builds
-    buildCommand: pip install requests
+    buildCommand: pip install requests pyyaml   # pyyaml: render_drift.py reads render.yaml
     startCommand: cd research && python3 health_sweep.py
     envVars:
       - fromGroup: wagerproof-model-secrets

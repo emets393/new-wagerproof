@@ -19,7 +19,10 @@ import sys
 import urllib.request
 from pathlib import Path
 
-import yaml
+try:
+    import yaml
+except ModuleNotFoundError:            # pyyaml is not in every caller's build
+    yaml = None
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -41,11 +44,23 @@ def norm(s):
     return " ".join((s or "").split())
 
 
+# EXIT CODES ARE PART OF THE CONTRACT. health_sweep.py reds only on 2.
+#   0 = checked, no drift (or cleanly skipped)
+#   1 = COULD NOT CHECK (missing dep/key/network) — not actionable, must not alarm
+#   2 = DRIFT FOUND — actionable
+# Collapsing 1 and 2 is how a missing pyyaml painted the whole daily sweep RED on
+# 2026-10-10 while all 14 real checks were green.
+CANNOT_CHECK, DRIFT = 1, 2
+
+
 def main():
+    if yaml is None:
+        print("[drift] pyyaml not installed — cannot read render.yaml, skipping")
+        return CANNOT_CHECK
     k = key()
     if not k:
         print("[drift] no RENDER_API_KEY — skipped")
-        return 0
+        return CANNOT_CHECK
     blue = {s["name"]: norm(s["startCommand"])
             for s in yaml.safe_load((ROOT / "render.yaml").read_text()).get("services", [])
             if s.get("startCommand")}
@@ -77,7 +92,7 @@ def main():
     if drift:
         print(f"\n{len(drift)} service(s) drifted — render.yaml was edited but not applied. "
               f"Sync the blueprint in Render, or PATCH startCommand per service.")
-        return 1
+        return DRIFT
     print("  all match")
     return 0
 
