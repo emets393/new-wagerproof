@@ -274,12 +274,40 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
     return { content: JSON.stringify({ error: "player_names is required (1-5 names as they appear in get_props)" }), ok: false, summary: "no player_names" };
   }
 
+  // The FP-era model lives in its own table, one row per (player, market). Fetch it ONCE for
+  // all requested names rather than per player, and key it by player_name because that is what
+  // the caller passes. `fires` = cleared the market's validated threshold on 2023-25 priced lines.
+  const fpByMarket: Record<string, Record<string, unknown>> = {};
+  try {
+    const { data: fpRows } = await ctx.cfb
+      .from("nfl_prop_model_preds")
+      .select("player_name, market, line, pred, edge, threshold, tier, fires")
+      .in("player_name", names)
+      // ⛔ ORDER BY SEASON FIRST. The `??=` below keeps the first row per (player, market), so
+      // ordering on week alone would let a prior season's week 18 outrank the live week 5 the
+      // moment this table holds more than one season. It holds only 2026 today, which is exactly
+      // how this would have shipped unnoticed and gone wrong next September.
+      .order("season", { ascending: false })
+      .order("week", { ascending: false })
+      .limit(120);
+    for (const r of (fpRows ?? []) as Record<string, unknown>[]) {
+      const pn = String(r.player_name);
+      const mk = String(r.market);
+      (fpByMarket[pn] ??= {})[mk] ??= {
+        pred: r.pred, edge: r.edge, threshold: r.threshold, tier: r.tier, fires: r.fires === true,
+        line_modelled: r.line,
+      };
+    }
+  } catch {
+    // a missing FP table must not cost the whole page — the other layers still stand
+  }
+
   const players: Record<string, unknown> = {};
   for (const name of names) {
     try {
       const { data, error } = await ctx.cfb
         .from("nfl_prop_player_pages")
-        .select("player_name, position, team, opponent, game_label, rookie, markets, baseline, ngs, scheme, fp_cards")
+        .select("player_name, position, team, opponent, game_label, rookie, markets, baseline, ngs, scheme, fp_cards, projection")
         .ilike("player_name", `%${name}%`)
         .order("season", { ascending: false })
         .order("week", { ascending: false })
@@ -305,14 +333,20 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
         matchup_look_focus: scheme.look_focus ?? null,
         player_overall: scheme.player_overall ?? null,
         player_vs_look_splits: scheme.player_splits ?? null,
-        // ⛔ NO PROJECTION. Owner, 2026-10-07: "I don't think we want to use the player prop
-        // model anymore, we just want to provide stats for each player and the betting lines."
-        // `projection` is the OLD prop model and graded 50.5% against the close (336-329), and
-        // `research` has returned {} by design since that date (fp_prop_layer.research_for_player
-        // is deliberately gutted) — so the old tool note described two fields that could never
-        // be populated, and the agents were left reading the one model that was retired.
-        // The granular card layer IS the product: per-market stats, splits and allowances the
-        // agent reasons over itself.
+        // BOTH MODELS, ADDITIVE (owner, 2026-10-11: "add our new player prop model to the
+        // existing one that agents use... the agents current prop model is actually doing well").
+        // This reverses, FOR THE AGENT PATH ONLY, the 2026-10-07 call to stop surfacing a
+        // projection. That call was about what the PRODUCT shows a user; agents are an internal
+        // reasoning layer, and their prop record is 71-67 (51.4%) since the season started with
+        // October at 26-21 (55.3%). `research`/fp_prop_layer stays gutted, so the web and native
+        // clients are unchanged — nothing a user sees gains a forecast.
+        //   model_projection — the ORIGINAL model (308 of 402 wk5 pages). Measured 50.5% against
+        //                      the close, 336-329, so it is context and not an edge.
+        //   fp_model         — the FP-era model from nfl_prop_model_preds, per market, with the
+        //                      `fires` flag meaning it cleared that market's backtested threshold.
+        //   prop_stats       — the granular stats layer the agent reasons over itself.
+        model_projection: row.projection ?? null,
+        fp_model: fpByMarket[String(row.player_name)] ?? null,
         prop_stats: slimPropStats(row.fp_cards, row.markets),
       };
     } catch (e) {
@@ -322,7 +356,7 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
 
   const payload = {
     tool: "get_prop_player_page",
-    note: "There is NO prop projection or model edge here by design — the product is stats plus the posted line, and you draw the conclusion. prop_stats carries the granular per-market layer (usage, splits, and the opponent's allowance with its league baseline and rank); every defensive measure is paired with a league figure at the SAME denominator, so compare a defence to its league value and never to the player's own per-game rate. Ranks print as 'Nth of M' — read M, it is not always 32. markets with status 'pending' have no posted line yet. Only props returned by get_props are bettable.",
+    note: "TWO models plus the stats, and they disagree often — weigh them, do not just follow one. model_projection is the ORIGINAL model and graded 50.5% against the close (336-329), so treat it as context, never as an edge on its own. fp_model is the newer Fantasy-Points model per market: `fires` means it cleared that market's backtested threshold on 2023-25 priced lines, and a market with fires=false is the model declining to call it. Neither model is surfaced to users; they are yours to reason with. prop_stats carries the granular per-market layer (usage, splits, and the opponent's allowance with its league baseline and rank); every defensive measure is paired with a league figure at the SAME denominator, so compare a defence to its league value and never to the player's own per-game rate. Ranks print as 'Nth of M' — read M, it is not always 32. markets with status 'pending' have no posted line yet. Only props returned by get_props are bettable.",
     players,
   };
   // Multi-player payloads overflow the default 4000-char compaction target and
