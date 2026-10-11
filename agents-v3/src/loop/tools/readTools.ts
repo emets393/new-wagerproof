@@ -221,6 +221,43 @@ function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadTool
   };
 }
 
+/** fp_cards carries ~19,000 chars per player — 3.5x this tool's whole 1-player compaction
+ *  budget — so handing it over raw gets it pruned to rubble at depth. Select the families that
+ *  bear on the markets this player actually has, and drop `fp_cards.scheme` outright: at 8.4k it
+ *  is the single biggest family and it duplicates the `scheme` COLUMN this tool already hoists. */
+const CARD_FAMILIES: Record<string, string[]> = {
+  pass: ["baseline", "throw_depth", "efficiency", "trenches"],
+  rush: ["baseline", "run_concept", "run_consistency", "role", "trenches"],
+  // `routes` is the richest receiving family at ~3.3k and `route_overall` carries the same
+  // headline in ~140 chars; a pass-catching back takes BOTH rush and recv, so the full list
+  // put the worst case at 13.5k — nearly double a 5-player budget share.
+  recv: ["baseline", "coverage", "route_overall", "role", "trenches"],
+};
+// `situational` (game-script splits) and `redzone` are deliberately out: redzone only bears on
+// anytime-TD, which the owner took off the board, and situational duplicates what the agent can
+// read from the game's own spread/total. Add them back if TD props return.
+
+function slimPropStats(cards: unknown, markets: unknown): Record<string, unknown> | null {
+  if (!cards || typeof cards !== "object") return null;
+  const keys = Array.isArray(markets)
+    ? markets.map((m) => String((m as Record<string, unknown>)?.key ?? "")).filter(Boolean)
+    : [];
+  const want = new Set<string>();
+  for (const k of keys) {
+    if (k.includes("pass")) CARD_FAMILIES.pass.forEach((f) => want.add(f));
+    if (k.includes("rush")) CARD_FAMILIES.rush.forEach((f) => want.add(f));
+    if (k.includes("reception") || k.includes("receptions") || k.includes("targets")) {
+      CARD_FAMILIES.recv.forEach((f) => want.add(f));
+    }
+  }
+  // anytime_td only, or an unmapped market: give the shared context rather than nothing
+  if (want.size === 0) ["baseline", "role", "trenches"].forEach((f) => want.add(f));
+  const src = cards as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const f of want) if (src[f] !== undefined && src[f] !== null) out[f] = src[f];
+  return Object.keys(out).length ? out : null;
+}
+
 /** get_prop_player_page — deep dive on an NFL player from nfl_prop_player_pages
  *  (the prop-model page contract on the CFB instance; anon-readable). Serves the
  *  player's prop markets, baseline, advanced stats, scheme-matchup layer, and the
@@ -242,7 +279,7 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
     try {
       const { data, error } = await ctx.cfb
         .from("nfl_prop_player_pages")
-        .select("player_name, position, team, opponent, game_label, rookie, markets, baseline, ngs, scheme, projection, research")
+        .select("player_name, position, team, opponent, game_label, rookie, markets, baseline, ngs, scheme, fp_cards")
         .ilike("player_name", `%${name}%`)
         .order("season", { ascending: false })
         .order("week", { ascending: false })
@@ -268,10 +305,15 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
         matchup_look_focus: scheme.look_focus ?? null,
         player_overall: scheme.player_overall ?? null,
         player_vs_look_splits: scheme.player_splits ?? null,
-        model_projection: row.projection ?? null,
-        // Fantasy-Points layer (additive): per market, the FP-era prop model (pred / edge /
-        // validated threshold / fires) and the Player Prop Report read with its tells.
-        fp_research: row.research ?? null,
+        // ⛔ NO PROJECTION. Owner, 2026-10-07: "I don't think we want to use the player prop
+        // model anymore, we just want to provide stats for each player and the betting lines."
+        // `projection` is the OLD prop model and graded 50.5% against the close (336-329), and
+        // `research` has returned {} by design since that date (fp_prop_layer.research_for_player
+        // is deliberately gutted) — so the old tool note described two fields that could never
+        // be populated, and the agents were left reading the one model that was retired.
+        // The granular card layer IS the product: per-market stats, splits and allowances the
+        // agent reasons over itself.
+        prop_stats: slimPropStats(row.fp_cards, row.markets),
       };
     } catch (e) {
       players[name] = { error: e instanceof Error ? e.message : String(e) };
@@ -280,13 +322,13 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
 
   const payload = {
     tool: "get_prop_player_page",
-    note: "model_projection bands are PREVIEW (first live season) — use as context, not as a validated edge. fp_research.<market>.fp_model is the Fantasy-Points prop model: 'fires' means it clears that market's backtested threshold (2023-25 priced lines); fp_research.<market>.prop_report is the Player Prop Report read with n_for/n_against independent tells. markets with status 'pending' have no posted line yet. Only props returned by get_props are bettable.",
+    note: "There is NO prop projection or model edge here by design — the product is stats plus the posted line, and you draw the conclusion. prop_stats carries the granular per-market layer (usage, splits, and the opponent's allowance with its league baseline and rank); every defensive measure is paired with a league figure at the SAME denominator, so compare a defence to its league value and never to the player's own per-game rate. Ranks print as 'Nth of M' — read M, it is not always 32. markets with status 'pending' have no posted line yet. Only props returned by get_props are bettable.",
     players,
   };
   // Multi-player payloads overflow the default 4000-char compaction target and
   // would collapse to the top-level summary — scale the target per player.
   return {
-    content: compactDeepFetch("get_prop_player_page", payload, 3000 + 2500 * names.length),
+    content: compactDeepFetch("get_prop_player_page", payload, 3000 + 6000 * names.length),
     ok: true,
     summary: `prop pages: ${Object.keys(players).length} player(s)`,
   };
@@ -343,7 +385,7 @@ export function buildReadToolDefs(steering: SteeringProfile): ToolDef[] {
       type: "function",
       function: {
         name: "get_prop_player_page",
-        description: "Deep dive on NFL prop players (sports: nfl): per-market prop lines, per-game baselines, advanced stats (NGS/charting with league percentiles), the opponent-defense scheme identity + the player's splits vs those looks (man/zone, one-high/two-high, box counts, pressure), and our prop MODEL's projection band per market (preview status this season). Use AFTER get_props to research the players you're considering — this tool is context only and does not make a prop bettable.",
+        description: "Deep dive on NFL prop players (sports: nfl): per-market prop lines, per-game baselines, advanced stats (NGS/charting with league percentiles), the opponent-defense scheme identity + the player's splits vs those looks (man/zone, one-high/two-high, box counts, pressure), and the granular per-market stats layer (usage, route/alignment splits, and the opponent's allowance against its league baseline and rank). There is deliberately NO model projection — you reason from the stats and the line. Use AFTER get_props to research the players you're considering; context only, does not make a prop bettable.",
         parameters: {
           type: "object",
           properties: {
