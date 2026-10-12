@@ -552,6 +552,32 @@ _g = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{
 # and the week shipped 132 flags with ZERO pick cards — the CFB board sat empty until the row
 # was corrected by hand and the runner re-run.
 _gte = {int(x["game_id"]): x.get("fg_total_edge") for x in _g}
+
+# SELF-HEAL, authorised by the owner 2026-10-12 after wk7 shipped an empty board.
+# NARROW ON PURPOSE: this repairs ONLY a games row whose own fg_total_pick disagrees with the
+# sign of its own fg_total_edge. That row is internally impossible, and which half is stale is
+# not a judgement call — the edge is computed (pred_total - total_close) and the pick is derived
+# from it, so the pick is always the stale one. Every repair is printed. It touches no other
+# column, no other table, and never silences a CARD that disagrees with a self-consistent row:
+# the guard below still hard-fails on that, which is the sign flip it exists for (UTEP@OU wk1).
+_heal = []
+for _x in _g:
+    _e, _p = _x.get("fg_total_edge"), _x.get("fg_total_pick")
+    if _e is None or not _p:
+        continue
+    _want = "OVER" if float(_e) > 0 else "UNDER"
+    if _p != _want:
+        _heal.append((int(_x["game_id"]), _p, _want, float(_e)))
+        _x["fg_total_pick"] = _want
+for _gid, _was, _now, _e in _heal:
+    print(f"  [self-heal] game {_gid}: fg_total_pick {_was} -> {_now} "
+          f"(its own fg_total_edge is {_e:+.1f}); the pick was written against an older close")
+    _r = requests.patch(f"{C.URL}/rest/v1/cfb_slate_games?game_id=eq.{_gid}", headers=C.H,
+                        data=json.dumps({"fg_total_pick": _now}), timeout=30)
+    if not _r.ok:
+        raise SystemExit(f"[self-heal] PATCH failed for {_gid}: {_r.status_code} {_r.text[:200]}")
+if _heal:
+    print(f"  [self-heal] repaired {len(_heal)} incoherent games row(s) from their own edge sign")
 _gsp = {int(x["game_id"]): x["fg_spread_pick"] for x in _g if x.get("fg_spread_pick")}
 _gtp = {int(x["game_id"]): x["fg_total_pick"] for x in _g if x.get("fg_total_pick")}
 _bad = []
