@@ -542,7 +542,16 @@ print(f"  best_book coverage: {int(df.best_book.notna().sum())}/{len(df)}")
 # row correctly said AWAY. Cross-check spread + total sides against cfb_slate_games and
 # refuse to write on ANY mismatch (hard fail stops the runner before users see it).
 _g = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
-                  f"&select=game_id,fg_spread_pick,fg_total_pick", headers={**C.H, "Prefer": ""}).json()
+                  f"&select=game_id,fg_spread_pick,fg_total_pick,fg_total_edge",
+                  headers={**C.H, "Prefer": ""}).json()
+# fg_total_edge comes along so the failure below can say WHICH side is wrong. A games row whose
+# own total pick contradicts its own edge is the stale half of the pair: the edge is computed
+# (pred_total - total_close) and the pick is derived from its sign, so a row written against an
+# older close keeps the old side after the edge is recomputed. 2026-10-12 wk7: Louisville @
+# Syracuse held edge -0.4 with pick OVER (the open, 55.5, gave +0.6 = OVER), the guard fired,
+# and the week shipped 132 flags with ZERO pick cards — the CFB board sat empty until the row
+# was corrected by hand and the runner re-run.
+_gte = {int(x["game_id"]): x.get("fg_total_edge") for x in _g}
 _gsp = {int(x["game_id"]): x["fg_spread_pick"] for x in _g if x.get("fg_spread_pick")}
 _gtp = {int(x["game_id"]): x["fg_total_pick"] for x in _g if x.get("fg_total_pick")}
 _bad = []
@@ -552,6 +561,22 @@ for _, r in df[df.pick_side.notna()].iterrows():
     if want and r.pick_side != want:
         _bad.append((int(r.game_id), r.bet_type, r.pick_side, f"games={want}"))
 if _bad:
+    # Name the likely culprit per game instead of printing a bare tuple. If the row's own pick
+    # disagrees with its own edge sign, the ROW is stale and the card is right; otherwise the
+    # CARD is the suspect and this is the sign flip the guard exists for.
+    for _gid, _bt, _side, _want in _bad:
+        if _bt == "total" and _gte.get(_gid) is not None:
+            _e = float(_gte[_gid])
+            _rowwant = "OVER" if _e > 0 else "UNDER"
+            if _want.removeprefix("games=") != _rowwant:
+                print(f"  [SIGN GUARD] game {_gid}: the GAMES ROW is stale — fg_total_edge {_e:+.1f} "
+                      f"implies {_rowwant} but fg_total_pick is {_want.removeprefix('games=')}; "
+                      f"the card ({_side}) agrees with the edge. Repair the row, then re-run:\n"
+                      f"    PATCH cfb_slate_games?game_id=eq.{_gid}  "
+                      f'{{"fg_total_pick":"{_rowwant}"}}')
+                continue
+        print(f"  [SIGN GUARD] game {_gid}: the CARD is the suspect — {_bt} card says {_side}, "
+              f"row says {_want.removeprefix('games=')}, and the row is self-consistent.")
     raise SystemExit(f"[SIGN GUARD] {len(_bad)} pick(s) contradict cfb_slate_games — REFUSING TO WRITE: {_bad[:6]}")
 print(f"  sign guard: {len(df[(df.bet_type == 'spread') & df.pick_side.notna()])} spread + "
       f"{len(df[(df.bet_type == 'total') & df.pick_side.notna()])} total sides agree with games table")
