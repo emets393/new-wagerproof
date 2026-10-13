@@ -1417,7 +1417,31 @@ def main():
     # problem the flag freeze below was already written to prevent — so both now use the same
     # kickoff basis. Finals stay in the set too, in case a final ever lands without a kickoff.
     import datetime as _dtmod
-    _kick_now = _dtmod.datetime.now(_dtmod.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    # ⛔ THE VERDICT LOCKS BEFORE KICKOFF, NOT AT IT. Everything below used to key on
+    # `kickoff < now`, so a game was free to be re-verdicted every single run right up to the
+    # moment it started. BUF@LAR wk5-2026 is the case: the owner watched it go from 23-23 to
+    # 25-22 Rams during the afternoon with no new information. Nothing market-side moved it —
+    # the spread sat at -3.0/-3.5 and the total at 54.5 the whole week — and it was not
+    # injuries. The sides model takes the legacy EPA model's cover probability as a feature via
+    # forecast_harness.load_legacy(), which deliberately reads the LATEST run; that model
+    # re-FITS itself on every invocation (nfl_predict_with_epa.py) and scores from
+    # v_input_values_with_epa, a rolling CURRENT-WEEK view rebuilt from live upstream tables.
+    # Its output for that one game across seven daily runs: 0.743, 0.735, 0.207, 0.283, 0.365,
+    # 0.383, 0.468 — a 53-point swing between 10-07 and 10-08 on an IDENTICAL line with no
+    # games played in between. It is seeded (random_state=42), so that is input drift and a
+    # fresh fit, not randomness, and a coin-flip spread amplifies both.
+    # So: pin the verdict once a game is inside NFL_VERDICT_FREEZE_HOURS of kickoff (default
+    # 24h — past the final injury report for a Sunday game, and past Wednesday's practice
+    # report for TNF). Market lines, finals, weather, referee and kickoff keep refreshing; only
+    # the model's own verdict stops moving.
+    # ⛔ PICKS AND FLAGS MUST LOCK ON THE SAME BASIS. fg_spread_pick / fg_total_pick are in
+    # _VERDICT_COLS, so pinning the row while letting nfl_slate_picks regenerate from fresh
+    # model output would let a card's pick_side drift away from the row it renders under —
+    # which is precisely the contradiction that took the CFB board down on 2026-10-12. One
+    # basis for all three.
+    _FREEZE_H = float(os.environ.get("NFL_VERDICT_FREEZE_HOURS", "24"))
+    _kick_now = ((_dtmod.datetime.now(_dtmod.timezone.utc) + _dtmod.timedelta(hours=_FREEZE_H))
+                 .strftime("%Y-%m-%dT%H:%M:%S"))
     _finq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
                          f"&final_home=not.is.null&select=game_id", headers=hdr, timeout=30)
     _koq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
@@ -1426,7 +1450,7 @@ def main():
     _fin_ids = {str(x["game_id"]) for x in (_finq.json() if _finq.ok else [])} | _ko_ids
     if _fin_ids:
         picks = picks[~picks.game_id.astype(str).isin(_fin_ids)]
-        print(f"  freezing picks on {len(_fin_ids)} kicked-off/completed games (published picks preserved)")
+        print(f"  freezing picks on {len(_fin_ids)} game(s) kicked off or within {_FREEZE_H:g}h of kickoff")
     _pick_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
     if _fin_ids:
         _pick_scope += "&game_id=not.in.(" + ",".join(sorted(_fin_ids)) + ")"
@@ -1435,7 +1459,7 @@ def main():
     # later signal grading into hindsight (CFB regime_* audit, 2026-09-16).
     if _ko_ids:
         fl = fl[~fl.game_id.astype(str).isin(_ko_ids)]
-        print(f"  freezing flags on {len(_ko_ids)} kicked-off games (pregame history preserved)")
+        print(f"  freezing flags on {len(_ko_ids)} game(s) kicked off or within {_FREEZE_H:g}h of kickoff")
     _flag_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
     if _ko_ids:
         _flag_scope += "&game_id=not.in.(" + ",".join(sorted(_ko_ids)) + ")"
