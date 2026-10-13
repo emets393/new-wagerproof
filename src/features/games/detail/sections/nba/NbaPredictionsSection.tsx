@@ -130,7 +130,11 @@ export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
       icon={<Sigma />}
       title="Total"
       headline={nbaTotalHeadline({ modelTotal, marketTotal, isOver, magnitude }) ?? undefined}
-      subtitle="How many points the model expects versus the posted total, and which way that leans."
+      subtitle={
+        raw.nba_total_tier === 'bet' || raw.nba_total_tier === 'lean'
+          ? 'How many points the model expects versus the posted total, and which way that leans. Candidate model — tracked this season, bet-size accordingly.'
+          : 'How many points the model expects versus the posted total, and which way that leans.'
+      }
     >
       <div className={CARD_STACK}>
         <Recommendation

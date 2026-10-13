@@ -368,7 +368,7 @@ Four generations of the engine exist in the repo. Get this right before touching
 |-------|-------------|-------------------|
 | NFL | `v_input_values_with_epa` | `nfl_predictions_epa` |
 | CFB | `cfb_slate_games` (+ `_flags`/`_picks`; clients read the `cfb_slate_feed` view, which hides played games) | same — model output IS the slate row |
-| NBA | `nba_input_values_view` | `nba_predictions` |
+| NBA | `nba_input_values_view` | `nba_model_preds` (originator spread + total, one row per market; `nba_predictions` kept only for `home_win_prob`) + `nba_slate_flags` / `nba_signal_defs` for signals |
 | NCAAB | `v_cbb_input_values` | `ncaab_predictions` |
 | MLB | Statcast pregame tables | `mlb_training_snapshots` + model predictions |
 
@@ -380,7 +380,9 @@ builds degrade to an empty feed instead of erroring — do not repopulate or que
 
 ### Data Availability (matters for AI Agents)
 - **NFL/CFB**: Model predictions, weather, public betting labels — NO team ratings, NO trends
-- **NBA**: Richest data — team ratings, L3/L5 trends, streaks, ATS%, luck, consistency
+- **NBA**: Richest data — team ratings, L3/L5 trends, streaks, ATS%, luck, consistency. Model spread/total come from the
+  originator models in `cfb_automation/scripts/cfb/nba_model/` (2026-10-13); `nba_predictions.model_fair_*` is dead (zero
+  correlation with results) and is no longer rendered. Signals share the football flag contract (`nba_slate_flags`).
 - **NCAAB**: Team ratings, rankings, context flags — NO trends, NO streaks
 - **MLB**: Rich — Statcast pregame (SP, bullpen, batting), game signals, park factors, power ratings, situational trends, model predictions (ML, O/U, F5)
 

@@ -9,13 +9,14 @@ import { NbaSpreadSection, NbaTotalSection } from './NbaPredictionsSection';
 import { NbaBettingTrendsSection } from './NbaBettingTrendsSection';
 import { NbaTeamStatsSection } from './NbaTeamStatsSection';
 import { NbaInjuriesSection } from './NbaInjuriesSection';
+import { NbaSignalsSection } from './NbaSignalsSection';
 import { useNbaMatchupOverview } from './useNbaMatchupOverview';
 import type { NBAPrediction } from '../../../api/nbaGames';
 import type { SportSectionsProps } from '../index';
 
 /**
- * NBA detail-pane stack: Spread + Total (one card per market, split out of the
- * old combined Model Predictions card) + Market Odds + Match Simulator, then
+ * NBA detail-pane stack: Spread + Total (one card per market, from nba_model_preds) + Signals
+ * (nba_slate_flags, same contract as football) + Market Odds + Match Simulator, then
  * Betting Trends / Team Stats / Injuries, plus the admin-only AI Payload viewer.
  */
 export function NbaSections({ game, onCompletionGenerated }: SportSectionsProps) {
@@ -29,6 +30,7 @@ export function NbaSections({ game, onCompletionGenerated }: SportSectionsProps)
     <>
       <NbaSpreadSection game={game} />
       <NbaTotalSection game={game} />
+      <NbaSignalsSection game={game} />
       <MarketOddsSection game={game} />
       <MatchSimulatorSection game={game} />
       <NbaBettingTrendsSection game={game} trends={overview.trends} loading={overview.trendsLoading} />
