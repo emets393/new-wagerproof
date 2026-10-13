@@ -1412,6 +1412,33 @@ public final class GamesStore {
         }
     }
 
+    /// One `nba_model_preds` row: the originator models (one row per game per market).
+    /// `gameId` (balldontlie) is NULL until nba_input_values_view carries the game, so rows are
+    /// also matched on date + abbreviations. Mirrors web `nbaGames.ts` (2026-10-13).
+    private struct NBAModelPredRow: Decodable, Sendable {
+        let espnGameId: Int
+        let gameId: Int?
+        let gameDate: String
+        let homeAbbr: String
+        let awayAbbr: String
+        let market: String
+        let modelHomeMargin: Double?
+        let modelTotal: Double?
+        let tier: String?
+        enum CodingKeys: String, CodingKey {
+            case espnGameId = "espn_game_id"
+            case gameId = "game_id"
+            case gameDate = "game_date"
+            case homeAbbr = "home_abbr"
+            case awayAbbr = "away_abbr"
+            case market
+            case modelHomeMargin = "model_home_margin"
+            case modelTotal = "model_total"
+            case tier
+        }
+        var abbrKey: String { "\(gameDate.prefix(10))|\(homeAbbr)|\(awayAbbr)" }
+    }
+
     /// Compute away ML from home ML when missing. Mirrors RN
     /// `calculateAwayML` helper in index.tsx:400-403.
     private static func calculateAwayML(_ homeML: Int?) -> Int? {
@@ -1433,7 +1460,28 @@ public final class GamesStore {
             return
         }
 
-        // Step 2: predictions, keep latest as_of_ts_utc per game_id.
+        // Step 2: originator model rows (spread margin + total) for the dates on the board.
+        // Replaced nba_predictions' model_fair_* on 2026-10-13 (owner call): those were a transform of
+        // win probability with zero correlation to results. nba_predictions is kept for home_win_prob only.
+        let dates = Array(Set(inputRows.compactMap { $0.gameDate.map { String($0.prefix(10)) } }))
+        let modelRows: [NBAModelPredRow] = dates.isEmpty ? [] : ((try? await cfb
+            .from("nba_model_preds")
+            .select("espn_game_id, game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, tier")
+            .in("game_date", values: dates)
+            .execute()
+            .value) ?? [])
+        var spreadByGameId: [Int: NBAModelPredRow] = [:], totalByGameId: [Int: NBAModelPredRow] = [:]
+        var spreadByAbbr: [String: NBAModelPredRow] = [:], totalByAbbr: [String: NBAModelPredRow] = [:]
+        for row in modelRows {
+            if row.market == "total" {
+                if let g = row.gameId { totalByGameId[g] = row }
+                totalByAbbr[row.abbrKey] = row
+            } else {
+                if let g = row.gameId { spreadByGameId[g] = row }
+                spreadByAbbr[row.abbrKey] = row
+            }
+        }
+
         let predictionRows: [NBAPredictionRow] = (try? await cfb
             .from("nba_predictions")
             .select("game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc")
@@ -1454,8 +1502,19 @@ public final class GamesStore {
         // (matches RN's index.tsx:457-479).
         games.nba = inputRows.map { input in
             let pred = predictionsByGame[input.gameId]
+            let abbrKey = "\((input.gameDate ?? "").prefix(10))|\(input.homeAbbr ?? "")|\(input.awayAbbr ?? "")"
+            let spreadRow = spreadByGameId[input.gameId] ?? spreadByAbbr[abbrKey]
+            let totalRow = totalByGameId[input.gameId] ?? totalByAbbr[abbrKey]
+            // The model predicts the HOME MARGIN; +7.6 is the home team at -7.6, so the fair home
+            // spread is the negated margin (negated exactly once, here).
+            let modelFairHomeSpread: Double? = spreadRow?.modelHomeMargin.map { -$0 }
+            // Total hidden while the model is warming up (< 10 games played): no season-to-date form yet.
+            let modelFairTotal: Double? = totalRow?.tier == "warmup" ? nil : totalRow?.modelTotal
+            let simTotal = totalRow?.modelTotal
+            let homeScorePred: Double? = (simTotal != nil && spreadRow?.modelHomeMargin != nil) ? (simTotal! + spreadRow!.modelHomeMargin!) / 2 : nil
+            let awayScorePred: Double? = (simTotal != nil && spreadRow?.modelHomeMargin != nil) ? (simTotal! - spreadRow!.modelHomeMargin!) / 2 : nil
             var spreadCoverProb: Double? = nil
-            if let modelFair = pred?.modelFairHomeSpread, let homeSpread = input.homeSpread {
+            if let modelFair = modelFairHomeSpread, let homeSpread = input.homeSpread {
                 let diff = abs(modelFair - homeSpread)
                 if modelFair < homeSpread {
                     spreadCoverProb = 0.5 + min(diff * 0.05, 0.35)
@@ -1466,7 +1525,7 @@ public final class GamesStore {
                 spreadCoverProb = p
             }
             var ouProb: Double? = nil
-            if let modelFair = pred?.modelFairTotal, let totalLine = input.totalLine {
+            if let modelFair = modelFairTotal, let totalLine = input.totalLine {
                 let totalDiff = modelFair - totalLine
                 if totalDiff > 0 {
                     ouProb = 0.5 + min(abs(totalDiff) * 0.02, 0.35)
@@ -1514,10 +1573,10 @@ public final class GamesStore {
                 homeAwaySpreadCoverProb: spreadCoverProb,
                 ouResultProb: ouProb,
                 runId: pred?.runId,
-                homeScorePred: pred?.homeScorePred,
-                awayScorePred: pred?.awayScorePred,
-                modelFairHomeSpread: pred?.modelFairHomeSpread,
-                modelFairTotal: pred?.modelFairTotal
+                homeScorePred: homeScorePred,
+                awayScorePred: awayScorePred,
+                modelFairHomeSpread: modelFairHomeSpread,
+                modelFairTotal: modelFairTotal
             )
         }
     }
