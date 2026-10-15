@@ -15,6 +15,8 @@ Run:  python3 fill_finals.py            # slate: match + validate vs existing fi
       python3 fill_finals.py --write    # PATCH final_home/away for matched games
 """
 import sys
+import time
+
 import requests
 import pandas as pd
 from pathlib import Path
@@ -40,6 +42,32 @@ def service_key():
     raise SystemExit("SUPABASE_SERVICE_KEY not found in .env.local")
 
 
+def _patch_final(table, gid, sh, sa, hdr, tries=3):
+    """One idempotent finals PATCH, retried on a transient failure.
+
+    `set -e` in grade_week.sh means ONE bad response here skips steps 1b-5 (1H finals,
+    player logs, prop + pick grading, the analysis_base append) for the whole run — so a
+    single hiccup costs a full grading cycle. Seen 2026-10-15: a lone 400 on a no-op write
+    (row already held the same score, table has no triggers or check constraints) killed
+    the 08:00Z run. raise_for_status() also discards the response body, so the log said
+    only "400 Bad Request" — carry it into the message or the next failure is just as blind.
+    """
+    last = None
+    for attempt in range(tries):
+        resp = requests.patch(f"{BASE}/{table}?game_id=eq.{gid}", headers=hdr,
+                              json={"final_home": sh, "final_away": sa}, timeout=30)
+        if resp.ok:
+            return
+        last = f"HTTP {resp.status_code} {resp.text[:300]}"
+        # 4xx that is genuinely our fault (bad column, bad type) will not heal on retry,
+        # but we cannot tell those apart from a pooler-level 400 without the body — so
+        # retry a few times and let the message say what came back.
+        if attempt < tries - 1:
+            time.sleep(2 * (attempt + 1))
+    raise SystemExit(f"[finals] PATCH {table} game_id={gid} -> {sh}-{sa} failed "
+                     f"after {tries} tries: {last}")
+
+
 def _report_and_write(label, table, dg, m, keycols, hdr):
     matched = m[m["_merge"] == "both"]
     unmatched = m[m["_merge"] != "both"]
@@ -58,9 +86,7 @@ def _report_and_write(label, table, dg, m, keycols, hdr):
     if WRITE and hdr is not None:
         n = 0
         for _, r in matched.iterrows():
-            resp = requests.patch(f"{BASE}/{table}?game_id=eq.{_gid(r.game_id)}", headers=hdr,
-                                  json={"final_home": int(r.sh), "final_away": int(r.sa)}, timeout=30)
-            resp.raise_for_status()
+            _patch_final(table, _gid(r.game_id), int(r.sh), int(r.sa), hdr)
             n += 1
         print(f"[{label}] PATCHed final_home/away on {n} games")
 
