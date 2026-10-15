@@ -166,23 +166,26 @@ services:
     # consolidate separately, so it takes two invocations.
     startCommand: >-
       cd research/nfl-extreme-outcomes &&
+      FAIL=0 &&
       FPT=receivingAdvanced,receivingSeparationByAlignment,rushingAdvanced,rushingBellCow,passingAdvanced,coverageMatrix,proeReport,runPassReport,lineMatchups &&
       FPS=$(python3 -c "from fp_pull import current_season_week; print(current_season_week()[0])") &&
       FPW=$(python3 -c "from fp_pull import current_season_week; print(current_season_week()[1]+1)") &&
-      { python3 fp_pull.py --tools "$FPT" --seasons "$FPS" --weeks 1-18 --workers 3 || true; } &&
-      { python3 fp_pull.py --tools "$FPT" --consolidate || true; } &&
-      { python3 gen_nfl_player_prop_trends.py || true; } &&
-      { python3 score_props_week.py || true; } &&
-      { FP_SUPABASE=1 FP_SEASONS="$(( FPS - 1 )),$FPS" python3 fp_prop_payload.py --season "$FPS" --upcoming "$FPW" --routes 6 --out data/fp_prop_payload_current.parquet || true; } &&
-      { python3 fp_spotlight.py --payload data/fp_prop_payload_current.parquet --season "$FPS" --week "$FPW" --emit --write || true; } &&
-      { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 fp_spotlight_write.py "out/spotlight_${FPS}w${FPW}.json" --write --season "$FPS" --week "$FPW" || true; } &&
-      { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 gen_nfl_prop_player_pages.py || true; } &&
-      { python3 grade_spotlight_picks.py --season "$FPS" || true; } &&
+      { python3 fp_pull.py --tools "$FPT" --seasons "$FPS" --weeks 1-18 --workers 3 || FAIL=1; } &&
+      { python3 fp_pull.py --tools "$FPT" --consolidate || FAIL=1; } &&
+      { python3 gen_nfl_player_prop_trends.py || FAIL=1; } &&
+      { python3 score_props_week.py || FAIL=1; } &&
+      { FP_SUPABASE=1 FP_SEASONS="$(( FPS - 1 )),$FPS" python3 fp_prop_payload.py --season "$FPS" --upcoming "$FPW" --routes 6 --out data/fp_prop_payload_current.parquet || FAIL=1; } &&
+      { python3 fp_spotlight.py --payload data/fp_prop_payload_current.parquet --season "$FPS" --week "$FPW" --emit --write || FAIL=1; } &&
+      { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 fp_spotlight_write.py "out/spotlight_${FPS}w${FPW}.json" --write --season "$FPS" --week "$FPW" || FAIL=1; } &&
+      { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 gen_nfl_prop_player_pages.py || FAIL=1; } &&
+      { python3 grade_spotlight_picks.py --season "$FPS" || FAIL=1; } &&
       { if [ "$(date +%u)" = "2" ]; then
           python3 cheatsheet_write.py --season "$FPS" --week "$FPW" --write;
         else
           python3 cheatsheet_write.py --season "$FPS" --week "$FPW" --players-only;
-        fi || true; }
+        fi || FAIL=1; } &&
+      { [ "$FAIL" = 0 ] || { echo "== a prop-report step FAILED -- see the traceback above; the cron must not report success =="; exit 1; }; }
+
     # nfl_prop_narratives.py is RETIRED from this chain (owner 2026-10-07). The spotlight picks
     # replace the regression-report prop picks. score_props_week.py STAYS: the projection is still
     # computed because P14/P17/P18 derive from it — it is simply never surfaced.
