@@ -25,6 +25,8 @@ import numpy as np
 import pandas as pd
 import requests
 
+from fetch import local_or_db
+
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
@@ -182,7 +184,7 @@ def main():
         pass_att=("attempts", "mean"), pass_yds=("passing_yards", "mean"),
         rec_td=("receiving_tds", "sum"), rush_td=("rushing_tds", "sum"), pass_td=("passing_tds", "sum"))
 
-    ngs_r = pd.read_parquet(DATA / "ngs_receiving.parquet")
+    ngs_r = local_or_db("ngs_receiving")
     ngs_r = ngs_r[ngs_r.season == STAT_SEASON].groupby("player_id").agg(
         separation=("avg_separation", "mean"), cushion=("avg_cushion", "mean"),
         adot=("avg_intended_air_yards", "mean"), air_share=("percent_share_of_intended_air_yards", "mean"),
@@ -190,11 +192,11 @@ def main():
     ftns = pd.read_parquet(DATA / "nfl_ftn_player_stats.parquet").set_index("player_id")
     ftn_rec_q = ftns[ftns.targets.fillna(0) >= 100]     # qualified receiver baseline
     ftn_qb_q = ftns[ftns.dropbacks.fillna(0) >= 150]
-    ngs_u = pd.read_parquet(DATA / "ngs_rushing.parquet")
+    ngs_u = local_or_db("ngs_rushing")
     ngs_u = ngs_u[ngs_u.season == STAT_SEASON].groupby("player_id").agg(
         efficiency=("efficiency", "mean"), ryoe_per_att=("rush_yards_over_expected_per_att", "mean"),
         eight_box_pct=("percent_attempts_gte_eight_defenders", "mean"), time_to_los=("avg_time_to_los", "mean"))
-    ngs_p = pd.read_parquet(DATA / "ngs_passing.parquet")
+    ngs_p = local_or_db("ngs_passing")
     ngs_p = ngs_p[ngs_p.season == STAT_SEASON].groupby("player_id").agg(
         time_to_throw=("avg_time_to_throw", "mean"), completed_air_yds=("avg_completed_air_yards", "mean"),
         intended_air_yds=("avg_intended_air_yards", "mean"),
@@ -206,7 +208,7 @@ def main():
     pvs = pvs.sort_values(["season", "week"]).groupby("player_id").tail(1).set_index("player_id")
     qual = pvs[pvs.tgts_zone >= 100]      # league baseline: established receivers
 
-    ds = pd.read_parquet(DATA / "nfl_def_scheme.parquet")
+    ds = local_or_db("nfl_def_scheme")
     ds = ds.sort_values(["season", "week"]).groupby("team").tail(1).set_index("team")
 
     def def_profile(opp):
@@ -283,7 +285,7 @@ def main():
 
     # ---- GAME-LEVEL scheme-type splits: player's per-game averages vs classified defenses ----
     # Classify every (season, team) defense into types by season s2d rates (terciles per season).
-    ds_all = pd.read_parquet(DATA / "nfl_def_scheme.parquet")
+    ds_all = local_or_db("nfl_def_scheme")
     ds_end = ds_all.sort_values("week").groupby(["season", "team"]).tail(1)
     types = {}
     for ssn, grp in ds_end.groupby("season"):
@@ -372,9 +374,9 @@ def main():
         return out or None
 
     # ---- QB / RB scheme substrates (build_qb_rb_scheme.py) ----
-    qbss = pd.read_parquet(DATA / "nfl_qb_vs_scheme.parquet").set_index("player_id")
+    qbss = local_or_db("nfl_qb_vs_scheme").set_index("player_id")
     qb_qual = qbss[qbss.overall_dropbacks >= 150]
-    rbss = pd.read_parquet(DATA / "nfl_rusher_vs_box.parquet").set_index("player_id")
+    rbss = local_or_db("nfl_rusher_vs_box").set_index("player_id")
     rb_qual = rbss[rbss.overall_carries >= 100]
 
     # ---- AS-OF look hit rates from props_frame (real lines + results, opponent classified

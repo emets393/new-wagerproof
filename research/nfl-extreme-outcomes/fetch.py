@@ -72,7 +72,7 @@ TABLES = {
 }
 
 
-def fetch_table(table, select="*", order=None, page=1000):
+def fetch_table(table, select="*", order=None, page=1000, hdrs=None):
     """Paginated PostgREST pull -> DataFrame.
 
     Raises after 4 failed attempts; callers that treat the table as optional
@@ -86,7 +86,7 @@ def fetch_table(table, select="*", order=None, page=1000):
             params["order"] = order
         for attempt in range(4):
             try:
-                r = requests.get(f"{SUPA}/{table}", headers=HDRS, params=params, timeout=120)
+                r = requests.get(f"{SUPA}/{table}", headers=hdrs or HDRS, params=params, timeout=120)
                 r.raise_for_status()
                 break
             except Exception:
@@ -99,6 +99,80 @@ def fetch_table(table, select="*", order=None, page=1000):
             break
         offset += page
     return pd.DataFrame(rows)
+
+
+# Local parquet name -> Supabase table, for artifacts the PROP CHAIN needs on a box with no
+# warehouse. Separate from TABLES above because these are read on demand by
+# gen_nfl_prop_player_pages.py, not pre-cached by main().
+#
+# ⛔ WHY THIS EXISTS. gen_nfl_prop_player_pages.py reads 13 local parquets. Render's disk is
+# ephemeral and holds none of them, so on every scheduled run it died at the first
+# read_parquet — and because render.yaml wrapped the step in `|| true`, the cron reported
+# SUCCESS. nfl_prop_spotlight and fp_cards were therefore empty for every 2026 week except
+# wk5, which was published by hand, and nothing alerted for five weeks. Columns verified
+# equal-or-superset against each local parquet on 2026-10-15.
+DB_BACKED = {
+    "ngs_receiving":     ("nfl_ngs_receiving_raw", "season,week"),
+    "ngs_rushing":       ("nfl_ngs_rushing_raw",   "season,week"),
+    "ngs_passing":       ("nfl_ngs_passing_raw",   "season,week"),
+    "nfl_def_scheme":    ("nfl_team_scheme",       None),
+    "nfl_qb_vs_scheme":  ("nfl_qb_scheme_splits",  None),
+    "nfl_rusher_vs_box": ("nfl_rusher_box_splits", None),
+}
+
+
+def _service_hdrs():
+    """Service-role headers, or None when no service key is reachable.
+
+    ⛔ WHY: module-level KEY is the ANON key (see above). Of the DB_BACKED tables,
+    nfl_ngs_* have RLS OFF so anon reads them, but nfl_team_scheme,
+    nfl_qb_scheme_splits and nfl_rusher_box_splits have RLS ON with a single policy
+    granted to `mcp_explorer` only. Anon therefore gets 200 with an EMPTY ARRAY, not an
+    error — the exact failure shape that hides a broken pull. Service role bypasses RLS.
+    """
+    k = os.environ.get("SUPABASE_SERVICE_KEY")
+    if not k:
+        env = os.path.abspath(os.path.join(HERE, "..", "..", ".env.local"))
+        try:
+            for line in open(env):
+                if line.startswith("SUPABASE_SERVICE_KEY="):
+                    k = line.split("=", 1)[1].strip()
+                    break
+        except OSError:
+            return None
+    return {"apikey": k, "Authorization": f"Bearer {k}"} if k else None
+
+
+def local_or_db(name, columns=None):
+    """Read data/<name>.parquet, or pull its Supabase source when the parquet is absent.
+
+    Prefers the parquet so a box WITH the warehouse behaves exactly as before — this only
+    changes what happens on a box without one, where the alternative is a crash. Writes the
+    pull back to the parquet path so later steps in the same run reuse it.
+
+    Raises FileNotFoundError naming the Supabase table when neither is available: a caller
+    must fail loudly, never silently produce a page with the column missing.
+    """
+    out = os.path.join(DATA, f"{name}.parquet")
+    if os.path.exists(out):
+        return pd.read_parquet(out, columns=columns)
+    if name not in DB_BACKED:
+        raise FileNotFoundError(
+            f"{out} absent and {name} has no Supabase source — it derives from the local "
+            f"scheme_plays/ftn_charting warehouse and must be pushed to Supabase to run here")
+    table, order = DB_BACKED[name]
+    df = fetch_table(table, order=order, hdrs=_service_hdrs())
+    if len(df) == 0:
+        # An RLS-hidden table returns 200 + [] rather than 403, so empty is never "fine".
+        raise FileNotFoundError(
+            f"{out} absent and Supabase {table} returned 0 rows — check the service key "
+            f"and that RLS admits it (anon sees nothing on the scheme tables)")
+    print(f"  [local_or_db] {name}: parquet absent -> pulled {len(df):,} rows from {table}")
+    try:
+        df.to_parquet(out, index=False)
+    except Exception as e:                      # read-only disk is fine, the frame is in hand
+        print(f"  [local_or_db] could not cache {out}: {type(e).__name__}")
+    return df[list(columns)] if columns else df
 
 
 def nflverse_games():

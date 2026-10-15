@@ -17,6 +17,29 @@ def norm_surface(s):
         return None
     return "Grass" if "grass" in s.lower() else "Turf"
 
+
+def fill_surface_from_stadium(g):
+    """Fill a blank `surface` from the modal surface that stadium shows elsewhere in the file.
+
+    nflverse ships `surface` blank for whole stretches of schedule while `stadium` stays
+    populated — 58 rows across 2022-26, and in 2026 it is 14 of the 15 week-5 games, i.e.
+    the entire slate bar one. A blank surface silently drops the game out of every
+    surface-filtered system on /historical-trends, so it reads as "no such game" rather
+    than "unknown surface". The venue determines the surface, so same-stadium history
+    answers it: that fills 55 of the 58. The three that stay blank are one-off
+    international venues with no other game in the file (Allianz Arena, Arena Corinthians).
+    """
+    known = (g[g["surface"].notna() & (g["surface"].str.strip() != "")]
+             .groupby("stadium")["surface"]
+             .agg(lambda col: col.mode().iat[0]))
+    blank = g["surface"].isna() | (g["surface"].str.strip() == "")
+    guessed = g.loc[blank, "stadium"].map(known)
+    g.loc[blank, "surface"] = guessed
+    n_filled = int(guessed.notna().sum())
+    print(f"[nab_patch] surface blank on {int(blank.sum())} rows -> filled {n_filled} "
+          f"from same-stadium history, {int(blank.sum()) - n_filled} still unknown")
+    return g
+
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
@@ -36,7 +59,9 @@ def main():
     resp = requests.get(GAMES_CSV, timeout=90)
     resp.raise_for_status()   # an error page would otherwise parse into a coach-less frame
     g = pd.read_csv(io.StringIO(resp.text))
-    g = g[g.season >= 2018][["game_id", "home_coach", "away_coach", "surface"]].dropna(subset=["game_id"])
+    g = g[g.season >= 2018][["game_id", "home_coach", "away_coach", "surface", "stadium"]] \
+        .dropna(subset=["game_id"])
+    g = fill_surface_from_stadium(g).drop(columns=["stadium"])
     g["surface"] = g["surface"].map(norm_surface)
     # 1H half scores — 2023-25 (null for older games; coach/surface still apply).
     # quarter_scores.parquet is a local research artifact that does NOT exist on Render's
@@ -52,8 +77,13 @@ def main():
     for c in ("h1_home", "h1_away"):
         patch[c] = patch[c].astype("Int64")           # nullable int (NaN -> <NA>)
     patch = patch.astype(object).where(pd.notna(patch), None)
+    # Report h1 as "not shipped" rather than a count of 0 when the parquet is absent: a bare
+    # "with h1: 0" reads like a write that lost its data, when in fact the keys are dropped
+    # below and whatever is stored is preserved.
+    h1_note = (f"with h1: {patch.h1_home.notna().sum()}" if have_h1
+               else "h1: not shipped this run (stored values kept)")
     print(f"patch rows: {len(patch)} | with coach: {patch.home_coach.notna().sum()} | "
-          f"with surface: {patch.surface.notna().sum()} | with h1: {patch.h1_home.notna().sum()}")
+          f"with surface: {patch.surface.notna().sum()} | {h1_note}")
 
     k = key()
     hdr = {"apikey": k, "Authorization": f"Bearer {k}", "Content-Type": "application/json",

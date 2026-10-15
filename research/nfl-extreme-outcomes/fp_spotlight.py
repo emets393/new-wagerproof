@@ -209,6 +209,18 @@ def tell(d, w, src, text):
 
 
 # ---------------------------------------------------------------- the families
+def _scores_himself(pos, mkt):
+    """Anytime TD is the player scoring. A quarterback scores by running it in, not by throwing."""
+    return pos == "QB" and mkt == "player_anytime_td"
+
+
+def _passing_market(pos, mkt):
+    if _scores_himself(pos, mkt):
+        return False
+    return pos == "QB" or mkt in ("player_pass_yds", "player_pass_attempts",
+                                  "player_pass_completions", "player_pass_tds")
+
+
 def _script_volume(br, passing):
     """The script's effect on volume, as a BUCKET-vs-BUCKET relative move.
 
@@ -237,9 +249,8 @@ def _script_volume(br, passing):
 def F1_role(B, R, br, pos, mkt):
     """Does the MATCHUP give him more or less volume than his own norm?"""
     out = []
-    passing = pos == "QB" or mkt in ("player_pass_yds", "player_pass_attempts",
-                                     "player_pass_completions", "player_pass_tds")
-    rushing = mkt in ("player_rush_yds", "player_rush_attempts")
+    passing = _passing_market(pos, mkt)
+    rushing = mkt in ("player_rush_yds", "player_rush_attempts") or _scores_himself(pos, mkt)
     if passing or not rushing:
         g, a, b = _script_volume(br, True)
         if g is not None and abs(g) >= 0.06:
@@ -298,7 +309,9 @@ def F1_role(B, R, br, pos, mkt):
 
 def F2_trench(br, T, team, opp, mkt, pos):
     out, lg = [], T.ol_press.mean()
-    if mkt in ("player_rush_yds", "player_rush_attempts", "player_anytime_td") and pos in ("RB", "FB"):
+    run_front = _scores_himself(pos, mkt) or (
+        mkt in ("player_rush_yds", "player_rush_attempts", "player_anytime_td") and pos in ("RB", "FB"))
+    if run_front:
         g = rel(br["exp_ybc"], T.ol_ybc_att.mean())
         if g is not None and abs(g) >= 0.12:
             out.append(tell("over" if g > 0 else "under", 1.0, "trenches",
@@ -498,7 +511,7 @@ def F6_allow(M, mkt, pos):
 def F7_rz(RZ, SIT, pos, mkt):
     out = []
     him, dfn = RZ.get("him", {}), RZ.get("defense", {})
-    if pos in ("RB", "FB"):
+    if pos in ("RB", "FB") or _scores_himself(pos, mkt):
         sh, i10 = him.get("rz5_carry_share"), SIT.get("Inside10", {})
         if fin(sh) and sh >= 0.6 and fin(i10.get("pass_rate")):
             out.append(tell("over", 1.0, "red zone",
@@ -558,6 +571,15 @@ def F10_script(SIT, br, mkt, pos):
     g = rel(s.get("pass_rate"), ov.get("pass_rate"))
     if g is None or abs(g) < 0.04:
         return out
+    spot = ("favourites" if want == "Leading" else "underdogs" if want == "Trailing" else "a coin flip")
+    if _scores_himself(pos, mkt):
+        # A higher pass rate is fewer chances for him to score one himself.
+        d = "under" if g > 0 else "over"
+        out.append(tell(d, 1.0, "script",
+            f"as {spot} they sit in the {want.lower()} bucket, where they run on "
+            f"{(1 - s['pass_rate'])*100:.0f}% of snaps against their own "
+            f"{(1 - ov['pass_rate'])*100:.0f}% overall"))
+        return out
     passing = pos == "QB" or mkt in ("player_reception_yds", "player_receptions", "player_targets")
     if passing:
         d = "over" if g > 0 else "under"
@@ -566,7 +588,7 @@ def F10_script(SIT, br, mkt, pos):
     else:
         return out
     out.append(tell(d, 1.0, "script",
-        f"as {'favourites' if want == 'Leading' else 'underdogs' if want == 'Trailing' else 'a coin flip'} "
+        f"as {spot} "
         f"they sit in the {want.lower()} bucket, where they pass {s['pass_rate']*100:.0f}% against "
         f"their own {ov['pass_rate']*100:.0f}% overall"))
     return out
@@ -771,8 +793,9 @@ def F15_vacated(VAC, R, pos, mkt):
     # ⛔ TWO-SIDED, unlike the first version of this family. A QB out cuts his pass-catchers; it
     # does not free anything for them. F15 emitting only OVER was the same one-sided asymmetry
     # that produced the 14-of-15-unders board, just pointing the other way.
-    if VAC.get("qb_out") and mkt in ("player_reception_yds", "player_receptions",
-                                     "player_targets", "player_anytime_td"):
+    # Anytime TD for a quarterback is him scoring, not his receivers seeing fewer throws.
+    if VAC.get("qb_out") and pos != "QB" and mkt in (
+            "player_reception_yds", "player_receptions", "player_targets", "player_anytime_td"):
         who = VAC.get("qb_out_name") or "their starting QB"
         out.append(tell("under", 1.0, "vacated",
                         f"{who} is out, and a backup under centre cuts what his receivers see"))
