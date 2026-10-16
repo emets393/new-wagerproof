@@ -78,7 +78,7 @@ import type { GameFeedItem, TeamRef } from '../../../types';
  * to `{sport}_slate_flags` so detail matches the feed ⚡ N Signals badge.
  */
 
-type SignalDefinition = {
+export type SignalDefinition = {
   signal_key?: string | null;
   display_name?: string | null;
   definition?: string | null;
@@ -198,7 +198,7 @@ const SIGNAL_DEFS_TABLE: Record<FootballSport, string> = {
 };
 
 /** Game-level bet flag from `{sport}_slate_flags` (feed badge source of truth). */
-type SlateFlag = {
+export type SlateFlag = {
   game_id?: string | number | null;
   signal_key?: string | null;
   rule?: string | null;
@@ -2122,7 +2122,8 @@ function ResolvedSignalGroups({
 }
 
 /** Flat list when flags have no matching market card (or picks haven't loaded). */
-function GameLevelSignalList({
+/** Exported for the NBA Signals card: the flag contract is shared across sports. */
+export function GameLevelSignalList({
   flags,
   away,
   home,

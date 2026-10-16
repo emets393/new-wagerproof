@@ -717,6 +717,27 @@ class GamesStore {
             return
         }
 
+        // Originator model rows (spread margin + total) for the dates on the board. Replaced
+        // nba_predictions' model_fair_* on 2026-10-13 (owner call): those were a transform of win
+        // probability with zero correlation to results. nba_predictions is kept for home_win_prob only.
+        val dates = inputRows.mapNotNull { it.gameDate?.take(10) }.distinct()
+        val modelRows: List<NBAModelPredRow> = if (dates.isEmpty()) emptyList() else runCatchingCancellable {
+            cfb.from("nba_model_preds")
+                .select(columns = Columns.raw("espn_game_id, game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, tier")) {
+                    filter { isIn("game_date", dates) }
+                }
+                .decodeList<NBAModelPredRow>()
+        }.getOrDefault(emptyList())
+        val spreadByGameId = HashMap<Int, NBAModelPredRow>(); val totalByGameId = HashMap<Int, NBAModelPredRow>()
+        val spreadByAbbr = HashMap<String, NBAModelPredRow>(); val totalByAbbr = HashMap<String, NBAModelPredRow>()
+        for (row in modelRows) {
+            if (row.market == "total") {
+                row.gameId?.let { totalByGameId[it] = row }; totalByAbbr[row.abbrKey] = row
+            } else {
+                row.gameId?.let { spreadByGameId[it] = row }; spreadByAbbr[row.abbrKey] = row
+            }
+        }
+
         val predictionRows: List<NBAPredictionRow> = runCatchingCancellable {
             cfb.from("nba_predictions")
                 .select(columns = Columns.raw("game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc"))
@@ -735,8 +756,20 @@ class GamesStore {
         games = games.copy(
             nba = inputRows.map { input ->
                 val pred = predictionsByGame[input.gameId]
+                val abbrKey = "${(input.gameDate ?: "").take(10)}|${input.homeAbbr ?: ""}|${input.awayAbbr ?: ""}"
+                val spreadRow = spreadByGameId[input.gameId] ?: spreadByAbbr[abbrKey]
+                val totalRow = totalByGameId[input.gameId] ?: totalByAbbr[abbrKey]
+                // The model predicts the HOME MARGIN; +7.6 is the home team at -7.6, so the fair home
+                // spread is the negated margin (negated exactly once, here).
+                val modelMargin = spreadRow?.modelHomeMargin
+                val modelFairSpreadNew: Double? = modelMargin?.let { -it }
+                // Total hidden while the model is warming up (< 10 games played): no season-to-date form yet.
+                val modelFairTotalNew: Double? = if (totalRow?.tier == "warmup") null else totalRow?.modelTotal
+                val simTotal = totalRow?.modelTotal
+                val homeScorePredNew: Double? = if (simTotal != null && modelMargin != null) (simTotal + modelMargin) / 2 else null
+                val awayScorePredNew: Double? = if (simTotal != null && modelMargin != null) (simTotal - modelMargin) / 2 else null
                 var spreadCoverProb: Double? = null
-                val modelFairSpread = pred?.modelFairHomeSpread
+                val modelFairSpread = modelFairSpreadNew
                 val hs = input.homeSpread
                 if (modelFairSpread != null && hs != null) {
                     val diff = abs(modelFairSpread - hs)
@@ -746,7 +779,7 @@ class GamesStore {
                     spreadCoverProb = pred.homeWinProb
                 }
                 var ouProb: Double? = null
-                val modelFairTotal = pred?.modelFairTotal
+                val modelFairTotal = modelFairTotalNew
                 if (modelFairTotal != null && input.totalLine != null) {
                     val totalDiff = modelFairTotal - input.totalLine
                     ouProb = if (totalDiff > 0) 0.5 + minOf(abs(totalDiff) * 0.02, 0.35)
@@ -785,10 +818,10 @@ class GamesStore {
                     homeAwaySpreadCoverProb = spreadCoverProb,
                     ouResultProb = ouProb,
                     runId = pred?.runId,
-                    homeScorePred = pred?.homeScorePred,
-                    awayScorePred = pred?.awayScorePred,
-                    modelFairHomeSpread = pred?.modelFairHomeSpread,
-                    modelFairTotal = pred?.modelFairTotal,
+                    homeScorePred = homeScorePredNew,
+                    awayScorePred = awayScorePredNew,
+                    modelFairHomeSpread = modelFairSpreadNew,
+                    modelFairTotal = modelFairTotalNew,
                 )
             },
         )
@@ -1369,6 +1402,26 @@ class GamesStore {
         @SerialName("home_over_pct") val homeOverPct: Double? = null,
         @SerialName("away_over_pct") val awayOverPct: Double? = null,
     )
+
+    /**
+     * One `nba_model_preds` row: the originator models, one row per game per market. `gameId`
+     * (balldontlie) is null until nba_input_values_view carries the game, so rows are also matched on
+     * date + abbreviations. Mirrors web `nbaGames.ts` (2026-10-13).
+     */
+    @Serializable
+    private data class NBAModelPredRow(
+        @SerialName("espn_game_id") val espnGameId: Long,
+        @SerialName("game_id") val gameId: Int? = null,
+        @SerialName("game_date") val gameDate: String,
+        @SerialName("home_abbr") val homeAbbr: String,
+        @SerialName("away_abbr") val awayAbbr: String,
+        val market: String,
+        @SerialName("model_home_margin") val modelHomeMargin: Double? = null,
+        @SerialName("model_total") val modelTotal: Double? = null,
+        val tier: String? = null,
+    ) {
+        val abbrKey: String get() = "${gameDate.take(10)}|$homeAbbr|$awayAbbr"
+    }
 
     @Serializable
     private data class NBAPredictionRow(
