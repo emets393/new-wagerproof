@@ -1,22 +1,49 @@
 # Action Network public-betting splits
 
-Ticket/handle splits the owner copies out of Action Network, parsed, joined to our graded results,
-and tested against the standard public-betting theses.
+Ticket/handle splits from Action Network, joined to our graded results and tested against the
+standard public-betting theses.
 
 ## Pipeline
 
 ```
-raw/<sport>_<season>_wk<N>_<market>.txt      one paste = one sport, week and market
-  -> parse_action.py <sport> <season> <week> <market> <file>
-  -> data/action_splits.csv                  one row per game-market
-  -> join_results.py                         name crosswalk + results + orientation
+fetch_action.py <nfl|ncaaf> <season> <weeks>   weeks = 6 | 1-7 | 1,3,5 | current
+  -> data/action_splits.csv                    one row per game-market
+  -> join_results.py                           name crosswalk + results + orientation
   -> data/action_joined.parquet
-  -> analyze_action.py                       the four theses, with nulls
+  -> analyze_action.py                         the four theses, with nulls
 ```
 
-To add a week, save the paste and run the three steps. Nothing else needs touching.
+To add a week: `python3 fetch_action.py nfl 2026 current && python3 join_results.py`.
+The fetcher replaces only the (sport, season, week) blocks it fetched and leaves every other
+row alone, so it is safe to re-run and was safe to introduce alongside the pastes.
 
-## What the paste looks like
+### Verifying it
+
+`verify_fetch.py <league> <season> <weeks>` diffs a fetch against the rows already on file.
+`--live` fetches twice 60s apart, which is the real regression test for an undocumented
+endpoint: the failure to catch is the silent one, where the response shape changes and we
+start writing blanks into the research base. Measured 2026-10-16 — two reads a minute apart
+agreed on 100% of every settled column; a re-fetch of the four hand-pasted NFL weeks agreed
+on 94-97%.
+
+### ⛔ What cannot be backfilled
+
+`bets_*`, `money_*` and the opening line settle, so they re-read the same later. **The best-odds
+columns do not.** `away_close` / `home_close` / `*_price` are the best price available AT THE
+MOMENT YOU LOOK, and `tickets` climbs until kickoff — re-reading a finished week gives the
+closing figures, not what was on screen when that week was pasted. A re-fetch of NFL weeks 1-4
+reproduced the splits on ~95% of rows and the best-odds columns on only ~58%, and that gap is
+capture time, not a defect. So the hand-pasted weeks were deliberately left alone: refetching
+them would silently rewrite mid-week history with closing numbers.
+
+The practical consequence is that a scheduled fetch is *better* data than the paste ever was,
+because it captures a DEFINED moment every week instead of whenever the owner got to it.
+
+## The manual paste path (superseded, still works)
+
+NFL weeks 1-4 and CFB weeks 1-6 were pasted by hand through `parse_action.py`, which still runs.
+
+### What the paste looks like
 
 Each game is a `Final` line, both team names (each appears twice, the first with a `Team Icon`
 suffix, and big games add a 3-digit rotation number), then a numeric block, then bets%/money% for
@@ -27,14 +54,18 @@ where a book never posted a side, and a game with no action has no percentage ro
 
 ## Joining
 
-There is no game id in the paste and the two feeds name teams differently (`VA Tech` vs
-`Virginia Tech`). Games are matched on the PAIR inside a week — best combined similarity across
+The two feeds name teams differently (`VA Tech` vs `Virginia Tech`), and the paste carried no
+game id, so games are matched on the PAIR inside a week — best combined similarity across
 both names, assigned one-to-one, best first. The one-to-one rule matters: without it
 `Sac State @ E. Michigan` and `San Jose St @ E. Michigan` both grab the San José State row.
 
 Roughly half an early-season CFB board is an FBS team hosting an FCS team. Those games are not in
-`model_games`, so they drop out. 99 pasted week-1 games become 50 graded ones; that is the slate,
-not a matching failure.
+`model_games`, so they drop out. 99 week-1 games become 50 graded ones; that is the slate, not a
+matching failure.
+
+Worth doing when someone next touches this: the API rows carry Action Network's own `game_id` and
+numeric team ids, which the paste never had. Carrying those through would retire the similarity
+match entirely for fetched weeks — it is only still here because the pasted weeks need it.
 
 ## Orientation and grading
 
@@ -49,10 +80,41 @@ and then subtracted it, which flipped the sign and printed a 77% home cover rate
 written off the graded column itself passed it happily. Grade from the scoreboard, never from the
 column you are checking.
 
+## The moneyline x spread cross (added 2026-10-10)
+
+Owner's question: ML says "this team wins", the spread says "wins by X" — does joining the two
+public reads on the SAME game find anything neither finds alone?
+
+```
+cross_ml_spread.py <sport>   build the per-game cross -> data/cross_<sport>.parquet
+cross_pass2.py               residualise the confounds and re-test
+cross_pass3.py               does the cross condition C1 / a plain fade?
+cross_pass4.py               try to BREAK the one survivor (bands, weeks, placebo)
+cross_walkforward.py         fit on earlier weeks only, bet the next
+apply_wk6.py                 freeze the rule onto an unplayed board
+oracle_wk6.py                re-grade played games off the raw scoreboard
+```
+
+**One cell survived.** Residualise the crowd's ML lopsidedness `|fav_ml_bets - 50|` on spread
+magnitude (quadratic), tercile it, and split the crowd's SPREAD side by it: FOLLOW the crowd in
+the relatively-split third, FADE it in the relatively-lopsided third. Walk-forward 85-66 (56.3%),
++7.5% at -110, 5 of 5 weeks above break-even, against a 48.3% unconditioned-crowd null on the
+same games. Pooled p=0.14 on n=151 — a live candidate, not established.
+
+**The obvious construct is dead.** The gap itself (`fav_spread% - fav_ml%`) correlates **-0.593**
+with spread magnitude, so every raw gap cell is a line-size cell. Residualised, its terciles are
+51.2 / 45.2 / 53.6 (p=0.877). An apparent 85.6%-vs-70.0% outright split was pure line size and
+reverses inside spread bands. Quadrants, the money version, totals and NFL all failed too; the
+"contradiction" cell (bets that cannot both win) is only 2 of 258 games. Full verdict with every
+dead cell is in the `cfb-ml-spread-cross` memory.
+
+⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
+
 ## Current state
 
-CFB 2026 weeks 1-3 and NFL 2026 weeks 1-2: 822 parsed rows, 184 distinct graded games. Read the
-two verdict blocks at the bottom of `analyze_action.py` before running anything new.
+CFB 2026 weeks 1-7 and NFL 2026 weeks 1-6: 1,742 rows, 392 distinct games matched, 1,159 joined
+game-market rows. Read the two verdict blocks at the bottom of `analyze_action.py` before
+running anything new.
 
 Short version: nothing here is tradeable. Fading the public, reverse line movement and every
 moneyline cell were dead on CFB; the two candidates that did survive there (C1 spread by ticket
