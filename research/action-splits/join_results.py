@@ -15,8 +15,8 @@ main reason the joined count is far below the pasted count, not a matching failu
 Output: data/action_joined.parquet, one row per (game, market) with the splits, the line move,
 and the realised result, all oriented AWAY-side so every market reads the same direction.
 """
-import os, re
-import numpy as np, pandas as pd
+import io, os, re
+import numpy as np, pandas as pd, requests
 from difflib import SequenceMatcher
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -131,17 +131,34 @@ def cfb_slate_frame(have):
 
 
 def nfl_frame():
-    """games_enriched -> the model_games column contract.
+    """nflverse -> the model_games column contract.
 
     nflverse `spread_line` is positive when the HOME team is FAVOURED — the OPPOSITE sign to
     model_games' home-perspective spread — so it is negated here. Getting this backwards is
     silent: the grader still runs and just reports the wrong side."""
-    # games_enriched.parquet is a BUILT artifact and lags: on 2026-10-03 it carried week-3 rows
-    # with ZERO scores while the week had been over for five days, so NFL wk3 graded as 0 rows —
-    # the same stale-results trap cfb_slate_frame() exists to cover. data/nflverse_games.parquet
-    # is the same nflverse feed with the same column semantics, refreshed by fetch.py --force
-    # every run, and had wk3 at 16/16. Take both and keep whichever row actually has a score.
+    # ⛔ THE RESULTS SOURCE IS THE LIVE FEED, NOT A PARQUET. Both local parquets are caches and
+    # both go stale, which has now under-graded this join twice. 2026-10-03: games_enriched
+    # carried week-3 rows with ZERO scores five days after the week ended, so NFL wk3 graded as
+    # 0 rows. The fix then was "read both parquets, keep whichever has a score" — and it failed
+    # again on 2026-10-16, because by then games_enriched stopped at wk4 and nflverse_games at
+    # wk3, so weeks 5 and 6 silently graded as nothing while the scores were a tap away on a
+    # phone. Worse, nflverse_games.parquet is NOT tracked in git, so on any other machine the
+    # fallback is the stale tracked artifact on its own.
+    #
+    # Neither cache has a writer that runs on this path, so pull the feed every run and keep the
+    # parquets only for when the network is down. A stale grade is silent; a failed GET says so.
+    # The rule this breaks when ignored: a derived artifact is never the source of record for a
+    # fact it merely carries.
     frames = []
+    try:
+        r = requests.get("https://github.com/nflverse/nfldata/raw/master/data/games.csv",
+                         timeout=120)
+        r.raise_for_status()
+        frames.append(pd.read_csv(io.StringIO(r.text)))
+    except Exception as e:
+        print(f"[nfl] ⚠ live nflverse pull failed ({type(e).__name__}) — falling back to local "
+              f"caches, which may under-grade recent weeks")
+
     for pth in (NFLVERSE_GAMES, NFL_GAMES):
         if os.path.exists(pth):
             try: frames.append(pd.read_parquet(pth))
@@ -152,6 +169,12 @@ def nfl_frame():
     g = g[(g.season == 2026) & (g.game_type == "REG") & g.home_score.notna()
           & g.spread_line.notna()].copy()
     g = g.drop_duplicates(subset=["game_id"], keep="first")
+    # Say out loud how far the results actually reach. Both times this broke, the join printed a
+    # healthy-looking match table and simply had no rows for the missing weeks.
+    if len(g):
+        per = g.groupby("week").size()
+        print(f"[nfl] results cover weeks {per.index.min()}-{per.index.max()} "
+              f"({len(g)} scored games): {per.to_dict()}")
     return pd.DataFrame(dict(
         game_id=g.game_id, season=g.season, week=g.week,
         awayTeam=g.away_team, homeTeam=g.home_team,
@@ -245,6 +268,17 @@ def main():
     # and a sanity floor: home teams cover somewhere near half, never 3/4
     hc = (d[d.market == "spread"].away_result == -1).mean()
     assert 0.35 < hc < 0.65, f"home cover rate {hc:.1%} — orientation is wrong"
+
+    # ⛔ A week we have splits for but no grades for is the failure this join keeps having, and
+    # it is invisible in the match table below — a missing week just is not a row. Name it.
+    for sport in sorted(spl.sport.unique()):
+        have = set(spl[spl.sport == sport].week.astype(int))
+        got = set(d[d.sport == sport].week.astype(int))
+        gap = sorted(have - got)
+        if gap:
+            print(f"[{sport}] ⚠ splits on file for week(s) {gap} with NO graded games. "
+                  f"Fine if they have not been played; if they HAVE, the results source is "
+                  f"behind — see the note in nfl_frame().")
 
     out = os.path.join(HERE, "data", "action_joined.parquet")
     d.to_parquet(out, index=False)

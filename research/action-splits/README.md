@@ -112,9 +112,16 @@ dead cell is in the `cfb-ml-spread-cross` memory.
 
 ## Current state
 
-CFB 2026 weeks 1-7 and NFL 2026 weeks 1-6: 1,742 rows, 392 distinct games matched, 1,159 joined
-game-market rows. Read the two verdict blocks at the bottom of `analyze_action.py` before
-running anything new.
+CFB 2026 weeks 1-7 and NFL 2026 weeks 1-6: 1,742 rows, 408 distinct games matched, 1,207 joined
+game-market rows. NFL is graded through week 5 plus week 6's Thursday game; CFB week 7 is only
+partly played. Read the two verdict blocks at the bottom of `analyze_action.py` before running
+anything new.
+
+⛔ **Results come from the LIVE nflverse feed, pulled every run** — not from
+`games_enriched.parquet` or `nflverse_games.parquet`, which are caches with no writer on this
+path and have silently under-graded this join twice (wk3 on 2026-10-03, wks 5-6 on 2026-10-16).
+`nflverse_games.parquet` is not even tracked in git. The join now prints the week range its
+results actually cover, and warns when the splits file holds a week with no graded games.
 
 Short version: nothing here is tradeable. Fading the public, reverse line movement and every
 moneyline cell were dead on CFB; the two candidates that did survive there (C1 spread by ticket
