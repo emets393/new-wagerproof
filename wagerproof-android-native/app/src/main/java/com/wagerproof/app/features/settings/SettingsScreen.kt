@@ -175,17 +175,17 @@ fun SettingsScreen(
             ) {
                 val proTitle = when {
                     proAccess.isLoading -> "Verifying access"
-                    proAccess.hasSubscription -> proAccess.planTitle
-                    else -> "Go Pro Today"
+                    proAccess.isPro -> proAccess.planTitle
+                    else -> "Upgrade to Pro"
                 }
                 val proSubtitle = when {
                     proAccess.isLoading -> "Checking plan"
-                    proAccess.hasSubscription -> "Your subscription is active"
-                    else -> "Unlock premium picks"
+                    proAccess.isPro -> "Your subscription is active"
+                    else -> "Current plan: ${proAccess.planTitle}"
                 }
                 val proAction = when {
                     proAccess.isLoading -> "Hold"
-                    proAccess.hasSubscription -> "Manage"
+                    proAccess.isPro -> "Manage"
                     else -> "Upgrade"
                 }
                 HeroBanner(
@@ -196,10 +196,15 @@ fun SettingsScreen(
                     enabled = !proAccess.isLoading,
                     onTap = {
                         if (!proAccess.isLoading) {
-                            modal = if (proAccess.hasSubscription) SettingsModal.CustomerCenter else SettingsModal.Paywall
+                            modal = if (proAccess.isPro) SettingsModal.CustomerCenter else SettingsModal.Paywall
                         }
                     },
                 )
+                if (proAccess.hasSubscription && !proAccess.isPro) {
+                    TextButton(enabled = !proAccess.isLoading, onClick = { modal = SettingsModal.CustomerCenter }) {
+                        Text("Manage subscription", color = AppColors.appTextSecondary)
+                    }
+                }
                 HeroBanner(
                     title = "Join our Discord",
                     subtitle = "Picks, updates, and live chat",
@@ -407,7 +412,7 @@ fun SettingsScreen(
         // pops Settings entirely instead of just closing the modal.
         SettingsModal.Paywall -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             BackHandler { modal = null }
-            PaywallScreen(onDismiss = { modal = null })
+            PaywallScreen(placementId = "tier_upgrade_pro", onDismiss = { modal = null })
         }
         SettingsModal.CustomerCenter -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             BackHandler { modal = null }

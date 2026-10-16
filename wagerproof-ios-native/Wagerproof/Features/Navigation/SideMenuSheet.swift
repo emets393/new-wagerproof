@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofStores
+import WagerproofServices
 
 /// Side menu sheet — the SwiftUI port of RN's `components/SideMenu.tsx`.
 /// iOS HIG discourages edge-swipe drawers, so the RN drawer becomes a
@@ -27,10 +28,21 @@ struct SideMenuSheet: View {
     // chain sheets directly inside another sheet without flicker.
     @Environment(LearnWagerProofStore.self) private var learnStore
 
+    @Environment(ProAccessStore.self) private var proAccess
+    @State private var isUpgradePresented = false
+
     var body: some View {
         NavigationStack {
             List {
                 accountSection
+                if !proAccess.isLoading && !proAccess.isPro {
+                    Section {
+                        Button { isUpgradePresented = true } label: {
+                            Label("Upgrade to Pro", systemImage: "crown.fill")
+                        }
+                        .tint(Color.appPrimary)
+                    }
+                }
                 navigationSection
                 preferencesSection
                 supportSection
@@ -48,6 +60,9 @@ struct SideMenuSheet: View {
                         .tint(Color.appPrimary)
                 }
             }
+        }
+        .sheet(isPresented: $isUpgradePresented) {
+            RevenueCatPaywallView(placementId: RevenueCatService.Placement.tierUpgradePro)
         }
         .sensoryFeedback(.selection, trigger: tabStore.selected)
     }

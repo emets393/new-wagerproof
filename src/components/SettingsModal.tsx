@@ -70,7 +70,7 @@ function usernameSlug(displayName: string): string {
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { user, updatePassword, sendPasswordReset, signOut } = useAuth();
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
-  const { hasSubscription: hasProAccess, subscriptionTier, isTieredCustomer, customerInfo, subscriptionType } = useRevenueCatWeb();
+  const { hasSubscription, hasProAccess: hasTopTierAccess, loading: subscriptionLoading, subscriptionTier, isTieredCustomer, customerInfo, subscriptionType } = useRevenueCatWeb();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -269,11 +269,16 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
           <div className="mx-6 mt-3 grid grid-cols-2 gap-2.5">
             <HeroButton
-              title={hasProAccess ? `WagerProof ${tierTitle(subscriptionTier ?? 'pro')}` : 'Explore WagerProof'}
-              subtitle={hasProAccess ? 'Your membership is active' : 'Find your plan'}
-              action={hasProAccess ? 'Manage' : 'Upgrade'}
+              title={subscriptionLoading ? 'Verifying access' : hasTopTierAccess ? `WagerProof ${tierTitle('pro')}` : 'Upgrade to Pro'}
+              subtitle={subscriptionLoading ? 'Checking your plan' : hasTopTierAccess ? 'Your membership is active' : `Current plan: ${subscriptionTier ? tierTitle(subscriptionTier) : 'Free'}`}
+              action={subscriptionLoading ? 'Checking' : hasTopTierAccess ? 'Manage' : 'Upgrade'}
+              disabled={subscriptionLoading}
               icon={<CreditCard className="h-5 w-5" />}
-              onClick={hasProAccess ? handleManageBilling : () => openRoute(isTieredCustomer ? '/plans/tiers' : PAYWALL_ROUTE)}
+              onClick={() => {
+                if (subscriptionLoading) return;
+                if (hasTopTierAccess) handleManageBilling();
+                else openRoute('/plans/tiers?tier=pro&minimum=pro&origin=tier_upgrade_pro');
+              }}
             />
             <HeroButton
               title="Join our Discord"
@@ -433,9 +438,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             <SettingsRow
               icon={<CreditCard />}
               title="Subscription"
-              subtitle={hasProAccess ? `WagerProof ${tierTitle(subscriptionTier ?? 'pro')}${subscriptionType ? ` · ${subscriptionType}` : ''}` : 'Free plan'}
+              subtitle={hasSubscription ? `WagerProof ${tierTitle(subscriptionTier ?? 'pro')}${subscriptionType ? ` · ${subscriptionType}` : ''}` : 'Free plan'}
               trailing={<ChevronRight className="h-4 w-4" />}
-              onClick={hasProAccess ? handleManageBilling : () => openRoute(isTieredCustomer ? '/plans/tiers' : PAYWALL_ROUTE)}
+              onClick={hasSubscription ? handleManageBilling : () => openRoute(isTieredCustomer ? '/plans/tiers' : PAYWALL_ROUTE)}
             />
           </SettingsGroup>
 
@@ -509,9 +514,9 @@ function FeatureRow({ icon, title, subtitle, action, onClick }: { icon: ReactNod
   );
 }
 
-function HeroButton({ title, subtitle, action, icon, onClick }: { title: string; subtitle: string; action: string; icon: ReactNode; onClick: () => void }) {
+function HeroButton({ title, subtitle, action, icon, onClick, disabled = false }: { title: string; subtitle: string; action: string; icon: ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className="min-w-0 rounded-[18px] border border-black/[0.08] bg-gradient-to-br from-black/[0.04] to-black/[0.015] p-4 text-left transition hover:border-black/15 hover:bg-black/[0.055] active:scale-[0.98] dark:border-white/[0.08] dark:from-white/[0.055] dark:to-white/[0.02] dark:hover:border-white/15 dark:hover:bg-white/[0.06]">
+    <button type="button" onClick={onClick} disabled={disabled} className="disabled:cursor-wait disabled:opacity-60 min-w-0 rounded-[18px] border border-black/[0.08] bg-gradient-to-br from-black/[0.04] to-black/[0.015] p-4 text-left transition hover:border-black/15 hover:bg-black/[0.055] active:scale-[0.98] dark:border-white/[0.08] dark:from-white/[0.055] dark:to-white/[0.02] dark:hover:border-white/15 dark:hover:bg-white/[0.06]">
       <span className="mb-5 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.055] text-black/55 dark:bg-white/[0.07] dark:text-white/55">{icon}</span>
       <span className="block truncate text-sm font-medium text-black/90 dark:text-white/90">{title}</span>
       <span className="mt-0.5 block truncate text-[10px] text-black/38 dark:text-white/32">{subtitle}</span>
