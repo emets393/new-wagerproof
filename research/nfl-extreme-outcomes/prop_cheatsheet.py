@@ -65,13 +65,51 @@ def load(season, week):
     return pages, out, out_names
 
 
-def schedule(pages):
-    """team -> opponent for the week, from the page rows themselves."""
-    s = {}
+def schedule(season, week, pages):
+    """(team -> opponent, team -> kickoff) for the week, from the SCHEDULE.
+
+    ⛔ THIS USED TO READ THE PAGE ROWS and that is a weekly defect, not an edge case. A page
+    exists only for a player who already has a posted prop line, so on Tuesday morning — when
+    the full cheat-sheet build runs — the teams in the late-posting windows have no pages at
+    all, and every one of their rows got `opponent = null, kickoff = null` for the WHOLE week
+    (nothing afterwards rewrites those two columns). Worse, the map was built one-directional
+    from the team that HAD pages, so a game could resolve for one side and not the other:
+    2026 wk6 wrote "vs — · Kickoff not posted" on 55 rows across ARI, BUF, LA, LV and PHI
+    while CAR's row correctly named PHI as its opponent.
+
+    nfl_slate_games is the right source: it is written from the schedule, carries the kickoff,
+    and names both sides of every game whether or not a book has hung a number yet. The page
+    rows stay as a FALLBACK only, because a game has been seen to drop out of the slate build
+    (see the `nfl-pregame-feed-outage-2026` note on the MNF game) and a team we can still
+    resolve from a page is better than a blank.
+    """
+    k = key()
+    opp, kick = {}, {}
+    games = get(f"nfl_slate_games?season=eq.{season}&week=eq.{week}"
+                f"&select=home_ab,away_ab,kickoff", k)
+    for g in games:
+        h, a = g.get("home_ab"), g.get("away_ab")
+        if not h or not a:
+            continue
+        opp[h], opp[a] = a, h
+        kick[h] = kick[a] = g.get("kickoff")
+
+    filled = 0
     for p in pages:
-        if p.get("team") and p.get("opponent"):
-            s[p["team"]] = p["opponent"]
-    return s
+        t, o = p.get("team"), p.get("opponent")
+        if t and o and t not in opp:
+            opp[t], opp[o] = o, t
+            kick[t] = kick[o] = p.get("kickoff")
+            filled += 1
+
+    # Reciprocity is the cheap check that catches a half-written game: if A plays B then B
+    # plays A, always. A one-sided entry is exactly the bug above, so say so rather than
+    # quietly shipping it.
+    bad = sorted(t for t, o in opp.items() if opp.get(o) != t)
+    print(f"[sched] {len(games)} slate games -> {len(opp)} teams"
+          + (f", {filled} more recovered from page rows" if filled else "")
+          + (f"  ⚠ NON-RECIPROCAL: {bad}" if bad else ""))
+    return opp, kick
 
 
 # ── who on a team fills a given role, injury-filtered ────────────────────────────
@@ -216,7 +254,7 @@ def table(name, unit, defences, sched, board, role_tag, reverse=True, top=32):
 
 def build(season, week):
     pages, out_ids, out_names = load(season, week)
-    sched = schedule(pages)
+    sched, _kick = schedule(season, week, pages)
     board = role_board(pages, out_ids, out_names)
     T = {}
     T["trenches"] = trench_table(pages, sched)

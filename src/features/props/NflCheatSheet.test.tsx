@@ -53,3 +53,29 @@ describe('cheat sheet filters', () => {
     expect(html).not.toContain('Romeo Doubs');
   });
 });
+
+// A blank matchup used to print "vs  · Kickoff not posted" — a missing opponent plus a
+// sentence blaming the league for a gap our own writer created. The sheet now sources the
+// schedule from nfl_slate_games and skips bye teams, so this is the safety net.
+describe('a row whose matchup did not resolve', () => {
+  const html = renderToStaticMarkup(
+    <TooltipProvider>
+    <NflCheatSheet
+      isLoading={false}
+      games={[]}
+      onClose={() => undefined}
+      onTeam={() => undefined}
+      onPlayer={() => undefined}
+      rows={[
+        { ...row({ family: 'rushing', side: 'defense', tableKey: 'rush_def_RB', positionFilter: 'RB', alignmentFilter: null, player: null }), opponent: '', kickoff: null },
+      ]}
+    />
+    </TooltipProvider>,
+  );
+
+  it('says so once instead of printing an empty opponent and a kickoff excuse', () => {
+    expect(html).toContain('Matchup not resolved');
+    expect(html).not.toContain('vs  ');
+    expect(html).not.toContain('Kickoff not posted');
+  });
+});

@@ -52,7 +52,7 @@ function TeamLockup({
       <span className="min-w-0">
         <span className="block font-bold">{team}</span>
         <span className="mt-0.5 block whitespace-nowrap text-[10px] font-medium text-muted-foreground">
-          vs {opponent} · {kickoffLabel(kickoff)}
+          {matchupLine(opponent, kickoff)}
         </span>
       </span>
     </span>
@@ -104,8 +104,8 @@ function MetricCell({ metricKey, metric, side, featured }: { metricKey: string; 
   );
 }
 
-function kickoffLabel(iso: string | null): string {
-  if (!iso) return 'Kickoff not posted';
+function kickoffLabel(iso: string | null): string | null {
+  if (!iso) return null;
   return new Date(iso).toLocaleString(undefined, {
     weekday: 'short',
     month: 'short',
@@ -113,6 +113,18 @@ function kickoffLabel(iso: string | null): string {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+/** The line under the team name. Only ever states what we actually have.
+ *
+ * The sheet is built from nfl_slate_games and skips teams on a bye, so both halves are
+ * normally present. It used to print "vs  · Kickoff not posted" whenever either was missing
+ * — a blank opponent plus a sentence implying the LEAGUE hadn't scheduled the game, when the
+ * truth was that our own writer sourced the matchup from whichever players had a posted prop
+ * line. Degrade to the half we have rather than inventing a reason for the gap. */
+function matchupLine(opponent: string, kickoff: string | null): string {
+  const parts = [opponent ? `vs ${opponent}` : null, kickoffLabel(kickoff)].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'Matchup not resolved';
 }
 
 function CheatTable({
