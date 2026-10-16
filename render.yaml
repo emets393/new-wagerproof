@@ -328,6 +328,11 @@ services:
   - type: cron
     name: nfl-cfb-grade-daily
     runtime: python
+    # 512Mi (the default) is too small for this chain and it OOM-killed on 2026-10-06.
+    # fill_h1.py loads a full season of nflverse play-by-play into pandas to find the
+    # end-of-Q2 score; that frame alone is bigger than the whole starter allowance, so the
+    # kill is a function of how deep the season is and will recur every year around now.
+    plan: standard
     # Two fills/day: the CFBD snapshot can land finals AFTER the 13:00 pass (seen
     # 2026-09-04: Thu-night finals hit cfb_games ~14:00 UTC, so 13:00 missed them by
     # an hour and grading slipped a day). The 16:00 pass catches them; pg_cron job

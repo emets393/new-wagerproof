@@ -201,6 +201,57 @@ def main():
             except Exception as e:
                 check(f"{sport} prop cards", False, f"probe failed: {e}")
 
+            # 9. the picks board the Props page opens on is not empty.
+            # ⛔ EVERY PROBE ABOVE PASSED while nfl_prop_spotlight held nothing for the week.
+            # The board is the first thing a user sees on the Props page, and it was empty for
+            # every 2026 week except the two published by hand — fp_prop_payload.py died on a
+            # missing 40KB crosswalk, so fp_spotlight.py had no payload and fp_spotlight_write.py
+            # had no board. Pages, prices, lines and fp_cards were all fine, so nothing alarmed.
+            # That is the lesson this check exists for: ROW COUNTS AND FRESHNESS ON THE INPUTS
+            # DO NOT TELL YOU THE OUTPUT GOT BUILT. Probe the artifact the user opens.
+            #
+            # Safe to read the CURRENT week because the sweep runs at 16:30Z, after the 15:00Z
+            # nfl-prop-report-daily that writes it. If that schedule ever moves back before
+            # 15:00Z this reds on a board that is not due yet — the cry-wolf failure this
+            # service has already had twice.
+            try:
+                board = q(f"nfl_prop_spotlight?select=narrative,tells&season=eq.{season}"
+                          f"&week=eq.{cur_wk}&limit=200") if cur_wk is not None else []
+                narr = sum(1 for r in board if r.get("narrative"))
+                tells = sum(1 for r in board if r.get("tells"))
+                check(f"{sport} prop board", len(board) > 0,
+                      f"{len(board)} week-{cur_wk} spotlight picks, {narr} with a narrative, "
+                      f"{tells} with tells"
+                      + ("" if len(board) else " — the Props page opens on an EMPTY board"))
+                if board and narr < len(board):
+                    check(f"{sport} prop narratives", False,
+                          f"{len(board) - narr} of {len(board)} picks have no narrative "
+                          f"— fp_spotlight_write.py did not finish", warn_only=True)
+            except Exception as e:
+                check(f"{sport} prop board", False, f"probe failed: {e}")
+
+            # 10. the cheat sheet names a real matchup on every row.
+            # Counting rows was never enough: the sheet built 352 complete-looking rows for
+            # 2026 wk6 of which 99 read "vs — · Kickoff not posted", because it sourced the
+            # week's matchups from nfl_prop_player_pages — rows that only exist once a book has
+            # posted a line — instead of from nfl_slate_games (fixed 2026-10-16). A blank column
+            # on a present row is the failure shape that every count-based probe misses, so this
+            # one asserts COMPLETENESS, not volume.
+            try:
+                cs_wk = q(f"nfl_prop_cheatsheet?select=week&season=eq.{season}"
+                          f"&order=week.desc&limit=1")
+                w = cs_wk[0]["week"] if cs_wk else None
+                rows = q(f"nfl_prop_cheatsheet?select=team,opponent,kickoff&season=eq.{season}"
+                         f"&week=eq.{w}&limit=600") if w is not None else []
+                blank = [r for r in rows if not r.get("opponent") or not r.get("kickoff")]
+                check(f"{sport} cheat sheet", bool(rows) and not blank,
+                      f"{len(rows)} week-{w} rows over "
+                      f"{len({r['team'] for r in rows})} teams, {len(blank)} with no opponent "
+                      f"or kickoff" + ("" if not blank else
+                      f" ({', '.join(sorted({r['team'] for r in blank}))})"))
+            except Exception as e:
+                check(f"{sport} cheat sheet", False, f"probe failed: {e}")
+
     # 8. is Render running what render.yaml says? Editing the blueprint does not deploy it, and
     # a stale service runs green forever — nfl-prop-report-daily spent an unknown stretch on a
     # pre-2026-10-07 command, missing the payload build and the page generator, while every data
