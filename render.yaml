@@ -44,6 +44,12 @@ services:
   # --- NFL weekly slate: fetch -> build -> .pkl predict -> nfl_slate_* tables ----------
   - type: cron
     name: nfl-slate-weekly
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     plan: standard                         # 2GB — fetch step OOM-killed (exit 137) on starter's 512MB (2026-08-10)
     schedule: "0 11 * 9-12,1-2 2"          # Tue ~6-7am ET, NFL season (Sep–Feb)
@@ -59,6 +65,12 @@ services:
 
   - type: cron
     name: cfb-slate-weekly
+    buildFilter:
+      paths:
+        - research/cfb-model/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     # standard (2GB) like cfb-slate-refresh: the Monday rebuild runs the full
     # as-of ratings/tendencies pipeline and OOMed the 512Mi starter (2026-08-31).
@@ -82,6 +94,13 @@ services:
   # inputs — the MLB report's post-ingestion sequencing discipline.
   - type: cron
     name: football-regression-reports
+    buildFilter:
+      paths:
+        - research/cfb-model/**
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     # Two runs: 08:30 UTC (4:30am ET) right after the early grade pass so the model record and
     # yesterday's results show first thing, and 15:30 UTC after the 14:00 slate refresh so line
@@ -106,6 +125,12 @@ services:
   # conviction to none until this rerun re-derives the NFL ladder).
   - type: cron
     name: nfl-slate-refresh
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     plan: standard
     schedule: "0 14,18,22 * 9-12,1-2 *"    # daily 10am/2pm/6pm ET, NFL season
@@ -141,6 +166,12 @@ services:
   # export a week, so both scripts resolve the current slate from nfl_slate_games themselves.
   - type: cron
     name: nfl-prop-report-daily
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     # pro (4GB): score_props_week.py trains a model per market over the full priced-line
     # history — same memory profile that OOM-killed fp-data-inseason on the 512Mi default.
@@ -233,6 +264,12 @@ services:
   # nflverse injuries file is a post-week archive and is NOT a source here.
   - type: cron
     name: nfl-slate-gameday-sun
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     plan: standard
     schedule: "45 15,19 * 9-12,1 0"
@@ -248,6 +285,12 @@ services:
 
   - type: cron
     name: nfl-slate-gameday-prime
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     plan: standard
     schedule: "0 23 * 9-12,1 0,1,4,6"
@@ -269,6 +312,12 @@ services:
   # is the local parquet warehouse, not this cron. FP_DATA_TOKEN = the web app's JWT.
   - type: cron
     name: fp-data-inseason
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     # standard (2GB): the pull succeeds, then fp_load.py holds every pulled cell's frame in
     # memory to upsert it and OOM-killed the default 512Mi on 2026-09-22 (week 3 — 138 cells,
@@ -311,6 +360,12 @@ services:
   # full rebuilds. Monday's weekly run remains the canonical slate build.
   - type: cron
     name: cfb-slate-refresh
+    buildFilter:
+      paths:
+        - research/cfb-model/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     plan: standard
     schedule: "0 14,18,22 * 8-12,1 *"      # daily 10am/2pm/6pm ET, CFB season
@@ -327,6 +382,12 @@ services:
   # --- Post-game grading (both sports): finals -> player logs -> grade picks/props/signals
   - type: cron
     name: nfl-cfb-grade-daily
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     # Two fills/day: the CFBD snapshot can land finals AFTER the 13:00 pass (seen
     # 2026-09-04: Thu-night finals hit cfb_games ~14:00 UTC, so 13:00 missed them by
@@ -351,6 +412,12 @@ services:
   # (skips any event already kicked off). Feeds the FG + 1H models. Cost-guards on idle hours.
   - type: cron
     name: nfl-live-odds-hourly
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     schedule: "*/15 * * 8-12,1-2 *"   # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
@@ -371,6 +438,12 @@ services:
   # Same cadence + pre-game guard as NFL. CFB 1H/TT odds ride fetch_event_odds.py separately.
   - type: cron
     name: cfb-live-odds-hourly
+    buildFilter:
+      paths:
+        - research/cfb-model/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     schedule: "*/15 * * 8-12,1 *"           # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
@@ -395,6 +468,10 @@ services:
   # writes through the Supabase Management API (SUPABASE_PAT), so no service key needed.
   - type: cron
     name: competition-sync-hourly
+    buildFilter:
+      paths:
+        - research/competition/**
+        - render.yaml
     runtime: python
     schedule: "30 * * 8-12,1-2 *"           # hourly at :30, football season
     buildCommand: pip install tzdata   # stdlib otherwise; tzdata wheel guarantees zoneinfo
@@ -414,6 +491,12 @@ services:
   # the prop signals P1-P13 (closing line = T-60 snapshot per the closing-line policy).
   - type: cron
     name: nfl-live-props-hourly
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     schedule: "*/15 * * 8-12,1-2 *"   # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
@@ -441,6 +524,11 @@ services:
   # email is the alert. Catches the failures a green cron can hide.
   - type: cron
     name: football-health-sweep
+    buildFilter:
+      paths:
+        - research/health_sweep.py
+        - research/render_drift.py
+        - render.yaml
     runtime: python
     # 12:45 UTC, NOT 10:45: the weekly slate builds run at 11:00 (cfb-slate-weekly Mon,
     # nfl-slate-weekly Tue) and take 10-20 min. At 10:45 the sweep checked for next week's
