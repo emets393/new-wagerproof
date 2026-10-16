@@ -559,13 +559,18 @@ async function fetchSignalDefsMap(
   sport: string
 ): Promise<Map<string, Record<string, unknown>>> {
   const result = new Map<string, Record<string, unknown>>();
-  const tableName = sport === 'nfl' ? 'nfl_signal_defs' : sport === 'cfb' ? 'cfb_signal_defs' : null;
+  const tableName = sport === 'nfl' ? 'nfl_signal_defs' : sport === 'cfb' ? 'cfb_signal_defs' : sport === 'nba' ? 'nba_signal_defs' : null;
   if (!tableName) return result;
 
   try {
+    // nba_signal_defs carries the validated record as record_text ("364-234 (60.9%) ..."); the football
+    // defs as typical_hit ("~64%"). formatSlateFlag reads either.
+    const columns = sport === 'nba'
+      ? 'signal_key, display_name, one_liner, why_it_works, bet_direction, record_text'
+      : 'signal_key, display_name, one_liner, why_it_works, bet_direction, typical_hit';
     const { data, error } = await cfbClient
       .from(tableName)
-      .select('signal_key, display_name, one_liner, why_it_works, bet_direction, typical_hit');
+      .select(columns);
 
     if (error || !data) {
       console.warn(`[agentGameHelpers] ${tableName} fetch failed:`, error?.message || 'No data');
@@ -733,24 +738,218 @@ async function fetchNBAGames(
     return { games: [], formattedGames: [] };
   }
 
-  const [polymarketByGameKey, injuriesByTeam, accuracyByGameId, situationalByGameId] = await Promise.all([
+  // Model + signals come from the originator pipeline (nba_model_preds: one row per game per market;
+  // nba_slate_flags + nba_signal_defs), the same tables the web/iOS/Android feed reads since
+  // 2026-10-13. The old nba_todays_games_predictions_with_accuracy_cache was built on
+  // nba_predictions.model_fair_*, which has zero correlation with results, and is being dropped.
+  const gameIds = [...new Set(games.map(g => String(g.game_id || '')).filter(Boolean))];
+  const [polymarketByGameKey, injuriesByTeam, modelByGameId, winProbByGameId, flagsByGameId, defMap, situationalByGameId] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nba', games),
     fetchNBAInjuriesByTeam(cfbClient, games, targetDate),
-    fetchPredictionAccuracyByGameId(cfbClient, 'nba_todays_games_predictions_with_accuracy_cache', games, targetDate, true),
+    fetchNBAModelByGameId(cfbClient, games, targetDate),
+    fetchNBAWinProbByGameId(cfbClient, gameIds),
+    fetchNBAFlagsByGameId(cfbClient, games, targetDate),
+    fetchSignalDefsMap(cfbClient, 'nba'),
     fetchSituationalTrendsByGameId(cfbClient, 'nba_game_situational_trends_today', games),
   ]);
 
-  const formattedGames = games.map(game =>
-    formatNBAGame(
+  const formattedGames = games.map(game => {
+    const gid = String(game.game_id || '');
+    return formatNBAGame(
       game,
       polymarketByGameKey.get(toGameKey('nba', game.away_team, game.home_team)) || null,
       injuriesByTeam.get(normalizeTeamKey(game.away_team)) || [],
       injuriesByTeam.get(normalizeTeamKey(game.home_team)) || [],
-      accuracyByGameId.get(String(game.game_id || '')) || null,
-      situationalByGameId.get(String(game.game_id || '')) || null
-    )
-  );
+      modelByGameId.get(gid) || null,
+      winProbByGameId.get(gid) || null,
+      flagsByGameId.get(gid) || [],
+      defMap,
+      situationalByGameId.get(gid) || null
+    );
+  });
   return { games, formattedGames };
+}
+
+// nba_model_preds rows for one game, keyed by market.
+type NBAModelRows = { spread?: Record<string, unknown>; total?: Record<string, unknown> };
+
+// Join key shared with the web feed (nbaGames.ts abbrKey): the model/signal jobs write balldontlie-style
+// abbreviations (GSW, NYK, ...) so they line up with nba_input_values_view without a map.
+function nbaAbbrKey(date: unknown, home: unknown, away: unknown): string {
+  return `${String(date ?? '').slice(0, 10)}|${home ?? ''}|${away ?? ''}`;
+}
+
+// nba_model_preds for the slate date, keyed by the view's game_id. Rows whose game_id is null (the odds
+// snapshot had no schedule match yet) fall back to the (date, home, away) key -- same two-key join as the web.
+async function fetchNBAModelByGameId(
+  cfbClient: SupabaseClient,
+  games: Record<string, unknown>[],
+  targetDate: string
+): Promise<Map<string, NBAModelRows>> {
+  const result = new Map<string, NBAModelRows>();
+  try {
+    const { data, error } = await cfbClient
+      .from('nba_model_preds')
+      .select('espn_game_id, game_id, game_date, home_abbr, away_abbr, market, model_version, model_home_margin, model_total, market_home_spread, market_total, disagreement, tier, bet_side, bet_abbr, bet_line, as_of')
+      .eq('game_date', targetDate);
+    if (error || !data) {
+      console.warn('[agentGameHelpers] nba_model_preds fetch failed:', error?.message || 'No data');
+      return result;
+    }
+    const byAbbr = new Map<string, NBAModelRows>();
+    for (const row of data as Record<string, unknown>[]) {
+      const key = nbaAbbrKey(row.game_date, row.home_abbr, row.away_abbr);
+      const gid = row.game_id != null ? String(row.game_id) : '';
+      const entry = (gid && result.get(gid)) || byAbbr.get(key) || {};
+      const market = String(row.market ?? '');
+      if (market === 'spread' || market === 'total') entry[market] = row;
+      if (gid) result.set(gid, entry);
+      byAbbr.set(key, entry);
+    }
+    for (const game of games) {
+      const gid = String(game.game_id || '');
+      if (!gid || result.has(gid)) continue;
+      const entry = byAbbr.get(nbaAbbrKey(game.game_date, game.home_abbr, game.away_abbr));
+      if (entry) result.set(gid, entry);
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] nba_model_preds fetch threw:', (error as Error).message);
+  }
+  return result;
+}
+
+// nba_predictions is kept ONLY for home_win_prob -- the one number of the old model that is real.
+// Latest run_id, then the slate's games.
+async function fetchNBAWinProbByGameId(
+  cfbClient: SupabaseClient,
+  gameIds: string[]
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+  if (gameIds.length === 0) return result;
+  try {
+    const { data: latestRun } = await cfbClient
+      .from('nba_predictions')
+      .select('run_id, as_of_ts_utc')
+      .order('as_of_ts_utc', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!latestRun) return result;
+    const { data, error } = await cfbClient
+      .from('nba_predictions')
+      .select('game_id, home_win_prob, away_win_prob, run_id')
+      .eq('run_id', (latestRun as Record<string, unknown>).run_id)
+      .in('game_id', gameIds);
+    if (error || !data) return result;
+    for (const row of data as Record<string, unknown>[]) {
+      result.set(String(row.game_id ?? ''), row);
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] nba_predictions fetch threw:', (error as Error).message);
+  }
+  return result;
+}
+
+// nba_slate_flags for the slate date (football flag contract + espn_game_id + plain-language
+// trigger_text/record_text). Keyed like the model rows: game_id first, "AWAY @ HOME" text as the fallback.
+async function fetchNBAFlagsByGameId(
+  cfbClient: SupabaseClient,
+  games: Record<string, unknown>[],
+  targetDate: string
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const result = new Map<string, Record<string, unknown>[]>();
+  try {
+    const { data, error } = await cfbClient
+      .from('nba_slate_flags')
+      .select('game_id, espn_game_id, game_date, game, signal_key, market, side, tier, conviction, stake_units, line, edge, bet_team, bet_direction, bet_line, grade_line, trigger_text, record_text')
+      .eq('game_date', targetDate);
+    if (error || !data) {
+      console.warn('[agentGameHelpers] nba_slate_flags fetch failed:', error?.message || 'No data');
+      return result;
+    }
+    const byAbbr = new Map<string, Record<string, unknown>[]>();
+    for (const row of data as Record<string, unknown>[]) {
+      const gid = row.game_id != null ? String(row.game_id) : '';
+      const parts = String(row.game ?? '').split('@');
+      const key = parts.length === 2 ? nbaAbbrKey(row.game_date, parts[1].trim(), parts[0].trim()) : '';
+      const list = (gid && result.get(gid)) || (key && byAbbr.get(key)) || [];
+      list.push(row);
+      if (gid) result.set(gid, list);
+      if (key) byAbbr.set(key, list);
+    }
+    for (const game of games) {
+      const gid = String(game.game_id || '');
+      if (!gid || result.has(gid)) continue;
+      const list = byAbbr.get(nbaAbbrKey(game.game_date, game.home_abbr, game.away_abbr));
+      if (list) result.set(gid, list);
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] nba_slate_flags fetch threw:', (error as Error).message);
+  }
+  return result;
+}
+
+// nba_model_preds -> the agent-facing model block. Keys mirror the football full_game block so the deep
+// tools project one shape. The model predicts the HOME MARGIN; its fair home spread is the negated margin.
+// `disagreement` is the job's own number (margin + market spread; model total - market total): positive =
+// the model is on the home side / the over. Tier is the job's call -- bet (8+ points, 54-56% at the
+// closing line over six seasons), lean (6+, or a bet downgraded because an active signal opposes it),
+// pass, warmup (total model under 10 games played: no total shown, it loses in that window), no_line.
+// The originator produces margins, not probabilities, so the *_prob keys are null except ml_prob.
+function formatNBAModel(
+  model: NBAModelRows | null,
+  winProb: Record<string, unknown> | null
+): Record<string, unknown> | null {
+  const spread = model?.spread ?? null;
+  const total = model?.total ?? null;
+  const homeWinProb = asNumber(winProb?.home_win_prob);
+  if (!spread && !total && homeWinProb === null) return null;
+  const margin = asNumber(spread?.model_home_margin);
+  const totalTier = total?.tier != null ? String(total.tier) : null;
+  const totalLive = total !== null && totalTier !== 'warmup';
+  return {
+    source: 'nba_model_preds',
+    model_version: spread?.model_version ?? total?.model_version ?? null,
+    as_of: spread?.as_of ?? total?.as_of ?? null,
+    ml_prob: homeWinProb,
+    spread_cover_prob: null,
+    ou_prob: null,
+    full_game: {
+      pred_margin: margin,
+      pred_spread: margin === null ? null : -margin,
+      market_home_spread: asNumber(spread?.market_home_spread),
+      spread_edge: asNumber(spread?.disagreement),
+      spread_pick: spread?.bet_side ?? null,
+      spread_tier: spread?.tier ?? null,
+      pred_total: totalLive ? asNumber(total?.model_total) : null,
+      market_total: asNumber(total?.market_total),
+      total_edge: totalLive ? asNumber(total?.disagreement) : null,
+      total_pick: totalLive ? (total?.bet_side ?? null) : null,
+      total_tier: totalTier,
+      home_win_prob: homeWinProb,
+    },
+    tiers: 'bet = 8+ points of disagreement with the market (54-56% at the closing line over six seasons); lean = 6+ or a bet downgraded because a signal opposes it; pass / warmup / no_line = the model has no bet. The spread model is a veto target: a situational signal on the other team downgrades it.',
+  };
+}
+
+// Game-level conviction from the flags on nba_slate_flags: the highest conviction among them, and
+// mammoth when the model-and-signals confluence flag fired (total model at the bet tier + an agreeing
+// total signal, none opposed: 124-78 over six seasons). Null-safe for a game with no flags.
+const NBA_CONVICTION_RANK: Record<string, number> = { low: 1, med: 2, medium: 2, high: 3, mammoth: 4 };
+function formatNBAConviction(flags: Record<string, unknown>[]): Record<string, unknown> {
+  let tier: string | null = null;
+  let stake: number | null = null;
+  for (const f of flags) {
+    const c = String(f.conviction ?? '').toLowerCase();
+    if (c && (tier === null || (NBA_CONVICTION_RANK[c] ?? 0) > (NBA_CONVICTION_RANK[tier] ?? 0))) tier = c;
+    const s = asNumber(f.stake_units);
+    if (s !== null && (stake === null || s > stake)) stake = s;
+  }
+  return {
+    tier,
+    stake_units: stake,
+    flags_active: flags.length,
+    mammoth: flags.some(f => f.signal_key === 'nba_model_signal_confluence' || String(f.conviction ?? '').toLowerCase() === 'mammoth'),
+  };
 }
 
 async function fetchNCAABGames(
@@ -2342,6 +2541,7 @@ function formatSlateFlag(
   return {
     source: row.source ?? null,
     rule: row.rule ?? row.signal_key ?? null,
+    name: def?.display_name ?? null,
     market: row.market ?? null,
     side: row.side ?? null,
     line: row.line ?? null,
@@ -2351,10 +2551,12 @@ function formatSlateFlag(
     conviction: row.conviction ?? null,
     stake_units: row.stake_units ?? null,
     grade_line: row.grade_line ?? null,
+    // Plain-language trigger for this game (NBA flags carry it; football flags do not).
+    trigger: row.trigger_text ?? null,
     mammoth: row.mammoth ?? false,
     // All-time validated record (static, from the signal definition).
     all_time: def ? {
-      validated_hit: def.typical_hit ?? null,
+      validated_hit: def.typical_hit ?? def.record_text ?? null,
       one_liner: def.one_liner ?? null,
       why_it_works: def.why_it_works ?? null,
       bet_direction: def.bet_direction ?? null,
@@ -2498,7 +2700,10 @@ function formatNBAGame(
   polymarket: Record<string, unknown> | null,
   awayInjuries: Record<string, unknown>[],
   homeInjuries: Record<string, unknown>[],
-  predictionAccuracy: Record<string, unknown> | null,
+  model: NBAModelRows | null,
+  winProb: Record<string, unknown> | null,
+  flags: Record<string, unknown>[],
+  defMap: Map<string, Record<string, unknown>>,
   situationalTrends: Record<string, unknown> | null = null
 ): Record<string, unknown> {
   const gameId = String(game.game_id);
@@ -2546,7 +2751,13 @@ function formatNBAGame(
       home_team: homeInjuries,
     },
     situational_trends: filterSituationalTrends(situationalTrends),
-    prediction_accuracy: predictionAccuracy,
+    // Originator model (nba_model_preds) + home_win_prob (nba_predictions). No prediction_accuracy
+    // group: the old accuracy cache was built on dead numbers, so the deep tool simply skips NBA.
+    model_predictions: formatNBAModel(model, winProb),
+    conviction: formatNBAConviction(flags),
+    // Signals (nba_slate_flags) in the same compact shape as the football flags; all_time carries the
+    // validated record_text from nba_signal_defs. No season_to_date yet (no NBA signal_performance rows).
+    signals: flags.length > 0 ? flags.map(f => formatSlateFlag(f, undefined, defMap)) : null,
     polymarket,
     game_data_complete: {
       source_table: 'nba_input_values_view',
