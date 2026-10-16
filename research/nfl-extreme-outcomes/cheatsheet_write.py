@@ -48,35 +48,63 @@ def league_block(M, cols):
     return out
 
 
-def refresh_players(season, week, sched, board):
-    """Re-resolve only `player` on existing rows. Measures are never touched."""
+def refresh_daily(season, week, sched, kick, board):
+    """Re-resolve the facts that move during the week. Measures are never touched.
+
+    Three columns, not one. `player` follows the injury report, which was always the point of
+    this path — but `opponent` and `kickoff` also need it: the Tuesday build can only know the
+    matchups the schedule had then, a flexed kickoff moves, and before this ran daily a team
+    whose game resolved late carried a blank opponent until the next Tuesday. Patching them
+    here is free (both come from the schedule, no parquet, no measure touched) and it is what
+    makes the sheet self-heal instead of waiting a week.
+    """
     k = PC.key()
     h = {"apikey": k, "Authorization": f"Bearer {k}"}
     r = urllib.request.Request(
         f"{SUPA}/{TABLE}?season=eq.{season}&week=eq.{week}"
-        f"&select=id,table_key,side,team,opponent,player", headers=h)
+        f"&select=id,table_key,side,team,opponent,kickoff,player", headers=h)
     rows = json.load(urllib.request.urlopen(r, timeout=90))
     if not rows:
-        print(f"[players] no cheat-sheet rows for {season} wk{week} — run the weekly build first")
+        print(f"[daily] no cheat-sheet rows for {season} wk{week} — run the weekly build first")
         return
     role_of = {t[0]: t[6] for t in TABLES}
     hdr = {**h, "Content-Type": "application/json", "Prefer": "return=minimal"}
-    changed = 0
+    # A bye row is a row the reader cannot act on, so the weekly build no longer writes one and
+    # this clears any left over. ⛔ Only when the schedule we resolved is plausibly a full slate:
+    # a failed fetch returns {} and would otherwise delete the entire sheet.
+    sane = len(sched) >= 20
+    if not sane:
+        print(f"[daily] ⚠ only {len(sched)} teams resolved — treating nothing as a bye")
+    changed = deleted = 0
     for row in rows:
-        who_team = row["opponent"] if row["side"] == "defense" else row["team"]
+        team = row["team"]
+        if sane and team not in sched:
+            q = urllib.request.Request(f"{SUPA}/{TABLE}?id=eq.{row['id']}", method="DELETE",
+                                       headers=h)
+            urllib.request.urlopen(q, timeout=60)
+            deleted += 1
+            continue
+        opp = sched.get(team) or row["opponent"]
+        who_team = opp if row["side"] == "defense" else team
         who = board.get((who_team, role_of.get(row["table_key"]))) if who_team else None
         new = (dict(name=who["name"], player_id=who["player_id"], position=who["position"],
                     share=who["share"], share_label=PC.ROLE_PICK[role_of[row["table_key"]]][3])
                if who else None)
-        old = row.get("player")
-        if (old or {}).get("player_id") == (new or {}).get("player_id"):
+        patch = {}
+        if (row.get("player") or {}).get("player_id") != (new or {}).get("player_id"):
+            patch["player"] = new
+        if opp != row["opponent"]:
+            patch["opponent"] = opp
+        if (kick.get(team) or row["kickoff"]) != row["kickoff"]:
+            patch["kickoff"] = kick.get(team)
+        if not patch:
             continue
         q = urllib.request.Request(f"{SUPA}/{TABLE}?id=eq.{row['id']}",
-                                   data=json.dumps({"player": new}).encode(),
+                                   data=json.dumps(patch, default=str).encode(),
                                    method="PATCH", headers=hdr)
         urllib.request.urlopen(q, timeout=60)
         changed += 1
-    print(f"[players] {len(rows)} rows checked, {changed} player assignments changed")
+    print(f"[daily] {len(rows)} rows checked, {changed} patched, {deleted} bye rows removed")
 
 
 def main():
@@ -91,13 +119,12 @@ def main():
     # So: --write rebuilds everything weekly, --players-only re-resolves just the player column
     # against today's report and leaves every measure untouched.
     ap.add_argument("--players-only", action="store_true",
-                    help="daily: re-resolve the player column against today's injury report")
+                    help="daily: re-resolve the player + opponent + kickoff columns, no measures")
     a = ap.parse_args()
 
     pages, out_ids, out_names = PC.load(a.season, a.week)
-    sched = PC.schedule(pages)
+    sched, kick = PC.schedule(a.season, a.week, pages)
     board = PC.role_board(pages, out_ids, out_names)
-    kick = {p["team"]: p.get("kickoff") for p in pages if p.get("team")}
 
     blocks = {}
     for side in ("offense", "defense"):
@@ -106,12 +133,14 @@ def main():
         blocks[side] = league_block(M, cols)
 
     if a.players_only:
-        return refresh_players(a.season, a.week, sched, board)
+        return refresh_daily(a.season, a.week, sched, kick, board)
 
     rows = []
     for key, fam, side, headline, posf, alignf, role in TABLES:
         for team, metrics in blocks[side].items():
             opp = sched.get(team)
+            if not opp:
+                continue          # on a bye: there is no matchup to prep, so no row
             # defence rows name the OPPONENT's player; offence rows name their own
             who_team = opp if side == "defense" else team
             who = board.get((who_team, role)) if who_team else None
@@ -124,8 +153,10 @@ def main():
                              position=who["position"], share=who["share"],
                              share_label=PC.ROLE_PICK[role][3]) if who else None)))
 
+    byes = sorted(set(blocks["defense"]) - set(sched))
     print(f"{len(rows)} rows across {len(TABLES)} tables, "
-          f"{sum(1 for r in rows if r['player'])} with a named player")
+          f"{sum(1 for r in rows if r['player'])} with a named player, "
+          f"{len(set(r['team'] for r in rows))} teams; on a bye (no rows): {byes or 'none'}")
     if not a.write:
         print("dry run — pass --write"); return
 
