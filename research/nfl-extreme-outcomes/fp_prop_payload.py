@@ -39,6 +39,7 @@ import numpy as np, pandas as pd
 from pathlib import Path
 
 from fp_hist import read_fp      # hist + current merge, so this runs on a Render clone too
+from fetch import local_or_db   # parquet when the warehouse is here, source pull when it is not
 
 # ⛔ Do NOT `import prop_engine` for its AB_NV / NICK maps: that module builds the whole prop
 # feature panel at IMPORT time (~3 minutes, 1.7 GB), so importing it here hangs the build.
@@ -92,8 +93,7 @@ def upcoming_opponents(season, week):
     The upcoming opponent CANNOT be carried forward with the player's state — his last game's
     opponent is not Thursday's. This is the one field the synthetic row has to be told.
     """
-    g = pd.read_parquet(HERE / "data" / "nflverse_games.parquet",
-                        columns=["season", "week", "home_team", "away_team"])
+    g = local_or_db("nflverse_games", ["season", "week", "home_team", "away_team"])
     g = g[(g.season == season) & (g.week == week)]
     if not len(g):
         sys.exit(f"no week {week} on the {season} schedule — cannot build an upcoming payload")

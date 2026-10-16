@@ -173,10 +173,10 @@ def main():
                 out.append(dict(key=str(fk), label=str(fk), direction=None, record=None))
         return out
 
-    xw = pd.read_parquet(DATA / "players_xwalk.parquet")[["gsis_id", "headshot"]].dropna()
+    xw = local_or_db("players_xwalk", ["gsis_id", "headshot"]).dropna()
     heads = xw.set_index("gsis_id").headshot.to_dict()
 
-    po = pd.read_parquet(DATA / "player_offense.parquet")
+    po = local_or_db("player_offense")
     po = po[po.season == STAT_SEASON]
     base = po.groupby("player_id").agg(
         games=("week", "size"), receptions=("receptions", "mean"), rec_yds=("receiving_yards", "mean"),
@@ -297,7 +297,7 @@ def main():
             sel = grp[grp[col] >= q] if top else grp[grp[col] <= q]
             for t in sel.team:
                 types.setdefault((ssn, t), []).append(typ)
-    logs = pd.read_parquet(DATA / "player_offense.parquet")
+    logs = local_or_db("player_offense")
     logs = logs[logs.season >= 2024].copy()
     # player_offense carries no opponent column — resolve via the schedule (moved below
     # after opp_map is built; placeholder filled in the loop pre-pass)
@@ -392,7 +392,7 @@ def main():
             hitr[k] = (h_ + (1 if r_.result_close in ("O", "Y") else 0), n_ + 1)
 
     # ---- (season, week, team) -> opponent map for the game-level splits ----
-    nvg = pd.read_parquet(DATA / "nflverse_games.parquet")
+    nvg = local_or_db("nflverse_games")
     nvg = nvg[nvg.season >= 2024]
     opp_map = {}
     for r_ in nvg.itertuples():

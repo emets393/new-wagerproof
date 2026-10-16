@@ -172,6 +172,7 @@ services:
       FPW=$(python3 -c "from fp_pull import current_season_week; print(current_season_week()[1]+1)") &&
       { python3 fp_pull.py --tools "$FPT" --seasons "$FPS" --weeks 1-18 --workers 3 || FAIL=1; } &&
       { python3 fp_pull.py --tools "$FPT" --consolidate || FAIL=1; } &&
+      { python3 build_crosswalk.py || FAIL=1; } &&
       { python3 gen_nfl_player_prop_trends.py || FAIL=1; } &&
       { python3 score_props_week.py || FAIL=1; } &&
       { FP_SUPABASE=1 FP_SEASONS="$(( FPS - 1 )),$FPS" python3 fp_prop_payload.py --season "$FPS" --upcoming "$FPW" --routes 6 --out data/fp_prop_payload_current.parquet || FAIL=1; } &&
@@ -446,7 +447,12 @@ services:
     # slate 13 minutes BEFORE the job that builds it, so every Monday it raised "week over,
     # next week's slate NOT BUILT" + "pick cards stale" and failed the run (2026-09-28).
     # A watchdog that cries wolf on a schedule is worse than no watchdog.
-    schedule: "45 12 * 8-12,1-2 *"        # daily 8:45am ET, football season — after the 11:00 weekly builds
+    # ⛔ RUNS AFTER nfl-prop-report-daily (15:00Z), NOT BEFORE. At 12:45Z it audited fp_cards
+    # and the spotlight board 2h15m before the only job that writes them, so the first sweep
+    # of every new NFL week RED-flagged work that was not due yet (2026-10-15: "fp_cards on
+    # 0 of 353 week-6 pages", true at 12:45, 86% by 14:10). That is the cry-wolf failure the
+    # note above warns about, caused by the clock rather than the check.
+    schedule: "30 16 * 8-12,1-2 *"        # daily 12:30pm ET, football season — after the 15:00Z prop report
     buildCommand: pip install requests pyyaml   # pyyaml: render_drift.py reads render.yaml
     startCommand: cd research && python3 health_sweep.py
     envVars:
