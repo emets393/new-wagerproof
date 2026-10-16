@@ -7,10 +7,18 @@ This file contains historical examples and field notes. For the current reusable
 - `./09_GAME_DATA_AUDIT_RUNBOOK.md`
 - `scripts/test-avatar-game-data-payloads.mjs`
 
-Current production payloads also include `prediction_accuracy` for NBA and NCAAB from:
+Current production payloads also include `prediction_accuracy` for NCAAB from
+`ncaab_todays_games_predictions_with_accuracy_cache`.
 
-- `nba_todays_games_predictions_with_accuracy_cache`
-- `ncaab_todays_games_predictions_with_accuracy_cache`
+**NBA has no `prediction_accuracy` group since 2026-10-16.** Its cache was built on
+`nba_predictions.model_fair_*`, which has zero correlation with results, and is being dropped
+(`cfb_automation/sql/nba_drop_legacy.sql`). NBA payloads instead carry `model_predictions`
+(from `nba_model_preds`: home margin, fair spread, total, the job's `disagreement` and tier --
+bet / lean / pass / warmup / no_line -- plus `home_win_prob` from `nba_predictions`),
+`conviction` (rolled up from the flags; `mammoth` = model-and-signals confluence), and
+`signals` (`nba_slate_flags` joined to `nba_signal_defs`, same compact shape as the football
+flags, `all_time.validated_hit` = the def's `record_text`). The NBA JSON example below predates
+this and still shows the old `prediction_accuracy` block.
 
 This document defines the exact data structure sent to AI agents for pick generation. Each sport has slightly different data available.
 

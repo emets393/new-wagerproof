@@ -1,7 +1,13 @@
 // get_nba_predictions — Fetch NBA model predictions for a given date.
-// Returns predictions with team ratings, L3/L5 trends, shooting splits,
-// advanced stats, betting trends, injuries, situational data, and accuracy.
+// Returns the originator model (spread + total from nba_model_preds, with the
+// job's disagreement tiers), home win probability, team ratings, L3/L5 trends,
+// shooting splits, betting trends, injuries, situational data, and the
+// validated signals firing on each game (nba_slate_flags + nba_signal_defs).
 // NBA has the richest data of all sports — this tool reflects that.
+//
+// nba_predictions.model_fair_* is NOT read: it has zero correlation with
+// results (model audit 2026-09-22) and the accuracy cache built on it is being
+// dropped. nba_predictions is kept only for home_win_prob.
 
 import type { ToolDefinition, ToolContext } from "./registry.ts";
 import { getTodayInET } from "../../shared/dateUtils.ts";
@@ -10,10 +16,11 @@ import { normalizeNBA } from "./gameCardNormalizer.ts";
 export const tool: ToolDefinition = {
   name: "get_nba_predictions",
   description:
-    "Get NBA model predictions for today or a specific date. Returns predicted scores, " +
-    "win probabilities, model fair spread/total, team efficiency ratings (off/def/pace) " +
-    "with L3/L5 trends, shooting splits, rebounding, luck, consistency, " +
-    "ATS/O-U percentages, streaks, last-game results, injuries, and situational data. " +
+    "Get NBA model predictions for today or a specific date. Returns the model's spread and total " +
+    "versus the market with a disagreement tier (bet = 8+ points, lean = 6+, pass), home win " +
+    "probability, team efficiency ratings (off/def/pace) with L3/L5 trends, shooting splits, " +
+    "rebounding, luck, consistency, ATS/O-U percentages, streaks, last-game results, injuries, " +
+    "situational data, and the validated betting signals firing on each game with their records. " +
     "Use this when the user asks about NBA games, predictions, or betting analysis.",
   parameters: {
     type: "object",
@@ -56,16 +63,17 @@ export const tool: ToolDefinition = {
       }
     }
 
-    // Fetch predictions and enrichment data in parallel
+    // Fetch model, win prob, flags and enrichment data in parallel
     const gameIds = filtered.map((g: any) => String(g.game_id)).filter(Boolean);
     const numericGameIds = filtered.map((g: any) => g.game_id).filter(Boolean);
     const teams = [...new Set(filtered.flatMap((g: any) => [g.away_team, g.home_team]).filter(Boolean))];
 
-    const [predictionMap, injuryData, situationalData, accuracyData] = await Promise.all([
-      fetchPredictions(ctx.cfbSupabase, numericGameIds),
+    const [modelMap, winProbMap, injuryData, situationalData, flagsMap] = await Promise.all([
+      fetchModel(ctx.cfbSupabase, filtered, targetDate),
+      fetchWinProb(ctx.cfbSupabase, numericGameIds),
       fetchInjuries(ctx.cfbSupabase, teams, targetDate),
       fetchSituational(ctx.cfbSupabase, "nba_game_situational_trends_today", gameIds),
-      fetchAccuracy(ctx.cfbSupabase, "nba_todays_games_predictions_with_accuracy_cache", gameIds, targetDate),
+      fetchFlags(ctx.cfbSupabase, filtered, targetDate),
     ]);
 
     const formatted = filtered.map((game: any) => {
@@ -73,8 +81,9 @@ export const tool: ToolDefinition = {
       const awayInjuries = injuryData.get(game.away_team?.toLowerCase()) || [];
       const homeInjuries = injuryData.get(game.home_team?.toLowerCase()) || [];
       const situational = situationalData.get(gid) || null;
-      const accuracy = accuracyData.get(gid) || null;
-      const prediction = predictionMap.get(game.game_id) || null;
+      const model = modelMap.get(gid) || null;
+      const winProb = winProbMap.get(game.game_id) || null;
+      const signals = flagsMap.get(gid) || null;
 
       // Prefer the explicit away_moneyline column from nba_input_values_view;
       // fall back to the complement formula only if the DB value is missing.
@@ -108,23 +117,7 @@ export const tool: ToolDefinition = {
           total: game.total_line,
         },
 
-        model_predictions: prediction
-          ? {
-              home_win_prob: prediction.home_win_prob,
-              away_win_prob: prediction.away_win_prob,
-              home_score_pred: prediction.home_score_pred,
-              away_score_pred: prediction.away_score_pred,
-              model_fair_home_spread: prediction.model_fair_home_spread,
-              model_fair_total: prediction.model_fair_total,
-              // Derived: does the model see value vs Vegas?
-              spread_edge: homeSpread != null && prediction.model_fair_home_spread != null
-                ? round2(prediction.model_fair_home_spread - homeSpread)
-                : null,
-              total_edge: game.total_line != null && prediction.model_fair_total != null
-                ? round2(prediction.model_fair_total - game.total_line)
-                : null,
-            }
-          : null,
+        model_predictions: formatModel(model, winProb),
 
         // Full team efficiency ratings — season-long
         team_stats: {
@@ -213,15 +206,19 @@ export const tool: ToolDefinition = {
           home: homeInjuries.length > 0 ? homeInjuries : null,
         },
         situational: situational,
-        accuracy: accuracy,
+        // Validated signals firing on this game, each with its trigger, the bet it points at,
+        // and the all-time record. Null when nothing fires.
+        signals: signals,
       };
     });
 
-    // Build game cards sorted by edge — emit top 5 for inline display
+    // Build game cards sorted by edge — emit top 5 for inline display.
+    // The normalizer wants the old column names; cardPrediction maps the originator rows onto them.
     // Inject injury data into raw_game for widget rendering
     const gameCards = filtered
       .map((g: any) => {
-        const card = normalizeNBA(g, predictionMap.get(g.game_id) || null);
+        const gid = String(g.game_id || "");
+        const card = normalizeNBA(g, cardPrediction(modelMap.get(gid) || null, winProbMap.get(g.game_id) || null));
         const awayInj = injuryData.get(g.away_team?.toLowerCase()) || [];
         const homeInj = injuryData.get(g.home_team?.toLowerCase()) || [];
         if (awayInj.length > 0) (card.raw_game as any).away_injuries = awayInj;
@@ -249,40 +246,121 @@ function fmtML(v: unknown): string {
   return n > 0 ? `+${n}` : String(n);
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+function num(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
-/** Fetch predictions from nba_predictions using the latest run_id.
- *  Mirrors the approach in basketballDataService.ts. */
-async function fetchPredictions(
-  client: any,
-  gameIds: number[],
-): Promise<Map<number, any>> {
+type ModelRows = { spread?: any; total?: any };
+
+// Join key shared with the web feed: the model/signal jobs write balldontlie-style abbreviations
+// (GSW, NYK, ...) so they line up with nba_input_values_view without a map.
+function abbrKey(date: unknown, home: unknown, away: unknown): string {
+  return `${String(date ?? "").slice(0, 10)}|${home ?? ""}|${away ?? ""}`;
+}
+
+/** nba_model_preds for the date: one row per game per market, keyed by the view's game_id.
+ *  Rows with a null game_id fall back to the (date, home, away) key. */
+async function fetchModel(client: any, games: any[], date: string): Promise<Map<string, ModelRows>> {
+  const result = new Map<string, ModelRows>();
+  try {
+    const { data } = await client
+      .from("nba_model_preds")
+      .select("game_id, game_date, home_abbr, away_abbr, market, model_version, model_home_margin, model_total, market_home_spread, market_total, disagreement, tier, bet_side, as_of")
+      .eq("game_date", date);
+    const byAbbr = new Map<string, ModelRows>();
+    for (const row of data || []) {
+      const key = abbrKey(row.game_date, row.home_abbr, row.away_abbr);
+      const gid = row.game_id != null ? String(row.game_id) : "";
+      const entry: ModelRows = (gid && result.get(gid)) || byAbbr.get(key) || {};
+      if (row.market === "spread" || row.market === "total") (entry as any)[row.market] = row;
+      if (gid) result.set(gid, entry);
+      byAbbr.set(key, entry);
+    }
+    for (const g of games) {
+      const gid = String(g.game_id || "");
+      if (!gid || result.has(gid)) continue;
+      const entry = byAbbr.get(abbrKey(g.game_date, g.home_abbr, g.away_abbr));
+      if (entry) result.set(gid, entry);
+    }
+  } catch { /* non-critical — tool still returns input data without the model */ }
+  return result;
+}
+
+/** home_win_prob from nba_predictions (latest run_id) — the one real number of the old model. */
+async function fetchWinProb(client: any, gameIds: number[]): Promise<Map<number, any>> {
   const result = new Map<number, any>();
   if (gameIds.length === 0) return result;
   try {
-    // Get the latest run_id
     const { data: latestRun } = await client
       .from("nba_predictions")
       .select("run_id, as_of_ts_utc")
       .order("as_of_ts_utc", { ascending: false })
       .limit(1)
       .maybeSingle();
-
     if (!latestRun) return result;
-
-    const { data: predictions } = await client
+    const { data } = await client
       .from("nba_predictions")
-      .select("game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id")
+      .select("game_id, home_win_prob, away_win_prob, run_id")
       .eq("run_id", latestRun.run_id)
       .in("game_id", gameIds);
-
-    for (const pred of predictions || []) {
-      result.set(pred.game_id, pred);
-    }
-  } catch { /* non-critical — tool still returns input data without predictions */ }
+    for (const row of data || []) result.set(row.game_id, row);
+  } catch { /* non-critical */ }
   return result;
+}
+
+/** The model block. The model predicts the HOME MARGIN; the fair home spread is the negated margin.
+ *  `disagreement` is the job's own number (margin + market spread; model total - market total):
+ *  positive = model on the home side / the over. Total hidden while the total model is warming up
+ *  (< 10 games played) — it loses in that window. */
+function formatModel(model: ModelRows | null, winProb: any): Record<string, unknown> | null {
+  const spread = model?.spread ?? null;
+  const total = model?.total ?? null;
+  const homeWinProb = num(winProb?.home_win_prob);
+  if (!spread && !total && homeWinProb === null) return null;
+  const margin = num(spread?.model_home_margin);
+  const totalLive = total != null && total.tier !== "warmup";
+  return {
+    source: "nba_model_preds",
+    model_version: spread?.model_version ?? total?.model_version ?? null,
+    as_of: spread?.as_of ?? total?.as_of ?? null,
+    home_win_prob: homeWinProb,
+    away_win_prob: num(winProb?.away_win_prob),
+    spread: spread
+      ? {
+          model_home_margin: margin,
+          model_fair_home_spread: margin === null ? null : -margin,
+          market_home_spread: num(spread.market_home_spread),
+          disagreement: num(spread.disagreement),
+          pick: spread.bet_side ?? null,
+          tier: spread.tier ?? null,
+        }
+      : null,
+    total: total
+      ? {
+          model_total: totalLive ? num(total.model_total) : null,
+          market_total: num(total.market_total),
+          disagreement: totalLive ? num(total.disagreement) : null,
+          pick: totalLive ? (total.bet_side ?? null) : null,
+          tier: total.tier ?? null,
+        }
+      : null,
+    tiers: "bet = 8+ points of disagreement (54-56% at the closing line over six seasons); lean = 6+ or a bet downgraded because a signal opposes it; pass / warmup / no_line = no model bet.",
+  };
+}
+
+/** Map the originator rows onto the column names normalizeNBA expects for the inline card. */
+function cardPrediction(model: ModelRows | null, winProb: any): any | null {
+  if (!model && !winProb) return null;
+  const margin = num(model?.spread?.model_home_margin);
+  const total = model?.total;
+  return {
+    home_win_prob: winProb?.home_win_prob ?? null,
+    away_win_prob: winProb?.away_win_prob ?? null,
+    model_fair_home_spread: margin === null ? null : -margin,
+    model_fair_total: total && total.tier !== "warmup" ? num(total.model_total) : null,
+  };
 }
 
 async function fetchInjuries(
@@ -333,22 +411,49 @@ async function fetchSituational(
   return result;
 }
 
-async function fetchAccuracy(
-  client: any,
-  table: string,
-  gameIds: string[],
-  date: string,
-): Promise<Map<string, any>> {
-  const result = new Map<string, any>();
-  if (gameIds.length === 0) return result;
+/** nba_slate_flags for the date joined to nba_signal_defs, projected to a compact shape:
+ *  what fired, what it says to bet, and the validated record. Keyed like the model rows. */
+async function fetchFlags(client: any, games: any[], date: string): Promise<Map<string, any[]>> {
+  const result = new Map<string, any[]>();
   try {
-    const { data } = await client
-      .from(table)
-      .select("*")
-      .in("game_id", gameIds)
-      .eq("game_date", date);
-    for (const row of data || []) {
-      result.set(String(row.game_id || ""), row);
+    const [{ data: flags }, { data: defs }] = await Promise.all([
+      client
+        .from("nba_slate_flags")
+        .select("game_id, game_date, game, signal_key, market, side, tier, conviction, line, bet_team, bet_direction, bet_line, grade_line, trigger_text, record_text")
+        .eq("game_date", date),
+      client.from("nba_signal_defs").select("signal_key, display_name, one_liner, bet_direction, record_text, tier"),
+    ]);
+    const defMap = new Map<string, any>();
+    for (const d of defs || []) defMap.set(d.signal_key, d);
+    const byAbbr = new Map<string, any[]>();
+    for (const f of flags || []) {
+      const def = defMap.get(f.signal_key);
+      const item = {
+        signal_key: f.signal_key,
+        name: def?.display_name ?? f.signal_key,
+        market: f.market,
+        side: f.side,
+        line: f.line,
+        grade_line: f.grade_line,
+        conviction: f.conviction,
+        tier: f.tier,
+        trigger: f.trigger_text ?? def?.one_liner ?? null,
+        bet_direction: def?.bet_direction ?? f.bet_direction ?? null,
+        record: f.record_text ?? def?.record_text ?? null,
+      };
+      const gid = f.game_id != null ? String(f.game_id) : "";
+      const parts = String(f.game ?? "").split("@");
+      const key = parts.length === 2 ? abbrKey(f.game_date, parts[1].trim(), parts[0].trim()) : "";
+      const list = (gid && result.get(gid)) || (key && byAbbr.get(key)) || [];
+      list.push(item);
+      if (gid) result.set(gid, list);
+      if (key) byAbbr.set(key, list);
+    }
+    for (const g of games) {
+      const gid = String(g.game_id || "");
+      if (!gid || result.has(gid)) continue;
+      const list = byAbbr.get(abbrKey(g.game_date, g.home_abbr, g.away_abbr));
+      if (list) result.set(gid, list);
     }
   } catch { /* non-critical */ }
   return result;

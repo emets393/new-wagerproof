@@ -384,6 +384,9 @@ builds degrade to an empty feed instead of erroring — do not repopulate or que
 - **NBA**: Richest data — team ratings, L3/L5 trends, streaks, ATS%, luck, consistency. Model spread/total come from the
   originator models in `cfb_automation/scripts/cfb/nba_model/` (2026-10-13); `nba_predictions.model_fair_*` is dead (zero
   correlation with results) and is no longer rendered. Signals share the football flag contract (`nba_slate_flags`).
+  V3 agents, WagerBot (`get_nba_predictions`) and the MCP `get_sport_predictions` read `nba_model_preds` +
+  `nba_slate_flags` too (2026-10-16); the old `nba_todays_games_predictions_with_accuracy*` chain has no reader
+  left in this repo except the web/iOS/Android accuracy widgets -- see `cfb_automation/sql/nba_drop_legacy.sql`.
 - **NCAAB**: Team ratings, rankings, context flags — NO trends, NO streaks
 - **MLB**: Rich — Statcast pregame (SP, bullpen, batting), game signals, park factors, power ratings, situational trends, model predictions (ML, O/U, F5)
 

@@ -116,10 +116,16 @@ The script writes:
 - Base game + team stats + trends:
   - Source table: `nba_input_values_view`
   - Payload field groups: `vegas_lines`, `team_stats`, `trends`
-- Prediction accuracy snapshot:
-  - Source table: `nba_todays_games_predictions_with_accuracy_cache`
-  - Join key: `game_id`
-  - Payload field group: `prediction_accuracy`
+- Originator model (spread + total) + home win prob:
+  - Source tables: `nba_model_preds` (one row per game per market, `game_date` = target date;
+    join `game_id`, fallback `(game_date, home_abbr, away_abbr)`), `nba_predictions` (latest
+    `run_id`, `home_win_prob` only)
+  - Payload field group: `model_predictions` (keys mirror the football `full_game` block)
+- Signals + conviction:
+  - Source tables: `nba_slate_flags` (`game_date` = target date; join `game_id`, fallback the
+    `game` "AWAY @ HOME" text) + `nba_signal_defs` (`record_text` -> `all_time.validated_hit`)
+  - Payload field groups: `signals`, `conviction`
+  - No `prediction_accuracy` group for NBA since 2026-10-16 (the old cache read dead numbers)
 - Injuries:
   - Source table: `nba_injury_report` (`bucket='current'`, `game_date_et = target date`)
   - Payload field group: `injuries`

@@ -96,7 +96,7 @@ Adding a tool: create `tools/<name>.ts` exporting `tool: ToolDefinition`, import
 
 | Tool | Sport | Data Source (CFB Supabase) | Key Data |
 |------|-------|---------------------------|----------|
-| `get_nba_predictions` | NBA | `nba_input_values_view` + `nba_predictions` | Team ratings, L3/L5 trends, shooting, streaks, injuries |
+| `get_nba_predictions` | NBA | `nba_input_values_view` + `nba_model_preds` + `nba_slate_flags`/`nba_signal_defs` (+ `nba_predictions` for `home_win_prob` only) | Originator spread/total with disagreement tiers, signals with records, team ratings, L3/L5 trends, shooting, streaks, injuries |
 | `get_nfl_predictions` | NFL | `nfl_predictions_epa` | Model predictions, weather, public betting splits |
 | `get_cfb_predictions` | CFB | `cfb_live_weekly_inputs` | Model predictions, weather, public betting |
 | `get_ncaab_predictions` | NCAAB | `v_cbb_input_values` + `ncaab_predictions` | Team ratings, rankings, seeds, context flags |
