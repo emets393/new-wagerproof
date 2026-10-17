@@ -239,6 +239,58 @@ With ~4-5 graded games per team there is no power to measure a team effect at al
 detecting a true 10-point edge would need on the order of 100 games per team. This is the
 same verdict the NBA reached for team x situation records — see `nba-team-spots`.
 
+## ★ NFL heavy-public fade — live candidate (added 2026-10-16)
+
+```
+nfl_fade.py
+```
+
+⛔ **NFL ONLY.** Nothing in this file looks at CFB and a CFB result is not evidence about
+it. Different talent dispersion, different roster turnover, softer college lines — an
+effect can live in one league and not the other. Cross-league failure limits GENERALITY,
+it does not refute. Standing owner instruction (2026-09-26), broken once on 2026-10-16
+when a flat CFB number was used to wave this finding off. Do not repeat it.
+
+**The dose, NFL 2026 wks 1-6, n=72 graded spread games:**
+
+| crowd ticket% on a side | n | that side covers | 95% CI |
+|---|---|---|---|
+| 50-54 | 13 | 53.8% | [29%, 77%] |
+| 55-59 | 16 | 50.0% | [28%, 72%] |
+| 60-64 | 12 | 41.7% | [19%, 68%] |
+| 65-69 | 9 | 44.4% | [19%, 73%] |
+| **70+** | **22** | **27.3%** | [13%, 48%] |
+
+It is a THRESHOLD, not a line. The continuous slope is not significant (corr -0.168,
+within-week permutation p=0.153; money -0.197, p=0.103) because the effect is concentrated
+at 70%+, which a linear fit dilutes.
+
+**It is not one week.** Heavy-crowd (>=60%) side covered 40 / 30 / 29 / 25 / 50% in weeks
+1-5 — five of five below half. Leave-one-week-out on that cell stays inside 31.4-37.1%.
+
+**★ It is not line size, which was the thing most likely to kill it.** Crowd share
+correlates +0.521 with |spread|, so the obvious story is "the crowd sits on big favourites
+and big favourites failed." Holding line size fixed at the sizes where heavy-crowd games
+actually live (|spread| 2.5-10.0, n=51), fading the FAVOURITE went:
+
+| | record | rate |
+|---|---|---|
+| crowd >= 70% | 14-3 | **82.4%** |
+| crowd < 70% | 16-18 | 47.1% |
+
+gap +35.3%, within-week null +7.3% ± 14.1%, **permutation p=0.048, Fisher exact p=0.019**.
+Same bet, same line sizes, only the crowd varies — so the crowd is carrying something of
+its own.
+
+**Betting it at -110** (break-even 52.4%): crowd >=55% 36-23 (+16.5%), >=60% 28-15
+(+24.3%), >=65% 21-10 (+29.3%), **>=70% 16-6 (72.7%, +38.8%, CI [52%, 87%])**.
+Walk-forward, threshold picked on earlier weeks only: 9-5, +22.7%.
+
+⚠ **What would kill it:** n is 17-22 in the headline cells, the season is six weeks old,
+and the size-matched window was chosen after seeing the data — a real degree of freedom.
+The 95% lower bound at the 70% threshold is 52%, i.e. exactly break-even. Re-run weekly;
+this is a CANDIDATE, not an established edge, and it needs the rest of the season.
+
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 
 ## Current state
