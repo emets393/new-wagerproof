@@ -185,7 +185,16 @@ def pull_cell(H, tool, scope, season, week):
 
 
 def current_season_week():
-    """(season, last COMPLETED regular-season week) from the nflverse schedule."""
+    """(season, the highest regular-season week carrying ANY result) from the nflverse schedule.
+
+    ⛔ NOT the last COMPLETED week, and NOT a week to build a slate for. A week lands here the
+    moment its Thursday game goes final, four days before its Sunday games are played. That is
+    the right gate for a DATA PULL — Fantasy Points publishes a week in pieces and the puller
+    wants whatever has landed — and it is wrong for anything asking "which week do we build".
+    nfl-prop-report-daily used this + 1 as the upcoming week and spent Thursday-to-Tuesday
+    targeting a week with no slate rows (2026-10-15/16). Schedule questions go to
+    resolve_nfl_week.py, which is the one resolver.
+    """
     # always live: the local nflverse_games.parquet cache can be days stale
     import io
     r = requests.get("https://github.com/nflverse/nfldata/raw/master/data/games.csv", timeout=120)

@@ -195,12 +195,22 @@ services:
     # scorer reads (19 tool/scopes, ~50-250 cells depending on how deep the season is, 50s
     # at 3 workers) rather than all 45, then consolidate: fp_pull gates pull and
     # consolidate separately, so it takes two invocations.
+    #
+    # ⛔ THE WEEK COMES FROM resolve_nfl_week.py, THE ONE RESOLVER. This chain used to derive it
+    # as fp_pull.current_season_week()[1] + 1 — "last week carrying a result, plus one" — which is
+    # a data-landing gate, not a schedule. The moment a week's THURSDAY game goes final that gate
+    # advances, so from Thursday night until the following Tuesday the whole chain targeted a week
+    # that does not exist yet: on 2026-10-16 it asked for 2026 wk7 while the slate (correctly) held
+    # wk6, fp_spotlight scored zero lines and died on an empty frame, and every step after it fell
+    # over. Five days in seven. resolve_nfl_week.py answers the only question these steps ask —
+    # which week is still to be played — and is already what the slate and live-props crons use.
     startCommand: >-
       cd research/nfl-extreme-outcomes &&
       FAIL=0 &&
       FPT=receivingAdvanced,receivingSeparationByAlignment,rushingAdvanced,rushingBellCow,passingAdvanced,coverageMatrix,proeReport,runPassReport,lineMatchups &&
-      FPS=$(python3 -c "from fp_pull import current_season_week; print(current_season_week()[0])") &&
-      FPW=$(python3 -c "from fp_pull import current_season_week; print(current_season_week()[1]+1)") &&
+      SW=$(python3 resolve_nfl_week.py) &&
+      FPS="${SW% *}" &&
+      FPW="${SW#* }" &&
       { python3 fp_pull.py --tools "$FPT" --seasons "$FPS" --weeks 1-18 --workers 3 || FAIL=1; } &&
       { python3 fp_pull.py --tools "$FPT" --consolidate || FAIL=1; } &&
       { python3 build_crosswalk.py || FAIL=1; } &&
