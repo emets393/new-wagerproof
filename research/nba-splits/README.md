@@ -220,6 +220,56 @@ monotone collapse — and it is **entirely the money side sitting on longer dogs
 Permutation p=0.417; by season +2.1% then −6.1% roi. ★ A 70% hit rate that loses money
 is the cleanest illustration in this repo of why a moneyline is never scored against 50%.
 
+## Does ticket volume help the money% read?
+
+Yes — but only as a *diagnostic*, and only inside the one usable regime.
+
+⛔ First, raw volume is not comparable across seasons: median tickets fall 44,379 →
+23,860 → 18,036. Any volume cut must be normalised within season or within slate date.
+
+**★ Volume explains most of what the 2023-24 divergence was.** Median `|money% −
+tickets%|` by ticket-volume quartile:
+
+| | Q1 (low) | Q2 | Q3 | Q4 (high) |
+|---|---|---|---|---|
+| **NBA 2023-24** | **24.0** | 15.0 | 9.0 | **5.0** |
+| NBA 2024-25 | 4.0 | 3.0 | 3.0 | 3.0 |
+| NBA 2025-26 | 4.0 | 4.0 | 3.0 | 4.0 |
+| **NFL (all 4 seasons)** | 6-7 | 6-8 | 7-8 | 7-8 |
+
+In 2023-24 the gap collapses fivefold from the lowest to the highest volume quartile —
+the signature of percentages computed on a small, unstable base. NFL's gap is flat at
+6-8 across every quartile and always has been. That is a second, independent sign that
+AN's NBA money% then was a different and noisier calculation.
+
+**And it sorts noise from signal within that season.** Taking the totals `|gap|>=15`
+cell and splitting it by volume:
+
+| vol quartile | med \|gap\| | n | record | rate | roi |
+|---|---|---|---|---|---|
+| Q1 (low) | 24.0 | 212 | 112-100 | 52.8% | +0.9% |
+| Q2 | 15.0 | 166 | 89-77 | 53.6% | +2.4% |
+| Q3 | 9.0 | 125 | 74-51 | **59.2%** | +13.0% |
+| Q4 (high) | 5.0 | 95 | 56-39 | **58.9%** | +12.5% |
+
+The effect **strengthens** with volume, which is not how a small-sample artifact behaves.
+On a well-bet game a 15-point gap is genuinely unusual (Q4's median gap is 5) and it
+carries something; on a thin game it is jitter. High half: **130-90 (59.1%), +12.8% roi,
+n=220**, against a within-night null of 53.9% ± 2.0%, **p=0.0094**, and holding in 5 of
+6 months (60.0 / 51.2 / 56.2 / 62.0 / 72.2 / 59.1%).
+
+⚠ **Why this still is not a bet.** It is one season on an instrument that no longer
+exists — gaps that size are 0.2% of 2025-26 totals, so there is nothing to apply it to.
+And the cell was reached through roughly five post-hoc choices (market → gap grouping →
+season restriction → volume split → high half); p=0.0094 is the p-value of the last step,
+not of the path. Treat it as an explanation of what the 2023-24 data was, not as a system.
+
+**NFL, stable instrument, four seasons, does not show the interaction** — reported on its
+own NFL evidence, and it neither confirms nor refutes the NBA read. Totals run 57.9 /
+58.3 / 52.4 / 54.9% by volume quartile (low half 58.2%, high half 53.7%, Fisher p=0.51),
+slightly the *opposite* direction. Spread is incoherent: 65.0 / 57.6 / **37.9** / 57.9% —
+adjacent quartiles twenty points apart is noise, not structure.
+
 ## Reading any cell here
 
 Read every record **from the bet's side**: a 28-48 is a 48-28 fade, and the fade is the
