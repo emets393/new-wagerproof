@@ -239,7 +239,49 @@ With ~4-5 graded games per team there is no power to measure a team effect at al
 detecting a true 10-point edge would need on the order of 100 games per team. This is the
 same verdict the NBA reached for team x situation records — see `nba-team-spots`.
 
-## ★ NFL heavy-public fade — live candidate (added 2026-10-16)
+## ⛔ NFL heavy-public fade — TESTED OUT OF SAMPLE AND DEAD (2026-10-16)
+
+```
+nfl_fade.py        the in-sample work on 2026 wks1-6 (kept: the method is sound)
+nfl_fade_oos.py    the same rule, unfitted, on 2023-2025. This is the verdict.
+```
+
+**The rule does not survive.** Applied unchanged (fade any side holding >=70% of spread
+tickets, at -110, break-even 52.4%):
+
+| season | record | rate | ROI |
+|---|---|---|---|
+| 2023 | 50-48 | 51.0% | −2.6% |
+| 2024 | 49-56 | 46.7% | −10.9% |
+| 2025 | 50-28 | 64.1% | +22.4% |
+| **pooled 2023-25** | **149-132** | **53.0%** | **+1.2%** (n=281, CI [47%, 59%]) |
+| 2026 (the fit sample) | 16-6 | 72.7% | +38.8% (n=22) |
+
+Two of three prior seasons lose money and the pooled number is break-even. The continuous
+correlation across 784 out-of-sample games is **−0.032** for tickets and −0.016 for money
+— flat.
+
+**★ The decisive in-sample test fails too.** The size-matched control was what made 2026
+convincing: at the same line sizes, fading the favourite went 14-3 (82.4%) with a heavy
+crowd vs 16-18 (47.1%) without, Fisher p=0.019. Out of sample on n=637 the same test
+returns **51.3% vs 47.9%, Fisher p=0.456**. The separation was a 17-game cell.
+
+The dose SHAPE repeats in only one prior season — 2025 declines monotonically (59/62/49/
+42/36%) like 2026 does, while 2023 and 2024 are shapeless. ⚠ Two of four seasons is not
+evidence of a regime change; it is what noise looks like. Do not revive this on that basis.
+
+⚠ **One genuinely untested avenue**, recorded because the data cannot speak to it: a
+completed season serves FINAL splits, while the 2026 weeks this came from were captured
+MID-WEEK. If the real effect were "fade the side the public piles onto early, before the
+price corrects", closing splits could never show it and this test would be the wrong one.
+That is speculation, not a result — testing it needs a within-week capture series, which
+`fetch_action.py` could build going forward but which does not exist historically.
+
+★ LESSON: the in-sample work was done carefully — monotone dose, week-by-week stability,
+leave-one-out, a line-size control that it passed — and it was still a 22-game mirage.
+Nothing short of out-of-sample data was going to catch it. Three seasons were one fetch away.
+
+### The in-sample work, for reference
 
 ```
 nfl_fade.py
@@ -251,7 +293,7 @@ effect can live in one league and not the other. Cross-league failure limits GEN
 it does not refute. Standing owner instruction (2026-09-26), broken once on 2026-10-16
 when a flat CFB number was used to wave this finding off. Do not repeat it.
 
-**The dose, NFL 2026 wks 1-6, n=72 graded spread games:**
+**The dose, NFL 2026 wks 1-6, n=72 graded spread games** (in-sample only — see the verdict above):
 
 | crowd ticket% on a side | n | that side covers | 95% CI |
 |---|---|---|---|
@@ -286,10 +328,9 @@ its own.
 (+24.3%), >=65% 21-10 (+29.3%), **>=70% 16-6 (72.7%, +38.8%, CI [52%, 87%])**.
 Walk-forward, threshold picked on earlier weeks only: 9-5, +22.7%.
 
-⚠ **What would kill it:** n is 17-22 in the headline cells, the season is six weeks old,
-and the size-matched window was chosen after seeing the data — a real degree of freedom.
-The 95% lower bound at the 70% threshold is 52%, i.e. exactly break-even. Re-run weekly;
-this is a CANDIDATE, not an established edge, and it needs the rest of the season.
+⚠ **What killed it:** n was 17-22 in the headline cells and the 95% lower bound at the 70%
+threshold was 52% — exactly break-even. Three prior seasons settled it; see the verdict at
+the top of this section. ⛔ Do not re-read the in-sample numbers above as a finding.
 
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 
