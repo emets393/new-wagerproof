@@ -63,6 +63,15 @@ def show(label, r, ind=4):
     flag = " *" if r["lo"] > BREAK_EVEN else ""
     print(" " * ind + f"{label:<40} {r['k']}-{r['n'] - r['k']:<4} {r['rate']:>6.1%}"
           f"  [{r['lo']:.0%},{r['hi']:.0%}]  roi {r['roi']:+6.1%}  n={r['n']}{flag}")
+    # ⛔ A sub-50% cell is a WINNING FADE, not a dead cell. Reporting only the side the
+    # label names buried a 48-28 once; never again. Records read from the bet's side.
+    if r["rate"] < 0.5:
+        k2, n2 = r["n"] - r["k"], r["n"]
+        lo2, hi2 = wilson(k2, n2)
+        roi2 = (k2 * 100 - (n2 - k2) * 110) / (n2 * 110)
+        star2 = " *" if lo2 > BREAK_EVEN else ""
+        print(" " * ind + f"{'  ^ FADE IT: ' + label:<42} {k2}-{n2 - k2:<4} "
+              f"{k2 / n2:>6.1%}  [{lo2:.0%},{hi2:.0%}]  roi {roi2:+6.1%}  n={n2}{star2}")
 
 
 def market(d, which):

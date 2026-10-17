@@ -510,9 +510,35 @@ something that was never there.
 **Dead inside the cut:** the lopsidedness bands are non-monotone (55-59% edge +15.2% on
 n=48, 60-64% +12.1%, then 65-69% **−2.3%**, 70+ +1.9%) — a hot patch with cold cells
 either side is noise, and combining 55-64 after seeing it would be the same move that
-produced the heavy-public fade. Money-vs-tickets is worse than dead here: backing the
-money side on an ML **FLIP goes 28-48, −19.0% roi** (n=76), and the TILT dose is flat
-(+3.2 / −1.5 / +0.3 across gap bands).
+produced the heavy-public fade. **★ THE ML FLIP FADE — the best cell in this directory.** ⛔ I first reported this as
+"28-48, worse than dead". **A losing record from one side is a winning record from the
+other** and that framing buried the finding. Read from the bet's side:
+
+> **Short ML, tickets and money majorities on opposite sides → FADE the money side
+> (= back the ticket side): 48-28 (63.2%), ROI +9.2%, beating the no-vig price by
+> +7.1%, n=76.**
+
+| season | record | ROI |
+|---|---|---|
+| 2023 | 19-9 | +19.9% |
+| 2024 | 13-8 | +5.3% |
+| 2025 | 15-5 | +29.0% |
+| 2026 | 1-6 | −77.9% (n=7) |
+
+Three profitable seasons out of four, and it only exists in the SHORT cut — the same
+fade on long moneylines is **−11.5% roi**, so the price cap is load-bearing.
+
+⚠ Not established: **p=0.208** (z=+1.26) against a correct null, n=76, and 2026 is 1-6.
+⛔ My first p of 0.432 was from a BROKEN null that permuted within season-week — with 76
+games over four seasons most groups hold one game, so the shuffle was near-identity and
+manufactured a fake +6.5% baseline. The correct null draws a random side per game:
+0.00% ± 5.63%. Check group sizes before trusting any within-stratum permutation.
+
+Note the direction is OPPOSITE to the recorded totals note (which said back the money).
+On short NFL moneylines the TICKET side is the one to be on.
+
+The TILT dose is flat (+3.2 / −1.5 / +0.3 across gap bands), so this is the strict flip
+or nothing.
 
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 

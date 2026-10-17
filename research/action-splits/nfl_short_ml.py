@@ -124,6 +124,22 @@ def score(label, sub, ind=4, minn=25):
     edge = rate - exp
     print(" " * ind + f"{label:<44} {k}-{n - k:<5} {rate:>6.1%}  vs no-vig {exp:>5.1%}"
           f"  edge {edge:+5.1%}  roi {roi:+6.1%}  [{lo:.0%},{hi:.0%}]  n={n}")
+
+    # ⛔ A cell that loses to its price is a WINNING FADE of the same size, and the fade
+    # is the bet. Reporting only the named side once buried a 48-28 as "worse than dead".
+    # Records are read from the BET'S side. On a moneyline the fade must be re-priced —
+    # the other side's odds and its own no-vig number, never 100% minus this one's roi.
+    if edge < 0:
+        other = np.where(sub.pub_away, sub.ml_home, sub.ml_away)
+        other_nv = 1.0 - sub.pub_nv
+        fw = ~sub.pub_won
+        k2 = int(fw.sum())
+        u2 = np.where(fw, payout(other), -1.0).sum()
+        lo2, hi2 = wilson(k2, n)
+        print(" " * ind + f"{'  ^ FADE IT: ' + label:<44} {k2}-{n - k2:<5} "
+              f"{k2 / n:>6.1%}  vs no-vig {other_nv.mean():>5.1%}  "
+              f"edge {k2 / n - other_nv.mean():+5.1%}  roi {u2 / n:+6.1%}  "
+              f"[{lo2:.0%},{hi2:.0%}]  n={n}")
     return dict(n=n, rate=rate, exp=exp, edge=edge, roi=roi)
 
 
@@ -182,13 +198,9 @@ def main():
     score("ALL games — back the crowd's ML side", d)
     score(f"SHORT (fav >= -{a.cap:.0f}) — back the crowd", d[d.short])
     score(f"LONG  (fav <  -{a.cap:.0f}) — back the crowd", d[~d.short])
-    print()
-    score(f"SHORT — FADE the crowd",
-          d[d.short].assign(pub_won=~d[d.short].pub_won,
-                            pub_odds=np.where(d[d.short].pub_away, d[d.short].ml_home,
-                                              d[d.short].ml_away),
-                            pub_nv=1 - d[d.short].pub_nv))
-
+    # No hand-rolled "fade" row here — score() prints the fade of any cell that loses to
+    # its price, correctly re-priced at the other side's odds. A hand-swapped row fed
+    # back through that logic double-fades itself and prints a nonsense roi.
     s = d[d.short]
     obs, sd, p = perm_p(s)
     print(f"\n    permutation on the short cut: edge {obs:+.1%}, null sd {sd:.1%}, "
