@@ -397,6 +397,58 @@ columns) was **not** corrected as a family — only the 5-cell phase family was,
 where April's p=0.013 and the playoff 0.052 come from. Treat March and January as leads,
 not findings, and note January fails the one test that matters most here.
 
+## ★ The cross-table: results BY MONTH, split by the money% − bet% difference
+
+```
+nba_gap_months.py
+```
+
+This is the question asked directly — rows are months, columns are gap buckets, cells are
+the record from backing the money side. ⛔ Split by regime, never pooled: median |gap| on
+totals runs 12.0 / 2.0 / 1.0 across the three seasons, so in a pooled table the wide-gap
+columns would be almost entirely 2023-24 and the narrow ones almost entirely the later
+seasons — the gap column and the season would be the same variable.
+
+### Column totals, current regime (2024-25 + 2025-26)
+
+back the money side:
+
+| market | no gap | 1-4 | 5-9 | 10-19 | 20+ |
+|---|---|---|---|---|---|
+| spread (n=2477) | 56% *fade* | 53% | 52% | 52% | 62% (n=26) |
+| totals (n=2551) | 54% *fade* | 51% *fade* | 51% | 56% (n=45) | (n=3) |
+| **ml — edge vs no-vig** | −4.1% | **+1.1%** | **−0.3%** | **+2.8%** | **−2.0%** |
+
+### Column totals, 2023-24 (old regime)
+
+| market | no gap | 1-4 | 5-9 | 10-19 | 20+ |
+|---|---|---|---|---|---|
+| spread (n=1085) | (n=13) | 55% *fade* | **59%** (n=205) | 52% | 50% *fade* (n=410) |
+| totals (n=1095) | 58% (n=26) | 53% | 50% | 51% | **55%** (n=483) |
+| ml — edge vs no-vig | (n=21) | −3.9% | −2.5% | −2.0% | +1.8% |
+
+**Nothing. In either regime, in any market.** No column beats its neighbours coherently,
+and month by month the cells flip sign at random — the spread 1-4 column across the
+current regime reads 51/57/51/50/56/50/60%, the ML 1-4 edge reads −10.9 / +2.8 / −5.8 /
++4.0 / +8.0 / +4.6 / −7.7%. The two best-looking cells contradict each other: 2023-24
+spread peaks at 5-9 (59%) and dies at 20+ (50%), while 2023-24 totals does the opposite.
+
+### ⛔ The ML column is the lesson, and my own first table fell for it
+
+Before pricing, fading the ML money side across widening gaps reads:
+
+> **51% → 59% → 62% → 71%**, and it holds in **7 of 7 months** (Nov 65, Dec 74, Jan 72,
+> Feb 70, Mar 73, Apr 78, playoffs 69).
+
+A perfect monotone dose with month-level consistency — it looks like the find of the
+season. It is **entirely the price**: a bigger money-share gap means the money sat on a
+longer dog, and longer dogs lose more often. Scored against the vig-free probability of
+the side actually backed, the same four cells are **+1.1 / −0.3 / +2.8 / −2.0%** — flat
+and sign-flipping, roi negative, permutation p=0.417 on the pooled `|gap|>=20` cell.
+
+`ml_cell()` now prints the edge over no-vig with the win rate only in brackets, so the
+raw rate can never be read as the result again.
+
 ## Reading any cell here
 
 Read every record **from the bet's side**: a 28-48 is a 48-28 fade, and the fade is the
