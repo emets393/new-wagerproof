@@ -18,6 +18,58 @@ cache warm that is seconds, from cold about 15 minutes for ~1,000 slate dates.
 ⛔ **NBA ONLY.** An NFL or CFB result is not evidence about anything here, and nothing
 here is evidence about them. Cross-league failure limits GENERALITY; it does not refute.
 
+---
+
+## ★ VERDICT: there is no edge in NBA betting percentages
+
+Everything below is the working. The conclusion, after ~3,300-3,900 graded games per
+market, three seasons, and every framing the data supports:
+
+| what was tested | result |
+|---|---|
+| fade/follow the crowd by lopsidedness, spread | corr **−0.006** (n=3,604). Pooled by band: 51 / 51 / 51 / 52% |
+| same, totals | corr **+0.006** (n=3,687) |
+| same, moneyline | priced at **every** band: edge vs no-vig +0.5 / +0.3 / −2.0 / +1.3 / +0.1% |
+| short moneylines (±220) | edge **−0.3%**; long +0.4%. No version beats the price |
+| lopsidedness by month | 51 / 51 / 51 / 52% — four bands, one number |
+| money% − bet% (TILT and FLIP), spread + totals | flat in the current regime; the 2023-24 signal was a broken instrument |
+| money% − bet% by month (the cross) | nothing, either regime, any market |
+| money% − bet% x ticket volume | diagnostic only — it shows the 2023-24 gap was small-sample jitter |
+| day of week | p=0.690 |
+| tip time | p=0.513 |
+| line movement and reverse line movement | 51.4% backing the line on RLM, **−1.9% roi**, p=0.726 |
+| spread structure (line size, home/road, fav/dog) | every cell 50.3-51.6%, p=0.932 |
+| total structure (line level) | p=0.688 |
+| back-to-backs | priced in all three markets |
+
+**The public's lean is large, consistent, and worth nothing.** The NBA crowd sits on the
+over in 86-100% of games every single month and on 62-65% of one spread side every single
+month. None of it pays.
+
+### The two things that DID survive are not percentage effects
+
+- **April regular-season OVER** — 57.6% (n=311), +9.9% roi, **3 of 3 seasons**, family
+  p=0.013, with a visible mechanism: the market shades totals DOWN into April (229.5 →
+  226.0) while scoring goes UP (227 → 229). That is a calendar effect, not a crowd effect.
+- **October FADE the favourite** / **April BACK the favourite** — a 14.8-point swing that
+  clears a family correction (p=0.034) but whose April end loses in 2023-24. Also not a
+  percentage effect.
+
+### The one genuine percentage exception, and why it is still only a lead
+
+**Fading the crowd on playoff spreads: 146-112 (56.6%), +8.0% roi, n=258**, and tight
+across seasons — 55.3 / 57.0 / 57.5%. Against a correct random-side null that is z≈2.1,
+p≈0.03 uncorrected (family p=0.052).
+
+⚠ It has **no dose**, which is the mark against it: crowd 50-59% fades at 60.8%, 60-69% at
+54.4%, 70-79% at 60.8%. If fading the crowd were the mechanism, heavier crowds would fade
+better. And it concentrates in the first round (April 58.6%, May 52.6%). ⛔ Its
+within-night permutation returned a null of 54.5%, not 50%, because playoff nights hold
+one or two games and the shuffle is near-identity — the same trap documented twice below.
+Worth tracking; not a system.
+
+---
+
 ## The four endpoint traps
 
 Documented in full in `fetch_nba.py`. Short version:
