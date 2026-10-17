@@ -270,12 +270,13 @@ The dose SHAPE repeats in only one prior season — 2025 declines monotonically 
 42/36%) like 2026 does, while 2023 and 2024 are shapeless. ⚠ Two of four seasons is not
 evidence of a regime change; it is what noise looks like. Do not revive this on that basis.
 
-⚠ **One genuinely untested avenue**, recorded because the data cannot speak to it: a
-completed season serves FINAL splits, while the 2026 weeks this came from were captured
-MID-WEEK. If the real effect were "fade the side the public piles onto early, before the
-price corrects", closing splits could never show it and this test would be the wrong one.
-That is speculation, not a result — testing it needs a within-week capture series, which
-`fetch_action.py` could build going forward but which does not exist historically.
+⛔ **A caveat I raised here was wrong and is withdrawn.** I claimed the 2026 fit sample
+was captured mid-week while the prior seasons serve closing splits, which would have made
+the comparison unfair. Owner correction, 2026-10-16: the pasted weeks were taken at
+closing too. The evidence was already on file and I misread it — re-fetching the four
+hand-pasted NFL weeks reproduced the splits on **94-97%** of rows, which only happens if
+the pastes were already at closing. So the out-of-sample test is apples-to-apples and
+there is no lifeline here. The fade is dead.
 
 ★ LESSON: the in-sample work was done carefully — monotone dose, week-by-week stability,
 leave-one-out, a line-size control that it passed — and it was still a 22-game mirage.
@@ -331,6 +332,46 @@ Walk-forward, threshold picked on earlier weeks only: 9-5, +22.7%.
 ⚠ **What killed it:** n was 17-22 in the headline cells and the 95% lower bound at the 70%
 threshold was 52% — exactly break-even. Three prior seasons settled it; see the verdict at
 the top of this section. ⛔ Do not re-read the in-sample numbers above as a finding.
+
+## NFL by kickoff slot, 2023-2026 (added 2026-10-16)
+
+```
+nfl_slots.py [--seasons 2023 2024 2025 2026]
+```
+
+893 completed NFL games across four seasons, pulled self-contained from Action Network
+(splits, consensus close, final score, `start_time`, `broadcast.network`, conference and
+division). Slots are derived from the ET kickoff, not guessed. Home cover 49.4% — guard OK.
+
+**★ The descriptive table is the real content, and it kills a folk belief:**
+
+| slot | n | med tickets | med \|spread\| | crowd share | crowd on fav | divisional |
+|---|---|---|---|---|---|---|
+| TNF | 63 | **284,651** | 4.5 | 66% | 67% | **57%** |
+| Sun early | 417 | 122,244 | 4.0 | 66% | 65% | 35% |
+| Sun late | 216 | 120,124 | 3.5 | 65% | 58% | 40% |
+| SNF | 58 | 239,243 | 3.5 | **62%** | 57% | 16% |
+| MNF | 63 | 256,499 | 4.5 | **61%** | 68% | 19% |
+
+⛔ **Primetime does NOT draw a more lopsided public.** SNF (62%) and MNF (61%) are the
+*least* lopsided slots on the board; Sunday early and TNF (66%) are the most. The common
+claim that standalone national games pull heavier public money onto one side is false
+here — they pull more VOLUME (TNF is the most-bet slot of all at 285k median tickets,
+above SNF and MNF) without pulling more LEAN. Volume and lopsidedness are different things
+and this dataset separates them cleanly.
+
+TNF being 57% divisional, against 16-19% for SNF/MNF, explains much of its character.
+
+**Predictive: nothing survives.** 24 cells (6 slots x 4 outcomes), corrected against the
+best-of-N under a null that permutes the slot label within (season, week). Best cells were
+Sunday-late favourite covers 56.0% (n=216, p_cell=0.058) and Sunday-late crowd covers
+55.1% (p_cell=0.089) — neither close after correction. ⚠ A random relabelling puts its
+most extreme cell **13.6 ± 3.4 points** off 50%; our most extreme is 6 points out, i.e.
+well inside the noise band. This is a strong null, not an underpowered one.
+
+⚠ The tempting story — primetime unders, SNF 42.4% and MNF 43.1% — **does not hold**,
+because TNF goes the other way at 55.7% over. If primetime caused unders it would do it
+in all three primetime slots. Reporting SNF+MNF while dropping TNF would be cherry-picking.
 
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 
