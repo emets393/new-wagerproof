@@ -108,6 +108,43 @@ reverses inside spread bands. Quadrants, the money version, totals and NFL all f
 "contradiction" cell (bets that cannot both win) is only 2 of 258 games. Full verdict with every
 dead cell is in the `cfb-ml-spread-cross` memory.
 
+## Game timing inside a slate day (added 2026-10-16)
+
+Owner's question: if the public loses early, do they win late? If a big underdog covers
+while the crowd was all over the favourite, do more favourites cover later? Sharper on the
+notable high-ticket games?
+
+```
+timing_study.py [--sport nfl|cfb]
+```
+
+A prior game is one on the same day that kicked off >= 3h earlier, so it had actually
+FINISHED when this game's number went live. Four pre-registered tests; kickoffs come from
+Action Network's own `start_time`, converted to ET so a Sunday-night game does not start
+its own UTC day.
+
+**Verdict: null, both sports.** Best p was 0.200 (CFB T1) across eight tests.
+
+| | CFB (310 games, 24 days, 196 targets) | NFL (72 games, 15 days, 23 targets) |
+|---|---|---|
+| T1 crowd cold early -> late | 50.5% vs 52.6%, z=-1.27, p=0.200 | 64.3% vs 22.2%, z=+0.60, p=0.533 |
+| T2 early dog shock -> late fav | 42.5% vs 52.3%, z=-1.06, p=0.282 | 46.7% vs 50.0%, z=+0.29, p=0.833 |
+| T3 notable games only | 69.6% vs 56.0%, z=+0.49, p=0.618 | 60.0% vs 0.0%, z=+0.82, p=0.455 |
+| T4 dose, tercile lo vs hi | 54.4% vs 50.8%, z=-0.43, p=0.657 | 75.0% vs 25.0%, z=+0.98, p=0.380 |
+
+If anything CFB leans the OPPOSITE way to the hypothesis — early crowd pain is followed by
+more crowd pain, not a bounce, consistently across T1 and T2 at z≈-1.1 to -1.3. Momentum,
+not reversal. Still inside noise; do not bet it.
+
+★ **The reason to read this file even though the answer is no.** The NFL T1 cell reads
+64.3% vs 22.2% — a forty-two point gap — and it is pure arithmetic. Shuffling kickoff
+times inside the same days, same games, same results, produces a +33 point gap on average,
+because a game is excluded from its own conditioning variable and a day holds roughly a
+fixed number of crowd wins. Tested against 50% this "finds" a massive edge in both sports.
+Always read z and the permutation p here, never the raw rate.
+
+⚠ The effective sample is DAYS: 24 CFB Saturdays and 15 NFL days. Re-run as weeks accrue.
+
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 
 ## Current state
