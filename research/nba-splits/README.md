@@ -170,6 +170,56 @@ but that split was not pre-registered and Saturday is thin — do not trade on i
 swings hard by day (Tue median 30,779 down to Sun 17,054), and the 10pm+ West Coast
 window draws the **most** money per game (29,146) while being the least-watched slot.
 
+## ⛔ THE MONEY% INSTRUMENT CHANGED BETWEEN 2023-24 AND 2024-25
+
+This is the most important thing in this directory and it invalidates any pooled
+bets-vs-money analysis across NBA seasons.
+
+Distribution of `|money% − tickets%|`:
+
+| | median | p90 | share >=15 | games with gap >60 |
+|---|---|---|---|---|
+| **totals 2023-24** | **12.0** | **50.0** | **45.2%** | **89** |
+| totals 2024-25 | 2.0 | 6.0 | 0.7% | 2 |
+| totals 2025-26 | 1.0 | 4.5 | 0.2% | 1 |
+| **spread 2023-24** | **11.0** | **36.8** | **40.7%** | — |
+| spread 2024-25 | 3.0 | 10.0 | 3.2% | — |
+| spread 2025-26 | 4.0 | 11.0 | 4.1% | — |
+
+A step change, not drift. A 60-point gap between money% and tickets% is not a market
+phenomenon, and 2023-24 has 89 of them on totals while the next two seasons have three
+between them. ⚠ NFL over the same span shows **no such break** (spread medians 7 / 6 /
+7 / 8, share>=15 between 12.6% and 31.9%), so this is specific to AN's NBA feed, not to
+the endpoint.
+
+**What this invalidates.** Every pooled NBA divergence cell earlier in this file mixes
+two incompatible measurements. The spread 15-20 band that "survived at p=0.011" is
+535 of 627 games from 2023-24; the totals `|gap|>=15` cell is **598 of 609** from it.
+⛔ Coverage was checked (99-100% non-null every season) and that was not enough — the
+values changed, not their presence. Check the DISTRIBUTION of a feature by season, not
+just whether it is populated.
+
+**Within 2023-24 alone** the totals effect does separate: `|gap|>=15` back the money side
+331-267 (55.4%) against 358-367 (49.4%) for smaller gaps, Fisher p=0.031 with no regime
+mixing. But it is one season, uncorrected for the many cells tested here, and **it cannot
+be traded** — gaps that size occur in 0.2% of 2025-26 totals.
+
+**On current-regime data** divergence survives only on the moneyline (share>=15 is 28.5%
+then 22.8%). There it is dead once scored properly. Fading the money side looks
+spectacular on raw rate — 45.8% / 37.9% / 29.8% backing it across widening gaps, a clean
+monotone collapse — and it is **entirely the money side sitting on longer dogs**:
+
+| \|gap\| | fade rate | no-vig | edge | roi | n |
+|---|---|---|---|---|---|
+| 0-10 | 54.1% | 54.2% | −0.1% | −3.6% | 1494 |
+| 10-20 | 62.1% | 64.6% | −2.5% | −9.2% | 676 |
+| 20-40 | 70.2% | 67.7% | +2.6% | −0.6% | 363 |
+| 40+ | 68.5% | 71.1% | −2.7% | −6.1% | 73 |
+| **>=20 pooled** | **70.0%** | **68.2%** | **+1.7%** | **−1.5%** | **436** |
+
+Permutation p=0.417; by season +2.1% then −6.1% roi. ★ A 70% hit rate that loses money
+is the cleanest illustration in this repo of why a moneyline is never scored against 50%.
+
 ## Reading any cell here
 
 Read every record **from the bet's side**: a 28-48 is a 48-28 fade, and the fade is the
