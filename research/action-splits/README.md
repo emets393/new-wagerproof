@@ -145,6 +145,48 @@ Always read z and the permutation p here, never the raw rate.
 
 ⚠ The effective sample is DAYS: 24 CFB Saturdays and 15 NFL days. Re-run as weeks accrue.
 
+## The noon-ET CFB window (added 2026-10-16)
+
+```
+noon_cfb.py [--hour 12]
+```
+
+Owner's question: what do tickets and percentages do in the noon window, across all three
+markets, with moneyline and spread read together since they are two readings of one opinion.
+
+**n=59 graded noon games. The 95% band around a coin flip is ±13 points**, so nothing under
+~63% is readable and a tercile cell (n~20) needs ~72%. Read that before any rate below.
+
+**Descriptive — the window really is different:**
+
+| | 12:00 ET | rest of slate |
+|---|---|---|
+| favourite covers | **61.0%** | 47.5% |
+| over hits | **62.3%** | 48.5% |
+| crowd is on the favourite (spread) | 52.5% | 59.1% |
+| spread and ml crowds agree | 52.5% | 60.2% |
+| median tickets | 18,559 | 15,923 |
+
+Coherent story: at noon the crowd drifts to dogs more than it usually does, and favourites
+cover more than they usually do — so the noon crowd is on the wrong side. Its spread side
+covers 44.1% and its totals side 41.0%.
+
+**Predictive — nothing survives.** 13 pre-registered cells, family-corrected by shuffling
+the noon label across all CFB games and comparing against the best-of-13 null. Best cell
+p_family=0.114. ⚠ A random 61-game slice produces a best cell **29.6 ± 5.2 points** off 50%,
+so a 75%+ cell in a slice this size is the expected amount of noise, not a finding.
+
+⛔ **Two traps in these numbers:**
+1. `ml: crowd side wins 85.7%` is NOT an edge. The ML crowd sits on 96% of its own side —
+   it is on heavy favourites — so this just restates that heavy favourites win outright.
+   Same blind-favourite confound already recorded for the full slate.
+2. The 61.0% favourite cover is substantially ONE WEEK. By week: 60 / 44 / **91** / 67 / 45
+   / 56. Drop week 3 and it falls to **54.2%** (26-22). Over is the same shape: 62.3%
+   overall, 58% without week 3. Four of six weeks above half in both — not a trend yet.
+
+The favourite/over lean is the only thing worth re-testing as weeks accrue, and it is a
+slate-structure read, not a ticket read — the crowd cells were all dead.
+
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 
 ## Current state
