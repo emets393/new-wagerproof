@@ -187,6 +187,58 @@ so a 75%+ cell in a slice this size is the expected amount of noise, not a findi
 The favourite/over lean is the only thing worth re-testing as weeks accrue, and it is a
 slate-structure read, not a ticket read — the crowd cells were all dead.
 
+## Per-team ticket/money correlation (added 2026-10-16)
+
+```
+team_tickets.py [--min-games 4]
+```
+
+Owner's question: does the crowd's % on a TEAM relate to that team's outcome, and the same
+for over/unders. Asked in three steps so it is not 166 separate tests — pooled dose, then a
+DISPERSION test on whether team identity carries anything at all, then names with a
+family-corrected p attached.
+
+**1. Pooled dose — flat everywhere that matters.**
+
+| | n | corr(ticket%, side wins) | p |
+|---|---|---|---|
+| CFB spread | 319 | +0.017 | 0.761 |
+| CFB total | 325 | +0.021 | 0.694 |
+| NFL spread | 73 | **-0.244** | 0.041 |
+| NFL total | 80 | -0.054 | 0.635 |
+| NFL ml | 78 | +0.259 | 0.018 |
+
+The NFL spread cell is the only negative one and it does not survive: it is 1 of 6 dose
+tests, so family p ≈ 0.22, n=73, and CFB with **four times the data shows nothing**
+(+0.017). A real fade-the-public effect would show up more clearly in the bigger sample,
+not vanish. Both ml cells are the blind-favourite confound again — the crowd sits on
+favourites, favourites win outright.
+
+**2. Dispersion — team identity carries nothing.** Spread of per-team rates vs a null that
+permutes outcomes within sport, keeping every team's game count:
+
+| | observed | null | p |
+|---|---|---|---|
+| CFB spread | 0.232 | 0.232 ± 0.013 | 0.492 |
+| CFB total | 0.218 | 0.230 ± 0.013 | 0.824 |
+| NFL spread | 0.214 | 0.238 ± 0.029 | 0.794 |
+| NFL total | 0.209 | 0.222 ± 0.025 | 0.682 |
+| NFL ml | 0.264 | 0.229 ± 0.025 | 0.080 |
+
+CFB spread sitting at exactly the null (0.232 vs 0.232) is the market working: ATS cover
+rates are ~50% for every team. ⚠ The one "significant" cell, CFB ml at p=0.000, is
+**team quality, not an edge** — good teams win games outright. Any dispersion test on
+moneyline outcomes detects that and it is worth nothing to a bettor.
+
+**3. ⛔ The leaderboards are noise, and the script says so.** UCLA 5-0 ATS, Nebraska 5-0,
+Utah 4-0, West Virginia 5-0 to the over. Every one carries `p_family = 1.00`, because
+**a random relabelling puts its most extreme team 50 points off 50% on average** — with
+129 teams at 4-5 games each, somebody goes perfect every single season in random data.
+
+With ~4-5 graded games per team there is no power to measure a team effect at all;
+detecting a true 10-point edge would need on the order of 100 games per team. This is the
+same verdict the NBA reached for team x situation records — see `nba-team-spots`.
+
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 
 ## Current state
