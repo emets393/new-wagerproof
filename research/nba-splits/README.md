@@ -340,6 +340,63 @@ This is the second time the same class of error appeared here — the first was 
 within-week shuffle on strata holding one game each, which manufactured a fake baseline
 and hid a real effect. Check that the null actually moves something.
 
+## Month by month — percentages, tickets, outcomes
+
+```
+nba_months.py
+```
+
+⛔ Month rows are REGULAR SEASON only. April holds both the end of the regular season and
+the first round of the playoffs; mixing them diluted April's over rate from 57.6% (n=311)
+to 53.2% (n=450) — two different competitions in one row. The post-season has its own line.
+
+### What the public did
+
+| month | games | med tix | crowd% sp | crowd% ou | crowd% ml | on fav | on over | \|gap\| sp |
+|---|---|---|---|---|---|---|---|---|
+| Oct | 202 | 36,616 | 64% | 88% | 85% | **53%** | **100%** | 3.0 |
+| Nov | 626 | 28,322 | 65% | 83% | 87% | 64% | 95% | 4.0 |
+| Dec | 583 | 24,869 | 62% | 80% | 83% | 63% | 94% | 5.0 |
+| Jan | 682 | 24,874 | 62% | 76% | 83% | 63% | 91% | 5.0 |
+| Feb | 519 | 27,656 | 63% | 79% | 80% | 60% | 86% | 5.0 |
+| Mar | 706 | 19,528 | 63% | 79% | 85% | 62% | 87% | 6.0 |
+| Apr | 316 | 15,716 | 64% | 84% | 86% | **67%** | 95% | 6.5 |
+| **playoffs** | 269 | **75,200** | 63% | 89% | — | 55% | 98% | — |
+
+Three things that do move: **volume falls all season** (36.6k → 15.7k) then quadruples in
+the playoffs; the crowd **gets chalkier** as the year goes on (53% on favourites in
+October, 67% by April); and the **money-vs-tickets gap widens** (3.0 → 6.5). What does
+*not* move is lopsidedness itself — the spread crowd sits at 62-65% every single month.
+And the over lean is extreme throughout: 86-100% of games.
+
+### What happened
+
+| month | home cov | over | fav cov | crowd spread | crowd totals |
+|---|---|---|---|---|---|
+| Oct | 48.9% | 54.7% | **41.1%** | 76-65 53.9% | 81-67 54.7% |
+| Nov | 49.9% | 50.5% | 50.3% | 219-236 48.1% | 238-241 49.7% |
+| Dec | 49.5% | 52.8% | 48.6% | 256-300 **46.0%** | 295-269 52.3% |
+| Jan | 50.8% | **44.4%** | 50.0% | 318-340 48.3% | 305-368 **45.3%** |
+| Feb | 49.1% | 49.9% | 51.1% | 261-238 52.3% | 255-250 50.5% |
+| Mar | 50.4% | 50.0% | 50.8% | 377-312 **54.7%** | 347-353 49.6% |
+| Apr | 50.0% | **57.6%** | 55.9% | 168-138 54.9% | 175-136 56.3% |
+| **playoffs** | 51.2% | 50.0% | **46.9%** | 112-146 **43.4%** | 132-134 49.6% |
+
+### The four cells with season-by-season support
+
+| cell | pooled | roi | 2023-24 | 2024-25 | 2025-26 | verdict |
+|---|---|---|---|---|---|---|
+| **April OVER** | 57.6% (n=311) | +9.9% | 59.8% | 54.8% | 57.9% | ★ 3/3, family **p=0.013**, mechanism |
+| **playoffs FADE crowd spread** | 56.6% (n=258) | +8.0% | 55.3% | 57.0% | 57.5% | ★ 3/3 and very tight; family p=0.052 |
+| March FOLLOW crowd spread | 54.7% (n=689) | +4.5% | 54.7% | 55.8% | 53.6% | 3/3 tight, big n, but CI [51%, 58%] straddles break-even |
+| January UNDER | 55.6% (n=673) | +6.1% | 58.0% | **48.0%** | 60.8% | ⚠ one season LOSES; 58 → 48 → 61 is not stability |
+| Oct FADE favourite | 58.9% (n=141) | +12.4% | — | 58.2% | 59.5% | ⚠ only 2 seasons — Oct 2023 is entirely placeholder data and was filtered out |
+
+⚠ These are month-level cells and the month family (7 cells x 3 markets x several outcome
+columns) was **not** corrected as a family — only the 5-cell phase family was, which is
+where April's p=0.013 and the playoff 0.052 come from. Treat March and January as leads,
+not findings, and note January fails the one test that matters most here.
+
 ## Reading any cell here
 
 Read every record **from the bet's side**: a 28-48 is a 48-28 fade, and the fade is the
