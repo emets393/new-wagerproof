@@ -418,6 +418,57 @@ gives **8.8 ± 2.9**, p_family=0.754. The whole family is inside noise — and n
 observed best is *below* the null's average best, which is what a genuinely dead family
 looks like.
 
+## ⛔ Money% minus tickets% — the sharp-money read. Dead in both markets (2026-10-16)
+
+```
+nfl_divergence.py
+```
+
+NFL 2023-2026, **858 graded spreads and 877 graded totals**. This is the dedicated pass
+the divergence never had: `money_minus_bets_away` had been a column since the beginning
+with zero downstream readers, and totals had only ever been tested for the strict flip.
+
+Two constructs, kept apart. **FLIP** = ticket majority one side, money majority the other
+(~15-17% of games). **TILT** = money% exceeds tickets% on a side without crossing 50 —
+what a "67% of bets, 81% of money" headline actually describes, and far more common.
+
+**★ Backing the money side LOSES on spreads in every single season:**
+
+| season | record | rate |
+|---|---|---|
+| 2023 | 127-130 | 49.4% |
+| 2024 | 126-135 | 48.3% |
+| 2025 | 136-130 | 51.1% |
+| 2026 | 34-40 | 45.9% |
+| **all** | **423-435** | **49.3%** (n=858, roi −5.9%) |
+
+Break-even is 52.4%. Not one season clears it. The continuous correlation between the
+signed gap and the outcome is **+0.006** on 858 games — zero to three decimal places.
+Totals are no better overall: back the money side 448-429, **51.1%**, also under vig.
+
+**★ The dose is non-monotone in BOTH markets, which is the signature of noise.** If a
+wider gap meant more sharp money, the widest band would be the best cell. It is not,
+in either market:
+
+| \|gap\| | spread | total |
+|---|---|---|
+| 0-5 | 47.8% | 50.8% |
+| 5-10 | 50.7% | 49.3% |
+| 10-15 | 44.7% | 46.6% |
+| 15-20 | **55.7%** | **58.3%** |
+| 20+ | 51.0% | 54.1% |
+
+Both markets dip at 10-15, pop at 15-20, then fall back at 20+. Two independent markets
+producing the same ragged shape is what a non-effect looks like, not a threshold.
+
+**Everything else is flat too:** FLIP on spreads 50.7% (n=148) vs backing tickets 49.3% —
+the two sides of a coin. Heavy crowd with money against it 52.0%, with money behind it
+48.7%. Family correction: spreads p=0.756, totals p=0.326; in both the observed best cell
+sits at or below what a within-week reshuffle produces.
+
+The one survivor-ish cell is the totals FLIP at 55.9% (n=127), already downgraded in the
+totals section above — its own dose contradicts it. ⚠ Nothing here speaks to CFB.
+
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 
 ## Current state
