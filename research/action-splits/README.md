@@ -469,6 +469,51 @@ sits at or below what a within-week reshuffle produces.
 The one survivor-ish cell is the totals FLIP at 55.9% (n=127), already downgraded in the
 totals section above — its own dose contradicts it. ⚠ Nothing here speaks to CFB.
 
+## NFL short moneylines, inside ±220 (added 2026-10-16)
+
+```
+nfl_short_ml.py [--cap 220]
+```
+
+Every moneyline read here had come back "the crowd side wins a lot" and been worthless,
+because the ML crowd sits on favourites and favourites win. At -400 that is arithmetic.
+Capping the favourite at -220 (~69/31) strips the chalk and asks the only version that
+can carry information. 885 decided games, 2023-2026, **55% of them short**.
+
+★ **Scored against the VIG-FREE implied probability of the exact side backed, never
+against 50%**, with ROI settled at the real price. A crowd side winning 58% at a no-vig
+59% is losing, and a 50% yardstick would call it an edge.
+
+**The cut reverses the sign, which is why it was worth making:**
+
+| | rate | no-vig | edge | ROI | n |
+|---|---|---|---|---|---|
+| all games | 65.8% | 64.3% | +1.4% | −1.7% | 885 |
+| **short (fav ≥ −220)** | 60.1% | 56.3% | **+3.7%** | **+1.6%** | 491 |
+| long (fav < −220) | 72.8% | 74.3% | **−1.4%** | −5.9% | 394 |
+
+The crowd beats the price in competitive games and loses to it on heavy chalk. The full
+sample averages the two into nothing. Within the short cut it is entirely the **favourite**
+side carrying it (63.5% vs 58.8% no-vig, roi +3.8%, n=406); crowd-on-dog is −0.8%.
+
+⚠ **Not a bet, for three reasons.** Permutation p=**0.056**. Vig eats most of it — a
++3.7% edge over the no-vig price nets **+1.6%** at the real one, because median vig is
+4.21%. And the season ledger decays:
+
+| 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|
+| +4.4% | +7.7% | +0.7% | −2.1% |
+
+Two good seasons then two flat-to-negative is the shape of something fading, or of
+something that was never there.
+
+**Dead inside the cut:** the lopsidedness bands are non-monotone (55-59% edge +15.2% on
+n=48, 60-64% +12.1%, then 65-69% **−2.3%**, 70+ +1.9%) — a hot patch with cold cells
+either side is noise, and combining 55-64 after seeing it would be the same move that
+produced the heavy-public fade. Money-vs-tickets is worse than dead here: backing the
+money side on an ML **FLIP goes 28-48, −19.0% roi** (n=76), and the TILT dose is flat
+(+3.2 / −1.5 / +0.3 across gap bands).
+
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 
 ## Current state
