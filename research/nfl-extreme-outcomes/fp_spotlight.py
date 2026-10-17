@@ -1207,6 +1207,15 @@ def main():
                          interest=interest, n_el=n_el,
                          fam_over=len(agree), fam_under=len(oppose)))
     Q = pd.DataFrame(rows)
+    # ⛔ AN EMPTY BOARD MUST SAY WHY IT IS EMPTY. With no rows the frame has no columns either,
+    # so the very next line raised `KeyError: None of [fam_over, fam_under]` — a traceback that
+    # names pandas internals and says nothing about the cause. Every time it fired the cause was
+    # upstream: the payload held no priced lines for the (season, week) asked for, because the
+    # week asked for had no slate yet (2026-10-15/16, see render.yaml's note on the resolver).
+    if not len(Q):
+        sys.exit(f"[spotlight] no scored lines for {a.season} wk{a.week} — the payload "
+                 f"{a.payload} carries no priced lines for that week. Check that the week is "
+                 f"the one still to be played (resolve_nfl_week.py) and that the slate exists.")
     # capacity per (market, position): the 90th percentile of families that actually fire
     Q["fired"] = Q[["fam_over", "fam_under"]].max(axis=1)
     cap = Q.groupby(["market", "pos"]).fired.quantile(0.90).rename("capacity").reset_index()

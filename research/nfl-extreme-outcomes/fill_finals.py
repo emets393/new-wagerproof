@@ -54,11 +54,21 @@ def _patch_final(table, gid, sh, sa, hdr, tries=3):
     """
     last = None
     for attempt in range(tries):
-        resp = requests.patch(f"{BASE}/{table}?game_id=eq.{gid}", headers=hdr,
-                              json={"final_home": sh, "final_away": sa}, timeout=30)
-        if resp.ok:
-            return
-        last = f"HTTP {resp.status_code} {resp.text[:300]}"
+        try:
+            resp = requests.patch(f"{BASE}/{table}?game_id=eq.{gid}", headers=hdr,
+                                  json={"final_home": sh, "final_away": sa}, timeout=30)
+        except requests.exceptions.RequestException as e:
+            # ⛔ A DROPPED CONNECTION NEVER REACHED THE RETRY ABOVE. requests RAISES on an
+            # SSL EOF or a reset rather than returning a response, so the loop was skipped
+            # entirely and the exception took the run with it — exactly how fill_h1 died on
+            # 2026-10-15 and 10-16 ("SSLEOFError ... EOF occurred in violation of protocol").
+            # Over a season these two writers make four-figure single-row calls a day; a
+            # transient drop is a certainty, not an edge case.
+            last = f"{type(e).__name__}: {str(e)[:300]}"
+        else:
+            if resp.ok:
+                return
+            last = f"HTTP {resp.status_code} {resp.text[:300]}"
         # 4xx that is genuinely our fault (bad column, bad type) will not heal on retry,
         # but we cannot tell those apart from a pooler-level 400 without the body — so
         # retry a few times and let the message say what came back.
@@ -84,11 +94,19 @@ def _report_and_write(label, table, dg, m, keycols, hdr):
                    ["final_home", "sh", "final_away", "sa"]].to_string(index=False))
 
     if WRITE and hdr is not None:
-        n = 0
-        for _, r in matched.iterrows():
+        # ⛔ WRITE WHAT CHANGED, NOT THE WHOLE SEASON. This loop re-sent every matched game
+        # on every run — 80 NFL + 339 CFB, three runs a day, against rows the line above had
+        # just confirmed already hold the same score ("score mismatches: 0"). Each one is its
+        # own HTTPS round trip, so the no-op writes were both the entire failure surface and
+        # pure load. `todo` keeps the genuinely new rows (no final yet) and the handful that
+        # disagree with the source.
+        todo = matched[matched["final_home"].isna()
+                       | (matched["final_home"] != matched["sh"])
+                       | (matched["final_away"] != matched["sa"])]
+        for _, r in todo.iterrows():
             _patch_final(table, _gid(r.game_id), int(r.sh), int(r.sa), hdr)
-            n += 1
-        print(f"[{label}] PATCHed final_home/away on {n} games")
+        print(f"[{label}] PATCHed final_home/away on {len(todo)} games "
+              f"({len(matched) - len(todo)} already correct, skipped)")
 
 
 def fill_nfl(hdr):

@@ -381,15 +381,30 @@ def main():
 
     # ---- AS-OF look hit rates from props_frame (real lines + results, opponent classified
     # by the season the game was PLAYED — Cursor option (b), historical as-of tagging) ----
-    pfh = pd.read_parquet(DATA / "props_frame.parquet")
-    pfh = pfh[pfh.result_close.isin(["O", "U", "Y", "N"])].copy()
+    # ⛔ props_p1_frame.py GRADES IN WORDS, NOT INITIALS. result_close holds
+    # "over"/"under"/"push" and "yes"/"no" for anytime TD; this read filtered on
+    # ["O","U","Y","N"] and so matched NOTHING — hitr was empty on every run since the block
+    # was written, and look_hit_rates was silently absent from all 353 live pages (verified
+    # 2026-10-17 against nfl_prop_player_pages: 0 of 400 sampled carried it). HIT is the over
+    # or the TD scored; the push is correctly excluded by not being named here.
+    HIT, GRADED = {"over", "yes"}, ["over", "under", "yes", "no"]
+    # ⛔ FIVE COLUMNS, NOT ALL 53. The whole frame is 215k x 53 = 270 MB resident, which on
+    # nfl-live-props-hourly's 512Mi box is most of the allowance: it OOM-killed the :00 run on
+    # 2026-10-16 and 10-17 while the :15/:30/:45 runs (which skip page-gen) were fine. The
+    # block reads exactly these five, and the frame grows with every week of the season, so
+    # pruning the read is the fix rather than a bigger plan.
+    pfh = pd.read_parquet(DATA / "props_frame.parquet",
+                          columns=["player_id", "market", "season", "opp", "result_close"])
+    pfh = pfh[pfh.result_close.isin(GRADED)].copy()
     pfh["opp_types"] = [types.get((s_, o_), []) for s_, o_ in zip(pfh.season, pfh.opp)]
     hitr = {}
     for r_ in pfh.itertuples():
         for typ in r_.opp_types:
             k = (r_.player_id, r_.market, typ)
             h_, n_ = hitr.get(k, (0, 0))
-            hitr[k] = (h_ + (1 if r_.result_close in ("O", "Y") else 0), n_ + 1)
+            hitr[k] = (h_ + (1 if r_.result_close in HIT else 0), n_ + 1)
+    print(f"  [look-hits] {len(pfh):,} graded prop results -> {len(hitr):,} "
+          f"(player, market, opponent-type) cells")
 
     # ---- (season, week, team) -> opponent map for the game-level splits ----
     nvg = local_or_db("nflverse_games")

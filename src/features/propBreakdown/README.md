@@ -34,7 +34,9 @@ Edge-first stack (not a sparse 4-cluster orbit):
 | `scheme.player_overall` | Career ypt / targets / pctile (man+zone blend) |
 | `scheme.player_splits.*.delta_ypt` | Split ypt − overall ypt |
 | `scheme.look_focus` | Looks matching opponent identity |
-| `scheme.look_hit_rates` | Career O/U vs teams sharing that identity |
+| `scheme.look_hit_rates` | Career O/U vs teams sharing that identity (prior seasons only; min 3 graded results per cell) |
+
+⛔ `look_hit_rates` was absent from EVERY served page until 2026-10-17. The builder filtered `props_frame.result_close` on `["O","U","Y","N"]`, but that column is graded in words (`over` / `under` / `push`, and `yes` / `no` for anytime TD), so the filter matched nothing and the block produced an empty dict on every run. The renderers degrade silently when it is missing, which is why nobody saw it. If this section ever goes blank again, check the encoding before the renderer.
 
 ## Fantasy-Points layer (`research`)
 
