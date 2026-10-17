@@ -185,20 +185,35 @@ def derive(d):
     for c in ("tix_away", "mny_away", "tix_over", "mny_over", "tix_ml_away", "mny_ml_away"):
         d[c] = pd.to_numeric(d[c], errors="coerce")
 
-    d["sp_ok"] = (d.home_ats != 0) & d.tix_away.notna() & (d.tix_away != 50)
+    # ⛔ PLACEHOLDER SPLITS, not real ones. For the start of 2023-24 the feed serves
+    # 0%/100% instead of actual percentages: EVERY game in October 2023 has tix_away in
+    # {0, 100}, 225 of 304 Oct-Nov games are exactly 0.0, and 74% have money% identical
+    # to tickets%. 17.2% of that season is affected against 1.1% and 0.2% in the two
+    # after it. A 0/100 split silently becomes "the crowd is 100% on one side", which is
+    # a maximally lopsided — and entirely fictional — data point feeding every
+    # lopsidedness cut. Dropped per market rather than per game so one bad market does
+    # not discard a usable one.
+    d["placeholder_sp"] = d.tix_away.isin([0, 100])
+    d["placeholder_ou"] = d.tix_over.isin([0, 100])
+    d["placeholder_ml"] = d.tix_ml_away.isin([0, 100])
+
+    d["sp_ok"] = ((d.home_ats != 0) & d.tix_away.notna() & (d.tix_away != 50)
+                  & ~d.placeholder_sp)
     d["home_covered"] = d.home_ats > 0
     d["pub_away"] = d.tix_away > 50
     d["pub_pct"] = np.where(d.pub_away, d.tix_away, 100 - d.tix_away)
     d["pub_covered"] = np.where(d.pub_away, ~d.home_covered, d.home_covered)
     d["fav_covered"] = np.where(d.fav_away, ~d.home_covered, d.home_covered)
 
-    d["ou_ok"] = d.ou_margin.notna() & (d.ou_margin != 0) & d.tix_over.notna() & (d.tix_over != 50)
+    d["ou_ok"] = (d.ou_margin.notna() & (d.ou_margin != 0) & d.tix_over.notna()
+                  & (d.tix_over != 50) & ~d.placeholder_ou)
     d["over_hit"] = d.ou_margin > 0
     d["pub_over"] = d.tix_over > 50
     d["ou_pub_pct"] = np.where(d.pub_over, d.tix_over, 100 - d.tix_over)
     d["ou_pub_won"] = np.where(d.pub_over, d.over_hit, ~d.over_hit)
 
-    d["ml_ok"] = d.tix_ml_away.notna() & (d.tix_ml_away != 50) & (d.margin != 0)
+    d["ml_ok"] = (d.tix_ml_away.notna() & (d.tix_ml_away != 50) & (d.margin != 0)
+                  & ~d.placeholder_ml)
     d["home_won"] = d.margin > 0
     d["ml_pub_away"] = d.tix_ml_away > 50
     d["ml_pub_won"] = np.where(d.ml_pub_away, ~d.home_won, d.home_won)

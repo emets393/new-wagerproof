@@ -270,6 +270,76 @@ own NFL evidence, and it neither confirms nor refutes the NBA read. Totals run 5
 slightly the *opposite* direction. Spread is incoherent: 65.0 / 57.6 / **37.9** / 57.9% —
 adjacent quartiles twenty points apart is noise, not structure.
 
+## ★★ Season phases — and the best cell in this repo
+
+```
+nba_phases.py
+```
+
+### ⛔ First, a data defect this exposed
+
+**The feed serves PLACEHOLDER splits for the start of 2023-24.** Every game in October
+2023 has `tix_away` in {0, 100}; 225 of 304 Oct-Nov games are exactly 0.0; 74% have
+money% identical to tickets%. That is 17.2% of the season, against 1.1% and 0.2% in the
+two after it. A 0/100 split silently becomes "the crowd is 100% on one side" — a
+maximally lopsided and entirely fictional point feeding every lopsidedness cut.
+
+`derive()` now drops them per market. Spread gradable falls 3,846 → 3,604. ⚠ The earlier
+2023-24 divergence contrast weakens once they are gone: `|gap|>=15` 55.4% vs `<15`
+**50.0%** (was 49.4%), Fisher **p=0.078** (was 0.031). The headline cell is unchanged;
+its control group was contaminated.
+
+### Pooled outcomes by phase
+
+| phase | n | home cover | over | fav cover | crowd spread | crowd totals |
+|---|---|---|---|---|---|---|
+| Oct-Nov | 596 | 49.7% | 51.5% | 48.2% | 49.5% | 50.9% |
+| Dec-Jan | 1214 | 50.2% | 48.3% | 49.3% | 47.3% | 48.5% |
+| Feb-Mar | 1188 | 49.8% | 50.0% | 50.9% | 53.7% | 50.0% |
+| **Apr reg** | **306** | 50.0% | **57.6%** | 55.9% | 54.9% | 56.3% |
+| playoffs | 258 | 51.2% | 50.0% | 46.9% | 43.4% | 49.6% |
+
+Family tests: **over p=0.013 (SURVIVES)**, crowd spread p=0.052, crowd totals p=0.057.
+
+### ★★ April regular-season OVER
+
+> **179-132 (57.6%), +9.9% roi, n=311, 95% CI [52%, 63%]** — lower bound clears the
+> 52.4% break-even.
+
+| season | record | over | roi |
+|---|---|---|---|
+| 2023-24 | 67-45 | 59.8% | +14.2% |
+| 2024-25 | 57-47 | 54.8% | +4.6% |
+| 2025-26 | 55-40 | 57.9% | +10.5% |
+
+**3 of 3 seasons profitable.** It is a spike, not a gradient — by month: Oct 54.7, Nov
+50.5, Dec 52.8, Jan **44.4**, Feb 49.9, Mar 50.0, **Apr 57.6**.
+
+**★ The mechanism is visible and it is the market moving the wrong way.** Mean over/under
+margin by month: Jan −1.54, Feb −0.42, Mar +0.90, **Apr +3.03**. Meanwhile the median
+total *falls* into April (229.5 in Jan → 226.0 in Apr) while actual points *rise*
+(227 → 229). Teams rest starters and defensive intensity collapses; the market appears to
+anchor on the missing stars and shades the number DOWN, in the wrong direction.
+
+Widening the window keeps it: Mar 25 onward goes 263-207 (56.0%, +6.8%, n=470). That is
+the robustness the 15-20 divergence band failed.
+
+⚠ Caveats: n=311, three seasons, and the lower CI bound sits one point above break-even.
+January unders (374-299, 55.6%, n=673) are a large opposite-signed cell but come from a
+finer month-level slice that was not family-corrected — do not pair them into a story.
+
+### ⛔ A permutation bug worth not repeating
+
+The phase family test first returned null sd of **exactly 0.0** and p=1.000, which reads
+as a clean null. It was a no-op: phase is derived from the slate DATE, so every game on a
+night shares a phase and a within-night shuffle cannot move any game between phases. Fixed
+to a within-SEASON shuffle, after which the same data gives p=0.013.
+
+★ **The permutation unit must be able to move games between the cells being compared.**
+This is the second time the same class of error appeared here — the first was a
+within-week shuffle on strata holding one game each, which manufactured a fake baseline
+and hid a real effect. Check that the null actually moves something.
+
 ## Reading any cell here
 
 Read every record **from the bet's side**: a 28-48 is a 48-28 fade, and the fade is the
