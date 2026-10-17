@@ -111,6 +111,65 @@ says the effect is not present in NBA. The NFL candidate still rests on its own 
 evidence — n=76, p=0.208, three profitable seasons of four — and only more NFL games can
 settle it.
 
+## Depth pass — day, time, line movement, per-market structure
+
+```
+nba_deep.py
+```
+
+Six families, each corrected best-of-N against a null that permutes outcomes **within
+slate date**. Near-uniformly null. Family p-values: day-of-week spread 0.690, day-of-week
+over 1.000, tip-window spread 0.513, tip-window over 0.121, RLM 0.726, spread structure
+0.932, total structure 0.688.
+
+**★ Reverse line movement is worth nothing in NBA.** The most-cited sharp indicator in
+betting folklore, tested here for the first time (the openers had been sitting unused in
+the frame). 2,511 games with an opener, line moved in 87%:
+
+| | record | rate | roi |
+|---|---|---|---|
+| back the side the line moved TOWARD | 1128-1057 | 51.6% | −1.4% |
+| RLM — line moves AGAINST the crowd, back the line | 594-562 | 51.4% | −1.9% |
+| line moves WITH the crowd, back them | 534-495 | 51.9% | −0.9% |
+
+Flat by size of move (52.9 / 50.5 / 51.4 / 51.0) and by crowd heaviness (50.2 / 50.3 /
+54.0). Family p=0.726. ⚠ Note RLM happens in **53%** of moved games — the line moves
+against the public majority more often than with it, which is what you would expect if
+books shade against public money. It just does not predict anything.
+
+Totals movement is the same story: total moved up → over 53.6% (n=1,213, +2.3%), moved
+down → under 51.9%, totals RLM 52.1%.
+
+**Spread and total structure are flat.** Every |spread| band 50.6-51.6%; road favourite
+50.4%, home favourite 50.4%, road dog 50.3%, home dog 51.2%. Total bands 50.2-53.1%.
+**The moneyline is efficient at every price band** — edges vs the vig-free number of
++0.5 / +0.3 / −2.0 / +1.3 / +0.1% from pick'em out to −320 and longer.
+
+### ★ The one lead worth tracking: afternoon unders
+
+Games tipping before 7pm ET (almost all Sat/Sun matinees) go under at **54.9%**
+(258-212, +4.8% roi, n=470), and it is the best-behaved cell found anywhere in this work:
+
+- **3 of 3 seasons**: 55.4 / 53.9 / 55.4%
+- **stable across the cutoff**: under rate 54.4 / 54.4 / 53.8 / 54.9% for tip < 16:00 /
+  17:00 / 18:00 / 19:00, then collapsing to 50.8% at < 20:00 — which is exactly where the
+  7pm Eastern slate floods in. The boundary sits where the mechanism says it should.
+- **a visible mechanism**: the market *does* adjust, just not enough. Afternoon totals
+  average 226.66 vs 227.63 in the evening (−0.96), while actual points average 225.96 vs
+  228.31 (−2.34). It under-adjusts by about 1.4 points.
+
+⚠ **Not established.** Family-corrected p=0.121, and the mechanism test itself is
+p=0.116 (Welch t=−1.58; permutation −1.38 pts, null 0.00 ± 0.87). The 95% CI is
+[50%, 59%] — the lower bound is under break-even. 1.4 points on a 227 total is a thin
+edge that vig can eat.
+
+Saturday afternoons are the stronger half (58.9%, n=107) against Sunday (52.9%, n=312),
+but that split was not pre-registered and Saturday is thin — do not trade on it.
+
+⛔ Two descriptive notes worth keeping even though nothing bets on them: ticket volume
+swings hard by day (Tue median 30,779 down to Sun 17,054), and the 10pm+ West Coast
+window draws the **most** money per game (29,146) while being the least-watched slot.
+
 ## Reading any cell here
 
 Read every record **from the bet's side**: a 28-48 is a 48-28 fade, and the fade is the
