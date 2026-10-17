@@ -373,6 +373,51 @@ well inside the noise band. This is a strong null, not an underpowered one.
 because TNF goes the other way at 55.7% over. If primetime caused unders it would do it
 in all three primetime slots. Reporting SNF+MNF while dropping TNF would be cherry-picking.
 
+## NFL totals, 2023-2026 (added 2026-10-16)
+
+```
+nfl_totals.py
+```
+
+877 graded over/unders. Totals had only ever been a side-cell here; this is the dedicated pass.
+
+**Base rate: the market is centred.** Over 440-437 (50.2%) pooled. Per season 45.6 / 53.2 /
+52.1 / 49.3% — real year-to-year swing, no standing edge.
+
+**★ The crowd's over-bias is real AND completely priced.** The public is on the over in
+**65.9%** of games (median over-ticket share 62%), which is the folk claim confirmed. It
+pays nothing: crowd-on-over → over hits **50.0%** (n=578); heavy crowd on the over (>=65%)
+→ over hits **50.0%** exactly (n=394). A genuine, measurable behavioural bias that the
+line has entirely absorbed. Knowing the public leans over is not the same as it being
+exploitable.
+
+**⛔ The recorded flip finding does not replicate.** The `action-network-splits` note
+carried "tickets and money majorities on OPPOSITE sides of a total → back the MONEY" at
+**NFL 78.6%**, off n=14. Unfitted across four seasons:
+
+| season | record | rate |
+|---|---|---|
+| 2023 | 29-28 | 50.9% (n=57) |
+| 2024 | 11-10 | 52.4% (n=21) |
+| 2025 | 21-15 | 58.3% (n=36) |
+| 2026 | 10-3 | 76.9% (n=13) — the original sample |
+| **pooled** | **71-56** | **55.9%**, roi +6.7%, CI [47%, 64%], n=127 |
+
+Break-even is 52.4%. The largest single season (2023, n=57) lands at 50.9% — below vig —
+and the CI straddles break-even. ★ The dose kills it: if divergence drove this, bigger
+gaps would pay more, and they do not — |money−tickets| of 10-15 gives 56.5% but **15+
+gives exactly 50.0%** (n=232). Downgrade the recorded 78.6%; it was a 14-game artifact.
+This says nothing about the CFB 65.2% leg, which is untested and needs its own fetch.
+
+**Dead:** fading the crowd's totals side by lopsidedness (43.4 / 44.9 / 55.2 / 47.8 /
+51.2% across bands, corr +0.028 — not monotone, no signal). And "big totals go under" is
+**false**: 50.6 / 48.0 / 55.2 / 48.4 / 47.9% by line band, corr +0.031.
+
+**Family correction:** most extreme cell is 6.6 points off 50%, a within-week reshuffle
+gives **8.8 ± 2.9**, p_family=0.754. The whole family is inside noise — and note the
+observed best is *below* the null's average best, which is what a genuinely dead family
+looks like.
+
 ⚠ These scripts need `../.venv/bin/python` — there is no system pandas on this machine.
 
 ## Current state
