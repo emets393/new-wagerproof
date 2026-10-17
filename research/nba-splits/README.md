@@ -449,6 +449,62 @@ and sign-flipping, roi negative, permutation p=0.417 on the pooled `|gap|>=20` c
 `ml_cell()` now prints the edge over no-vig with the win rate only in brackets, so the
 raw rate can never be read as the result again.
 
+## Spreads, month by month
+
+```
+nba_spread_months.py
+```
+
+3,304 regular-season graded spreads. Four crosses, each family-corrected with a
+**within-season** shuffle. ⚠ October 2023 is placeholder data, so October rows carry two
+seasons, not three.
+
+### 1. Base rates — the one cross that survives (family p=0.034)
+
+| month | n | home cover | **fav cover** | road fav | home fav |
+|---|---|---|---|---|---|
+| Oct | 141 | 48.9% | **41.1%** | 41.3% | 41.0% |
+| Nov | 455 | 49.9% | 50.3% | 50.6% | 50.2% |
+| Dec | 556 | 49.5% | 48.6% | 48.9% | 48.4% |
+| Jan | 658 | 50.8% | 50.0% | 49.0% | 50.6% |
+| Feb | 499 | 49.1% | 51.1% | 52.3% | 50.2% |
+| Mar | 689 | 50.4% | 50.8% | 50.5% | 51.0% |
+| Apr | 306 | 50.0% | **55.9%** | 57.5% | 54.8% |
+
+A 14.8-point swing from October to April, and the cross clears the family correction.
+Both ends then have to face the season ledger, and only one holds:
+
+| | pooled | roi | 2023-24 | 2024-25 | 2025-26 |
+|---|---|---|---|---|---|
+| Oct — FADE the favourite | 83-58 (58.9%) | +12.4% | *(no data)* | 58.2% | 59.5% |
+| Apr — BACK the favourite | 171-135 (55.9%) | +6.7% | **48.2%** | 59.0% | 61.7% |
+
+⚠ **April's favourite lean fails in 2023-24** (48.2%, −8.0% roi) — 2 of 3 seasons, the
+same failure mode as the January under. October is 2 for 2 but only two seasons exist and
+n=141. Neither is established; the cross surviving is not the same as either end holding.
+
+★ Note April's two signals are separate columns of the same story: favourites cover 55.9%
+AND overs hit 57.6%. Tanking teams getting blown out in games with no defence is one
+mechanism producing both. But the over is 3/3 seasons and the favourite is 2/3, so the
+over is the one to track. Last ten days only (Apr 5 onward): favourite 128-93 (57.9%).
+
+### 2-4. Everything else is noise
+
+| cross | best cell | null | p |
+|---|---|---|---|
+| month x crowd lopsidedness | 9.6 pts | 11.6 ± 3.2 | 0.710 |
+| month x line size | 14.6 pts | 12.3 ± 3.2 | 0.193 |
+| month x line movement | 10.3 pts | 9.7 ± 2.9 | 0.356 |
+
+★ **The cleanest negative in this directory**: crowd lopsidedness on NBA spreads carries
+nothing, in any month, at any intensity. Pooled by band — 50-59% **51%**, 60-69% **51%**,
+70-79% **51%**, 80%+ **52%** on 3,304 games. Four bands, one number. Whatever the public's
+spread lean is worth, it is not worth 0.4 points of vig.
+
+Line movement by month is equally flat: backing the side the line moved toward is 52%
+overall and 51-56% in every month, and the reverse-line-movement column (51% overall) is
+no better than the line-moves-with-the-crowd column (53%).
+
 ## Reading any cell here
 
 Read every record **from the bet's side**: a 28-48 is a 48-28 fade, and the fade is the
