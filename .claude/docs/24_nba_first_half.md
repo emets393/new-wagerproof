@@ -33,7 +33,7 @@ rows live in `nba_model_preds_h1`. Join to the game the same way as the full gam
 | `bet_abbr`, `bet_line`, `home_out`, `away_out`, `as_of`, `model_version` | as full game (`core_h1_spread_v1`) | (`core_h1_total_v1`) |
 
 `no_line` means the books have not posted a first-half number yet. That is normal in the morning: 1H lines usually
-appear the afternoon of the game, so the 9:20am rows are often `no_line` and fill in at 1:20pm / 5:20pm. Render the
+appear the afternoon of the game, so the 9:30am rows are often `no_line` and fill in at 1:30pm / 5:30pm / 7:30pm. A game that has tipped is never re-predicted: its last pre-tip rows stand (owner rule 2026-10-19). Render the
 model number with "line not posted yet" rather than hiding the row.
 
 ## What is a bet and what is not
