@@ -90,4 +90,6 @@ select snapshot_time, bookmaker, line, over_odds, under_odds from nba_player_pro
 
 No opponent / positional-defence context. No model edge: the originator (points +7%, PRA +11% ROI at the
 top-25% edge in research) is a later addition and will arrive as `model_pred` / `model_edge` columns plus
-new `nba_prop_defs` keys; nothing existing changes. The agents' `get_props` tool is still NFL-only.
+new `nba_prop_defs` keys; nothing existing changes. The agents' `get_props` tool serves NBA since 2026-10-19
+(`nba_slate_props.game_id` = the view's balldontlie id is the join): a prop is bettable to an agent only when its row
+carries a flag and the player is not Out/Doubtful; picks grade through `nba_player_box` in `grade-avatar-picks`.

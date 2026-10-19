@@ -529,8 +529,8 @@ async function fetchSignalDefsMap(
   try {
     // nba_signal_defs carries the validated record as record_text ("364-234 (60.9%) ..."); the football
     // defs as typical_hit ("~64%"). formatSlateFlag reads either.
-    const columns = sport === 'nba'
-      ? 'signal_key, display_name, one_liner, why_it_works, bet_direction, record_text'
+    const columns: string = sport === 'nba'
+      ? 'signal_key, display_name, one_liner, why_it_works, bet_direction, record_text, season_record_text'
       : 'signal_key, display_name, one_liner, why_it_works, bet_direction, typical_hit';
     const { data, error } = await cfbClient
       .from(tableName)
@@ -541,7 +541,7 @@ async function fetchSignalDefsMap(
       return result;
     }
 
-    for (const row of data as Record<string, unknown>[]) {
+    for (const row of data as unknown as Record<string, unknown>[]) {
       const key = String(row.signal_key ?? '');
       if (!key) continue;
       result.set(key, row);
@@ -607,7 +607,7 @@ async function fetchNBAGames(
   // 2026-10-13. The old nba_todays_games_predictions_with_accuracy_cache was built on
   // nba_predictions.model_fair_*, which has zero correlation with results, and is being dropped.
   const gameIds = [...new Set(games.map(g => String(g.game_id || '')).filter(Boolean))];
-  const [polymarketByGameKey, injuriesByTeam, modelByGameId, winProbByGameId, flagsByGameId, defMap, situationalByGameId] = await Promise.all([
+  const [polymarketByGameKey, injuriesByTeam, modelByGameId, winProbByGameId, flagsByGameId, defMap, situationalByGameId, propsByGameId] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nba', games),
     fetchNBAInjuriesByTeam(cfbClient, games, targetDate),
     fetchNBAModelByGameId(cfbClient, games, targetDate),
@@ -615,6 +615,7 @@ async function fetchNBAGames(
     fetchNBAFlagsByGameId(cfbClient, games, targetDate),
     fetchSignalDefsMap(cfbClient, 'nba'),
     fetchSituationalTrendsByGameId(cfbClient, 'nba_game_situational_trends_today', games),
+    fetchNBAPropsByGameId(cfbClient, gameIds),
   ]);
 
   const formattedGames = games.map(game => {
@@ -628,7 +629,8 @@ async function fetchNBAGames(
       winProbByGameId.get(gid) || null,
       flagsByGameId.get(gid) || [],
       defMap,
-      situationalByGameId.get(gid) || null
+      situationalByGameId.get(gid) || null,
+      propsByGameId.get(gid) || []
     );
   });
   return { games, formattedGames };
@@ -1678,6 +1680,111 @@ function formatNFLProp(row: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
+// NBA player props for the agents, keyed by the view's game_id (the balldontlie id; nba_slate_props.game_id is filled by
+// nba_props_slate.py from nba_model_preds). SIGNAL-GATED like the NFL: is_bettable only when the board row carries a rule
+// flag (a key in nba_prop_defs) and the player is not Out/Doubtful. Owner rule 2026-10-19: NBA agents wait for prop
+// signals. Contract .claude/docs/23_nba_player_props.md; the two record strings .claude/docs/26_nba_signal_lifecycle.md.
+async function fetchNBAPropsByGameId(
+  cfbClient: SupabaseClient,
+  gameIds: string[]
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const result = new Map<string, Record<string, unknown>[]>();
+  const ids = gameIds.map(Number).filter((n) => Number.isFinite(n));
+  if (ids.length === 0) return result;
+  try {
+    const [{ data, error }, defs] = await Promise.all([
+      cfbClient
+        .from('nba_slate_props')
+        .select('game_id, player_name, position, team, opponent, market, market_label, line, over_price, under_price, best_over_book, best_over_price, best_under_book, best_under_price, line_delta, prev_line_delta, l5_avg, l10_avg, szn_avg, gp_prior, over_rate_l5, over_rate_l10, baseline, baseline_gap, under_streak, report_status, flags, flag_detail, rank_tier, rank_pos')
+        .in('game_id', ids),
+      fetchNBAPropDefsMap(cfbClient),
+    ]);
+    if (error || !data) {
+      console.warn('[agentGameHelpers] nba_slate_props fetch failed:', error?.message || 'No data');
+      return result;
+    }
+    for (const row of data as Record<string, unknown>[]) {
+      const gid = row.game_id != null ? String(row.game_id) : '';
+      if (!gid) continue;
+      if (!result.has(gid)) result.set(gid, []);
+      result.get(gid)!.push(formatNBAProp(row, defs));
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] nba_slate_props fetch threw:', (error as Error).message);
+  }
+  return result;
+}
+
+// nba_prop_defs: the copy for every key that can appear in nba_slate_props.flags, with the back-test (record_text) and
+// this season's live record (season_record_text, kept by nba_signal_grader.py).
+async function fetchNBAPropDefsMap(cfbClient: SupabaseClient): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+  try {
+    const { data, error } = await cfbClient
+      .from('nba_prop_defs')
+      .select('signal_key, display_name, one_liner, bet_direction, market, record_text, season_record_text');
+    if (error || !data) return result;
+    for (const row of data as Record<string, unknown>[]) {
+      const key = String(row.signal_key ?? '');
+      if (key) result.set(key, row);
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] nba_prop_defs fetch threw:', (error as Error).message);
+  }
+  return result;
+}
+
+// One nba_slate_props row -> the agent-facing prop shape (same keys the NFL prop uses where they exist). `signals`
+// carries, per flag, the rule's name, the side it bets, the back-test and this season's record, plus the per-row
+// detail (e.g. the player's record with tonight's crew chief). All ten NBA markets are gradeable (nba_player_box).
+function formatNBAProp(row: Record<string, unknown>, defs: Map<string, Record<string, unknown>>): Record<string, unknown> {
+  const flags = Array.isArray(row.flags) ? (row.flags as unknown[]).map(String) : [];
+  const status = String(row.report_status ?? '');
+  const available = !/^(out|doubtful)$/i.test(status.trim());
+  const detail = row.flag_detail && typeof row.flag_detail === 'object' ? (row.flag_detail as Record<string, unknown>) : {};
+  return {
+    player_name: row.player_name,
+    position: row.position,
+    team: row.team,
+    opponent: row.opponent,
+    market: row.market,
+    market_label: row.market_label,
+    line: row.line,
+    over_price: row.over_price,
+    under_price: row.under_price,
+    best_over_price: row.best_over_price,
+    best_under_price: row.best_under_price,
+    line_delta: row.line_delta,
+    prev_line_delta: row.prev_line_delta,
+    l5_avg: row.l5_avg,
+    l10_avg: row.l10_avg,
+    szn_avg: row.szn_avg,
+    gp_prior: row.gp_prior,
+    over_rate_l5: row.over_rate_l5,
+    over_rate_l10: row.over_rate_l10,
+    baseline: row.baseline,
+    baseline_gap: row.baseline_gap,
+    under_streak: row.under_streak,
+    report_status: row.report_status ?? null,
+    rank_tier: row.rank_tier,
+    rank_pos: row.rank_pos,
+    flags,
+    signals: flags.map((k) => {
+      const d = defs.get(k);
+      return {
+        key: k,
+        name: d?.display_name ?? k,
+        bet: d?.bet_direction ?? null,
+        one_liner: d?.one_liner ?? null,
+        back_test: d?.record_text ?? null,
+        this_season: d?.season_record_text ?? null,
+        detail: detail[k] ?? null,
+      };
+    }),
+    is_bettable: flags.length > 0 && available,
+  };
+}
+
 async function fetchNBAInjuriesByTeam(
   cfbClient: SupabaseClient,
   games: Record<string, unknown>[],
@@ -2369,7 +2476,9 @@ function formatSlateFlag(
       record: `${perf.wins ?? 0}-${perf.losses ?? 0}`,
       hit_rate: perf.hit_rate != null ? Number(perf.hit_rate) : null,
       roi: perf.roi != null ? Number(perf.roi) : null,
-    } : null,
+    // NBA: the live season record is kept on the def itself by nba_signal_grader.py (season_record_text,
+    // e.g. "4-1 (80.0%) in 2026-27, +52.7% ROI"); no signal_performance table.
+    } : def?.season_record_text ? { record_text: def.season_record_text } : null,
   };
 }
 
@@ -2459,7 +2568,8 @@ function formatNBAGame(
   winProb: Record<string, unknown> | null,
   flags: Record<string, unknown>[],
   defMap: Map<string, Record<string, unknown>>,
-  situationalTrends: Record<string, unknown> | null = null
+  situationalTrends: Record<string, unknown> | null = null,
+  props: Record<string, unknown>[] = []
 ): Record<string, unknown> {
   const gameId = String(game.game_id);
   // Prefer the explicit away_moneyline column from nba_input_values_view;
@@ -2513,6 +2623,9 @@ function formatNBAGame(
     // Signals (nba_slate_flags) in the same compact shape as the football flags; all_time carries the
     // validated record_text from nba_signal_defs. No season_to_date yet (no NBA signal_performance rows).
     signals: flags.length > 0 ? flags.map(f => formatSlateFlag(f, undefined, defMap)) : null,
+    // Player props from the NBA board, SIGNAL-GATED: is_bettable only on rows whose `flags` carry a rule key
+    // (nba_prop_defs). get_props returns exactly those; submit grounds against them. See nba_slate_props.flags.
+    props: props.length > 0 ? props : null,
     polymarket,
     game_data_complete: {
       source_table: 'nba_input_values_view',
