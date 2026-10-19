@@ -199,6 +199,13 @@ const PROP_MARKET_STAT: Record<string, string> = {
   player_anytime_td: 'anytime_td',
 };
 
+// NBA prop markets -> nba_player_box columns, summed (mirrors nba_props_slate.py MARKET_STAT). All ten are gradeable.
+const NBA_PROP_MARKET_STAT: Record<string, string[]> = {
+  player_points: ['points'], player_rebounds: ['rebounds'], player_assists: ['assists'], player_threes: ['fg3m'],
+  player_blocks: ['blocks'], player_steals: ['steals'], player_points_rebounds_assists: ['points', 'rebounds', 'assists'],
+  player_points_rebounds: ['points', 'rebounds'], player_points_assists: ['points', 'assists'], player_rebounds_assists: ['rebounds', 'assists'],
+};
+
 // =============================================================================
 // Date Utilities
 // =============================================================================
@@ -745,6 +752,97 @@ function gradeProp(
 }
 
 // =============================================================================
+// NBA Player-Prop Grading Data (nba_slate_props bridge + nba_player_box, RESEARCH/CFB project)
+// =============================================================================
+/**
+ * NBA props (agents since 2026-10-19, signal-gated on nba_slate_props.flags).
+ * 1. BRIDGE -- nba_slate_props carries athlete_id + espn_game_id next to the (game_id, player_name, market) the agent
+ *    copied; game_id is the balldontlie id the pick carries. Keyed `${game_id}::${player.toLowerCase()}::${market}`.
+ * 2. STATS -- nba_player_box (ESPN ids) keyed `${athlete_id}::${espn_game_id}`, only rows where the player PLAYED.
+ *    gamesWithBox = games whose box has landed: a bridged player with no row in such a game did not play -> PUSH
+ *    (a sportsbook voids a DNP prop). A game with no box rows yet -> pending.
+ */
+interface NBAPropGradingData {
+  bridge: Map<string, { athleteId: string; espnGameId: string }>;
+  stats: Map<string, Record<string, unknown>>;
+  gamesWithBox: Set<string>;
+}
+
+async function fetchNBAPropGradingData(cfbClient: SupabaseClient, picks: AvatarPick[]): Promise<NBAPropGradingData> {
+  const bridge = new Map<string, { athleteId: string; espnGameId: string }>();
+  const stats = new Map<string, Record<string, unknown>>();
+  const gamesWithBox = new Set<string>();
+  const gameIds = [...new Set(picks.map(p => Number(p.game_id)).filter(n => Number.isFinite(n)))];
+  if (gameIds.length === 0) return { bridge, stats, gamesWithBox };
+  try {
+    const { data: rows, error: bridgeErr } = await cfbClient
+      .from('nba_slate_props')
+      .select('game_id, player_name, market, athlete_id, espn_game_id')
+      .in('game_id', gameIds);
+    if (bridgeErr) {
+      console.error('[grade-avatar-picks] Error fetching nba_slate_props (NBA prop bridge):', bridgeErr);
+      return { bridge, stats, gamesWithBox };
+    }
+    const espnIds = new Set<number>();
+    for (const row of (rows || []) as Record<string, unknown>[]) {
+      if (row.athlete_id == null || row.espn_game_id == null) continue;
+      const key = `${String(row.game_id)}::${String(row.player_name ?? '').toLowerCase()}::${String(row.market ?? '')}`;
+      bridge.set(key, { athleteId: String(row.athlete_id), espnGameId: String(row.espn_game_id) });
+      espnIds.add(Number(row.espn_game_id));
+    }
+    if (espnIds.size === 0) return { bridge, stats, gamesWithBox };
+    const { data: box, error: boxErr } = await cfbClient
+      .from('nba_player_box')
+      .select('espn_game_id, athlete_id, minutes, did_not_play, points, rebounds, assists, steals, blocks, fg3m')
+      .in('espn_game_id', [...espnIds]);
+    if (boxErr) {
+      console.error('[grade-avatar-picks] Error fetching nba_player_box (NBA prop stats):', boxErr);
+      return { bridge, stats, gamesWithBox };
+    }
+    for (const row of (box || []) as Record<string, unknown>[]) {
+      const gid = String(row.espn_game_id);
+      gamesWithBox.add(gid);
+      const played = row.did_not_play !== true && Number(row.minutes ?? 0) > 0;
+      if (played) stats.set(`${String(row.athlete_id)}::${gid}`, row);
+    }
+  } catch (e) {
+    console.error('[grade-avatar-picks] fetchNBAPropGradingData threw:', e);
+  }
+  return { bridge, stats, gamesWithBox };
+}
+
+/** Grade one NBA player-prop pick. Same shape as gradeProp; null = stays pending. */
+function gradeNBAProp(pick: AvatarPick, data: NBAPropGradingData): { result: 'won' | 'lost' | 'push'; actual_result: string } | null {
+  const player = pick.prop_player ?? '';
+  const market = pick.prop_market ?? '';
+  const direction = pick.prop_direction;
+  const dirLabel = direction === 'over' ? 'Over' : 'Under';
+  const b = data.bridge.get(`${pick.game_id}::${player.toLowerCase()}::${market}`);
+  if (!b) {
+    console.log(`[grade-avatar-picks][nba prop] no bridge row for pick=${pick.id} game=${pick.game_id} player="${player}" market=${market} -- staying pending`);
+    return null;
+  }
+  if (!data.gamesWithBox.has(b.espnGameId)) return null;                 // box not in yet
+  const cols = NBA_PROP_MARKET_STAT[market];
+  if (!cols) {
+    console.log(`[grade-avatar-picks][nba prop] unknown prop_market="${market}" for pick=${pick.id} -- staying pending`);
+    return null;
+  }
+  const row = data.stats.get(`${b.athleteId}::${b.espnGameId}`);
+  if (!row) {
+    return { result: 'push', actual_result: `${player} did not play -- prop voided (push)` };
+  }
+  const actual = cols.reduce((acc, c) => acc + Number(row[c] ?? 0), 0);
+  const line = pick.prop_line;
+  if (line == null || !Number.isFinite(actual)) return null;
+  let result: 'won' | 'lost' | 'push';
+  if (actual > line) result = direction === 'over' ? 'won' : 'lost';
+  else if (actual < line) result = direction === 'under' ? 'won' : 'lost';
+  else result = 'push';
+  return { result, actual_result: `${player} ${market.replace('player_', '')} ${actual} vs ${line} ${dirLabel} -> ${result}` };
+}
+
+// =============================================================================
 // Team Name Resolution
 // =============================================================================
 
@@ -1238,8 +1336,13 @@ async function gradeParlays(
   //     legs (fetchPropGradingData only reads .game_id, so a leg-shaped view is
   //     enough). A missing bridge/stats row → gradeProp null → leg stays pending.
   const propLegs = ((allLegs || []) as ParlayLeg[]).filter(l => l.bet_type === 'prop');
-  const propData = propLegs.length > 0
-    ? await fetchPropGradingData(cfbClient, propLegs as unknown as AvatarPick[])
+  const nflPropLegs = propLegs.filter(l => l.sport !== 'nba');
+  const nbaPropLegs = propLegs.filter(l => l.sport === 'nba');
+  const propData = nflPropLegs.length > 0
+    ? await fetchPropGradingData(cfbClient, nflPropLegs as unknown as AvatarPick[])
+    : null;
+  const nbaPropData = nbaPropLegs.length > 0
+    ? await fetchNBAPropGradingData(cfbClient, nbaPropLegs as unknown as AvatarPick[])
     : null;
 
   // 3. Grade each parlay's legs, then roll up.
@@ -1286,7 +1389,9 @@ async function gradeParlays(
             actual_result: null,
             graded_at: null,
           };
-          const propGrading = propData ? gradeProp(propAsPick, propData.bridge, propData.stats, propData.voids) : null;
+          const propGrading = propAsPick.sport === 'nba'
+            ? (nbaPropData ? gradeNBAProp(propAsPick, nbaPropData) : null)
+            : (propData ? gradeProp(propAsPick, propData.bridge, propData.stats, propData.voids) : null);
           if (!propGrading) continue;                        // missing bridge/stats → stays pending
 
           leg.leg_result = propGrading.result;
@@ -1595,8 +1700,11 @@ serve(async (req) => {
     // player_id bridge (nfl_slate_props) + nfl_player_game_logs. Fetch that
     // data ONCE up front, only when there's at least one pending prop pick.
     const propPicks = straightPicks.filter(p => p.bet_type === 'prop');
-    const hasProps = propPicks.length > 0;
-    const propData = hasProps ? await fetchPropGradingData(cfbClient, propPicks) : null;
+    const nflPropPicks = propPicks.filter(p => p.sport !== 'nba');
+    const nbaPropPicks = propPicks.filter(p => p.sport === 'nba');
+    const propData = nflPropPicks.length > 0 ? await fetchPropGradingData(cfbClient, nflPropPicks) : null;
+    // NBA props grade off nba_slate_props (bridge) + nba_player_box (stats) on the CFB project.
+    const nbaPropData = nbaPropPicks.length > 0 ? await fetchNBAPropGradingData(cfbClient, nbaPropPicks) : null;
 
     for (const pick of straightPicks) {
       summary.total_processed++;
@@ -1607,7 +1715,9 @@ serve(async (req) => {
         //    result (missing bridge/stats row) keeps the pick pending —
         //    identical downstream handling to a straight not-final skip. ──
         if (pick.bet_type === 'prop') {
-          const grading = propData ? gradeProp(pick, propData.bridge, propData.stats, propData.voids) : null;
+          const grading = pick.sport === 'nba'
+            ? (nbaPropData ? gradeNBAProp(pick, nbaPropData) : null)
+            : (propData ? gradeProp(pick, propData.bridge, propData.stats, propData.voids) : null);
           if (!grading) {
             console.log(`[grade-avatar-picks] Skipping prop pick ${pick.id} — bridge/stats row missing (stays pending)`);
             summary.skipped++;

@@ -186,7 +186,7 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
     weighting.push("Starting-pitcher matchup first; cross-check Perfect Storm accuracy buckets before firing.");
   }
 
-  // Player props (NFL-only, signal-gated). get_props is already offered to any
+  // Player props (NFL + NBA, signal-gated). get_props is already offered to any
   // agent with NFL; emphasis raises tool affinity + weighting prose. See plan D2.
   if (propsEnabled) {
     affin("get_props", "+");
