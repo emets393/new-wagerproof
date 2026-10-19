@@ -682,7 +682,8 @@ async function fetchNBAModelByGameId(
   return result;
 }
 
-// nba_predictions is kept ONLY for home_win_prob -- the one number of the old model that is real.
+// nba_predictions.home_win_prob = Phi(originator margin / 14.2), written by nba_model_nightly.py each run (2026-10-19);
+// the old xgboost model that used to fill this table is deleted. Readers take the latest run_id.
 // Latest run_id, then the slate's games.
 async function fetchNBAWinProbByGameId(
   cfbClient: SupabaseClient,

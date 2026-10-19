@@ -14,7 +14,7 @@ Current production payloads also include `prediction_accuracy` for NCAAB from
 `nba_predictions.model_fair_*`, which has zero correlation with results, and is being dropped
 (`cfb_automation/sql/nba_drop_legacy.sql`). NBA payloads instead carry `model_predictions`
 (from `nba_model_preds`: home margin, fair spread, total, the job's `disagreement` and tier --
-bet / lean / pass / warmup / no_line -- plus `home_win_prob` from `nba_predictions`),
+bet / lean / pass / warmup / no_line -- plus `home_win_prob` from `nba_predictions` = Φ(originator margin / 14.2), written by the same nightly),
 `conviction` (rolled up from the flags; `mammoth` = model-and-signals confluence), and
 `signals` (`nba_slate_flags` joined to `nba_signal_defs`, same compact shape as the football
 flags, `all_time.validated_hit` = the def's `record_text`). The NBA JSON example below predates

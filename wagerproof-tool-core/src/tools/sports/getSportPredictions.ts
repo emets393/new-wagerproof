@@ -542,7 +542,7 @@ async function fetchNbaFlags(
   return result;
 }
 
-/** home_win_prob from nba_predictions (latest run_id) — the one real number of the old model. */
+/** home_win_prob from nba_predictions (latest run_id) — Phi(originator margin / 14.2), written by nba_model_nightly.py. */
 async function fetchNbaWinProb(
   client: SupabaseLikeClient,
   gameIds: unknown[],
