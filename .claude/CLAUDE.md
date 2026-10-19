@@ -368,7 +368,7 @@ Four generations of the engine exist in the repo. Get this right before touching
 |-------|-------------|-------------------|
 | NFL | `v_input_values_with_epa` | `nfl_predictions_epa` |
 | CFB | `cfb_slate_games` (+ `_flags`/`_picks`; clients read the `cfb_slate_feed` view, which hides played games) | same — model output IS the slate row |
-| NBA | `nba_input_values_view` (today + tomorrow) | `nba_model_preds` (originator spread + total, one row per market; `nba_predictions.home_win_prob` = Φ(originator margin / 14.2), written by the same nightly; the old xgboost model is deleted) + `nba_slate_flags` / `nba_signal_defs` for signals; first-half markets in `nba_model_preds_h1` — contract `.claude/docs/24_nba_first_half.md` |
+| NBA | `nba_input_values_view` (today + tomorrow) | `nba_model_preds` (originator spread + total, one row per market; `nba_predictions.home_win_prob` = Φ(originator margin / 14.2), written by the same nightly; the old xgboost model is deleted) + `nba_slate_flags` / `nba_signal_defs` for signals; first-half markets in `nba_model_preds_h1` — contract `.claude/docs/24_nba_first_half.md`; every signal def carries back-test + current-season record columns — `.claude/docs/26_nba_signal_lifecycle.md` |
 | NBA props | `nba_player_props` (+ `_current` view) | `nba_slate_props` board + `nba_prop_defs` — contract in `.claude/docs/23_nba_player_props.md`; backend in cfb_automation, frontend pending |
 | NCAAB | `v_cbb_input_values` | `ncaab_predictions` |
 | MLB | Statcast pregame tables | `mlb_training_snapshots` + model predictions |
