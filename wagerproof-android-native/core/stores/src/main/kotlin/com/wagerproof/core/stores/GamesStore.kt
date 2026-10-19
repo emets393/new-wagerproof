@@ -719,7 +719,7 @@ class GamesStore {
 
         // Originator model rows (spread margin + total) for the dates on the board. Replaced
         // nba_predictions' model_fair_* on 2026-10-13 (owner call): those were a transform of win
-        // probability with zero correlation to results. nba_predictions is kept for home_win_prob only.
+        // probability with zero correlation to results. nba_predictions.home_win_prob = Phi(originator margin / 14.2) since 2026-10-19; old model deleted.
         val dates = inputRows.mapNotNull { it.gameDate?.take(10) }.distinct()
         val modelRows: List<NBAModelPredRow> = if (dates.isEmpty()) emptyList() else runCatchingCancellable {
             cfb.from("nba_model_preds")

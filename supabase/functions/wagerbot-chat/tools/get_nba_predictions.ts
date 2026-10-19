@@ -7,7 +7,7 @@
 //
 // nba_predictions.model_fair_* is NOT read: it has zero correlation with
 // results (model audit 2026-09-22) and the accuracy cache built on it is being
-// dropped. nba_predictions is kept only for home_win_prob.
+// dropped. nba_predictions.home_win_prob now comes from the originator spread (2026-10-19).
 
 import type { ToolDefinition, ToolContext } from "./registry.ts";
 import { getTodayInET } from "../../shared/dateUtils.ts";
@@ -288,7 +288,7 @@ async function fetchModel(client: any, games: any[], date: string): Promise<Map<
   return result;
 }
 
-/** home_win_prob from nba_predictions (latest run_id) — the one real number of the old model. */
+/** home_win_prob from nba_predictions (latest run_id) — Phi(originator margin / 14.2), written by nba_model_nightly.py. */
 async function fetchWinProb(client: any, gameIds: number[]): Promise<Map<number, any>> {
   const result = new Map<number, any>();
   if (gameIds.length === 0) return result;
