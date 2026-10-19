@@ -9,7 +9,7 @@ All four objects live on the **CFB Supabase project** (`jpxnjuwglavsjbgbasnl`), 
 | object | what | key | refreshed |
 |---|---|---|---|
 | `nba_slate_props` | **The board.** One row per player × market for today's and tomorrow's games (ET). | `id` = `<event_id>:<market>:<athlete_id>` | hourly at :10, Oct–Jun |
-| `nba_prop_defs` | Copy for every rule key that can appear in `nba_slate_props.flags`. Same shape as `nba_signal_defs`. | `signal_key` | hourly (idempotent) |
+| `nba_prop_defs` | Copy for every rule key that can appear in `nba_slate_props.flags`. Same shape as `nba_signal_defs`, including the back-test and current-season record columns (see `26_nba_signal_lifecycle.md`). | `signal_key` | hourly (idempotent); season record each morning |
 | `nba_player_props_current` | View: the latest line at every book for every player/market, games from yesterday on. Use for a "shop the line" table. | (`event_id`,`bookmaker`,`market`,`player_name`) | live |
 | `nba_player_props` | Raw history: one row each time a book's number moved. Use for a line-movement chart. Grows large; always filter by `event_id` or `athlete_id` + `game_date`. | `id` | hourly |
 
@@ -55,10 +55,23 @@ are that game's close and outcome when we have them. Early in the season the log
 
 **Form anchor** — `baseline` (EWMA, half-life 5 games over the last 15), `baseline_gap` (= baseline − line).
 
-**Rules** — `flags` (text[]): keys into `nba_prop_defs`. Today: `nba_cold_line_raised_under` and
-`nba_cold_line_raised_big_under` (both UNDER). One ticket per player-game: when several markets on the
-same player fire, the biggest line (PRA) is the ticket. These need the player's previous close lines,
-which exist only from our own capture, so expect no flags for roughly the first week of the season.
+**Rules** — `flags` (text[]): keys into `nba_prop_defs`; `flag_detail` (jsonb, `{key: {...}}`) carries per-flag
+facts for the card. Four keys today:
+
+| key | market | bet | fires when | `flag_detail[key]` |
+|---|---|---|---|---|
+| `nba_cold_line_raised_under` | any | UNDER | under his own close 3+ straight AND tonight's line ≥ 0.75 sd above his previous close | — |
+| `nba_cold_line_raised_big_under` | any | UNDER | the above with the line in the top half of its market on the slate | — |
+| `nba_player_ref_over` | `player_points` | OVER | ≥ 8 prior games with tonight's crew chief, points averaged ≥ 0.5 sd ABOVE his own norm | `chief`, `games`, `mean_z`, `avg_vs_norm` (pts), `above`, `below` (games above/below his norm with that chief) |
+| `nba_player_ref_under` | `player_points` | UNDER | same, ≥ 0.5 sd BELOW his norm | same |
+
+One ticket per player-game for the cold rules: when several markets on the same player fire, the biggest
+line (PRA) is the ticket. The cold rules need the player's previous close lines, which exist only from our own
+capture, so expect none for roughly the first week of the season. The crew-chief rules need the day's
+assignments (posted by the NBA ~9am ET, in `nba_officials` by 9:10), so they appear from the 10:10 board onward
+and never on tomorrow's rows. Render the chief and the above/below count on the card ("9 of 13 games above his
+norm with James Capers"). Records: `nba_prop_defs.record_text` (back-test) and `season_record_text` (this
+season, kept by the grader) — show both.
 
 **Ranking** — `rank_pos` (1 = top of the slate), `rank_tier`: `flag` (a rule fired), `watch`
 (|baseline_gap| ≥ one result sd), `board`. Ordering only; do not render the score.
@@ -90,4 +103,5 @@ select snapshot_time, bookmaker, line, over_odds, under_odds from nba_player_pro
 
 No opponent / positional-defence context. No model edge: the originator (points +7%, PRA +11% ROI at the
 top-25% edge in research) is a later addition and will arrive as `model_pred` / `model_edge` columns plus
-new `nba_prop_defs` keys; nothing existing changes. The agents' `get_props` tool is still NFL-only.
+new `nba_prop_defs` keys; nothing existing changes. The agents' `get_props` tool is still NFL-only; the owner's
+rule is that NBA agents bet a prop only when its row carries a flag, which is the next wiring step.
