@@ -1462,7 +1462,7 @@ public final class GamesStore {
 
         // Step 2: originator model rows (spread margin + total) for the dates on the board.
         // Replaced nba_predictions' model_fair_* on 2026-10-13 (owner call): those were a transform of
-        // win probability with zero correlation to results. nba_predictions is kept for home_win_prob only.
+        // win probability with zero correlation to results. nba_predictions.home_win_prob = Phi(originator margin / 14.2) since 2026-10-19; old model deleted.
         let dates = Array(Set(inputRows.compactMap { $0.gameDate.map { String($0.prefix(10)) } }))
         let modelRows: [NBAModelPredRow] = dates.isEmpty ? [] : ((try? await cfb
             .from("nba_model_preds")
