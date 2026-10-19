@@ -31,20 +31,38 @@ COLS = ["season", "game_id", "snapshot", "commence_time", "home_team", "away_tea
         "total", "over_price", "under_price", "hrs_to_kick"]
 
 
+# ⛔ PAGE INTO FRAMES, NEVER INTO ONE LIST OF DICTS. This table is append-only and written by the
+# odds-capture cron all season: 473,296 rows at 2026 wk8 and still climbing. Its sibling
+# fetch_event_odds_live.py collected its whole season into `rows` the same way and OOMed the 2Gi
+# plan outright on 2026-10-17, taking cfb-slate-weekly AND cfb-slate-refresh down with it and
+# leaving the site with no upcoming CFB week at all for three days. This one runs LATER in the
+# same 2Gi budget, so it was the next wall. Each page becomes a DataFrame immediately and only
+# the frames are kept, which is roughly an order of magnitude smaller than the dicts they came
+# from; the concat at the end is the one unavoidable copy.
+PAGE = 10000            # PostgREST clamps a page to 10,000 rows; 1,000 just meant 10x the requests
+
+
 def main():
-    rows, page = [], 0
+    frames, page, total = [], 0, 0
     while True:
         r = requests.get(f"{SUPA}/ncaaf_odds_history",
                          headers={**HDRS, "Range-Unit": "items",
-                                  "Range": f"{page*1000}-{page*1000+999}"},
-                         params={"season": f"eq.{SEASON}", "select": ",".join(COLS)}, timeout=60)
+                                  "Range": f"{page*PAGE}-{page*PAGE+PAGE-1}"},
+                         params={"season": f"eq.{SEASON}", "select": ",".join(COLS)}, timeout=120)
         r.raise_for_status()
         batch = r.json()
-        rows += batch
-        if len(batch) < 1000:
+        n = len(batch)
+        if n:
+            frames.append(pd.DataFrame(batch))
+            total += n
+        del batch
+        if n < PAGE:
             break
         page += 1
-    df = pd.DataFrame(rows)
+    if not frames:
+        sys.exit(f"ncaaf_odds_history has no {SEASON} rows")
+    df = pd.concat(frames, ignore_index=True)
+    del frames
     if df.empty:
         sys.exit(f"ncaaf_odds_history has no {SEASON} rows")
     out = os.path.join(OUTD, f"odds_{SEASON}.parquet")

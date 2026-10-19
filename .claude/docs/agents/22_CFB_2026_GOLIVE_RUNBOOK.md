@@ -46,6 +46,17 @@ live 2026 data (mirrors the NFL shadow-then-flip in doc 14).
 4. **Confirm live 2026 odds capture:** `fetch_event_odds_live.py` + `fetch_odds_history.py` must produce
    `data/event_odds/events_2026.parquet` + `data/odds_history/odds_2026.parquet` in-season (team totals + all 1H).
    Without them, TT + 1H + STACK spots silently don't fire. The `live_odds_cfb_1h.py` DB writer must be running.
+
+   ⛔ **Both materializers are SEASON-GROWTH SENSITIVE and must stay streaming.** `ncaaf_event_odds`
+   and `ncaaf_odds_history` are append-only and written hourly all season — 1,601,500 and 473,296
+   rows respectively by 2026 wk8. Both scripts originally collected a whole season into one Python
+   list of dicts before building the DataFrame, and on 2026-10-17 `fetch_event_odds_live.py` crossed
+   2Gi and OOMed. It is a step in `run_cfb_week.sh`, so it killed **both** `cfb-slate-weekly` and
+   `cfb-slate-refresh` at the same point, and because `cfb_slate_feed` hides played games an unbuilt
+   week is an EMPTY board on web and both apps, not a stale one: no upcoming CFB shipped for three
+   days. They now page into parquet/frames (peak 127 MB and 416 MB) and are flat in season length.
+   If you touch either, do not reintroduce `rows += batch`, and keep the page size at PostgREST's
+   10,000 ceiling — it clamps anything larger, and OFFSET paging re-scans skipped rows every call.
 5. **Schedule `run_cfb_week.sh`** (it's currently hand-run, scheduled nowhere). Two options — **owner decision**:
    - **A) GitHub Actions in `new-wagerproof`** (pipeline lives here) — template below.
    - **B) Render cron in `cfb_automation`** (cron home) — requires sourcing the `research/cfb-model` code there.
