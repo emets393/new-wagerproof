@@ -1,128 +1,115 @@
 # Cursor prompt — Public Betting page
 
-Paste everything below the line into Cursor. The full spec it refers to is
-`.claude/docs/31_public_betting_page_brief.md`.
+Paste everything below the line into Cursor. The full spec is
+`.claude/docs/31_public_betting_page_brief.md`, which is current and authoritative.
 
 ---
 
-Build a new page on the **web app** (`src/`) at `/public-betting`, nav label "Public Betting".
+The categorization on the Public Betting page is wrong and needs replacing. **Re-read
+`.claude/docs/31_public_betting_page_brief.md` — §1 and §2 have been rewritten — and bring
+`signals.ts` in line with it.** Where anything you already built disagrees with that file,
+the file wins.
 
-**Read these first, in this order, before writing any code:**
+## What's wrong
 
-1. `.claude/docs/31_public_betting_page_brief.md` — the full spec. It owns the signal logic,
-   the thresholds, the traps and the visual design. Follow it exactly; where I say something
-   here that contradicts it, the brief wins.
-2. `src/features/trendsToday/README.md` + `src/features/trendsToday/TrendsTodayPage.tsx` —
-   the structural template. This page is the same shape: `SplitViewLayout`, feed left, detail
-   right, URL state, React Query.
-3. `src/features/games/detail/sections/nfl/NflBettingSplitsSection.tsx` and
-   `src/features/games/detail/sections/shared/lineMovement.ts` — the existing splits and
-   line-movement widgets. Take the colours and the vocabulary from them. ⛔ Do **not** take
-   the logic: that path consumes a pre-baked string label and its sharp test is wrong for our
-   purposes — §1 of the brief explains why in detail.
-
-## What the page does
-
-Shows Action Network public betting percentages — **tickets vs money** — for every upcoming
-game we capture, across NFL, CFB, NBA and NCAAB, for spread, total and moneyline. Filterable
-by sport and by market. On top of the raw percentages it reads tickets + money + line
-movement together and labels what the market is doing, with the graphics carrying the read.
-
-The signal that matters, in full, is §1 of the brief. The short version — and this is a
-**real row off the board right now**, not a hypothetical:
+Every category that mentioned money was gated behind a heavy ticket majority (`lead >= 60`),
+so the money read was nested inside the crowd read. A game with a mild ticket split could not
+report a money divergence of **any size** — it fell through to "Slight Lean", which named the
+**ticket** side. So the larger the divergence on a mildly-split game, the more confidently
+wrong the label got. Real failures off one board:
 
 ```
-cfb  Indiana @ Michigan  total
-  Opened 52.5, consensus now 41.5      ← the line moved 11 points toward the UNDER
-  Bets:   83% OVER  /  17% UNDER       ← the public is on the over
-  Money:  64% OVER  /  36% UNDER       ← the under has 36% of the money on 17% of the tickets
-
-=> SHARP MONEY ON THE UNDER   (heavy tickets one way, money share the other, line confirming)
+Boise State @ Washington St  tickets 52/48  money 15/85  → 37pp   called "EVEN SPLIT"
+USC @ Wisconsin              tickets 59/41  money 37/63  → 22pp   called "Slight Lean to the OVER"
+Oklahoma @ Mississippi St    tickets 59/41  money 42/58  → 17pp   missed by ONE point of lead
+Duke @ Virginia              tickets 44/56  money 59/41  → 15pp   called "Slight Lean to Virginia"
 ```
 
-Heavy tickets one way, the other side's money share bigger than its ticket share, and the
-line moving toward that other side. All three, or it is not the signal.
+Boise State is the worst the old design could do: the single biggest divergence on the board —
+**85% of the handle on 48% of the tickets** — labelled "Even Split."
 
-§5 of the brief lists the required unit tests, and the first five are **real rows off the live
-board** — fixtures, not invented numbers. Build until those pass.
+## The fix, in one sentence
 
-## Getting the data — the part that is easy to get wrong
+⛔ **The ticket count gates nothing.** It only decides how the sentence describes the crowd.
+A 52/48 ticket split with 85% of the money on one side is the strongest read on the board,
+because it is big bets against small ones with no crowd noise in the way.
 
-Table: `action_public_splits` on the **CFB** Supabase instance, via
-`src/integrations/supabase/college-football-client.ts` (not the main client). It is a
-**change log** — one row per capture, only when something moved.
+## The nine categories
 
-- Read the **`action_public_splits_board`** view, never the raw table. The view already
-  returns the newest row per `(game_id, market)` — that is the current board, deduped in
-  Postgres. It is live: 252 rows / 84 games as of 2026-10-20, and the anon key can read it
-  (the raw log stays invisible to anon by design).
-- One query for the whole board (a few hundred rows across four leagues), then filter by
-  sport and market **client-side**. Do not fetch per card and do not reduce latest-per-key in
-  JS.
-- Group the rows into games: up to three market rows share a `game_id`. A missing market is
-  absent, not empty — many games have no ml.
+Full trigger conditions, chip labels and sentence templates are in §2 of the brief. The shape:
 
-Orientation rule you must not get backwards: **the "away" slot is the away team for
-spread/ml and the OVER for totals.** `bets_away` on a total row means bets on the over.
+**Money disagrees with the crowd** (the quiet side's share of the money exceeds its share of
+the tickets by 10pp or more):
 
-⛔ **`away_close` is not the current line — `away_cons` is.** `away_close`/`home_close` are
-*best odds per side* (on a total the over wants the lowest number and the under the highest),
-so neither is a line, and reconstructing one from them yields quarter points no book posts.
-`away_cons`/`home_cons` are the consensus book's real posted line, from the same book the
-percentages come from. Movement is `cons − open`. Formulas for all three markets in §1.
-**If a `.25` line ever reaches the screen, you used the wrong column.**
+1. `sharp_money` — and the line moved toward it. All three agree. The loud chip.
+2. `money_no_move` — the line hasn't moved yet.
+3. `line_fights_money` — the line moved the other way.
 
-⛔ **Two gates, or this fires on two thirds of the slate.** Run against tonight's real board,
-the rule without them produced a candidate on 54 of 84 games; with them, 5. Moneyline gets no
-tier (the ML public sits on favourites, so splits run 1/99 and one dog bet reads as a 70pp
-tilt), and the quiet side needs ≥15% of the tickets. Both are in §1.
+**Money agrees with the crowd:**
 
-## Build it in this order
+4. `hammered` — money piling onto the popular side, line following. ⛔ Copy must make clear
+   this is the public with volume behind it, NOT sharp action. It is the one most easily
+   mistaken for #1.
+5. `public_loading` — same piling, line hasn't followed.
+6. `consensus` — bets and money together, line moved with them.
+7. `line_pushes_back` — lopsided bets and money, line moved the other way anyway.
+8. `public` — lopsided bets, nothing else notable.
+9. `split` — nothing to say. Say nothing.
 
-1. `types.ts` and `api/` — the fetch and the row → game reshape.
-2. `signals.ts` + `signals.test.ts` — all direction and tier logic, tested, **before any
-   UI**. Every case in §5 of the brief. This is where the page is right or wrong; a sign flip
-   here inverts every card silently, which has happened in this repo before.
-3. The feed: list, sport pills, market pills, tier filter, sort.
-4. The graphics (§5 of the brief): the divergence bar, the line-move rail, and the
-   confirmation glyph where the wedge and the arrow match colour exactly when the line is
-   following the money.
-5. The detail pane: all three markets, the full tier sentence, the "how to read this" block.
-6. `README.md` for the module.
+First match wins. **Categories 1-5 are spread and total only**; a moneyline row skips to 6.
 
-## Non-negotiables
+Three things in §2 that are easy to miss and change the output:
 
-- ⛔ **No picks.** The page describes the market; it never says to bet something, shows a
-  conviction tier, or links a betslip. The model's picks live on `/games` and these two
-  surfaces must never contradict each other in public.
-- ⛔ **0% / 100% on either side is NO DATA, not unanimity**, and games under 200 tickets are
-  excluded. Both are filtered out of the feed entirely, not greyed out.
-- ⛔ **American odds cannot be subtracted.** `+105 → −113` moves *toward* that side but
-  subtracts to −218. Moneyline direction goes through no-vig implied probability. Formula
-  in §1.
-- ⛔ **A missing opener is `null`, not a flat line.** No opener means no direction and no
-  tier-1 match.
-- ⛔ **Label the source as Action Network in the UI.** The game cards use The Odds API and the
-  NFL splits label there comes from VSiN; the numbers differ by a point or two on the same
-  game. Never compute a gap between an AN number and one of ours.
-- Build the sport pills from the sports actually present in the response. NCAAB has no rows
-  until November and there is no MLB at all — a hardcoded chip that returns an empty board
-  reads as a broken page.
-- Register the route in `SPLIT_VIEW_ROUTES` in `src/App.tsx` or the page loses its internal
-  scrolling, and add it to `src/nav-items.tsx`.
-- Web only. iOS and Android are separate native codebases and are not in scope.
+- `effectiveMove` collapses any move under `CONFIRM_MOVE` to `null` **once**, so no category
+  re-checks the size. A 0.25-point move is not a move.
+- `piling` (money onto the *popular* side) is a different thing from `diverging` (money onto
+  the *quiet* side) and must not fall into the same branch. Both can exceed 10pp.
+- ⛔ `line_pushes_back` gets a **muted** chip. It is what most sites sell as "reverse line
+  movement" and it is the single biggest category on a real board — 38 of 168 rows, 23%.
+  Something that common is a description, not an alert.
+
+## Gates
+
+A row failing any of these is **excluded from the feed**, not greyed out: either side at 0%
+or 100% (that is no data, not unanimity), or under 200 total tickets.
+
+⛔ One gate changed: the "minority side needs 15% of the tickets" floor is now **moneyline
+only**. It exists because the ML crowd piles onto favourites, splits run 1/99, and one large
+dog bet fakes a 70pp divergence. Applied to every market it was wrongly dropping 25
+legitimate 10/90 and 12/88 football games.
+
+## Data reminders
+
+- Read `action_public_splits_board` (live: 252 rows / 84 games, anon-readable). Never the raw
+  `action_public_splits` log, and never reduce latest-per-key in JS.
+- ⛔ **`away_cons`/`home_cons` are the current line** — the consensus book's real posted
+  number. `away_close`/`home_close` are *best odds per side* and cannot be averaged into a
+  line; doing so puts quarter-point spreads on screen. Movement is `cons − open`.
+- The away slot is the away team for spread/ml and **the OVER for totals**.
+
+## Tests first
+
+§5 of the brief lists the required cases and they are **real rows off the live board**, not
+invented numbers — including Boise State as an explicit regression test, and `hammered`
+asserting it is *not* `sharp_money`. Get `signals.test.ts` passing before touching the UI.
+
+Then smoke-test the distribution, not just the units. On a real 84-game board, spread+total:
+
+```
+line_pushes_back 38    public            14      sharp_money         8
+(excluded)       33    public_loading    11      line_fights_money   6
+consensus        31                              hammered            2
+split            24                              money_no_move       1
+```
+
+`sharp_money` on 8 of 168 rows is right. Dozens means a gate is missing. Zero means
+`away_cons` is null, which means the capture ran before the consensus fix.
 
 ## Done when
 
-`/public-betting` renders NFL, CFB and NBA off the board view, filters by sport and market,
-Indiana @ Michigan shows **Sharp Money on the Under** on a real card, `signals.test.ts` covers
-every case in §5, `npm test` is green, `npm run build` is clean, and the module README is
-written.
+Every case in §5 passes, the distribution above roughly reproduces, Boise State @ Washington
+St shows **Sharp Money on Washington St** instead of "Even Split", no `.25` line appears
+anywhere, `npm test` is green and `npm run build` is clean.
 
-Sanity checks before you call it done: on a full board, tier 1 should fire on a handful of
-games, not dozens — the real 84-game board produces 4 tier-1 and 5 tier-2. And every line on
-screen must be a whole or half point; a `.25` means movement is coming off `*_close` instead
-of `*_cons`.
-
-Ask me before: applying any SQL, adding a dependency, or touching anything outside
+Ask me before applying any SQL, adding a dependency, or touching anything outside
 `src/features/publicBetting/`, `src/App.tsx` and `src/nav-items.tsx`.

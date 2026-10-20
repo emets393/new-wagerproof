@@ -69,8 +69,9 @@ Two more things wrong with the old path that this build fixes:
 Per game-market, with two sides — `away`/`home` for spread and ml, `over`/`under` for totals:
 
 ```
-ticketSide   = side with more bets%          ticketLead = that bets%
-moneyTiltSide = side where money% > bets%    tiltPp     = money% − bets% on that side
+popular = side with more bets%        lead   = that bets%
+quiet   = the other side
+moneySide = side where money% > bets%  tiltPp = money% − bets% on that side
 ```
 
 `tiltPp` is symmetric: with two sides summing to 100, a +20 tilt to the under is the same fact
@@ -123,69 +124,122 @@ now**, which is worth showing beside the consensus line and is never used for mo
 is missing. ⛔ A missing opener is `null`, never `0` — a flat line and an unknown line are
 different facts and only one of them is a signal.
 
+### Gates — a row that fails any of these is EXCLUDED from the feed, not greyed out
+
+| gate | why | effect on a real 168-row spread+total board |
+|---|---|---|
+| `has_split` false (0% or 100% either side) | that is NO DATA, not unanimity. Citadel @ Texas A&M read as "100% on the under" until someone looked | 33 dropped |
+| `tickets < 200` | the percentages are a handful of people, not a market | 0 tonight, but small-conference games need it |
+| `market = 'ml'` **and** minority ticket side < 15% | ⛔ **moneyline only.** The ML crowd piles onto favourites, so splits run 1/99 and one large dog bet fakes a 70pp divergence — `Old Dominion @ LA Tech`: 4% of tickets, 79% of the money. ⚠ This floor used to apply to every market and was wrongly dropping 25 legitimate 10/90 and 12/88 football games | ml rows only |
+
 ### Thresholds — one exported `THRESHOLDS` const, nothing inline
 
 | | value | note |
 |---|---|---|
-| `HEAVY_TICKETS` | 60% | matches the existing `SPLITS_HEAVY` so the two surfaces agree on what "heavy" is |
-| `LEAN_TICKETS` | 55% | matches `SPLITS_LEAN` |
-| `EVEN_BAND` | ±5pp | matches `SPLITS_EVEN_EPS` |
-| `SHARP_TILT` | 10pp | money share over ticket share on the same side |
-| `STRONG_TILT` | 20pp | the worked example sits exactly here |
-| `CONFIRM_MOVE` | 0.5 pts (spread/total), 2pp implied (ml) | smallest move that counts as the line following |
-| `STRONG_MOVE` | 1.5 pts (spread/total), 5pp implied (ml) | the example's 3.0 clears this |
-| `MIN_TICKETS` | 200 | below this the percentages are three people, not a market |
-| `MIN_MINORITY` | 15% | the quiet side must hold at least this share of TICKETS |
+| `DIVERGE_TILT` | 10pp | money share minus ticket share on the same side |
+| `STRONG_TILT` | 20pp | drives emphasis and sort, not a different label |
+| `HEAVY_TICKETS` | 60% | ⛔ **only used to describe the crowd**, never to gate the money read |
+| `CONFIRM_MOVE` | 0.5 pts (spread/total), 2pp implied (ml) | below this the line has not moved |
+| `STRONG_MOVE` | 1.5 pts (spread/total), 5pp implied (ml) | emphasis only |
+| `MIN_TICKETS` | 200 | the one volume guard |
+| `ML_MIN_MINORITY` | 15% | moneyline only, per the gate above |
 
-### ⛔ Two gates without which this fires on two thirds of the board
+### ⛔ THE TICKET COUNT GATES NOTHING
 
-Measured against tonight's live 84-game board: the rule as first written produced a tier-1 or
-tier-2 candidate on **54 of 84 games (64%)**. A signal that fires on two thirds of a slate is
-decoration. With both gates below it produces **5 tier-1 and 5 tier-2 across 84 games (6%)**,
-which is what a signal looks like.
+This was the structural bug in the first version, and the owner caught it off the screen:
+every category that mentioned money sat behind `ticketLead >= 60`, so the divergence test was
+nested inside the crowd-intensity test. Any game with a merely mild crowd could not report a
+money divergence of **any** size — it fell through to "Slight Lean", which named the TICKET
+side. The bigger the divergence on a mildly-split game, the more confidently wrong the label.
 
-1. **Moneyline is excluded from tiers 1-4 — display only.** 44 of those 54 false positives
-   were `ml`. The ML public sits on favourites, so ticket splits run 1/99 and 3/97, and a
-   single large dog bet then reads as a 70pp "money tilt". `Old Dominion @ LA Tech` tonight:
-   4% of tickets, 79% of the money. That is one bet, not sharp action. Render the ml
-   percentages and the rail; never label it sharp.
-2. **`MIN_MINORITY`: the quiet side needs ≥15% of the tickets.** This kills the degenerate
-   end of the same problem — at 1/99 the tilt measure has no floor under it. The worked
-   example's under sits at 20% and clears it comfortably.
+Live failures before the fix, all on one board:
 
----
+```
+Boise State @ Washington St  spread  tickets 52/48  money 15/85  → 37pp  called "EVEN SPLIT"
+USC @ Wisconsin              total   tickets 59/41  money 37/63  → 22pp  called "Slight Lean to the OVER"
+Oklahoma @ Mississippi St    spread  tickets 59/41  money 42/58  → 17pp  missed by ONE point of lead
+Duke @ Virginia              spread  tickets 44/56  money 59/41  → 15pp  called "Slight Lean to Virginia"
+```
 
-## 2. The tier ladder
+Boise State is the worst case the old design could produce: **the single largest divergence on
+the board, 85% of the handle on 48% of the tickets, labelled "Even Split."**
 
-Evaluate top to bottom, first match wins. Every tier renders a chip AND a sentence with the
-real numbers substituted in. Vocabulary is deliberately the same as the existing widget's
-("Sharp Money on…", "Consensus on…", "Public on…", "Slight Lean", "Even Split") so a user
-seeing both surfaces sees one language.
+So: **the ticket lead only decides how the sentence describes the crowd.** It never decides
+whether the money read is reported. A 52/48 split with 85% of the money on one side is the
+strongest read on the board, because it is large bets against small ones with no crowd noise
+in the way.
 
-| # | Tier | Trigger | Chip | Sentence template |
+## 2. The categories
+
+```ts
+// measures
+popular   = bets_away >= bets_home ? 'away' : 'home'   // where the TICKETS are
+quiet     = the other side
+lead      = max(bets_away, bets_home)
+tiltPp    = |money_away − bets_away|
+moneySide = money_away > bets_away ? 'away'
+          : money_away < bets_away ? 'home' : null      // null only on an exact match
+
+// ⛔ a move under CONFIRM_MOVE is NOT a move. Collapse it once, here, so no category
+// has to re-check the size.
+effectiveMove = moveSize >= CONFIRM_MOVE ? movedToward : null
+
+diverging = moneySide === quiet   && tiltPp >= DIVERGE_TILT   // money on the quiet side
+piling    = moneySide === popular && tiltPp >= DIVERGE_TILT   // money ON the popular side
+```
+
+First match wins. ⛔ **Categories 1-5 are spread and total only** — a moneyline row skips to 6.
+
+### When the money disagrees with the crowd
+
+| # | key | fires when | chip | sentence |
 |---|---|---|---|---|
-| 1 | **Sharp money** | `ticketLead ≥ HEAVY` on A · `tiltPp ≥ SHARP_TILT` on B · `movedToward = B` · `moveSize ≥ CONFIRM_MOVE` | `Sharp Money on {B}` — strongest emphasis | "{bets}% of bets are on {A}, but {B} is taking {money}% of the money on {betsB}% of the tickets — and the {market} has moved {open} → {current}. The line is following the money, not the tickets." |
-| 1b | **Sharp money, strong** | tier 1 plus `tiltPp ≥ STRONG_TILT` and `moveSize ≥ STRONG_MOVE` | same chip, flagged `strong` | same sentence; the strong flag drives emphasis and sort, not different copy |
-| 2 | **Money diverging** | `ticketLead ≥ HEAVY` on A · `tiltPp ≥ SHARP_TILT` on B · line flat, unknown, or moved toward A | `Money on {B}` | "{bets}% of bets are on {A}, but {B} has {money}% of the money. The line hasn't moved for it yet." (or "…and the line has moved the other way.") |
-| 3 | **Consensus steam** | `ticketLead ≥ HEAVY` on A · money also on A · `movedToward = A` · `moveSize ≥ CONFIRM_MOVE` | `Consensus on {A}` | "Bets and money are both on {A} ({bets}% / {money}%), and the line has moved with them, {open} → {current}." |
-| 4 | **Public, line resisting** | `ticketLead ≥ HEAVY` on A · money also on A · `movedToward = B` | `Public on {A}` + `line moving away` | "{bets}% of bets and {money}% of the money are on {A}, but the line has moved toward {B}." |
-| 5 | **Public** | `ticketLead ≥ HEAVY` on A, nothing else | `Public on {A}` | "{bets}% of bets are on {A}." |
-| 6 | **Slight lean** | `ticketLead ≥ LEAN` | `Slight Lean to {A}` | "{bets}% of bets are on {A} — a mild lean." |
-| 7 | **Even** | both sides inside `EVEN_BAND` | `Even Split` | "The money and the tickets are split." |
-| — | **No data** | `has_split = false`, `tickets < MIN_TICKETS`, or the minority ticket side below `MIN_MINORITY` | — | excluded from the feed entirely, see §4 |
+| 1 | `sharp_money` | `diverging` and `effectiveMove === quiet` | **Sharp Money on {quiet}** — loud | "{leadPct}% of bets are on {popular}, but {quiet} is taking {moneyPct}% of the money on {betsPct}% of the tickets — and the {market} has moved {open} → {cons}. The line is following the money, not the tickets." |
+| 2 | `money_no_move` | `diverging` and `effectiveMove === null` | Money on {quiet} | "{quiet} has {moneyPct}% of the money on {betsPct}% of the tickets. The line hasn't moved for it yet." |
+| 3 | `line_fights_money` | `diverging` (so the line moved toward `popular`) | Line fighting the money | "The money leans {quiet}, but the {market} has moved toward {popular}, {open} → {cons}." |
 
-⛔ **Tiers 1-4 are spread and total only.** Moneyline rows render their percentages and their
-rail like any other market but never receive a tier — see the gate in §1.
+### When the money agrees with the crowd
 
-**Tier 1 is the headline of the whole page.** The feed's default sort is: tier rank, then
-`tiltPp` descending, then `moveSize` descending — deterministic, no magic score. A "Sharp
-money only" filter is a first-class control, not a nice-to-have.
+| # | key | fires when | chip | sentence |
+|---|---|---|---|---|
+| 4 | `hammered` | `piling` and `effectiveMove === popular` | Hammered on {popular} | "{popular} is taking {leadPct}% of the bets and an even bigger {moneyPct}% of the money, and the line has moved with it." ⛔ Copy must make clear this is the PUBLIC with volume, not sharp action — it is the category most easily mistaken for #1 |
+| 5 | `public_loading` | `piling` | Public loading up on {popular} | "{popular} has {leadPct}% of the bets and {moneyPct}% of the money. The line hasn't followed." |
+| 6 | `consensus` | `lead >= HEAVY` and `effectiveMove === popular` | Everyone on {popular} | "Bets and money are both on {popular} ({leadPct}% / {moneyPct}%), and the line moved with them, {open} → {cons}." |
+| 7 | `line_pushes_back` | `lead >= HEAVY` and `effectiveMove === quiet` | Line pushing back | "{leadPct}% of bets and {moneyPct}% of the money are on {popular}, but the line moved toward {quiet}." |
+| 8 | `public` | `lead >= HEAVY` | Public on {popular} | "{leadPct}% of bets are on {popular}." |
+| 9 | `split` | anything left | Split | "The money and the tickets are split." |
 
-Tiers 2 and 4 are the two cases people routinely mislabel as sharp action. Keep them
-distinct: tier 2 is money ahead of the line, tier 4 is the line moving against a one-sided
-public without the handle backing it.
+### Emphasis, sort, and the one that must stay quiet
 
----
+```
+loud    sharp_money
+medium  money_no_move, hammered
+quiet   line_fights_money, public_loading, consensus, line_pushes_back, public
+none    split
+```
+
+Sort: `sharp_money` first by `tiltPp` desc, then `money_no_move`, then `hammered`, then the
+rest by `tiltPp` desc. "Sharp money only" stays a first-class filter.
+
+⛔ **`line_pushes_back` must be a muted chip.** It is what most sites sell as "reverse line
+movement" and it is the single **biggest** category on a real board — 38 of 168 rows, 23%.
+Something that common is a description, not an alert, and dressing it up is how this page
+would start lying.
+
+### What a real board looks like
+
+Measured 2026-10-20, 84 games, spread+total only. Use this as a smoke test — if your
+distribution is wildly different, a gate or a sign is wrong:
+
+```
+line_pushes_back   38      public              14
+(excluded)         33      public_loading      11
+consensus          31      sharp_money          8
+split              24      line_fights_money    6
+                           hammered             2
+                           money_no_move        1
+```
+
 
 ## 3. Where the data is
 
@@ -217,12 +271,13 @@ the last capture. Never read the raw table for the page.
 `bets_away` on a total row means bets on the over. Get this backwards and every total on the
 page inverts with nothing erroring.
 
-### Prerequisite — the page cannot read this yet
+### The board view — live, and the only thing the page reads
 
-RLS is on with one `mcp_explorer` policy, so **the anon web key sees ZERO rows** — the same
-trap as `avatar_picks` in `18_agent_consensus.md`. Do not work around it client-side and do
-not apply DDL yourself. This view needs to exist first (Claude applies it; it belongs in
-`scripts/sql/`):
+`action_public_splits` itself has RLS with one `mcp_explorer` policy, so **the anon web key
+gets ZERO rows from the table** — the same trap as `avatar_picks` in `18_agent_consensus.md`.
+The view below is what anon can read, and it is live (verified: 252 rows / 84 games on the
+anon key, `[]` from the raw log). ⛔ Do not work around RLS client-side and do not apply DDL
+yourself — ask. The definition, for reference, is `scripts/sql/action_public_splits_board.sql`:
 
 ```sql
 create or replace view public.action_public_splits_board as
@@ -309,7 +364,7 @@ per game-market, already deduped by the view's `distinct on`. So:
   anything tighter is wasted requests and anything looser shows a stale board to someone who
   left the tab open.
 
-**All tier logic and all direction logic lives in `signals.ts`** with tests beside it. Vitest
+**All category logic and all direction logic lives in `signals.ts`** with tests beside it. Vitest
 is wired; `src/utils/unitsCalculation.ts` has 28 tests for exactly this reason — a single sign
 flip once inverted every bet in an NBA grader.
 
@@ -318,39 +373,42 @@ fixtures, not invented numbers — copy them verbatim:
 
 | case | row (real, off the 2026-10-20 board) | expected |
 |---|---|---|
-| tier 1, total | `cfb` Indiana @ Michigan · bets `83/17` · money `64/36` · line `52.5 → 41.5` | tier 1, **Sharp Money on the Under**, `tiltPp 19`, `move −11.0`, strong |
-| tier 1, spread | `nfl` 49ers @ Falcons · bets `70/30` · money `43/57` · line `−4.5 → −3.5` | tier 1, **Sharp Money on Atlanta**, `tiltPp 27`, `move +1.0` |
-| tier 1, big move | `cfb` Tennessee @ S. Carolina · bets `84/16` · money `64/36` · line `−2.5 → +2.5` | tier 1, S. Carolina, `move +5.0` (favourite to dog) |
-| tier 1, small move | `nfl` Browns @ Titans · bets `77/23` · money `62/38` · line `40.5 → 38.5` | tier 1, Under, `move −2.0` |
-| ⛔ no quarter points | any row | every rendered line is a whole or half point. If a `.25` reaches the screen, movement is being computed off `*_close` instead of `*_cons` |
-| tier 2 | `cfb` Houston @ Utah · bets `69/31` · money `47/53` · line `6.5 → 6.5` | tier 2, money on Utah, `move 0` |
-| tier 2, line opposed | `cfb` USC @ Wisconsin · bets `79/21` · money `29/71` · line `−1.5 → −3` | tier 2 — money on Wisconsin, line moved toward USC |
-| tier 4 | `cfb` Ole Miss @ Texas · bets `85/15` · money `75/25` · line `8.5 → 3` | tier 4 — money tilts to Texas, line moved 5.5 toward Ole Miss |
-| ml never sharp | `cfb` Old Dominion @ LA Tech · bets `4/96` · money `79/21` | **no tier** — ml is display-only |
-| minority floor | any `spread` with bets `3/97` and a 20pp tilt | **no tier** — fails `MIN_MINORITY` |
-| null opener | `away_open = null` | `movedToward = null`, no tier 1/3/4 |
+| `sharp_money`, total | `cfb` Indiana @ Michigan · bets `83/17` · money `64/36` · line `52.5 → 41.5` | **Sharp Money on the Under**, `tiltPp 19`, `move −11.0`, strong |
+| `sharp_money`, mild crowd | `cfb` Boise State @ Washington St · bets `52/48` · money `15/85` · line `−16.5 → −13` | **Sharp Money on Washington St**, `tiltPp 37`. ⛔ The regression case: the old rule called this "Even Split" |
+| `sharp_money`, spread | `cfb` Duke @ Virginia · bets `44/56` · money `59/41` · line `6.5 → 1.5` | **Sharp Money on Duke** — fires on a 56% crowd, which the old rule could not |
+| `sharp_money`, small move | `nfl` Browns @ Titans · bets `77/23` · money `62/38` · line `40.5 → 38.5` | Sharp Money on the Under, `move −2.0` |
+| ⛔ no quarter points | any row | every rendered line is a whole or half point. A `.25` means movement came off `*_close` instead of `*_cons` |
+| `money_no_move` | `cfb` Houston @ Utah · bets `69/31` · money `47/53` · line `6.5 → 6.5` | **Money on Utah**, line hasn't moved |
+| `line_fights_money` | `cfb` Oklahoma @ Mississippi St · bets `59/41` · money `42/58` · line `−1.5 → −4.5` | **Line fighting the money** — money on Miss St, line moved toward Oklahoma |
+| `hammered` | `nfl` Bengals @ Ravens · bets `73/27` · money `87/13` · line `3.5 → 3` | **Hammered on Cincinnati** — ⛔ asserts this is NOT `sharp_money`; the money is piling onto the popular side |
+| `line_pushes_back` | `cfb` Army @ Tulsa · bets `9/91` · money `10/90` · line `50.5 → 54.5` | **Line pushing back** — 91% on the under, total rose 4 points |
+| sub-threshold move | `diverging` with a 0.25-point move | `money_no_move`, NOT `sharp_money` — `effectiveMove` collapses it to null |
+| ml never sharp | `cfb` Old Dominion @ LA Tech · bets `4/96` · money `79/21` | skips 1-5 entirely, and is excluded by `ML_MIN_MINORITY` |
+| ml floor is ml-only | any `spread` with bets `12/88` | ⛔ **NOT excluded** — this floor applies to moneyline only |
+| null opener | `away_open = null` | `movedToward = null` ⇒ `money_no_move` / `public`, never `sharp_money` |
 | no data | `bets_away = 0, bets_home = 0` | excluded from the feed |
 | ml direction | Celtics/Pistons ml · open `+105/−125` · cons `−113/+102` | `movedToward = 'away'` — the case naive subtraction gets backwards |
 
-⛔ **Expected volume, as a smoke test:** on the real 84-game board this produces **4 tier-1
-and 5 tier-2**. Dozens means a gate from §1 is missing.
+⛔ **Smoke test the distribution**, not just the units. The §2 table has a real board's
+counts; `sharp_money` on 8 of 168 rows is right, dozens means a gate is missing, and zero
+means `away_cons` is null (the writer must have run before the consensus fix).
 
-**URL state:** `?sport=all|nfl|cfb|nba|ncaab&market=spread|total|ml&tier=sharp|all&game=<game_id>`.
+**URL state:** `?sport=all|nfl|cfb|nba|ncaab&market=spread|total|ml&signal=sharp|all&game=<game_id>`.
 Defaults `all` / `spread` / `all`.
 
-**Filters:** sport pills, market pills, and a tier filter with "Sharp money only" as the
+**Filters:** sport pills, market pills, and a signal filter with "Sharp money only" as the
 first option. ⛔ Build the sport pills from the sports present in the response, not a
 hardcoded list — NCAAB has no rows until November and a dead chip returning an empty board
 reads as a broken page.
 
-**Feed card:** sport chip · `Away @ Home` · start time · the tier chip · and the hero, which
+**Feed card:** sport chip · `Away @ Home` · start time · the category chip · and the hero, which
 is the divergence graphic below.
 
 **Detail pane:**
 1. Header: teams, start time, ticket count, "Action Network · captured {relative time}".
 2. All three markets stacked (spread, total, ml), each with both bars, both percentages, and
    open → current with the arrow. The filtered market is expanded; the others collapse.
-3. The tier sentence from §2, in full, as the explanation — this is the "tell them what it
+3. The category sentence from §2, in full, as the explanation — this is the "tell them what it
    means" layer and it is written copy, not a research string.
 4. A short static "how to read this" block explaining tickets vs money in two sentences.
 
@@ -382,9 +440,9 @@ arrow and no rail; it must not look like a flat line.
 
 **3. The confirmation glyph** — ⛔ this is the one idea the whole design rests on: **the
 wedge and the arrow are the same colour exactly when the line is following the money.** That
-is the sharp read, shown rather than asserted. When tier 1 fires, put the wedge and the rail
-adjacent on the card so the colour match is unmissable, and give the tier-1 chip a subtle
-ring in that same colour. A reader should be able to spot tier 1 while scrolling, without
+is the sharp read, shown rather than asserted. When `sharp_money` fires, put the wedge and the rail
+adjacent on the card so the colour match is unmissable, and give that chip a subtle
+ring in that same colour. A reader should be able to spot `sharp_money` while scrolling, without
 reading a word.
 
 House rules: dark mode via the existing theme tokens, legible at phone width (the bars go
@@ -392,7 +450,7 @@ full-width and the rail wraps beneath), `font-variant-numeric: tabular-nums` eve
 percentage or a line sits in a column, and any transition respects
 `prefers-reduced-motion`. The bars may animate their width on mount; nothing else animates.
 
-**Access:** percentages free, the tier chips and sentences Pro-gated via the existing
+**Access:** percentages free, the category chips and sentences Pro-gated via the existing
 `ProGate` / `useAccessControl`. ⛔ Gating is three independent layers — route wrapper, client
 check, DB policy — and missing one gives a silent paywall bounce. This view is anon-readable
 by design, so the gate here is client-side only and must not be described as security.
@@ -412,7 +470,7 @@ by design, so the gate here is client-side only and must not be described as sec
 ## Definition of done
 
 * `/public-betting` renders NFL, CFB and NBA off `action_public_splits_board`, filterable by
-  sport, market and tier.
+  sport, market and category.
 * The §1 worked example produces `Sharp Money on the Under` on a real card.
 * `signals.test.ts` covers every case listed in §5 and passes.
 * `npm test` green, `npm run build` clean.
