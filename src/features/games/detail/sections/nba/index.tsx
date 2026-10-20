@@ -10,7 +10,7 @@ import { NbaBettingTrendsSection } from './NbaBettingTrendsSection';
 import { NbaTeamStatsSection } from './NbaTeamStatsSection';
 import { NbaInjuriesSection } from './NbaInjuriesSection';
 import { NbaFirstHalfSection } from './NbaFirstHalfSection';
-import { NbaSignalsSection } from './NbaSignalsSection';
+import { NbaSignalProvider } from './NbaSignalsSection';
 import { useNbaMatchupOverview } from './useNbaMatchupOverview';
 import type { NBAPrediction } from '../../../api/nbaGames';
 import type { SportSectionsProps } from '../index';
@@ -28,12 +28,11 @@ export function NbaSections({ game, onCompletionGenerated }: SportSectionsProps)
   const overview = useNbaMatchupOverview(raw.away_team, raw.home_team, raw.game_date);
 
   return (
-    <>
+    <NbaSignalProvider game={game}>
       <NbaSpreadSection game={game} />
       <NbaMoneylineSection game={game} />
       <NbaTotalSection game={game} />
       <NbaFirstHalfSection game={game} />
-      <NbaSignalsSection game={game} />
       <MarketOddsSection game={game} />
       <MatchSimulatorSection game={game} />
       <NbaBettingTrendsSection game={game} trends={overview.trends} loading={overview.trendsLoading} />
@@ -65,6 +64,6 @@ export function NbaSections({ game, onCompletionGenerated }: SportSectionsProps)
           />
         </>
       )}
-    </>
+    </NbaSignalProvider>
   );
 }

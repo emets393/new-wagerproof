@@ -15,6 +15,7 @@ import {
 import type { NBAPrediction } from '../../../api/nbaGames';
 import type { GameFeedItem } from '../../../types';
 import { nbaSpreadHeadline, nbaTotalHeadline } from '../../headlines/nba';
+import { NbaMarketSignals } from './NbaSignalsSection';
 
 /**
  * NBA model output, split into one card per market (rule 1). This used to be a
@@ -38,7 +39,7 @@ export function NbaSpreadSection({ game }: NbaPredictionsSectionProps) {
 
   // Same gate as before: without a model-vs-market delta there's no pick to make.
   const edgeInfo = getEdgeInfo(homeSpreadDiff, raw.away_team, raw.home_team);
-  if (!edgeInfo) return null;
+  if (!edgeInfo) return <NbaMarketSignals market="spread" />;
 
   const pickIsHome = edgeInfo.isHomeEdge;
   const pickTeam = pickIsHome ? game.homeTeam : game.awayTeam;
@@ -98,6 +99,7 @@ export function NbaSpreadSection({ game }: NbaPredictionsSectionProps) {
             opponentAbbrev={(pickIsHome ? game.awayTeam : game.homeTeam).abbrev}
           />
         )}
+        <NbaMarketSignals market="spread" />
       </div>
     </WidgetCard>
   );
@@ -107,7 +109,7 @@ export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
   const raw = game.raw as unknown as NBAPrediction;
 
   const overLineDiff = toNum(raw.over_line_diff);
-  if (overLineDiff === null) return null;
+  if (overLineDiff === null) return <NbaMarketSignals market="total" />;
 
   const predOverLine = toNum(raw.pred_over_line);
   const vegasTotal = toNum(raw.over_line);
@@ -182,6 +184,7 @@ export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
               }
             />
           ))}
+        <NbaMarketSignals market="total" />
       </div>
     </WidgetCard>
   );
@@ -190,12 +193,12 @@ export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
 export function NbaMoneylineSection({ game }: NbaPredictionsSectionProps) {
   const raw = game.raw as unknown as NBAPrediction;
   const homeProb = toNum(raw.home_away_ml_prob);
-  if (homeProb === null || homeProb <= 0 || homeProb >= 1) return null;
+  if (homeProb === null || homeProb <= 0 || homeProb >= 1) return <NbaMarketSignals market="moneyline" />;
 
   const pickIsHome = homeProb >= 0.5;
   const probability = pickIsHome ? homeProb : 1 - homeProb;
   const price = toNum(pickIsHome ? raw.home_ml : raw.away_ml);
-  if (price === null || Math.abs(price) < 100) return null;
+  if (price === null || Math.abs(price) < 100) return <NbaMarketSignals market="moneyline" />;
 
   const team = pickIsHome ? game.homeTeam : game.awayTeam;
   const outcome = moneylineOutcome(price, probability, NBA_EDGE_SCALE);
@@ -222,6 +225,7 @@ export function NbaMoneylineSection({ game }: NbaPredictionsSectionProps) {
           scale={NBA_EDGE_SCALE}
           teamAbbrev={team.abbrev}
         />
+        <NbaMarketSignals market="moneyline" />
       </div>
     </WidgetCard>
   );

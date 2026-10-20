@@ -2134,6 +2134,7 @@ export function GameLevelSignalList({
   signalDefs,
   signalPerformance,
   showLifecycleRecords = false,
+  listTitle = 'Signals on this game',
 }: {
   flags: SlateFlag[];
   away: TeamRef;
@@ -2142,6 +2143,8 @@ export function GameLevelSignalList({
   signalPerformance: Record<string, SignalPerformanceRow>;
   /** NBA defs carry a back-test line and a this-season line. Both render, neither is summed. */
   showLifecycleRecords?: boolean;
+  /** Under a market card this is "Pick Signals". The standalone list names the game. */
+  listTitle?: string;
 }) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const resolved = useMemo(() => {
@@ -2183,7 +2186,7 @@ export function GameLevelSignalList({
   return (
     <div className="flex flex-col gap-2.5">
       <PickSignalsSection
-        title="Signals on this game"
+        title={listTitle}
         signals={resolved.map((signal) => ({
           key: signal.key,
           title: signal.displayName,
