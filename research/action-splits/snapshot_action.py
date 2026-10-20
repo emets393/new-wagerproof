@@ -69,7 +69,7 @@ import urllib.error
 import urllib.request
 from zoneinfo import ZoneInfo
 
-from fetch_action import API, BOOK_IDS, UA, get, rows_for_game
+from fetch_action import API, BOOK_IDS, CONSENSUS, UA, get, rows_for_game
 
 TABLE = "action_public_splits"
 VIEW = "action_public_splits_latest"
@@ -90,9 +90,39 @@ LEAGUES = {
 ATTR_COLS = ("sport", "season", "week", "slate_date", "start_time", "game_type",
              "away", "home")
 # the mutable half: a change in any of these is what earns a new row
-VAL_COLS = ("away_open", "home_open", "away_close", "away_price", "home_close",
+VAL_COLS = ("away_open", "home_open", "away_cons", "home_cons",
+            "away_cons_price", "home_cons_price",
+            "away_close", "away_price", "home_close",
             "home_price", "bets_away", "bets_home", "money_away", "money_home",
             "tickets", "away_move", "home_move", "money_minus_bets_away")
+
+
+def consensus(game, market):
+    """Book 15's own line for one market — ⛔ THE CURRENT LINE, and the only real one here.
+
+    `*_close` is the BEST number across the eight real books, which is a different value per
+    side: on a total the over wants the lowest and the under the highest. Reconstructing a
+    line by splitting those two gives numbers no book ever posted — a 3.25 spread — because
+    it is the centre of the cross-book spread, not a line. Book 15 is Action Network's
+    consensus and carries the posted half-point number directly, which is also the book the
+    ticket and money percentages come from, so the line and the splits finally agree on
+    which line they describe.
+
+    Returns (away, home) as values for spread/total and as PRICES for ml, matching the
+    convention `*_open` already uses (on a moneyline the price IS the line).
+    """
+    api_key = {"spread": "spread", "total": "total", "ml": "moneyline"}[market]
+    a_side, h_side = ("over", "under") if market == "total" else ("away", "home")
+    ev = (((game.get("markets") or {}).get(CONSENSUS) or {}).get("event") or {})
+    out = {}
+    for o in (ev.get(api_key) or []):
+        if o.get("side") in (a_side, h_side):
+            out[o["side"]] = o
+    field = "odds" if market == "ml" else "value"
+    a, h = out.get(a_side), out.get(h_side)
+    return ((a or {}).get(field), (h or {}).get(field),
+            None if market == "ml" else (a or {}).get("odds"),
+            None if market == "ml" else (h or {}).get("odds"))
 
 HARD_FAIL_HOURS = 36        # see FAILING LOUD above
 
@@ -179,6 +209,7 @@ def parse_games(payload, cfg, season, slate_date):
             continue
         for r in parsed:
             key = (int(gid), r["market"])
+            c_a, c_h, cp_a, cp_h = consensus(g, r["market"])
             rows[key] = {
                 "sport": cfg["sport"], "season": row_season,
                 "week": r["week"] if r.get("week") not in (None, "") else None,
@@ -186,7 +217,9 @@ def parse_games(payload, cfg, season, slate_date):
                 "start_time": start, "game_type": g.get("type"),
                 # ⛔ trim: the feed ships "Army " with a trailing space
                 "away": (r["away"] or "").strip(), "home": (r["home"] or "").strip(),
-                **{c: f(r[c]) for c in VAL_COLS},
+                **{c: f(r[c]) for c in VAL_COLS if c in r},
+                "away_cons": f(c_a), "home_cons": f(c_h),
+                "away_cons_price": f(cp_a), "home_cons_price": f(cp_h),
             }
     return rows, skipped, soonest
 

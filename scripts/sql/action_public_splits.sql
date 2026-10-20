@@ -40,6 +40,14 @@ create table if not exists public.action_public_splits (
     home                  text        not null,
     away_open             double precision,
     home_open             double precision,
+    -- ⛔ away_cons/home_cons are THE CURRENT LINE: Action Network's consensus book (15), the
+    -- same book the percentages come from, carrying the real posted half-point number. The
+    -- *_close columns below are BEST ODDS PER SIDE and are a different value on each side,
+    -- so splitting them to recover a line yields numbers no book posted (a 3.25 spread).
+    away_cons             double precision,
+    home_cons             double precision,
+    away_cons_price       double precision,
+    home_cons_price       double precision,
     away_close            double precision,
     away_price            double precision,
     home_close            double precision,
@@ -63,6 +71,12 @@ create index if not exists action_public_splits_week_idx
 create index if not exists action_public_splits_date_idx
     on public.action_public_splits (sport, slate_date, snap_ts desc);
 
+-- ⛔ ADDING A COLUMN TO THE TABLE MEANS RECREATING BOTH VIEWS. A view's `select *` freezes
+-- its column list at creation, so a new column is invisible to it and `create or replace`
+-- refuses to reorder — it must be dropped and recreated. The consensus columns were added
+-- 2026-10-20 and the writer broke immediately on
+-- "column action_public_splits_latest.away_cons does not exist".
+--
 -- One row per game-market, the latest. This is what snapshot_action.py diffs against, so its
 -- cost stays flat in season length instead of growing with the log.
 create or replace view public.action_public_splits_latest as
