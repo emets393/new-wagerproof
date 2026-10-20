@@ -9,7 +9,7 @@ import type { GameFeedItem, SportFeed, TeamRef } from '../types';
  *                         Replaced nba_predictions' model_fair_* on 2026-10-13 (owner call): those were a
  *                         transform of win probability with zero correlation to results.
  *   + nba_predictions   — home_win_prob = Phi(originator margin / 14.2), written by the same nightly (2026-10-19);
- *                         the old xgboost model is deleted. Also on nba_model_preds.home_win_prob (spread row).
+ *                         the old xgboost model is deleted. The spread row of nba_model_preds is preferred.
  *   + nba_slate_flags   — situational signals + model-disagreement flags → feed ⚡ badge and the
  *                         Signals card (same table contract as cfb/nfl_slate_flags).
  *   + nba_teams_master  — logos.
@@ -46,6 +46,8 @@ export interface NBAPrediction {
   nba_total_tier?: string | null;
   /** Flags for this game from nba_slate_flags (feed badge + Signals card share one fetch). */
   nba_flags?: NbaSlateFlag[];
+  /** First-half spread and total from nba_model_preds_h1, joined on game_id. */
+  nba_h1?: NbaH1Row[];
   // Public betting splits (may not exist for basketball)
   spread_splits_label: string | null;
   total_splits_label: string | null;
@@ -74,6 +76,18 @@ export interface NbaSlateFlag {
   game?: string | null;
 }
 
+/** One nba_model_preds_h1 row. `market` is h1_spread or h1_total. */
+export interface NbaH1Row {
+  market: string | null;
+  model_home_margin: number | string | null;
+  model_total: number | string | null;
+  market_home_spread: number | string | null;
+  market_total: number | string | null;
+  disagreement: number | string | null;
+  tier: string | null;
+  game_id?: number | null;
+}
+
 /** One nba_model_preds row (one market). */
 interface NbaModelPredRow {
   espn_game_id: number;
@@ -89,6 +103,7 @@ interface NbaModelPredRow {
   disagreement: number | string | null;
   tier: string | null;
   bet_side: string | null;
+  home_win_prob: number | string | null;
 }
 
 const asNum = (v: unknown): number | null => {
@@ -285,19 +300,31 @@ export async function fetchNbaGames(): Promise<SportFeed<NBAPrediction>> {
   const modelByAbbr = new Map<string, Partial<Record<'spread' | 'total', NbaModelPredRow>>>();
   const flagsByGameId = new Map<number, NbaSlateFlag[]>();
   const flagsByAbbr = new Map<string, NbaSlateFlag[]>();
+  const h1ByGameId = new Map<number, NbaH1Row[]>();
   if (dates.length > 0) {
-    const [{ data: modelRows, error: modelError }, { data: flagRows, error: flagsError }] = await Promise.all([
+    const [{ data: modelRows, error: modelError }, { data: flagRows, error: flagsError }, { data: h1Rows, error: h1Error }] = await Promise.all([
       collegeFootballSupabase
         .from('nba_model_preds')
-        .select('espn_game_id, game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, market_home_spread, market_total, disagreement, tier, bet_side')
+        .select('espn_game_id, game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, market_home_spread, market_total, disagreement, tier, bet_side, home_win_prob')
         .in('game_date', dates),
       collegeFootballSupabase
         .from('nba_slate_flags')
         .select('game_id, espn_game_id, game_date, game, signal_key, market, side, tier, conviction, line, bet_team, bet_direction, bet_line, grade_line, trigger_text, record_text')
         .in('game_date', dates),
+      collegeFootballSupabase
+        .from('nba_model_preds_h1')
+        .select('game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, market_home_spread, market_total, disagreement, tier')
+        .in('game_date', dates),
     ]);
     if (modelError) debug.warn('nba_model_preds error:', modelError.message);
     if (flagsError) debug.warn('nba_slate_flags error:', flagsError.message);
+    if (h1Error) debug.warn('nba_model_preds_h1 error:', h1Error.message);
+    for (const row of (h1Rows || []) as NbaH1Row[]) {
+      if (row.game_id == null) continue;
+      const list = h1ByGameId.get(Number(row.game_id)) || [];
+      list.push(row);
+      h1ByGameId.set(Number(row.game_id), list);
+    }
     for (const row of (modelRows || []) as NbaModelPredRow[]) {
       const mk = row.market === 'total' ? 'total' : 'spread';
       if (row.game_id != null) {
@@ -361,9 +388,9 @@ export async function fetchNbaGames(): Promise<SportFeed<NBAPrediction>> {
     debug.error('Error fetching NBA team mappings:', teamMappingsError);
   }
   const teamMappings: NBATeamMapping[] = (teamMappingsData || []).map((team: any) => ({
-    team_id: team.team_id || team.id,
-    team_name: team.team_name || team.name || team.full_name,
-    abbreviation: team.abbreviation || team.abbr || team.short_name,
+    team_id: team.team_id_bdl || team.team_id || team.id,
+    team_name: team.team_full_name_bdl || team.team_name || team.name || team.full_name,
+    abbreviation: team.team_abbr || team.abbreviation || team.abbr || team.short_name,
     logo_url: team.logo_url || team.logo || '/placeholder.svg',
   }));
 
@@ -395,22 +422,25 @@ export async function fetchNbaGames(): Promise<SportFeed<NBAPrediction>> {
         ? vegasHomeSpread - modelFairHomeSpread
         : null;
 
-    // Total: hidden while the model is warming up (< 10 games played) -- it has no season-to-date
-    // form yet and loses in that window, so there is no lean to show.
+    // The total is shown even while the model is warming up. Warmup is a tracking
+    // label on the card, not a reason to hide the number.
     const totalTier = totalRow?.tier ?? null;
     const vegasTotal = asNum(game.total_line);
-    const modelFairTotal = totalTier === 'warmup' ? null : asNum(totalRow?.model_total);
+    const modelFairTotal = asNum(totalRow?.model_total);
     const overLineDiff =
       vegasTotal !== null && modelFairTotal !== null ? modelFairTotal - vegasTotal : null;
 
     // Heuristic cover probability from the model-vs-Vegas gap (5%/point, capped 0.15..0.85).
+    // Win probability is the originator spread row. nba_predictions.home_win_prob is the
+    // same nightly derivation and is only the fallback. model_fair_* is never read.
+    const homeWinProb = asNum(spreadRow?.home_win_prob) ?? asNum(prediction?.home_win_prob);
     // The pills need a probability; the models produce margins. Falls back to home_win_prob.
     let spreadCoverProb: number | null = null;
     if (homeSpreadDiff !== null) {
       const capped = Math.min(Math.abs(homeSpreadDiff) * 0.05, 0.35);
       spreadCoverProb = homeSpreadDiff > 0 ? 0.5 + capped : 0.5 - capped;
-    } else if (prediction?.home_win_prob) {
-      spreadCoverProb = prediction.home_win_prob;
+    } else if (homeWinProb) {
+      spreadCoverProb = homeWinProb;
     }
 
     // Same heuristic for O/U (2%/point of total gap)
@@ -444,7 +474,7 @@ export async function fetchNbaGames(): Promise<SportFeed<NBAPrediction>> {
       game_date: game.game_date || '',
       game_time: game.tipoff_time_et || '',
       // Prediction probabilities
-      home_away_ml_prob: prediction?.home_win_prob || null,
+      home_away_ml_prob: homeWinProb,
       home_away_spread_cover_prob: spreadCoverProb,
       ou_result_prob: ouProb,
       run_id: prediction?.run_id || null,
@@ -454,6 +484,7 @@ export async function fetchNbaGames(): Promise<SportFeed<NBAPrediction>> {
       nba_spread_tier: spreadRow?.tier ?? null,
       nba_total_tier: totalTier,
       nba_flags: flags,
+      nba_h1: h1ByGameId.get(game.game_id) || [],
       // Model predicted spread/total (for modal display)
       pred_spread: modelFairHomeSpread,
       pred_over_line: modelFairTotal,

@@ -12,8 +12,6 @@ import { logMixpanelStatus } from "@/lib/mixpanel";
 import { DEFAULT_AUTHENTICATED_ROUTE } from "@/lib/routes";
 import Landing from "./pages/NewLanding";
 import { GameAnalysis, Account, Welcome, PressKit } from "./pages";
-import NBATodayHalftimeTrends from "./pages/NBATodayHalftimeTrends";
-import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
 // The MLB tools are split views now; the old page files stay on disk
 // but are no longer routed (see src/features/mlbTools/README.md).
 import F5SplitsPage from "./features/mlbTools/f5Splits/F5SplitsPage";
@@ -369,8 +367,8 @@ function AppRoutes() {
           <Route path="/nfl/player/:playerId" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><PropBreakdownPage /></ProtectedRoute>} />
           <Route path="/nba" element={<LegacySportRedirect sport="nba" />} />
           <Route path="/nba/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="nba" />} />
-          <Route path="/nba/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NBATodayHalftimeTrends /></ProtectedRoute>} />
-          <Route path="/nba/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NBATodayEdgeAccuracy /></ProtectedRoute>} />
+          <Route path="/nba/halftime-trends" element={<LegacySportRedirect sport="nba" />} />
+          <Route path="/nba/todays-predictions" element={<LegacySportRedirect sport="nba" />} />
           <Route path="/ncaab" element={<LegacySportRedirect sport="ncaab" />} />
           <Route path="/mlb" element={<LegacySportRedirect sport="mlb" />} />
           <Route path="/mlb/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="mlb" />} />

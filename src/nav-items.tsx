@@ -134,18 +134,6 @@ export const navItems: NavItem[] = [
     title: "NBA",
     to: "/games?sport=nba",
     icon: <Basketball className="h-4 w-4" />,
-    subItems: [
-      {
-        title: "Halftime Trends",
-        to: "/nba/halftime-trends",
-        icon: <Clock className="h-4 w-4" />,
-      },
-      {
-        title: "Today's Predictions",
-        to: "/nba/todays-predictions",
-        icon: <BarChart2 className="h-4 w-4" />,
-      },
-    ],
   },
   {
     title: "CBB",

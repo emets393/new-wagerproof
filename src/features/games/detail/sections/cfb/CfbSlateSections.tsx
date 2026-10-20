@@ -85,6 +85,10 @@ export type SignalDefinition = {
   why_it_works?: string | null;
   bet_direction?: string | null;
   typical_hit?: string | null;
+  /** Back-test record. Rendered beside season_record_text, never added to it. */
+  record_text?: string | null;
+  /** This-season record. Rendered beside record_text, never added to it. */
+  season_record_text?: string | null;
 };
 
 type FootballSlatePick = {
@@ -2129,12 +2133,15 @@ export function GameLevelSignalList({
   home,
   signalDefs,
   signalPerformance,
+  showLifecycleRecords = false,
 }: {
   flags: SlateFlag[];
   away: TeamRef;
   home: TeamRef;
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
+  /** NBA defs carry a back-test line and a this-season line. Both render, neither is summed. */
+  showLifecycleRecords?: boolean;
 }) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const resolved = useMemo(() => {
@@ -2196,6 +2203,7 @@ export function GameLevelSignalList({
           direction={selected.direction}
           betLogo={selected.betLogo}
           betOU={selected.betOU}
+          showLifecycleRecords={showLifecycleRecords}
         />
       )}
     </div>
@@ -2212,6 +2220,7 @@ function SignalDetail({
   direction,
   betLogo,
   betOU,
+  showLifecycleRecords = false,
 }: {
   signalKey: string;
   signal: SignalDefinition | undefined;
@@ -2223,6 +2232,7 @@ function SignalDetail({
   /** Structured render hints: bet team's logo, green arrow for over/under. */
   betLogo?: string | null;
   betOU?: 'over' | 'under';
+  showLifecycleRecords?: boolean;
 }) {
   const directionText =
     direction?.trim() ||
@@ -2272,6 +2282,22 @@ function SignalDetail({
         backtestRaw={signal?.typical_hit}
         performance={performance}
       />
+      {showLifecycleRecords && (signal?.record_text || signal?.season_record_text) && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {signal?.record_text ? (
+            <div className="rounded-xl bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Back-test</div>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-foreground">{signal.record_text}</p>
+            </div>
+          ) : null}
+          {signal?.season_record_text ? (
+            <div className="rounded-xl bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">This season</div>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-foreground">{signal.season_record_text}</p>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

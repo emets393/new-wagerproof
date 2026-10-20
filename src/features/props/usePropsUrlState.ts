@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-export type PropsSport = 'mlb' | 'nfl';
+export type PropsSport = 'mlb' | 'nfl' | 'nba';
 export type PropsPanel = 'games' | 'board';
 export type PropsBrowse = 'matchups' | 'players';
 export type PropsFocus = 'all' | 'spotlight' | 'leans';
@@ -17,7 +17,7 @@ function readRail(params: URLSearchParams): PropsRail {
 }
 
 function isPropsSport(value: string | null): value is PropsSport {
-  return value === 'mlb' || value === 'nfl';
+  return value === 'mlb' || value === 'nfl' || value === 'nba';
 }
 
 export function usePropsUrlState() {

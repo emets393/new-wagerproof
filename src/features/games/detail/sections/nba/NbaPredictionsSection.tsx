@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, CircleDollarSign, Sigma, TrendingUp } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
 import { getEdgeInfo } from '../../edgeExplanations';
-import { ModelEdgeRail, ModelVsMarketRow, NBA_EDGE_SCALE, SpreadCoverBar } from '../../charts';
+import { ModelEdgeRail, ModelVsMarketRow, MoneylineEdgeBar, NBA_EDGE_SCALE, SpreadCoverBar, moneylineOutcome } from '../../charts';
 import {
   CARD_STACK,
   fmt1,
@@ -131,9 +131,11 @@ export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
       title="Total"
       headline={nbaTotalHeadline({ modelTotal, marketTotal, isOver, magnitude }) ?? undefined}
       subtitle={
-        raw.nba_total_tier === 'bet' || raw.nba_total_tier === 'lean'
-          ? 'How many points the model expects versus the posted total, and which way that leans. Candidate model — tracked this season, bet-size accordingly.'
-          : 'How many points the model expects versus the posted total, and which way that leans.'
+        raw.nba_total_tier === 'warmup'
+          ? 'Tracking only while the total model warms up. This is the model total against the posted total, not a bet.'
+          : raw.nba_total_tier === 'bet' || raw.nba_total_tier === 'lean'
+            ? 'How many points the model expects versus the posted total, and which way that leans. Candidate model — tracked this season, bet-size accordingly.'
+            : 'How many points the model expects versus the posted total, and which way that leans.'
       }
     >
       <div className={CARD_STACK}>
@@ -180,6 +182,46 @@ export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
               }
             />
           ))}
+      </div>
+    </WidgetCard>
+  );
+}
+
+export function NbaMoneylineSection({ game }: NbaPredictionsSectionProps) {
+  const raw = game.raw as unknown as NBAPrediction;
+  const homeProb = toNum(raw.home_away_ml_prob);
+  if (homeProb === null || homeProb <= 0 || homeProb >= 1) return null;
+
+  const pickIsHome = homeProb >= 0.5;
+  const probability = pickIsHome ? homeProb : 1 - homeProb;
+  const price = toNum(pickIsHome ? raw.home_ml : raw.away_ml);
+  if (price === null || Math.abs(price) < 100) return null;
+
+  const team = pickIsHome ? game.homeTeam : game.awayTeam;
+  const outcome = moneylineOutcome(price, probability, NBA_EDGE_SCALE);
+  const edgeLabel = `${outcome.edge > 0 ? '+' : ''}${outcome.edge.toFixed(1)}`;
+
+  return (
+    <WidgetCard
+      icon={<CircleDollarSign />}
+      title="Moneyline"
+      headline={`Model gives ${team.abbrev} a ${(probability * 100).toFixed(1)}% chance. The price needs ${outcome.breakEvenPercent.toFixed(1)}% to break even.`}
+      subtitle="Win probability from the originator spread, set against the posted price."
+    >
+      <div className={CARD_STACK}>
+        <Recommendation
+          market="Moneyline"
+          pick={team.abbrev}
+          team={team}
+          edge={edgeLabel}
+          edgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
+        />
+        <MoneylineEdgeBar
+          price={price}
+          modelProbability={probability}
+          scale={NBA_EDGE_SCALE}
+          teamAbbrev={team.abbrev}
+        />
       </div>
     </WidgetCard>
   );

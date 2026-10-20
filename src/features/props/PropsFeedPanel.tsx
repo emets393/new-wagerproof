@@ -19,7 +19,7 @@ export type PropsSortKey = 'time' | 'away' | 'home';
 const SPORT_OPTIONS = [
   { value: 'mlb' as const, label: 'MLB' },
   { value: 'nfl' as const, label: 'NFL' },
-  { value: 'nba' as const, label: 'NBA', status: 'Soon', disabled: true },
+  { value: 'nba' as const, label: 'NBA' },
 ];
 
 const SORT_OPTIONS: { value: PropsSortKey; label: string }[] = [
@@ -95,9 +95,7 @@ export function PropsFeedPanel<T extends MlbToolFeedItem>({
               className="min-w-0 flex-1"
               options={SPORT_OPTIONS}
               value={sport}
-              onChange={(value) => {
-                if (value !== 'nba') onSportChange(value);
-              }}
+              onChange={onSportChange}
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

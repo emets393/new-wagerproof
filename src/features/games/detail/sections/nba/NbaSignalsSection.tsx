@@ -10,8 +10,11 @@ import type { GameFeedItem } from '../../../types';
 
 /**
  * NBA signals card: the situational signals (dead home favorite, three-point luck storm, national-TV
- * unders, Thanksgiving dog, buzzer-beater / OT fades) and the two model-disagreement flags, from
- * nba_slate_flags. The flags ride in on the feed row (`raw.nba_flags`) so the card and the feed ⚡
+ * unders, Thanksgiving dog, buzzer-beater / OT fades, final-two-weeks over, home rest edge, road-fav
+ * blowout carry, cold-road-trip over), the two model-disagreement flags, and the two derived flags the
+ * confluence step writes (nba_model_signal_confluence = model + agreeing signal, nba_signal_stack = two
+ * situational signals on one team), all from nba_slate_flags. New signal keys render with no code change
+ * because names and copy come from nba_signal_defs. The flags ride in on the feed row (`raw.nba_flags`) so the card and the feed ⚡
  * badge count the same rows; only the definitions and the season record are fetched here.
  * Renders the football GameLevelSignalList — the flag contract is shared, so the pills, the
  * Direction row with the bet team's logo, and the backtest meter are identical across sports.
@@ -72,6 +75,7 @@ export function NbaSignalsSection({ game }: { game: GameFeedItem }) {
         home={game.homeTeam}
         signalDefs={signalDefs}
         signalPerformance={performance}
+        showLifecycleRecords
       />
     </WidgetCard>
   );
