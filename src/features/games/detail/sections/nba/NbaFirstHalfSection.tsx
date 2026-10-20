@@ -1,15 +1,28 @@
 import { useEffect, useState } from 'react';
-import { Timer } from 'lucide-react';
+import { ArrowDown, ArrowUp, CircleDollarSign, Sigma, TrendingUp } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
-import { fmt1, fmtSigned1, round1, toNum } from './shared';
+import { getEdgeInfo } from '../../edgeExplanations';
+import { ModelEdgeRail, ModelVsMarketRow, NBA_EDGE_SCALE, SpreadCoverBar } from '../../charts';
+import { nbaSpreadHeadline, nbaTotalHeadline } from '../../headlines/nba';
+import {
+  CARD_STACK,
+  fmt1,
+  fmtSigned1,
+  OverUnderPickRow,
+  Recommendation,
+  round1,
+  SpreadPickRow,
+  toNum,
+} from './shared';
 import type { NBAPrediction, NbaH1Row } from '../../../api/nbaGames';
-import type { GameFeedItem, TeamRef } from '../../../types';
+import type { GameFeedItem } from '../../../types';
 
 /**
- * First-half spread and total from nba_model_preds_h1. Same numbers as the full-game
- * originator row. The total is tracking-only: its tier is never a bet.
+ * First-half spread and total from nba_model_preds_h1.
+ * The spread card is the full-game spread card. The total card is the full-game
+ * total card, and it stays tracking-only: its tier is never a bet.
  */
 export function NbaFirstHalfSection({ game }: { game: GameFeedItem }) {
   const raw = game.raw as unknown as NBAPrediction;
@@ -46,142 +59,140 @@ export function NbaFirstHalfSection({ game }: { game: GameFeedItem }) {
   }, [attached, raw.game_date, raw.game_id, game.homeTeam.abbrev, game.awayTeam.abbrev]);
 
   const rows = attached && attached.length > 0 ? attached : fetched;
-
   if (!rows || rows.length === 0) return null;
 
   const spread = rows.find((row) => row.market === 'h1_spread');
   const total = rows.find((row) => row.market === 'h1_total');
 
   return (
+    <>
+      {spread && <FirstHalfSpread game={game} row={spread} />}
+      {total && <FirstHalfTotal row={total} />}
+    </>
+  );
+}
+
+/** Same body as NbaSpreadSection. Home spread is the negated first-half margin. */
+function FirstHalfSpread({ game, row }: { game: GameFeedItem; row: NbaH1Row }) {
+  const raw = game.raw as unknown as NBAPrediction;
+  const margin = toNum(row.model_home_margin);
+  const vegasHomeSpread = toNum(row.market_home_spread);
+  const predSpread = margin === null ? null : -margin;
+  const homeSpreadDiff =
+    vegasHomeSpread !== null && predSpread !== null ? vegasHomeSpread - predSpread : null;
+
+  const edgeInfo = getEdgeInfo(homeSpreadDiff, raw.away_team, raw.home_team);
+  if (!edgeInfo) return null;
+
+  const pickIsHome = edgeInfo.isHomeEdge;
+  const pickTeam = pickIsHome ? game.homeTeam : game.awayTeam;
+  const modelLine = predSpread === null ? null : round1(pickIsHome ? predSpread : -predSpread);
+  const marketLine =
+    vegasHomeSpread === null ? null : round1(pickIsHome ? vegasHomeSpread : -vegasHomeSpread);
+  const derivedEdge =
+    modelLine !== null && marketLine !== null ? round1(marketLine - modelLine) : null;
+  const edgePts = derivedEdge ?? round1(Math.abs(homeSpreadDiff as number));
+  const awayLine = vegasHomeSpread === null ? '—' : fmtSigned1(round1(-vegasHomeSpread));
+  const homeLine = vegasHomeSpread === null ? '—' : fmtSigned1(round1(vegasHomeSpread));
+
+  return (
     <WidgetCard
-      icon={<Timer />}
-      title="First half"
-      subtitle="Each spread names the team it belongs to. The total is tracking only."
+      icon={<CircleDollarSign />}
+      title="1H Spread"
+      headline={nbaSpreadHeadline({
+        pickAbbrev: pickTeam.abbrev,
+        modelLine,
+        marketLine,
+        edgePts,
+      }) ?? undefined}
+      subtitle="Which side the model would lay or take points with, and how far its line sits from the book's."
     >
-      <div className="flex flex-col gap-3">
-        {spread && <HalfMarket kind="spread" row={spread} home={game.homeTeam} away={game.awayTeam} />}
-        {total && <HalfMarket kind="total" row={total} home={game.homeTeam} away={game.awayTeam} />}
+      <div className={CARD_STACK}>
+        <Recommendation
+          market="1H Spread"
+          pick={`${pickTeam.abbrev} ${marketLine !== null ? fmtSigned1(marketLine) : ''}`.trim()}
+          team={pickTeam}
+          edge={`+${edgePts.toFixed(1)}`}
+          edgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
+        />
+        <SpreadPickRow
+          awayTeam={game.awayTeam}
+          homeTeam={game.homeTeam}
+          awayLine={awayLine}
+          homeLine={homeLine}
+          pickIsHome={pickIsHome}
+        />
+        {modelLine !== null && marketLine !== null && (
+          <SpreadCoverBar
+            line={marketLine}
+            modelMargin={-modelLine}
+            scale={NBA_EDGE_SCALE}
+            pickAbbrev={pickTeam.abbrev}
+            opponentAbbrev={(pickIsHome ? game.awayTeam : game.homeTeam).abbrev}
+          />
+        )}
       </div>
     </WidgetCard>
   );
 }
 
-function HalfMarket({
-  kind,
-  row,
-  home,
-  away,
-}: {
-  kind: 'spread' | 'total';
-  row: NbaH1Row;
-  home: TeamRef;
-  away: TeamRef;
-}) {
-  const model =
-    kind === 'spread'
-      ? (() => {
-          const margin = toNum(row.model_home_margin);
-          return margin === null ? null : round1(-margin);
-        })()
-      : toNum(row.model_total) === null
-        ? null
-        : round1(toNum(row.model_total) as number);
-  const market =
-    kind === 'spread'
-      ? toNum(row.market_home_spread) === null
-        ? null
-        : round1(toNum(row.market_home_spread) as number)
-      : toNum(row.market_total) === null
-        ? null
-        : round1(toNum(row.market_total) as number);
-  const trackingOnly = kind === 'total';
-  const tier = trackingOnly && row.tier === 'bet' ? 'tracking' : row.tier;
-  const lean = kind === 'spread' ? spreadLean(model, market, home.abbrev, away.abbrev) : null;
+/** Same body as NbaTotalSection. First-half totals are tracking, never a bet. */
+function FirstHalfTotal({ row }: { row: NbaH1Row }) {
+  const modelRaw = toNum(row.model_total);
+  const marketRaw = toNum(row.market_total);
+  if (modelRaw === null || marketRaw === null) return null;
+
+  const overLineDiff = modelRaw - marketRaw;
+  const modelTotal = round1(modelRaw);
+  const marketTotal = round1(marketRaw);
+  const gap = round1(modelTotal - marketTotal);
+  const isOver = overLineDiff > 0;
+  const magnitude = Math.abs(gap);
+  const railAgreesWithPick = gap === 0 || gap > 0 === isOver;
 
   return (
-    <div className="rounded-2xl border border-black/5 px-3 py-2.5 dark:border-white/10">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-[13px] font-bold text-foreground">{kind === 'spread' ? '1H spread' : '1H total'}</div>
-        {tier && (
-          <span className="rounded-full bg-black/[0.04] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground dark:bg-white/[0.06]">
-            {tier}
-          </span>
+    <WidgetCard
+      icon={<Sigma />}
+      title="1H Total"
+      headline={nbaTotalHeadline({ modelTotal, marketTotal, isOver, magnitude }) ?? undefined}
+      subtitle="Tracking only. The first-half total is never a bet."
+    >
+      <div className={CARD_STACK}>
+        <Recommendation
+          market="1H Total"
+          pick={isOver ? 'OVER' : 'UNDER'}
+          tone={isOver ? 'over' : 'under'}
+          edge={`+${magnitude.toFixed(1)}`}
+          edgeIcon={isOver ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+        />
+        <OverUnderPickRow isOver={isOver} />
+        {railAgreesWithPick ? (
+          <ModelEdgeRail
+            market={marketTotal}
+            model={modelTotal}
+            scale={NBA_EDGE_SCALE}
+            format={(v) => fmt1(v)}
+          />
+        ) : (
+          <ModelVsMarketRow
+            model={fmt1(modelTotal)}
+            market={fmt1(marketTotal)}
+            gapDisplay={`${gap > 0 ? '+' : ''}${gap.toFixed(1)}`}
+            gapUnit="pts"
+            tone={isOver ? 'over' : 'under'}
+            lean={
+              <>
+                Model projects{' '}
+                <span className="font-bold text-foreground">
+                  {magnitude.toFixed(1)} points {isOver ? 'more' : 'fewer'}
+                </span>{' '}
+                than the posted total, but the model&apos;s own direction column says{' '}
+                {isOver ? 'OVER' : 'UNDER'}
+              </>
+            }
+          />
         )}
       </div>
-      {kind === 'spread' ? (
-        <div className="mt-2 grid grid-cols-2 gap-2 text-center">
-          <SpreadCell label="Model" homeAbbrev={home.abbrev} awayAbbrev={away.abbrev} homeLine={model} />
-          <SpreadCell label="Market" homeAbbrev={home.abbrev} awayAbbrev={away.abbrev} homeLine={market} accent />
-        </div>
-      ) : (
-        <div className="mt-2 grid grid-cols-2 gap-2 text-center">
-          <NumberCell label="Model" value={model === null ? '—' : fmt1(model)} />
-          <NumberCell label="Market" value={market === null ? '—' : fmt1(market)} accent />
-        </div>
-      )}
-      {lean && <p className="mt-2 text-[12px] leading-relaxed text-foreground">{lean}</p>}
-      {trackingOnly && (
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          Tracking only. The first-half total is never a bet.
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** Home line is the stored spread. The other side is the negation. Favorite (negative) is listed first. */
-function SpreadCell({
-  label,
-  homeAbbrev,
-  awayAbbrev,
-  homeLine,
-  accent = false,
-}: {
-  label: string;
-  homeAbbrev: string;
-  awayAbbrev: string;
-  homeLine: number | null;
-  accent?: boolean;
-}) {
-  const tone = accent ? 'text-sky-500' : 'text-foreground';
-  if (homeLine === null) {
-    return <NumberCell label={label} value="—" accent={accent} />;
-  }
-  const awayLine = round1(-homeLine);
-  const homeText = teamLine(homeAbbrev, homeLine);
-  const awayText = teamLine(awayAbbrev, awayLine);
-  const favoriteFirst = homeLine > 0;
-  const primary = favoriteFirst ? awayText : homeText;
-  const secondary = favoriteFirst ? homeText : awayText;
-  return (
-    <div>
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`mt-0.5 text-[15px] font-bold tabular-nums ${tone}`}>{primary}</div>
-      <div className="text-[12px] font-semibold tabular-nums text-muted-foreground">{secondary}</div>
-    </div>
-  );
-}
-
-function teamLine(abbrev: string, line: number): string {
-  const name = abbrev || 'Team';
-  if (line === 0) return `${name} PK`;
-  return `${name} ${fmtSigned1(line)}`;
-}
-
-/** Positive model-minus-market on the home line means the model is toward the away team. */
-function spreadLean(modelHome: number | null, marketHome: number | null, homeAbbrev: string, awayAbbrev: string): string | null {
-  if (modelHome === null || marketHome === null) return null;
-  const gap = round1(modelHome - marketHome);
-  if (gap === 0) return 'Model and the book have the same first-half spread.';
-  const toward = gap > 0 ? awayAbbrev || 'the road team' : homeAbbrev || 'the home team';
-  return `Model is ${Math.abs(gap).toFixed(1)} points toward ${toward} versus the book.`;
-}
-
-function NumberCell({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div>
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`mt-0.5 text-[15px] font-bold tabular-nums ${accent ? 'text-sky-500' : 'text-foreground'}`}>{value}</div>
-    </div>
+    </WidgetCard>
   );
 }
