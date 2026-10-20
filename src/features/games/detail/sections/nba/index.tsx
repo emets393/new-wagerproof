@@ -5,10 +5,11 @@ import { AIPayloadViewer } from '@/components/AIPayloadViewer';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { MarketOddsSection } from '../MarketOddsSection';
 import { MatchSimulatorSection } from '../MatchSimulatorSection';
-import { NbaSpreadSection, NbaTotalSection } from './NbaPredictionsSection';
+import { NbaMoneylineSection, NbaSpreadSection, NbaTotalSection } from './NbaPredictionsSection';
 import { NbaBettingTrendsSection } from './NbaBettingTrendsSection';
 import { NbaTeamStatsSection } from './NbaTeamStatsSection';
 import { NbaInjuriesSection } from './NbaInjuriesSection';
+import { NbaFirstHalfSection } from './NbaFirstHalfSection';
 import { NbaSignalsSection } from './NbaSignalsSection';
 import { useNbaMatchupOverview } from './useNbaMatchupOverview';
 import type { NBAPrediction } from '../../../api/nbaGames';
@@ -29,7 +30,9 @@ export function NbaSections({ game, onCompletionGenerated }: SportSectionsProps)
   return (
     <>
       <NbaSpreadSection game={game} />
+      <NbaMoneylineSection game={game} />
       <NbaTotalSection game={game} />
+      <NbaFirstHalfSection game={game} />
       <NbaSignalsSection game={game} />
       <MarketOddsSection game={game} />
       <MatchSimulatorSection game={game} />

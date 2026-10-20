@@ -42,6 +42,15 @@ const BasketballLoader = () => (
   </svg>
 );
 
+/** Home score is (model total + home margin) / 2. `pred_spread` is the fair home spread, the negated margin. */
+function derivedBasketballScore(raw: Record<string, unknown>, side: 'away' | 'home'): number | null {
+  const total = Number(raw.pred_over_line);
+  const fairHomeSpread = Number(raw.pred_spread);
+  if (!Number.isFinite(total) || !Number.isFinite(fairHomeSpread)) return null;
+  const margin = -fairHomeSpread;
+  return side === 'home' ? (total + margin) / 2 : (total - margin) / 2;
+}
+
 /** Team circle: adapter-resolved logo with initials fallback (React-state port of the modal's DOM onError swap). */
 function TeamDisc({ team }: { team: TeamRef }) {
   const [imgFailed, setImgFailed] = React.useState(false);
@@ -103,10 +112,12 @@ export function MatchSimulatorSection({ game }: { game: GameFeedItem }) {
   // Verbatim field fallbacks from the modal: basketball rows carry
   // *_score_pred, CFB rows carry pred_*_points.
   const scoreFor = (side: 'away' | 'home'): string => {
-    const val = isBasketball
+    const direct = isBasketball
       ? ((raw[`${side}_score_pred`] ?? raw[`pred_${side}_score`]) as number | null | undefined)
       : ((raw[`pred_${side}_points`] ?? raw[`pred_${side}_score`]) as number | null | undefined);
-    return val !== null && val !== undefined ? Math.round(Number(val)).toString() : '-';
+    const derived = direct ?? derivedBasketballScore(raw, side);
+    const val = isBasketball ? derived : direct;
+    return val !== null && val !== undefined && Number.isFinite(Number(val)) ? Math.round(Number(val)).toString() : '-';
   };
 
   const simulate = () => {

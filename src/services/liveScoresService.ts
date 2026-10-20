@@ -380,7 +380,7 @@ async function fetchNBAPredictions(): Promise<NBAPrediction[]> {
     // Fetch predictions with the latest run_id
     const { data: predictions, error: predsError } = await collegeFootballSupabase
       .from('nba_predictions')
-      .select('game_id, home_team, away_team, home_win_prob, away_win_prob, model_fair_home_spread, model_fair_total, run_id')
+      .select('game_id, home_team, away_team, home_win_prob, away_win_prob, run_id')
       .eq('run_id', latestRun.run_id);
 
     if (predsError) {
@@ -403,26 +403,8 @@ async function fetchNBAPredictions(): Promise<NBAPrediction[]> {
       
       // Calculate spread cover probability based on model's fair spread vs Vegas spread
       let spreadCoverProb = null;
-      if (pred.model_fair_home_spread !== null && input?.home_spread !== null) {
-        const spreadDiff = input.home_spread - pred.model_fair_home_spread;
-        if (pred.model_fair_home_spread < input.home_spread) {
-          spreadCoverProb = 0.5 + Math.min(Math.abs(spreadDiff) * 0.05, 0.35);
-        } else {
-          spreadCoverProb = 0.5 - Math.min(Math.abs(spreadDiff) * 0.05, 0.35);
-        }
-      } else if (pred.home_win_prob) {
+      if (pred.home_win_prob) {
         spreadCoverProb = pred.home_win_prob;
-      }
-      
-      // Calculate over/under probability based on predicted total vs Vegas line
-      let ouProb = null;
-      if (pred.model_fair_total !== null && input?.total_line !== null) {
-        const totalDiff = pred.model_fair_total - input.total_line;
-        if (totalDiff > 0) {
-          ouProb = 0.5 + Math.min(Math.abs(totalDiff) * 0.02, 0.35);
-        } else {
-          ouProb = 0.5 - Math.min(Math.abs(totalDiff) * 0.02, 0.35);
-        }
       }
 
       return {
@@ -435,9 +417,9 @@ async function fetchNBAPredictions(): Promise<NBAPrediction[]> {
         over_line: input?.total_line || null,
         home_away_ml_prob: pred.home_win_prob,
         home_away_spread_cover_prob: spreadCoverProb,
-        ou_result_prob: ouProb,
-        model_fair_home_spread: pred.model_fair_home_spread,
-        pred_total_points: pred.model_fair_total
+        ou_result_prob: null,
+        model_fair_home_spread: null,
+        pred_total_points: null
       } as NBAPrediction;
     });
 

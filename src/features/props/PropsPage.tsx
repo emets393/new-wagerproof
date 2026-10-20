@@ -21,6 +21,7 @@ import { NflCheatSheet } from './NflCheatSheet';
 import { NflRecordSheet } from './NflRecordSheet';
 import { Button } from '@/components/ui/button';
 import { usePageHeaderActions } from '@/components/pageHeaderActions';
+import { NbaPropsWorkspace } from '@/features/nbaProps/NbaPropsBoard';
 import { usePropsUrlState, type PropsBrowse, type PropsFocus, type PropsPanel, type PropsRail, type PropsSport } from './usePropsUrlState';
 
 interface WorkspaceProps {
@@ -257,5 +258,10 @@ export default function PropsPage() {
   React.useEffect(() => state.ensureSportInUrl(), [state.ensureSportInUrl]);
   React.useEffect(() => trackEvent('Props Viewed', { sport: state.sport }), [state.sport]);
   const workspaceProps = { sport: state.sport, panel: state.panel, market: state.market, browse: state.browse, focus: state.focus, rail: state.rail, onSportChange: state.setSport, onPanelChange: state.setPanel, onBrowseChange: state.setBrowse, onFocusChange: state.setFocus, onRailChange: state.setRail, selectedGameId: state.selectedGameId, selectedPlayerId: state.selectedPlayerId, selectGame: state.selectGame, selectPlayer: state.selectPlayer, openPick: state.openPick };
-  return <div className="h-full min-h-0">{state.sport === 'nfl' ? <NflPropsWorkspace {...workspaceProps} /> : <MlbPropsWorkspace {...workspaceProps} />}</div>;
+  const workspace = state.sport === 'nfl'
+    ? <NflPropsWorkspace {...workspaceProps} />
+    : state.sport === 'nba'
+      ? <NbaPropsWorkspace onSportChange={state.setSport} selectedPlayerId={state.selectedPlayerId} selectPlayer={state.selectPlayer} />
+      : <MlbPropsWorkspace {...workspaceProps} />;
+  return <div className="h-full min-h-0">{workspace}</div>;
 }

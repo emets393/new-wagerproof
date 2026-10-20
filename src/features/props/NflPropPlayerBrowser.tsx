@@ -18,7 +18,7 @@ import type { PropsRail, PropsSport } from './usePropsUrlState';
 const SPORT_OPTIONS = [
   { value: 'mlb' as const, label: 'MLB' },
   { value: 'nfl' as const, label: 'NFL' },
-  { value: 'nba' as const, label: 'NBA', status: 'Soon', disabled: true },
+  { value: 'nba' as const, label: 'NBA' },
 ];
 
 function formatLine(value: number): string {
@@ -158,9 +158,7 @@ export function NflPropPlayerBrowser({
             size="sm"
             options={SPORT_OPTIONS}
             value="nfl"
-            onChange={(value) => {
-              if (value !== 'nba') onSportChange(value);
-            }}
+            onChange={onSportChange}
           />
           <div className="flex items-center gap-1.5">
             <select
