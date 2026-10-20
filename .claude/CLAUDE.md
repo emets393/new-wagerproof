@@ -430,7 +430,10 @@ any doc — read the migrations.
   VERIFIES — it never publishes, so a push to `main` does NOT ship Android. `versionCode`
   is bumped by hand and must exceed the live Play build; see `/build-android`.
 - **Agent worker**: Trigger.dev prod (`agents-v3`), deployed with `npx trigger deploy`
-- **Research crons**: `render.yaml` runs 6 cron services against `research/`
+- **Research crons**: `render.yaml` runs 15 cron services against `research/`. One research
+  job runs in GitHub Actions instead — `action-splits-hourly.yml`, the hourly Action Network
+  public-splits capture — because the repo is public (free minutes) and it needs no build.
+  Keep timing-critical work on Render: GitHub's scheduler is routinely 5-20 minutes late.
 
 ## Common Development Tasks
 

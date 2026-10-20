@@ -5,17 +5,54 @@ standard public-betting theses.
 
 ## Pipeline
 
+Two paths off the same parser. The RESEARCH BASE is a file, rebuilt a week at a time; the
+CAPTURE is a database change log, written hourly by a GitHub Action.
+
 ```
 fetch_action.py <nfl|ncaaf> <season> <weeks>   weeks = 6 | 1-7 | 1,3,5 | current
   -> data/action_splits.csv                    one row per game-market
   -> join_results.py                           name crosswalk + results + orientation
   -> data/action_joined.parquet
   -> analyze_action.py                         the four theses, with nulls
+
+snapshot_action.py                             both leagues, current week, hourly
+  -> action_public_splits (CFB Supabase)       a row only when something MOVED
+  -> action_public_splits_latest               DISTINCT ON view, one row per game-market
 ```
 
 To add a week: `python3 fetch_action.py nfl 2026 current && python3 join_results.py`.
 The fetcher replaces only the (sport, season, week) blocks it fetched and leaves every other
 row alone, so it is safe to re-run and was safe to introduce alongside the pastes.
+
+### The hourly capture
+
+`.github/workflows/action-splits-hourly.yml`, :07 past the hour, August through February.
+
+**In Actions and not on Render**, because the repo is public (free minutes) and the job is
+~20 seconds of stdlib Python against one JSON endpoint — no build, no service, no 2Gi.
+⛔ Do not migrate it to Render, and do not move anything timing-critical the other way:
+GitHub's scheduled triggers run 5-20 minutes late routinely and are dropped under load.
+That is fine for an hourly change log and NOT fine for a T-60 closing capture.
+
+**A change log, not a snapshot log.** A full hourly dump would be ~210 game-markets × 2
+leagues × 24h with 95% of it identical to the row before. A row is written only when that
+game-market moved since its last stored row — measured at 34 of 210 over four minutes on a
+Tuesday, so the cadence is earning its keep. Consecutive rows bracket every interval
+observed, so the last row before kickoff IS the closing state. The diff reads one row per
+key from `action_public_splits_latest`, so its cost is flat in season length instead of
+growing with the log. ⛔ Do not turn this into an unconditional insert.
+
+**It fails loud.** Games-but-no-rows exits non-zero rather than writing blanks — see the
+`bookIds` note in `fetch_action.py`, where a bad query returns games with `markets: {}`,
+no odds and no error. A failed scheduled workflow emails the repo owner, and
+`health_sweep.py` carries a staleness probe besides, because an Actions failure does not
+reach the Render alert channel the other football jobs use.
+
+Team names are trimmed before they enter the key (the feed ships `"Army "`); the CSV path
+keeps them raw, because `join_results.py` matches names fuzzily anyway.
+
+Needs `SUPABASE_SERVICE_KEY` in the repo's Actions secrets. The table is
+`scripts/sql/action_public_splits.sql`.
 
 ### Verifying it
 
@@ -38,6 +75,11 @@ them would silently rewrite mid-week history with closing numbers.
 
 The practical consequence is that a scheduled fetch is *better* data than the paste ever was,
 because it captures a DEFINED moment every week instead of whenever the owner got to it.
+
+As of 2026-10-20 the hourly capture above is that scheduled fetch, and it is the only way the
+unbackfillable half ever gets recorded. Until then nothing was scheduled at all: every row on
+file came from a manual run, and `data/action_splits.csv` still carries the mid-week values
+for the weeks that were fetched before kickoff rather than their closing ones.
 
 ## The manual paste path (superseded, still works)
 

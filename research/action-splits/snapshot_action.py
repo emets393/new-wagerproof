@@ -107,7 +107,12 @@ def fetch(league, season):
             if r.get("week") in (None, ""):
                 skipped += 1         # unkeyable without a week; never silently stored
                 continue
-            rows[tuple(r[c] for c in KEY_COLS)] = {c: f(r[c]) for c in VAL_COLS}
+            # ⛔ Strip the team names. The feed ships "Army " with a trailing space, and the
+            # key includes the names — an untrimmed variant forks into a second key and the
+            # change log starts double-logging the same game-market. Trimmed here only: the
+            # CSV path keeps the raw names, because join_results.py matches them fuzzily.
+            key = tuple(r[c].strip() if isinstance(r[c], str) else r[c] for c in KEY_COLS)
+            rows[key] = {c: f(r[c]) for c in VAL_COLS}
     return games, rows, skipped
 
 
