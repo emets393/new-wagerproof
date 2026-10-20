@@ -14,8 +14,8 @@ Checks (football season, both sports):
   5. grading lag       — games final for >36h whose flags are still ungraded
   6. prop lines        — NFL: a POSTED prop market with a null line (the card renders
                          with no number; prices still populate, so nothing else catches it)
- 11. public splits     — the hourly Action Network capture (GitHub Actions, not Render,
-                         so its own failures do not reach the Render alert channel)
+ 11. public splits     — the hourly Action Network capture, per sport (GitHub Actions, not
+                         Render, so its failures do not reach the Render alert channel)
 
 Runs daily ~6:45am ET via render.yaml (football-health-sweep). Read-only.
 """
@@ -263,20 +263,32 @@ def main():
     # failure shape this sweep exists for. 4h allows one missed hourly run plus the 5-20
     # minute lateness GitHub's scheduler is known for; WARN, not RED, because a dead
     # research feed is not a broken product.
+    #
+    # ⛔ PER SPORT, NOT OVERALL. The capture covers NFL, CFB, NBA and NCAAB, and a single
+    # max(snap_ts) goes green on any one of them — an NBA slate writing every hour would
+    # mask the football endpoint having died, which is the exact masking this sweep is
+    # supposed to prevent. Each sport self-gates on whether it is in season: a sport with
+    # no row in 10 days is between seasons and is not expected to be fresh (and July has
+    # nothing on any board, so the whole probe stands down).
     try:
-        last = q("action_public_splits?select=snap_ts&order=snap_ts.desc&limit=1")
-        if not last:
+        rows = q("action_public_splits?select=sport,snap_ts&order=snap_ts.desc&limit=4000")
+        if not rows:
             check("public splits", False, "no rows at all — has the workflow ever run?",
                   warn_only=True)
         else:
-            age = (NOW - ts(last[0]["snap_ts"])).total_seconds() / 3600
-            # Off-season there is nothing on the board and the writer inserts nothing, so a
-            # stale feed in March is correct, not broken. Aug-Feb only.
-            in_season = NOW.month >= 8 or NOW.month <= 2
-            check("public splits", age < 4 or not in_season,
-                  f"last capture {age:.1f}h ago"
-                  + ("" if age < 4 or not in_season
-                     else " — check the action-splits-hourly Actions run"),
+            newest = {}
+            for r in rows:
+                t = ts(r["snap_ts"])
+                if r["sport"] not in newest or t > newest[r["sport"]]:
+                    newest[r["sport"]] = t
+            ages = {s: (NOW - t).total_seconds() / 3600 for s, t in newest.items()}
+            live = {s: a for s, a in ages.items() if a < 24 * 10}   # in season
+            stale = {s: a for s, a in live.items() if a >= 4}
+            check("public splits", not stale or NOW.month == 7,
+                  ", ".join(f"{s} {a:.1f}h" for s, a in sorted(ages.items()))
+                  + ("" if not stale or NOW.month == 7
+                     else f" — {'/'.join(sorted(stale))} stale, check the "
+                          f"action-splits-hourly Actions run"),
                   warn_only=True)
     except Exception as e:
         check("public splits", False, f"probe failed: {e}", warn_only=True)

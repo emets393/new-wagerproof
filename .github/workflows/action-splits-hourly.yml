@@ -10,16 +10,17 @@
 # The job writes to Supabase, never back to the repo: hourly commits to main would be 24
 # merge conflicts a day against the research parquets.
 #
-# Months only — Aug through Feb covers CFB weeks 1-15 plus bowls and the NFL regular
-# season through week 18. Out of season the script exits 0 on an empty board anyway, but
-# there is no reason to wake a runner 5,000 times for it.
+# Four leagues, two season shapes: CFB Aug-Jan, NFL Sep-Feb, NCAAB Nov-Apr, NBA Oct-Jun.
+# The union is everything except July, which is the only month with nothing on any board.
+# Out of season each league exits quietly on an empty board anyway, but there is no reason
+# to wake a runner 700 times for a month of no-ops.
 
 name: action-splits-hourly
 
 on:
   schedule:
     - cron: "7 * * 8-12 *"      # Aug-Dec, :07 to miss the top-of-hour Actions stampede
-    - cron: "7 * * 1-2 *"       # Jan-Feb (NFL wk17-18, bowls, CFP)
+    - cron: "7 * * 1-6 *"       # Jan-Jun (NFL wk18 + CFP, bowls, CBB, the NBA playoffs)
   workflow_dispatch:
     inputs:
       season:

@@ -8,6 +8,13 @@ fetch_nba.py --seasons 2023 2024 2025     AN START-year labels; writes data/nba_
 nba_study.py                              the battery
 ```
 
+**Going forward, the live capture is `research/action-splits/snapshot_action.py`** — hourly
+in GitHub Actions, writing NBA alongside the three other leagues into `action_public_splits`
+(see that directory's README). It keeps what `fetch_nba.py` structurally cannot: the best
+odds and ticket count AT CAPTURE TIME, which do not settle and cannot be backfilled. The
+history here stays the backtest base; the table is where the pre-tip arc accumulates. Both
+use the same end-year season label and the same `derive()` placeholder rule.
+
 **3,976 completed games** (spread gradable 3,846, totals 3,920, ml 3,948). Orientation
 guard passes every season: home covers 48.7 / 49.9 / 51.3%.
 
