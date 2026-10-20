@@ -3,7 +3,13 @@
 Ticket/handle splits from Action Network, joined to our graded results and tested against the
 standard public-betting theses.
 
+Football research lives here; the NBA study is in `research/nba-splits/` off the same feed
+(`fetch_nba.py`, date-based). The hourly capture below covers all four leagues at once.
+
 ## Pipeline
+
+Two paths off the same parser. The RESEARCH BASE is a file, rebuilt a week at a time; the
+CAPTURE is a database change log, written hourly by a GitHub Action.
 
 ```
 fetch_action.py <nfl|ncaaf> <season> <weeks>   weeks = 6 | 1-7 | 1,3,5 | current
@@ -11,11 +17,72 @@ fetch_action.py <nfl|ncaaf> <season> <weeks>   weeks = 6 | 1-7 | 1,3,5 | current
   -> join_results.py                           name crosswalk + results + orientation
   -> data/action_joined.parquet
   -> analyze_action.py                         the four theses, with nulls
+
+snapshot_action.py                             NFL + CFB + NBA + NCAAB, hourly
+  -> action_public_splits (CFB Supabase)       a row only when something MOVED
+  -> action_public_splits_latest               DISTINCT ON view, one row per game-market
 ```
 
 To add a week: `python3 fetch_action.py nfl 2026 current && python3 join_results.py`.
 The fetcher replaces only the (sport, season, week) blocks it fetched and leaves every other
 row alone, so it is safe to re-run and was safe to introduce alongside the pastes.
+
+### The hourly capture
+
+`.github/workflows/action-splits-hourly.yml`, :07 past the hour, August through June — the
+union of four seasons (CFB Aug-Jan, NFL Sep-Feb, NCAAB Nov-Apr, NBA Oct-Jun). July is the
+only month with nothing on any board.
+
+**Four leagues, two shapes.** Football is week-based (`season=YYYY&week=N`, current week);
+basketball is date-based (`date=YYYYMMDD` on the ET slate date) and takes **today and
+tomorrow**, because a line posts the day before and the pre-tip arc is the point of going
+hourly. ⛔ The basketball date travels ALONE — adding `season=` returns zero games. Adding
+a league is one line in `LEAGUES`.
+
+⛔ **`season` is the END year for basketball.** Action Network labels an NBA/NCAAB season by
+its start year, so a January 2027 game arrives as `season: 2026` and is stored as 2027 to
+match every other piece of basketball work in the repo. Football is unshifted. Same trap as
+`fetch_nba.py`, which documents it at length.
+
+⛔ **The key is `(game_id, market)`**, not the team names and not the week. Football is keyed
+by week and basketball has no week at all; two NBA teams meet several times a season, so a
+name-and-week key silently collapses different games into one row. The CSV path still matches
+names fuzzily because the hand-pasted era carried no id — this path has one, so it uses it.
+
+**In Actions and not on Render**, because the repo is public (free minutes) and the job is
+~20 seconds of stdlib Python against one JSON endpoint — no build, no service, no 2Gi.
+⛔ Do not migrate it to Render, and do not move anything timing-critical the other way:
+GitHub's scheduled triggers run 5-20 minutes late routinely and are dropped under load.
+That is fine for an hourly change log and NOT fine for a T-60 closing capture.
+
+**A change log, not a snapshot log.** A full hourly dump would be ~210 game-markets × 2
+leagues × 24h with 95% of it identical to the row before. A row is written only when that
+game-market moved since its last stored row — measured at 34 of 210 over four minutes on a
+Tuesday, so the cadence is earning its keep. Consecutive rows bracket every interval
+observed, so the last row before kickoff IS the closing state. The diff reads one row per
+key from `action_public_splits_latest`, so its cost is flat in season length instead of
+growing with the log. ⛔ Do not turn this into an unconditional insert.
+
+**It fails loud, without crying wolf.** Games-but-no-rows exits non-zero rather than writing
+blanks — see the `bookIds` note in `fetch_action.py`, where a bad query returns games with
+`markets: {}`, no odds and no error. The one case that is NOT a defect is a date whose games
+are too far out for any book to have posted a market, which is real on an NCAAB November
+morning, so the hard failure needs a game tipping inside 36 hours; further out prints a
+warning and moves on. A failed scheduled workflow emails the repo owner, and
+`health_sweep.py` carries a staleness probe besides, because an Actions failure does not
+reach the Render alert channel the other football jobs use. ⛔ That probe is PER SPORT: one
+overall `max(snap_ts)` would let a live NBA slate mask the football endpoint having died.
+
+Team names are trimmed on the way in (the feed ships `"Army "`); the CSV path keeps them raw,
+because `join_results.py` matches names fuzzily anyway.
+
+⚠ The capture stores percentages RAW, including the 0%/100% placeholders the feed serves for
+some early-season slates. `derive()` in `fetch_nba.py` drops those per market and anything
+reading this table should do the same — see the placeholder note there, where 17.2% of the
+2023-24 NBA season was affected.
+
+Needs `SUPABASE_SERVICE_KEY` in the repo's Actions secrets. The table is
+`scripts/sql/action_public_splits.sql`.
 
 ### Verifying it
 
@@ -38,6 +105,11 @@ them would silently rewrite mid-week history with closing numbers.
 
 The practical consequence is that a scheduled fetch is *better* data than the paste ever was,
 because it captures a DEFINED moment every week instead of whenever the owner got to it.
+
+As of 2026-10-20 the hourly capture above is that scheduled fetch, and it is the only way the
+unbackfillable half ever gets recorded. Until then nothing was scheduled at all: every row on
+file came from a manual run, and `data/action_splits.csv` still carries the mid-week values
+for the weeks that were fetched before kickoff rather than their closing ones.
 
 ## The manual paste path (superseded, still works)
 
