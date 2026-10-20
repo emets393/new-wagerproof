@@ -13,11 +13,11 @@ import {
   OverUnderPickRow,
   Recommendation,
   round1,
-  SpreadPickRow,
   toNum,
 } from './shared';
 import type { NBAPrediction, NbaH1Row } from '../../../api/nbaGames';
 import type { GameFeedItem } from '../../../types';
+import { NbaMarketSignals } from './NbaSignalsSection';
 
 /**
  * First-half spread and total from nba_model_preds_h1.
@@ -59,15 +59,22 @@ export function NbaFirstHalfSection({ game }: { game: GameFeedItem }) {
   }, [attached, raw.game_date, raw.game_id, game.homeTeam.abbrev, game.awayTeam.abbrev]);
 
   const rows = attached && attached.length > 0 ? attached : fetched;
-  if (!rows || rows.length === 0) return null;
+  if (!rows || rows.length === 0) {
+    return (
+      <>
+        <NbaMarketSignals market="h1_spread" />
+        <NbaMarketSignals market="h1_total" />
+      </>
+    );
+  }
 
   const spread = rows.find((row) => row.market === 'h1_spread');
   const total = rows.find((row) => row.market === 'h1_total');
 
   return (
     <>
-      {spread && <FirstHalfSpread game={game} row={spread} />}
-      {total && <FirstHalfTotal row={total} />}
+      {spread ? <FirstHalfSpread game={game} row={spread} /> : <NbaMarketSignals market="h1_spread" />}
+      {total ? <FirstHalfTotal row={total} /> : <NbaMarketSignals market="h1_total" />}
     </>
   );
 }
@@ -82,7 +89,7 @@ function FirstHalfSpread({ game, row }: { game: GameFeedItem; row: NbaH1Row }) {
     vegasHomeSpread !== null && predSpread !== null ? vegasHomeSpread - predSpread : null;
 
   const edgeInfo = getEdgeInfo(homeSpreadDiff, raw.away_team, raw.home_team);
-  if (!edgeInfo) return null;
+  if (!edgeInfo) return <NbaMarketSignals market="h1_spread" />;
 
   const pickIsHome = edgeInfo.isHomeEdge;
   const pickTeam = pickIsHome ? game.homeTeam : game.awayTeam;
@@ -92,8 +99,6 @@ function FirstHalfSpread({ game, row }: { game: GameFeedItem; row: NbaH1Row }) {
   const derivedEdge =
     modelLine !== null && marketLine !== null ? round1(marketLine - modelLine) : null;
   const edgePts = derivedEdge ?? round1(Math.abs(homeSpreadDiff as number));
-  const awayLine = vegasHomeSpread === null ? '—' : fmtSigned1(round1(-vegasHomeSpread));
-  const homeLine = vegasHomeSpread === null ? '—' : fmtSigned1(round1(vegasHomeSpread));
 
   return (
     <WidgetCard
@@ -115,13 +120,6 @@ function FirstHalfSpread({ game, row }: { game: GameFeedItem; row: NbaH1Row }) {
           edge={`+${edgePts.toFixed(1)}`}
           edgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
         />
-        <SpreadPickRow
-          awayTeam={game.awayTeam}
-          homeTeam={game.homeTeam}
-          awayLine={awayLine}
-          homeLine={homeLine}
-          pickIsHome={pickIsHome}
-        />
         {modelLine !== null && marketLine !== null && (
           <SpreadCoverBar
             line={marketLine}
@@ -131,6 +129,7 @@ function FirstHalfSpread({ game, row }: { game: GameFeedItem; row: NbaH1Row }) {
             opponentAbbrev={(pickIsHome ? game.awayTeam : game.homeTeam).abbrev}
           />
         )}
+        <NbaMarketSignals market="h1_spread" />
       </div>
     </WidgetCard>
   );
@@ -140,7 +139,7 @@ function FirstHalfSpread({ game, row }: { game: GameFeedItem; row: NbaH1Row }) {
 function FirstHalfTotal({ row }: { row: NbaH1Row }) {
   const modelRaw = toNum(row.model_total);
   const marketRaw = toNum(row.market_total);
-  if (modelRaw === null || marketRaw === null) return null;
+  if (modelRaw === null || marketRaw === null) return <NbaMarketSignals market="h1_total" />;
 
   const overLineDiff = modelRaw - marketRaw;
   const modelTotal = round1(modelRaw);
@@ -190,8 +189,9 @@ function FirstHalfTotal({ row }: { row: NbaH1Row }) {
                 {isOver ? 'OVER' : 'UNDER'}
               </>
             }
-          />
+            />
         )}
+        <NbaMarketSignals market="h1_total" />
       </div>
     </WidgetCard>
   );

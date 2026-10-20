@@ -1,27 +1,48 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Zap } from 'lucide-react';
-import { WidgetCard } from '@/components/ios';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
 import { type SignalPerformanceRow } from '@/utils/signalPerformance';
 import { GameLevelSignalList, type SignalDefinition, type SlateFlag } from '../cfb/CfbSlateSections';
-import type { NBAPrediction } from '../../../api/nbaGames';
+import type { NBAPrediction, NbaSlateFlag } from '../../../api/nbaGames';
 import type { GameFeedItem } from '../../../types';
 
+export type NbaSignalMarket = 'spread' | 'total' | 'moneyline' | 'h1_spread' | 'h1_total';
+
 /**
- * NBA signals card: the situational signals (dead home favorite, three-point luck storm, national-TV
- * unders, Thanksgiving dog, buzzer-beater / OT fades, final-two-weeks over, home rest edge, road-fav
- * blowout carry, cold-road-trip over), the two model-disagreement flags, and the two derived flags the
- * confluence step writes (nba_model_signal_confluence = model + agreeing signal, nba_signal_stack = two
- * situational signals on one team), all from nba_slate_flags. New signal keys render with no code change
- * because names and copy come from nba_signal_defs. The flags ride in on the feed row (`raw.nba_flags`) so the card and the feed ⚡
- * badge count the same rows; only the definitions and the season record are fetched here.
- * Renders the football GameLevelSignalList — the flag contract is shared, so the pills, the
- * Direction row with the bet team's logo, and the backtest meter are identical across sports.
+ * Flag `market` values land on the card that prices that market.
+ * A blank flag market falls back to the definition's market.
  */
-export function NbaSignalsSection({ game }: { game: GameFeedItem }) {
+function canonicalMarket(value: string | null | undefined): NbaSignalMarket | '' {
+  const key = String(value || '').toLowerCase().trim();
+  if (key === 'spread' || key === 'fg_spread') return 'spread';
+  if (key === 'total' || key === 'fg_total' || key === 'ou') return 'total';
+  if (key === 'moneyline' || key === 'ml' || key === 'money_line' || key === 'fg_ml') return 'moneyline';
+  if (key === 'h1_spread') return 'h1_spread';
+  if (key === 'h1_total' || key === 'h1_ou' || key === 'h1_over_under') return 'h1_total';
+  return '';
+}
+
+interface NbaSignalContextValue {
+  away: GameFeedItem['awayTeam'];
+  home: GameFeedItem['homeTeam'];
+  byMarket: Record<NbaSignalMarket, SlateFlag[]>;
+  signalDefs: Record<string, SignalDefinition>;
+  performance: Record<string, SignalPerformanceRow>;
+}
+
+const NbaSignalContext = createContext<NbaSignalContextValue | null>(null);
+
+const EMPTY_MARKETS: Record<NbaSignalMarket, SlateFlag[]> = {
+  spread: [],
+  total: [],
+  moneyline: [],
+  h1_spread: [],
+  h1_total: [],
+};
+
+export function NbaSignalProvider({ game, children }: { game: GameFeedItem; children: ReactNode }) {
   const raw = game.raw as unknown as NBAPrediction;
-  const flags = useMemo(() => (raw.nba_flags || []) as unknown as SlateFlag[], [raw.nba_flags]);
+  const flags = useMemo(() => (raw.nba_flags || []) as NbaSlateFlag[], [raw.nba_flags]);
   const [signalDefs, setSignalDefs] = useState<Record<string, SignalDefinition>>({});
   const [performance, setPerformance] = useState<Record<string, SignalPerformanceRow>>({});
 
@@ -56,27 +77,46 @@ export function NbaSignalsSection({ game }: { game: GameFeedItem }) {
     };
   }, [flags.length, raw.game_date]);
 
-  if (flags.length === 0) return null;
+  const byMarket = useMemo(() => {
+    const grouped: Record<NbaSignalMarket, SlateFlag[]> = {
+      spread: [],
+      total: [],
+      moneyline: [],
+      h1_spread: [],
+      h1_total: [],
+    };
+    for (const flag of flags) {
+      const def = signalDefs[flag.signal_key];
+      const market = canonicalMarket(flag.market) || canonicalMarket((def as { market?: string | null } | undefined)?.market);
+      if (!market) continue;
+      grouped[market].push(flag as unknown as SlateFlag);
+    }
+    return grouped;
+  }, [flags, signalDefs]);
 
+  const value = useMemo(
+    () => ({ away: game.awayTeam, home: game.homeTeam, byMarket, signalDefs, performance }),
+    [game.awayTeam, game.homeTeam, byMarket, signalDefs, performance],
+  );
+
+  return <NbaSignalContext.Provider value={value}>{children}</NbaSignalContext.Provider>;
+}
+
+/** The pick-signal row for one market. Renders nothing when that market has no flags. */
+export function NbaMarketSignals({ market }: { market: NbaSignalMarket }) {
+  const ctx = useContext(NbaSignalContext);
+  if (!ctx) return null;
+  const flags = ctx.byMarket[market] || EMPTY_MARKETS[market];
+  if (flags.length === 0) return null;
   return (
-    <WidgetCard
-      icon={<Zap />}
-      title="Signals"
-      subtitle="Situational spots and model disagreements that fired on this game — what each one bets, and its record."
-      accessory={
-        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
-          {flags.length} signal{flags.length === 1 ? '' : 's'}
-        </span>
-      }
-    >
-      <GameLevelSignalList
-        flags={flags}
-        away={game.awayTeam}
-        home={game.homeTeam}
-        signalDefs={signalDefs}
-        signalPerformance={performance}
-        showLifecycleRecords
-      />
-    </WidgetCard>
+    <GameLevelSignalList
+      flags={flags}
+      away={ctx.away}
+      home={ctx.home}
+      signalDefs={ctx.signalDefs}
+      signalPerformance={ctx.performance}
+      showLifecycleRecords
+      listTitle="Pick Signals"
+    />
   );
 }
