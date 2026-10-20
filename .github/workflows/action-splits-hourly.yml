@@ -1,0 +1,62 @@
+# Action Network public-betting splits, captured hourly in season.
+#
+# WHY THIS IS HERE AND NOT IN render.yaml
+#   The repo is public, so Actions minutes are free, and this job is ~20 seconds of
+#   stdlib Python against one JSON endpoint — it does not need a Render service, a build,
+#   or 2Gi of RAM. Render stays for the jobs whose timing is load-bearing: GitHub's
+#   scheduled triggers are routinely 5-20 minutes late and are dropped outright under
+#   load, which is fine for an hourly change log and NOT fine for a T-60 closing capture.
+#
+# The job writes to Supabase, never back to the repo: hourly commits to main would be 24
+# merge conflicts a day against the research parquets.
+#
+# Months only — Aug through Feb covers CFB weeks 1-15 plus bowls and the NFL regular
+# season through week 18. Out of season the script exits 0 on an empty board anyway, but
+# there is no reason to wake a runner 5,000 times for it.
+
+name: action-splits-hourly
+
+on:
+  schedule:
+    - cron: "7 * * 8-12 *"      # Aug-Dec, :07 to miss the top-of-hour Actions stampede
+    - cron: "7 * * 1-2 *"       # Jan-Feb (NFL wk17-18, bowls, CFP)
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "season label (blank = infer: Aug-Dec this year, Jan-Feb last)"
+        required: false
+      dry_run:
+        description: "fetch and diff, write nothing"
+        type: boolean
+        default: false
+
+# schedule + workflow_dispatch only. ⛔ Never add pull_request here: this is a public repo
+# and a fork PR must not be able to run a job that holds the service key.
+permissions:
+  contents: read
+
+concurrency:
+  group: action-splits-hourly
+  cancel-in-progress: false     # a late run still has a capture worth keeping
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          # no cache: the script is stdlib-only, there is nothing to install
+
+      - name: capture splits
+        working-directory: research/action-splits
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CFB_SUPABASE_URL: ${{ vars.CFB_SUPABASE_URL }}
+        run: |
+          python3 snapshot_action.py \
+            ${{ inputs.season && format('--season {0}', inputs.season) || '' }} \
+            ${{ inputs.dry_run && '--dry-run' || '' }}

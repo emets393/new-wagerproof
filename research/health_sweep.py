@@ -14,6 +14,8 @@ Checks (football season, both sports):
   5. grading lag       — games final for >36h whose flags are still ungraded
   6. prop lines        — NFL: a POSTED prop market with a null line (the card renders
                          with no number; prices still populate, so nothing else catches it)
+ 11. public splits     — the hourly Action Network capture (GitHub Actions, not Render,
+                         so its own failures do not reach the Render alert channel)
 
 Runs daily ~6:45am ET via render.yaml (football-health-sweep). Read-only.
 """
@@ -251,6 +253,33 @@ def main():
                       f" ({', '.join(sorted({r['team'] for r in blank}))})"))
             except Exception as e:
                 check(f"{sport} cheat sheet", False, f"probe failed: {e}")
+
+    # 11. the public-splits capture is still capturing.
+    # Action Network splits are pulled hourly by GitHub Actions, not by Render, so a
+    # failure there does NOT produce a Render email — only a GitHub notification, which is
+    # easy to miss. The feed also has no app surface, so nothing user-facing breaks when it
+    # stops: it just silently stops being history, and the capture-time columns
+    # (best odds, ticket count) are the half that CANNOT be backfilled. That is exactly the
+    # failure shape this sweep exists for. 4h allows one missed hourly run plus the 5-20
+    # minute lateness GitHub's scheduler is known for; WARN, not RED, because a dead
+    # research feed is not a broken product.
+    try:
+        last = q("action_public_splits?select=snap_ts&order=snap_ts.desc&limit=1")
+        if not last:
+            check("public splits", False, "no rows at all — has the workflow ever run?",
+                  warn_only=True)
+        else:
+            age = (NOW - ts(last[0]["snap_ts"])).total_seconds() / 3600
+            # Off-season there is nothing on the board and the writer inserts nothing, so a
+            # stale feed in March is correct, not broken. Aug-Feb only.
+            in_season = NOW.month >= 8 or NOW.month <= 2
+            check("public splits", age < 4 or not in_season,
+                  f"last capture {age:.1f}h ago"
+                  + ("" if age < 4 or not in_season
+                     else " — check the action-splits-hourly Actions run"),
+                  warn_only=True)
+    except Exception as e:
+        check("public splits", False, f"probe failed: {e}", warn_only=True)
 
     # 8. is Render running what render.yaml says? Editing the blueprint does not deploy it, and
     # a stale service runs green forever — nfl-prop-report-daily spent an unknown stretch on a
