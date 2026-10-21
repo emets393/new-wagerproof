@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock, Cable, Medal, Eye, Bell } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock, Cable, Medal, Eye, Bell, Percent } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import NotFound from "./pages/NotFound";
@@ -63,6 +63,13 @@ export const navItems: NavItem[] = [
     title: "Today's Betting Trends",
     to: "/todays-trends",
     icon: <TrendingUp className="h-4 w-4" />,
+  },
+  {
+    // No sport query — the page picks the in-season league, and a query-less
+    // link keeps the sidebar highlight active when the pills change.
+    title: "Public Betting",
+    to: "/public-betting",
+    icon: <Percent className="h-4 w-4" />,
   },
   {
     // Unified MLB/NFL player-prop matchup workspace. The old sport-specific
