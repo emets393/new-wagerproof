@@ -70,6 +70,7 @@ import SupportArticle from "./pages/support/SupportArticle";
 import Agents from "./pages/Agents";
 import GamesPage from "./features/games/GamesPage";
 import TrendsTodayPage from "./features/trendsToday/TrendsTodayPage";
+import PublicBettingPage from "./features/publicBetting/PublicBettingPage";
 import AgentCreate from "./pages/AgentCreate";
 import AgentSettings from "./pages/AgentSettings";
 import ConnectAI from "./pages/ConnectAI";
@@ -169,6 +170,7 @@ const SPLIT_VIEW_ROUTES = [
   '/agents',
   '/historical-trends',
   '/todays-trends',
+  '/public-betting',
   '/props',
   '/mlb/f5-splits',
   '/mlb/pitcher-matchups',
@@ -360,6 +362,7 @@ function AppRoutes() {
           <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
           <Route path="/games" element={<ProtectedRoute allowFreemium={true}><GamesPage /></ProtectedRoute>} />
           <Route path="/todays-trends" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><TrendsTodayPage /></ProtectedRoute>} />
+          <Route path="/public-betting" element={<ProtectedRoute allowFreemium={true}><PublicBettingPage /></ProtectedRoute>} />
           <Route path="/props" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><PropsPage /></ProtectedRoute>} />
           <Route path="/college-football" element={<LegacySportRedirect sport="cfb" />} />
           <Route path="/nfl" element={<LegacySportRedirect sport="nfl" />} />
