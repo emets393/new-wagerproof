@@ -77,17 +77,28 @@ def _get(table, params):
 def team_abbrev():
     """{prediction-table team name -> slate abbreviation}.
 
-    nfl_predictions_epa stores team_mapping's `team_name` ("Houston", "NY Giants"), but a
+    nfl_predictions_epa stores nfl_team_mapping's `team_name` ("Houston", "NY Giants"), but a
     dozen real xgb_epa_v1 rows carry the FULL name ("Arizona Cardinals"), so a strict map
     silently drops those games. Both spellings are registered.
+
+    ⛔ Read from Supabase, NOT data/team_mapping.parquet. research/.gitignore excludes
+    **/*.parquet, so that file exists only after fetch.py has run on the box. Reading it
+    here would make this helper depend on job ORDER -- and because the caller falls back to
+    newest-row on any failure, the cutoff would have silently done nothing wherever the
+    parquet was absent, which is the failure mode this whole change exists to remove.
     """
-    tm = pd.read_parquet(os.path.join(HERE, "data", "team_mapping.parquet"))
     m = {}
-    # zip rather than itertuples: "Team Abbrev" has a space, which itertuples renames.
-    for abbr, short, full in zip(tm["Team Abbrev"], tm["team_name"], tm["city_and_name"]):
+    for t in _get("nfl_team_mapping", "select=%22Team%20Abbrev%22,team_name,city_and_name"):
+        abbr = t.get("Team Abbrev")
+        if not abbr:
+            continue
         a = {"LAR": "LA"}.get(abbr, abbr)
-        m[str(short).strip()] = a
-        m[str(full).strip()] = a
+        for name in (t.get("team_name"), t.get("city_and_name")):
+            if name:
+                m[str(name).strip()] = a
+    if len(m) < 32:
+        raise RuntimeError(f"nfl_team_mapping returned only {len(m)} name(s); refusing to "
+                           f"map teams off a partial table")
     return m
 
 

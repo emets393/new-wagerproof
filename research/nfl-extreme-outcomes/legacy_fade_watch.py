@@ -65,21 +65,9 @@ def get(table, params):
 
 
 def team_abbrev():
-    """{prediction-table team name -> slate abbreviation}.
-
-    nfl_predictions_epa stores team_mapping's `team_name` ("Houston", "NY Giants", "LA Rams"), but
-    ⚠ a dozen real xgb_epa_v1 rows carry the FULL name ("Arizona Cardinals") instead, so a strict
-    map silently drops those games. Both spellings are registered.
-    """
-    tm = pd.read_parquet(os.path.join(HERE, "data", "team_mapping.parquet"))
-    m = {}
-    # zip the columns rather than itertuples: "Team Abbrev" contains a space, which itertuples
-    # renames to a positional attribute.
-    for abbr, short, full in zip(tm["Team Abbrev"], tm["team_name"], tm["city_and_name"]):
-        a = {"LAR": "LA"}.get(abbr, abbr)
-        m[short] = a
-        m[full] = a
-    return m
+    """One definition, in legacy_pred, read from Supabase rather than a gitignored parquet."""
+    from legacy_pred import team_abbrev as _ta
+    return _ta()
 
 
 def et_hour(ts):
