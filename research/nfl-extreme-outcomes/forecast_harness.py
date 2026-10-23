@@ -114,7 +114,9 @@ def load_legacy():
     Empty -> legacy rules just don't fire."""
     try:
         from fetch import fetch_table
-        leg=fetch_table("nfl_predictions_epa", select="unique_id,home_away_spread_cover_prob,home_spread,as_of_ts")
+        # season/week/home_team/away_team ride along ONLY to resolve each game's kickoff for
+        # the pregame cutoff below; they are dropped before the merge.
+        leg=fetch_table("nfl_predictions_epa", select="unique_id,home_away_spread_cover_prob,home_spread,as_of_ts,season,week,home_team,away_team")
         if leg is None or len(leg)==0: return pd.DataFrame(columns=["unique_id","leg_sp","leg_line"])
         leg["leg_sp"]=pd.to_numeric(leg.home_away_spread_cover_prob,errors="coerce")
         # The line the model actually computed from, carried on the same row. This is the
@@ -122,7 +124,15 @@ def load_legacy():
         # its line travel together, so they can never drift apart.
         leg["leg_line"]=pd.to_numeric(leg.home_spread,errors="coerce")
         leg["as_of_ts"]=pd.to_datetime(leg.as_of_ts,errors="coerce",utc=True)
-        leg=leg.sort_values("as_of_ts").groupby("unique_id",as_index=False).last()
+        # ⛔ NOT simply the newest row. Owner 2026-10-21: the run a game is read from must be
+        # hours before THAT game's kickoff. The predictor has no kickoff filter and a week
+        # stays on the board until its last gameday, so every Sunday game is re-scored on
+        # Monday — wk6 HOU@JAX (Sun 13:30Z kickoff) had runs at T+1h and T+25h, and the
+        # newest-row rule handed the signal a prediction written after the game ended.
+        # Historical seasons have no kickoff in nfl_slate_games and keep the newest row, so
+        # graded backtest records do not move.
+        from legacy_pred import apply_pregame_cutoff
+        leg=apply_pregame_cutoff(leg)
         return leg[["unique_id","leg_sp","leg_line"]]
     except Exception as e:
         print(f"  ! legacy preds unavailable ({e}); legacy rules disabled")
