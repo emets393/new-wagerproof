@@ -109,6 +109,32 @@ REG_CAP = 7.0
 # season-to-date AND a walk-forward refit clears the market on MAE and sign agreement.
 # See .claude/docs/33_nfl_market_model_audit.md.
 TOTALS_PICK_ENABLED = False
+# ★ SPREAD CONFLUENCE GATE (2026-10-23). The sides model's entire edge lives in two
+# schedule-known subgroups. Walk-forward, fresh fit per fold, graded at the opener, all bands
+# pre-registered, placebo-controlled (see .claude/docs/33_nfl_market_model_audit.md):
+#
+#     primetime ONLY (no rest edge)     52-30   63.4%   n=82
+#     rest edge ONLY (not primetime)    27-13   67.5%   n=40
+#     BOTH                              11-4    73.3%   n=15
+#     NEITHER                          155-153  50.3%   n=308    <- a coin flip
+#     all gated picks                  245-200  55.1%   n=445
+#
+# The two gates select different games (overlap 15) and are additive. So the headline 55.1% was a
+# blend of a real ~64% edge on 137 picks and noise on 308 — which is why it never felt like it
+# worked. Publishing the 308 is the same mistake as the totals tiers: a coin flip presented as a
+# play. Per season both hold 3/3 (primetime 62.5/67.6/68.0, rest 75.0/71.4/68.8) and both clear
+# their placebo bands (primetime [47.4,57.3], rest [40.7,54.7]).
+# ⚠ Both live in the model's own feature set (primetime_i, home_rest/away_rest), so this is
+# conditional performance, not true confluence — the model sees them and still cannot price them.
+# ⚠ 7 signals were tested and 2 hit, so multiple comparisons apply; what carries this is 3/3
+# seasons + placebo + dose-response + mutual independence, not one p-value. rest-only n=40 is thin.
+# ⛔ Set False to publish every conviction pick again (the pre-2026-10-23 behaviour).
+SPREAD_GATE_ENABLED = True
+SPREAD_GATE_REST_DAYS = 3
+# primetime matches build.py:160 exactly — kick_hour_et >= 19. ⛔ Do NOT substitute `slot`: it
+# buckets Friday afternoon into thu_fri and Saturday into sun_late_sat, so it would gate a
+# different set of games than the one that was validated.
+SPREAD_GATE_PRIMETIME_HOUR_ET = 19
 # EARLY-SEASON SUPPRESSION (audit_nfl_prod_parity.py, 2026-10-06). forecast_harness.train_predict
 # trains on `week >= 4` but predicts EVERY week, so weeks 1-3 are scored by a model that has never
 # seen an early-season game. Walk-forward 2021-25 those weeks are 97-97 — exactly 50.0%, ROI -4.5%
@@ -331,6 +357,60 @@ def _csv_or_empty(path, cols):
     return pd.DataFrame(columns=cols)
 
 
+def spread_gate(r, kick_iso, pick_side):
+    """Does this game qualify for a published spread pick? -> (ok, reason).
+
+    See SPREAD_GATE_ENABLED. The model is 50.3% on the 308 games that clear NEITHER gate and
+    ~64% on the 137 that clear one, so an ungated pick is a coin flip dressed as a play.
+
+    ⛔ FAILS CLOSED. If neither the kick hour nor the rest days can be read, the pick is held
+    rather than published — an unverifiable gate is not a passed gate. main() prints the gate
+    distribution every run, so a feed that silently stops supplying gametime/rest shows up as a
+    board of all-NEUTRAL spreads instead of quietly reverting to publishing everything.
+    """
+    if not SPREAD_GATE_ENABLED:
+        return True, None
+    if pick_side not in ("HOME", "AWAY"):
+        return False, None          # no lean to gate; fg_spread_pick is NEUTRAL anyway
+    # primetime = ET kick hour >= 19, matching build.py:160's `primetime` exactly. gametime is
+    # already ET on this frame (build.py:330 localizes it as such); the UTC kickoff is a fallback.
+    # primetime: the study's own flag first (build.py:160, kick_hour_et >= 19), then the ET
+    # gametime string, then the UTC kickoff. Three sources because only the first is guaranteed
+    # to agree with the backtest, and only the last is guaranteed to be present.
+    _pf = pd.to_numeric(r.get("_gate_primetime"), errors="coerce")
+    if pd.notna(_pf):
+        hour, gt = (19 if _pf > 0 else 12), None
+    else:
+        hour, gt = None, (r.get("_gate_gametime") or r.get("gametime"))
+    if isinstance(gt, str) and ":" in gt:
+        try:
+            hour = int(gt.split(":")[0])
+        except ValueError:
+            hour = None
+    if hour is None and kick_iso:
+        try:
+            hour = pd.Timestamp(kick_iso).tz_convert("America/New_York").hour
+        except (ValueError, TypeError):
+            hour = None
+    prime = hour is not None and hour >= SPREAD_GATE_PRIMETIME_HOUR_ET
+    # rest edge is measured on the side the model is BACKING, not on the home team
+    hr = pd.to_numeric(r.get("home_rest"), errors="coerce")
+    ar = pd.to_numeric(r.get("away_rest"), errors="coerce")
+    rest = False
+    if pd.notna(hr) and pd.notna(ar):
+        edge = (hr - ar) if pick_side == "HOME" else (ar - hr)
+        rest = edge >= SPREAD_GATE_REST_DAYS
+    if prime and rest:
+        return True, "primetime+rest"
+    if prime:
+        return True, "primetime"
+    if rest:
+        return True, "rest"
+    if hour is None and not (pd.notna(hr) and pd.notna(ar)):
+        return False, "held_unverifiable"
+    return False, "held_no_gate"
+
+
 def build_games():
     fall = pd.read_parquet(DATA / "h1tt_frame.parquet")
     f = fall[(fall.season == SEASON) & (fall.week == WEEK)].copy()
@@ -356,6 +436,16 @@ def build_games():
                     "resid_tot", "resid_cov"]], on=GK, how="left")
     ctx = pd.read_parquet(DATA / "h1tt_context.parquet")
     g = g.merge(ctx[GK + ["h_h1_pf_avg", "a_h1_pf_avg"]], on=GK, how="left")
+    # Gate inputs come from matchup.parquet, NOT h1tt_context: build.py writes it at step 57
+    # with 100% coverage on the current season, while the 1H frames are rebuilt later and
+    # carried no 2026 rows at all when the gate was written. It is also the SAME frame the
+    # confluence study was run on, so the gate selects exactly the games that were validated
+    # rather than a near-miss set. ⛔ If these stop arriving, spread_gate() fails closed and
+    # the run-end distribution print is how you find out.
+    _mg = pd.read_parquet(DATA / "matchup.parquet")
+    _mg = _mg[_mg.season == SEASON][GK + ["home_rest", "away_rest", "gametime", "primetime"]]
+    _mg = _mg.rename(columns={"gametime": "_gate_gametime", "primetime": "_gate_primetime"})
+    g = g.merge(_mg.drop_duplicates(GK), on=GK, how="left", suffixes=("", "_mg"))
 
     od = pd.read_parquet(DATA / "odds_consensus.parquet")
     od["home_ab"] = norm_ab(od.home_ab); od["away_ab"] = norm_ab(od.away_ab)
@@ -1309,6 +1399,8 @@ def main():
         wx = weather(r)
         if wx.get("wx_temp_f") is None and not wx.get("wx_indoors"):
             wx = forecast_wx(r.home_ab, r.away_ab) or wx
+        _kick = kickoff.get((r.home_ab, r.away_ab)) or r.get("_seed_kickoff")
+        _gate_ok, _gate_why = spread_gate(r, _kick, (bm.get("spread") or {}).get("pick_side"))
         rows.append(dict(
             game_id=r.game_id, season=SEASON, week=WEEK, gameday=r.gameday,
             kickoff=kickoff.get((r.home_ab, r.away_ab)) or r.get("_seed_kickoff"),
@@ -1359,7 +1451,12 @@ def main():
             fg_spread_pick=(
                 f"{(r.home_ab if bm['spread']['pick_side'] == 'HOME' else r.away_ab)} "
                 f"{(r.open_spread if bm['spread']['pick_side'] == 'HOME' else -r.open_spread):+g}"
-                if bm.get("spread") and pd.notna(r.open_spread) and bm["spread"].get("conviction", "none") != "none" else "NEUTRAL"),
+                if bm.get("spread") and pd.notna(r.open_spread)
+                and bm["spread"].get("conviction", "none") != "none"
+                and _gate_ok else "NEUTRAL"),
+            # which gate let this pick through (primetime / rest / both), or why it was held.
+            # Display + post-hoc grading by gate reason; never read back as an input.
+            fg_spread_gate=_gate_why,
             fg_spread_confluence=int(r.confluence),
             fg_home_win_prob=r.fg_home_win_prob,
             # FG predicted box score (DISPLAY): split of pred total by pred margin
@@ -1412,6 +1509,17 @@ def main():
             h1_home=int(r.h1_home) if pd.notna(r.h1_home) else None,
             h1_away=int(r.h1_away) if pd.notna(r.h1_away) else None))
     games = pd.DataFrame(rows)
+    # Gate distribution, every run. The failure this catches: h1tt_context stops supplying
+    # gametime/rest, spread_gate() fails closed on every game, and the board silently goes to
+    # all-NEUTRAL spreads. "held_unverifiable" > 0 means the FEED broke, not that the slate was
+    # quiet — those are different problems and they look identical on the site.
+    if SPREAD_GATE_ENABLED and "fg_spread_gate" in games.columns:
+        gd = games.fg_spread_gate.fillna("no_lean").value_counts().to_dict()
+        passed = sum(v for k, v in gd.items() if k in ("primetime", "rest", "primetime+rest"))
+        print(f"[spread gate] {passed}/{len(games)} published; {gd}")
+        if gd.get("held_unverifiable"):
+            print(f"  ⛔ {gd['held_unverifiable']} game(s) had NO readable kick hour AND no rest "
+                  f"days — the gate could not be evaluated. Check h1tt_context.parquet.")
     # int + None in one column re-floats it (10 -> 10.0 -> 22P02 on the DB's integer
     # cols once the slate mixes played and seeded games); nullable Int64 keeps ints ints
     for c in ("final_home", "final_away", "h1_home", "h1_away",
@@ -1549,7 +1657,7 @@ def main():
         "fg_spread_pick", "fg_pred_spread", "fg_pred_margin", "fg_spread_edge",
         "fg_pred_home_pts", "fg_pred_away_pts", "fg_pred_total",
         "fg_home_cover_prob", "fg_home_win_prob", "fg_spread_confluence",
-        "fg_total_pick", "fg_total_edge", "fg_total_tier",
+        "fg_total_pick", "fg_total_edge", "fg_total_tier", "fg_spread_gate",
         "conviction_tier", "conviction_summary", "stake_units", "mammoth",
         "tt_home_pick", "tt_away_pick", "tt_home_pred", "tt_away_pred",
         "tt_home_edge", "tt_away_edge",
