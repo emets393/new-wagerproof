@@ -54,3 +54,11 @@ supabase/.temp/
 
 # --- Cloudflare Workers local state ---
 .wrangler/
+
+# Fantasy Points RAW API dumps (NFL research). 8.6 GB / 4,519 files, and 12 of them exceed
+# GitHub's 100 MB per-file hard limit (receiving-separation-by-routes_2025.json is 227 MB),
+# so any branch carrying them CANNOT be pushed — which is how research/nba-2026-09-21
+# stranded 140 commits with no remote copy. They are fully regenerable with fp_pull.py and
+# the loaded form already lives in the fp_data Supabase tables + the fpdata parquets, so
+# nothing is lost by keeping them off git. Track the PARQUETS, never raw/.
+research/nfl-extreme-outcomes/data/fpdata/raw/
