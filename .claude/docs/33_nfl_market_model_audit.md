@@ -161,3 +161,98 @@ tier `HC` and inside the band. With `TOTALS_PICK_ENABLED = False` it is 0.
   artifact.
 * The legacy model (`nfl_predictions_epa`) was **not touched** — owner instruction is that it runs
   exactly as it did last season.
+
+---
+
+## Confluence study, 2026-10-23 — ★ the sides edge is real and it is GATED
+
+Port of the NBA mammoth search ([[nba-confluence]]) to NFL full-game markets, which had never
+been run (`model_confluence.py` is props-only). ⛔ All bands pre-registered before looking;
+placebo = outcome shuffled within season, 3 seeds; min reportable n=30; oracle 736-0.
+
+### The finding
+
+Spread, graded at the opener, model gate |ph-0.5| >= 0.06:
+
+```
+primetime ONLY (no rest edge)     52-30   63.4%   n=82     per season 62.5 / 67.6 / 68.0
+rest edge ONLY (not primetime)    27-13   67.5%   n=40     per season 75.0 / 71.4 / 68.8
+BOTH                              11-4    73.3%   n=15
+NEITHER                          155-153  50.3%   n=308    <- a coin flip
+all gated picks                  245-200  55.1%   n=445
+```
+
+The two gates select different games (overlap 15) and are **additive**. So the 55.1% headline was
+a blend of a real ~64% edge on 137 picks and noise on 308 — which is why the model never felt
+like it worked. Placebo bands: primetime [47.4, 57.3], rest [40.7, 54.7]; both cleared.
+
+**The moneyline carries it further, and harder** — model side priced at the opener, ROI (not hit
+rate, since a 60% hit rate on -200 favourites still loses):
+
+```
+model alone            238-217   52.3%   ROI  +1.7%     2023 -4.9%   2024 +2.4%   2025 +12.7%
+GATE (prime or rest)    88-51    63.3%   ROI +21.1%     2023 +30.7%  2024 +19.5%  2025 +19.1%
+NOT gated              150-166   47.5%   ROI  -6.9%
+```
+
+3/3 seasons strongly positive on the gate, negative ungated. ⚠ ML ROI is high-variance (a few
+long dogs move it), so treat +21% as directional, not as a forecast. 2026 is -15.2% on a tiny n.
+
+### Negative results, all load-bearing
+
+* ⛔ **Naive stacking FAILS on NFL.** model + >=1 agreeing signal = 54.6%, *worse* than model
+  alone (55.1%); >=2 signals 55.9%, no lift. Do NOT port NBA's ">=1 signal" rule.
+* **Never fade a move.** "Line moved against the model" = 49.7%, below its own placebo.
+* ⛔ **Totals confluence is null.** Model alone 48.3% at |edge|>=3 and nothing clears placebo
+  consistently; the one good-looking cell (>=2 signals, 58.7%) is entirely 2023 (85.0% on n=20)
+  then 51.6 / 52.5. The totals suspension stands.
+
+### ⛔ Two traps caught inside this study
+
+1. **The best-looking signal was look-ahead.** "Line moved toward the model" scored 58.9%
+   (112-78, 3/3 seasons) graded at the opener — but the gate is computed from the CLOSE while the
+   grade is at the OPEN, and you cannot know the close when betting the open. At trigger time
+   (the close) it is **52.4%**, break-even. This is what [[nfl-backtest-grading-framework]] means
+   by "movement -> trigger-time", and it is the same shape as the 57% totals myth.
+2. **A 66.6% team-total result was a broken join.** `odds_hist.parquet` keys on city names +
+   `commence_time`, NOT on (season, week, home_ab, away_ab) — only `season` matched, so every
+   game in a season got one arbitrary team-total point (mean home point 27.0 vs mean home score
+   23.7). The model then always picked UNDER and that fixed bias read as a 66.6% edge, with the
+   gate making it *worse* — which is the tell. **Team totals remain unmeasured**; redoing it needs
+   the city-name crosswalk and a chosen snapshot time.
+
+### The weather look-ahead lead: CHECKED, and it is clean
+
+`wind_mph` resolves to `wind_speed` (the pregame Supabase table) at 64-75% coverage per season,
+with `nv_wind` (nflverse's game-time actual) only filling 0-5% of rows. The two are **not** the
+same number: 1.1% identical, mean absolute difference 2.65 mph, corr +0.696. So the model trains
+on a genuine pre-kickoff forecast and the sides numbers are not inflated by weather leakage.
+⚠ Residual: the 0-5% `nv_wind` fallback IS the actual and is a small real leak (5% in 2025);
+dropping the fallback for training rows would close it.
+
+### Shipped in this change
+
+`SPREAD_GATE_ENABLED = True` in `nfl_slate_games_build.py`: `fg_spread_pick` carries a side only
+when the game is primetime OR the model's side has >= `SPREAD_GATE_REST_DAYS` (3) more days rest.
+A new `fg_spread_gate` column records which gate passed, for display and post-hoc grading.
+
+Gate inputs come from `matchup.parquet`, not `h1tt_context.parquet`. Two reasons: `build.py`
+writes matchup at step 57 with 100% current-season coverage while the 1H frames are rebuilt later
+and carried **no 2026 rows at all** when this was written (so an h1tt-sourced gate would have
+failed closed on every game and blanked the spread board), and matchup is the frame the study
+itself ran on, so the gate selects exactly the validated games.
+
+`spread_gate()` **fails closed** — an unverifiable gate is not a passed gate — and `main()` prints
+the gate distribution every run, flagging `held_unverifiable` loudly. That distinguishes "the feed
+broke" from "the slate was quiet", which otherwise look identical on the site.
+
+Verified on 2026 week 7: 8 of 14 games eligible on at least one side, byes resolving correctly
+(CIN@BAL -> Cincinnati on 14 days vs Baltimore's 7 qualifies the away side). Historically the gate
+admits 292 of 706 games (41%) at week 4+.
+
+⚠ **Caveats that belong next to the 63-67%:** 7 signals were tested and 2 hit, so multiple
+comparisons apply — what carries it is 3/3 seasons + placebo + dose-response + mutual
+independence, not one p-value. `rest`-only n=40 is thin. 2026 is poor in every cell but n per
+cell is 2-6, so it says nothing yet. And both gates sit inside the model's own feature set
+(`primetime_i`, `home_rest`/`away_rest`), so this is conditional performance, not true
+confluence: the model sees them and still cannot price them.
