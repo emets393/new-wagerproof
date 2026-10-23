@@ -30,6 +30,10 @@ import requests
 ROOT = Path(__file__).resolve().parent
 SUPA = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
 REG_CAP = 7.0   # mirrors nfl_slate_games_build.REG_CAP (not imported: that module runs on import)
+# mirrors consensus_totals.MIN_EDGE_BET / MAX_EDGE_BET — the only band the totals model calls a
+# bet. Same reason as REG_CAP for not importing: consensus_totals runs work on import.
+MIN_EDGE_BET = 3.0
+MAX_EDGE_BET = 7.0
 
 
 def load_key():
@@ -59,7 +63,11 @@ def main():
     if not anchor:
         sys.exit("no slate")
     season, week = anchor[0]["season"], anchor[0]["week"]
+    # fg_total_pick/fg_total_tier ride along so the totals guard below can tell a real HC bet
+    # from a display-only tier. Drop either one and g.get() returns None, the guard reads
+    # "not HC" and NEUTRALs every pick on the board including the ones worth having.
     gsel = ("game_id,kickoff,home_team,away_team,fg_pred_spread,fg_pred_total,fg_spread_pick,"
+            "fg_total_pick,fg_total_tier,"
             "tt_home_pred,tt_away_pred,h1_pred_margin,h1_pred_total")
     games = requests.get(f"{SUPA}/nfl_slate_games?select={gsel}&season=eq.{season}&week=eq.{week}",
                          headers=hdr, timeout=30).json()
@@ -116,8 +124,28 @@ def main():
             rec["fg_total_close"] = tot
             pt = g.get("fg_pred_total")
             if pt is not None:
-                rec["fg_total_edge"] = round(float(pt) - tot, 2)
-                rec["fg_total_pick"] = "OVER" if (float(pt) - tot) > 0 else "UNDER"
+                live_edge = float(pt) - tot
+                rec["fg_total_edge"] = round(live_edge, 2)
+                # Same contract as fg_spread_pick above: the build decides WHETHER there is a
+                # bet, this refresher only re-tails the number. consensus_totals publishes a
+                # direction on tier HC alone (both sub-models agree AND 3 <= min|edge| <= 7);
+                # EXTREME, LEAN, WEAK and LEAN_EARLY are display-only and NONE carries no
+                # direction at all. This branch used to re-derive the pick from
+                # sign(pred - close) with no tier check, so it overwrote that guard on every
+                # run -- it runs right after the build on four cron services, so the HC-only
+                # guard added 2026-10-06 never survived a single invocation. 76 of the 89
+                # directional totals picks on the 2026 board were tiers the model says never
+                # to bet; they graded 23-42 (35.4%) at the close against 4-5 for HC.
+                # The band re-check mirrors REG_CAP: a pick whose live edge has drifted out of
+                # 3-7 is outside the only range that was ever validated, so it goes NEUTRAL
+                # rather than riding on a tier computed against a line that has since moved.
+                cur_pick = g.get("fg_total_pick")
+                in_band = MIN_EDGE_BET <= abs(live_edge) <= MAX_EDGE_BET
+                if (cur_pick in (None, "NEUTRAL") or g.get("fg_total_tier") != "HC"
+                        or not in_band):
+                    rec["fg_total_pick"] = "NEUTRAL"
+                else:
+                    rec["fg_total_pick"] = "OVER" if live_edge > 0 else "UNDER"
         for src, dst in [("ml_home", "fg_ml_home_close"), ("ml_away", "fg_ml_away_close"),
                          ("tt_home", "tt_home_close"), ("tt_away", "tt_away_close"),
                          ("h1_spread_home", "h1_spread_close"), ("h1_total", "h1_total_close"),
