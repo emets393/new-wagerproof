@@ -97,6 +97,18 @@ CONV_RANK = {"none": 0, "lean": 1, "low": 2, "med": 3, "high": 4, "mammoth": 5}
 # is display-only regardless. The regression magnitude no longer sets the tier (it never ranked).
 PLAY_CONF = 0.06
 REG_CAP = 7.0
+# ⛔ TOTALS PICK SUSPENDED 2026-10-22. The totals model has no measurable signal on 2026:
+# corr(pred_total, close) = +0.04 and corr(pred_total, actual) = -0.09 against corr(close,
+# actual) = +0.44, prediction sd 2.86 vs the market's 4.45, and MAE 12.12 vs the close's 10.67 —
+# it is less accurate than quoting Vegas. Cause: 21 of the b15 features are team_week `_s2d`
+# columns that are 8-season franchise averages, not season-to-date (within-team sd across 2026
+# weeks 0.0029 vs between-team 0.2475; 19 of 31 teams never moved all season), so the model
+# cannot see this year's form and its "edge" is just the market's own deviation negated.
+# Published record while it was live: 28-47 (37.3%) at the close, ROI -28.7%.
+# ⛔ Do NOT flip this back on until build_team_week_seasonal.py serves these features as real
+# season-to-date AND a walk-forward refit clears the market on MAE and sign agreement.
+# See .claude/docs/33_nfl_market_model_audit.md.
+TOTALS_PICK_ENABLED = False
 # EARLY-SEASON SUPPRESSION (audit_nfl_prod_parity.py, 2026-10-06). forecast_harness.train_predict
 # trains on `week >= 4` but predicts EVERY week, so weeks 1-3 are scored by a model that has never
 # seen an early-season game. Walk-forward 2021-25 those weeks are 97-97 — exactly 50.0%, ROI -4.5%
@@ -1315,8 +1327,9 @@ def main():
             # verdict columns drifting apart (same family as the fg_spread_edge basis flip).
             # This mirrors what fg_spread_pick already does: carry a side only when it is a play,
             # and let fg_total_tier + the display total speak for everything else.
-            fg_total_pick=(r.direction if (r.tier == "HC" and r.direction in ("OVER", "UNDER"))
-                           else "NEUTRAL"),
+            # ⛔ AND SUSPENDED ENTIRELY (2026-10-22) — see TOTALS_PICK_ENABLED.
+            fg_total_pick=((r.direction if (r.tier == "HC" and r.direction in ("OVER", "UNDER"))
+                            else "NEUTRAL") if TOTALS_PICK_ENABLED else "NEUTRAL"),
             fg_total_tier=r.tier,
             fg_home_cover_prob=round(float(r.ph), 4) if pd.notna(r.ph) else None,
             fg_pred_margin=round(float(r.pred_margin), 2) if pd.notna(r.pred_margin) else None,
@@ -1339,8 +1352,17 @@ def main():
             fg_spread_edge=round(float(r.reg_edge), 2) if pd.notna(r.reg_edge) else None,
             tt_home_pred=round(float(r.tt_home_pred), 2) if pd.notna(r.tt_home_pred) else None,
             tt_away_pred=round(float(r.tt_away_pred), 2) if pd.notna(r.tt_away_pred) else None,
-            tt_home_pick=bm.get("team_total_home", {}).get("pick_side"),
-            tt_away_pick=bm.get("team_total_away", {}).get("pick_side"),
+            # ⛔ SUSPENDED WITH THE TOTAL (2026-10-22). A team total is not a third market: it is
+            # an exact algebraic rotation of the two we already publish. Measured on the 2026
+            # board, tt_home_pred + tt_away_pred == fg_pred_total and tt_home_pred -
+            # tt_away_pred == fg_pred_margin on 106 of 107 rows, so each team total is
+            # (total +/- margin)/2 and HALF of it is the dead totals model. That is why home TT
+            # scores corr(pred, actual) = +0.001 — no relationship at all — while its parent
+            # margin model manages +0.146. These come back when the total does, not before.
+            tt_home_pick=(bm.get("team_total_home", {}).get("pick_side")
+                          if TOTALS_PICK_ENABLED else None),
+            tt_away_pick=(bm.get("team_total_away", {}).get("pick_side")
+                          if TOTALS_PICK_ENABLED else None),
             tt_home_edge=bm.get("team_total_home", {}).get("edge"),
             tt_away_edge=bm.get("team_total_away", {}).get("edge"),
             tt_home_best_over=best_tt(bdf, "home_over"),
@@ -1353,7 +1375,15 @@ def main():
             h1_home_win_prob=round(float(r.prob_home_1h), 4) if pd.notna(r.prob_home_1h) else None,
             h1_cover_tilt=round(float(r.resid_cov), 2) if pd.notna(r.resid_cov) else None,
             h1_spread_pick=bm.get("h1_spread", {}).get("pick_label"),
-            h1_total_pick=bm.get("h1_total", {}).get("pick_label"),
+            # ⛔ SUSPENDED WITH THE TOTAL (2026-10-22) — on the anchor, not on a measured record.
+            # h1_pred_total is pred_tot_anch: anchored on fg_pred_total, running at 0.4936 of it
+            # (sd 0.039) with corr +0.384, so a large part of its variation is inherited from a
+            # model with no signal. ⚠ Unlike the full-game total this was NOT graded: the local
+            # 2026 pbp only reaches week 3, so there is no honest 1H result set to score it
+            # against. It is suspended because its anchor is dead and it has no validation of its
+            # own — if a 1H grade later clears it, turn it back on independently.
+            h1_total_pick=(bm.get("h1_total", {}).get("pick_label")
+                           if TOTALS_PICK_ENABLED else None),
             h1_ml_pick=bm.get("h1_ml", {}).get("pick_label"),
             conviction_tier=conv_tier, stake_units=stake_u, conviction_summary=summary,
             flags_active=int(r.flags_active), flags_tracking=int(r.flags_tracking),
