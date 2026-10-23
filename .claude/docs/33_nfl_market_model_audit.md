@@ -140,15 +140,58 @@ tier `HC` and inside the band. With `TOTALS_PICK_ENABLED = False` it is 0.
 
 ## Still open
 
-* **The spread model needs a refit including 2026.** It is structurally sound — the clf/reg veto
-  holds (0 escapees from week 4 on; all 5 are week-1 pre-fix pinned rows) and weeks 1-3 are
-  suppressed — and it carries real 4-season validation (2022-25 opener-graded 53.0% → 55.4% at
-  conf .03, 4/4 folds up, placebo 52.6%). But 2026 is ugly: the classifier is **34-51 (40.0%)**
-  ungated across all 93 games with no monotone dose-response (the 0.15+ confidence band is the
-  *worst* at 31.2%), and published picks are 13-24-3. ⚠ Do not condemn it on this — n=85 for one
-  season against four validated ones, and `model-regime-drift-law` says to sweep the half-life at
-  fixed selectivity rather than pool. It needs the walk-forward re-run with 2026 included to tell
-  a bad season from genuine rot. Until then it ships, loudly flagged.
+### Spread refit, 2026-10-23 — DONE. Verdict: cannot call it, and the docs overstate robustness
+
+Walk-forward, fresh fit per fold. The estimator/params/seed/fold rule were replicated inline
+rather than by calling `train_predict`, because passing `--train` overwrites the production
+`sides_models_*.pkl`. Graded at the OPENER, the line `generate()` logs picks at. Oracle 736-0.
+⚠ Required two data rebuilds first: a stale `matchup.parquet` gave 2026 only weeks 2-4, and a
+stale `team_week_seasonal.parquet` put the true-s2d nets at **52% coverage** on 2026 — a 40%
+result on half-missing features is a local artifact, not a verdict. Re-run at 100% coverage
+(`refresh_pbp_current.py 2026` + `build_team_week_seasonal.py`) moved it only 40.5% → 38.2%.
+
+```
+conf      2023            2024            2025            2026          ALL 22-25
+>=0.03    89-91  49.4%    114-80 58.8%    97-77  55.7%    13-21 38.2%   300-248 54.7%
+>=0.06    76-71  51.7%     88-59 59.9%    71-54  56.8%    10-16 38.5%   235-184 56.1%
+>=0.10    52-54  49.1%     59-45 56.7%    52-36  59.1%     7-11 38.9%   163-135 54.7%
+>=0.15    31-32  49.2%     28-26 51.9%    33-22  60.0%      4-3 57.1%    92-80  53.5%
+```
+
+**The historical validation is REAL** — 56.1% at conf .06 over 2023-25 reproduces and beats the
+55.4% in the harness comment. Unlike the totals 57%, this is not an artifact.
+
+**Is 2026 rot or variance? Not decidable at n=34.** Binomial on conf>=0.03 (13-21):
+
+```
+vs the model's own 54.7%   P(<=obs) = 0.040   significant
+vs break-even 52.4%        P(<=obs) = 0.069   not significant
+vs a coin flip 50.0%       P(<=obs) = 0.115   not significant
+```
+
+So 2026 is ~2sd below the model's historical rate but **not significantly below a coin flip**,
+and nothing is significant at conf>=0.06 or above. One season at 26-34 bets cannot separate a
+broken model from a bad run — and the band was chosen after seeing it was bad, so even the 0.040
+is optimistic.
+
+⚠ **Two corrections to the claim in the harness comment**, both of which make the edge look less
+robust than documented:
+* "2022-25, 4/4 folds up" cannot have been graded at a true opener. `odds_consensus` has **no NFL
+  openers before 2023** (2023: 284/285, 2024: 286/286, 2025: 281/282; 2022 absent), so that fold
+  used the `open_spread.fillna(home_spread)` fallback at `forecast_harness.py:416`. On real
+  openers it is 3 folds, not 4.
+* **2023 is already break-even** (51.7% at conf .06, 49.1% at .10). So 2 of the 4 measurable
+  seasons sit at or below break-even. The edge is carried by 2024 and 2025.
+
+**Recommendation: leave it live, de-weight it, and pre-register the kill rule now** rather than
+re-litigating it on feel in three weeks. Suggested rule: re-grade at the end of week 12 (~55-60
+bets at conf .03); **suspend if the season is still under 45%**. Pre-committing the threshold is
+the point — `nba-blind-sweep-fails` is what happens when a decision gets made after looking.
+The frozen production model (`sides_models_2026.pkl`, Sep 18, trained on <2026) tracks this refit:
+the live published record in weeks 4+ is 3-7-1, against the refit's 38%, so the refit is
+representative of what shipped.
+
+* **Nothing else is open on the spread.**
 * **The totals rebuild.** `build_team_week_seasonal.py` produces true season-to-date but only 7
   CORE stats, covering 6 of the 10 feature families b15 needs. Missing: `off_pace`,
   `off_explosive_pass_rate`, `off_td_per_drive`, `off_no_huddle_rate` — all computable from pbp.
