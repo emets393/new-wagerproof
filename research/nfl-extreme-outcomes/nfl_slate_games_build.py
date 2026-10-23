@@ -1093,6 +1093,14 @@ def build_picks(g, fl, books, kickoff, meta):
             conv = "lean"
         else:
             conv = "none"
+        # The games row NEUTRALs fg_total_pick under TOTALS_PICK_ENABLED, but that guard never
+        # reached THIS table, so the suspension shipped half-applied: week 7 published 7 live
+        # totals cards (5 of them "High Conviction", 1.5 units) on games whose fg_total_pick
+        # read NEUTRAL. "none" is the existing display-only semantic -- it sets disp, which
+        # clears has_play/result and drops the card out of game_conviction(), so conviction_tier
+        # and stake_units fall back to the spread instead of pricing a suspended market.
+        if not TOTALS_PICK_ENABLED:
+            conv = "none"
         vline = (cons.iloc[0].line if not cons.empty else r.open_total)
         edge = abs(r.edge_open) if pd.notna(r.edge_open) else None
         bbk, bln, bod = best_pick(bdf, "total", tdir.lower())
@@ -1123,6 +1131,11 @@ def build_picks(g, fl, books, kickoff, meta):
             tside = "OVER" if (pd.notna(pred) and pd.notna(close) and pred >= close) else "UNDER"
             ksig = gf[(gf.market == "team_total") & (gf.side.str.startswith(f"{ab} TT", na=False))]
             conv = "low" if not ksig.empty else "none"
+            # Suspended with the parent total: half of each team total IS fg_pred_total (they
+            # rotate off it exactly), so a K-signal must not reactivate a market the full-game
+            # model no longer publishes.
+            if not TOTALS_PICK_ENABLED:
+                conv = "none"
             side_key = ("home" if "home" in bt else "away") + "_" + tside.lower()
             bbk, bln, bod = best_pick(bdf, "tt", side_key)
             edge = (abs(pred - close) if pd.notna(pred) and pd.notna(close) else None)
@@ -1192,6 +1205,10 @@ def build_picks(g, fl, books, kickoff, meta):
         tside = "OVER" if (pd.notna(r.pred_tot_anch) and pd.notna(r.h1_total_close_h1_total_point)
                            and r.pred_tot_anch >= r.h1_total_close_h1_total_point) else "UNDER"
         conv = "low" if not h1tf.empty else "none"
+        # Suspended with the parent total: h1_pred_total is pred_tot_anch, anchored at 0.4936 of
+        # fg_pred_total, so it carries the same model and the same suspension.
+        if not TOTALS_PICK_ENABLED:
+            conv = "none"
         h1t = r.h1_total_close_h1_total_point
         bbk, bln, bod = best_pick(bdf, "h1_total", tside.lower())
         _h1t_objs = sig_objs(h1tf, tside, "h1_total", r.home_ab,
