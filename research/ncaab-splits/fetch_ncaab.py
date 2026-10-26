@@ -111,7 +111,7 @@ def rows_for_date(d: date, payload):
         h, a = teams.get(g.get("home_team_id")), teams.get(g.get("away_team_id"))
         if not h or not a:
             continue
-        ranks = g.get("ranks") or {}
+        ranks = g.get("ranks") or []
         out.append(dict(
             season=int(g["season"]) + 1,          # END-year convention, see docstring
             an_season=int(g["season"]),
@@ -138,8 +138,9 @@ def rows_for_date(d: date, payload):
             home_1h=b.get("total_home_firsthalf_points"), away_1h=b.get("total_away_firsthalf_points"),
             tickets=g.get("num_bets"),
             game_type=g.get("type"),
-            home_rank=(ranks.get("home") or {}).get("rank") if isinstance(ranks, dict) else None,
-            away_rank=(ranks.get("away") or {}).get("rank") if isinstance(ranks, dict) else None,
+            # `ranks` is a LIST of {team_id, rank, poll} (AP25), absent for unranked games
+            home_rank=next((r.get("rank") for r in (ranks if isinstance(ranks, list) else []) if r.get("team_id") == h.get("id")), None),
+            away_rank=next((r.get("rank") for r in (ranks if isinstance(ranks, list) else []) if r.get("team_id") == a.get("id")), None),
             broadcast=(g.get("broadcast") or {}).get("network") if isinstance(g.get("broadcast"), dict) else None,
         ))
     return out

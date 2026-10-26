@@ -56,3 +56,26 @@ Display. The feed is clean, keyed by AN game id, carries first-half points and c
 and the live table will accumulate the pre-tip arc from opening night. Nothing in it should be
 rendered as a signal. Per the cross-league rule, nothing here says anything about CFB or NFL,
 where the totals flip is live.
+
+## Action Network's own NCAAB Pro Systems, graded out of sample (`an_systems.py`)
+
+The owner's test (2026-10-26): Bet Labs publishes four NCAAB spread systems with 2005-2024 records. The
+broad battery above would never surface a seven-filter system, so each is rebuilt exactly as its filter
+table reads and graded on 2024-25 + 2025-26, which is out of sample for all four. `an_systems.py` builds
+the team-game panel (previous-game margin and ATS margin, previous venue, season-to-date ATS%, AP rank).
+
+| system | AN 2005-24 | 2024-26 OOS | by season | blind baseline it sits on |
+|---|---|---|---|---|
+| Fade The Public In Big Conferences (power conf, conf game, total 128-146.5, team has 0-24% of tickets) | 597-470 (56%) | **90-76 (54.2%)**, +3.8% | 55.1% / 47.4% | power-conf conference games 50.0% |
+| Top 15 Home Teams (AP 1-15, home, non-conf, won last home game by 5+, ATS% ≤75) | 261-191 (58%) | **46-43 (51.7%)**, −1.1% | 62.5% / 45.6% | AP top-15 home non-conf 49.8% |
+| Big Conference Dogs (Saturday visiting dog +10 to +14, conf game, 7-35% tickets, lost and failed to cover last game) | 228-167 (58%) | **3-4** | 3-3 / 0-1 | visiting dog +10-15 conf 54.0% |
+| Betting Against The Public (visiting dog +10 to +15, conf game, 0-25% tickets, previous ATS margin −15 to −5) | 143-85 (63%) | **15-6 (71.4%)**, +37% | 12-4 / 3-2 | same with ≤25% tickets 52.0% |
+
+Read: one of the four is alive out of sample (system 4, n=21, lower 95% bound 52.1%), two are at or
+below their blind baseline, one is too rare to grade. System 1 collapsed from 147 bets to 19 between the
+seasons for a reason that matters for any ticket-percentage system: in 2025-26 the median power-conference
+total rose from 145.5 to 150.5 (36% of games in the 128-146.5 window, from 54%) and the share of games
+with a ≤24% side fell from 33% to 11% as AN's tracked-bet pool shrank (median tickets per game 7,583 →
+3,115). A filter calibrated on 2005-24 Bet Labs sportsbook splits is reading a different crowd on this
+feed. Rule for the lifecycle standard: a third-party system ships only on its OWN record on OUR feed,
+never on the vendor's chart.
