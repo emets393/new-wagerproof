@@ -34,13 +34,14 @@ scoreboard. Never add them together in the UI; the rollover does that once a yea
 `nba_slate_flags` rows gain `result` (`win` | `loss` | `push` | `void`), `actual_value` (final home-minus-away
 margin for spreads, final total for totals; first-half values for `h1_*` markets) and `graded_at`. The grader
 scores each flag at the line it was written with (`bet_line`, `bet_team` / `bet_direction`), full-game scores
-from `nba_schedule`, first-half scores from the hoopR schedule linescores, price `grade_price` (−110 default).
+from `nba_schedule`, first-half scores from the hoopR schedule linescores, falling back to ESPN's game summary when the parquet leaves
+them blank (it did for every 2026-27 game through 10-26), price `grade_price` (−110 default).
 
 Prop flags are graded through the board: `nba_props_slate.py` writes `actual_value` / `result` on each
 `nba_slate_props` row after the game; the grader treats every key in that row's `flags` as one ticket on the
 def's `bet_direction` at the board's best price for that side.
 
-Timing: the grader runs after the hoopR pull at 5:30am ET, so yesterday's flags are graded and the season
+Timing: the grader runs after the hoopR pull at 8:00am ET (hoopR commits its parquet ~7:40am ET), so yesterday's flags are graded and the season
 counters updated before the 9:20am model run. A game with no final yet is skipped and picked up the next morning.
 
 ## Adding a signal (the standard)
@@ -48,7 +49,10 @@ counters updated before the 9:20am model run. A game with no final yet is skippe
 1. Put the def in the writer's `DEFS` with `**backtest(wins, losses, "seasons", through, roi=…)` from
    `nba_model.common` — the back-test must come from a brief, graded at the close (or the T-60 price for props),
    with the record from the bet's side.
-2. Write flags with the fields the grader needs: `market`, `bet_team` or `bet_direction`, `bet_line`
+2. Write flags with the fields the grader needs: `market`, `bet_team` or `bet_direction`, `bet_line`. Upsert on
+   `espn_game_id,signal_key,market` -- ONE row per game x signal x market, updated in place as the line moves. The
+   key used to include `side` (which carries the line), so each intraday line move wrote a second ticket and the
+   spread's season record read 26-16 over 22 games (fixed 2026-10-26: 12-10)
    (team) or a `flags` key on the board row (props).
 3. Nothing else. The grader picks the key up the next morning; the season columns start at 0-0.
 
