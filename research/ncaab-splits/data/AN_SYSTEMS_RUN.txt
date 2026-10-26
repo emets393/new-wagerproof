@@ -1,0 +1,31 @@
+panel: 21000 team-games, 1258 ranked, prev-game known for 97%
+
+1. Fade The Public In Big Conferences -- team in a power conference, conference game, regular season, closing total 128-146.5, team has 0-24% of spread tickets
+  AN's record 2005-24: 597-470-28 (56%), +8%
+  OUT OF SAMPLE 2024-26: 90-76-4  54.2%  (95% lower 46.6%)  ROI +3.8% at the consensus price
+     2024-25: 81-66  55.1%
+     2025-26: 9-10  47.4%
+
+2. Top 15 Home Teams -- AP top 15, at home, non-conference, regular season, won previous game (at home) by 5-63, season ATS% 0-75%
+  AN's record 2005-24: 261-191-8 (58%), +12%
+  OUT OF SAMPLE 2024-26: 46-43-0  51.7%  (95% lower 41.3%)  ROI -1.1% at the consensus price
+     2024-25: 20-12  62.5%
+     2025-26: 26-31  45.6%
+
+3. Big Conference Dogs -- visitor, regular season, Saturday, conference game, dog +10 to +14, 7-35% of tickets, lost previous game and failed to cover it
+  AN's record 2005-24: 228-167-8 (58%), +12%
+  OUT OF SAMPLE 2024-26: 3-4-0  42.9%  (95% lower 6.2%)  ROI -19.0% at the consensus price
+     2024-25: 3-3  50.0%
+     2025-26: 0-1  0.0%
+
+4. Betting Against The Public -- visiting dog +10 to +15, conference game, 0-25% of tickets, previous game ATS margin -15 to -5
+  AN's record 2005-24: 143-85-3 (63%), +22%
+  OUT OF SAMPLE 2024-26: 15-6-0  71.4%  (95% lower 52.1%)  ROI +37.2% at the consensus price
+     2024-25: 12-4  75.0%
+     2025-26: 3-2  60.0%
+
+--- the blind baselines each system sits on (same two seasons) ---
+  every power-conference team in a conference game, regular season            1655-1655  50.0%
+  every AP top-15 home team, non-conference                                   113-114  49.8%
+  every visiting dog +10 to +15 in a conference game                          381-324  54.0%
+  every visiting dog +10 to +15 in a conference game with <=25% of tickets    39-36  52.0%
