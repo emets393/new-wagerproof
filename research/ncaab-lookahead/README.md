@@ -60,3 +60,11 @@ the favorite's, not the dog's. First half 52.5%, totals 344-320, nothing there.
 
 Verdict: a CANDIDATE on the hype-fade's footing (six of six, placebo passes, permutation p=0.02, dose rises from +3.5
 up but the smallest dogs break it). One more season of live grading before a bet tier.
+
+## Conference play only (December-February, tonight and the next game both conference games) — `data/LOOKAHEAD_CONF.txt`
+
+Owner's framing. 32,623 team-games, baseline exactly 50.0%. Look-ahead team's side: top-25 next 51.8% (n=2,228),
+top-10 next 50.6%, ranked-vs-ranked next 52.0%, rivalry next 52.6%; favored 7+ before a ranked opponent 51.0%, favored
+12+ 48.0% (n=150), favored before a rivalry 49.7%. Priced. The look-ahead DOG of 7+ holds in this window: 243-191-6
+(56.0%, +6.9%), six of six seasons (32-27, 46-28, 33-31, 40-35, 43-36, 49-34) against a dogs-7+ baseline of 51.9%; the
+same games from the favorite's side are 133-185 (41.8%). The small dog (+0.5 to +3) is 45.2% again.
