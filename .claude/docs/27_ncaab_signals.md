@@ -24,14 +24,17 @@ minus away margin), `grade_price`, `graded_at`. Read-only to anon and authentica
 | key | market | rule | back-test | tier |
 |---|---|---|---|---|
 | `ncaab_hype_roster_fade` | spread | power-conference roster with 3+ top-50 recruits vs a power-conference opponent with 0-1, November–December, spread inside 12 → bet the opponent | 139-110-2 (55.8%), +6.6%, 2020-21 to 2025-26, five of six seasons | candidate (flags carry `tier = tracking`) |
+| `ncaab_lookahead_dog` | spread | December–February conference play; the team's next game (within 7 days) is a conference game vs an AP top-25 team as of today; tonight the team is a 7-to-12-point dog in a regular-season conference game → back the dog | 161-139-4 (53.7%), +2.5%, six seasons, three of six winning | candidate (`tier = tracking`) |
+| `ncaab_lookahead_big_dog` | spread | same spot, tonight a dog of 12.5 or more → back the dog | 82-52-2 (61.2%), +16.9%, six seasons, five of six winning | candidate (`tier = tracking`) |
 
-Research: `research/ncaab-hype/README.md`. The signal is dormant outside November–December; the def row is refreshed
-on every run. A flag exists only once a spread is posted, so opening-week games appear the morning their line does.
+Research: `research/ncaab-hype/README.md` and `research/ncaab-lookahead/README.md`. The hype fade is dormant outside
+November–December and the look-ahead dogs outside December–February; def rows are refreshed on every run. Tournament games
+(conference tournaments, the NCAA tournament, November bracket events) never qualify for the look-ahead signals, tonight or next. A flag exists only once a spread is posted, so opening-week games appear the morning their line does.
 
 ## Timing
 
-- `ncaab-hype-signal`: 10:00am and 4:00pm ET, November–December. Writes flags for games tipping today through two days
-  out; removes a flag whose line drifted past 12 before tip.
+- `ncaab-hype-signal`: 10:00am and 4:00pm ET, November–February. Runs the hype fade then the look-ahead dogs; writes flags for
+  games tipping today through two days out; removes a flag whose game no longer qualifies before tip.
 - `ncaab-signal-grader`: 7:30am ET, November–April. Grades yesterday's flags from College Basketball Data finals and
   rewrites the season columns on the defs. `--rollover` is run by hand in June.
 
