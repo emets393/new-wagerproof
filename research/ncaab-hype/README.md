@@ -88,3 +88,15 @@ needs the CBBD teamId for each slate game (the panel's key) and the opponent's c
 rosters carry 3+ top-50 recruits; 43 November-December games meet the roster and opponent conditions, 33 of them
 projected inside the 12-point window. Lines post the week of each game: re-pull `odds_now.parquet` from The Odds API and
 re-run before betting any of them.
+
+## Public betting in these games (`hype_public.py` -> `data/HYPE_PUBLIC_RUN.txt`)
+
+Two seasons of Action Network splits (2024-25, 2025-26; 99% of the universe matched, closes agree within 1.5 pts on
+95%). Inside the hype games the crowd adds nothing: tickets sit 49% on the hype team on average, the hype team covers
+37.5% when the crowd is on it and 43.5% when the crowd is against it, the money side is 51.7%, and tickets-and-money
+agreeing is 49.2%. The fade works whichever way the crowd leans.
+
+The context cell is the one worth a second look, one row per game from the crowd's side, early power-vs-power games
+within 12: crowd 70%+ covers 47-69 (40.5%), 80%+ 23-34, tickets and money both 65%+ 44-66 (40.0%), both seasons,
+and it is strongest when NEITHER roster is hyped (31-56, 35.6%). The whole-season battery did not show this (80%+
+crowd 49.0% over 10,000 games), so it is specific to early major games -- two seasons, candidate for the live table.
