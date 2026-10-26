@@ -1,0 +1,19 @@
+next-day top-10 cell: n 137 | SU win tonight 89.8% | tonight mte share 28.5% | next game mte share 26.3% | next conf_tourney 70.8%
+C3 overall: SU win tonight 61.3% | tonight mte 9.1% | next mte 10.1% | next conf_tourney 12.6% | next gameType: {'STD': 647, 'TRNMNT': 168}
+
+=== BRACKET GAMES EXCLUDED (tonight and next both regular scheduled games) ===
+universe within 3 days, clean: 23937 | no ranked opponent next: 11108-10972-343   50.3% [lo 49.6%] roi  -3.9% n=22080
+  next opp top-25, within 3 days                   782-708-24   52.5% [lo 49.9%] roi  +0.2% n=1490      SU 51%  by season 2020-21 111-97  2021-22 146-134  2022-23 127-107  2023-24 126-128  2024-25 130-115  2025-26 142-127
+  next opp top-10, within 3 days                   325-285-9   53.3% [lo 49.3%] roi  +1.7% n=610        SU 53%  by season 2020-21 46-41  2021-22 62-47  2022-23 54-35  2023-24 51-53  2024-25 53-56  2025-26 59-53
+  next opp top-5, within 3 days                    163-144-4   53.1% [lo 47.5%] roi  +1.4% n=307        SU 54%  by season 2020-21 21-17  2021-22 31-24  2022-23 29-19  2023-24 26-27  2024-25 25-30  2025-26 31-27
+  next opp top-10, next day                        1-0  100.0% [lo 100.0%] roi +90.9% n=1               SU 0%  by season 2020-21 1-0
+  next opp top-10, 2 days                          66-71-2   48.2% [lo 39.8%] roi  -8.1% n=137          SU 50%  by season 2020-21 10-11  2021-22 20-17  2022-23 14-11  2023-24 6-14  2024-25 5-7  2025-26 11-11
+  next opp top-10, 3 days                          258-214-7   54.7% [lo 50.2%] roi  +4.4% n=472        SU 53%  by season 2020-21 35-30  2021-22 42-30  2022-23 40-24  2023-24 45-39  2024-25 48-49  2025-26 48-42
+  next opp top-10, 4-7 days                        304-312-13   49.4% [lo 45.4%] roi  -5.8% n=616       SU 58%  by season 2020-21 36-35  2021-22 35-40  2022-23 49-53  2023-24 69-61  2024-25 55-64  2025-26 60-59
+  A clean: next opp top-25, any days<=7            1603-1491-45   51.8% [lo 50.0%] roi  -1.1% n=3094    SU 53%  by season 2020-21 206-181  2021-22 256-234  2022-23 253-237  2023-24 288-281  2024-25 303-277  2025-26 297-281
+  B clean: ranked vs ranked next                   395-360-8   52.3% [lo 48.8%] roi  -0.1% n=755        SU 72%  by season 2020-21 61-45  2021-22 72-56  2022-23 50-56  2023-24 53-51  2024-25 85-84  2025-26 74-68
+  D clean: conference showdown next                1289-1202-36   51.7% [lo 49.8%] roi  -1.2% n=2491    SU 53%  by season 2020-21 181-157  2021-22 214-193  2022-23 204-205  2023-24 224-217  2024-25 239-212  2025-26 227-218
+  E clean: rivalry next                            473-438-16   51.9% [lo 48.7%] roi  -0.9% n=911       SU 64%  by season 2020-21 69-70  2021-22 82-66  2022-23 72-86  2023-24 88-77  2024-25 88-63  2025-26 74-76
+  E clean: rivalry next, favored 15+               52-67-1   43.7% [lo 34.8%] roi -16.6% n=119          SU 97%  by season 2020-21 7-3  2021-22 8-10  2022-23 9-12  2023-24 9-12  2024-25 10-12  2025-26 9-18
+  I clean mirror: opponent looks ahead (top-25), team not 1200-1276-32   48.5% [lo 46.5%] roi  -7.4% n=2476    SU 45%  by season 2020-21 133-151  2021-22 183-199  2022-23 204-210  2023-24 226-227  2024-25 210-244  2025-26 244-245
+  I clean mirror, team favored 7+                  218-282-9   43.6% [lo 39.3%] roi -16.7% n=500        SU 86%  by season 2020-21 25-35  2021-22 37-47  2022-23 38-47  2023-24 43-50  2024-25 37-55  2025-26 38-48
