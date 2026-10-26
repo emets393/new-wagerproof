@@ -79,3 +79,12 @@ Signal `ncaab_hype_roster_fade` on the lifecycle standard: back-test columns fro
 2020-21 to 2025-26), live grading from opening night. Inputs for the current season are already cached in `data/`
 (2025-26 rosters, recruits, polls); the 2026-27 pull is the same three CBBD calls on opening week. The flag writer
 needs the CBBD teamId for each slate game (the panel's key) and the opponent's conference.
+
+## This season (`upcoming_2027.py` -> `data/candidates_2027.csv`)
+
+2026-27 inputs pulled 2026-10-26: CBBD rosters and schedule for season 2027, recruits through the class of 2026
+(⚠ the 2026 class has no athlete ids yet, so freshmen are assigned by their commitment; older classes by id), KenPom
+`ratings?y=2027` for the opponent rule and a projected spread (AdjEM gap plus 3 for a true home side). 23 power-conference
+rosters carry 3+ top-50 recruits; 43 November-December games meet the roster and opponent conditions, 33 of them
+projected inside the 12-point window. Lines post the week of each game: re-pull `odds_now.parquet` from The Odds API and
+re-run before betting any of them.
