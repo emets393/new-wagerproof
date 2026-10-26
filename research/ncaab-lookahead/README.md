@@ -68,3 +68,20 @@ top-10 next 50.6%, ranked-vs-ranked next 52.0%, rivalry next 52.6%; favored 7+ b
 12+ 48.0% (n=150), favored before a rivalry 49.7%. Priced. The look-ahead DOG of 7+ holds in this window: 243-191-6
 (56.0%, +6.9%), six of six seasons (32-27, 46-28, 33-31, 40-35, 43-36, 49-34) against a dogs-7+ baseline of 51.9%; the
 same games from the favorite's side are 133-185 (41.8%). The small dog (+0.5 to +3) is 45.2% again.
+
+## The grid: side x size x tonight's venue x the big game's venue — `lookahead_grid.py`
+
+Owner asked for the split (2026-10-26). Conference play Dec-Feb, 50 cells with 60+ games each, every cell next to the
+same cut without a ranked opponent next. Read the GAP, not the raw win%.
+
+**The grid's extremes are chance.** Shuffling the look-ahead flag within each night and re-reading all 50 cells, the
+largest |gap| under the null averages 11.6 points (95th pct 16.3); the observed largest is 11.4 (p = 0.50). Fifteen cells
+show a gap of 5+; the null produces 12.5 on average. So the venue splits and the near-pick'em sign flip (small favorite
++8, small dog -6) are not structure, they are what 50 cells of 60-300 games look like. Nothing in the favorite half of
+the table moves at any size or venue: favorites of 12.5+ before a ranked opponent cover 48.0%, the same as every big
+favorite (47.2%).
+
+**What survives is only what was found before the grid:** the look-ahead DOG of 7+, 243-191 (56.0%), six of six
+seasons, and it is monotone in the dog size — 7-12: 53.5% (gap +2.1), 12.5+: 82-52 (61.2%, gap +8.9, five of six).
+The venue of the big game reads as away 55.0% vs home 49.2% for dogs, but that split is inside the family null above;
+do not condition on it. Days until the big game: 1-2 58.3%, 3 56.6%, 4-5 54.6%, 6-7 58.6% — no gradient.
