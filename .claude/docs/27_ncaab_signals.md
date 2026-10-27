@@ -64,8 +64,11 @@ November–December and the look-ahead dogs outside December–February; def row
 
 - `ncaab-hype-signal`: 10:00am and 4:00pm ET, November–February. Runs the hype fade then the look-ahead dogs; writes flags for
   games tipping today through two days out; removes a flag whose game no longer qualifies before tip.
-- `ncaab-model-nightly`: 8:30am, 12:30pm, 4:30pm, 6:30pm ET, November–April. Refreshes the season's feeds, refits, prices
-  every game of the next two days that has a line, writes the three tables above.
+- `ncaab-model-nightly`: 8:30am, 12:30pm, 4:30pm, 6:30pm ET, October–April. Refreshes the season's feeds, refits, prices
+  every game of the next two days that has a line, writes the three tables above. **Opening of the season** (owner call
+  2026-10-27, same as the CFB slate): through 14 days after the first tip, every game with a posted line is priced however
+  far out, so the first games appear as soon as books post them. Cards should therefore not assume a two-day horizon.
+  The Odds API lists neutral-site games home/away opposite of CBBD; the job matches the unordered pair and flips the spread.
 - `ncaab-signal-grader`: 7:30am ET, November–April. Grades yesterday's flags from College Basketball Data finals and
   rewrites the season columns on the defs. `--rollover` is run by hand in June.
 
