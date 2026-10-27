@@ -58,12 +58,15 @@ conference spreads are the market's sharpest segment, not its softest.
   is a lean, not the 56-58% the CFB early-roster signals carry. Ships only as a CANDIDATE (tracking tier) and the live
   grader decides.
 
-## Shipping requirements (not built)
+## Shipping — built, awaiting the owner's go (2026-10-27)
 
-A production job needs (1) the 2026-27 roster per team (CBBD `/teams/roster`, as `ncaab_hype_signal.py` already pulls),
-(2) 2025-26 minutes per player (CBBD `/stats/player/season?season=2026`) to compute minutes kept, (3) a head-coach source
-for 2026-27 (sports-reference season page as `cbb_sit_build.py` scrapes; CBBD has no coaches endpoint), (4) the Odds API
-spread (the team must be a dog). Flag key proposal: `ncaab_new_coach_rebuild_dog`, Nov-Dec only, tier tracking.
+`cfb_automation/scripts/cfb/ncaab_new_coach_signal.py`, flag key `ncaab_new_coach_bottom_kenpom`, chained into the `ncaab-hype-signal`
+cron (10am/4pm ET, Nov-Dec). KenPom is the single source for the trigger: the `Coach` field of `ratings?y=2027` vs `ratings?y=2026`
+marks the coaching change (56 of 59 of the research's sports-reference new coaches in 2025-26, the rest are name spellings), and the
+preseason `RankAdjEM` in the bottom 20% (293+ of 365) is the quintile. No roster or minutes inputs: inside the cell the roster does not
+matter. The qualifying list is frozen in Storage on the first run. 2026-27: 8 teams qualify (Kansas City, Northern Illinois, Siena,
+Dartmouth, Jackson St., Louisiana Monroe, Texas Southern, Mississippi Valley St.), 119 Nov-Dec games, seven of them on opening day
+Nov 2. Held back from main at the owner's request until the rest of the early-season research ships together.
 
 ## Splits (owner follow-up): conference size, AP rank, KenPom preseason quintiles — `split_grid.py` → `SPLIT_GRID.csv/.txt`
 

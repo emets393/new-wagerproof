@@ -55,15 +55,18 @@ minus away margin), `grade_price`, `graded_at`. Read-only to anon and authentica
 | `ncaab_hype_roster_fade` | spread | power-conference roster with 3+ top-50 recruits vs a power-conference opponent with 0-1, November–December, spread inside 12 → bet the opponent | 139-110-2 (55.8%), +6.6%, 2020-21 to 2025-26, five of six seasons | candidate (flags carry `tier = tracking`) |
 | `ncaab_lookahead_dog` | spread | December–February conference play; the team's next game (within 7 days) is a conference game vs an AP top-25 team as of today; tonight the team is a 7-to-12-point dog in a regular-season conference game → back the dog | 161-139-4 (53.7%), +2.5%, six seasons, three of six winning | candidate (`tier = tracking`) |
 | `ncaab_lookahead_big_dog` | spread | same spot, tonight a dog of 12.5 or more → back the dog | 82-52-2 (61.2%), +16.9%, six seasons, five of six winning | candidate (`tier = tracking`) |
+| `ncaab_new_coach_bottom_kenpom` | spread | the team changed head coaches since last season (KenPom `Coach` field, this year vs last) and KenPom's preseason AdjEM rank is in the bottom 20% of Division I (293+ of 365); every November–December game, any venue, favorite or dog → back the team | 526-428 (55.1%), +5.2%, 2021-22 to 2025-26, five of five seasons | candidate (`tier = tracking`) |
 
-Research: `research/ncaab-hype/README.md` and `research/ncaab-lookahead/README.md`. The hype fade is dormant outside
-November–December and the look-ahead dogs outside December–February; def rows are refreshed on every run. Tournament games
+Research: `research/ncaab-hype/README.md`, `research/ncaab-lookahead/README.md` and `research/ncaab-continuity/README.md`. The hype
+fade and the new-coach back are dormant outside November–December and the look-ahead dogs outside December–February; def rows are
+refreshed on every run. The new-coach signal freezes its qualifying list for the season on its first run (Storage
+`ncaab_model/<season>/signals/new_coach.json`), so a mid-season coaching change or a rating move never adds or drops a team. Tournament games
 (conference tournaments, the NCAA tournament, November bracket events) never qualify for the look-ahead signals, tonight or next. A flag exists only once a spread is posted, so opening-week games appear the morning their line does.
 
 ## Timing
 
-- `ncaab-hype-signal`: 10:00am and 4:00pm ET, November–February. Runs the hype fade then the look-ahead dogs; writes flags for
-  games tipping today through two days out; removes a flag whose game no longer qualifies before tip.
+- `ncaab-hype-signal`: 10:00am and 4:00pm ET, November–February. Runs the hype fade, the look-ahead dogs, then the new-coach back;
+  writes flags for games tipping today through two days out; removes a flag whose game no longer qualifies before tip.
 - `ncaab-model-nightly`: 8:30am, 12:30pm, 4:30pm, 6:30pm ET, October–April. Refreshes the season's feeds, refits, prices
   every game of the next two days that has a line, writes the three tables above. **Opening of the season** (owner call
   2026-10-27, same as the CFB slate): through 14 days after the first tip, every game with a posted line is priced however
