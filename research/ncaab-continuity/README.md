@@ -4,9 +4,9 @@
 head coach are preseason facts the public does not price, especially at small schools, so the first games should carry an
 edge the way the CFB early-roster signals do.
 
-**Verdict in one line:** roster continuity is PRICED in college (if anything the market over-pays for it); the small-school
-version of the thesis fails; the one thing that survives is a **new head coach taking over a rebuilt roster**, backed as an
-underdog in November-December.
+**Verdict in one line:** roster continuity is PRICED in college (if anything the market over-pays for it) under every split;
+the one thing that survives is a **new head coach at a bottom-quintile KenPom program**, backed in November-December
+(526-428, 55.1%, +5.2%, 5/5 seasons). The "rebuilt roster" framing below was a proxy for this.
 
 Scripts: `continuity_study.py` (builds the team-season continuity table from six seasons of CBBD player box, grades ~70
 pre-stated cells vs the T-60 close, shuffle null + Jan-Feb placebo) → `CONTINUITY_RUN.txt`; `robust_new_coach.py` → `ROBUST_NEW_COACH.txt`.
@@ -64,3 +64,36 @@ A production job needs (1) the 2026-27 roster per team (CBBD `/teams/roster`, as
 (2) 2025-26 minutes per player (CBBD `/stats/player/season?season=2026`) to compute minutes kept, (3) a head-coach source
 for 2026-27 (sports-reference season page as `cbb_sit_build.py` scrapes; CBBD has no coaches endpoint), (4) the Odds API
 spread (the team must be a dog). Flag key proposal: `ncaab_new_coach_rebuild_dog`, Nov-Dec only, tier tracking.
+
+## Splits (owner follow-up): conference size, AP rank, KenPom preseason quintiles — `split_grid.py` → `SPLIT_GRID.csv/.txt`
+
+13 rules × 2 windows × 6 splits = 542 cells with n ≥ 150; 43 clear shuffle p < .05 against ~27 expected by chance, and the
+excess is entirely the new-coach family. **Continuity rules under every split stay noise:** the hit cells sit at scattered
+quintiles (Q2 here, Q3 there) with non-monotone ladders — kept 70%+ by KenPom quintile 48.7 / 47.7 / 53.9 / 47.2%; rebuilt by
+conference size 51.1 / 49.7 / 47.9%; 4-5 starters back power 52.6% vs low-major 49.2% with a 49.6% placebo. "Leading scorer back,
+opponent's gone" FADES at 54% when the team is a much better KenPom side (spread −19.6) and BACKS at 54% when worse — that is
+dog/favorite, not continuity. Nothing to build.
+
+### ★ The real shape: new head coach × KenPom preseason quintile (Nov-Dec, BACK) — `new_coach_kenpom.py` → `NEW_COACH_KENPOM.txt`
+
+| KenPom preseason quintile | record | % | ROI | avg spread | SU win |
+|---|---|---|---|---|---|
+| **Q1 (worst 20%)** | **526-428** | **55.1%** | **+5.2%** | +12.1 | 24% |
+| Q2 | 358-342 | 51.1% | −2.3% | +4.3 | 41% |
+| Q3 | 308-337 | 47.8% | −8.6% | +0.6 | 46% |
+| Q4 | 265-264 | 50.1% | −4.3% | −5.8 | 67% |
+| Q5 (best) | 212-205 | 50.8% | −2.9% | −11.8 | 73% |
+
+- Q1 every season: 22: 128-96 · 23: 108-92 · 24: 98-89 · 25: 107-81 · 26: 85-70. Shuffle p .004. **Jan-Feb placebo 49.2%** (633-653).
+- **Roster rebuild is irrelevant inside Q1**: rebuilt 55.0%, not rebuilt 55.4%. Outside Q1, new coach + rebuilt is 52.4% (ROI +0.1%).
+  The earlier "new coach + rebuilt" cell was Q1 programs wearing a roster label.
+- Inside Q1: away 55.8% (393-311), home 53.2%, neutral 57.3% (n 89); vs a power-conference opponent 57.0% (127-96, spread +26.6);
+  first 5 games 56.6% (232-178), games 6+ 54.0%. Every Q1 new-coach team is a low-major (0 power-conference teams in Q1).
+- Mechanism: the market prices a bottom-20% program's November line off last year's team and coach; a new staff at a bad
+  program is the one roster change the market under-weights, and it is corrected by conference play.
+- Population: 14-22 teams a season, ~190 Nov-Dec games. Union with "rebuilt" as underdog adds volume at lower quality
+  (752-626, 54.6%); dog of 7+ in the union 498-390 (56.1%, +7.0%).
+
+**Shipping proposal:** `ncaab_new_coach_bottom_kenpom` — new head coach (sports-reference) AND KenPom preseason AdjEM rank in the
+bottom 20% (`ratings?y=2027`, available now) → BACK the team ATS at the Odds API consensus, every Nov-Dec game, tier
+tracking, back-test 526-428 (55.1%, +5.2%) 2021-22..2025-26. Roster inputs NOT needed.

@@ -1,0 +1,125 @@
+542 cells with n>=150 (13 rules x 2 windows x 6 splits). Expected false positives at p<.05: ~27.
+
+=== 43 cells with shuffle p < .05 ===
+                           rule   window                     split          level side    w    l  pct     p   placebo  placebo_pct seasons_winning                                             per_season
+                 new head coach  Nov-Dec KenPom preseason quintile       Q1 worst BACK  526  428 55.1 0.004   633-653         49.2             5/5        22:128-96 23:108-92 24:98-89 25:107-81 26:85-70
+  new coach + rebuilt, underdog  Nov-Dec         AP rank situation neither ranked BACK  521  426 55.0 0.002   658-654         50.2             5/5      22:52-32 23:80-78 24:107-83 25:145-110 26:137-123
+            new coach + rebuilt  Nov-Dec         AP rank situation neither ranked BACK  889  767 53.7 0.000 1036-1103         48.4             4/5   22:76-55 23:118-123 24:170-150 25:237-200 26:288-239
+  new coach + rebuilt, underdog  Nov-Dec           conference size      low-major BACK  476  389 55.0 0.002   528-501         51.3             5/5      22:43-30 23:80-69 24:100-79 25:131-100 26:122-111
+            new coach + rebuilt  Nov-Dec           conference size      low-major BACK  673  569 54.2 0.005   798-842         48.7             5/5    22:52-38 23:102-97 24:146-117 25:174-148 26:199-169
+ 3+ more starters back than opp  Nov-Dec         KenPom gap vs opp          worse BACK  131   88 59.8 0.002    111-80         58.1             4/5           22:19-22 23:25-18 24:38-14 25:27-22 26:22-12
+                 new head coach first 10 KenPom preseason quintile       Q1 worst BACK  454  372 55.0 0.006   633-653         49.2             5/5          22:119-92 23:85-72 24:84-78 25:90-67 26:76-63
+            new coach + rebuilt  Nov-Dec         KenPom gap vs opp          worse BACK  251  194 56.4 0.006   410-398         50.7             5/5           22:23-21 23:32-31 24:59-30 25:71-59 26:66-53
+ 3+ more starters back than opp first 10         KenPom gap vs opp          worse BACK  119   81 59.5 0.009    111-80         58.1             4/5           22:19-21 23:20-17 24:33-12 25:26-20 26:21-11
+  new coach + rebuilt, underdog  Nov-Dec KenPom preseason quintile       Q1 worst BACK  292  231 55.8 0.011   294-277         51.5             4/5           22:34-24 23:63-49 24:45-46 25:84-51 26:66-61
+  new coach + rebuilt, underdog  Nov-Dec         KenPom gap vs opp          worse BACK  227  174 56.6 0.010   346-328         51.3             5/5           22:20-19 23:29-27 24:53-27 25:66-53 26:59-48
+            new coach + rebuilt  Nov-Dec       opp KenPom quintile             Q3 BACK  205  157 56.6 0.008   241-248         49.3             4/5            22:16-9 23:26-27 24:45-32 25:58-42 26:60-47
+  new coach + rebuilt, underdog  Nov-Dec       opp conference size      low-major BACK  345  283 54.9 0.008   526-500         51.3             5/5           22:30-23 23:57-54 24:76-58 25:99-69 26:83-79
+            new coach + rebuilt  Nov-Dec KenPom preseason quintile       Q1 worst BACK  326  267 55.0 0.015   387-384         50.2             5/5           22:38-31 23:67-58 24:52-50 25:92-60 26:77-68
+leading scorer back, opp's gone  Nov-Dec         KenPom gap vs opp    much better FADE  450  381 54.2 0.012   235-254         48.1             4/5         22:116-72 23:103-79 24:79-93 25:92-81 26:60-56
+              kept 70%+ minutes  Nov-Dec           conference size      mid-major BACK   89   60 59.7 0.022    120-89         57.4             4/4                        22:40-38 23:36-15 24:7-4 25:6-3
+                 new head coach  Nov-Dec         KenPom gap vs opp     much worse BACK  351  291 54.7 0.027   193-224         46.3             5/5           22:80-63 23:79-56 24:63-61 25:70-53 26:59-58
+            new coach + rebuilt  Nov-Dec       opp conference size      low-major BACK  674  592 53.2 0.017   798-843         48.6             4/5     22:54-42 23:88-96 24:134-118 25:186-154 26:212-182
+                 new head coach first 10         KenPom gap vs opp     much worse BACK  295  242 54.9 0.016   193-224         46.3             4/5           22:74-56 23:63-44 24:55-47 25:55-43 26:48-52
+              0-1 starters back first 10 KenPom preseason quintile             Q2 FADE  567  493 53.5 0.020   816-842         49.2             5/5      22:20-17 23:97-71 24:111-102 25:107-89 26:232-214
+            new coach + rebuilt first 10         AP rank situation neither ranked BACK  742  657 53.0 0.021 1036-1103         48.4             4/5    22:67-46 23:92-102 24:149-132 25:200-174 26:234-203
+                6+ transfers in first 10       opp KenPom quintile        Q5 best BACK  129   95 57.6 0.030   341-355         49.0             3/5             22:11-11 23:2-2 24:22-17 25:33-25 26:61-40
+leading scorer back, opp's gone first 10         KenPom gap vs opp    much better FADE  371  312 54.3 0.027   235-254         48.1             4/5          22:114-65 23:81-65 24:65-79 25:68-64 26:43-39
+leading scorer back, opp's gone first 10 KenPom preseason quintile        Q5 best FADE  408  346 54.1 0.029   591-551         51.8             3/5           22:95-67 23:98-65 24:77-95 25:84-85 26:54-34
+      continuity gap +35 vs opp first 10 KenPom preseason quintile             Q3 FADE  204  161 55.9 0.025   258-250         50.8             4/5           22:61-41 23:32-46 24:33-20 25:44-36 26:34-18
+ 3+ more starters back than opp  Nov-Dec KenPom preseason quintile             Q2 BACK  204  161 55.9 0.026   173-191         47.5             5/5           22:31-27 23:58-39 24:44-40 25:40-29 26:31-26
+            new coach + rebuilt first 10           conference size      low-major BACK  566  494 53.4 0.020   798-842         48.7             4/5     22:44-33 23:79-79 24:131-102 25:145-132 26:167-148
+  new coach + rebuilt, underdog  Nov-Dec       opp KenPom quintile             Q2 BACK  101   72 58.4 0.031   122-123         49.8             3/5             22:8-8 23:15-18 24:25-13 25:27-14 26:26-19
+  new coach + rebuilt, underdog first 10         AP rank situation neither ranked BACK  432  370 53.9 0.021   658-654         50.2             4/5        22:44-27 23:63-68 24:94-74 25:121-97 26:110-104
+leading scorer back, opp's gone first 10       opp KenPom quintile       Q1 worst FADE  459  396 53.7 0.028   652-663         49.6             4/5         22:155-111 23:87-86 24:85-81 25:91-66 26:41-52
+  new coach + rebuilt, underdog first 10           conference size      low-major BACK  397  339 53.9 0.031   528-501         51.3             5/5         22:35-26 23:62-58 24:91-68 25:109-90 26:100-97
+leading scorer back, opp's gone first 10         KenPom gap vs opp           even FADE  563  494 53.3 0.023 1097-1074         50.5             5/5     22:102-82 23:140-122 24:150-145 25:101-91 26:70-54
+ 3+ more starters back than opp first 10 KenPom preseason quintile             Q2 BACK  181  143 55.9 0.039   173-191         47.5             5/5           22:30-26 23:48-34 24:39-32 25:34-27 26:30-24
+                6+ transfers in  Nov-Dec         KenPom gap vs opp          worse BACK   95   68 58.3 0.032   206-200         50.7             4/5               22:10-6 23:7-6 24:16-7 25:22-22 26:40-27
+ 3+ more starters back than opp  Nov-Dec         AP rank situation neither ranked BACK  752  673 52.8 0.037   895-830         51.9             4/5   22:128-132 23:203-159 24:168-151 25:154-145 26:99-86
+leading scorer back, opp's gone  Nov-Dec         KenPom gap vs opp          worse BACK  337  285 54.2 0.022   414-420         49.6             4/5          22:53-67 23:106-86 24:86-50 25:53-49 26:39-33
+  new coach + rebuilt, underdog first 10       opp KenPom quintile             Q2 BACK   86   61 58.5 0.042   122-123         49.8             3/5             22:6-7 23:12-15 24:22-11 25:22-12 26:24-16
+  new coach + rebuilt, underdog first 10         KenPom gap vs opp          worse BACK  188  151 55.5 0.048   346-328         51.3             3/5           22:15-15 23:24-24 24:46-25 25:58-49 26:45-38
+            new coach + rebuilt first 10         KenPom gap vs opp          worse BACK  209  170 55.1 0.043   410-398         50.7             5/5           22:18-17 23:27-26 24:49-28 25:63-55 26:52-44
+                6+ transfers in  Nov-Dec       opp KenPom quintile        Q5 best BACK  163  129 55.8 0.045   341-355         49.0             4/5             22:11-12 23:6-5 24:27-18 25:42-39 26:77-55
+            new coach + rebuilt  Nov-Dec       opp KenPom quintile             Q4 BACK  203  166 55.0 0.049   217-255         46.0             4/5           22:12-10 23:28-20 24:46-31 25:60-45 26:57-60
+              0-1 starters back  Nov-Dec KenPom preseason quintile             Q4 FADE  678  609 52.7 0.044   788-825         48.9             4/5     22:31-28 23:145-114 24:79-69 25:136-140 26:287-258
+                 new head coach  Nov-Dec         AP rank situation neither ranked BACK 1528 1426 51.7 0.046 1863-1983         48.4             4/5 22:270-235 23:307-322 24:302-281 25:317-299 26:332-289
+
+=== cells that ALSO have the placebo on the same side <= 50.5% (market has not learned it) and 4+/5 seasons ===
+                           rule   window                     split          level side    w    l  pct     p   placebo seasons_winning  spread
+                 new head coach  Nov-Dec KenPom preseason quintile       Q1 worst BACK  526  428 55.1 0.004   633-653             5/5    12.1
+  new coach + rebuilt, underdog  Nov-Dec         AP rank situation neither ranked BACK  521  426 55.0 0.002   658-654             5/5    11.2
+            new coach + rebuilt  Nov-Dec         AP rank situation neither ranked BACK  889  767 53.7 0.000 1036-1103             4/5     2.1
+            new coach + rebuilt  Nov-Dec           conference size      low-major BACK  673  569 54.2 0.005   798-842             5/5     7.3
+                 new head coach first 10 KenPom preseason quintile       Q1 worst BACK  454  372 55.0 0.006   633-653             5/5    11.8
+            new coach + rebuilt  Nov-Dec       opp KenPom quintile             Q3 BACK  205  157 56.6 0.008   241-248             4/5     1.6
+            new coach + rebuilt  Nov-Dec KenPom preseason quintile       Q1 worst BACK  326  267 55.0 0.015   387-384             5/5    13.5
+leading scorer back, opp's gone  Nov-Dec         KenPom gap vs opp    much better FADE  450  381 54.2 0.012   235-254             4/5   -19.6
+                 new head coach  Nov-Dec         KenPom gap vs opp     much worse BACK  351  291 54.7 0.027   193-224             5/5    20.3
+            new coach + rebuilt  Nov-Dec       opp conference size      low-major BACK  674  592 53.2 0.017   798-843             4/5    -1.2
+                 new head coach first 10         KenPom gap vs opp     much worse BACK  295  242 54.9 0.016   193-224             4/5    20.4
+              0-1 starters back first 10 KenPom preseason quintile             Q2 FADE  567  493 53.5 0.020   816-842             5/5     5.2
+            new coach + rebuilt first 10         AP rank situation neither ranked BACK  742  657 53.0 0.021 1036-1103             4/5     2.2
+leading scorer back, opp's gone first 10         KenPom gap vs opp    much better FADE  371  312 54.3 0.027   235-254             4/5   -19.4
+ 3+ more starters back than opp  Nov-Dec KenPom preseason quintile             Q2 BACK  204  161 55.9 0.026   173-191             5/5     3.3
+            new coach + rebuilt first 10           conference size      low-major BACK  566  494 53.4 0.020   798-842             4/5     7.0
+  new coach + rebuilt, underdog first 10         AP rank situation neither ranked BACK  432  370 53.9 0.021   658-654             4/5    10.9
+leading scorer back, opp's gone first 10       opp KenPom quintile       Q1 worst FADE  459  396 53.7 0.028   652-663             4/5   -11.7
+leading scorer back, opp's gone first 10         KenPom gap vs opp           even FADE  563  494 53.3 0.023 1097-1074             5/5    -0.0
+ 3+ more starters back than opp first 10 KenPom preseason quintile             Q2 BACK  181  143 55.9 0.039   173-191             5/5     3.1
+leading scorer back, opp's gone  Nov-Dec         KenPom gap vs opp          worse BACK  337  285 54.2 0.022   414-420             4/5     7.6
+                6+ transfers in  Nov-Dec       opp KenPom quintile        Q5 best BACK  163  129 55.8 0.045   341-355             4/5     5.3
+            new coach + rebuilt  Nov-Dec       opp KenPom quintile             Q4 BACK  203  166 55.0 0.049   217-255             4/5     7.9
+              0-1 starters back  Nov-Dec KenPom preseason quintile             Q4 FADE  678  609 52.7 0.044   788-825             4/5    -5.2
+                 new head coach  Nov-Dec         AP rank situation neither ranked BACK 1528 1426 51.7 0.046 1863-1983             4/5     1.5
+
+=== full ladders, first 10 games, BACK % (so a number under 50 is a fade) ===
+
+ kept 70%+ minutes
+   conference size            low-major: 48.4% n=1350 | power: 51.3% n=238
+   opp conference size        power: 46.2% n=370 | low-major: 50.9% n=1244
+   AP rank situation          neither ranked: 49.8% n=1506
+   KenPom preseason quintile  Q3: 48.7% n=511 | Q4: 47.7% n=433 | Q2: 53.9% n=380 | Q5 best: 47.2% n=306
+   opp KenPom quintile        Q4: 49.7% n=321 | Q2: 51.2% n=366 | Q1 worst: 48.3% n=385 | Q3: 51.5% n=349 | Q5 best: 46.8% n=305
+   KenPom gap vs opp          worse: 50.0% n=266 | better: 49.5% n=443 | much better: 49.0% n=295 | even: 49.9% n=563 | much worse: 48.7% n=159
+
+ rebuilt (<=30% kept)
+   conference size            low-major: 51.1% n=3593 | mid-major: 49.7% n=380 | power: 47.9% n=1222
+   opp conference size        power: 49.8% n=1220 | mid-major: 51.9% n=378 | low-major: 50.2% n=3597
+   AP rank situation          neither ranked: 50.2% n=4695 | unranked vs ranked: 50.7% n=297 | ranked vs unranked: 50.6% n=161
+   KenPom preseason quintile  Q3: 52.9% n=958 | Q4: 47.9% n=904 | Q2: 50.9% n=1036 | Q5 best: 49.1% n=757 | Q1 worst: 50.1% n=1540
+   opp KenPom quintile        Q4: 51.6% n=1020 | Q2: 51.2% n=1062 | Q1 worst: 48.0% n=1060 | Q3: 50.4% n=1050 | Q5 best: 50.1% n=1003
+   KenPom gap vs opp          worse: 51.8% n=1158 | better: 48.4% n=806 | much better: 47.9% n=606 | even: 50.5% n=1652 | much worse: 51.0% n=973
+
+ 4-5 starters back
+   conference size            low-major: 49.2% n=2540 | mid-major: 50.7% n=208 | power: 52.6% n=485
+   opp conference size        power: 49.9% n=705 | mid-major: 46.3% n=207 | low-major: 50.1% n=2321
+   AP rank situation          neither ranked: 49.8% n=2883 | ranked vs unranked: 51.5% n=169
+   KenPom preseason quintile  Q3: 47.7% n=770 | Q4: 49.3% n=741 | Q2: 52.2% n=756 | Q5 best: 49.1% n=534 | Q1 worst: 51.2% n=432
+   opp KenPom quintile        Q4: 49.9% n=602 | Q2: 49.6% n=690 | Q1 worst: 49.7% n=713 | Q3: 50.3% n=639 | Q5 best: 49.7% n=589
+   KenPom gap vs opp          worse: 50.2% n=513 | better: 51.7% n=757 | much better: 47.5% n=482 | even: 49.5% n=1076 | much worse: 49.5% n=405
+
+ 0-1 starters back
+   conference size            low-major: 49.6% n=3900 | mid-major: 48.3% n=460 | power: 48.3% n=1419
+   opp conference size        power: 48.8% n=1351 | mid-major: 51.2% n=413 | low-major: 49.1% n=4015
+   AP rank situation          neither ranked: 49.1% n=5180 | unranked vs ranked: 50.0% n=307 | ranked vs unranked: 52.8% n=234
+   KenPom preseason quintile  Q3: 49.8% n=1116 | Q4: 47.5% n=1033 | Q2: 46.5% n=1077 | Q5 best: 50.5% n=985 | Q1 worst: 51.0% n=1568
+   opp KenPom quintile        Q4: 51.5% n=1146 | Q2: 50.0% n=1200 | Q1 worst: 47.6% n=1182 | Q3: 48.1% n=1134 | Q5 best: 48.9% n=1117
+   KenPom gap vs opp          worse: 50.1% n=1234 | better: 47.4% n=973 | much better: 49.3% n=739 | even: 48.6% n=1848 | much worse: 50.9% n=985
+
+ new head coach
+   conference size            low-major: 51.6% n=1970 | mid-major: 50.9% n=219 | power: 50.3% n=594
+   opp conference size        power: 51.3% n=636 | mid-major: 56.8% n=189 | low-major: 50.8% n=1958
+   AP rank situation          neither ranked: 51.5% n=2562 | unranked vs ranked: 49.7% n=153
+   KenPom preseason quintile  Q3: 48.6% n=565 | Q4: 49.3% n=436 | Q2: 50.1% n=612 | Q5 best: 51.5% n=328 | Q1 worst: 55.0% n=842
+   opp KenPom quintile        Q4: 53.2% n=560 | Q2: 52.7% n=585 | Q1 worst: 49.9% n=577 | Q3: 49.5% n=557 | Q5 best: 51.1% n=504
+   KenPom gap vs opp          worse: 52.3% n=672 | better: 48.2% n=428 | much better: 47.8% n=298 | even: 51.0% n=844 | much worse: 54.9% n=541
+
+ new coach + rebuilt
+   conference size            low-major: 53.4% n=1076 | power: 51.1% n=358
+   opp conference size        power: 52.0% n=359 | low-major: 52.3% n=1092
+   AP rank situation          neither ranked: 53.0% n=1423
+   KenPom preseason quintile  Q3: 54.5% n=309 | Q4: 51.6% n=288 | Q2: 49.8% n=309 | Q5 best: 53.3% n=150 | Q1 worst: 54.1% n=508
+   opp KenPom quintile        Q4: 55.6% n=311 | Q2: 54.9% n=321 | Q1 worst: 47.4% n=317 | Q3: 54.7% n=313 | Q5 best: 51.3% n=302
+   KenPom gap vs opp          worse: 55.1% n=390 | better: 47.8% n=229 | much better: 49.1% n=161 | even: 54.4% n=463 | much worse: 53.1% n=321
