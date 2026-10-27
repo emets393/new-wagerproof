@@ -1,0 +1,30 @@
+new coach + rebuilt, Nov-Dec: n=1875  ROI at the posted price +1.7%  (at -110 flat +1.6%)
+  vs OPENER instead of close: 978-876 (52.8%)  avg move close-open +0.07 (negative = market moved TOWARD the new coach's team)
+  drop-one season: {2022: '53.0%', 2023: '53.8%', 2024: '53.4%', 2025: '53.1%', 2026: '52.9%'}
+
+ is it the coach or the roster?  (Nov-Dec, BACK %)
+   new coach, rebuilt                       982-862 (53.3%)  spread +2.9  margin vs spread +0.18
+   new coach, NOT rebuilt (>30% kept)       687-714 (49.0%)  spread +1.2  margin vs spread +0.20
+   same coach, rebuilt                      2108-2212 (48.8%)  spread +1.5  margin vs spread -0.14
+   same coach, not rebuilt                  6530-6519 (50.0%)  spread -1.0  margin vs spread -0.00
+
+ inside the cell:
+     as underdog                                                          BACK 588-491 (54.5%, z +3.0, shuffle p 0.001)  margin vs spread +0.50 | 22:57-39 23:89-82 24:119-97 25:166-129 26:157-144
+     as favorite                                                          BACK 390-367 (51.5%, z +0.8, shuffle p 0.428)  margin vs spread -0.26 | 22:26-24 23:42-48 24:63-66 25:99-103 26:160-126
+     dog of 7+                                                            BACK 385-303 (56.0%, z +3.1, shuffle p 0.002)  margin vs spread +0.27 | 22:38-27 23:68-45 24:74-58 25:105-74 26:100-99
+     low conference tier                                                  BACK 307-255 (54.6%, z +2.2, shuffle p 0.032)  margin vs spread +0.31 | 22:18-13 23:53-47 24:62-49 25:69-58 26:105-88
+     mid conference tier                                                  BACK 289-250 (53.6%, z +1.7, shuffle p 0.096)  margin vs spread -0.21 | 22:20-16 23:43-51 24:71-58 25:83-68 26:72-57
+     high conference tier                                                 BACK 386-357 (52.0%, z +1.1, shuffle p 0.297)  margin vs spread +0.37 | 22:45-35 23:35-33 24:49-57 25:116-106 26:141-126
+     non-conference                                                       BACK 982-862 (53.3%, z +2.8, shuffle p 0.004)  margin vs spread +0.18 | 22:83-64 23:131-131 24:182-164 25:268-232 26:318-271
+     first 5 games                                                        BACK 413-357 (53.6%, z +2.0, shuffle p 0.038)  margin vs spread +0.24 | 22:40-21 23:52-53 24:77-73 25:110-102 26:134-108
+     games 6+ in Nov-Dec                                                  BACK 569-505 (53.0%, z +2.0, shuffle p 0.041)  margin vs spread +0.14 | 22:43-43 23:79-78 24:105-91 25:158-130 26:184-163
+     vs opponent that kept 50%+ (continuity mismatch)                     BACK 267-235 (53.2%, z +1.4, shuffle p 0.144)  margin vs spread +0.36 | 22:47-37 23:50-59 24:71-68 25:74-48 26:25-23
+     PLACEBO Jan-Feb same teams                                           FADE 1227-1165 (51.3%, z +1.3, shuffle p 0.180)  margin vs spread -0.24 | 22:97-100 23:167-143 24:215-238 25:357-305 26:391-379
+     March same teams                                                     FADE 295-263 (52.9%, z +1.4, shuffle p 0.174)  margin vs spread -0.92 | 22:21-15 23:27-29 24:77-63 25:81-83 26:89-73
+
+ new coach as underdog, Nov-Dec (second cell):
+  n=1888 ROI at price +0.6%; drop-one: {2022: '52.5%', 2023: '53.1%', 2024: '52.8%', 2025: '52.2%', 2026: '52.7%'}
+     new coach dog, roster NOT rebuilt                                    BACK 390-388 (50.1%, z +0.1, shuffle p 0.953)  margin vs spread +0.79 | 22:121-117 23:113-111 24:81-86 25:48-51 26:27-23
+     PLACEBO Jan-Feb new coach dog                                        BACK 1284-1265 (50.4%, z +0.4, shuffle p 0.688)  margin vs spread +0.10 | 22:263-252 23:238-263 24:251-226 25:273-302 26:259-222
+
+ how many such teams per season: {2022: 13, 2023: 21, 2024: 31, 2025: 43, 2026: 49}  of new-coach teams: {2022: 53, 2023: 55, 2024: 56, 2025: 59, 2026: 58}
