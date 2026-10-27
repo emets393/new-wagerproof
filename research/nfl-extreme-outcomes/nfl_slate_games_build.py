@@ -1131,7 +1131,16 @@ def build_picks(g, fl, books, kickoff, meta):
             conv = "high"
         else:
             conv = "med"
-        is_mam = bool(r.mammoth) and agree and conv != "none"   # locked mammoth gate (confluence=1 + spot)
+        # MARKET-SCOPED mammoth gate. `r.mammoth` is a GAME-level OR over every flag on the
+        # game, so a TOTALS mammoth (>=2 MAMMOTH_TOTAL_RULES agreeing on one direction,
+        # forecast_harness.py:1077) promoted the SPREAD card to 3 units with zero spread
+        # signals on it. ARI@DAL wk8 2026 was the entire 2026 board's only mammoth spread
+        # card and was built out of two OVER totals flags the model itself contradicts (its
+        # total is 46.5 against a 54 close) -- they render as COUNTER signals on the total
+        # card while tripling the stake on the spread. Spread mammoth must come from a SPREAD
+        # flag, which is what the harness means by confluence=1 + an aligned
+        # MAMMOTH_SPREAD_SPOTS rule (forecast_harness.py:1072).
+        is_mam = bool(act_sp.mammoth.any()) and agree and conv != "none"
         if is_mam:
             conv = "mammoth"
         vline = r.open_spread if side == "HOME" else -r.open_spread
