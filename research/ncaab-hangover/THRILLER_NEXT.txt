@@ -107,36 +107,18 @@ team-games with previous-game thrill: 57,510 of 61,740; top-decile cut by season
 === E. BOTH TEAMS' NEXT GAMES: the thriller's two teams meet different opponents -- is the market shading them? ===
   after a top-decile thriller: next-game spread -5.14 (winners -5.40, losers -4.87); own ATS margin -0.06; total line 145.2 vs actual 146.4
 
-=== G. HOME THRILLER -> HOME GAME: finer cuts of the previous game's thrill score (home team's next ATS; fade = complement) ===
-  thrill 40-50: home ATS 471-512 (47.9%) -> fade 52.1% n=1002
-  thrill 50-55: home ATS 174-176 (49.7%) -> fade 50.3% n=354
-  thrill 55-60: home ATS 130-141 (48.0%) -> fade 52.0% n=277
-  thrill 60-65: home ATS 128-144 (47.1%) -> fade 52.9% n=273
-  thrill 65-70: home ATS 83-116 (41.7%) -> fade 58.3% n=200
-  thrill 70-80: home ATS 135-150 (47.4%) -> fade 52.6% n=290
-  thrill 80-101: home ATS 24-36 (40.0%) -> fade 60.0% n=61
-    FIXED cut: previous thrill >= 55, home -> home                           n= 1101 | own ATS 500-587 (46.0%, -12.2%) | OVER 550-540 (50.5%, -3.7%; sm 50.6%) tot +0.24 | ML roi -4.3% | sprd -7.1 | p(ATS) 0.008 p(tot) 0.835
-      by season: 21: ATS 105-103 O 95-114 | 22: ATS 79-76 O 85-67 | 23: ATS 81-87 O 86-82 | 24: ATS 75-111 O 104-86 | 25: ATS 77-98 O 90-85 | 26: ATS 83-112 O 90-106
-    FIXED cut: previous thrill >= 60, home -> home                           n=  824 | own ATS 370-446 (45.3%, -13.4%) | OVER 411-406 (50.3%, -4.0%; sm 50.6%) tot +0.34 | ML roi -5.5% | sprd -7.3 | p(ATS) 0.010 p(tot) 0.902
-      by season: 21: ATS 82-78 O 75-86 | 22: ATS 50-57 O 56-48 | 23: ATS 54-64 O 54-64 | 24: ATS 54-85 O 80-60 | 25: ATS 62-77 O 73-67 | 26: ATS 68-85 O 73-81
-    FIXED cut: previous thrill >= 65, home -> home                           n=  551 | own ATS 242-302 (44.5%, -15.0%) | OVER 276-270 (50.5%, -3.5%; sm 50.6%) tot +0.22 | ML roi -7.2% | sprd -7.5 | p(ATS) 0.003 p(tot) 0.813
-      by season: 21: ATS 60-61 O 60-62 | 22: ATS 23-42 O 37-26 | 23: ATS 37-36 O 33-40 | 24: ATS 33-54 O 48-40 | 25: ATS 44-54 O 51-48 | 26: ATS 45-55 O 47-54
-  -- rest gap (the owner's 'night before')
-     gap 1 day   : home ATS 1-0 (100.0%) n=1
-     gap 2 days  : home ATS 42-51 (45.2%) n=93
-     gap 3 days  : home ATS 173-167 (50.9%) n=345
-     gap 4-5 days: home ATS 113-183 (38.2%) n=298
-     gap 6+      : home ATS 41-45 (47.7%) n=87
-    >= 60, won the thriller                                                  n=  447 | own ATS 196-244 (44.5%, -14.9%) | OVER 223-220 (50.3%, -3.9%; sm 50.6%) tot +0.32 | ML roi -6.4% | sprd -8.4
-    >= 60, lost the thriller                                                 n=  377 | own ATS 174-202 (46.3%, -11.7%) | OVER 188-186 (50.3%, -4.0%; sm 50.5%) tot +0.35 | ML roi -4.5% | sprd -6.1
-    >= 60, next as favorite                                                  n=  671 | own ATS 299-364 (45.1%, -13.9%) | OVER 352-313 (52.9%, +1.0%; sm 50.6%) tot +1.06 | ML roi -5.0% | sprd -10.0
-    >= 60, next favored by 10+                                               n=  258 | own ATS 118-138 (46.1%, -12.0%) | OVER 133-124 (51.8%, -1.2%; sm 50.9%) tot +0.57 | ML roi -1.7% | sprd -17.9
-    >= 60, next as dog                                                       n=  151 | own ATS 71-80 (47.0%, -10.2%) | OVER 58-92 (38.7%, -26.2%; sm 50.3%) tot -2.96 | ML roi -6.8% | sprd +4.4
-    >= 60, conference game next                                              n=  664 | own ATS 298-359 (45.4%, -13.4%) | OVER 335-323 (50.9%, -2.8%; sm 50.5%) tot +0.51 | ML roi -6.1% | sprd -4.9
-    >= 60, non-conference next                                               n=  183 | own ATS 84-97 (46.4%, -11.3%) | OVER 87-95 (47.8%, -8.8%; sm 50.8%) tot -0.12 | ML roi -0.9% | sprd -16.2
-    >= 60, next opponent unranked                                            n=  659 | own ATS 290-365 (44.3%, -15.4%) | OVER 350-306 (53.4%, +1.9%; sm 50.6%) tot +1.19 | ML roi -6.2% | sprd -9.6
-    >= 60, Nov-Dec                                                           n=  183 | own ATS 84-97 (46.4%, -11.3%) | OVER 87-95 (47.8%, -8.8%; sm 50.8%) tot -0.12 | ML roi -0.9% | sprd -16.2
-    >= 60, Jan+                                                              n=  641 | own ATS 286-349 (45.0%, -14.0%) | OVER 324-311 (51.0%, -2.6%; sm 50.5%) tot +0.47 | ML roi -6.8% | sprd -4.8
-    >= 60, tournaments included (prev or next)                               n=  827 | own ATS 372-447 (45.4%, -13.3%) | OVER 412-408 (50.2%, -4.1%; sm 50.6%) tot +0.32 | ML roi -5.3% | sprd -7.3
-      by season: 21: ATS 82-78 O 75-86 | 22: ATS 51-57 O 57-48 | 23: ATS 54-64 O 54-64 | 24: ATS 54-86 O 80-61 | 25: ATS 62-77 O 73-67 | 26: ATS 69-85 O 73-82
-  >= 60: home side vs opener 370-446 close; next line -7.3; total 144.6 vs actual 144.9
+=== H. SPLIT BY GAP (home ATS shown; the bet is the fade) ===
+  thrill >= 60 home->home, gap <= 3 days                                     n=  439 | own ATS 216-218 (49.8%, -4.9%) | OVER 224-208 (51.9%, -1.0%; sm 50.6%) tot +0.71 | ML roi -0.3% | sprd -6.7 | p(ATS) 0.928 p(tot) 0.435
+      by season: 21: ATS 48-35 O 40-44 | 22: ATS 30-30 O 33-24 | 23: ATS 35-34 O 29-39 | 24: ATS 31-43 O 45-30 | 25: ATS 32-37 O 41-27 | 26: ATS 40-39 O 36-44
+  thrill >= 60 home->home, gap >= 4 days                                     n=  385 | own ATS 154-228 (40.3%, -23.0%) | OVER 187-198 (48.6%, -7.3%; sm 50.6%) tot -0.09 | ML roi -11.6% | sprd -8.1 | p(ATS) 0.000 p(tot) 0.573
+      by season: 21: ATS 34-43 O 35-42 | 22: ATS 20-27 O 23-24 | 23: ATS 19-30 O 25-25 | 24: ATS 23-42 O 35-30 | 25: ATS 30-40 O 32-40 | 26: ATS 28-46 O 37-37
+     gap 4-5                                                                 n=  298 | own ATS 113-183 (38.2%, -27.1%) | OVER 143-155 (48.0%, -8.4%; sm 50.6%) tot -0.27 | ML roi -14.8% | sprd -8.0
+      by season: 21: ATS 21-23 O 17-27 | 22: ATS 15-21 O 17-19 | 23: ATS 15-27 O 20-23 | 24: ATS 16-38 O 32-22 | 25: ATS 25-33 O 25-34 | 26: ATS 21-41 O 32-30
+     gap 6+                                                                  n=   87 | own ATS 41-45 (47.7%, -9.1%) | OVER 44-43 (50.6%, -3.5%; sm 50.5%) tot +0.52 | ML roi -0.7% | sprd -8.5
+     gap >= 4, won the thriller                                              n=  204 | own ATS 74-127 (36.8%, -29.7%) | OVER 109-95 (53.4%, +2.0%; sm 50.6%) tot +0.81 | ML roi -11.4% | sprd -8.9
+     gap >= 4, lost the thriller                                             n=  181 | own ATS 80-101 (44.2%, -15.7%) | OVER 78-103 (43.1%, -17.8%; sm 50.5%) tot -1.10 | ML roi -11.8% | sprd -7.2
+     gap >= 4, thrill 60-70                                                  n=  205 | own ATS 78-126 (38.2%, -27.1%) | OVER 99-106 (48.3%, -7.8%; sm 50.5%) tot -0.03 | ML roi -13.2% | sprd -7.2
+     gap >= 4, thrill 70+                                                    n=  180 | own ATS 76-102 (42.7%, -18.4%) | OVER 88-92 (48.9%, -6.7%; sm 50.6%) tot -0.16 | ML roi -9.7% | sprd -9.2
+  -- control: gap >= 4 in home->home spots with a DULL previous game (thrill < 40)
+     dull home game -> home, gap >= 4                                        n= 3431 | own ATS 1689-1692 (50.0%, -4.6%) | OVER 1710-1689 (50.3%, -4.0%; sm 50.6%) tot +0.96 | ML roi -3.5% | sprd -5.8
+     any previous game -> home, gap >= 4 (base)                              n=14497 | own ATS 6995-7280 (49.0%, -6.4%) | OVER 7309-7060 (50.9%, -2.9%; sm 50.5%) tot +0.89 | ML roi -4.2% | sprd -5.2

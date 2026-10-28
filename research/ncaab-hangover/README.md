@@ -66,6 +66,10 @@ game matter? 57,510 team-games with a previous-game thrill score. **Verdict: not
   five of six seasons** (78-82, 57-50, 64-54, 85-54, 77-62, 85-68); ≥ 65: 302-242 (55.5%, p .003). Won the thriller 55.5% / lost it 53.7%;
   next as favorite 54.9%, favored by 10+ 53.9%, as dog 53.0%; conference 54.6%, non-conference 53.6%; Jan+ 54.9%. Rest gap: 2 days 54.8%,
   3 days 49.1%, **4-5 days 183-113 (61.8%)**, 6+ 52.3%. Opener and close agree.
-  Reading: a marquee home night followed by a lesser home game (next spread −7.3); the crowd and the number carry over, the performance does
-  not. **Built as `ncaab_home_thriller_letdown`** (owner call 2026-10-28): previous game a true home game with KenPom thrill ≥ 60, tonight a
-  regular-season home game → bet the visitor. 446-370.
+  **The gap is the rule, not a split** (section H): thrill ≥ 60 home→home with ≤ 3 days between the games 218-216 (50.2%, p .93); with
+  **≥ 4 days 228-154 (59.7%, +13.9%), p < .001, six of six seasons** (43-34, 27-20, 30-19, 42-23, 40-30, 46-28); 4-5 days 183-113, 6+ 45-41.
+  Inside ≥ 4 days: won the thriller 62.3% / lost it 55.8%; thrill 60-70 61.8% / 70+ 57.3% — no further split earns its keep. Controls at the same
+  gap: dull previous home game (thrill < 40) 50.0% (n 3,431); any previous game → home 51.0%.
+  Reading: a marquee home night, a long week, then a lesser home game (next spread −8); the crowd and the number carry over, the performance
+  does not. **Shipped as ONE signal, `ncaab_home_thriller_letdown`** (owner call 2026-10-28): previous game a true regular-season home game with
+  KenPom thrill ≥ 60, at least four days ago; tonight a regular-season home game → bet the visitor. 228-154.
