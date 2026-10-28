@@ -61,7 +61,11 @@ game matter? 57,510 team-games with a previous-game thrill score. **Verdict: not
   Deciles 9-10 together 726-823 (fade 53.1%, p .017). Control ladder for home→home by previous-game decile: 51.6, 48.5, 49.3, 52.4, 49.5, 50.0,
   50.6, 49.4, 48.6, **44.7** — a step at the top, not a dose; dull deciles 1-5 home→home 50.3%. Showcase ≥ 70 version 46.1% (p .16, n 351).
   The other three venue pairs: home→road 50.3%, road→home 49.6%, road→road 48.0%.
-  Reading: a marquee home night followed by a lesser home game (next spread −7.6); the crowd and the number carry over, the performance does
-  not. One cell of ~60 in this study and a step rather than a ladder, so a **candidate lean**: proposed `ncaab_home_thriller_letdown`
-  (previous game at home with a KenPom thrill score in the season's top decile, ~60+; next game at home, not a tournament → bet the opponent),
-  387-313. Not built.
+  Finer cuts of the previous game's thrill (home→home, fade %): 40-50 52.1 · 50-55 50.3 · 55-60 52.0 · **60-65 52.9 · 65-70 58.3 · 70-80 52.6 ·
+  80+ 60.0** — every bin at 60+ is above 52%, nothing below 60 is. Fixed production cut **thrill ≥ 60: fade 446-370 (54.7%, +4.5%), p .010,
+  five of six seasons** (78-82, 57-50, 64-54, 85-54, 77-62, 85-68); ≥ 65: 302-242 (55.5%, p .003). Won the thriller 55.5% / lost it 53.7%;
+  next as favorite 54.9%, favored by 10+ 53.9%, as dog 53.0%; conference 54.6%, non-conference 53.6%; Jan+ 54.9%. Rest gap: 2 days 54.8%,
+  3 days 49.1%, **4-5 days 183-113 (61.8%)**, 6+ 52.3%. Opener and close agree.
+  Reading: a marquee home night followed by a lesser home game (next spread −7.3); the crowd and the number carry over, the performance does
+  not. **Built as `ncaab_home_thriller_letdown`** (owner call 2026-10-28): previous game a true home game with KenPom thrill ≥ 60, tonight a
+  regular-season home game → bet the visitor. 446-370.
