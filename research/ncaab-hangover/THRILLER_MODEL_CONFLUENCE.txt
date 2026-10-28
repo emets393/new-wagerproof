@@ -1,0 +1,25 @@
+signal games: 418; with a model prediction: 324 (the model needs ~a month of each season to start)
+
+=== THE SIGNAL x THE MODEL'S SIDE (model edge toward the home team, points vs the line) ===
+  signal, all (with a model prediction)                                  VISITOR 195-126 (60.7%, +15.9%) n=324 | model edge toward home -0.08 | 22:37-26 23:30-19 24:42-23 25:40-30 26:46-28
+  model AGREES: leans visitor (home edge < 0)                            VISITOR 97-68 (58.8%, +12.2%) n=168 | model edge toward home -1.29 | 22:18-20 23:15-11 24:18-9 25:24-17 26:22-11
+     ... leans visitor by 1.5+ (the production bet band starts here)     VISITOR 41-28 (59.4%, +13.3%) n=69 | model edge toward home -2.22 | 22:10-15 23:6-3 24:9-2 25:10-5 26:6-3
+     ... leans visitor by 1.5 to 4 (model would BET the visitor)         VISITOR 40-28 (58.8%, +12.2%) n=68 | model edge toward home -2.18 | 22:10-15 23:6-3 24:8-2 25:10-5 26:6-3
+     ... leans visitor by 0 to 1.5 (model agrees but would not bet)      VISITOR 56-40 (58.3%, +11.3%) n=99 | model edge toward home -0.64 | 22:8-5 23:9-8 24:9-7 25:14-12 26:16-8
+  model DISAGREES: leans home (home edge > 0)                            VISITOR 98-58 (62.8%, +20.0%) n=156 | model edge toward home +1.23 | 22:19-6 23:15-8 24:24-14 25:16-13 26:24-17
+     ... leans home by 0 to 1.5                                          VISITOR 71-40 (64.0%, +22.2%) n=111 | model edge toward home +0.70 | 22:12-1 23:8-6 24:22-12 25:12-7 26:17-14
+     ... leans home by 1.5+ (model would bet the HOME team)              VISITOR 27-18 (60.0%, +14.5%) n=45 | model edge toward home +2.55 | 22:7-5 23:7-2 24:2-2 25:4-6 26:7-3
+
+=== DOSE: model edge toward the visitor, in bins ===
+     home edge -99 .. -4                                                 n=1 (thin)
+     home edge -4 .. -2.5                                                VISITOR 7-10 (41.2%, -21.4%) n=17 | model edge toward home -3.02 | 22:3-8 23:1-0 24:1-1 25:2-1
+     home edge -2.5 .. -1.5                                              VISITOR 33-18 (64.7%, +23.4%) n=51 | model edge toward home -1.90 | 22:7-7 23:5-3 24:7-1 25:8-4 26:6-3
+     home edge -1.5 .. -0.5                                              VISITOR 31-21 (59.6%, +13.7%) n=54 | model edge toward home -0.94 | 22:5-4 23:4-3 24:6-3 25:8-5 26:8-6
+     home edge -0.5 .. 0.5                                               VISITOR 53-33 (61.6%, +17.7%) n=87 | model edge toward home -0.03 | 22:8-2 23:8-9 24:11-7 25:11-9 26:15-6
+     home edge 0.5 .. 1.5                                                VISITOR 43-26 (62.3%, +19.1%) n=69 | model edge toward home +0.97 | 22:7-0 23:5-2 24:14-9 25:7-5 26:10-10
+     home edge 1.5 .. 2.5                                                VISITOR 20-5 (80.0%, +52.5%) n=25 | model edge toward home +1.96 | 22:6-1 23:5-1 24:2-1 25:3-1 26:4-1
+     home edge 2.5 .. 99                                                 VISITOR 7-13 (35.0%, -33.1%) n=20 | model edge toward home +3.27 | 22:1-4 23:2-1 24:0-1 25:1-5 26:3-2
+
+=== THE MODEL'S OWN RECORD ON THESE GAMES (sanity: the model betting its side in its band) ===
+  model band bets inside the signal games: 56-54 (50.9%) n=110
+  model band bets league-wide (home rows): 3651-2952 (55.3%) n=6695

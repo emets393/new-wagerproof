@@ -73,3 +73,20 @@ game matter? 57,510 team-games with a previous-game thrill score. **Verdict: not
   Reading: a marquee home night, a long week, then a lesser home game (next spread −8); the crowd and the number carry over, the performance
   does not. **Shipped as ONE signal, `ncaab_home_thriller_letdown`** (owner call 2026-10-28): previous game a true regular-season home game with
   KenPom thrill ≥ 60, at least four days ago; tonight a regular-season home game → bet the visitor. 228-154.
+
+### Does the model's side matter? (`thriller_model_confluence.py` → `THRILLER_MODEL_CONFLUENCE.txt`)
+
+Walk-forward originator predictions (research cache, six seasons, out of sample) joined to the 418 signal games; 324 have a model
+prediction (the model needs about a month of each season before it predicts). Visitor's record:
+
+| model's lean on the game | visitor ATS | % | ROI |
+|---|---|---|---|
+| all signal games with a prediction | 195-126 | 60.7% | +15.9% |
+| model agrees (leans visitor) | 97-68 | 58.8% | +12.2% |
+| … leans visitor by 1.5-4 (model would bet it too) | 40-28 | 58.8% | |
+| model disagrees (leans home) | 98-58 | 62.8% | +20.0% |
+| … leans home by 1.5+ (model would bet the HOME team) | 27-18 | 60.0% | |
+
+No gate, no veto: the signal cashes at the same rate whether the model agrees or not, and the dose bins are flat around 60% except two
+thin tails (n 17 and 20) pointing opposite ways. Inside these games the model's own band bets go 56-54 (50.9%) against 55.3% league-wide,
+so the signal lives exactly where the model has nothing to say — the two are independent and the signal should fire regardless of the model.
