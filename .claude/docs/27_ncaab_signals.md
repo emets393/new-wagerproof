@@ -56,8 +56,17 @@ minus away margin), `grade_price`, `graded_at`. Read-only to anon and authentica
 | `ncaab_lookahead_dog` | spread | December–February conference play; the team's next game (within 7 days) is a conference game vs an AP top-25 team as of today; tonight the team is a 7-to-12-point dog in a regular-season conference game → back the dog | 161-139-4 (53.7%), +2.5%, six seasons, three of six winning | candidate (`tier = tracking`) |
 | `ncaab_lookahead_big_dog` | spread | same spot, tonight a dog of 12.5 or more → back the dog | 82-52-2 (61.2%), +16.9%, six seasons, five of six winning | candidate (`tier = tracking`) |
 | `ncaab_new_coach_bottom_kenpom` | spread | the team changed head coaches since last season (KenPom `Coach` field, this year vs last) and KenPom's preseason AdjEM rank is in the bottom 20% of Division I (293+ of 365); every November–December game, any venue, favorite or dog → back the team | 526-428 (55.1%), +5.2%, 2021-22 to 2025-26, five of five seasons | candidate (`tier = tracking`) |
+| `ncaab_third_meeting_under` | total | the two teams have played twice already this season (any venue); tonight is the third meeting → bet UNDER the posted total. Fourth meetings not flagged | 712-598-15 (54.4%), +3.8%, 2020-21 to 2025-26, six of six at .500 or better | candidate (`tier = tracking`) |
+| `ncaab_road_dog_band` | spread | true road game (not neutral), away team +10.5 to +17 at the consensus → back the road dog | 2,233-1,993-74 (52.8%), +0.9%, six of six seasons | candidate (`tier = tracking`, conviction low) |
+| `ncaab_three_point_luck_storm` | spread | team's shooters are ≥ 3.1 pts/game BELOW their own three-point rates over the last 5 games (shooter by shooter, career prior shrunk to league) and the opponent's are ≥ 4.1 ABOVE → back the cold team | 1,740-1,538-46 (53.1%), +1.3%, 2020-21 to 2025-26, five of six seasons | candidate (`tier = tracking`, conviction low) |
+| `ncaab_lost_controlling_2h` | spread | team's last game was a regulation loss in which its time-weighted win probability over the 2nd half was ≥ .60 (CBBD play-by-play) → back it in its next game | 1,075-908-24 (54.2%), +3.5%, six of six seasons | candidate (`tier = tracking`) |
+| `ncaab_small_vs_big_d_over` | total | team A: 3PA rate bottom quarter AND 3P% below median (season to date, ≥ 6 games); team B: KenPom effective height ≥ +1.0" taller AND KenPom AdjDE top 20% as of today → bet OVER | 258-176 (59.4%), +13.4%, 2020-21 to 2025-26, six of six seasons | candidate (`tier = tracking`) |
 
-Research: `research/ncaab-hype/README.md`, `research/ncaab-lookahead/README.md` and `research/ncaab-continuity/README.md`. The hype
+Research: `research/ncaab-hype/README.md`, `research/ncaab-lookahead/README.md`, `research/ncaab-continuity/README.md`,
+`research/ncaab-size-defense/README.md`, and `research/bball-odds/CBB_PORT_BRIEF.md` + `CBB_WP_LUCK_DEEP_BRIEF.md` for the third-meeting,
+road-dog, luck-storm and second-half-control reads (September 2026 port of the NBA session). One script per signal in
+`cfb_automation/scripts/cfb/ncaab_*_signal.py`, sharing `ncaab_signal_lib.py` (CBBD schedule, Odds API consensus with the
+neutral-site flip, flag row, stale-flag removal). The hype
 fade and the new-coach back are dormant outside November–December and the look-ahead dogs outside December–February; def rows are
 refreshed on every run. The new-coach signal freezes its qualifying list for the season on its first run (Storage
 `ncaab_model/<season>/signals/new_coach.json`), so a mid-season coaching change or a rating move never adds or drops a team. Tournament games
@@ -65,8 +74,9 @@ refreshed on every run. The new-coach signal freezes its qualifying list for the
 
 ## Timing
 
-- `ncaab-hype-signal`: 10:00am and 4:00pm ET, November–February. Runs the hype fade, the look-ahead dogs, then the new-coach back;
-  writes flags for games tipping today through two days out; removes a flag whose game no longer qualifies before tip.
+- `ncaab-hype-signal`: 10:00am and 4:00pm ET, November–April. Runs every situational signal in turn (hype fade, look-ahead dogs,
+  new-coach back, third-meeting under, road dog, luck storm, second-half-control back, size-vs-defense over); writes flags for games
+  tipping today through two days out; removes a flag whose game no longer qualifies before tip.
 - `ncaab-model-nightly`: 8:30am, 12:30pm, 4:30pm, 6:30pm ET, October–April. Refreshes the season's feeds, refits, prices
   every game of the next two days that has a line, writes the three tables above. **Opening of the season** (owner call
   2026-10-27, same as the CFB slate): through 14 days after the first tip, every game with a posted line is priced however
