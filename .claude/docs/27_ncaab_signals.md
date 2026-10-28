@@ -104,12 +104,12 @@ wire the UI; if a field is missing, ask rather than guess.
 | `ncaab_slate_flags` | signal × game × market (unique `(espn_game_id, signal_key, market)`) | `espn_game_id`, `game_id` (CBBD), `game_date`, `game` ("AWAY @ HOME"), `signal_key`, `market`, `side` ("Siena +6.5" / "OVER 141.5"), `bet_team` (spreads), `bet_direction` (totals: over/under), `bet_line`, `conviction` (low/med/high), `tier` (tracking), `trigger_text` (the sentence to show), `trigger_value`, `record_text`, `result`/`actual_value`/`graded_at` (null until graded), `updated_at` |
 | `ncaab_model_preds` | game × market (spread, total), latest `run_id` | model line vs posted line, `edge`, `tier` (`bet` = inside the 1.5–4 band on the spread; `pass` otherwise; totals are always pass by design) |
 | `ncaab_predictions` | game, latest `run_id` | moneyline/win-prob surface derived from the model spread (`model_fair_*`, `home_win_prob`, `vegas_*`), `model_version = cbb_originator_v1` |
-| `v_cbb_input_values` / `cbb_game_schedule` | game | the feed row; carries `espn_game_id` to join flags and preds |
+| `v_cbb_input_values` / `cbb_game_schedule` | game | the feed row (213 games for Nov 1–3 today); `game_id` is the CBBD id — **join flags and preds on `game_id`** (both tables carry it alongside `espn_game_id`; the feed view has no ESPN id) |
 
 ### Cards
 1. **Game card signal strip + Signals section** — same shape as the NBA signals card (doc 26). For each flag on the game: `side` as the headline,
-   `trigger_text` as the sentence, then the def's `record_text` and `season_record_text`. `tier = tracking` means show the read, do not badge it as
-   a play. Totals flags carry `bet_direction` and no `bet_team`. Two signals can fire on one game (e.g. `ncaab_small_vs_big_d_over` and
+   `trigger_text` as the sentence, then the def's `record_text` and `season_record_text`. Join flags to the feed on `game_id` (CBBD id). `tier = tracking`
+   means show the read, do not badge it as a play. Totals flags carry `bet_direction` and no `bet_team`. Two signals can fire on one game (e.g. `ncaab_small_vs_big_d_over` and
    `ncaab_bad_o_great_d_over` both over): show both; when they agree the historical record of the pair is 66-27, so it is fine to stack visually.
 2. **Model section** — from `ncaab_model_preds`: model spread vs posted spread with the edge and the `bet`/`pass` badge; model total vs posted total
    shown as information only (never badge a total bet from the model; totals come from the two over signals). Cards must not assume a two-day
