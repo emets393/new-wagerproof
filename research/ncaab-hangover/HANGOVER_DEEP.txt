@@ -1,0 +1,94 @@
+=== 1. THE CELL AND ITS CONTROLS ===
+  H1 unranked beat AP top-25 -> next game (back)                             n=  587 | own ATS 315-266 (54.2%, +3.6%) | OVER 300-285 (51.3%, -2.1%; sm 50.5%) tot +1.54 | ML roi +6.7% | sprd -0.8 | p(ATS) 0.027 p(tot) 0.587
+      by season: 21: ATS 39-38 O 43-34 | 22: ATS 44-30 O 32-43 | 23: ATS 57-53 O 62-48 | 24: ATS 79-56 O 73-63 | 25: ATS 58-55 O 56-58 | 26: ATS 38-34 O 34-39
+  vs the OPENER: 317-265 (54.5%) | line moved toward them by +0.12 (negative = market shaded TOWARD the team) | avg spread -0.8 opener -1.0
+     control: unranked LOST to AP top-25 -> next game                        n= 2399 | own ATS 1183-1173 (50.2%, -4.1%) | OVER 1228-1145 (51.7%, -1.2%; sm 50.6%) tot +0.87 | ML roi -17.2% | sprd +2.2 | p(ATS) 0.840 p(tot) 0.122
+     control: unranked beat an UNRANKED team -> next game                    n=25307 | own ATS 12413-12483 (49.9%, -4.8%) | OVER 12775-12297 (51.0%, -2.7%; sm 50.5%) tot +0.87 | ML roi -6.3% | sprd -1.8
+     the ranked LOSER's next game (ranked team lost to an unranked team)     n=  585 | own ATS 294-278 (51.4%, -1.9%) | OVER 306-274 (52.8%, +0.7%; sm 50.6%) tot +1.22 | ML roi -4.1% | sprd -6.7 | p(ATS) 0.470 p(tot) 0.238
+      by season: 21: ATS 36-36 O 42-33 | 22: ATS 39-36 O 40-35 | 23: ATS 56-53 O 56-53 | 24: ATS 64-68 O 71-64 | 25: ATS 58-56 O 66-48 | 26: ATS 41-29 O 31-41
+     ranked team lost to a ranked team -> next                               n=  459 | own ATS 229-228 (50.1%, -4.4%) | OVER 231-226 (50.5%, -3.5%; sm 50.6%) tot +0.86 | ML roi +0.5% | sprd -8.1
+
+=== 2. DOSE / SHAPE ===
+     victim ranked top 5                                                     n=   67 | own ATS 39-27 (59.1%, +13.0%) | OVER 35-32 (52.2%, -0.2%; sm 50.4%) tot +0.19 | ML roi +6.5% | sprd -0.0
+     victim ranked 6-10                                                      n=  106 | own ATS 61-45 (57.5%, +9.8%) | OVER 66-40 (62.3%, +18.8%; sm 50.5%) tot +3.53 | ML roi -0.7% | sprd -0.6
+     victim ranked 11-15                                                     n=  122 | own ATS 57-63 (47.5%, -9.2%) | OVER 55-65 (45.8%, -12.5%; sm 50.5%) tot +0.28 | ML roi -4.6% | sprd -0.3
+     victim ranked 16-25                                                     n=  292 | own ATS 158-131 (54.7%, +4.4%) | OVER 144-148 (49.3%, -5.9%; sm 50.5%) tot +1.65 | ML roi +14.1% | sprd -1.3
+     won by 1-5                                                              n=  258 | own ATS 133-122 (52.2%, -0.3%) | OVER 125-131 (48.8%, -6.8%; sm 50.5%) tot +0.61 | ML roi +7.5% | sprd -0.0
+     won by 6-12                                                             n=  203 | own ATS 109-93 (54.0%, +3.0%) | OVER 104-99 (51.2%, -2.2%; sm 50.5%) tot +1.74 | ML roi +6.7% | sprd -0.5
+     won by 13+                                                              n=  126 | own ATS 73-51 (58.9%, +12.4%) | OVER 71-55 (56.3%, +7.6%; sm 50.5%) tot +3.12 | ML roi +4.9% | sprd -3.0
+     won as a dog of 7+                                                      n=  191 | own ATS 113-77 (59.5%, +13.6%) | OVER 92-98 (48.4%, -7.6%; sm 50.5%) tot +0.28 | ML roi +19.6% | sprd +1.1
+     won as a dog of 0.5-6.5                                                 n=  259 | own ATS 139-117 (54.3%, +3.7%) | OVER 135-123 (52.3%, -0.1%; sm 50.5%) tot +1.76 | ML roi +9.2% | sprd -1.8
+     won as the favorite                                                     n=  130 | own ATS 58-70 (45.3%, -13.4%) | OVER 72-58 (55.4%, +5.7%; sm 50.5%) tot +3.39 | ML roi -21.9% | sprd -1.9
+     the win was at HOME                                                     n=  380 | own ATS 195-180 (52.0%, -0.6%) | OVER 193-186 (50.9%, -2.8%; sm 50.5%) tot +1.67 | ML roi +4.3% | sprd +0.4
+     the win was on the ROAD                                                 n=  161 | own ATS 92-68 (57.5%, +9.8%) | OVER 86-74 (53.8%, +2.6%; sm 50.5%) tot +1.36 | ML roi +12.9% | sprd -2.1
+     the win was NEUTRAL                                                     n=46 (thin)
+     first ranked scalp of the season                                        n=  339 | own ATS 190-146 (56.5%, +8.0%) | OVER 171-167 (50.6%, -3.4%; sm 50.5%) tot +1.17 | ML roi +12.5% | sprd -1.2 | p(ATS) 0.020 p(tot) 0.845
+      by season: 21: ATS 29-20 O 29-20 | 22: ATS 25-21 O 23-25 | 23: ATS 35-29 O 32-32 | 24: ATS 52-32 O 43-41 | 25: ATS 27-28 O 27-27 | 26: ATS 22-16 O 17-22
+     already had a ranked scalp this season                                  n=  241 | own ATS 121-117 (50.8%, -2.8%) | OVER 126-114 (52.5%, +0.2%; sm 50.5%) tot +1.95 | ML roi -1.4% | sprd -0.3
+     own KenPom EM > +10 (good team, just unranked)                          n=  464 | own ATS 244-216 (53.0%, +1.3%) | OVER 246-216 (53.2%, +1.7%; sm 50.5%) tot +2.18 | ML roi +1.3% | sprd -1.7
+     own EM 0..10                                                            n=  105 | own ATS 58-45 (56.3%, +7.6%) | OVER 47-58 (44.8%, -14.5%; sm 50.5%) tot +0.08 | ML roi +23.2% | sprd +2.6
+     own EM < 0                                                              n=18 (thin)
+     non-conference win                                                      n=  109 | own ATS 59-50 (54.1%, +3.3%) | OVER 54-55 (49.5%, -5.4%; sm 50.6%) tot +1.55 | ML roi +15.5% | sprd -7.0
+     conference win                                                          n=  478 | own ATS 256-216 (54.2%, +3.6%) | OVER 246-230 (51.7%, -1.3%; sm 50.5%) tot +1.54 | ML roi +4.7% | sprd +0.6
+     Nov-Dec                                                                 n=  136 | own ATS 73-63 (53.7%, +2.5%) | OVER 64-72 (47.1%, -10.1%; sm 50.5%) tot +1.07 | ML roi +15.2% | sprd -5.6
+     Jan-Feb                                                                 n=  406 | own ATS 219-181 (54.8%, +4.6%) | OVER 207-197 (51.2%, -2.2%; sm 50.5%) tot +1.39 | ML roi +5.2% | sprd +0.5
+     March                                                                   n=45 (thin)
+
+=== 3. NEXT GAME CONTEXT ===
+     next vs a ranked opponent                                               n=  138 | own ATS 67-68 (49.6%, -5.1%) | OVER 65-72 (47.4%, -9.4%; sm 50.5%) tot +0.92 | ML roi -6.4% | sprd +6.7
+     next vs an unranked opponent                                            n=  449 | own ATS 248-198 (55.6%, +6.2%) | OVER 235-213 (52.5%, +0.2%; sm 50.5%) tot +1.73 | ML roi +10.7% | sprd -3.2 | p(ATS) 0.018 p(tot) 0.308
+      by season: 21: ATS 31-25 O 32-24 | 22: ATS 28-24 O 21-32 | 23: ATS 46-40 O 47-39 | 24: ATS 65-47 O 65-47 | 25: ATS 47-42 O 44-45 | 26: ATS 31-20 O 26-26
+     next at home                                                            n=  250 | own ATS 128-118 (52.0%, -0.6%) | OVER 124-124 (50.0%, -4.5%; sm 50.5%) tot +1.27 | ML roi +3.9% | sprd -5.9
+     next on the road                                                        n=  307 | own ATS 169-136 (55.4%, +5.8%) | OVER 166-141 (54.1%, +3.2%; sm 50.5%) tot +2.28 | ML roi +9.6% | sprd +3.3
+     next as favorite                                                        n=  294 | own ATS 160-131 (55.0%, +5.0%) | OVER 161-132 (54.9%, +4.9%; sm 50.6%) tot +2.08 | ML roi +3.4% | sprd -8.0
+     next as dog                                                             n=  290 | own ATS 153-134 (53.3%, +1.9%) | OVER 139-150 (48.1%, -8.2%; sm 50.4%) tot +1.08 | ML roi +9.8% | sprd +6.4
+     next as dog of 5+                                                       n=  165 | own ATS 85-78 (52.1%, -0.3%) | OVER 80-85 (48.5%, -7.4%; sm 50.7%) tot +0.98 | ML roi +8.2% | sprd +9.0
+     gap <=3 days                                                            n=  291 | own ATS 147-141 (51.0%, -2.5%) | OVER 152-137 (52.6%, +0.4%; sm 50.4%) tot +1.74 | ML roi -0.3% | sprd +0.0
+     gap 4-5 days                                                            n=  216 | own ATS 124-90 (57.9%, +10.8%) | OVER 108-108 (50.0%, -4.5%; sm 50.5%) tot +1.10 | ML roi +17.3% | sprd -0.7
+     gap 6+ days                                                             n=   80 | own ATS 44-35 (55.7%, +6.3%) | OVER 40-40 (50.0%, -4.6%; sm 50.5%) tot +1.99 | ML roi +3.3% | sprd -4.4
+     gap 4+ days                                                             n=  296 | own ATS 168-125 (57.3%, +9.5%) | OVER 148-148 (50.0%, -4.6%; sm 50.5%) tot +1.34 | ML roi +13.5% | sprd -1.7 | p(ATS) 0.008 p(tot) 1.000
+      by season: 21: ATS 19-16 O 22-13 | 22: ATS 23-10 O 10-23 | 23: ATS 29-23 O 31-21 | 24: ATS 37-27 O 36-29 | 25: ATS 37-31 O 30-39 | 26: ATS 23-18 O 19-23
+     gap 4+ days, next vs unranked                                           n=  229 | own ATS 132-96 (57.9%, +10.5%) | OVER 118-111 (51.5%, -1.6%; sm 50.5%) tot +1.79 | ML roi +16.3% | sprd -4.3
+
+=== 4. THE UPSET-DOG FAMILY (won outright as a dog), same checks ===
+  won as a dog of 7+ -> next (back)                                          n= 1773 | own ATS 911-835 (52.2%, -0.3%) | OVER 904-856 (51.4%, -1.9%; sm 50.6%) tot +0.88 | ML roi -12.3% | sprd +3.4 | p(ATS) 0.065 p(tot) 0.283
+      by season: 21: ATS 101-105 O 107-100 | 22: ATS 150-140 O 154-137 | 23: ATS 173-158 O 169-163 | 24: ATS 174-138 O 156-162 | 25: ATS 157-135 O 160-136 | 26: ATS 156-159 O 158-158
+      vs opener 904-849 (51.6%), line move +0.09
+  won as a dog of 10+ -> next (back)                                         n=  716 | own ATS 373-334 (52.8%, +0.8%) | OVER 357-356 (50.1%, -4.4%; sm 50.6%) tot +0.05 | ML roi -15.2% | sprd +4.5 | p(ATS) 0.157 p(tot) 0.985
+      by season: 21: ATS 33-39 O 37-36 | 22: ATS 78-57 O 73-63 | 23: ATS 71-68 O 69-71 | 24: ATS 72-59 O 61-71 | 25: ATS 58-53 O 57-55 | 26: ATS 61-58 O 60-60
+      vs opener 367-338 (52.1%), line move +0.16
+  won as a dog of 14+ -> next (back)                                         n=  211 | own ATS 118-92 (56.2%, +7.3%) | OVER 95-115 (45.2%, -13.6%; sm 50.7%) tot -2.13 | ML roi +0.0% | sprd +6.4 | p(ATS) 0.097 p(tot) 0.192
+      by season: 21: ATS 7-11 O 9-9 | 22: ATS 29-13 O 20-22 | 23: ATS 20-26 O 18-28 | 24: ATS 27-13 O 21-19 | 25: ATS 15-14 O 12-17 | 26: ATS 20-15 O 15-20
+      vs opener 115-92 (55.6%), line move +0.24
+     dog 10+ win, next as dog again                                          n=  485 | own ATS 254-224 (53.1%, +1.5%) | OVER 244-238 (50.6%, -3.3%; sm 50.8%) tot +0.04 | ML roi -23.5% | sprd +9.3
+     dog 10+ win, next as favorite                                           n=  227 | own ATS 118-107 (52.4%, +0.1%) | OVER 111-116 (48.9%, -6.7%; sm 50.4%) tot +0.16 | ML roi +3.2% | sprd -5.8
+     dog 10+ win, next on the road                                           n=  334 | own ATS 176-154 (53.3%, +1.9%) | OVER 159-174 (47.7%, -8.9%; sm 50.9%) tot -0.72 | ML roi -20.7% | sprd +9.3
+     dog 10+ win, next at home                                               n=  328 | own ATS 171-153 (52.8%, +0.8%) | OVER 177-149 (54.3%, +3.7%; sm 50.5%) tot +1.42 | ML roi -7.5% | sprd -0.1
+     dog 10+ win, gap 4+                                                     n=  406 | own ATS 211-191 (52.5%, +0.2%) | OVER 196-208 (48.5%, -7.4%; sm 50.6%) tot -0.52 | ML roi -13.5% | sprd +3.7
+     dog 10+ win, gap <= 3                                                   n=  310 | own ATS 162-143 (53.1%, +1.5%) | OVER 161-148 (52.1%, -0.5%; sm 50.7%) tot +0.80 | ML roi -17.4% | sprd +5.6
+     UNION: beat ranked while unranked OR won as a 10+ dog                   n= 1208 | own ATS 631-563 (52.8%, +0.9%) | OVER 614-590 (51.0%, -2.6%; sm 50.6%) tot +0.83 | ML roi -7.2% | sprd +2.2 | p(ATS) 0.052 p(tot) 0.557
+      by season: 21: ATS 68-73 O 75-67 | 22: ATS 110-81 O 99-93 | 23: ATS 119-114 O 122-112 | 24: ATS 135-106 O 123-120 | 25: ATS 107-100 O 106-104 | 26: ATS 92-89 O 89-94
+     control: the FAVORITE that lost to a 10+ dog -> next game               n=  713 | own ATS 362-344 (51.3%, -2.1%) | OVER 355-352 (50.2%, -4.2%; sm 50.6%) tot +0.85 | ML roi -1.9% | sprd -3.0 | p(ATS) 0.512 p(tot) 0.923
+      by season: 21: ATS 39-33 O 33-38 | 22: ATS 66-69 O 72-63 | 23: ATS 71-66 O 72-65 | 24: ATS 63-67 O 63-69 | 25: ATS 61-51 O 57-55 | 26: ATS 62-58 O 58-62
+
+=== 5. THE SIGNAL CANDIDATE: unranked team beat an AP top-25 team AS AN UNDERDOG -> back it next game ===
+  unranked beat ranked as a DOG (any size) -> next (back)                    n=  452 | own ATS 254-194 (56.7%, +8.3%) | OVER 227-223 (50.4%, -3.7%; sm 50.5%) tot +1.05 | ML roi +13.9% | sprd -0.6 | p(ATS) 0.007 p(tot) 0.878
+      by season: 21: ATS 30-32 O 36-26 | 22: ATS 40-25 O 27-39 | 23: ATS 40-30 O 40-30 | 24: ATS 64-43 O 56-52 | 25: ATS 49-35 O 43-40 | 26: ATS 31-29 O 25-36
+     ... as a dog of 3+                                                      n=  385 | own ATS 221-162 (57.7%, +10.2%) | OVER 195-189 (50.8%, -3.0%; sm 50.5%) tot +1.08 | ML roi +15.7% | sprd -0.1 | p(ATS) 0.005 p(tot) 0.762
+      by season: 21: ATS 27-27 O 30-24 | 22: ATS 35-21 O 25-32 | 23: ATS 34-28 O 36-26 | 24: ATS 54-33 O 46-42 | 25: ATS 44-29 O 38-34 | 26: ATS 27-24 O 20-31
+     ... as a dog of 7+                                                      n=  191 | own ATS 113-77 (59.5%, +13.6%) | OVER 92-98 (48.4%, -7.6%; sm 50.5%) tot +0.28 | ML roi +19.6% | sprd +1.1
+     ... as a pick/favorite (control)                                        n=  135 | own ATS 61-72 (45.9%, -12.4%) | OVER 73-62 (54.1%, +3.2%; sm 50.5%) tot +3.20 | ML roi -17.8% | sprd -1.8
+     dog version | gap <=3 days                                              n=  223 | own ATS 114-107 (51.6%, -1.5%) | OVER 112-109 (50.7%, -3.2%; sm 50.4%) tot +0.63 | ML roi +3.1% | sprd +0.7
+     dog version | gap 4-5 days                                              n=  163 | own ATS 101-61 (62.3%, +19.1%) | OVER 80-83 (49.1%, -6.3%; sm 50.6%) tot +0.69 | ML roi +29.7% | sprd -0.7
+     dog version | gap 6+ days                                               n=   66 | own ATS 39-26 (60.0%, +14.4%) | OVER 35-31 (53.0%, +1.2%; sm 50.5%) tot +3.32 | ML roi +11.3% | sprd -4.5
+     dog version | gap 4+                                                    n=  229 | own ATS 140-87 (61.7%, +17.8%) | OVER 115-114 (50.2%, -4.1%; sm 50.6%) tot +1.45 | ML roi +24.4% | sprd -1.8 | p(ATS) 0.003 p(tot) 0.970
+      by season: 21: ATS 15-14 O 19-10 | 22: ATS 22-7 O 9-20 | 23: ATS 23-13 O 23-13 | 24: ATS 33-19 O 28-25 | 25: ATS 29-19 O 22-26 | 26: ATS 18-15 O 14-20
+     dog version | next vs unranked                                          n=  351 | own ATS 203-146 (58.2%, +11.1%) | OVER 179-171 (51.1%, -2.3%; sm 50.5%) tot +1.41 | ML roi +18.3% | sprd -2.7
+     dog version | next vs ranked                                            n=  101 | own ATS 51-48 (51.5%, -1.5%) | OVER 48-52 (48.0%, -8.4%; sm 50.5%) tot -0.21 | ML roi -1.3% | sprd +7.0
+     dog version | next at home                                              n=  205 | own ATS 110-92 (54.5%, +4.0%) | OVER 104-99 (51.2%, -2.2%; sm 50.5%) tot +1.14 | ML roi +6.6% | sprd -5.2
+     dog version | next on road                                              n=  221 | own ATS 128-92 (58.2%, +11.1%) | OVER 115-106 (52.0%, -0.7%; sm 50.5%) tot +1.66 | ML roi +22.0% | sprd +3.8
+     dog version | next neutral                                              n=26 (thin)
+     dog version | next as favorite                                          n=  222 | own ATS 123-98 (55.7%, +6.2%) | OVER 121-100 (54.8%, +4.5%; sm 50.5%) tot +1.97 | ML roi +4.6% | sprd -7.8
+     dog version | next as dog                                               n=  227 | own ATS 129-95 (57.6%, +10.1%) | OVER 106-120 (46.9%, -10.5%; sm 50.4%) tot +0.25 | ML roi +22.8% | sprd +6.5
+     dog version | tournaments included                                      n=  489 | own ATS 268-217 (55.3%, +5.5%) | OVER 247-240 (50.7%, -3.2%; sm 50.5%) tot +1.12 | ML roi +10.3% | sprd -0.5
+      by season: 21: ATS 30-35 O 37-28 | 22: ATS 43-26 O 29-41 | 23: ATS 41-32 O 41-32 | 24: ATS 72-50 O 67-56 | 25: ATS 49-37 O 44-41 | 26: ATS 33-37 O 29-42

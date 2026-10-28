@@ -1,0 +1,207 @@
+team-games with a previous game 61,740; twa coverage 0.95; finish coverage 0.98; gap dist {'<=3 days': 28809, '4-5 days': 20987, '6+ days': 11943}
+
+=== REFERENCE ===
+  any game after a WIN                                                       n=28763 | own ATS 14113-14194 (49.9%, -4.8%) | OVER 14486-14015 (50.8%, -3.0%; sm 50.5%) tot +0.87 | ML roi -5.8% | sprd -2.5
+  any game after a LOSS                                                      n=28505 | own ATS 14079-13991 (50.2%, -4.2%) | OVER 14306-13959 (50.6%, -3.4%; sm 50.6%) tot +0.77 | ML roi -11.5% | sprd +2.5
+     after a win | gap <=3 days                                              n=13533 | own ATS 6649-6669 (49.9%, -4.7%) | OVER 6839-6567 (51.0%, -2.6%; sm 50.5%) tot +0.93 | ML roi -5.6% | sprd -2.5
+     after a win | gap 4-5 days                                              n=10098 | own ATS 4981-4951 (50.2%, -4.2%) | OVER 5052-4951 (50.5%, -3.6%; sm 50.5%) tot +0.80 | ML roi -4.2% | sprd -2.7
+     after a win | gap 6+ days                                               n= 5131 | own ATS 2483-2573 (49.1%, -6.2%) | OVER 2595-2496 (51.0%, -2.7%; sm 50.6%) tot +0.83 | ML roi -9.4% | sprd -2.2
+
+=== H1. BEAT A RANKED OPPONENT ===
+  H1 unranked team beat an AP top-25 team                                    n=  587 | own ATS 315-266 (54.2%, +3.6%) | OVER 300-285 (51.3%, -2.1%; sm 50.5%) tot +1.54 | ML roi +6.7% | sprd -0.8 | p(ATS) 0.033 p(tot) 0.573
+      by season: 21: ATS 39-38 O 43-34 | 22: ATS 44-30 O 32-43 | 23: ATS 57-53 O 62-48 | 24: ATS 79-56 O 73-63 | 25: ATS 58-55 O 56-58 | 26: ATS 38-34 O 34-39
+     H1 | gap <=3 days                                                       n=  291 | own ATS 147-141 (51.0%, -2.5%) | OVER 152-137 (52.6%, +0.4%; sm 50.4%) tot +1.74 | ML roi -0.3% | sprd +0.0
+     H1 | gap 4-5 days                                                       n=  216 | own ATS 124-90 (57.9%, +10.8%) | OVER 108-108 (50.0%, -4.5%; sm 50.5%) tot +1.10 | ML roi +17.3% | sprd -0.7
+     H1 | gap 6+ days                                                        n=   80 | own ATS 44-35 (55.7%, +6.3%) | OVER 40-40 (50.0%, -4.6%; sm 50.5%) tot +1.99 | ML roi +3.3% | sprd -4.4
+     H1 | next at home                                                       n=  250 | own ATS 128-118 (52.0%, -0.6%) | OVER 124-124 (50.0%, -4.5%; sm 50.5%) tot +1.27 | ML roi +3.9% | sprd -5.9
+     H1 | next on the road                                                   n=  307 | own ATS 169-136 (55.4%, +5.8%) | OVER 166-141 (54.1%, +3.2%; sm 50.5%) tot +2.28 | ML roi +9.6% | sprd +3.3
+     H1 | next as favorite                                                   n=  294 | own ATS 160-131 (55.0%, +5.0%) | OVER 161-132 (54.9%, +4.9%; sm 50.6%) tot +2.08 | ML roi +3.4% | sprd -8.0
+     H1 | next as dog                                                        n=  290 | own ATS 153-134 (53.3%, +1.9%) | OVER 139-150 (48.1%, -8.2%; sm 50.4%) tot +1.08 | ML roi +9.8% | sprd +6.4
+     H1 | Nov-Dec                                                            n=  136 | own ATS 73-63 (53.7%, +2.5%) | OVER 64-72 (47.1%, -10.1%; sm 50.5%) tot +1.07 | ML roi +15.2% | sprd -5.6
+     H1 | Jan+                                                               n=  451 | own ATS 242-203 (54.4%, +3.9%) | OVER 236-213 (52.6%, +0.3%; sm 50.5%) tot +1.68 | ML roi +4.1% | sprd +0.6
+  H1b unranked team beat a TOP-10 team                                       n=  173 | own ATS 100-72 (58.1%, +11.1%) | OVER 101-72 (58.4%, +11.5%; sm 50.5%) tot +2.24 | ML roi +2.1% | sprd -0.4 | p(ATS) 0.040 p(tot) 0.038
+     H1b | gap <=3 days                                                      n=   99 | own ATS 53-45 (54.1%, +3.4%) | OVER 59-40 (59.6%, +13.8%; sm 50.4%) tot +2.06 | ML roi +2.8% | sprd +0.8
+     H1b | gap 4-5 days                                                      n=54 (thin)
+     H1b | gap 6+ days                                                       n=20 (thin)
+     H1b | next at home                                                      n=   68 | own ATS 41-26 (61.2%, +16.8%) | OVER 36-32 (52.9%, +1.1%; sm 50.6%) tot -0.00 | ML roi +13.0% | sprd -6.0
+     H1b | next on the road                                                  n=   99 | own ATS 56-43 (56.6%, +8.1%) | OVER 63-36 (63.6%, +21.5%; sm 50.4%) tot +4.14 | ML roi -4.6% | sprd +3.1
+     H1b | next as favorite                                                  n=   83 | own ATS 50-33 (60.2%, +14.9%) | OVER 51-32 (61.4%, +17.3%; sm 50.6%) tot +1.92 | ML roi +6.1% | sprd -7.5
+     H1b | next as dog                                                       n=   89 | own ATS 50-38 (56.8%, +8.7%) | OVER 50-39 (56.2%, +7.3%; sm 50.4%) tot +2.59 | ML roi -0.5% | sprd +6.2
+     H1b | Nov-Dec                                                           n=37 (thin)
+     H1b | Jan+                                                              n=  136 | own ATS 80-55 (59.3%, +13.2%) | OVER 81-55 (59.6%, +13.7%; sm 50.5%) tot +1.97 | ML roi +0.1% | sprd +0.4
+  H1c ranked team beat a ranked team                                         n=  472 | own ATS 215-247 (46.5%, -11.1%) | OVER 222-245 (47.5%, -9.3%; sm 50.5%) tot -0.74 | ML roi -5.7% | sprd -8.2 | p(ATS) 0.163 p(tot) 0.325
+
+=== H2. UPSET WIN (won outright as a dog) ===
+  H2 won as a dog of 7+                                                      n= 1773 | own ATS 911-835 (52.2%, -0.3%) | OVER 904-856 (51.4%, -1.9%; sm 50.6%) tot +0.88 | ML roi -12.3% | sprd +3.4 | p(ATS) 0.065 p(tot) 0.297
+      by season: 21: ATS 101-105 O 107-100 | 22: ATS 150-140 O 154-137 | 23: ATS 173-158 O 169-163 | 24: ATS 174-138 O 156-162 | 25: ATS 157-135 O 160-136 | 26: ATS 156-159 O 158-158
+  H2 won as a dog of 10+                                                     n=  716 | own ATS 373-334 (52.8%, +0.8%) | OVER 357-356 (50.1%, -4.4%; sm 50.6%) tot +0.05 | ML roi -15.2% | sprd +4.5 | p(ATS) 0.120 p(tot) 0.980
+  H2 won as a dog of 14+                                                     n=  211 | own ATS 118-92 (56.2%, +7.3%) | OVER 95-115 (45.2%, -13.6%; sm 50.7%) tot -2.13 | ML roi +0.0% | sprd +6.4 | p(ATS) 0.062 p(tot) 0.165
+     H2 dog 7+ | gap <=3 days                                                n=  827 | own ATS 429-387 (52.6%, +0.4%) | OVER 430-391 (52.4%, -0.0%; sm 50.6%) tot +1.16 | ML roi -15.3% | sprd +4.2
+     H2 dog 7+ | gap 4-5 days                                                n=  603 | own ATS 304-289 (51.3%, -2.0%) | OVER 311-289 (51.8%, -1.0%; sm 50.5%) tot +1.04 | ML roi -9.8% | sprd +2.6
+     H2 dog 7+ | gap 6+ days                                                 n=  343 | own ATS 178-159 (52.8%, +0.8%) | OVER 163-176 (48.1%, -8.2%; sm 50.6%) tot -0.08 | ML roi -9.5% | sprd +2.6
+     H2 dog 7+ | next at home                                                n=  810 | own ATS 411-385 (51.6%, -1.4%) | OVER 421-382 (52.4%, +0.1%; sm 50.4%) tot +1.60 | ML roi -5.9% | sprd -1.1
+     H2 dog 7+ | next on the road                                            n=  840 | own ATS 443-385 (53.5%, +2.2%) | OVER 427-408 (51.1%, -2.4%; sm 50.7%) tot +0.55 | ML roi -17.3% | sprd +7.7
+     H2 dog 7+ | next as favorite                                            n=  612 | own ATS 307-296 (50.9%, -2.8%) | OVER 308-302 (50.5%, -3.6%; sm 50.5%) tot +1.19 | ML roi +1.0% | sprd -6.1
+     H2 dog 7+ | next as dog                                                 n= 1152 | own ATS 601-533 (53.0%, +1.3%) | OVER 591-550 (51.8%, -1.1%; sm 50.7%) tot +0.71 | ML roi -19.2% | sprd +8.4
+     H2 dog 7+ | Nov-Dec                                                     n=  642 | own ATS 318-315 (50.2%, -4.1%) | OVER 309-327 (48.6%, -7.3%; sm 50.7%) tot -0.11 | ML roi -17.3% | sprd +3.3
+     H2 dog 7+ | Jan+                                                        n= 1131 | own ATS 593-520 (53.3%, +1.8%) | OVER 595-529 (52.9%, +1.1%; sm 50.5%) tot +1.44 | ML roi -9.5% | sprd +3.4
+  H2 control: won as a dog of 1-6                                            n= 5909 | own ATS 2962-2843 (51.0%, -2.6%) | OVER 2987-2867 (51.0%, -2.6%; sm 50.5%) tot +0.99 | ML roi -4.4% | sprd +0.4
+  H2 control: won as a favorite of 7+                                        n=11613 | own ATS 5632-5806 (49.2%, -6.0%) | OVER 5774-5727 (50.2%, -4.2%; sm 50.6%) tot +0.72 | ML roi -5.1% | sprd -5.8
+
+=== H3. WON A NATIONALLY TELEVISED GAME ===
+  H3 won a national-TV game with |spread| <= 3                               n= 1445 | own ATS 699-717 (49.4%, -5.7%) | OVER 758-676 (52.9%, +0.9%; sm 50.5%) tot +1.69 | ML roi -5.0% | sprd -3.3 | p(ATS) 0.642 p(tot) 0.058
+      by season: 21: ATS 95-103 O 102-100 | 22: ATS 117-126 O 144-102 | 23: ATS 133-136 O 140-130 | 24: ATS 112-119 O 116-121 | 25: ATS 110-113 O 117-107 | 26: ATS 132-120 O 139-116
+     H3 | gap <=3 days                                                       n=  732 | own ATS 352-367 (49.0%, -6.5%) | OVER 394-333 (54.2%, +3.5%; sm 50.5%) tot +2.27 | ML roi -5.0% | sprd -2.7
+     H3 | gap 4-5 days                                                       n=  516 | own ATS 258-246 (51.2%, -2.2%) | OVER 250-260 (49.0%, -6.4%; sm 50.5%) tot +0.40 | ML roi -0.1% | sprd -3.6
+     H3 | gap 6+ days                                                        n=  197 | own ATS 89-104 (46.1%, -11.9%) | OVER 114-83 (57.9%, +10.4%; sm 50.5%) tot +2.89 | ML roi -17.9% | sprd -4.9
+     H3 | next at home                                                       n=  667 | own ATS 337-323 (51.1%, -2.5%) | OVER 348-312 (52.7%, +0.6%; sm 50.6%) tot +1.73 | ML roi +1.0% | sprd -8.3
+     H3 | next on the road                                                   n=  618 | own ATS 284-317 (47.3%, -9.7%) | OVER 331-283 (53.9%, +2.9%; sm 50.4%) tot +1.71 | ML roi -12.7% | sprd +1.1
+     H3 | next as favorite                                                   n=  879 | own ATS 435-429 (50.3%, -3.8%) | OVER 466-406 (53.4%, +2.0%; sm 50.6%) tot +1.69 | ML roi -1.3% | sprd -8.9
+     H3 | next as dog                                                        n=  550 | own ATS 255-281 (47.6%, -9.1%) | OVER 283-263 (51.8%, -1.1%; sm 50.4%) tot +1.61 | ML roi -11.2% | sprd +5.5
+     H3 | Nov-Dec                                                            n=  411 | own ATS 212-189 (52.9%, +1.0%) | OVER 209-198 (51.4%, -2.0%; sm 50.5%) tot +1.64 | ML roi -1.0% | sprd -6.0
+     H3 | Jan+                                                               n= 1034 | own ATS 487-528 (48.0%, -8.3%) | OVER 549-478 (53.5%, +2.0%; sm 50.5%) tot +1.71 | ML roi -6.6% | sprd -2.2
+  H3b won a BIG-network game (big_tv), any spread                            n= 1148 | own ATS 560-571 (49.5%, -5.5%) | OVER 586-549 (51.6%, -1.5%; sm 50.6%) tot +1.03 | ML roi -2.6% | sprd -7.1 | p(ATS) 0.750 p(tot) 0.355
+  H3c won any national-TV game                                               n= 5515 | own ATS 2719-2699 (50.2%, -4.2%) | OVER 2752-2708 (50.4%, -3.8%; sm 50.5%) tot +0.62 | ML roi -3.0% | sprd -4.5 | p(ATS) 0.777 p(tot) 0.707
+  H3 control: won a non-TV game with |spread| <= 3                           n= 5568 | own ATS 2723-2747 (49.8%, -5.0%) | OVER 2832-2685 (51.3%, -2.0%; sm 50.5%) tot +1.07 | ML roi -8.4% | sprd +0.1
+
+=== H4. ELECTRIC WINS ===
+  H4a upset (dog 7+) on national TV                                          n=  328 | own ATS 163-159 (50.6%, -3.3%) | OVER 161-165 (49.4%, -5.7%; sm 50.5%) tot -0.53 | ML roi -5.6% | sprd +0.9 | p(ATS) 0.853 p(tot) 0.845
+      by season: 21: ATS 27-26 O 32-22 | 22: ATS 27-26 O 27-28 | 23: ATS 25-30 O 28-27 | 24: ATS 25-21 O 23-23 | 25: ATS 33-28 O 31-31 | 26: ATS 26-28 O 20-34
+     H4a | gap <=3 days                                                      n=  157 | own ATS 72-80 (47.4%, -9.5%) | OVER 74-81 (47.7%, -8.8%; sm 50.5%) tot -2.14 | ML roi -14.9% | sprd +1.4
+     H4a | gap 4-5 days                                                      n=  134 | own ATS 73-61 (54.5%, +4.1%) | OVER 67-67 (50.0%, -4.6%; sm 50.5%) tot -0.02 | ML roi +1.2% | sprd +0.7
+     H4a | gap 6+ days                                                       n=37 (thin)
+     H4a | next at home                                                      n=  159 | own ATS 78-79 (49.7%, -5.1%) | OVER 76-82 (48.1%, -8.2%; sm 50.5%) tot -0.22 | ML roi +0.0% | sprd -3.1
+     H4a | next on the road                                                  n=  136 | own ATS 69-64 (51.9%, -0.9%) | OVER 70-66 (51.5%, -1.8%; sm 50.6%) tot -0.82 | ML roi -14.3% | sprd +4.8
+     H4a | next as favorite                                                  n=  146 | own ATS 74-71 (51.0%, -2.6%) | OVER 73-72 (50.3%, -3.9%; sm 50.5%) tot +0.78 | ML roi +0.5% | sprd -6.8
+     H4a | next as dog                                                       n=  182 | own ATS 89-88 (50.3%, -3.9%) | OVER 88-93 (48.6%, -7.2%; sm 50.5%) tot -1.58 | ML roi -10.5% | sprd +7.0
+     H4a | Nov-Dec                                                           n=   89 | own ATS 46-41 (52.9%, +1.0%) | OVER 42-46 (47.7%, -9.0%; sm 50.6%) tot +0.78 | ML roi +11.2% | sprd -2.2
+     H4a | Jan+                                                              n=  239 | own ATS 117-118 (49.8%, -4.9%) | OVER 119-119 (50.0%, -4.5%; sm 50.5%) tot -1.01 | ML roi -11.9% | sprd +2.0
+  H4b beat a ranked team on national TV                                      n=  745 | own ATS 359-374 (49.0%, -6.5%) | OVER 371-369 (50.1%, -4.3%; sm 50.5%) tot +0.32 | ML roi -2.1% | sprd -5.3 | p(ATS) 0.632 p(tot) 0.950
+     H4b | gap <=3 days                                                      n=  353 | own ATS 165-179 (48.0%, -8.5%) | OVER 182-169 (51.9%, -1.0%; sm 50.5%) tot +0.49 | ML roi -3.2% | sprd -4.6
+     H4b | gap 4-5 days                                                      n=  287 | own ATS 143-141 (50.4%, -3.9%) | OVER 137-147 (48.2%, -7.9%; sm 50.6%) tot -0.11 | ML roi +1.7% | sprd -5.1
+     H4b | gap 6+ days                                                       n=  105 | own ATS 51-54 (48.6%, -7.2%) | OVER 52-53 (49.5%, -5.5%; sm 50.5%) tot +0.93 | ML roi -9.2% | sprd -8.1
+     H4b | next at home                                                      n=  319 | own ATS 139-175 (44.3%, -15.5%) | OVER 167-149 (52.8%, +0.9%; sm 50.7%) tot +1.51 | ML roi -3.6% | sprd -11.7
+     H4b | next on the road                                                  n=  365 | own ATS 187-173 (51.9%, -0.8%) | OVER 177-186 (48.8%, -6.9%; sm 50.4%) tot -0.36 | ML roi +0.1% | sprd -0.1
+     H4b | next as favorite                                                  n=  504 | own ATS 238-258 (48.0%, -8.4%) | OVER 265-235 (53.0%, +1.1%; sm 50.6%) tot +1.11 | ML roi -2.6% | sprd -10.4
+     H4b | next as dog                                                       n=  233 | own ATS 117-112 (51.1%, -2.4%) | OVER 103-129 (44.4%, -15.2%; sm 50.4%) tot -1.29 | ML roi -1.1% | sprd +5.6
+     H4b | Nov-Dec                                                           n=  191 | own ATS 87-100 (46.5%, -11.2%) | OVER 86-104 (45.3%, -13.6%; sm 50.6%) tot +0.17 | ML roi -1.1% | sprd -12.7
+     H4b | Jan+                                                              n=  554 | own ATS 272-274 (49.8%, -4.9%) | OVER 285-265 (51.8%, -1.1%; sm 50.5%) tot +0.37 | ML roi -2.5% | sprd -2.7
+  H4c won as a 10+ dog ON THE ROAD                                           n=  564 | own ATS 301-257 (53.9%, +3.0%) | OVER 280-281 (49.9%, -4.7%; sm 50.6%) tot +0.19 | ML roi -12.3% | sprd +3.8 | p(ATS) 0.077 p(tot) 0.983
+  H4d beat a ranked team AT HOME (court storm)                               n=  380 | own ATS 195-180 (52.0%, -0.6%) | OVER 193-186 (50.9%, -2.8%; sm 50.5%) tot +1.67 | ML roi +4.3% | sprd +0.4 | p(ATS) 0.450 p(tot) 0.757
+      by season: 21: ATS 28-24 O 28-24 | 22: ATS 24-20 O 22-23 | 23: ATS 42-38 O 44-36 | 24: ATS 46-42 O 50-38 | 25: ATS 29-35 O 32-34 | 26: ATS 26-21 O 17-31
+     H4d | gap <=3 days                                                      n=  197 | own ATS 96-98 (49.5%, -5.5%) | OVER 104-92 (53.1%, +1.3%; sm 50.5%) tot +1.80 | ML roi -0.5% | sprd +0.2
+     H4d | gap 4-5 days                                                      n=  143 | own ATS 80-61 (56.7%, +8.5%) | OVER 68-75 (47.6%, -9.2%; sm 50.5%) tot +1.10 | ML roi +16.3% | sprd +1.0
+     H4d | gap 6+ days                                                       n=40 (thin)
+     H4d | next at home                                                      n=  131 | own ATS 62-66 (48.4%, -7.4%) | OVER 62-68 (47.7%, -8.9%; sm 50.6%) tot +0.49 | ML roi +1.0% | sprd -5.6
+     H4d | next on the road                                                  n=  241 | own ATS 129-110 (54.0%, +3.1%) | OVER 129-112 (53.5%, +2.2%; sm 50.5%) tot +2.47 | ML roi +6.7% | sprd +3.7
+     H4d | next as favorite                                                  n=  166 | own ATS 84-79 (51.5%, -1.6%) | OVER 96-69 (58.2%, +11.1%; sm 50.6%) tot +2.74 | ML roi -0.3% | sprd -7.7
+     H4d | next as dog                                                       n=  211 | own ATS 109-100 (52.2%, -0.3%) | OVER 97-114 (46.0%, -12.2%; sm 50.5%) tot +0.96 | ML roi +7.6% | sprd +6.7
+     H4d | Nov-Dec                                                           n=56 (thin)
+     H4d | Jan+                                                              n=  324 | own ATS 167-152 (52.4%, +0.1%) | OVER 168-155 (52.0%, -0.7%; sm 50.5%) tot +1.71 | ML roi +2.3% | sprd +1.4
+
+=== H5. RIVAL PROXY: beat a same-state conference opponent ===
+  H5 beat a same-state conference rival                                      n= 2801 | own ATS 1373-1384 (49.8%, -4.9%) | OVER 1403-1368 (50.6%, -3.4%; sm 50.5%) tot +0.96 | ML roi -5.4% | sprd -1.8 | p(ATS) 0.852 p(tot) 0.690
+      by season: 21: ATS 184-203 O 197-190 | 22: ATS 213-228 O 237-211 | 23: ATS 266-221 O 252-241 | 24: ATS 231-253 O 245-240 | 25: ATS 245-242 O 239-248 | 26: ATS 234-237 O 233-238
+     H5 | gap <=3 days                                                       n= 1450 | own ATS 706-719 (49.5%, -5.4%) | OVER 732-705 (50.9%, -2.8%; sm 50.5%) tot +1.48 | ML roi -6.0% | sprd -1.8
+     H5 | gap 4-5 days                                                       n= 1018 | own ATS 504-502 (50.1%, -4.3%) | OVER 511-494 (50.8%, -2.9%; sm 50.5%) tot +0.76 | ML roi -2.0% | sprd -1.8
+     H5 | gap 6+ days                                                        n=  333 | own ATS 163-163 (50.0%, -4.5%) | OVER 160-169 (48.6%, -7.2%; sm 50.5%) tot -0.70 | ML roi -12.9% | sprd -1.4
+     H5 | next at home                                                       n= 1377 | own ATS 655-696 (48.5%, -7.4%) | OVER 705-657 (51.8%, -1.2%; sm 50.5%) tot +1.12 | ML roi -4.7% | sprd -4.8
+     H5 | next on the road                                                   n= 1415 | own ATS 714-683 (51.1%, -2.4%) | OVER 691-709 (49.4%, -5.8%; sm 50.5%) tot +0.77 | ML roi -5.9% | sprd +1.2
+     H5 | next as favorite                                                   n= 1653 | own ATS 803-820 (49.5%, -5.6%) | OVER 816-819 (49.9%, -4.7%; sm 50.6%) tot +0.78 | ML roi -0.8% | sprd -7.3
+     H5 | next as dog                                                        n= 1130 | own ATS 565-551 (50.6%, -3.3%) | OVER 577-541 (51.6%, -1.5%; sm 50.4%) tot +1.22 | ML roi -11.5% | sprd +6.2
+     H5 | Nov-Dec                                                            n=  134 | own ATS 72-60 (54.5%, +4.1%) | OVER 61-73 (45.5%, -13.1%; sm 50.6%) tot +1.10 | ML roi -9.2% | sprd -1.7
+     H5 | Jan+                                                               n= 2667 | own ATS 1301-1324 (49.6%, -5.4%) | OVER 1342-1295 (50.9%, -2.9%; sm 50.5%) tot +0.95 | ML roi -5.2% | sprd -1.8
+  H5 control: beat an out-of-state conference opponent                       n=15125 | own ATS 7465-7421 (50.1%, -4.2%) | OVER 7607-7387 (50.7%, -3.2%; sm 50.5%) tot +0.83 | ML roi -4.4% | sprd -1.9
+
+=== H6. DRAMATIC FINISHES ===
+  H6 HIT the game-winner <= 1.0s (true buzzer beater)                        n=  560 | own ATS 258-294 (46.7%, -10.8%) | OVER 292-265 (52.4%, +0.1%; sm 50.5%) tot +1.97 | ML roi -8.3% | sprd +0.6
+  H6 GAVE UP the game-winner <= 1.0s (true buzzer beater)                    n=  553 | own ATS 274-273 (50.1%, -4.4%) | OVER 281-270 (51.0%, -2.6%; sm 50.5%) tot +0.93 | ML roi -14.4% | sprd +0.3
+  H6 HIT the game-winner <= 5s                                               n= 1031 | own ATS 509-510 (50.0%, -4.6%) | OVER 534-491 (52.1%, -0.5%; sm 50.5%) tot +1.61 | ML roi -5.9% | sprd +0.5 | p(ATS) 0.988 p(tot) 0.218
+      by season: 21: ATS 45-59 O 55-47 | 22: ATS 86-79 O 85-83 | 23: ATS 91-95 O 100-86 | 24: ATS 85-95 O 103-81 | 25: ATS 103-89 O 94-98 | 26: ATS 99-93 O 97-96
+  H6 GAVE UP the game-winner <= 5s                                           n= 1027 | own ATS 498-515 (49.2%, -6.1%) | OVER 520-500 (51.0%, -2.7%; sm 50.5%) tot +0.91 | ML roi -15.6% | sprd +0.2 | p(ATS) 0.610 p(tot) 0.587
+      by season: 21: ATS 54-45 O 50-49 | 22: ATS 82-86 O 88-81 | 23: ATS 89-99 O 91-97 | 24: ATS 94-83 O 97-85 | 25: ATS 89-103 O 97-97 | 26: ATS 90-99 O 97-91
+  H6 HIT the game-winner <= 24s                                              n= 1423 | own ATS 710-694 (50.6%, -3.4%) | OVER 727-690 (51.3%, -2.1%; sm 50.5%) tot +1.39 | ML roi -7.2% | sprd +0.1
+  H6 GAVE UP the game-winner <= 24s                                          n= 1422 | own ATS 692-709 (49.4%, -5.7%) | OVER 735-675 (52.1%, -0.5%; sm 50.5%) tot +1.46 | ML roi -15.6% | sprd +0.4
+     H6 hit <= 5s | gap <=3 days                                             n=  528 | own ATS 266-256 (51.0%, -2.6%) | OVER 277-248 (52.8%, +0.7%; sm 50.5%) tot +1.57 | ML roi -7.6% | sprd +0.7
+     H6 hit <= 5s | gap 4-5 days                                             n=  341 | own ATS 176-161 (52.2%, -0.2%) | OVER 176-163 (51.9%, -0.9%; sm 50.5%) tot +1.75 | ML roi -0.2% | sprd +0.1
+     H6 hit <= 5s | gap 6+ days                                              n=  162 | own ATS 67-93 (41.9%, -20.2%) | OVER 81-80 (50.3%, -4.0%; sm 50.5%) tot +1.45 | ML roi -12.4% | sprd +0.5
+     H6 hit <= 5s | next at home                                             n=  456 | own ATS 229-219 (51.1%, -2.4%) | OVER 254-200 (55.9%, +6.8%; sm 50.5%) tot +3.00 | ML roi +3.5% | sprd -4.3
+     H6 hit <= 5s | next on the road                                         n=  521 | own ATS 256-261 (49.5%, -5.4%) | OVER 257-260 (49.7%, -5.1%; sm 50.6%) tot +0.50 | ML roi -15.2% | sprd +4.7
+     H6 hit <= 5s | next as favorite                                         n=  491 | own ATS 243-241 (50.2%, -4.1%) | OVER 254-236 (51.8%, -1.0%; sm 50.5%) tot +1.54 | ML roi +1.5% | sprd -6.9
+     H6 hit <= 5s | next as dog                                              n=  535 | own ATS 263-267 (49.6%, -5.2%) | OVER 276-254 (52.1%, -0.6%; sm 50.5%) tot +1.56 | ML roi -12.9% | sprd +7.2
+     H6 hit <= 5s | Nov-Dec                                                  n=  316 | own ATS 138-172 (44.5%, -15.0%) | OVER 156-159 (49.5%, -5.4%; sm 50.7%) tot +0.51 | ML roi -22.2% | sprd +0.4
+     H6 hit <= 5s | Jan+                                                     n=  715 | own ATS 371-338 (52.3%, -0.1%) | OVER 378-332 (53.2%, +1.6%; sm 50.4%) tot +2.10 | ML roi +1.3% | sprd +0.5
+  H6 won in OT                                                               n= 1610 | own ATS 810-777 (51.0%, -2.5%) | OVER 793-804 (49.7%, -5.2%; sm 50.5%) tot +0.66 | ML roi -6.7% | sprd -0.6 | p(ATS) 0.430 p(tot) 0.815
+      by season: 21: ATS 81-82 O 83-82 | 22: ATS 133-118 O 135-119 | 23: ATS 150-161 O 148-161 | 24: ATS 146-148 O 148-150 | 25: ATS 145-135 O 138-145 | 26: ATS 155-133 O 141-147
+     OT win | gap <=3 days                                                   n=  813 | own ATS 411-390 (51.3%, -2.0%) | OVER 420-384 (52.2%, -0.3%; sm 50.5%) tot +1.44 | ML roi -7.9% | sprd -0.5
+     OT win | gap 4-5 days                                                   n=  552 | own ATS 285-261 (52.2%, -0.3%) | OVER 259-290 (47.2%, -9.9%; sm 50.5%) tot +0.09 | ML roi -2.0% | sprd -0.9
+     OT win | gap 6+ days                                                    n=  245 | own ATS 114-126 (47.5%, -9.3%) | OVER 114-130 (46.7%, -10.9%; sm 50.5%) tot -0.66 | ML roi -13.3% | sprd +0.0
+     OT win | next at home                                                   n=  738 | own ATS 366-359 (50.5%, -3.6%) | OVER 363-369 (49.6%, -5.3%; sm 50.5%) tot +0.36 | ML roi -1.4% | sprd -4.8
+     OT win | next on the road                                               n=  748 | own ATS 384-354 (52.0%, -0.6%) | OVER 374-370 (50.3%, -4.0%; sm 50.5%) tot +1.10 | ML roi -9.1% | sprd +3.5
+     OT win | next as favorite                                               n=  842 | own ATS 417-411 (50.4%, -3.9%) | OVER 404-433 (48.3%, -7.9%; sm 50.5%) tot -0.36 | ML roi -0.2% | sprd -7.3
+     OT win | next as dog                                                    n=  759 | own ATS 388-362 (51.7%, -1.2%) | OVER 384-367 (51.1%, -2.4%; sm 50.5%) tot +1.80 | ML roi -14.0% | sprd +6.9
+     OT win | Nov-Dec                                                        n=  513 | own ATS 249-258 (49.1%, -6.2%) | OVER 241-268 (47.3%, -9.6%; sm 50.6%) tot +0.39 | ML roi -12.5% | sprd -1.2
+     OT win | Jan+                                                           n= 1097 | own ATS 561-519 (51.9%, -0.8%) | OVER 552-536 (50.7%, -3.2%; sm 50.5%) tot +0.79 | ML roi -4.0% | sprd -0.3
+  H6 lost in OT                                                              n= 1587 | own ATS 794-775 (50.6%, -3.4%) | OVER 818-758 (51.9%, -0.9%; sm 50.5%) tot +1.11 | ML roi -7.2% | sprd +0.3 | p(ATS) 0.647 p(tot) 0.213
+      by season: 21: ATS 83-79 O 76-85 | 22: ATS 121-126 O 131-123 | 23: ATS 156-146 O 163-142 | 24: ATS 143-151 O 156-136 | 25: ATS 157-120 O 152-126 | 26: ATS 134-153 O 140-146
+  H6 won by 1-3 in regulation                                                n= 4029 | own ATS 1993-1970 (50.3%, -4.0%) | OVER 2071-1932 (51.7%, -1.2%; sm 50.5%) tot +1.20 | ML roi -6.4% | sprd -0.2 | p(ATS) 0.705 p(tot) 0.078
+  H6 lost by 1-3 in regulation                                               n= 3977 | own ATS 1953-1954 (50.0%, -4.6%) | OVER 2058-1883 (52.2%, -0.3%; sm 50.5%) tot +1.24 | ML roi -9.4% | sprd +0.6 | p(ATS) 1.000 p(tot) 0.020
+  H6 won by 20+                                                              n= 5358 | own ATS 2617-2652 (49.7%, -5.2%) | OVER 2742-2573 (51.6%, -1.5%; sm 50.6%) tot +0.97 | ML roi -4.1% | sprd -6.4 | p(ATS) 0.617 p(tot) 0.027
+  H6 lost by 20+                                                             n= 5323 | own ATS 2653-2592 (50.6%, -3.4%) | OVER 2587-2681 (49.1%, -6.3%; sm 50.7%) tot +0.33 | ML roi -17.0% | sprd +6.0 | p(ATS) 0.377 p(tot) 0.237
+
+=== H7. LUCK (win probability over regulation) ===
+  H7 LUCKY WIN: won in regulation with time-weighted WP < .5                 n= 7713 | own ATS 3795-3795 (50.0%, -4.5%) | OVER 3908-3734 (51.1%, -2.4%; sm 50.5%) tot +1.04 | ML roi -3.2% | sprd -2.6 | p(ATS) 1.000 p(tot) 0.255
+      by season: 21: ATS 450-464 O 477-441 | 22: ATS 651-656 O 685-634 | 23: ATS 703-671 O 723-658 | 24: ATS 722-656 O 712-680 | 25: ATS 696-716 O 720-699 | 26: ATS 573-632 O 591-622
+     H7 lucky win | gap <=3 days                                             n= 3776 | own ATS 1848-1869 (49.7%, -5.1%) | OVER 1912-1829 (51.1%, -2.4%; sm 50.5%) tot +1.28 | ML roi -4.9% | sprd -2.2
+     H7 lucky win | gap 4-5 days                                             n= 2615 | own ATS 1320-1249 (51.4%, -1.9%) | OVER 1333-1260 (51.4%, -1.9%; sm 50.5%) tot +0.96 | ML roi +0.9% | sprd -3.3
+     H7 lucky win | gap 6+ days                                              n= 1322 | own ATS 627-677 (48.1%, -8.2%) | OVER 663-645 (50.7%, -3.3%; sm 50.6%) tot +0.50 | ML roi -6.8% | sprd -2.5
+     H7 lucky win | next at home                                             n= 3945 | own ATS 1918-1960 (49.5%, -5.6%) | OVER 1997-1918 (51.0%, -2.6%; sm 50.6%) tot +1.06 | ML roi -0.1% | sprd -6.5
+     H7 lucky win | next on the road                                         n= 3205 | own ATS 1606-1551 (50.9%, -2.9%) | OVER 1626-1544 (51.3%, -2.1%; sm 50.5%) tot +0.98 | ML roi -6.7% | sprd +2.0
+     H7 lucky win | next as favorite                                         n= 4784 | own ATS 2318-2384 (49.3%, -5.9%) | OVER 2450-2296 (51.6%, -1.5%; sm 50.6%) tot +1.15 | ML roi -1.0% | sprd -8.1
+     H7 lucky win | next as dog                                              n= 2884 | own ATS 1457-1386 (51.2%, -2.1%) | OVER 1434-1417 (50.3%, -4.0%; sm 50.5%) tot +0.83 | ML roi -6.7% | sprd +6.5
+     H7 lucky win | Nov-Dec                                                  n= 2366 | own ATS 1144-1188 (49.1%, -6.3%) | OVER 1179-1163 (50.3%, -3.9%; sm 50.6%) tot +0.89 | ML roi -6.4% | sprd -2.0
+     H7 lucky win | Jan+                                                     n= 5347 | own ATS 2651-2607 (50.4%, -3.7%) | OVER 2729-2571 (51.5%, -1.7%; sm 50.5%) tot +1.11 | ML roi -1.8% | sprd -2.9
+  H7 very lucky: WP < .35 and won                                            n= 4258 | own ATS 2071-2122 (49.4%, -5.7%) | OVER 2122-2107 (50.2%, -4.2%; sm 50.5%) tot +0.89 | ML roi -4.5% | sprd -3.2 | p(ATS) 0.417 p(tot) 0.872
+  H7 undeserved COVER: covered with WP < .5                                  n= 8062 | own ATS 4006-3925 (50.5%, -3.6%) | OVER 4119-3876 (51.5%, -1.7%; sm 50.5%) tot +1.15 | ML roi -5.0% | sprd -1.2 | p(ATS) 0.345 p(tot) 0.050
+      by season: 21: ATS 477-475 O 511-446 | 22: ATS 677-670 O 708-648 | 23: ATS 731-703 O 773-678 | 24: ATS 766-685 O 755-709 | 25: ATS 744-730 O 761-723 | 26: ATS 611-662 O 611-672
+     H7 undeserved cover | gap <=3 days                                      n= 3941 | own ATS 1946-1929 (50.2%, -4.1%) | OVER 2001-1906 (51.2%, -2.2%; sm 50.5%) tot +1.18 | ML roi -6.3% | sprd -0.7
+     H7 undeserved cover | gap 4-5 days                                      n= 2748 | own ATS 1396-1305 (51.7%, -1.3%) | OVER 1409-1318 (51.7%, -1.4%; sm 50.5%) tot +1.18 | ML roi -1.1% | sprd -1.9
+     H7 undeserved cover | gap 6+ days                                       n= 1373 | own ATS 664-691 (49.0%, -6.4%) | OVER 709-652 (52.1%, -0.6%; sm 50.6%) tot +0.98 | ML roi -9.3% | sprd -1.0
+     H7 undeserved cover | next at home                                      n= 3979 | own ATS 1937-1975 (49.5%, -5.5%) | OVER 2019-1933 (51.1%, -2.5%; sm 50.5%) tot +1.12 | ML roi -1.8% | sprd -5.3
+     H7 undeserved cover | next on the road                                  n= 3515 | own ATS 1780-1681 (51.4%, -1.8%) | OVER 1813-1670 (52.1%, -0.6%; sm 50.6%) tot +1.21 | ML roi -9.4% | sprd +3.5
+     H7 undeserved cover | next as favorite                                  n= 4507 | own ATS 2214-2214 (50.0%, -4.6%) | OVER 2329-2146 (52.0%, -0.7%; sm 50.6%) tot +1.24 | ML roi -0.5% | sprd -7.7
+     H7 undeserved cover | next as dog                                       n= 3500 | own ATS 1763-1685 (51.1%, -2.3%) | OVER 1762-1703 (50.9%, -2.9%; sm 50.5%) tot +1.03 | ML roi -10.9% | sprd +7.3
+     H7 undeserved cover | Nov-Dec                                           n= 2482 | own ATS 1209-1237 (49.4%, -5.6%) | OVER 1255-1204 (51.0%, -2.6%; sm 50.6%) tot +1.04 | ML roi -8.9% | sprd -0.6
+     H7 undeserved cover | Jan+                                              n= 5580 | own ATS 2797-2688 (51.0%, -2.6%) | OVER 2864-2672 (51.7%, -1.2%; sm 50.5%) tot +1.19 | ML roi -3.3% | sprd -1.4
+  H7 lucky win AND undeserved cover                                          n= 6878 | own ATS 3396-3370 (50.2%, -4.2%) | OVER 3486-3332 (51.1%, -2.4%; sm 50.5%) tot +1.03 | ML roi -3.2% | sprd -2.1 | p(ATS) 0.742 p(tot) 0.233
+  H7 deserved LOSS: lost in regulation with WP >= .6 (known back)            n=15697 | own ATS 7700-7744 (49.9%, -4.8%) | OVER 7824-7740 (50.3%, -4.0%; sm 50.6%) tot +0.71 | ML roi -12.4% | sprd +2.8 | p(ATS) 0.705 p(tot) 0.815
+      by season: 21: ATS 849-826 O 837-858 | 22: ATS 1238-1256 O 1217-1294 | 23: ATS 1429-1420 O 1495-1381 | 24: ATS 1408-1483 O 1473-1441 | 25: ATS 1433-1436 O 1474-1410 | 26: ATS 1343-1323 O 1328-1356
+     H7 deserved loss | gap <=3 days                                         n= 7002 | own ATS 3425-3456 (49.8%, -4.9%) | OVER 3492-3444 (50.3%, -3.9%; sm 50.6%) tot +0.71 | ML roi -13.2% | sprd +3.4
+     H7 deserved loss | gap 4-5 days                                         n= 5293 | own ATS 2600-2611 (49.9%, -4.7%) | OVER 2647-2605 (50.4%, -3.8%; sm 50.6%) tot +0.82 | ML roi -10.5% | sprd +1.5
+     H7 deserved loss | gap 6+ days                                          n= 3402 | own ATS 1675-1677 (50.0%, -4.6%) | OVER 1685-1691 (49.9%, -4.7%; sm 50.6%) tot +0.54 | ML roi -13.8% | sprd +3.4
+     H7 deserved loss | next at home                                         n= 7408 | own ATS 3583-3704 (49.2%, -6.1%) | OVER 3697-3648 (50.3%, -3.9%; sm 50.5%) tot +0.78 | ML roi -7.3% | sprd -2.4
+     H7 deserved loss | next on the road                                     n= 7364 | own ATS 3671-3576 (50.7%, -3.2%) | OVER 3689-3613 (50.5%, -3.6%; sm 50.7%) tot +0.81 | ML roi -19.1% | sprd +8.1
+     H7 deserved loss | next as favorite                                     n= 6271 | own ATS 3004-3172 (48.6%, -7.2%) | OVER 3110-3107 (50.0%, -4.5%; sm 50.5%) tot +0.77 | ML roi -4.0% | sprd -6.9
+     H7 deserved loss | next as dog                                          n= 9335 | own ATS 4649-4528 (50.7%, -3.2%) | OVER 4674-4583 (50.5%, -3.6%; sm 50.6%) tot +0.69 | ML roi -18.2% | sprd +9.3
+     H7 deserved loss | Nov-Dec                                              n= 6631 | own ATS 3299-3225 (50.6%, -3.4%) | OVER 3205-3368 (48.8%, -6.9%; sm 50.7%) tot -0.04 | ML roi -13.7% | sprd +4.6
+     H7 deserved loss | Jan+                                                 n= 9066 | own ATS 4401-4519 (49.3%, -5.8%) | OVER 4619-4372 (51.4%, -1.9%; sm 50.5%) tot +1.25 | ML roi -11.5% | sprd +1.4
+  H7 blew a 15+ lead and LOST                                                n=  806 | own ATS 398-395 (50.2%, -4.2%) | OVER 411-390 (51.3%, -2.0%; sm 50.5%) tot +0.76 | ML roi -7.5% | sprd +0.9 | p(ATS) 0.918 p(tot) 0.500
+  H7 came back from 15+ and WON                                              n=  813 | own ATS 386-416 (48.1%, -8.1%) | OVER 402-409 (49.6%, -5.4%; sm 50.5%) tot +0.74 | ML roi -16.1% | sprd -1.2 | p(ATS) 0.302 p(tot) 0.828
+  H7 control: deserved win (WP >= .6, won)                                   n=16561 | own ATS 8101-8189 (49.7%, -5.0%) | OVER 8298-8112 (50.6%, -3.5%; sm 50.5%) tot +0.77 | ML roi -6.6% | sprd -2.8
+
+=== THE OWNER'S COMBINATION: big win, then 4-5+ days off ===
+  any 'big win' (upset 7+, beat ranked, or tight national-TV win)            n= 3811 | own ATS 1896-1847 (50.7%, -3.2%) | OVER 1954-1830 (51.6%, -1.4%; sm 50.5%) tot +1.13 | ML roi -7.7% | sprd -0.5 | p(ATS) 0.430 p(tot) 0.112
+      by season: 21: ATS 233-252 O 250-240 | 22: ATS 299-301 O 336-271 | 23: ATS 351-350 O 359-344 | 24: ATS 342-314 O 336-336 | 25: ATS 335-309 O 340-310 | 26: ATS 336-321 O 333-329
+     big win | gap <=3 days                                                  n= 1845 | own ATS 918-894 (50.7%, -3.2%) | OVER 967-866 (52.8%, +0.7%; sm 50.5%) tot +1.54 | ML roi -8.9% | sprd +0.2
+     big win | gap 4-5 days                                                  n= 1344 | own ATS 669-651 (50.7%, -3.2%) | OVER 670-664 (50.2%, -4.1%; sm 50.5%) tot +0.70 | ML roi -4.6% | sprd -1.2
+     big win | gap 6+ days                                                   n=  622 | own ATS 309-302 (50.6%, -3.4%) | OVER 317-300 (51.4%, -1.9%; sm 50.6%) tot +0.84 | ML roi -11.1% | sprd -0.9
+     big win | next at home                                                  n= 1749 | own ATS 864-858 (50.2%, -4.2%) | OVER 906-828 (52.2%, -0.3%; sm 50.5%) tot +1.49 | ML roi -2.7% | sprd -5.3
+     big win | next on the road                                              n= 1746 | own ATS 875-838 (51.1%, -2.4%) | OVER 894-841 (51.5%, -1.6%; sm 50.6%) tot +0.93 | ML roi -13.0% | sprd +4.1
+     big win | next as favorite                                              n= 1890 | own ATS 928-929 (50.0%, -4.6%) | OVER 982-897 (52.3%, -0.2%; sm 50.6%) tot +1.37 | ML roi -0.1% | sprd -8.3
+     big win | next as dog                                                   n= 1893 | own ATS 955-903 (51.4%, -1.8%) | OVER 957-920 (51.0%, -2.7%; sm 50.5%) tot +0.86 | ML roi -15.3% | sprd +7.3
+     big win | Nov-Dec                                                       n= 1188 | own ATS 592-574 (50.8%, -3.1%) | OVER 581-597 (49.3%, -5.9%; sm 50.6%) tot +0.48 | ML roi -9.3% | sprd -1.8
+     big win | Jan+                                                          n= 2623 | own ATS 1304-1273 (50.6%, -3.3%) | OVER 1373-1233 (52.7%, +0.6%; sm 50.5%) tot +1.42 | ML roi -7.0% | sprd +0.1
+  big win, then 4+ days off                                                  n= 1966 | own ATS 978-953 (50.6%, -3.3%) | OVER 987-964 (50.6%, -3.4%; sm 50.6%) tot +0.74 | ML roi -6.6% | sprd -1.1 | p(ATS) 0.580 p(tot) 0.707
+      by season: 21: ATS 125-127 O 142-113 | 22: ATS 147-149 O 148-147 | 23: ATS 169-170 O 172-170 | 24: ATS 183-162 O 183-170 | 25: ATS 180-171 O 177-176 | 26: ATS 174-174 O 165-188
+  big win, then 6+ days off                                                  n=  622 | own ATS 309-302 (50.6%, -3.4%) | OVER 317-300 (51.4%, -1.9%; sm 50.6%) tot +0.84 | ML roi -11.1% | sprd -0.9 | p(ATS) 0.795 p(tot) 0.558
+  big win, then <= 2 days off                                                n=  684 | own ATS 341-325 (51.2%, -2.2%) | OVER 343-337 (50.4%, -3.7%; sm 50.5%) tot +0.82 | ML roi -11.8% | sprd +2.1
