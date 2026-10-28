@@ -63,6 +63,7 @@ minus away margin), `grade_price`, `graded_at`. Read-only to anon and authentica
 | `ncaab_small_vs_big_d_over` | total | team A: 3PA rate bottom quarter AND 3P% below median (season to date, ≥ 6 games); team B: KenPom effective height ≥ +1.0" taller AND KenPom AdjDE top 20% as of today → bet OVER | 258-176 (59.4%), +13.4%, 2020-21 to 2025-26, six of six seasons | candidate (`tier = tracking`) |
 | `ncaab_bad_o_great_d_over` | total | team A KenPom AdjOE rank in the bottom 20% of D-I AND team B KenPom AdjDE rank in the top 20%, as of today (fires from opening night) → bet OVER | 350-269 (56.5%), +7.9%, 2020-21 to 2025-26, five of six seasons | candidate (`tier = tracking`) |
 | `ncaab_first_road_game_fade` | spread | true road game; the away team has no earlier completed true road game this season (opener or all home/neutral so far); the away team is NOT a 10.5-17 dog (that is the road-dog spot, a coin flip) → back the HOME team | 933-766 (54.9%), +4.9%, six of six seasons; visitor favored 243-185 (56.8%) | candidate (`tier = tracking`; conviction med when the visitor is favored) |
+| `ncaab_thin_bench_long_trip` | spread | true road game; the away team's two previous games were true road games (third-or-later in a row); its KenPom bench-minutes share is in the bottom 20% of D-I; it is an underdog → back the visitor | 290-213 (57.7%), +10.1%, 2020-21 to 2025-26, five of six seasons | candidate (`tier = tracking`) |
 
 Research: `research/ncaab-hype/README.md`, `research/ncaab-lookahead/README.md`, `research/ncaab-continuity/README.md`,
 `research/ncaab-size-defense/README.md`, `research/ncaab-matchups/README.md`, `research/ncaab-calendar/README.md`, `research/ncaab-road-trips/README.md`, and `research/bball-odds/CBB_PORT_BRIEF.md` + `CBB_WP_LUCK_DEEP_BRIEF.md` for the third-meeting,
@@ -78,7 +79,7 @@ refreshed on every run. The new-coach signal freezes its qualifying list for the
 
 - `ncaab-hype-signal`: 10:00am and 4:00pm ET, November–April. Runs every situational signal in turn (hype fade, look-ahead dogs,
   new-coach back, third-meeting under, road dog, luck storm, second-half-control back, size-vs-defense over, bad-offense-vs-great-defense
-  over, first-road-trip fade); writes flags for games
+  over, first-road-trip fade, thin-bench long-trip dog); writes flags for games
   tipping today through two days out; removes a flag whose game no longer qualifies before tip.
 - `ncaab-model-nightly`: 8:30am, 12:30pm, 4:30pm, 6:30pm ET, October–April. Refreshes the season's feeds, refits, prices
   every game of the next two days that has a line, writes the three tables above. **Opening of the season** (owner call
