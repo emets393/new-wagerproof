@@ -91,6 +91,28 @@ refreshed on every run. The new-coach signal freezes its qualifying list for the
 - `ncaab-signal-grader`: 7:30am ET, November–April. Grades yesterday's flags from College Basketball Data finals and
   rewrites the season columns on the defs. `--rollover` is run by hand in June.
 
+## Data pipeline — how the season's data accumulates (audited 2026-10-28)
+
+Every input is pulled incrementally from the live sources as games are played; nothing needs loading by hand. All crons are in
+`cfb_automation/render.yaml` (CFB Supabase project).
+
+| data | source | job (UTC) | before the first game | after |
+|---|---|---|---|---|
+| schedule, finals, ESPN ids | CBBD `/games`, **weekly chunks** | `ncaab-model-nightly` 13:30/17:30/21:30/23:30; `nba-boxscores-and-ratings` 10:00 → `cbb_game_schedule` | full 2026-27 schedule already in (5,000+ games; feed view 213 games Nov 1–3) | finals appear the morning after |
+| team / player box, play-by-play | CBBD `/games/teams` (weekly), `/games/players` (daily), `/plays/date` (daily) | `ncaab-model-nightly`, cached per finished day in Storage `ncaab_model/<season>/…` | skipped (0 finals) | fetched from the first morning; the model trains on this season's graded games with a close |
+| adjusted O/D/pace, trends | CBBD team box → `cbb_team_pregame_metrics` | `cbb-metrics-and-nba-form` 10:30 (weekly chunks) | empty by design — `adj_*` columns null in the feed | filled daily from Nov 2 |
+| roster experience / continuity / height | KenPom `height?y=` → `cbb_preseason_roster_talent` (`cbb_roster_talent_kenpom.py`) | `cbb-metrics-and-nba-form` 10:30 | KenPom publishes zeros until games are played → columns null | z-scored indices daily; `ws_prev_*` / `roster_count*` have no source and stay null |
+| KenPom ratings | `archive?d=` (dated, leak-safe) with `ratings?y=` fallback | `ncaab-model-nightly` | archive 404s → live preseason ratings | dated archive cached per day |
+| AP / coaches polls | CBBD `/rankings` (signals), ESPN → `cbb_rankings_daily` (feed) | signal chain; 10:00 | preseason polls in | weekly |
+| lines, closes | The Odds API → `cbb_team_lines_history` (every run), live medians in the model/signal jobs | `nba-cbb-odds-and-predictions` 11,15,18 and **hourly 20–02** so the last capture before tip ≈ T-60 | 7 opening games priced | every priced game |
+| power ratings, luck | TeamRankings → `ncaab_ratings` | `ncaab-teamrankings-schedule` 11:00/12:00, `nba_ncaab_ratings.py` 10:00 | in (365 teams) | daily |
+| signal flags, grading | the 13-job chain → `ncaab_slate_flags`; `ncaab_signal_grader.py` (finals via weekly chunks) | `ncaab-hype-signal` 15:00/21:00; `ncaab-signal-grader` 12:30 | 0 flags (no spreads yet beyond 7 games; most signals need played games) | flags from the first posted lines; graded 7:30am ET |
+
+**Trap fixed 2026-10-28:** a CBBD response silently caps (≈1,600 rows on `/games`, 3,000 on `/games/teams`). A November month
+exceeds both, so the monthly pulls in the model feed, the signal library, the flow-loss job, the metrics builder and the
+grader's season-level finals call all dropped games. Everything now pulls in weekly chunks. Also fixed: the preseason KenPom
+height table is all zeros and was feeding the model literal 0 (all-freshman, no bench) — it is NaN until games are played.
+
 ## For Cursor — the full wiring brief (2026-10-28)
 
 **Status:** the backend is complete and live. 15 signal defs, the originator model, the grader and every cron run in production; nothing on
@@ -104,7 +126,7 @@ wire the UI; if a field is missing, ask rather than guess.
 | `ncaab_slate_flags` | signal × game × market (unique `(espn_game_id, signal_key, market)`) | `espn_game_id`, `game_id` (CBBD), `game_date`, `game` ("AWAY @ HOME"), `signal_key`, `market`, `side` ("Siena +6.5" / "OVER 141.5"), `bet_team` (spreads), `bet_direction` (totals: over/under), `bet_line`, `conviction` (low/med/high), `tier` (tracking), `trigger_text` (the sentence to show), `trigger_value`, `record_text`, `result`/`actual_value`/`graded_at` (null until graded), `updated_at` |
 | `ncaab_model_preds` | game × market (spread, total), latest `run_id` | model line vs posted line, `edge`, `tier` (`bet` = inside the 1.5–4 band on the spread; `pass` otherwise; totals are always pass by design) |
 | `ncaab_predictions` | game, latest `run_id` | moneyline/win-prob surface derived from the model spread (`model_fair_*`, `home_win_prob`, `vegas_*`), `model_version = cbb_originator_v1` |
-| `v_cbb_input_values` / `cbb_game_schedule` | game | the feed row (213 games for Nov 1–3 today); `game_id` is the CBBD id — **join flags and preds on `game_id`** (both tables carry it alongside `espn_game_id`; the feed view has no ESPN id) |
+| `v_cbb_input_values` / `cbb_game_schedule` | game | the feed row (213 games for Nov 1–3 today); `game_id` is the CBBD id — **join flags and preds on `game_id`** (both tables carry it alongside `espn_game_id`; the feed view has no ESPN id); `adj_*`, `*_experience_index`, `*_continuity_index` are null until games are played (see Data pipeline) |
 
 ### Cards
 1. **Game card signal strip + Signals section** — same shape as the NBA signals card (doc 26). For each flag on the game: `side` as the headline,
