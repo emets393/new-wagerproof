@@ -61,9 +61,11 @@ minus away margin), `grade_price`, `graded_at`. Read-only to anon and authentica
 | `ncaab_three_point_luck_storm` | spread | team's shooters are ≥ 3.1 pts/game BELOW their own three-point rates over the last 5 games (shooter by shooter, career prior shrunk to league) and the opponent's are ≥ 4.1 ABOVE → back the cold team | 1,740-1,538-46 (53.1%), +1.3%, 2020-21 to 2025-26, five of six seasons | candidate (`tier = tracking`, conviction low) |
 | `ncaab_lost_controlling_2h` | spread | team's last game was a regulation loss in which its time-weighted win probability over the 2nd half was ≥ .60 (CBBD play-by-play) → back it in its next game | 1,075-908-24 (54.2%), +3.5%, six of six seasons | candidate (`tier = tracking`) |
 | `ncaab_small_vs_big_d_over` | total | team A: 3PA rate bottom quarter AND 3P% below median (season to date, ≥ 6 games); team B: KenPom effective height ≥ +1.0" taller AND KenPom AdjDE top 20% as of today → bet OVER | 258-176 (59.4%), +13.4%, 2020-21 to 2025-26, six of six seasons | candidate (`tier = tracking`) |
+| `ncaab_bad_o_great_d_over` | total | team A KenPom AdjOE rank in the bottom 20% of D-I AND team B KenPom AdjDE rank in the top 20%, as of today (fires from opening night) → bet OVER | 350-269 (56.5%), +7.9%, 2020-21 to 2025-26, five of six seasons | candidate (`tier = tracking`) |
+| `ncaab_first_road_game_fade` | spread | true road game; the away team has no earlier completed true road game this season (opener or all home/neutral so far) → back the HOME team | 1,130-978 (53.6%), +2.4%, six of six seasons; visitor favored 243-185 (56.8%) | candidate (`tier = tracking`; conviction med when the visitor is favored) |
 
 Research: `research/ncaab-hype/README.md`, `research/ncaab-lookahead/README.md`, `research/ncaab-continuity/README.md`,
-`research/ncaab-size-defense/README.md`, and `research/bball-odds/CBB_PORT_BRIEF.md` + `CBB_WP_LUCK_DEEP_BRIEF.md` for the third-meeting,
+`research/ncaab-size-defense/README.md`, `research/ncaab-matchups/README.md`, `research/ncaab-calendar/README.md`, and `research/bball-odds/CBB_PORT_BRIEF.md` + `CBB_WP_LUCK_DEEP_BRIEF.md` for the third-meeting,
 road-dog, luck-storm and second-half-control reads (September 2026 port of the NBA session). One script per signal in
 `cfb_automation/scripts/cfb/ncaab_*_signal.py`, sharing `ncaab_signal_lib.py` (CBBD schedule, Odds API consensus with the
 neutral-site flip, flag row, stale-flag removal). The hype
@@ -75,7 +77,8 @@ refreshed on every run. The new-coach signal freezes its qualifying list for the
 ## Timing
 
 - `ncaab-hype-signal`: 10:00am and 4:00pm ET, November–April. Runs every situational signal in turn (hype fade, look-ahead dogs,
-  new-coach back, third-meeting under, road dog, luck storm, second-half-control back, size-vs-defense over); writes flags for games
+  new-coach back, third-meeting under, road dog, luck storm, second-half-control back, size-vs-defense over, bad-offense-vs-great-defense
+  over, first-road-trip fade); writes flags for games
   tipping today through two days out; removes a flag whose game no longer qualifies before tip.
 - `ncaab-model-nightly`: 8:30am, 12:30pm, 4:30pm, 6:30pm ET, October–April. Refreshes the season's feeds, refits, prices
   every game of the next two days that has a line, writes the three tables above. **Opening of the season** (owner call

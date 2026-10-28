@@ -1,0 +1,80 @@
+team-games 63,882; MTE rows 3,944; three-in-three rows 731; two-in-two 4,126
+
+=== C1. THREE GAMES IN THREE DAYS (November events) ===
+  C1 own on its 3rd game in 3 days (Nov)                                           n=  376 | own ATS 184-186 (49.7%, -5.0%) | UNDER 175-197 (47.0%, -10.2%; over roi +1.1%, spread-matched over 50.5%) tot +1.51 | own sprd +0.3 | p(ATS) 0.936 p(total) 0.251
+      by season: 21: ATS 8-10 U 12-6 | 22: ATS 29-27 U 20-36 | 23: ATS 49-48 U 41-56 | 24: ATS 33-36 U 38-33 | 25: ATS 35-34 U 34-35 | 26: ATS 30-31 U 30-31
+     ... opponent NOT on 3 in 3 (fresher)                                          n=28 (thin)
+     ... opponent ALSO on 3 in 3                                                   n=  348 | own ATS 171-171 (50.0%, -4.5%) | UNDER 160-184 (46.5%, -11.2%; over roi +2.1%, spread-matched over 50.5%) tot +1.81 | own sprd +0.0
+     ... opponent rested 2+ days                                                   n=4 (thin)
+     ... own favored                                                               n=  181 | own ATS 91-87 (51.1%, -2.3%) | UNDER 83-96 (46.4%, -11.5%; over roi +2.4%, spread-matched over 50.6%) tot +1.86 | own sprd -5.5
+     ... own underdog                                                              n=  191 | own ATS 91-97 (48.4%, -7.5%) | UNDER 90-99 (47.6%, -9.1%; over roi -0.0%, spread-matched over 50.4%) tot +0.94 | own sprd +5.7
+     ... own deep bench (Bench share >= opp + 5)                                   n=   98 | own ATS 50-48 (51.0%, -2.5%) | UNDER 45-53 (45.9%, -12.3%; over roi +3.2%, spread-matched over 50.5%) tot +2.21 | own sprd +0.7
+     ... own thin bench (<= opp - 5)                                               n=   95 | own ATS 44-49 (47.3%, -9.7%) | UNDER 57-38 (60.0%, +14.6%; over roi -23.6%, spread-matched over 50.6%) tot -4.17 | own sprd +0.5
+     ... own experienced (Exp >= 2.0 yrs)                                          n=  142 | own ATS 64-74 (46.4%, -11.5%) | UNDER 79-63 (55.6%, +6.2%; over roi -15.3%, spread-matched over 50.5%) tot -2.62 | own sprd -0.4
+     ... own young (Exp < 1.5)                                                     n=  113 | own ATS 58-55 (51.3%, -1.9%) | UNDER 43-66 (39.4%, -24.7%; over roi +15.6%, spread-matched over 50.5%) tot +6.21 | own sprd +0.7
+     control: 2nd game in 2 days (Nov), not 3 in 3                                 n= 1165 | own ATS 571-572 (50.0%, -4.6%) | UNDER 571-574 (49.9%, -4.8%; over roi -4.3%, spread-matched over 50.5%) tot +0.12 | own sprd +0.7
+     control: MTE game, rested (rest >= 2)                                         n= 1989 | own ATS 977-984 (49.8%, -4.9%) | UNDER 1019-955 (51.6%, -1.5%; over roi -7.7%, spread-matched over 50.5%) tot +0.17 | own sprd -0.1
+     ... 3 in 3 at ANY month (conference tournaments included)                     n=  731 | own ATS 371-352 (51.3%, -2.0%) | UNDER 367-358 (50.6%, -3.4%; over roi -5.7%, spread-matched over 50.5%) tot +0.65 | own sprd +1.1
+      by season: 21: ATS 38-38 U 45-32 | 22: ATS 61-55 U 51-65 | 23: ATS 76-75 U 75-76 | 24: ATS 66-63 U 65-65 | 25: ATS 68-63 U 67-64 | 26: ATS 62-58 U 64-56
+     ... 3 in 3 in March (conference tournament days 3)                            n=  324 | own ATS 171-151 (53.1%, +1.4%) | UNDER 178-144 (55.3%, +5.5%; over roi -14.6%, spread-matched over 50.4%) tot -0.20 | own sprd +2.2
+
+=== C2. FIRST CONFERENCE GAMES AFTER THE NON-CONFERENCE RESUME ===
+  C2 SOFT non-conf (opp EM bottom quarter) & non-conf win% >= .80: conference game 1 n=45 (thin)
+     ... & undefeated in non-conference: conference game 1                         n=5 (thin)
+     HARD non-conf (opp EM top quarter) & non-conf win% <= .50: conference game 1  n=  212 | own ATS 91-120 (43.1%, -17.6%) | UNDER 108-103 (51.2%, -2.3%; over roi -6.8%, spread-matched over 50.6%) tot +0.87 | own sprd +2.5
+     control: soft schedule, mediocre record (win% .5-.7): conference game 1       n=  161 | own ATS 82-78 (51.2%, -2.2%) | UNDER 80-81 (49.7%, -5.1%; over roi -3.9%, spread-matched over 50.6%) tot +0.37 | own sprd +0.0
+     control: hard schedule, good record (>= .7): conference game 1                n=  187 | own ATS 110-76 (59.1%, +12.9%) | UNDER 99-86 (53.5%, +2.1%; over roi -11.3%, spread-matched over 50.7%) tot -0.06 | own sprd -6.6
+  C2 SOFT non-conf (opp EM bottom quarter) & non-conf win% >= .80: conference games 1-3 n=  135 | own ATS 78-56 (58.2%, +11.1%) | UNDER 75-59 (56.0%, +6.8%; over roi -15.9%, spread-matched over 50.6%) tot -1.84 | own sprd -2.8 | p(ATS) 0.061 p(total) 0.181
+      by season: 21: ATS 14-13 U 17-9 | 22: ATS 8-4 U 4-8 | 23: ATS 7-11 U 10-8 | 24: ATS 19-5 U 11-13 | 25: ATS 15-12 U 18-9 | 26: ATS 15-11 U 15-12
+     ... & undefeated in non-conference: conference games 1-3                      n=15 (thin)
+     HARD non-conf (opp EM top quarter) & non-conf win% <= .50: conference games 1-3 n=  636 | own ATS 301-332 (47.6%, -9.2%) | UNDER 316-314 (50.2%, -4.3%; over roi -4.8%, spread-matched over 50.6%) tot +0.63 | own sprd +1.8 | p(ATS) 0.246 p(total) 0.953
+      by season: 21: ATS 35-46 U 42-38 | 22: ATS 48-54 U 47-53 | 23: ATS 52-58 U 57-52 | 24: ATS 63-63 U 65-61 | 25: ATS 48-55 U 56-48 | 26: ATS 55-56 U 49-62
+     control: soft schedule, mediocre record (win% .5-.7): conference games 1-3    n=  483 | own ATS 252-225 (52.8%, +0.9%) | UNDER 217-264 (45.1%, -13.9%; over roi +4.8%, spread-matched over 50.5%) tot +2.72 | own sprd -0.2
+     control: hard schedule, good record (>= .7): conference games 1-3             n=  561 | own ATS 298-257 (53.7%, +2.5%) | UNDER 268-288 (48.2%, -8.0%; over roi -1.2%, spread-matched over 50.7%) tot +1.42 | own sprd -5.7
+  C2 SOFT non-conf (opp EM bottom quarter) & non-conf win% >= .80: conference games 1-5 n=  225 | own ATS 123-100 (55.2%, +5.3%) | UNDER 116-107 (52.0%, -0.7%; over roi -8.3%, spread-matched over 50.6%) tot -0.41 | own sprd -2.7
+     ... & undefeated in non-conference: conference games 1-5                      n=25 (thin)
+     HARD non-conf (opp EM top quarter) & non-conf win% <= .50: conference games 1-5 n= 1060 | own ATS 516-533 (49.2%, -6.1%) | UNDER 521-525 (49.8%, -4.9%; over roi -4.2%, spread-matched over 50.6%) tot +0.65 | own sprd +1.5
+     control: soft schedule, mediocre record (win% .5-.7): conference games 1-5    n=  805 | own ATS 413-381 (52.0%, -0.7%) | UNDER 377-420 (47.3%, -9.7%; over roi +0.6%, spread-matched over 50.5%) tot +1.67 | own sprd -0.2
+     control: hard schedule, good record (>= .7): conference games 1-5             n=  935 | own ATS 464-458 (50.3%, -3.9%) | UNDER 425-501 (45.9%, -12.4%; over roi +3.2%, spread-matched over 50.7%) tot +1.92 | own sprd -5.6
+     soft+shiny, games 1-3, as FAVORITE                                            n=   90 | own ATS 51-38 (57.3%, +9.3%) | UNDER 49-40 (55.1%, +5.2%; over roi -14.2%, spread-matched over 50.8%) tot -2.26 | own sprd -7.1
+     soft+shiny, games 1-3, as DOG                                                 n=45 (thin)
+     soft+shiny, games 1-3, on the ROAD                                            n=   66 | own ATS 38-28 (57.6%, +9.9%) | UNDER 35-30 (53.8%, +2.7%; over roi -11.8%, spread-matched over 50.6%) tot -1.09 | own sprd -0.3
+     soft+shiny, games 1-3, at HOME                                                n=   69 | own ATS 40-28 (58.8%, +12.2%) | UNDER 40-29 (58.0%, +10.7%; over roi -19.8%, spread-matched over 50.7%) tot -2.55 | own sprd -5.1
+     soft+shiny AND covered in non-conf (ATS margin >= +3/g)                       n=57 (thin)
+     soft+shiny but did NOT cover in non-conf (<= 0)                               n=21 (thin)
+  -- dose: non-conf SOS quintile x win% >= .8, conference games 1-3, own ATS
+       SOS quintile 1 (1 = softest)                                                n=  108 | own ATS 66-41 (61.7%, +17.7%) | UNDER 59-48 (55.1%, +5.2%; over roi -14.3%, spread-matched over 50.7%) tot -1.81 | own sprd -3.0
+       SOS quintile 2 (1 = softest)                                                n=  114 | own ATS 54-58 (48.2%, -8.0%) | UNDER 51-62 (45.1%, -13.9%; over roi +4.7%, spread-matched over 50.6%) tot +1.03 | own sprd -2.9
+       SOS quintile 3 (1 = softest)                                                n=  120 | own ATS 53-65 (44.9%, -14.3%) | UNDER 61-59 (50.8%, -3.0%; over roi -6.1%, spread-matched over 50.7%) tot +0.40 | own sprd -2.7
+       SOS quintile 4 (1 = softest)                                                n=  156 | own ATS 88-64 (57.9%, +10.6%) | UNDER 90-66 (57.7%, +10.2%; over roi -19.3%, spread-matched over 50.7%) tot -0.65 | own sprd -4.5
+       SOS quintile 5 (1 = softest)                                                n=  243 | own ATS 131-111 (54.1%, +3.3%) | UNDER 124-115 (51.9%, -1.0%; over roi -8.2%, spread-matched over 50.7%) tot +0.70 | own sprd -7.2
+
+=== C3. LONG DECEMBER LAYOFF (exam break) -> FIRST GAME BACK ===
+  C3 own off 8+ days in December                                                   n= 1596 | own ATS 785-789 (49.9%, -4.7%) | UNDER 747-837 (47.2%, -10.0%; over roi +0.9%, spread-matched over 50.8%) tot +1.37 | own sprd +2.5 | p(ATS) 0.915 p(total) 0.081
+      by season: 21: ATS 89-89 U 84-93 | 22: ATS 102-123 U 103-118 | 23: ATS 141-144 U 132-157 | 24: ATS 134-151 U 129-166 | 25: ATS 142-124 U 124-142 | 26: ATS 177-158 U 175-161
+     ... 10+ days                                                                  n=  713 | own ATS 334-369 (47.5%, -9.2%) | UNDER 338-371 (47.7%, -9.0%; over roi -0.1%, spread-matched over 50.8%) tot +1.75 | own sprd +3.1
+     ... opponent NOT off 8+ (rest <= 4)                                           n=  653 | own ATS 314-327 (49.0%, -6.4%) | UNDER 311-333 (48.3%, -7.9%; over roi -1.3%, spread-matched over 50.9%) tot +1.21 | own sprd +3.7
+     ... both teams off 8+                                                         n=  484 | own ATS 240-240 (50.0%, -4.5%) | UNDER 220-262 (45.6%, -12.9%; over roi +3.7%, spread-matched over 50.8%) tot +1.62 | own sprd +0.0
+     ... own favored                                                               n=  653 | own ATS 313-333 (48.5%, -7.5%) | UNDER 300-346 (46.4%, -11.4%; over roi +2.2%, spread-matched over 50.7%) tot +1.94 | own sprd -9.1
+     ... own dog                                                                   n=  934 | own ATS 468-451 (50.9%, -2.7%) | UNDER 443-486 (47.7%, -9.0%; over roi -0.2%, spread-matched over 50.9%) tot +0.86 | own sprd +10.6
+     ... power-conference? (KenPom EM > +10)                                       n=  245 | own ATS 121-123 (49.6%, -5.3%) | UNDER 115-130 (46.9%, -10.4%; over roi +1.3%, spread-matched over 50.8%) tot +1.12 | own sprd -8.9
+     ... weak team (EM < -5)                                                       n=  664 | own ATS 330-324 (50.5%, -3.6%) | UNDER 319-340 (48.4%, -7.6%; over roi -1.5%, spread-matched over 50.9%) tot +0.86 | own sprd +8.4
+     control: 5-7 days off in December                                             n= 2838 | own ATS 1411-1384 (50.5%, -3.6%) | UNDER 1397-1416 (49.7%, -5.2%; over roi -3.9%, spread-matched over 50.8%) tot +0.71 | own sprd -0.3
+     long layoff in January-February (8+)                                          n= 1221 | own ATS 595-611 (49.3%, -5.8%) | UNDER 613-604 (50.4%, -3.9%; over roi -5.3%, spread-matched over 50.6%) tot +1.05 | own sprd +0.6
+
+=== C4. FIRST TRUE ROAD GAME OF THE SEASON ===
+  C4 own's first true road game, after 3+ home/neutral games                       n=  768 | own ATS 350-408 (46.2%, -11.8%) | UNDER 393-366 (51.8%, -1.2%; over roi -8.0%, spread-matched over 50.6%) tot +0.58 | own sprd +2.7 | p(ATS) 0.037 p(total) 0.347
+      by season: 21: ATS 77-68 U 71-74 | 22: ATS 54-64 U 54-63 | 23: ATS 54-68 U 73-51 | 24: ATS 46-79 U 59-70 | 25: ATS 50-69 U 64-52 | 26: ATS 69-60 U 72-56
+     ... after 5+ games at home/neutral                                            n=  486 | own ATS 218-262 (45.4%, -13.3%) | UNDER 238-243 (49.5%, -5.6%; over roi -3.6%, spread-matched over 50.6%) tot +0.96 | own sprd +2.1
+     ... own favored                                                               n=  272 | own ATS 111-156 (41.6%, -20.7%) | UNDER 139-130 (51.7%, -1.4%; over roi -7.8%, spread-matched over 50.6%) tot +0.49 | own sprd -6.3
+     ... own dog                                                                   n=  493 | own ATS 238-250 (48.8%, -6.8%) | UNDER 252-235 (51.7%, -1.3%; over roi -7.9%, spread-matched over 50.6%) tot +0.68 | own sprd +7.7
+     ... young team (Exp < 1.5)                                                    n=  155 | own ATS 69-86 (44.5%, -15.0%) | UNDER 73-81 (47.4%, -9.5%; over roi +0.3%, spread-matched over 50.8%) tot +1.73 | own sprd +4.9
+     ... experienced (Exp >= 2)                                                    n=  368 | own ATS 161-200 (44.6%, -14.8%) | UNDER 196-167 (54.0%, +3.0%; over roi -12.2%, spread-matched over 50.6%) tot +0.74 | own sprd +1.7
+     ... non-conference                                                            n=  717 | own ATS 322-385 (45.5%, -13.0%) | UNDER 371-337 (52.4%, -0.0%; over roi -9.2%, spread-matched over 50.6%) tot +0.39 | own sprd +2.8
+     ... it is a conference game                                                   n=  169 | own ATS 86-83 (50.9%, -2.9%) | UNDER 77-91 (45.8%, -12.6%; over roi +3.3%, spread-matched over 50.6%) tot +3.16 | own sprd +1.2
+     control: own's 2nd-4th road game                                              n= 4643 | own ATS 2339-2240 (51.1%, -2.4%) | UNDER 2308-2295 (50.1%, -4.3%; over roi -4.8%, spread-matched over 51.0%) tot +0.37 | own sprd +8.5
+
+=== C5. MTE FINAL DAY (championship / consolation) ===
+  C5 MTE last day, all games                                                       n=0 (thin)
+     ... both teams on 3 in 3                                                      n=0 (thin)
+     ... MTE first day                                                             n= 1619 | own ATS 791-806 (49.5%, -5.4%) | UNDER 835-771 (52.0%, -0.7%; over roi -8.4%, spread-matched over 50.5%) tot +0.38 | own sprd -0.2
