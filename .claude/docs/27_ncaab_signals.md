@@ -1,7 +1,7 @@
 # NCAAB model + signals — the contract for college basketball
 
-> Backend shipped 2026-10-26 (cfb_automation `scripts/cfb/ncaab_hype_signal.py`, `scripts/cfb/ncaab_signal_grader.py`,
-> `sql/ncaab_signal_lifecycle.sql`; Render crons `ncaab-hype-signal` and `ncaab-signal-grader`). Same standard as
+> Backend shipped 2026-10-26, full situational stack 2026-10-28 (15 signals; cfb_automation `scripts/cfb/ncaab_*_signal.py` sharing
+> `ncaab_signal_lib.py`, `ncaab_signal_grader.py`; Render crons `ncaab-hype-signal` (all signals, Nov–Apr) and `ncaab-signal-grader`). Same standard as
 > NBA (doc 26): every signal is born with its back-tested record and ROI as columns, the current season is graded every
 > morning, and the season folds into the back-test at year end. No app surface renders these yet — that is Cursor's.
 >
@@ -91,7 +91,39 @@ refreshed on every run. The new-coach signal freezes its qualifying list for the
 - `ncaab-signal-grader`: 7:30am ET, November–April. Grades yesterday's flags from College Basketball Data finals and
   rewrites the season columns on the defs. `--rollover` is run by hand in June.
 
-## For Cursor
+## For Cursor — the full wiring brief (2026-10-28)
 
-Same shape as the NBA signals card: the flag's `side`, `trigger_text`, and the def's `record_text` + `season_record_text`.
-`tier = tracking` means show the read, do not badge it as a play. Join on `espn_game_id`; the NCAAB feed row carries it.
+**Status:** the backend is complete and live. 15 signal defs, the originator model, the grader and every cron run in production; nothing on
+the app side renders them yet. Everything below reads from the CFB Supabase project (`jpxnjuwglavsjbgbasnl`). No new backend work is needed to
+wire the UI; if a field is missing, ask rather than guess.
+
+### Tables, exactly as written
+| table | one row per | key columns the UI needs |
+|---|---|---|
+| `ncaab_signal_defs` | signal (15 rows) | `signal_key`, `display_name`, `market` (spread/total), `tier` (active/candidate), `one_liner`, `definition`, `why_it_works`, `bet_direction`, `typical_hit`, `record_text` (back-test, plain language), `backtest_wins/losses/pushes/roi/seasons`, `season_label`, `season_wins/losses/pushes/roi`, `season_record_text` (current season, rewritten every morning by the grader) |
+| `ncaab_slate_flags` | signal × game × market (unique `(espn_game_id, signal_key, market)`) | `espn_game_id`, `game_id` (CBBD), `game_date`, `game` ("AWAY @ HOME"), `signal_key`, `market`, `side` ("Siena +6.5" / "OVER 141.5"), `bet_team` (spreads), `bet_direction` (totals: over/under), `bet_line`, `conviction` (low/med/high), `tier` (tracking), `trigger_text` (the sentence to show), `trigger_value`, `record_text`, `result`/`actual_value`/`graded_at` (null until graded), `updated_at` |
+| `ncaab_model_preds` | game × market (spread, total), latest `run_id` | model line vs posted line, `edge`, `tier` (`bet` = inside the 1.5–4 band on the spread; `pass` otherwise; totals are always pass by design) |
+| `ncaab_predictions` | game, latest `run_id` | moneyline/win-prob surface derived from the model spread (`model_fair_*`, `home_win_prob`, `vegas_*`), `model_version = cbb_originator_v1` |
+| `v_cbb_input_values` / `cbb_game_schedule` | game | the feed row; carries `espn_game_id` to join flags and preds |
+
+### Cards
+1. **Game card signal strip + Signals section** — same shape as the NBA signals card (doc 26). For each flag on the game: `side` as the headline,
+   `trigger_text` as the sentence, then the def's `record_text` and `season_record_text`. `tier = tracking` means show the read, do not badge it as
+   a play. Totals flags carry `bet_direction` and no `bet_team`. Two signals can fire on one game (e.g. `ncaab_small_vs_big_d_over` and
+   `ncaab_bad_o_great_d_over` both over): show both; when they agree the historical record of the pair is 66-27, so it is fine to stack visually.
+2. **Model section** — from `ncaab_model_preds`: model spread vs posted spread with the edge and the `bet`/`pass` badge; model total vs posted total
+   shown as information only (never badge a total bet from the model; totals come from the two over signals). Cards must not assume a two-day
+   horizon: during the opening window (through Nov 14) predictions exist for every priced game however far out.
+3. **Signals index page** — one row per def: `display_name`, `one_liner`, `market`, `tier`, back-test record + ROI, current-season record. Expand to
+   `definition` and `why_it_works`. 15 rows today; the table is the source of truth, do not hardcode the list.
+4. **Season record semantics** — `season_record_text` reads "no graded bets yet in 2026-27" until the grader has finals (first on Nov 2 morning).
+   Keep back-test and season separate; never add them.
+
+### Timing the UI can rely on
+Flags for a game appear once a spread/total is posted (10am and 4pm ET passes) and update in place as the line moves; a flag whose game stopped
+qualifying before tip is deleted. Grading happens 7:30am ET the morning after. The Odds API lists neutral-site games home/away the other way round
+about half the time; every job already resolves that, so `game` and `side` are in CBBD's orientation, which matches the feed.
+
+### Logos and names
+Flags carry CBBD team names (`game`, `bet_team`, `side`); map through `ncaab_team_mapping` (`api_team_name` → `espn_team_id`, `team_abbrev`) for
+logos, exactly as the feed does today.
