@@ -46,3 +46,22 @@ sign: more days off after the big win → more covers, not fewer. Built as **`nc
 | deserved loss (WP ≥ .6 and lost) | 49.9% here | | the known 54% back needs the 2H-control definition (`ncaab_lost_controlling_2h`), not full-game WP |
 | blew a 15+ lead and lost / came back from 15+ and won | 50.2% / 48.1% | flat | |
 | any "big win" then 4-5 days off | 50.7% | flat | the rest gap matters only inside the ranked-upset cell |
+
+## After a THRILLER (KenPom ThrillScore of the previous game) — `thriller_next.py` → `THRILLER_NEXT.txt` (2026-10-28)
+
+Owner's follow-up: the previous game had a high KenPom thrill score; does the result, the venue of the thriller, or the venue of the next
+game matter? 57,510 team-games with a previous-game thrill score. **Verdict: nothing in the main cuts; one venue pocket moved.**
+
+- Previous-game thrill decile → next-game ATS runs 49.2-50.7% at every decile, after a win and after a loss alike; over % 49.5-52.4 with no
+  ladder. Top-decile thriller last game: ATS 49.3% (won it 49.6%, lost it 48.9%), won/lost by 1-5 47.4/48.5%, OT 50.9%. Showcase (≥ 70) 49.3%.
+  Rest gap flat (49.0-50.5%). The market shades neither team (next spread −5.4 winners / −4.9 losers, ATS margin −0.06).
+- Venue of the thriller alone: home 48.5%, road 49.5%, neutral 50.8-54.6% (showcase neutral 233-194, thin). Next venue alone: home 48.5%, road 49.5%.
+- **The pocket: thriller at HOME → next game also at HOME → fade the home team.** Top-decile: home team 313-387 (fade 55.3%, +5.5% at −110),
+  shuffle p .007, six of six seasons from the fade side (51-50, 57-50, 56-49, 82-52, 72-57, 69-55), won the thriller 43.9% / lost it 45.6%.
+  Deciles 9-10 together 726-823 (fade 53.1%, p .017). Control ladder for home→home by previous-game decile: 51.6, 48.5, 49.3, 52.4, 49.5, 50.0,
+  50.6, 49.4, 48.6, **44.7** — a step at the top, not a dose; dull deciles 1-5 home→home 50.3%. Showcase ≥ 70 version 46.1% (p .16, n 351).
+  The other three venue pairs: home→road 50.3%, road→home 49.6%, road→road 48.0%.
+  Reading: a marquee home night followed by a lesser home game (next spread −7.6); the crowd and the number carry over, the performance does
+  not. One cell of ~60 in this study and a step rather than a ladder, so a **candidate lean**: proposed `ncaab_home_thriller_letdown`
+  (previous game at home with a KenPom thrill score in the season's top decile, ~60+; next game at home, not a tournament → bet the opponent),
+  387-313. Not built.
