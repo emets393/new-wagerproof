@@ -1,0 +1,56 @@
+fanmatch 32,376 games; unmapped names: ['Cal St. Northridge', 'Detroit', 'Dixie St.', 'Hartford', 'Houston Baptist', 'IUPUI', 'McNeese St.', 'Nicholls St.', 'SIU Edwardsville', 'Southeast Missouri St.', 'St. Francis NY', 'St. Francis PA']
+matched 26,913 of 27,894 priced games (96.5%); by season {2021: 3093, 2022: 4319, 2023: 4653, 2024: 4767, 2025: 5019, 2026: 5062}
+
+=== 1. LEAK TEST: correlation with the RESULT. If KenPom's archived prediction beats the closing line, it is not pregame. ===
+  2021: corr(actual margin, KenPom pred) 0.625 | corr(actual margin, market) 0.635 | corr(actual total, KenPom) 0.415 | corr(actual total, market) nan | KenPom vs market margin corr 0.978
+  2022: corr(actual margin, KenPom pred) 0.621 | corr(actual margin, market) 0.635 | corr(actual total, KenPom) 0.417 | corr(actual total, market) 0.435 | KenPom vs market margin corr 0.980
+  2023: corr(actual margin, KenPom pred) 0.593 | corr(actual margin, market) 0.610 | corr(actual total, KenPom) 0.443 | corr(actual total, market) 0.471 | KenPom vs market margin corr 0.978
+  2024: corr(actual margin, KenPom pred) 0.624 | corr(actual margin, market) 0.641 | corr(actual total, KenPom) 0.443 | corr(actual total, market) 0.467 | KenPom vs market margin corr 0.975
+  2025: corr(actual margin, KenPom pred) 0.636 | corr(actual margin, market) 0.652 | corr(actual total, KenPom) 0.435 | corr(actual total, market) 0.467 | KenPom vs market margin corr 0.978
+  2026: corr(actual margin, KenPom pred) 0.653 | corr(actual margin, market) 0.672 | corr(actual total, KenPom) 0.444 | corr(actual total, market) 0.477 | KenPom vs market margin corr 0.977
+  mean abs error, margin: KenPom 8.97 vs market 8.81 | total: KenPom 13.24 vs market 12.99
+
+=== 2. KENPOM vs MARKET on the TOTAL (bet KenPom's side) ===
+  KenPom total ABOVE market by 0-2                                   OVER  2964-2817 (51.3%, -2.1%) n=5813 tot +0.89 | 21:378-351 22:501-443 23:548-499 24:498-484 25:556-546 26:483-494
+  KenPom total ABOVE market by 2-4                                   OVER  2221-2281 (49.3%, -5.8%) n=4549 tot +0.53 | 21:204-250 22:382-385 23:457-436 24:382-376 25:368-400 26:428-434
+  KenPom total ABOVE market by 4-6                                   OVER  963-936 (50.7%, -3.2%) n=1918 tot +0.98 | 21:66-78 22:166-145 23:195-196 24:179-167 25:161-147 26:196-203
+  KenPom total ABOVE market by 6-9                                   OVER  295-298 (49.7%, -5.0%) n=596 tot +0.50 | 21:17-17 22:39-42 23:56-46 24:59-60 25:43-55 26:81-78
+  KenPom total ABOVE market by 9-99                                  OVER  20-28 (41.7%, -20.3%) n=48 tot -4.26 | 21:4-0 22:2-2 23:3-2 24:5-7 25:3-9 26:3-8
+  KenPom total BELOW market by 0-2                                   UNDER 2687-2905 (48.1%, -8.3%) n=5628 tot +1.26 | 21:337-382 22:414-469 23:435-453 24:470-524 25:492-570 26:539-507
+  KenPom total BELOW market by 2-4                                   UNDER 2085-2245 (48.2%, -8.1%) n=4370 tot +1.04 | 21:232-252 22:338-328 23:304-378 24:380-416 25:436-448 26:395-423
+  KenPom total BELOW market by 4-6                                   UNDER 900-935 (49.0%, -6.4%) n=1853 tot +0.89 | 21:86-106 22:137-143 23:127-136 24:192-181 25:166-178 26:192-191
+  KenPom total BELOW market by 6-9                                   UNDER 319-328 (49.3%, -5.8%) n=653 tot +1.41 | 21:25-22 22:40-36 23:31-33 24:70-59 25:68-81 26:85-97
+  KenPom total BELOW market by 9-99                                  UNDER 36-37 (49.3%, -5.9%) n=73 tot +1.70 | 21:3-1 22:3-2 23:2-4 24:6-4 25:2-2 26:20-24
+
+=== 2b. KENPOM vs MARKET on the SPREAD (bet KenPom's side; shown as record of KenPom's side) ===
+  KenPom margin differs from market by 0-1.5                         5251-5381 (49.4%, -5.7%) n=10774 | 21:627-589 22:862-866 23:924-952 24:887-929 25:998-1052 26:953-993
+  KenPom margin differs from market by 1.5-3                         4657-4739 (49.6%, -5.4%) n=9479 | 21:521-570 22:730-724 23:768-787 24:866-863 25:843-834 26:929-961
+  KenPom margin differs from market by 3-5                           1623-1705 (48.8%, -6.9%) n=3396 | 21:184-178 22:256-276 23:241-283 24:288-333 25:313-304 26:341-331
+  KenPom margin differs from market by 5-8                           300-300 (50.0%, -4.6%) n=607 | 21:28-25 22:20-28 23:28-38 24:45-30 25:80-81 26:99-98
+  KenPom margin differs from market by 8-99                          31-29 (51.7%, -1.3%) n=60 | 21:0-2 23:3-0 24:1-1 25:9-7 26:18-19
+
+=== 3. THRILL SCORE (KenPom's pregame excitement: closeness x quality x tempo), deciles within season ===
+  decile        n   over %  tot vs line  fav ATS %  avg |spread|    line  thrill
+  1          2681     52.4        +0.89       47.8          22.1   143.9    10.6
+  2          2671     50.9        +1.03       47.9          13.9   143.0    17.0
+  3          2663     50.6        +0.82       49.1          10.0   142.7    22.1
+  4          2664     51.1        +1.13       48.6           7.2   141.7    26.0
+  5          2669     50.5        +0.73       50.3           5.2   141.9    28.9
+  6          2661     50.5        +0.89       49.7           4.9   143.3    31.5
+  7          2685     53.8        +1.54       51.2           4.9   144.2    35.1
+  8          2681     50.4        +0.85       48.6           5.1   144.2    40.6
+  9          2685     50.1        +0.61       48.9           5.3   144.2    50.6
+  10         2686     49.6        +0.49       51.6           4.2   145.5    68.3
+  top-decile thrill -> total                                         OVER  1317-1337 (49.6%, -5.3%) n=2686 tot +0.49 | 21:148-155 22:215-209 23:222-237 24:242-227 25:243-253 26:247-256
+  bottom-decile thrill -> total                                      UNDER 1263-1388 (47.6%, -9.0%) n=2681 tot +0.89 | 21:137-168 22:208-217 23:220-236 24:236-232 25:232-262 26:230-273
+  top-decile thrill: FAVORITE ATS                                    1355-1272 (51.6%, -1.5%) n=2686 | 21:162-142 22:203-218 23:255-200 24:238-223 25:249-242 26:248-247
+  bottom-decile thrill: FAVORITE ATS                                 1269-1384 (47.8%, -8.7%) n=2681 | 21:158-148 22:187-241 23:222-230 24:221-248 25:229-267 26:252-250
+  top-decile thrill & |spread| <= 3: HOME ATS                        592-514 (53.5%, +2.2%) n=1125 | 21:85-50 22:107-94 23:103-83 24:115-86 25:88-92 26:94-109
+  thrill >= 70 (the showcase games): FAVORITE ATS                    521-473 (52.4%, +0.1%) n=1019 | 21:100-89 22:45-58 23:85-57 24:78-64 25:100-103 26:113-102
+  thrill >= 70 -> total                                              OVER  488-519 (48.5%, -7.5%) n=1019 tot +0.22 | 21:95-93 22:48-59 23:68-74 24:72-73 25:104-102 26:101-118
+  thrill >= 70, conference game: HOME ATS                            457-410 (52.7%, +0.6%) n=880 | 21:88-77 22:44-41 23:80-43 24:65-57 25:85-92 26:95-100
+
+=== 4. KENPOM WIN PROBABILITY vs the MONEYLINE (dog side) ===
+  KenPom likes HOME 3%-6% more than the market: home ML 926-598 (60.8%, ROI -8.0%) n=1524
+  KenPom likes HOME 6%-10% more than the market: home ML 423-295 (58.9%, ROI -4.9%) n=718
+  KenPom likes HOME 10%-100% more than the market: home ML 101-88 (53.4%, ROI -10.3%) n=189
