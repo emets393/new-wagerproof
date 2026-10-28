@@ -64,6 +64,12 @@ facts for the card. Four keys today:
 | `nba_cold_line_raised_big_under` | any | UNDER | the above with the line in the top half of its market on the slate | — |
 | `nba_player_ref_over` | `player_points` | OVER | ≥ 8 prior games with tonight's crew chief, points averaged ≥ 0.5 sd ABOVE his own norm | `chief`, `games`, `mean_z`, `avg_vs_norm` (pts), `above`, `below` (games above/below his norm with that chief) |
 | `nba_player_ref_under` | `player_points` | UNDER | same, ≥ 0.5 sd BELOW his norm | same |
+| `nba_hot_shooter_under` | `player_points` | UNDER | last 5 games he scored ≥ 3.0 pts/game above what his own career make-rates by zone (rim / mid / three, from play-by-play) say his shots were worth; line ≥ 12.5 | `heat_l5` |
+| `nba_into_lineup_g2_over` | `player_points_rebounds_assists` | OVER | his last game was his first start after 5+ straight bench games (game 2 of the move); not listed out | `note` |
+| `nba_out_of_lineup_g2_under` | `player_rebounds` | UNDER | his last game was his first off the bench after 5+ straight starts (game 2); not listed out | `note` |
+| `nba_backup_same_pos_under` | `player_points_rebounds_assists` | UNDER | a 25+ mpg starter at his position (G/F/C) is OUT for the 1st/2nd game of the absence and he is still a bench player (no start in his last 3) | `out_player`, `out_mpg`, `games_missed_before`, `position` |
+| `nba_blowout_star_pra_under` | `player_points_rebounds_assists` | UNDER | his team is a closing favorite of 13+, he is top-3 on the team in minutes per game this season, PRA line ≥ 20 | `team_spread`, `minutes_rank` |
+| `nba_homecoming_pts_over` | `player_points` | OVER | visitor born within 50 miles of tonight's arena whose own arena is > 50 miles from his birthplace | `mi_site`, `mi_own`, `city`, `state`, `country`, `arena` |
 
 One ticket per player-game for the cold rules: when several markets on the same player fire, the biggest
 line (PRA) is the ticket. The cold rules need the player's previous close lines, which exist only from our own
@@ -98,6 +104,11 @@ select bookmaker, line, over_odds, under_odds from nba_player_props_current
 select snapshot_time, bookmaker, line, over_odds, under_odds from nba_player_props
  where event_id = '…' and market = 'player_points' and player_name = 'Jayson Tatum' order by snapshot_time;
 ```
+
+Back-tests on every def row (best price, 2023-24 to 2025-26, three of three seasons): hot shooter 1,014-788 (56.3%), into lineup g2 276-235 (54.0%),
+out of lineup g2 158-127 (55.4%), backup 806-656 (55.1%), blowout star 534-409 (56.6%), homecoming 258-213 (54.8%). Shipped 2026-10-28 (cfb_automation
+`nba_prop_signals.py`, `nba_prop_heat.py`, `nba_prop_homecoming.py`; research `research/bball-odds/NBA_PP_BRIEF.md`). The game-ONE lineup versions
+(58.6% / 60.6%) need a starting-lineup feed that posts after the line closes and are not built.
 
 ## What is not here yet
 
