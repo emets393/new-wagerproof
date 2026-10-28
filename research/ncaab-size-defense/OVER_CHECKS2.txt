@@ -1,0 +1,21 @@
+=== OPENER, PRICE ===
+  T1                                   OVER at close 424-344 (55.2%, ROI at price +5.4%) | vs OPENER 427-343 (55.5%, n with opener 776) | close-open +0.19 | open 142.1 close 142.3 actual 144.7
+  T4 (T1 & 3P% below median)           OVER at close 258-176 (59.4%, ROI at price +13.4%) | vs OPENER 261-175 (59.9%, n with opener 438) | close-open +0.22 | open 141.5 close 141.7 actual 145.4
+  all valid                            OVER at close 27323-26605 (50.7%, ROI at price -3.3%) | vs OPENER 27312-26641 (50.6%, n with opener 54417) | close-open +0.00 | open 143.3 close 143.3 actual 144.1
+
+=== THE BIG TEAM'S OFFENSE (KenPom AdjOE as of the game, tercile within season-month) inside T1 ===
+  big team weak O    OVER 9-5 (64.3%) tot +8.75 big sprd -3.3 small vs impl +4.06 big vs impl +4.69 n=14
+  big team mid O     OVER 76-73 (51.0%) tot +2.08 big sprd -6.4 small vs impl +0.70 big vs impl +1.38 n=150
+  big team strong O  OVER 339-266 (56.0%) tot +2.31 big sprd -8.9 small vs impl +0.82 big vs impl +1.49 n=612
+
+=== SAME BIG DEFENSIVE OPPONENT, WE ARE THE TALLER TEAM (reversed height) ===
+  3PA bottom quartile vs top-20% D, we are 2+ taller     OVER 90-104 (46.4%) tot +1.10 n=195
+  3PA bottom quartile vs top-20% D, we are 1-2 taller    OVER 205-230 (47.1%) tot -0.40 n=439
+  3PA bottom quartile vs top-20% D, even                 OVER 733-728 (50.2%) tot -0.01 n=1470
+  3PA bottom quartile vs top-20% D, they are 1-2 taller  OVER 217-174 (55.5%) tot +1.81 n=395
+  3PA bottom quartile vs top-20% D, they are 2+ taller   OVER 73-70 (51.0%) tot +1.12 n=146
+
+=== FOULS / FREE THROWS: do these games have more free throws than the line expects? (box score, 2022-23 on) ===
+  T1         game pace 67.9 | FTA small 17.7 big 20.8 | fouls small 18.2 big 16.3 | paint pts small 30.1 big 34.2 | small 3PA rate in the game 0.321 | n=557
+  T4         game pace 68.0 | FTA small 17.8 big 21.7 | fouls small 18.5 big 16.3 | paint pts small 29.6 big 35.1 | small 3PA rate in the game 0.320 | n=327
+  all valid  game pace 67.4 | FTA small 19.2 big 19.2 | fouls small 17.1 big 17.2 | paint pts small 31.3 big 31.4 | small 3PA rate in the game 0.384 | n=39465

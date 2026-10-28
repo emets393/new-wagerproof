@@ -1,0 +1,87 @@
+=== 1. SPREAD-MATCHED CONTROL: over rate expected from the big team's spread alone ===
+            over        n
+bs_b                     
+(-60, -20]  54.0   1143.0
+(-20, -15]  52.5   1596.0
+(-15, -10]  51.6   4095.0
+(-10, -5]   50.5   9133.0
+(-5, 0]     50.3  11487.0
+(0, 5]      50.3  12052.0
+(5, 60]     51.3  15035.0
+  T1                                 over 55.2% vs spread-matched expectation 51.5%  -> excess +3.7 pts  (n 776)
+  T4 (T1 & 3P% below median)         over 59.4% vs spread-matched expectation 51.8%  -> excess +7.7 pts  (n 438)
+  X1 placebo (3-heavy)               over 51.9% vs spread-matched expectation 51.3%  -> excess +0.7 pts  (n 756)
+
+=== 2. THRESHOLD GRID for the thesis cell (over %, n) -- stability under definition wobble ===
+  3PA<=0.20 | g0.5/d0.15: 54.2% (711) | g0.5/d0.20: 52.9% (906) | g0.5/d0.30: 51.8% (1335) | g1/d0.15: 55.6% (478) | g1/d0.20: 54.8% (604) | g1/d0.30: 52.4% (870) | g1.5/d0.15: 57.4% (291) | g1.5/d0.20: 56.7% (365) | g1.5/d0.30: 54.4% (512) | g2/d0.15: 51.9% (160) | g2/d0.20: 54.3% (201) | g2/d0.30: 51.3% (280)
+  3PA<=0.25 | g0.5/d0.15: 54.0% (919) | g0.5/d0.20: 53.3% (1165) | g0.5/d0.30: 52.5% (1698) | g1/d0.15: 55.1% (611) | g1/d0.20: 55.2% (776) | g1/d0.30: 53.0% (1103) | g1.5/d0.15: 56.8% (361) | g1.5/d0.20: 57.2% (456) | g1.5/d0.30: 55.4% (637) | g2/d0.15: 50.3% (203) | g2/d0.20: 53.6% (254) | g2/d0.30: 52.2% (351)
+  3PA<=0.33 | g0.5/d0.15: 54.0% (1209) | g0.5/d0.20: 53.3% (1539) | g0.5/d0.30: 52.6% (2219) | g1/d0.15: 54.2% (796) | g1/d0.20: 54.3% (1011) | g1/d0.30: 52.3% (1431) | g1.5/d0.15: 55.0% (476) | g1.5/d0.20: 55.4% (602) | g1.5/d0.30: 53.4% (824) | g2/d0.15: 49.8% (265) | g2/d0.20: 52.0% (329) | g2/d0.30: 50.3% (449)
+
+=== 3. LADDERS INSIDE THE PAIRS ===
+-- own 3P% quintile inside (opp taller 1+ & top-20% D & 3PA bottom quartile)
+     3P% Q1 worst 3P%                                                    OVER 135-82 (62.2%) tot +4.14 n=219
+     3P% Q2                                                              OVER 89-66 (57.4%) tot +3.66 n=157
+     3P% Q3                                                              OVER 66-59 (52.8%) tot +1.73 n=127
+     3P% Q4                                                              OVER 58-69 (45.7%) tot +0.28 n=129
+     3P% Q5 best 3P%                                                     OVER 76-68 (52.8%) tot +0.75 n=144
+-- own 3P% quintile inside (opp taller 1+ & top-20% D), ANY 3PA rate
+     3P% Q1 worst 3P%                                                    OVER 278-215 (56.4%) tot +2.70 n=498
+     3P% Q2                                                              OVER 294-251 (53.9%) tot +1.78 n=550
+     3P% Q3                                                              OVER 315-278 (53.1%) tot +1.90 n=598
+     3P% Q4                                                              OVER 319-340 (48.4%) tot -0.29 n=664
+     3P% Q5 best 3P%                                                     OVER 384-348 (52.5%) tot +1.33 n=736
+-- height gap inside (3PA bottom quartile & top-20% D)
+     gap <-2 (we are much taller)                                        OVER 41-58 (41.4%) tot -2.42 n=100
+     gap -2..-1                                                          OVER 155-147 (51.3%) tot +0.75 n=307
+     gap -1..0                                                           OVER 345-337 (50.6%) tot +0.35 n=689
+     gap 0..1                                                            OVER 387-386 (50.1%) tot +0.48 n=778
+     gap 1..2                                                            OVER 290-229 (55.9%) tot +2.56 n=523
+     gap 2..3                                                            OVER 106-92 (53.5%) tot +1.88 n=200
+     gap 3+ (they are much taller)                                       OVER 26-22 (54.2%) tot +2.27 n=50
+-- opp defense quintile inside (3PA bottom quartile & opp taller 1+)
+     D Q1 best D                                                         OVER 424-344 (55.2%) tot +2.38 n=776
+     D Q2                                                                OVER 309-304 (50.4%) tot +1.11 n=620
+     D Q3                                                                OVER 258-246 (51.2%) tot +0.89 n=510
+     D Q4                                                                OVER 242-250 (49.2%) tot +0.69 n=500
+     D Q5 worst D                                                        OVER 188-214 (46.8%) tot -0.94 n=405
+-- opp defense quintile inside (3P% bottom 40% & opp taller 1+), any 3PA rate
+     D Q1 best D                                                         OVER 572-466 (55.1%) tot +2.22 n=1048
+     D Q2                                                                OVER 506-492 (50.7%) tot +1.38 n=1010
+     D Q3                                                                OVER 453-412 (52.4%) tot +1.12 n=871
+     D Q4                                                                OVER 397-431 (47.9%) tot -0.10 n=836
+     D Q5 worst D                                                        OVER 343-366 (48.4%) tot -0.13 n=715
+
+=== 4. WHERE DO THE EXTRA POINTS COME FROM? ===
+  T1         over vs OPENER 45.8% | close moved +0.03 from open | 1H over 47.5% (n 411) | 2H actual-implied +0.25 | big team wins by 15+: 15% | small team vs half of implied: 1H -2.23  2H +2.02
+  T4         over vs OPENER 46.8% | close moved +0.10 from open | 1H over 49.2% (n 245) | 2H actual-implied +0.29 | big team wins by 15+: 17% | small team vs half of implied: 1H -1.97  2H +2.40
+  all valid  over vs OPENER 50.6% | close moved +0.00 from open | 1H over 49.3% (n 29585) | 2H actual-implied +0.82 | big team wins by 15+: 15% | small team vs half of implied: 1H -2.06  2H +2.44
+
+=== 5. T4 PER SEASON AND SPLITS (the stronger over cell) ===
+  2021: over 21-16 (56.8%)
+  2022: over 47-26 (64.4%)
+  2023: over 39-29 (57.4%)
+  2024: over 56-39 (58.9%)
+  2025: over 57-31 (64.8%)
+  2026: over 38-35 (52.1%)
+  T4 Nov-Dec                                                             OVER 124-73 (62.9%) tot +3.63 n=197
+  T4 Jan-Mar                                                             OVER 134-103 (56.5%) tot +3.76 n=241
+  T4 big team home                                                       OVER 149-107 (58.2%) tot +3.51 n=257
+  T4 big team away                                                       OVER 69-53 (56.6%) tot +2.02 n=125
+  T4 big fav 10+                                                         OVER 137-92 (59.8%) tot +3.72 n=230
+  T4 big fav 0-10                                                        OVER 81-56 (59.1%) tot +4.10 n=139
+  T4 big is dog                                                          OVER 43-31 (58.1%) tot +2.71 n=75
+  T4 shuffle p (over) 0.001
+
+=== 6. THE SIMPLE VERSION: bad-shooting team (3P% bottom 40%) vs a top-20% defense, any height ===
+  bad shooters vs top-20% D                                              OVER 1985-1794 (52.5%) tot +1.25 n=3812
+    2021: over 206-179 (53.5%)
+    2022: over 391-330 (54.2%)
+    2023: over 391-370 (51.4%)
+    2024: over 343-273 (55.7%)
+    2025: over 349-322 (52.0%)
+    2026: over 305-320 (48.8%)
+  spread-matched expectation 51.2%  shuffle p 0.027
+    ... Nov-Dec                                                          OVER 610-549 (52.6%) tot +0.89 n=1169
+    ... Jan-Mar                                                          OVER 1375-1245 (52.5%) tot +1.40 n=2643
+    placebo: GOOD shooters (3P% top 40%) vs top-20% D                    OVER 2358-2380 (49.8%) tot +0.45 n=4777
+    bad shooters vs WORST-40% D                                          OVER 4675-4632 (50.2%) tot +0.60 n=9397
