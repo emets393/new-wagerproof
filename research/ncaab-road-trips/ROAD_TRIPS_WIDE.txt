@@ -1,0 +1,107 @@
+team-games 63,882; true road 27,890; road_run distribution {1: 15801, 2: 8041, 3: 2339, 4: 935, 5: 354, 6: 182, 7: 96, 8: 52, 9: 36, 10: 19, 11: 17, 12: 8, 13: 5, 14: 3, 15: 2}; trip_len {1.0: 7760, 2.0: 5703, 3.0: 1404, 4.0: 581, 5.0: 172, 6.0: 86, 7.0: 43, 8.0: 16, 9.0: 17, 10.0: 2, 11.0: 9, 12.0: 3, 13.0: 2, 14.0: 1, 15.0: 2}
+
+=== A. WHICH ROAD GAME IN A ROW IS THIS? (true road games, regular season incl. Nov events) ===
+  home games (reference)                                                       n=27713 | own ATS 13545-13735 (49.7%, -5.2%) | OVER 13987-13482 (50.9%, -2.8%; sm 50.6%) tot +0.90 | ML roi -3.8% win 64% | sprd -5.2
+  road game #1 in a row                                                        n=15696 | own ATS 7777-7675 (50.3%, -3.9%) | OVER 7927-7633 (50.9%, -2.8%; sm 50.7%) tot +0.95 | ML roi -14.4% win 37% | sprd +4.7 | p(ATS) 0.330 p(tot) 0.308
+  road game #2 in a row                                                        n= 8004 | own ATS 3917-3971 (49.7%, -5.2%) | OVER 4074-3854 (51.4%, -1.9%; sm 50.7%) tot +1.10 | ML roi -12.4% win 37% | sprd +4.9 | p(ATS) 0.520 p(tot) 0.137
+      by season: 21: ATS 465-486 O 473-475 | 22: ATS 634-615 O 653-606 | 23: ATS 679-726 O 733-682 | 24: ATS 717-715 O 737-705 | 25: ATS 708-714 O 757-668 | 26: ATS 714-715 O 721-718
+  road game #3 in a row                                                        n= 2315 | own ATS 1167-1102 (51.4%, -1.8%) | OVER 1144-1156 (49.7%, -5.1%; sm 50.8%) tot +0.11 | ML roi -21.1% win 33% | sprd +6.7 | p(ATS) 0.177 p(tot) 0.855
+      by season: 21: ATS 197-161 O 178-184 | 22: ATS 209-182 O 201-193 | 23: ATS 174-174 O 189-170 | 24: ATS 199-198 O 201-200 | 25: ATS 180-193 O 177-202 | 26: ATS 208-194 O 198-207
+  road game #4 in a row                                                        n=  927 | own ATS 484-427 (53.1%, +1.5%) | OVER 464-454 (50.5%, -3.5%; sm 50.9%) tot +0.50 | ML roi -20.2% win 31% | sprd +7.7 | p(ATS) 0.068 p(tot) 0.777
+      by season: 21: ATS 91-88 O 99-79 | 22: ATS 69-70 O 68-73 | 23: ATS 66-65 O 70-63 | 24: ATS 67-65 O 73-60 | 25: ATS 104-57 O 75-89 | 26: ATS 87-82 O 79-90
+  road game #5+ in a row                                                       n=  771 | own ATS 390-370 (51.3%, -2.0%) | OVER 378-385 (49.5%, -5.4%; sm 51.2%) tot +0.76 | ML roi -21.5% win 24% | sprd +12.0 | p(ATS) 0.483 p(tot) 0.790
+      by season: 21: ATS 76-55 O 67-64 | 22: ATS 68-71 O 61-76 | 23: ATS 65-53 O 53-63 | 24: ATS 54-61 O 60-58 | 25: ATS 65-58 O 63-61 | 26: ATS 62-72 O 74-63
+  -- counting neutral games as away from home
+  away-from-home game #1 in a row (true road game)                             n=14612 | own ATS 7242-7138 (50.4%, -3.8%) | OVER 7370-7113 (50.9%, -2.9%; sm 50.7%) tot +0.95 | ML roi -14.0% win 37% | sprd +4.6
+  away-from-home game #2 in a row (true road game)                             n= 7802 | own ATS 3820-3877 (49.6%, -5.2%) | OVER 3986-3742 (51.6%, -1.5%; sm 50.7%) tot +1.12 | ML roi -11.8% win 37% | sprd +4.7
+  away-from-home game #3 in a row (true road game)                             n= 2481 | own ATS 1245-1189 (51.2%, -2.3%) | OVER 1224-1240 (49.7%, -5.2%; sm 50.8%) tot +0.13 | ML roi -21.1% win 33% | sprd +6.4
+  away-from-home game #4 in a row (true road game)                             n= 1233 | own ATS 632-578 (52.2%, -0.2%) | OVER 606-615 (49.6%, -5.3%; sm 50.8%) tot +0.24 | ML roi -18.5% win 33% | sprd +6.7
+  away-from-home game #5+ in a row (true road game)                            n= 1585 | own ATS 796-763 (51.1%, -2.5%) | OVER 801-772 (50.9%, -2.8%; sm 51.1%) tot +1.17 | ML roi -24.2% win 26% | sprd +10.6 | p(ATS) 0.377 p(tot) 0.492
+
+=== B. TRIP LENGTH x POSITION (true road trips, regular season) ===
+  trip of 1 road games, only game                                              n= 7675 | own ATS 3784-3777 (50.0%, -4.4%) | OVER 3902-3705 (51.3%, -2.1%; sm 50.7%) tot +1.07 | ML roi -14.2% win 38% | sprd +4.2
+  trip of 2 road games, first game                                             n= 5688 | own ATS 2840-2753 (50.8%, -3.0%) | OVER 2904-2730 (51.5%, -1.6%; sm 50.7%) tot +0.90 | ML roi -12.4% win 38% | sprd +4.1
+  trip of 2 road games, last game                                              n= 5672 | own ATS 2797-2789 (50.1%, -4.4%) | OVER 2905-2712 (51.7%, -1.3%; sm 50.7%) tot +1.21 | ML roi -10.1% win 39% | sprd +3.9
+  trip of 3 road games, first game                                             n= 1400 | own ATS 689-691 (49.9%, -4.6%) | OVER 666-723 (47.9%, -8.5%; sm 50.8%) tot +0.29 | ML roi -12.0% win 32% | sprd +6.8
+  trip of 3 road games, middle game                                            n= 1398 | own ATS 654-726 (47.4%, -9.5%) | OVER 688-696 (49.7%, -5.1%; sm 50.8%) tot +0.53 | ML roi -16.6% win 34% | sprd +6.0
+  trip of 3 road games, last game                                              n= 1383 | own ATS 690-659 (51.1%, -2.3%) | OVER 688-686 (50.1%, -4.4%; sm 50.7%) tot -0.09 | ML roi -19.7% win 35% | sprd +5.8
+  trip of 4 road games, first game                                             n=  580 | own ATS 296-274 (51.9%, -0.8%) | OVER 272-305 (47.1%, -10.0%; sm 50.9%) tot +0.36 | ML roi -27.3% win 31% | sprd +7.4
+  trip of 4 road games, middle game                                            n= 1158 | own ATS 581-561 (50.9%, -2.9%) | OVER 600-551 (52.1%, -0.5%; sm 50.8%) tot +1.26 | ML roi -15.2% win 33% | sprd +6.7
+  trip of 4 road games, last game                                              n=  575 | own ATS 299-263 (53.2%, +1.6%) | OVER 284-287 (49.7%, -5.0%; sm 50.7%) tot +0.19 | ML roi -12.1% win 37% | sprd +5.2
+  trip of 5+ road games, first                                                 n=  353 | own ATS 168-180 (48.3%, -7.8%) | OVER 183-170 (51.8%, -1.1%; sm 51.3%) tot +2.79 | ML roi -40.8% win 21% | sprd +12.6
+  trip of 5+, middle                                                           n= 1480 | own ATS 765-697 (52.3%, -0.1%) | OVER 716-751 (48.8%, -6.8%; sm 51.2%) tot +0.29 | ML roi -29.0% win 22% | sprd +12.6
+  trip of 5+, last                                                             n=  351 | own ATS 172-175 (49.6%, -5.3%) | OVER 179-166 (51.9%, -1.0%; sm 51.0%) tot +1.90 | ML roi -25.8% win 27% | sprd +9.6 | p(ATS) 0.893 p(tot) 0.518
+  ANY trip of 3+, LAST game                                                    n= 2309 | own ATS 1161-1097 (51.4%, -1.8%) | OVER 1151-1139 (50.3%, -4.1%; sm 50.8%) tot +0.28 | ML roi -18.7% win 34% | sprd +6.2 | p(ATS) 0.168 p(tot) 0.877
+      by season: 21: ATS 194-161 O 193-166 | 22: ATS 184-207 O 192-199 | 23: ATS 178-170 O 174-182 | 24: ATS 210-186 O 212-190 | 25: ATS 193-174 O 183-194 | 26: ATS 202-199 O 197-208
+  ANY trip of 3+, FIRST game                                                   n= 2333 | own ATS 1153-1145 (50.2%, -4.2%) | OVER 1121-1198 (48.3%, -7.7%; sm 50.9%) tot +0.68 | ML roi -20.1% win 30% | sprd +7.8 | p(ATS) 0.857 p(tot) 0.163
+      by season: 21: ATS 175-181 O 177-185 | 22: ATS 197-197 O 195-209 | 23: ATS 192-167 O 171-189 | 24: ATS 203-200 O 194-213 | 25: ATS 185-194 O 184-195 | 26: ATS 201-206 O 200-207
+  ANY trip of 3+, middle games                                                 n= 4036 | own ATS 2000-1984 (50.2%, -4.1%) | OVER 2004-1998 (50.1%, -4.4%; sm 51.0%) tot +0.65 | ML roi -20.7% win 29% | sprd +8.6 | p(ATS) 0.800 p(tot) 0.953
+      by season: 21: ATS 351-319 O 335-335 | 22: ATS 355-325 O 347-338 | 23: ATS 293-312 O 324-287 | 24: ATS 303-347 O 319-337 | 25: ATS 343-328 O 331-337 | 26: ATS 355-353 O 348-364
+
+=== C. COMPRESSED TRIPS (days since the trip began) ===
+  road game #2 within 2 days of #1                                             n= 2901 | own ATS 1397-1460 (48.9%, -6.6%) | OVER 1462-1404 (51.0%, -2.6%; sm 50.6%) tot +1.12 | ML roi -12.8% win 39% | sprd +3.8 | p(ATS) 0.245 p(tot) 0.508
+  road game #2, 3-5 days after #1                                              n= 3993 | own ATS 1974-1966 (50.1%, -4.3%) | OVER 2050-1911 (51.8%, -1.2%; sm 50.7%) tot +1.23 | ML roi -10.9% win 37% | sprd +5.0
+  road game #2, 6+ days after #1                                               n= 1110 | own ATS 546-545 (50.0%, -4.4%) | OVER 562-539 (51.0%, -2.6%; sm 50.9%) tot +0.60 | ML roi -16.9% win 32% | sprd +7.6
+  road game #3 within 5 days of #1                                             n=  259 | own ATS 135-120 (52.9%, +1.2%) | OVER 114-141 (44.7%, -14.7%; sm 50.9%) tot -1.97 | ML roi -28.3% win 33% | sprd +7.3 | p(ATS) 0.367 p(tot) 0.113
+  road game #3, 6-9 days                                                       n= 1259 | own ATS 631-598 (51.3%, -2.0%) | OVER 634-617 (50.7%, -3.2%; sm 50.7%) tot +0.34 | ML roi -14.2% win 36% | sprd +5.7
+  road game #3, 10+ days                                                       n=  797 | own ATS 401-384 (51.1%, -2.5%) | OVER 396-398 (49.9%, -4.8%; sm 50.9%) tot +0.43 | ML roi -29.7% win 29% | sprd +8.2
+  road game #2+ on 1 day rest                                                  n= 4047 | own ATS 1995-1993 (50.0%, -4.5%) | OVER 2034-1968 (50.8%, -3.0%; sm 50.7%) tot +0.83 | ML roi -14.1% win 38% | sprd +4.5 | p(ATS) 0.988 p(tot) 0.558
+  road game #2+ on 2 days rest                                                 n= 2609 | own ATS 1286-1278 (50.2%, -4.2%) | OVER 1337-1246 (51.8%, -1.2%; sm 50.8%) tot +1.26 | ML roi -15.7% win 33% | sprd +6.4
+  road game #2+ on 3+ days rest                                                n= 5361 | own ATS 2677-2599 (50.7%, -3.1%) | OVER 2689-2635 (50.5%, -3.6%; sm 50.8%) tot +0.65 | ML roi -16.0% win 33% | sprd +6.8
+
+=== D. RETURNING HOME after a trip ===
+  first home game after a 1-game road trip                                     n= 6462 | own ATS 3119-3224 (49.2%, -6.1%) | OVER 3263-3146 (50.9%, -2.8%; sm 50.6%) tot +0.89 | ML roi -5.5% win 62% | sprd -4.3
+  first home game after a 2-game road trip                                     n= 5100 | own ATS 2503-2528 (49.8%, -5.0%) | OVER 2586-2475 (51.1%, -2.5%; sm 50.6%) tot +1.01 | ML roi -4.3% win 60% | sprd -3.2 | p(ATS) 0.732 p(tot) 0.388
+      by season: 21: ATS 254-265 O 263-260 | 22: ATS 367-381 O 369-385 | 23: ATS 475-473 O 527-427 | 24: ATS 478-444 O 477-447 | 25: ATS 468-486 O 469-487 | 26: ATS 461-479 O 481-469
+  first home game after a 3-game road trip                                     n= 1198 | own ATS 574-604 (48.7%, -7.0%) | OVER 592-598 (49.7%, -5.0%; sm 50.6%) tot +0.82 | ML roi -3.1% win 59% | sprd -2.6 | p(ATS) 0.392 p(tot) 0.898
+      by season: 21: ATS 79-81 O 78-83 | 22: ATS 102-116 O 113-109 | 23: ATS 102-80 O 99-86 | 24: ATS 105-121 O 117-114 | 25: ATS 85-99 O 95-90 | 26: ATS 101-107 O 90-116
+  first home game after a 4+ game road trip                                    n=  818 | own ATS 398-398 (50.0%, -4.5%) | OVER 405-402 (50.2%, -4.2%; sm 50.5%) tot +0.28 | ML roi -5.4% win 56% | sprd -2.0 | p(ATS) 1.000 p(tot) 0.933
+      by season: 21: ATS 72-84 O 87-71 | 22: ATS 60-70 O 68-63 | 23: ATS 67-47 O 59-55 | 24: ATS 59-54 O 48-69 | 25: ATS 68-74 O 76-69 | 26: ATS 72-69 O 67-75
+  first home game after 3+ road games, as favorite                             n= 1288 | own ATS 633-628 (50.2%, -4.2%) | OVER 642-638 (50.2%, -4.3%; sm 50.6%) tot +0.88 | ML roi -0.6% win 72% | sprd -6.8
+  ... as dog                                                                   n=  716 | own ATS 333-368 (47.5%, -9.3%) | OVER 350-355 (49.6%, -5.2%; sm 50.4%) tot +0.12 | ML roi -10.1% win 32% | sprd +5.6
+  second home game of a home stand (reference)                                 n= 8044 | own ATS 3960-3982 (49.9%, -4.8%) | OVER 4026-3941 (50.5%, -3.5%; sm 50.6%) tot +0.80 | ML roi -2.8% win 64% | sprd -5.0
+
+=== E. THE HOST'S SITUATION (road team's row; o_ = the home team) ===
+  road team (any run) vs a host RETURNING from the road                        n=13578 | own ATS 6754-6594 (50.6%, -3.4%) | OVER 6846-6621 (50.8%, -3.0%; sm 50.6%) tot +0.89 | ML roi -11.6% win 39% | sprd +3.6 | p(ATS) 0.120 p(tot) 0.563
+  road team vs a host on a home stand of 3+                                    n= 3782 | own ATS 1895-1820 (51.0%, -2.6%) | OVER 1912-1838 (51.0%, -2.7%; sm 50.8%) tot +0.70 | ML roi -17.4% win 33% | sprd +6.9 | p(ATS) 0.212 p(tot) 0.390
+  road game #3+ vs a host returning from the road                              n= 1728 | own ATS 886-803 (52.5%, +0.2%) | OVER 819-892 (47.9%, -8.6%; sm 50.7%) tot +0.20 | ML roi -11.5% win 35% | sprd +5.6
+  road game #3+ vs a host on a home stand of 3+                                n=  779 | own ATS 389-379 (50.7%, -3.3%) | OVER 410-367 (52.8%, +0.7%; sm 51.1%) tot +0.84 | ML roi -33.7% win 26% | sprd +10.0
+  road team on 1-2 days rest vs host on 4+ days rest                           n= 1848 | own ATS 931-881 (51.4%, -1.9%) | OVER 937-888 (51.3%, -2.0%; sm 50.8%) tot +1.16 | ML roi -13.0% win 35% | sprd +6.3 | p(ATS) 0.240 p(tot) 0.310
+  road team on 4+ days rest vs host on 1-2                                     n= 1887 | own ATS 929-929 (50.0%, -4.5%) | OVER 946-926 (50.5%, -3.5%; sm 50.9%) tot +0.48 | ML roi -17.6% win 33% | sprd +6.7 | p(ATS) 1.000 p(tot) 0.693
+
+=== F. DISTANCE: venue state vs home state ===
+  road game, in-state                                                          n= 4937 | own ATS 2444-2418 (50.3%, -4.0%) | OVER 2509-2382 (51.3%, -2.1%; sm 50.8%) tot +1.08 | ML roi -12.2% win 37% | sprd +5.1
+  road game, out-of-state                                                      n=22604 | own ATS 11202-11045 (50.4%, -3.8%) | OVER 11409-11001 (50.9%, -2.8%; sm 50.7%) tot +0.87 | ML roi -15.3% win 36% | sprd +5.3
+  road game #2+, out-of-state                                                  n= 9812 | own ATS 4876-4780 (50.5%, -3.6%) | OVER 4961-4765 (51.0%, -2.6%; sm 50.8%) tot +0.84 | ML roi -14.9% win 35% | sprd +6.0 | p(ATS) 0.285 p(tot) 0.295
+  road game #2+, in-state                                                      n= 2129 | own ATS 1044-1052 (49.8%, -4.9%) | OVER 1067-1040 (50.6%, -3.3%; sm 50.8%) tot +0.88 | ML roi -16.8% win 35% | sprd +5.5
+  road game #3+, 3+ distinct states this trip                                  n= 2614 | own ATS 1323-1242 (51.6%, -1.5%) | OVER 1296-1295 (50.0%, -4.5%; sm 51.0%) tot +0.45 | ML roi -23.1% win 28% | sprd +9.3 | p(ATS) 0.133 p(tot) 0.993
+  road game #3+, 1 state the whole trip                                        n=  212 | own ATS 111-96 (53.6%, +2.4%) | OVER 118-93 (55.9%, +6.7%; sm 50.7%) tot +1.20 | ML roi -20.7% win 38% | sprd +3.9
+
+=== G. SPLITS of road game #3+ in a row (where fatigue/travel should bite) ===
+  road #3+, all                                                                n= 4013 | own ATS 2041-1899 (51.8%, -1.1%) | OVER 1986-1995 (49.9%, -4.8%; sm 50.9%) tot +0.33 | ML roi -21.0% win 31% | sprd +8.0 | p(ATS) 0.013 p(tot) 0.910
+      by season: 21: ATS 364-304 O 344-327 | 22: ATS 346-323 O 330-342 | 23: ATS 305-292 O 312-296 | 24: ATS 320-324 O 334-318 | 25: ATS 349-308 O 315-352 | 26: ATS 357-348 O 351-360
+     Nov-Dec                                                                   n= 2104 | own ATS 1058-1007 (51.2%, -2.1%) | OVER 1026-1059 (49.2%, -6.1%; sm 51.2%) tot +0.06 | ML roi -31.6% win 22% | sprd +12.3
+     Jan-Feb                                                                   n= 1798 | own ATS 921-844 (52.2%, -0.4%) | OVER 902-883 (50.5%, -3.5%; sm 50.6%) tot +0.65 | ML roi -10.4% win 40% | sprd +3.2
+     March                                                                     n=  111 | own ATS 62-48 (56.4%, +7.6%) | OVER 58-53 (52.3%, -0.3%; sm 50.6%) tot +0.07 | ML roi +3.3% win 48% | sprd +3.4
+     non-conference                                                            n= 2104 | own ATS 1058-1007 (51.2%, -2.1%) | OVER 1026-1059 (49.2%, -6.1%; sm 51.2%) tot +0.06 | ML roi -31.6% win 22% | sprd +12.3
+     conference                                                                n= 2101 | own ATS 1083-985 (52.4%, -0.0%) | OVER 1055-1029 (50.6%, -3.4%; sm 50.6%) tot +0.60 | ML roi -8.6% win 41% | sprd +3.2
+     as favorite                                                               n=  903 | own ATS 450-436 (50.8%, -3.1%) | OVER 457-439 (51.0%, -2.6%; sm 50.5%) tot +0.76 | ML roi -3.9% win 65% | sprd -5.0
+     as dog 0-7                                                                n= 1205 | own ATS 603-571 (51.4%, -1.9%) | OVER 574-623 (48.0%, -8.4%; sm 50.3%) tot -0.10 | ML roi -2.3% win 39% | sprd +4.0
+     as dog 7.5-14                                                             n=  909 | own ATS 462-432 (51.7%, -1.3%) | OVER 450-453 (49.8%, -4.9%; sm 50.8%) tot +0.32 | ML roi -24.5% win 15% | sprd +10.4
+     as dog 14.5+                                                              n=  968 | own ATS 512-446 (53.4%, +2.1%) | OVER 489-469 (51.0%, -2.6%; sm 52.3%) tot +0.39 | ML roi -59.2% win 3% | sprd +23.0
+     good team (KenPom EM > +10)                                               n=  171 | own ATS 87-82 (51.5%, -1.8%) | OVER 79-89 (47.0%, -10.2%; sm 50.6%) tot -1.08 | ML roi -9.8% win 53% | sprd -2.4
+     average (EM -5..+10)                                                      n= 1367 | own ATS 677-660 (50.6%, -3.3%) | OVER 711-650 (52.2%, -0.3%; sm 50.6%) tot +0.88 | ML roi -12.2% win 42% | sprd +3.0
+     weak (EM < -5)                                                            n= 2468 | own ATS 1272-1155 (52.4%, +0.1%) | OVER 1193-1252 (48.8%, -6.9%; sm 51.1%) tot +0.13 | ML roi -26.7% win 23% | sprd +11.4
+     vs a much better host (EM gap >= 10)                                      n= 1446 | own ATS 763-662 (53.5%, +2.3%) | OVER 740-695 (51.6%, -1.6%; sm 51.8%) tot +0.70 | ML roi -49.2% win 6% | sprd +19.1
+     vs a much worse host (gap <= -10)                                         n=  403 | own ATS 201-193 (51.0%, -2.6%) | OVER 204-194 (51.3%, -2.2%; sm 50.8%) tot +0.31 | ML roi -1.8% win 75% | sprd -7.8
+     experienced (Exp >= 2.0)                                                  n=  880 | own ATS 433-429 (50.2%, -4.1%) | OVER 449-421 (51.6%, -1.5%; sm 50.8%) tot +0.38 | ML roi -6.9% win 39% | sprd +4.8
+     young (Exp < 1.5)                                                         n= 1984 | own ATS 1034-917 (53.0%, +1.2%) | OVER 973-996 (49.4%, -5.7%; sm 51.0%) tot +0.69 | ML roi -27.2% win 27% | sprd +10.1
+     deep bench (>= 32% minutes)                                               n= 1946 | own ATS 962-955 (50.2%, -4.1%) | OVER 979-952 (50.7%, -3.2%; sm 51.0%) tot +0.62 | ML roi -27.9% win 26% | sprd +9.8
+     thin bench (< 27%)                                                        n=  837 | own ATS 455-370 (55.2%, +5.3%) | OVER 416-413 (50.2%, -4.2%; sm 50.8%) tot +0.44 | ML roi -3.2% win 39% | sprd +5.3
+     previous road game WON                                                    n= 1179 | own ATS 592-567 (51.1%, -2.5%) | OVER 592-578 (50.6%, -3.4%; sm 50.6%) tot +0.68 | ML roi -14.0% win 41% | sprd +3.0
+     previous road game LOST                                                   n= 2834 | own ATS 1449-1332 (52.1%, -0.5%) | OVER 1394-1417 (49.6%, -5.3%; sm 51.0%) tot +0.18 | ML roi -23.9% win 26% | sprd +10.0
+     covered the previous road game                                            n= 1987 | own ATS 1009-940 (51.8%, -1.1%) | OVER 979-992 (49.7%, -5.2%; sm 50.9%) tot +0.25 | ML roi -23.3% win 32% | sprd +7.4
+     failed to cover the previous road game                                    n= 1974 | own ATS 1006-933 (51.9%, -0.9%) | OVER 980-978 (50.1%, -4.5%; sm 50.9%) tot +0.40 | ML roi -18.6% win 30% | sprd +8.5
+     total line < 135                                                          n=  755 | own ATS 394-350 (53.0%, +1.1%) | OVER 371-376 (49.7%, -5.2%; sm 50.8%) tot +0.15 | ML roi -18.5% win 34% | sprd +7.2
+     total 135-145                                                             n= 1667 | own ATS 845-790 (51.7%, -1.3%) | OVER 818-835 (49.5%, -5.5%; sm 50.9%) tot -0.06 | ML roi -18.6% win 32% | sprd +7.2
+     total > 145                                                               n= 1591 | own ATS 802-759 (51.4%, -1.9%) | OVER 797-784 (50.4%, -3.8%; sm 51.0%) tot +0.81 | ML roi -24.7% win 28% | sprd +9.2
