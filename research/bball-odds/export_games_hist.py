@@ -83,6 +83,7 @@ def main():
         **{c: X[c] for c in line_cols}, "line_source": "research_warehouse"})
     for c in ("close_ml_home", "close_ml_away", "h1_ml_home", "h1_ml_away"):
         W[c] = W[c].round()
+        W.loc[W[c].abs() < 100, c] = np.nan   # a cross-book median can land inside (-100, 100) when books disagree in sign; not a price
     W = W.replace({np.nan: None})
     INT_COLS = ("cbbd_id", "season", "home_team_id", "away_team_id", "home_score", "away_score", "home_h1", "away_h1", "close_ml_home", "close_ml_away", "h1_ml_home", "h1_ml_away")
     print(W.groupby("season").agg(games=("cbbd_id", "size"), fg_close=("close_spread", "count"), h1=("h1_spread", "count"), tt=("tt_home", "count")).to_string())
