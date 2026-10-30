@@ -1,5 +1,6 @@
 package com.wagerproof.core.services
 
+import com.wagerproof.core.models.NCAABTeamAssets
 import com.wagerproof.core.models.MLBTeamMapping
 import com.wagerproof.core.models.MLBTeamTrendRecord
 import com.wagerproof.core.models.MLBTeams
@@ -28,7 +29,11 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
@@ -50,6 +55,20 @@ class OutliersTrendsService {
         season: Int,
         week: Int,
     ): List<OutliersTrendsCard> {
+        if (sport == OutliersTrendsSport.NBA || sport == OutliersTrendsSport.NCAAB) {
+            val table = if (sport == OutliersTrendsSport.NBA) {
+                "nba_outliers_trend_cards"
+            } else {
+                "ncaab_outliers_trend_cards"
+            }
+            val rows = SupabaseClients.cfb.from(table)
+                .select(Columns.raw(TREND_CARD_COLUMNS)) {
+                    filter { eq("slate_date", ServiceDates.todayET()) }
+                    order("sort_rank", Order.DESCENDING)
+                }
+                .decodeList<TrendCardRow>()
+            return rows.map { it.model() }
+        }
         val table = if (sport == OutliersTrendsSport.NCAAF) {
             "cfb_outliers_trend_cards"
         } else {
@@ -73,7 +92,8 @@ class OutliersTrendsService {
             OutliersTrendsSport.NFL -> fetchNFLSlateGames()
             OutliersTrendsSport.NCAAF -> fetchCFBSlateGames()
             OutliersTrendsSport.MLB -> fetchMLBSlateGames()
-            else -> emptyList()
+            OutliersTrendsSport.NBA -> fetchNBASlateGames()
+            OutliersTrendsSport.NCAAB -> fetchNCAABSlateGames()
         }
 
     /** Pre-rendered trend cards from `nfl_outliers_trend_cards`. */
@@ -113,6 +133,142 @@ class OutliersTrendsService {
             }
             .decodeList<CFBGameRow>()
         return rows.map { it.model() }
+    }
+
+    /** Today's ET NBA slate from `nba_input_values_view` — the same feed the games page uses. */
+    private suspend fun fetchNBASlateGames(): List<OutliersTrendsGame> {
+        val today = ServiceDates.todayET()
+        val tomorrow = ServiceDates.etDate(1)
+        val season = today.take(4).toIntOrNull() ?: 2026
+        val rows = SupabaseClients.cfb.from("nba_input_values_view")
+            .select(Columns.raw("game_id,away_team,home_team,away_abbr,home_abbr,home_spread,total_line,game_date,tipoff_time_et")) {
+                filter {
+                    gte("game_date", today)
+                    lt("game_date", tomorrow)
+                }
+            }
+            .decodeList<NBASlateRow>()
+        return rows.mapNotNull { row ->
+            val day = (row.gameDate ?: "").take(10)
+            val gameId = row.gameId ?: return@mapNotNull null
+            if (day != today || gameId.isEmpty()) return@mapNotNull null
+            val awayName = row.awayTeam ?: ""
+            val homeName = row.homeTeam ?: ""
+            OutliersTrendsGame(
+                id = gameId,
+                season = season,
+                week = 0,
+                awayAb = cleanedAbbr(row.awayAbbr, awayName),
+                homeAb = cleanedAbbr(row.homeAbbr, homeName),
+                awayTeam = awayName,
+                homeTeam = homeName,
+                fgSpreadClose = row.homeSpread,
+                fgTotalClose = row.totalLine,
+                kickoff = slateKickoff(day, row.tipoff),
+                slot = null,
+                assignedReferee = null,
+            )
+        }
+    }
+
+    /** Today's ET college slate from `v_cbb_input_values`, with mapping abbrevs and logos. */
+    private suspend fun fetchNCAABSlateGames(): List<OutliersTrendsGame> {
+        NCAABTeamIdentityService.ensureLoaded()
+        CFBTeamsService.ensureLoaded()
+        val today = ServiceDates.todayET()
+        val tomorrow = ServiceDates.etDate(1)
+        val season = today.take(4).toIntOrNull() ?: 2026
+        val cfb = SupabaseClients.cfb
+        val rows = cfb.from("v_cbb_input_values")
+            .select(Columns.raw("game_id,away_team,home_team,away_team_id,home_team_id,spread,over_under,game_date_et,tipoff_time_et,start_utc")) {
+                filter {
+                    gte("game_date_et", today)
+                    lt("game_date_et", tomorrow)
+                }
+            }
+            .decodeList<NCAABSlateRow>()
+        val maps = try {
+            cfb.from("ncaab_team_mapping")
+                .select(Columns.raw("api_team_id,team_abbrev,espn_team_id,teamranking_team_name"))
+                .decodeList<NCAABMapRow>()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            emptyList()
+        }
+        val byId = maps.mapNotNull { row -> row.apiTeamId?.let { it to row } }.toMap()
+        val logos = HashMap<String, String>()
+        val abbrevs = HashMap<String, String>()
+        fun remember(name: String, mapped: NCAABMapRow?) {
+            if (mapped == null) return
+            val code = mapped.teamAbbrev?.trim().orEmpty()
+            val logo = mapped.espnTeamId?.let { "https://a.espncdn.com/i/teamlogos/ncaa/500/$it.png" }
+            val ranking = mapped.rankingName?.trim().orEmpty()
+            if (logo != null) {
+                if (name.isNotEmpty()) logos[name] = logo
+                if (ranking.isNotEmpty()) logos[ranking] = logo
+                if (code.isNotEmpty()) logos[code] = logo
+            }
+            if (code.isNotEmpty()) {
+                if (name.isNotEmpty()) abbrevs[name] = code
+                if (ranking.isNotEmpty()) abbrevs[ranking] = code
+                abbrevs[code] = code
+            }
+        }
+        for (mapped in maps) remember(mapped.rankingName?.trim().orEmpty(), mapped)
+        for (row in rows) {
+            remember(row.awayTeam ?: "", row.awayTeamId?.let { byId[it] })
+            remember(row.homeTeam ?: "", row.homeTeamId?.let { byId[it] })
+        }
+        NCAABTeamAssets.install(logos, abbrevs)
+        return rows.mapNotNull { row ->
+            val day = (row.gameDate ?: "").take(10)
+            val gameId = row.gameId ?: return@mapNotNull null
+            if (day != today || gameId.isEmpty()) return@mapNotNull null
+            val awayName = row.awayTeam ?: ""
+            val homeName = row.homeTeam ?: ""
+            OutliersTrendsGame(
+                id = gameId,
+                season = season,
+                week = 0,
+                awayAb = NCAABTeamAssets.abbrev(awayName) ?: cleanedAbbr(null, awayName),
+                homeAb = NCAABTeamAssets.abbrev(homeName) ?: cleanedAbbr(null, homeName),
+                awayTeam = awayName,
+                homeTeam = homeName,
+                fgSpreadClose = row.spread,
+                fgTotalClose = row.total,
+                kickoff = slateKickoff(day, row.startUtc ?: row.tipoff),
+                slot = null,
+                assignedReferee = null,
+            )
+        }
+    }
+
+    private fun cleanedAbbr(raw: String?, fallback: String): String {
+        val trimmed = raw?.trim().orEmpty()
+        if (trimmed.isNotEmpty()) return trimmed
+        val letters = fallback.filter { it.isLetterOrDigit() }
+        if (letters.isEmpty()) return "???"
+        return letters.take(3).uppercase()
+    }
+
+    /** Prefer a real instant. A clock-only tipoff is read as Eastern wall time on the slate date. */
+    private fun slateKickoff(date: String, time: String?): String? {
+        val clock = time?.trim().orEmpty()
+        if (clock.contains("T")) return clock
+        val day = runCatching { LocalDate.parse(date) }.getOrNull() ?: return clock.ifEmpty { date }
+        var hour = 12
+        var minute = 0
+        val hm = Regex("""(\d{1,2}):(\d{2})""").find(clock)
+        if (hm != null) {
+            hour = hm.groupValues[1].toInt()
+            minute = hm.groupValues[2].toInt()
+            val upper = clock.uppercase()
+            if (upper.contains("PM") && hour < 12) hour += 12
+            if (upper.contains("AM") && hour == 12) hour = 0
+        }
+        val zoned = day.atTime(hour, minute).atZone(ZoneId.of("America/New_York"))
+        return DateTimeFormatter.ISO_INSTANT.format(zoned.toInstant())
     }
 
     suspend fun fetchMLBBundle(): MLBTrendsSlateBundle {
@@ -389,9 +545,60 @@ class OutliersTrendsService {
     // MARK: - Row decoders
 
     @Serializable
+    private data class NBASlateRow(
+        @Serializable(with = FlexibleStringSerializer::class)
+        @SerialName("game_id") val gameId: String? = null,
+        @SerialName("away_team") val awayTeam: String? = null,
+        @SerialName("home_team") val homeTeam: String? = null,
+        @SerialName("away_abbr") val awayAbbr: String? = null,
+        @SerialName("home_abbr") val homeAbbr: String? = null,
+        @Serializable(with = FlexibleDoubleSerializer::class)
+        @SerialName("home_spread") val homeSpread: Double? = null,
+        @Serializable(with = FlexibleDoubleSerializer::class)
+        @SerialName("total_line") val totalLine: Double? = null,
+        @Serializable(with = FlexibleStringSerializer::class)
+        @SerialName("game_date") val gameDate: String? = null,
+        @Serializable(with = FlexibleStringSerializer::class)
+        @SerialName("tipoff_time_et") val tipoff: String? = null,
+    )
+
+    @Serializable
+    private data class NCAABSlateRow(
+        @Serializable(with = FlexibleStringSerializer::class)
+        @SerialName("game_id") val gameId: String? = null,
+        @SerialName("away_team") val awayTeam: String? = null,
+        @SerialName("home_team") val homeTeam: String? = null,
+        @Serializable(with = FlexibleIntSerializer::class)
+        @SerialName("away_team_id") val awayTeamId: Int? = null,
+        @Serializable(with = FlexibleIntSerializer::class)
+        @SerialName("home_team_id") val homeTeamId: Int? = null,
+        @Serializable(with = FlexibleDoubleSerializer::class)
+        val spread: Double? = null,
+        @Serializable(with = FlexibleDoubleSerializer::class)
+        @SerialName("over_under") val total: Double? = null,
+        @Serializable(with = FlexibleStringSerializer::class)
+        @SerialName("game_date_et") val gameDate: String? = null,
+        @Serializable(with = FlexibleStringSerializer::class)
+        @SerialName("tipoff_time_et") val tipoff: String? = null,
+        @Serializable(with = FlexibleStringSerializer::class)
+        @SerialName("start_utc") val startUtc: String? = null,
+    )
+
+    @Serializable
+    private data class NCAABMapRow(
+        @Serializable(with = FlexibleIntSerializer::class)
+        @SerialName("api_team_id") val apiTeamId: Int? = null,
+        @SerialName("team_abbrev") val teamAbbrev: String? = null,
+        @Serializable(with = FlexibleIntSerializer::class)
+        @SerialName("espn_team_id") val espnTeamId: Int? = null,
+        @SerialName("teamranking_team_name") val rankingName: String? = null,
+    )
+
+    @Serializable
     private data class TrendCardRow(
         @SerialName("card_id") val cardId: String,
-        @SerialName("game_id") val gameId: String,
+        @Serializable(with = FlexibleStringSerializer::class)
+        @SerialName("game_id") val gameId: String? = null,
         @SerialName("matchup_label") val matchupLabel: String,
         @SerialName("subject_kind") val subjectKind: String,
         @SerialName("subject_name") val subjectName: String,
@@ -409,7 +616,7 @@ class OutliersTrendsService {
     ) {
         fun model(): OutliersTrendsCard = OutliersTrendsCard(
             id = cardId,
-            gameId = gameId,
+            gameId = gameId ?: "",
             matchupLabel = matchupLabel,
             subjectKind = OutliersTrendsSubjectKind.entries.firstOrNull { it.raw == subjectKind }
                 ?: OutliersTrendsSubjectKind.TEAM,

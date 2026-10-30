@@ -341,7 +341,7 @@ public actor LiveScoresService {
 
             let preds: [NBAPredictionRow] = try await client
                 .from("nba_predictions")
-                .select("game_id, home_team, away_team, home_win_prob, away_win_prob, model_fair_home_spread, model_fair_total, run_id")
+                .select("game_id, home_team, away_team, home_win_prob, away_win_prob, run_id")
                 .eq("run_id", value: runId)
                 .execute()
                 .value

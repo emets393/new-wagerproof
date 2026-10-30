@@ -44,7 +44,7 @@ import com.wagerproof.app.features.agents.components.AgentPickRationaleWidget
 import com.wagerproof.app.features.components.CollapsingWidgetScroll
 import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
-import com.wagerproof.app.features.components.polymarket.PolymarketWidget
+import com.wagerproof.app.features.analytics.GamePublicBettingCard
 import com.wagerproof.app.features.cfb.NFLLineMovementSection
 import com.wagerproof.app.features.gamecards.BestBookChip
 import com.wagerproof.app.features.gamecards.GameCardFormatting
@@ -146,7 +146,6 @@ fun NFLGameDetailPage(
     var showAllMatchupProps by remember(game.gameId) { mutableStateOf(false) }
     // Polymarket derives its own prose read once the price history lands; until
     // then the widget shows the generic market-odds sentence.
-    var marketOddsHeadline by remember(game.gameId) { mutableStateOf<String?>(null) }
     var bookOdds by remember(game.gameId) { mutableStateOf<SportsbookGameOdds?>(null) }
 
     LaunchedEffect(game.gameId, game.awayTeam, game.homeTeam, game.kickoff) {
@@ -231,20 +230,18 @@ fun NFLGameDetailPage(
 
         item {
             WidgetCollapsingSection(
-                title = "Market Odds",
+                title = "Public Betting",
                 icon = AppIcon.fromSystemName("chart.bar.fill"),
                 iconTint = AppColors.appPrimary,
-                headline = marketOddsHeadline ?: GameWidgetHeadlines.marketOdds(),
+                headline = "Tickets and money",
             ) {
-                PolymarketWidget(
-                    league = "nfl",
+                GamePublicBettingCard(
+                    sport = "nfl",
                     awayTeam = game.awayTeam,
                     homeTeam = game.homeTeam,
-                    awayColors = awayColors,
-                    homeColors = homeColors,
-                    awayAbbr = awayAbbr,
-                    homeAbbr = homeAbbr,
-                    onHeadlineChange = { marketOddsHeadline = it },
+                    awayColor = awayColors.primary,
+                    homeColor = homeColors.primary,
+                    gameDate = game.gameDate,
                 )
             }
         }

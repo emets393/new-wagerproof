@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
@@ -104,27 +105,28 @@ private fun Content(
     }
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TeamColumn(awayTeam, awayInjuries, Modifier.weight(1f))
-            TeamColumn(homeTeam, homeInjuries, Modifier.weight(1f))
-        }
+        TeamBlock(awayTeam, awayInjuries)
+        TeamBlock(homeTeam, homeInjuries)
         Box(Modifier.fillMaxWidth().height(1.dp).background(AppColors.appBorder))
         ImpactFooter(awayTeam, homeTeam, awayInjuryImpact, homeInjuryImpact)
     }
 }
 
 @Composable
-private fun TeamColumn(name: String, injuries: List<NBAInjuryReport>, modifier: Modifier = Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        GameCardTeamAvatar(sport = "nba", team = name, diameter = 40.dp, colors = NBATeams.colorPair(name))
+private fun TeamBlock(name: String, injuries: List<NBAInjuryReport>) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GameCardTeamAvatar(sport = "nba", team = name, diameter = 28.dp, colors = NBATeams.colorPair(name))
+            Text(name, color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
         if (injuries.isEmpty()) {
             Text(
                 "No injuries reported",
                 color = AppColors.appTextSecondary,
                 fontSize = 12.sp,
-                modifier = Modifier.padding(vertical = 16.dp),
+                modifier = Modifier.padding(vertical = 8.dp),
             )
         } else {
             InjuryTable(injuries)
@@ -134,30 +136,44 @@ private fun TeamColumn(name: String, injuries: List<NBAInjuryReport>, modifier: 
 
 @Composable
 private fun InjuryTable(injuries: List<NBAInjuryReport>) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             TableHeader("PLAYER", Modifier.weight(1f))
-            TableHeader("STATUS", Modifier.weight(1f))
-            TableHeader("PIE", Modifier.widthIn(min = 50.dp), TextAlign.End)
+            TableHeader("STATUS", Modifier.width(88.dp))
+            TableHeader("PIE", Modifier.width(56.dp), TextAlign.End)
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(AppColors.appBorder))
-        // Highest-impact players first — mirrors RN `sortByPIE`.
         injuries.sortedByDescending { it.pieValue ?: Double.NEGATIVE_INFINITY }.forEach { injury ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Text(
-                    formatPlayerName(injury.playerName),
-                    color = AppColors.appTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Medium,
-                    maxLines = 1, modifier = Modifier.weight(1f),
+                    injury.playerName,
+                    color = AppColors.appTextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier.weight(1f),
                 )
                 Text(
                     injury.status,
-                    color = AppColors.appTextSecondary, fontSize = 10.sp,
-                    maxLines = 1, modifier = Modifier.weight(1f),
+                    color = AppColors.appTextSecondary,
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier.width(88.dp),
                 )
                 Text(
                     formatPIE(injury.pieValue),
-                    color = AppColors.appPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.End, modifier = Modifier.widthIn(min = 50.dp),
+                    color = AppColors.appPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    modifier = Modifier.width(56.dp),
                 )
             }
         }
@@ -213,14 +229,6 @@ private fun impactColor(my: Double, other: Double): Color = when {
     my < other -> AppColors.appAccentRed
     my > other -> AppColors.appPrimary
     else -> AppColors.appTextPrimary
-}
-
-private fun formatPlayerName(full: String): String {
-    val parts = full.split(" ").filter { it.isNotEmpty() }
-    if (parts.size < 2) return full
-    val firstInitial = parts[0].take(1).uppercase(Locale.US)
-    val last = parts.drop(1).joinToString(" ")
-    return "$firstInitial. $last"
 }
 
 private fun formatPIE(value: Double?): String =

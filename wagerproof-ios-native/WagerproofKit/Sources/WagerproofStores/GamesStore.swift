@@ -52,7 +52,7 @@ public final class GamesStore {
     }
 
     public enum SortMode: String, Hashable, Sendable {
-        case time, spread, ou
+        case time, spread, ou, ml, signals
     }
 
     public enum LoadState: Equatable, Sendable {
@@ -77,6 +77,26 @@ public final class GamesStore {
     // MARK: - Observable state
 
     public private(set) var games = SportFeed()
+    public private(set) var nbaSignalsByGame: [Int: [NBASlateSignal]] = [:]
+    public private(set) var nbaSignalsByAbbr: [String: [NBASlateSignal]] = [:]
+    /// Distinct `ncaab_slate_flags.signal_key` values per CBBD game id. The feed badge.
+    public private(set) var ncaabSignalCountByGame: [Int: Int] = [:]
+    public private(set) var nbaFirstHalfByGame: [Int: [NBAFirstHalfMarket]] = [:]
+    public private(set) var nbaFirstHalfByAbbr: [String: [NBAFirstHalfMarket]] = [:]
+
+    public func ncaabSignalCount(gameId: Int) -> Int {
+        ncaabSignalCountByGame[gameId] ?? 0
+    }
+
+    public func nbaSignals(gameId: Int, date: String, home: String, away: String) -> [NBASlateSignal] {
+        if let rows = nbaSignalsByGame[gameId], !rows.isEmpty { return rows }
+        return nbaSignalsByAbbr["\(date.prefix(10))|\(home)|\(away)"] ?? []
+    }
+
+    public func nbaFirstHalf(gameId: Int, date: String, home: String, away: String) -> [NBAFirstHalfMarket] {
+        if let rows = nbaFirstHalfByGame[gameId], !rows.isEmpty { return rows }
+        return nbaFirstHalfByAbbr["\(date.prefix(10))|\(home)|\(away)"] ?? []
+    }
     public private(set) var loadState: [Sport: LoadState] = Dictionary(uniqueKeysWithValues: Sport.allCases.map { ($0, .idle) })
     public private(set) var lastFetched: [Sport: Date] = [:]
 
@@ -85,6 +105,10 @@ public final class GamesStore {
     public var selectedSport: Sport = Sport.displayOrder().first ?? .mlb
     /// Per-sport sort mode. Mirrors RN `sortModes` record.
     public var sortModes: [Sport: SortMode] = Dictionary(uniqueKeysWithValues: Sport.allCases.map { ($0, .time) })
+    /// Best signal ROI (percentage points) and signal count, keyed by game id.
+    /// Filled when each sport's slate loads. Empty means that sport has nothing to rank.
+    public private(set) var signalRanks: [Sport: [String: SignalBoardRank]] =
+        Dictionary(uniqueKeysWithValues: Sport.allCases.map { ($0, [:]) })
     /// Per-sport search text. Mirrors RN `searchTexts` record.
     public var searchTexts: [Sport: String] = Dictionary(uniqueKeysWithValues: Sport.allCases.map { ($0, "") })
 
@@ -251,21 +275,41 @@ public final class GamesStore {
     }
 
     private func sortNBA(_ list: [NBAGame], mode: SortMode) -> [NBAGame] {
-        switch mode {
-        case .time:
-            return list.sorted { a, b in
-                if !a.gameTime.isEmpty, !b.gameTime.isEmpty {
-                    return a.gameTime < b.gameTime
-                }
-                return a.gameDate < b.gameDate
-            }
-        case .spread:
-            return list.sorted { a, b in
-                Self.confidence(a.homeAwaySpreadCoverProb) > Self.confidence(b.homeAwaySpreadCoverProb)
-            }
-        case .ou:
-            return list.sorted { a, b in
-                Self.confidence(a.ouResultProb) > Self.confidence(b.ouResultProb)
+        let ranks = signalRanks[.nba] ?? [:]
+        if mode == .signals && !list.contains(where: { (ranks[String($0.gameId)]?.count ?? 0) > 0 }) {
+            return sortNBA(list, mode: .time)
+        }
+        let anyRated = list.contains { ranks[String($0.gameId)]?.bestRoi != nil }
+        return list.sorted { a, b in
+            let tie = { self.tipoff(a.gameTime, a.gameDate, b.gameTime, b.gameDate) }
+            switch mode {
+            case .time:
+                return tie()
+            case .spread:
+                return GameListSort.higherFirst(
+                    GameListSort.gap(a.modelFairHomeSpread, a.homeSpread),
+                    GameListSort.gap(b.modelFairHomeSpread, b.homeSpread),
+                    tie: tie
+                )
+            case .ou:
+                return GameListSort.higherFirst(
+                    GameListSort.gap(a.modelFairTotal, a.overLine),
+                    GameListSort.gap(b.modelFairTotal, b.overLine),
+                    tie: tie
+                )
+            case .ml:
+                return GameListSort.higherFirst(
+                    GameListSort.moneylineValue(homeProb: a.homeAwayMlProb, homeMl: a.homeMl, awayMl: a.awayMl),
+                    GameListSort.moneylineValue(homeProb: b.homeAwayMlProb, homeMl: b.homeMl, awayMl: b.awayMl),
+                    tie: tie
+                )
+            case .signals:
+                return GameListSort.signalsFirst(
+                    ranks[String(a.gameId)] ?? .empty,
+                    ranks[String(b.gameId)] ?? .empty,
+                    anyRated: anyRated,
+                    tie: tie
+                )
             }
         }
     }
@@ -292,23 +336,46 @@ public final class GamesStore {
     }
 
     private func sortNCAAB(_ list: [NCAABGame], mode: SortMode) -> [NCAABGame] {
-        switch mode {
-        case .time:
-            return list.sorted { a, b in
-                if !a.gameTime.isEmpty, !b.gameTime.isEmpty {
-                    return a.gameTime < b.gameTime
-                }
-                return a.gameDate < b.gameDate
-            }
-        case .spread:
-            return list.sorted { a, b in
-                Self.confidence(a.homeAwaySpreadCoverProb) > Self.confidence(b.homeAwaySpreadCoverProb)
-            }
-        case .ou:
-            return list.sorted { a, b in
-                Self.confidence(a.ouResultProb) > Self.confidence(b.ouResultProb)
+        let ranks = signalRanks[.ncaab] ?? [:]
+        if mode == .signals && !list.contains(where: { (ranks[String($0.gameId)]?.count ?? 0) > 0 }) {
+            return sortNCAAB(list, mode: .time)
+        }
+        let anyRated = list.contains { ranks[String($0.gameId)]?.bestRoi != nil }
+        return list.sorted { a, b in
+            let tie = { self.tipoff(a.gameTime, a.gameDate, b.gameTime, b.gameDate) }
+            switch mode {
+            case .time:
+                return tie()
+            case .spread:
+                return GameListSort.higherFirst(self.ncaabSpread(a), self.ncaabSpread(b), tie: tie)
+            case .ou:
+                return GameListSort.higherFirst(
+                    GameListSort.gap(a.predTotalPoints, a.overLine),
+                    GameListSort.gap(b.predTotalPoints, b.overLine),
+                    tie: tie
+                )
+            case .ml:
+                return GameListSort.higherFirst(
+                    GameListSort.moneylineValue(homeProb: a.homeAwayMlProb, homeMl: a.homeMl, awayMl: a.awayMl),
+                    GameListSort.moneylineValue(homeProb: b.homeAwayMlProb, homeMl: b.homeMl, awayMl: b.awayMl),
+                    tie: tie
+                )
+            case .signals:
+                return GameListSort.signalsFirst(
+                    ranks[String(a.gameId)] ?? .empty,
+                    ranks[String(b.gameId)] ?? .empty,
+                    anyRated: anyRated,
+                    tie: tie
+                )
             }
         }
+    }
+
+    /// Fair home spread versus the posted home spread. The fair number is the
+    /// originator's spread, or the negated predicted margin when that is all we have.
+    private func ncaabSpread(_ game: NCAABGame) -> Double? {
+        let model = game.modelFairHomeSpread ?? game.predHomeMargin.map { -$0 }
+        return GameListSort.gap(model, game.homeSpread)
     }
 
     public func sortedMLB() -> [MLBGame] {
@@ -341,68 +408,289 @@ public final class GamesStore {
     /// default); `spread` falls back to ML edge magnitude; `ou` uses the
     /// fair-vs-line delta.
     private func sortMLB(_ list: [MLBGame], mode: SortMode) -> [MLBGame] {
-        switch mode {
-        case .time:
-            return list.sorted { a, b in
+        let ranks = signalRanks[.mlb] ?? [:]
+        if mode == .signals && !list.contains(where: { (ranks[$0.id]?.count ?? 0) > 0 }) {
+            return sortMLB(list, mode: .time)
+        }
+        let anyRated = list.contains { ranks[$0.id]?.bestRoi != nil }
+        return list.sorted { a, b in
+            let tie = {
                 (Self.parseEpoch(a.gameTimeEt ?? a.officialDate) ?? .greatestFiniteMagnitude) <
                     (Self.parseEpoch(b.gameTimeEt ?? b.officialDate) ?? .greatestFiniteMagnitude)
             }
-        case .spread:
-            return list.sorted { a, b in
-                let ea = max(abs(a.homeMlEdgePct ?? 0), abs(a.awayMlEdgePct ?? 0))
-                let eb = max(abs(b.homeMlEdgePct ?? 0), abs(b.awayMlEdgePct ?? 0))
-                return ea > eb
-            }
-        case .ou:
-            return list.sorted { a, b in
-                abs(a.ouEdge ?? 0) > abs(b.ouEdge ?? 0)
+            switch mode {
+            case .time:
+                return tie()
+            case .spread, .ml:
+                // Baseball has no spread model. The spread menu item is hidden;
+                // a leftover `.spread` selection uses the moneyline edge.
+                return GameListSort.higherFirst(self.mlbMoneyline(a), self.mlbMoneyline(b), tie: tie)
+            case .ou:
+                return GameListSort.higherFirst(
+                    GameListSort.magnitude(a.ouEdge) ?? GameListSort.gap(a.ouFairTotal, a.totalLine),
+                    GameListSort.magnitude(b.ouEdge) ?? GameListSort.gap(b.ouFairTotal, b.totalLine),
+                    tie: tie
+                )
+            case .signals:
+                return GameListSort.signalsFirst(
+                    ranks[a.id] ?? .empty,
+                    ranks[b.id] ?? .empty,
+                    anyRated: anyRated,
+                    tie: tie
+                )
             }
         }
+    }
+
+    /// The larger of the two published ML edges, matching the pill. Falls back
+    /// to model-versus-price when the edge columns are empty.
+    private func mlbMoneyline(_ game: MLBGame) -> Double? {
+        if let home = game.homeMlEdgePct, let away = game.awayMlEdgePct {
+            return abs(max(home, away))
+        }
+        if let home = game.homeMlEdgePct { return abs(home) }
+        if let away = game.awayMlEdgePct { return abs(away) }
+        return GameListSort.moneylineValue(homeProb: game.mlHomeWinProb, homeMl: game.homeMl, awayMl: game.awayMl)
     }
 
     private func sortNFL(_ list: [NFLPrediction], mode: SortMode) -> [NFLPrediction] {
-        switch mode {
-        case .time:
-            return list.sorted { a, b in
-                (Self.parseEpoch(a.gameDate) ?? .greatestFiniteMagnitude) <
-                    (Self.parseEpoch(b.gameDate) ?? .greatestFiniteMagnitude)
-            }
-        case .spread:
-            // RN uses confidence-based sorting for NFL.
-            return list.sorted { a, b in
-                Self.confidence(a.homeAwaySpreadCoverProb) > Self.confidence(b.homeAwaySpreadCoverProb)
-            }
-        case .ou:
-            return list.sorted { a, b in
-                Self.confidence(a.ouResultProb) > Self.confidence(b.ouResultProb)
+        let ranks = signalRanks[.nfl] ?? [:]
+        if mode == .signals && !list.contains(where: { (ranks[$0.gameId]?.count ?? 0) > 0 }) {
+            return sortNFL(list, mode: .time)
+        }
+        let anyRated = list.contains { ranks[$0.gameId]?.bestRoi != nil }
+        return list.sorted { a, b in
+            let tie = { self.kickoff(a.gameDate, b.gameDate) }
+            switch mode {
+            case .time:
+                return tie()
+            case .spread:
+                return GameListSort.higherFirst(
+                    GameListSort.magnitude(a.fgSpreadEdge),
+                    GameListSort.magnitude(b.fgSpreadEdge),
+                    tie: tie
+                )
+            case .ou:
+                return GameListSort.higherFirst(self.nflTotal(a), self.nflTotal(b), tie: tie)
+            case .ml:
+                return GameListSort.higherFirst(
+                    GameListSort.moneylineValue(homeProb: a.homeAwayMlProb, homeMl: a.homeMl, awayMl: a.awayMl),
+                    GameListSort.moneylineValue(homeProb: b.homeAwayMlProb, homeMl: b.homeMl, awayMl: b.awayMl),
+                    tie: tie
+                )
+            case .signals:
+                return GameListSort.signalsFirst(
+                    ranks[a.gameId] ?? .empty,
+                    ranks[b.gameId] ?? .empty,
+                    anyRated: anyRated,
+                    tie: tie
+                )
             }
         }
+    }
+
+    private func nflTotal(_ game: NFLPrediction) -> Double? {
+        GameListSort.magnitude(game.fgTotalEdge) ?? GameListSort.gap(game.predTotal, game.overLine)
     }
 
     private func sortCFB(_ list: [CFBPrediction], mode: SortMode) -> [CFBPrediction] {
-        switch mode {
-        case .time:
-            return sortCFBByConviction(list)
-        case .spread:
-            return sortCFBByConviction(list)
-        case .ou:
-            return sortCFBByConviction(list)
+        let ranks = signalRanks[.cfb] ?? [:]
+        if mode == .signals && !list.contains(where: { (ranks[$0.gameId]?.count ?? 0) > 0 }) {
+            return sortCFB(list, mode: .time)
         }
-    }
-
-    private func sortCFBByConviction(_ list: [CFBPrediction]) -> [CFBPrediction] {
-        list.sorted { a, b in
-            if a.convictionTier.sortRank != b.convictionTier.sortRank {
-                return a.convictionTier.sortRank < b.convictionTier.sortRank
+        let anyRated = list.contains { ranks[$0.gameId]?.bestRoi != nil }
+        return list.sorted { a, b in
+            let tie = { self.kickoff(a.kickoff ?? a.gameTime, b.kickoff ?? b.gameTime) }
+            switch mode {
+            case .time:
+                return tie()
+            case .spread:
+                return GameListSort.higherFirst(
+                    GameListSort.magnitude(a.fgSpreadEdge ?? a.homeSpreadDiff),
+                    GameListSort.magnitude(b.fgSpreadEdge ?? b.homeSpreadDiff),
+                    tie: tie
+                )
+            case .ou:
+                return GameListSort.higherFirst(self.cfbTotal(a), self.cfbTotal(b), tie: tie)
+            case .ml:
+                return GameListSort.higherFirst(
+                    GameListSort.moneylineValue(homeProb: a.homeAwayMlProb ?? a.fgHomeWinProb, homeMl: a.homeMl, awayMl: a.awayMl),
+                    GameListSort.moneylineValue(homeProb: b.homeAwayMlProb ?? b.fgHomeWinProb, homeMl: b.homeMl, awayMl: b.awayMl),
+                    tie: tie
+                )
+            case .signals:
+                return GameListSort.signalsFirst(
+                    ranks[a.gameId] ?? .empty,
+                    ranks[b.gameId] ?? .empty,
+                    anyRated: anyRated,
+                    tie: tie
+                )
             }
-            return (Self.parseEpoch(a.kickoff ?? a.gameTime) ?? .greatestFiniteMagnitude) <
-                (Self.parseEpoch(b.kickoff ?? b.gameTime) ?? .greatestFiniteMagnitude)
         }
     }
 
-    private static func confidence(_ prob: Double?) -> Double {
-        guard let p = prob else { return 0 }
-        return max(p, 1 - p)
+    private func cfbTotal(_ game: CFBPrediction) -> Double? {
+        GameListSort.magnitude(game.fgTotalEdge)
+            ?? GameListSort.gap(game.fgPredTotal ?? game.predTotal, game.overLine ?? game.fgTotalClose)
+    }
+
+    private func tipoff(_ timeA: String, _ dateA: String, _ timeB: String, _ dateB: String) -> Bool {
+        if !timeA.isEmpty, !timeB.isEmpty { return timeA < timeB }
+        return dateA < dateB
+    }
+
+    private func kickoff(_ a: String, _ b: String) -> Bool {
+        (Self.parseEpoch(a) ?? .greatestFiniteMagnitude) < (Self.parseEpoch(b) ?? .greatestFiniteMagnitude)
+    }
+
+    private func storeRanks(_ sport: Sport, _ ranks: [String: SignalBoardRank]) {
+        var next = signalRanks
+        next[sport] = ranks
+        signalRanks = next
+    }
+
+    private struct FootballFlagKeyRow: Decodable, Sendable {
+        let gameId: String
+        let signalKey: String?
+        let source: String?
+        enum CodingKeys: String, CodingKey {
+            case gameId = "game_id"
+            case signalKey = "signal_key"
+            case source
+        }
+    }
+
+    private struct SignalDefHitRow: Decodable, Sendable {
+        let signalKey: String
+        let typicalHit: String?
+        enum CodingKeys: String, CodingKey {
+            case signalKey = "signal_key"
+            case typicalHit = "typical_hit"
+        }
+    }
+
+    private struct NCAABSignalTextRow: Decodable, Sendable {
+        let signalKey: String
+        let recordText: String?
+        let seasonRecordText: String?
+        enum CodingKeys: String, CodingKey {
+            case signalKey = "signal_key"
+            case recordText = "record_text"
+            case seasonRecordText = "season_record_text"
+        }
+    }
+
+    /// Season ROI from `signal_performance` when a signal has graded bets,
+    /// otherwise the ROI written into the backtest blurb.
+    private func nflSignalRanks(_ client: SupabaseClient, games: [NFLPrediction]) async -> [String: SignalBoardRank] {
+        guard let season = games.compactMap(\.season).first else { return [:] }
+        let week = games.compactMap(\.week).first
+        async let performances = SignalPerformanceService.shared.performances(for: .nfl, season: season)
+        async let defs: [SignalDefHitRow] = (try? await client
+            .from("nfl_signal_defs")
+            .select("signal_key,typical_hit")
+            .execute()
+            .value) ?? []
+        let flags: [FootballFlagKeyRow]
+        if let week {
+            flags = (try? await client
+                .from("nfl_slate_flags")
+                .select("game_id,signal_key,source")
+                .eq("season", value: season)
+                .eq("week", value: week)
+                .execute()
+                .value) ?? []
+        } else {
+            flags = []
+        }
+        let perf = await performances
+        var hitByKey: [String: String] = [:]
+        for def in await defs {
+            if let hit = def.typicalHit { hitByKey[def.signalKey] = hit }
+        }
+        let grouped = Dictionary(grouping: flags, by: \.gameId)
+        var ranks: [String: SignalBoardRank] = [:]
+        for game in games {
+            let rows = grouped[game.gameId] ?? []
+            let keys = FootballBlanketSignals.displayKeys(
+                sport: "nfl",
+                keys: rows.compactMap { $0.signalKey ?? $0.source }
+            )
+            let ratings: [Double?] = keys.map { key in
+                let row = perf[key]
+                return GameListSort.rating(
+                    seasonRoiFraction: row?.roi,
+                    seasonSample: row?.n ?? 0,
+                    seasonText: nil,
+                    backtestText: hitByKey[key]
+                )
+            }
+            ranks[game.gameId] = GameListSort.boardRank(count: keys.count, ratings: ratings)
+        }
+        return ranks
+    }
+
+    private func cfbSignalRanks(_ games: [CFBPrediction], _ performances: [String: SignalPerformance]) -> [String: SignalBoardRank] {
+        var ranks: [String: SignalBoardRank] = [:]
+        for game in games {
+            let flags = game.activeFlags
+            let keys = FootballBlanketSignals.displayKeys(sport: "cfb", keys: flags.map(\.source))
+            let ratings: [Double?] = keys.map { key in
+                let flag = flags.first { $0.source == key }
+                let perfKey = flag?.signalDefinition?.signalKey ?? key
+                let row = performances[perfKey] ?? performances[key]
+                return GameListSort.rating(
+                    seasonRoiFraction: row?.roi,
+                    seasonSample: row?.n ?? 0,
+                    seasonText: nil,
+                    backtestText: flag?.signalDefinition?.typicalHit
+                )
+            }
+            ranks[game.gameId] = GameListSort.boardRank(count: keys.count, ratings: ratings)
+        }
+        return ranks
+    }
+
+    private func nbaSignalRanks(_ byGame: [Int: [NBASlateSignal]]) -> [String: SignalBoardRank] {
+        var ranks: [String: SignalBoardRank] = [:]
+        for (gameId, signals) in byGame {
+            var seen = Set<String>()
+            var ratings: [Double?] = []
+            for signal in signals where seen.insert(signal.id).inserted {
+                ratings.append(GameListSort.rating(
+                    seasonRoiFraction: nil,
+                    seasonSample: 0,
+                    seasonText: signal.seasonRecordText,
+                    backtestText: signal.recordText
+                ))
+            }
+            ranks[String(gameId)] = GameListSort.boardRank(count: seen.count, ratings: ratings)
+        }
+        return ranks
+    }
+
+    private func ncaabSignalRanks(_ client: SupabaseClient, keysByGame: [Int: Set<String>]) async -> [String: SignalBoardRank] {
+        let defs: [NCAABSignalTextRow] = (try? await client
+            .from("ncaab_signal_defs")
+            .select("signal_key,record_text,season_record_text")
+            .execute()
+            .value) ?? []
+        var textByKey: [String: NCAABSignalTextRow] = [:]
+        for def in defs { textByKey[def.signalKey] = def }
+        var ranks: [String: SignalBoardRank] = [:]
+        for (gameId, keys) in keysByGame {
+            let ratings: [Double?] = keys.map { key in
+                let def = textByKey[key]
+                return GameListSort.rating(
+                    seasonRoiFraction: nil,
+                    seasonSample: 0,
+                    seasonText: def?.seasonRecordText,
+                    backtestText: def?.recordText
+                )
+            }
+            ranks[String(gameId)] = GameListSort.boardRank(count: keys.count, ratings: ratings)
+        }
+        return ranks
     }
 
     private static func parseEpoch(_ raw: String) -> Double? {
@@ -862,6 +1150,7 @@ public final class GamesStore {
         let slate = await fetchNFLSlate(cfb)
         if !slate.isEmpty {
             games.nfl = slate
+            storeRanks(.nfl, await nflSignalRanks(cfb, games: slate))
             return
         }
 
@@ -970,6 +1259,7 @@ public final class GamesStore {
             )
         }
         games.nfl = merged
+        storeRanks(.nfl, [:])
     }
 
     // MARK: - CFB fetch (slate tables — the legacy cfb_live_weekly_inputs +
@@ -1184,6 +1474,7 @@ public final class GamesStore {
 
         guard let slate = await Self.resolveFootballCurrentWeek(cfb, table: "cfb_slate_feed") else {
             games.cfb = []
+            storeRanks(.cfb, [:])
             return
         }
 
@@ -1212,7 +1503,7 @@ public final class GamesStore {
         }
         let flagsByGame = Dictionary(grouping: flagModels, by: \.gameId)
 
-        games.cfb = rows.map { row in
+        let built = rows.map { row in
             let gameId = row.gameId.value
             let away = row.awayTeam ?? "Away"
             let home = row.homeTeam ?? "Home"
@@ -1320,6 +1611,9 @@ public final class GamesStore {
                 flags: attachedFlags
             )
         }
+        games.cfb = built
+        let performances = await SignalPerformanceService.shared.performances(for: .cfb, season: slate.season)
+        storeRanks(.cfb, cfbSignalRanks(built, performances))
     }
 
     private static func cfbPredictedScore(home: Double?, away: Double?, total: Double?, margin: Double?) -> (home: Double, away: Double)? {
@@ -1425,6 +1719,7 @@ public final class GamesStore {
         let modelHomeMargin: Double?
         let modelTotal: Double?
         let tier: String?
+        let homeWinProb: Double?
         enum CodingKeys: String, CodingKey {
             case espnGameId = "espn_game_id"
             case gameId = "game_id"
@@ -1434,6 +1729,71 @@ public final class GamesStore {
             case market
             case modelHomeMargin = "model_home_margin"
             case modelTotal = "model_total"
+            case tier
+            case homeWinProb = "home_win_prob"
+        }
+        var abbrKey: String { "\(gameDate.prefix(10))|\(homeAbbr)|\(awayAbbr)" }
+    }
+
+    private struct NBAFlagRow: Decodable, Sendable {
+        let gameId: Int?
+        let gameDate: String?
+        let game: String?
+        let signalKey: String?
+        let side: String?
+        let recordText: String?
+        let market: String?
+        enum CodingKeys: String, CodingKey {
+            case gameId = "game_id"
+            case gameDate = "game_date"
+            case game
+            case signalKey = "signal_key"
+            case side
+            case recordText = "record_text"
+            case market
+        }
+    }
+
+    private struct NBASignalDefRow: Decodable, Sendable {
+        let signalKey: String
+        let displayName: String?
+        let definition: String?
+        let recordText: String?
+        let seasonRecordText: String?
+        let market: String?
+        enum CodingKeys: String, CodingKey {
+            case signalKey = "signal_key"
+            case displayName = "display_name"
+            case definition
+            case recordText = "record_text"
+            case seasonRecordText = "season_record_text"
+            case market
+        }
+    }
+
+    private struct NBAH1Row: Decodable, Sendable {
+        let gameId: Int?
+        let gameDate: String
+        let homeAbbr: String
+        let awayAbbr: String
+        let market: String
+        let modelHomeMargin: Double?
+        let modelTotal: Double?
+        let marketHomeSpread: Double?
+        let marketTotal: Double?
+        let disagreement: Double?
+        let tier: String?
+        enum CodingKeys: String, CodingKey {
+            case gameId = "game_id"
+            case gameDate = "game_date"
+            case homeAbbr = "home_abbr"
+            case awayAbbr = "away_abbr"
+            case market
+            case modelHomeMargin = "model_home_margin"
+            case modelTotal = "model_total"
+            case marketHomeSpread = "market_home_spread"
+            case marketTotal = "market_total"
+            case disagreement
             case tier
         }
         var abbrKey: String { "\(gameDate.prefix(10))|\(homeAbbr)|\(awayAbbr)" }
@@ -1457,16 +1817,21 @@ public final class GamesStore {
             .value
         if inputRows.isEmpty {
             games.nba = []
+            nbaSignalsByGame = [:]
+            nbaSignalsByAbbr = [:]
+            nbaFirstHalfByGame = [:]
+            nbaFirstHalfByAbbr = [:]
+            storeRanks(.nba, [:])
             return
         }
 
         // Step 2: originator model rows (spread margin + total) for the dates on the board.
         // Replaced nba_predictions' model_fair_* on 2026-10-13 (owner call): those were a transform of
-        // win probability with zero correlation to results. nba_predictions.home_win_prob = Phi(originator margin / 14.2) since 2026-10-19; old model deleted.
+        // win probability with zero correlation to results. nba_predictions is kept for home_win_prob only.
         let dates = Array(Set(inputRows.compactMap { $0.gameDate.map { String($0.prefix(10)) } }))
         let modelRows: [NBAModelPredRow] = dates.isEmpty ? [] : ((try? await cfb
             .from("nba_model_preds")
-            .select("espn_game_id, game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, tier")
+            .select("espn_game_id, game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, tier, home_win_prob")
             .in("game_date", values: dates)
             .execute()
             .value) ?? [])
@@ -1484,7 +1849,7 @@ public final class GamesStore {
 
         let predictionRows: [NBAPredictionRow] = (try? await cfb
             .from("nba_predictions")
-            .select("game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc")
+            .select("game_id, home_win_prob, away_win_prob, run_id, as_of_ts_utc")
             .execute()
             .value) ?? []
         var predictionsByGame: [Int: NBAPredictionRow] = [:]
@@ -1498,6 +1863,76 @@ public final class GamesStore {
             }
         }
 
+        let flagRows: [NBAFlagRow] = dates.isEmpty ? [] : ((try? await cfb
+            .from("nba_slate_flags")
+            .select("game_id, game_date, game, signal_key, side, record_text, market")
+            .in("game_date", values: dates)
+            .execute()
+            .value) ?? [])
+        let defRows: [NBASignalDefRow] = ((try? await cfb
+            .from("nba_signal_defs")
+            .select("signal_key, display_name, definition, record_text, season_record_text, market")
+            .execute()
+            .value) ?? [])
+        var defsByKey: [String: NBASignalDefRow] = [:]
+        for def in defRows { defsByKey[def.signalKey] = def }
+        var signalsByGame: [Int: [NBASlateSignal]] = [:]
+        var signalsByAbbr: [String: [NBASlateSignal]] = [:]
+        for flag in flagRows {
+            guard let key = flag.signalKey, !key.isEmpty else { continue }
+            let def = defsByKey[key]
+            let signal = NBASlateSignal(
+                id: "\(flag.gameId ?? 0)|\(key)",
+                title: def?.displayName ?? key,
+                side: flag.side,
+                definition: def?.definition,
+                recordText: def?.recordText ?? flag.recordText,
+                seasonRecordText: def?.seasonRecordText,
+                market: BasketballSignalMarket.canonical(flag.market) ?? BasketballSignalMarket.canonical(def?.market) ?? ""
+            )
+            if let gameId = flag.gameId {
+                signalsByGame[gameId, default: []].append(signal)
+            }
+            let parts = (flag.game ?? "").split(separator: "@").map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2 {
+                let abbr = "\((flag.gameDate ?? "").prefix(10))|\(parts[1])|\(parts[0])"
+                signalsByAbbr[abbr, default: []].append(signal)
+            }
+        }
+        nbaSignalsByGame = signalsByGame
+        nbaSignalsByAbbr = signalsByAbbr
+        storeRanks(.nba, nbaSignalRanks(signalsByGame))
+
+        let h1Rows: [NBAH1Row] = dates.isEmpty ? [] : ((try? await cfb
+            .from("nba_model_preds_h1")
+            .select("game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, market_home_spread, market_total, disagreement, tier")
+            .in("game_date", values: dates)
+            .execute()
+            .value) ?? [])
+        var h1ByGame: [Int: [NBAFirstHalfMarket]] = [:]
+        var h1ByAbbr: [String: [NBAFirstHalfMarket]] = [:]
+        for row in h1Rows {
+            let tracking = row.market == "h1_total"
+            let modelNumber: Double? = row.market == "h1_spread" ? row.modelHomeMargin.map { -$0 } : row.modelTotal
+            let marketNumber: Double? = row.market == "h1_spread" ? row.marketHomeSpread : row.marketTotal
+            let tier = tracking && row.tier == "bet" ? "tracking" : row.tier
+            let market = NBAFirstHalfMarket(
+                id: row.market,
+                title: row.market == "h1_spread" ? "1H spread" : "1H total",
+                modelNumber: modelNumber,
+                marketNumber: marketNumber,
+                disagreement: row.disagreement,
+                tier: tier,
+                trackingOnly: tracking,
+                homeAbbr: row.homeAbbr,
+                awayAbbr: row.awayAbbr
+            )
+            if let gameId = row.gameId { h1ByGame[gameId, default: []].append(market) }
+            h1ByAbbr[row.abbrKey, default: []].append(market)
+        }
+        nbaFirstHalfByGame = h1ByGame
+        nbaFirstHalfByAbbr = h1ByAbbr
+
         // Step 3: merge into NBAGame, deriving probabilities client-side
         // (matches RN's index.tsx:457-479).
         games.nba = inputRows.map { input in
@@ -1509,7 +1944,7 @@ public final class GamesStore {
             // spread is the negated margin (negated exactly once, here).
             let modelFairHomeSpread: Double? = spreadRow?.modelHomeMargin.map { -$0 }
             // Total hidden while the model is warming up (< 10 games played): no season-to-date form yet.
-            let modelFairTotal: Double? = totalRow?.tier == "warmup" ? nil : totalRow?.modelTotal
+            let modelFairTotal: Double? = totalRow?.modelTotal
             let simTotal = totalRow?.modelTotal
             let homeScorePred: Double? = (simTotal != nil && spreadRow?.modelHomeMargin != nil) ? (simTotal! + spreadRow!.modelHomeMargin!) / 2 : nil
             let awayScorePred: Double? = (simTotal != nil && spreadRow?.modelHomeMargin != nil) ? (simTotal! - spreadRow!.modelHomeMargin!) / 2 : nil
@@ -1569,14 +2004,15 @@ public final class GamesStore {
                 awayAtsPct: input.awayAtsPct,
                 homeOverPct: input.homeOverPct,
                 awayOverPct: input.awayOverPct,
-                homeAwayMlProb: pred?.homeWinProb,
+                homeAwayMlProb: spreadRow?.homeWinProb ?? pred?.homeWinProb,
                 homeAwaySpreadCoverProb: spreadCoverProb,
                 ouResultProb: ouProb,
                 runId: pred?.runId,
                 homeScorePred: homeScorePred,
                 awayScorePred: awayScorePred,
                 modelFairHomeSpread: modelFairHomeSpread,
-                modelFairTotal: modelFairTotal
+                modelFairTotal: modelFairTotal,
+                totalTier: totalRow?.tier
             )
         }
     }
@@ -1597,8 +2033,9 @@ public final class GamesStore {
         let homeTeamId: Int?
         let homeMl: Int?
         let awayMl: Int?
+        /// Home spread. The view publishes one number (`spread`), negative when
+        /// the home team is favored. The away number is the negation.
         let homeSpread: Double?
-        let awaySpread: Double?
         let overUnder: Double?
         let gameDateEt: String?
         let tipoffTimeEt: String?
@@ -1620,10 +2057,9 @@ public final class GamesStore {
             case homeTeam = "home_team"
             case awayTeamId = "away_team_id"
             case homeTeamId = "home_team_id"
-            case homeMl = "home_ml"
-            case awayMl = "away_ml"
-            case homeSpread = "home_spread"
-            case awaySpread = "away_spread"
+            case homeMl = "homeMoneyline"
+            case awayMl = "awayMoneyline"
+            case homeSpread = "spread"
             case overUnder = "over_under"
             case gameDateEt = "game_date_et"
             case tipoffTimeEt = "tipoff_time_et"
@@ -1638,6 +2074,88 @@ public final class GamesStore {
             case awayRanking = "away_ranking"
             case conferenceGame = "conference_game"
             case neutralSite = "neutral_site"
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            guard let gameId = Self.flexInt(c, .gameId) else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .gameId,
+                    in: c,
+                    debugDescription: "ncaab game_id missing"
+                )
+            }
+            self.gameId = gameId
+            awayTeam = try? c.decodeIfPresent(String.self, forKey: .awayTeam)
+            homeTeam = try? c.decodeIfPresent(String.self, forKey: .homeTeam)
+            awayTeamId = Self.flexInt(c, .awayTeamId)
+            homeTeamId = Self.flexInt(c, .homeTeamId)
+            homeMl = Self.flexInt(c, .homeMl)
+            awayMl = Self.flexInt(c, .awayMl)
+            homeSpread = Self.flexDouble(c, .homeSpread)
+            overUnder = Self.flexDouble(c, .overUnder)
+            gameDateEt = try? c.decodeIfPresent(String.self, forKey: .gameDateEt)
+            tipoffTimeEt = try? c.decodeIfPresent(String.self, forKey: .tipoffTimeEt)
+            startUtc = try? c.decodeIfPresent(String.self, forKey: .startUtc)
+            homeAdjOffense = Self.flexDouble(c, .homeAdjOffense)
+            awayAdjOffense = Self.flexDouble(c, .awayAdjOffense)
+            homeAdjDefense = Self.flexDouble(c, .homeAdjDefense)
+            awayAdjDefense = Self.flexDouble(c, .awayAdjDefense)
+            homeAdjPace = Self.flexDouble(c, .homeAdjPace)
+            awayAdjPace = Self.flexDouble(c, .awayAdjPace)
+            homeRanking = Self.flexInt(c, .homeRanking)
+            awayRanking = Self.flexInt(c, .awayRanking)
+            conferenceGame = Self.flexBool(c, .conferenceGame)
+            neutralSite = Self.flexBool(c, .neutralSite)
+        }
+
+        /// One bad cell used to fail the whole slate (`try?` then an empty board).
+        private static func flexInt(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Int? {
+            if let value = try? c.decodeIfPresent(Int.self, forKey: key) { return value }
+            if let value = try? c.decodeIfPresent(Double.self, forKey: key) { return Int(value.rounded()) }
+            if let value = try? c.decodeIfPresent(String.self, forKey: key) {
+                if let int = Int(value) { return int }
+                if let double = Double(value) { return Int(double.rounded()) }
+            }
+            return nil
+        }
+
+        private static func flexDouble(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Double? {
+            if let value = try? c.decodeIfPresent(Double.self, forKey: key) { return value }
+            if let value = try? c.decodeIfPresent(Int.self, forKey: key) { return Double(value) }
+            if let value = try? c.decodeIfPresent(String.self, forKey: key) { return Double(value) }
+            return nil
+        }
+
+        private static func flexBool(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Bool? {
+            if let value = try? c.decodeIfPresent(Bool.self, forKey: key) { return value }
+            if let value = try? c.decodeIfPresent(Int.self, forKey: key) { return value != 0 }
+            if let value = try? c.decodeIfPresent(String.self, forKey: key) {
+                switch value.lowercased() {
+                case "true", "t", "1", "yes": return true
+                case "false", "f", "0", "no": return false
+                default: return nil
+                }
+            }
+            return nil
+        }
+    }
+
+    /// A single corrupt college row must not blank the board.
+    private struct SoftNCAABRow: Decodable {
+        let row: NCAABInputRow?
+        init(from decoder: Decoder) throws {
+            row = try? NCAABInputRow(from: decoder)
+        }
+    }
+
+    private struct NCAABFlagCountRow: Decodable, Sendable {
+        let gameId: Int?
+        let signalKey: String?
+
+        enum CodingKeys: String, CodingKey {
+            case gameId = "game_id"
+            case signalKey = "signal_key"
         }
     }
 
@@ -1707,43 +2225,51 @@ public final class GamesStore {
     }
 
     private func fetchNCAAB() async throws {
+        await CFBTeamsService.shared.ensureLoaded()
+        await NCAABSchoolColorLoader.installIfNeeded()
         let cfb = await CFBSupabase.shared.client
 
-        // Step 1: today's input rows from v_cbb_input_values.
-        let inputs: [NCAABInputRow] = (try? await cfb
+        // Same window as the website: the opening slate before Sunday tip,
+        // then today and tomorrow once the season is underway.
+        let span = SportSeason.ncaabBoardSpan()
+        let columns = "game_id,away_team,home_team,away_team_id,home_team_id,homeMoneyline,awayMoneyline,spread,over_under,game_date_et,tipoff_time_et,start_utc,home_adj_offense,away_adj_offense,home_adj_defense,away_adj_defense,home_adj_pace,away_adj_pace,home_ranking,away_ranking,conference_game,neutral_site"
+        let wrapped: [SoftNCAABRow] = try await cfb
             .from("v_cbb_input_values")
-            .select()
+            .select(columns)
+            .gte("game_date_et", value: span.start)
+            .lte("game_date_et", value: span.end)
+            .order("game_date_et", ascending: true)
             .execute()
-            .value) ?? []
+            .value
+        let inputs = wrapped.compactMap(\.row)
         if inputs.isEmpty {
             games.ncaab = []
+            ncaabSignalCountByGame = [:]
+            storeRanks(.ncaab, [:])
             return
         }
 
-        // Step 2: latest predictions run.
-        let allPreds: [NCAABPredictionRow] = (try? await cfb
+        // Latest run only. Filtering by every game id in the season is a Bad Request,
+        // and downloading every historical run is the slow path.
+        struct NCAABRunRow: Decodable { let runId: String?; enum CodingKeys: String, CodingKey { case runId = "run_id" } }
+        let latestRuns: [NCAABRunRow] = (try? await cfb
             .from("ncaab_predictions")
-            // `home_away_ml_prob` / `home_away_spread_cover_prob` /
-            // `ou_result_prob` are NOT columns on `ncaab_predictions`. Naming
-            // them made PostgREST 42703 the whole query, so `allPreds` was
-            // always empty and every NCAAB game rendered with nil predictions.
-            .select("game_id, run_id, as_of_ts_utc, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, home_score_pred, away_score_pred, model_fair_home_spread, vegas_home_spread, vegas_total")
+            .select("run_id")
+            .order("as_of_ts_utc", ascending: false)
+            .limit(1)
             .execute()
             .value) ?? []
-        // RN: sort run_ids desc by as_of_ts_utc, take first. Without ts we
-        // fall back to lexicographic sort of run_id which is the RN behavior
-        // for hooks/useNCAABModelAccuracy where as_of_ts_utc was available.
-        let latestRunId: String? = {
-            // Prefer the run with the newest as_of_ts_utc.
-            let dated = allPreds.compactMap { p -> (String, String)? in
-                guard let r = p.runId, let ts = p.asOfTsUtc else { return nil }
-                return (r, ts)
-            }
-            if let pair = dated.sorted(by: { $0.1 > $1.1 }).first { return pair.0 }
-            return allPreds.compactMap { $0.runId }.sorted(by: >).first
-        }()
+        var predictionRows: [NCAABPredictionRow] = []
+        if let runId = latestRuns.first?.runId, !runId.isEmpty {
+            predictionRows = (try? await cfb
+                .from("ncaab_predictions")
+                .select("game_id, run_id, as_of_ts_utc, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, home_score_pred, away_score_pred, model_fair_home_spread, vegas_home_spread, vegas_total")
+                .eq("run_id", value: runId)
+                .execute()
+                .value) ?? []
+        }
         var predictionMap: [Int: NCAABPredictionRow] = [:]
-        for row in allPreds where row.runId == latestRunId {
+        for row in predictionRows {
             predictionMap[row.gameId] = row
         }
 
@@ -1766,12 +2292,53 @@ public final class GamesStore {
             }()
             mappingMap[row.apiTeamId] = (row.teamAbbrev, logo)
         }
+        var logosByName: [String: String] = [:]
+        var abbrevsByName: [String: String] = [:]
+        for row in inputs {
+            if let id = row.awayTeamId {
+                rememberNCAABIdentity(
+                    name: row.awayTeam,
+                    mapped: mappingMap[id],
+                    logos: &logosByName,
+                    abbrevs: &abbrevsByName
+                )
+            }
+            if let id = row.homeTeamId {
+                rememberNCAABIdentity(
+                    name: row.homeTeam,
+                    mapped: mappingMap[id],
+                    logos: &logosByName,
+                    abbrevs: &abbrevsByName
+                )
+            }
+        }
+        NCAABTeamAssets.install(logosByName)
+        NCAABTeamAssets.installAbbrevs(abbrevsByName)
+
+        let dates = Array(Set(inputs.compactMap { row -> String? in
+            guard let raw = row.gameDateEt, raw.count >= 10 else { return nil }
+            return String(raw.prefix(10))
+        }))
+        let flagRows: [NCAABFlagCountRow] = dates.isEmpty ? [] : ((try? await cfb
+            .from("ncaab_slate_flags")
+            .select("game_id, signal_key")
+            .in("game_date", values: dates)
+            .execute()
+            .value) ?? [])
+        var keysByGame: [Int: Set<String>] = [:]
+        for flag in flagRows {
+            guard let gameId = flag.gameId, let key = flag.signalKey, !key.isEmpty else { continue }
+            keysByGame[gameId, default: []].insert(key)
+        }
+        ncaabSignalCountByGame = keysByGame.mapValues { $0.count }
+        storeRanks(.ncaab, await ncaabSignalRanks(cfb, keysByGame: keysByGame))
 
         // Step 4: merge.
         games.ncaab = inputs.map { row in
             let pred = predictionMap[row.gameId]
             let awayMap = row.awayTeamId.flatMap { mappingMap[$0] }
             let homeMap = row.homeTeamId.flatMap { mappingMap[$0] }
+            let spread = row.homeSpread ?? pred?.vegasHomeSpread
             return NCAABGame(
                 id: String(row.gameId),
                 gameId: row.gameId,
@@ -1779,8 +2346,8 @@ public final class GamesStore {
                 homeTeam: row.homeTeam ?? "",
                 homeMl: row.homeMl,
                 awayMl: row.awayMl,
-                homeSpread: row.homeSpread ?? pred?.vegasHomeSpread,
-                awaySpread: row.awaySpread,
+                homeSpread: spread,
+                awaySpread: spread.map { -$0 },
                 overLine: row.overUnder ?? pred?.vegasTotal,
                 gameDate: row.gameDateEt ?? "",
                 gameTime: row.startUtc ?? row.tipoffTimeEt ?? "",
@@ -1813,6 +2380,24 @@ public final class GamesStore {
                 homeTeamAbbrev: homeMap?.abbrev,
                 awayTeamAbbrev: awayMap?.abbrev
             )
+        }
+    }
+
+    private func rememberNCAABIdentity(
+        name: String?,
+        mapped: (abbrev: String?, logo: String?)?,
+        logos: inout [String: String],
+        abbrevs: inout [String: String]
+    ) {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let abbrev = mapped?.abbrev?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if let logo = mapped?.logo, !logo.isEmpty {
+            if !trimmed.isEmpty { logos[trimmed] = logo }
+            if !abbrev.isEmpty { logos[abbrev] = logo }
+        }
+        if !abbrev.isEmpty {
+            if !trimmed.isEmpty { abbrevs[trimmed] = abbrev }
+            abbrevs[abbrev] = abbrev
         }
     }
 
@@ -2093,6 +2678,7 @@ public final class GamesStore {
             .value) ?? []
         if gamesRows.isEmpty {
             games.mlb = []
+            storeRanks(.mlb, [:])
             return
         }
         let pks = gamesRows.compactMap { $0.gamePk }
@@ -2242,6 +2828,9 @@ public final class GamesStore {
         }
 
         games.mlb = merged
+        storeRanks(.mlb, Dictionary(uniqueKeysWithValues: merged.map {
+            ($0.id, SignalBoardRank(bestRoi: nil, count: $0.signals.count))
+        }))
     }
 
     private static func fallbackMLBAbbrev(from teamName: String) -> String {
@@ -2300,4 +2889,63 @@ public final class GamesStore {
         }
     }
     #endif
+}
+
+/// One ESPN men's college basketball team list. Schools that are not in
+/// `cfb_teams` still get a real `color` / `alternateColor`, cached beside the logo.
+private enum NCAABSchoolColorLoader {
+    private static var didLoad = false
+
+    static func installIfNeeded() async {
+        if didLoad { return }
+        guard let url = URL(string: "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=400") else { return }
+        guard let (data, response) = try? await URLSession.shared.data(from: url),
+              let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let payload = try? JSONDecoder().decode(Payload.self, from: data)
+        else { return }
+        didLoad = true
+        var map: [String: NCAABSchoolColor] = [:]
+        for wrapper in payload.sports.flatMap(\.leagues).flatMap(\.teams) {
+            let team = wrapper.team
+            guard let color = team.color?.trimmingCharacters(in: .whitespacesAndNewlines), !color.isEmpty else { continue }
+            let alt = team.alternateColor?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let pair = NCAABSchoolColor(primary: color, secondary: (alt?.isEmpty == false ? alt! : color))
+            let keys = [team.displayName, team.location, team.name, team.abbreviation]
+            for raw in keys {
+                guard let raw else { continue }
+                let key = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if !key.isEmpty { map[key] = pair }
+            }
+            if let location = team.location, let name = team.name {
+                let combined = "\(location) \(name)".trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if !combined.isEmpty { map[combined] = pair }
+            }
+        }
+        await MainActor.run { NCAABTeamAssets.installColors(map) }
+    }
+
+    private struct Payload: Decodable {
+        var sports: [Sport] = []
+    }
+
+    private struct Sport: Decodable {
+        var leagues: [League] = []
+    }
+
+    private struct League: Decodable {
+        var teams: [Wrapper] = []
+    }
+
+    private struct Wrapper: Decodable {
+        var team: Team
+    }
+
+    private struct Team: Decodable {
+        var displayName: String?
+        var abbreviation: String?
+        var location: String?
+        var name: String?
+        var color: String?
+        var alternateColor: String?
+    }
 }

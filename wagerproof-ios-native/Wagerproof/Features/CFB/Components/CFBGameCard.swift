@@ -59,9 +59,43 @@ struct CFBGameCard: View {
             slatePicks: predictionPills,
             oddsBreakdown: oddsBreakdown(awayAbbr: awayAbbr, homeAbbr: homeAbbr),
             isMammoth: hasMammothPlay,
+            mammothCallout: mammothCallout,
             consensus: consensus,
             signalCount: signalCount
         )
+    }
+
+    private var mammothCallout: String? {
+        guard hasMammothPlay else { return nil }
+        if let pick = slatePicks.first(where: isMammothRow) {
+            let posted = pick.bestLine ?? pick.vegasLine
+            let line = GameCardFormatting.roundToNearestHalf(
+                posted ?? ((pick.cardGroup == "total" || pick.cardGroup == "h1_total") ? (game.fgTotalClose ?? game.overLine) : nil)
+            )
+            return MammothPlayLabel.callout(
+                cardGroup: pick.cardGroup,
+                side: pick.pickSide ?? pick.pickLabel,
+                label: pick.pickLabel,
+                teamAbbr: pick.pickTeam.map { CFBTeamAssets.abbr(for: $0) },
+                line: line
+            )
+        }
+        if let direction = pickDirection(game.fgTotalPick) {
+            return MammothPlayLabel.callout(
+                cardGroup: "total",
+                side: direction,
+                label: nil,
+                teamAbbr: nil,
+                line: GameCardFormatting.roundToNearestHalf(game.fgTotalClose ?? game.overLine)
+            )
+        }
+        return "Mammoth pick"
+    }
+
+    private func isMammothRow(_ pick: CFBSlatePickRow) -> Bool {
+        guard pick.hasPlay == true else { return false }
+        if pick.isMammoth == true { return true }
+        return pick.conviction?.lowercased() == "mammoth"
     }
 
     private var hasMammothPlay: Bool {

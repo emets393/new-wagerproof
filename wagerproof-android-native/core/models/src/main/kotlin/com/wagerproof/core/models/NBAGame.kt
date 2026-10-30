@@ -57,6 +57,8 @@ data class NBAGame(
     val awayScorePred: Double? = null,
     val modelFairHomeSpread: Double? = null,
     val modelFairTotal: Double? = null,
+    /** `nba_model_preds` total-row tier. `warmup` means the total is tracking, not a bet. */
+    val totalTier: String? = null,
 )
 
 // MARK: - Injury / trends
@@ -245,46 +247,3 @@ fun formatNBASituation(situation: String?): String {
         .joinToString(" ") { it.take(1).uppercase() + it.drop(1) }
 }
 
-// MARK: - Model accuracy
-
-/**
- * Single accuracy bucket (count of historical games + accuracy %). Mirrors
- * RN `AccuracyBucket` in `types/modelAccuracy.ts`.
- */
-@Serializable
-data class NBAAccuracyBucket(
-    val games: Int,
-    val accuracyPct: Double,
-)
-
-/**
- * Per-game accuracy snapshot. Mirrors RN `GameAccuracyData` in
- * `types/modelAccuracy.ts`. Built from a single row of the
- * `nba_todays_games_predictions_with_accuracy` view. Client-built, never
- * serialized.
- */
-data class NBAModelAccuracyData(
-    val gameId: Int,
-    val awayTeam: String,
-    val homeTeam: String,
-    val awayAbbr: String,
-    val homeAbbr: String,
-    val gameDate: String,
-    val tipoffTime: String?,
-    // Spread
-    val homeSpread: Double?,
-    val homeSpreadDiff: Double?,
-    val spreadAccuracy: NBAAccuracyBucket?,
-    // Moneyline
-    val homeWinProb: Double?,
-    val awayWinProb: Double?,
-    val mlPickIsHome: Boolean?,
-    val mlPickProbRounded: Double?,
-    val mlAccuracy: NBAAccuracyBucket?,
-    // Over/Under
-    val overLine: Double?,
-    val overLineDiff: Double?,
-    val ouAccuracy: NBAAccuracyBucket?,
-) {
-    val id: Int get() = gameId
-}

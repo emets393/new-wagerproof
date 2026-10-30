@@ -14,10 +14,13 @@ struct NFLGameCard: View {
     var consensus: GameAgentConsensus? = nil
     var onPress: () -> Void = {}
     @State private var slatePicks: [NFLSlatePickRow] = []
+    /// Mammoth bets live on the flags. The model total can say the other side.
+    @State private var mammothFlags: [MammothPlayLabel.Flag] = []
+    @State private var mammothFlagsLoaded = false
 
     var body: some View {
         GameRowCard(model: rowModel, onPress: onPress)
-            .id("\(game.gameId)-mammoth-\(hasMammothPlay)")
+            .id("\(game.gameId)-mammoth-\(mammothCallout ?? "")")
             .task(id: game.gameId) {
                 await loadSlatePicks()
             }
@@ -64,21 +67,67 @@ struct NFLGameCard: View {
             slatePicks: predictionPills,
             oddsBreakdown: oddsBreakdown,
             isMammoth: hasMammothPlay,
+            mammothCallout: mammothCallout,
             consensus: consensus,
             signalCount: signalCount
         )
     }
 
+    /// The orange card names a Mammoth flag that still matches the live model.
+    /// A flag graded at an old total, or on the other side, is not the bet.
+    private var mammothCallout: String? {
+        guard hasMammothPlay else { return nil }
+        if let text = MammothPlayLabel.callout(flags: currentMammothFlags) {
+            return text
+        }
+        if let pick = slatePicks.first(where: isMammothRow) {
+            let posted = pick.bestLine ?? pick.vegasLine
+            let line = GameCardFormatting.roundToNearestHalf(
+                posted ?? ((pick.cardGroup == "total" || pick.cardGroup == "h1_total") ? (game.fgTotalClose ?? game.overLine) : nil)
+            )
+            return MammothPlayLabel.callout(
+                cardGroup: pick.cardGroup,
+                side: pick.pickSide ?? pick.pickLabel,
+                label: pick.pickLabel,
+                teamAbbr: pick.pickTeam.map(teamAbbr),
+                line: line
+            )
+        }
+        return "Mammoth pick"
+    }
+
+    private func isMammothRow(_ pick: NFLSlatePickRow) -> Bool {
+        guard pick.hasPlay == true else { return false }
+        if pick.isMammoth == true { return true }
+        return pick.conviction?.lowercased() == "mammoth"
+    }
+
+    /// Flags that still match the current model side and the live number.
+    /// `nfl_slate_feed.mammoth` alone is not a play: that boolean stays true
+    /// after the total moves and the flag is left on the old side.
+    private var currentMammothFlags: [MammothPlayLabel.Flag] {
+        MammothPlayLabel.current(mammothFlags, game: game)
+    }
+
     private var hasMammothPlay: Bool {
-        if game.mammoth { return true }
+        if !currentMammothFlags.isEmpty { return true }
+        guard mammothFlagsLoaded else { return false }
         // Explicit branches avoid a Swift 6.4 SemanticARCOpts crash in Release
         // builds when this optional/string predicate is optimized as a closure.
         for pick in slatePicks {
             guard pick.hasPlay == true else { continue }
-            if pick.isMammoth == true { return true }
+            var marked = false
+            if pick.isMammoth == true { marked = true }
             if let conviction = pick.conviction, conviction.lowercased() == "mammoth" {
-                return true
+                marked = true
             }
+            guard marked else { continue }
+            if pick.cardGroup == "total" || pick.cardGroup == "h1_total" {
+                let side = MammothPlayLabel.direction(of: pick.pickSide ?? pick.pickLabel)
+                let model = MammothPlayLabel.modelSide(for: pick.cardGroup, game: game)
+                if let side, let model, side != model { continue }
+            }
+            return true
         }
         return false
     }
@@ -100,6 +149,14 @@ struct NFLGameCard: View {
     }
 
     private var totalSlatePick: GameRowCard.SlateTotalPick? {
+        if let play = MammothPlayLabel.play(in: currentMammothFlags, cardGroup: "total", team: nil),
+           let direction = MammothPlayLabel.direction(of: play) {
+            return GameRowCard.SlateTotalPick(
+                direction: direction,
+                line: GameCardFormatting.roundToNearestHalf(play.betLine),
+                color: direction == "UNDER" ? Color.appAccentRed : Color.appPrimary
+            )
+        }
         guard let pick = slatePicks.first(where: { $0.cardGroup == "total" }),
               let direction = pickDirection(pick.pickSide ?? pick.pickLabel)
         else {
@@ -161,15 +218,23 @@ struct NFLGameCard: View {
     private func loadSlatePicks() async {
         guard (game.runId ?? "").localizedCaseInsensitiveContains("slate") else { return }
         let cfb = await CFBSupabase.shared.client
-        guard let rows: [NFLSlatePickRow] = try? await cfb
+        async let pickRows: [NFLSlatePickRow]? = try? await cfb
             .from("nfl_slate_picks")
             .select("game_id,card_group,pick_team,pick_side,pick_label,best_line,vegas_line,conviction,is_mammoth,signal_keys,has_play,sort_order")
             .eq("game_id", value: game.gameId)
             .order("sort_order", ascending: true)
             .execute()
             .value
-        else { return }
-        slatePicks = rows
+        async let flagRows: [MammothPlayLabel.Flag]? = try? await cfb
+            .from("nfl_slate_flags")
+            .select("market,side,bet_direction,bet_line,bet_team")
+            .eq("game_id", value: game.gameId)
+            .eq("mammoth", value: true)
+            .execute()
+            .value
+        if let pickRows = await pickRows { slatePicks = pickRows }
+        mammothFlags = await flagRows ?? []
+        mammothFlagsLoaded = true
     }
 
     private func teamName(forSide side: String?) -> String? {

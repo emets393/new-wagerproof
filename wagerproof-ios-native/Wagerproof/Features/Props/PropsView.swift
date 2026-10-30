@@ -110,6 +110,11 @@ struct PropsView: View {
     @Environment(ProAccessStore.self) private var proAccess
     @State private var selectedProp: PlayerPropSelection?
     @State private var selectedNFLProp: NFLPlayerPropSelection?
+    @State private var boardStore = NflPropBoardStore()
+    @State private var selectedBoard: NflBoardSelection?
+    @State private var nflRail = "all"
+    @State private var showCheatSheet = false
+    @State private var showSpotlightRecord = false
     /// Player ordering within each date section (view-level presentation only —
     /// the shared store stays sort-agnostic so the MLB game-detail widget that
     /// reads the same slate is unaffected).
@@ -131,6 +136,11 @@ struct PropsView: View {
     /// can render dimmed (a Menu can't style its rows). Matches the Matchup /
     /// Market filter-sheet pattern.
     @State private var showSportSheet = false
+    @State private var nbaProps = NbaPropBoardStore()
+    @State private var nbaFilters = NbaPropFeedFilters()
+    @State private var showNBAMatchupSheet = false
+    @State private var showNBAMarketSheet = false
+    @State private var showNBASignalSheet = false
 
     // Shared namespace for the card→detail zoom transition (same pattern as
     // GamesView). The source card and the pushed detail reference the same
@@ -154,7 +164,7 @@ struct PropsView: View {
                                 mlbBestPicksBanner
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                             }
-                            if (store.selectedSport == .mlb || store.selectedSport == .nfl) && activeQuickFilter.isEmpty {
+                            if store.selectedSport == .mlb && activeQuickFilter.isEmpty {
                                 propsCheatsRail
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                             }
@@ -172,7 +182,9 @@ struct PropsView: View {
             .refreshable {
                 async let feed: () = store.refresh(force: true)
                 async let parlays: () = parlayGodStore.refreshIfNeeded(force: true)
-                _ = await (feed, parlays)
+                async let board: () = boardStore.refresh(force: true)
+                async let nba: () = nbaProps.refresh()
+                _ = await (feed, parlays, board, nba)
             }
             .task(id: store.selectedSport) {
                 quickFilterText = ""
@@ -182,10 +194,19 @@ struct PropsView: View {
                 if store.selectedSport != .nfl {
                     nflFilters = NFLPropFeedFilters()
                 }
+                if store.selectedSport != .nba {
+                    nbaFilters = NbaPropFeedFilters()
+                }
                 if !PropSortMode.modes(for: store.selectedSport).contains(sortMode) {
                     sortMode = .time
                 }
                 await store.refresh()
+                if store.selectedSport == .nfl {
+                    await boardStore.refresh()
+                }
+                if store.selectedSport == .nba {
+                    await nbaProps.refresh()
+                }
                 if store.selectedSport == .mlb {
                     await bestPicksStore.refreshSummaryOnly()
                     await parlayGodStore.refreshIfNeeded()
@@ -224,6 +245,14 @@ struct PropsView: View {
                     nflFilters.market = nil
                 }
             }
+            .onChange(of: nbaProps.rows) { _, rows in
+                if let key = nbaFilters.gameKey, !NbaPropCopy.games(rows).contains(where: { $0.key == key }) {
+                    nbaFilters.gameKey = nil
+                }
+                if let market = nbaFilters.market, !NbaPropCopy.markets(rows).contains(where: { $0.key == market }) {
+                    nbaFilters.market = nil
+                }
+            }
             .sheet(isPresented: $showMLBMarketSheet) {
                 MLBPropMarketFilterSheet(selectedMarket: $mlbFilters.market)
             }
@@ -240,6 +269,15 @@ struct PropsView: View {
             .sheet(isPresented: $showNFLMatchupSheet) {
                 NFLPropMatchupPickerSheet(options: nflGameFilterOptions, selection: $nflFilters.gameId)
             }
+            .sheet(isPresented: $showNBAMatchupSheet) {
+                NbaPropMatchupPickerSheet(options: NbaPropCopy.games(nbaProps.rows), selection: $nbaFilters.gameKey)
+            }
+            .sheet(isPresented: $showNBAMarketSheet) {
+                NbaPropMarketFilterSheet(markets: NbaPropCopy.markets(nbaProps.rows), selection: $nbaFilters.market)
+            }
+            .sheet(isPresented: $showNBASignalSheet) {
+                NbaPropSignalFilterSheet(playerCount: NbaPropCopy.signalPlayerCount(nbaProps.rows), signalsOnly: $nbaFilters.signalsOnly)
+            }
             .sheet(isPresented: $showSportSheet) {
                 PropSportPickerSheet(selection: bindableSelectedSport)
             }
@@ -249,10 +287,16 @@ struct PropsView: View {
                     .navigationTransition(.zoom(sourceID: selection.transitionID, in: cardTransition))
                     .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
-            .navigationDestination(item: $selectedNFLProp) { selection in
-                NFLPropDetailView(selection: selection)
+            .navigationDestination(item: $selectedBoard) { selection in
+                NflPropLiveCardView(selection: selection, board: boardStore)
                     .navigationTransition(.zoom(sourceID: selection.transitionID, in: cardTransition))
                     .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
+            }
+            .fullScreenCover(isPresented: $showCheatSheet) {
+                NflCheatSheetView(rows: boardStore.cheat, trenches: boardStore.trenches)
+            }
+            .fullScreenCover(isPresented: $showSpotlightRecord) {
+                NflSpotlightRecordView(rows: boardStore.ledger)
             }
             .navigationDestination(isPresented: $showBestPicks) {
                 MLBBestPicksView(store: bestPicksStore)
@@ -291,12 +335,18 @@ struct PropsView: View {
             HStack(spacing: 8) {
                 quickFilterBar
                     .layoutPriority(1)
+                if store.selectedSport == .nfl {
+                    headerAction("📋", "Cheat sheet") { showCheatSheet = true }
+                    headerAction("🏆", "Record") { showSpotlightRecord = true }
+                }
                 sportControl
-                sortControl
+                if store.selectedSport == .mlb {
+                    sortControl
+                }
             }
             .padding(.horizontal, 14)
 
-            if store.selectedSport.hasProps {
+            if store.selectedSport.hasProps || store.selectedSport == .nba {
                 filterPills
             }
         }
@@ -318,11 +368,57 @@ struct PropsView: View {
     /// Sticky filter row — one floating Liquid Glass pill per axis. No opaque
     /// backing, so the feed cards refract through the pills as they scroll
     /// underneath (the iOS 26 floating-controls look used on Outliers Trends).
+    private func headerAction(_ emoji: String, _ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(emoji)
+                .font(.system(size: 16))
+                .frame(width: 44, height: 44)
+                .liquidGlassBackground(in: Circle(), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    private var nflRailPills: some View {
+        let games = NflPropBoardList.games(from: boardStore.pages)
+        return Group {
+            railPill("Spotlight", "spotlight")
+            railPill("Leans", "leans")
+            railPill("All players", "all")
+            ForEach(games, id: \.id) { game in
+                railPill(game.label, "g:\(game.id)")
+            }
+        }
+    }
+
+    private func railPill(_ title: String, _ value: String) -> some View {
+        let on = nflRail == value
+        return Button {
+            nflRail = value
+        } label: {
+            pillContainer {
+                Text(title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(on ? Color.appPrimary : Color.appTextPrimary)
+                    .lineLimit(1)
+            }
+            .overlay(Capsule().stroke(on ? Color.appPrimary : Color.clear, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
+    }
+
     private var filterPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                matchupPill
-                marketPill
+                if store.selectedSport == .nfl {
+                    nflRailPills
+                } else {
+                    matchupPill
+                    marketPill
+                    if store.selectedSport == .nba {
+                        nbaSignalPill
+                    }
+                }
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.vertical, 2)
@@ -416,8 +512,10 @@ struct PropsView: View {
             Button { showNFLMatchupSheet = true } label: { nflMatchupPillLabel }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Matchup filter")
-        default:
-            EmptyView()
+        case .nba:
+            Button { showNBAMatchupSheet = true } label: { nbaMatchupPillLabel }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Matchup filter")
         }
     }
 
@@ -481,8 +579,49 @@ struct PropsView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Prop market filter")
-        default:
-            EmptyView()
+        case .nba:
+            Button { showNBAMarketSheet = true } label: {
+                pillLabel(icon: "slider.horizontal.3", text: nbaMarketLabel)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Prop market filter")
+        }
+    }
+
+    private var nbaSignalPill: some View {
+        Button { showNBASignalSheet = true } label: {
+            pillLabel(icon: "bolt.fill", text: nbaFilters.signalsOnly ? "Has a signal" : "Signals")
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Signal filter")
+    }
+
+    private var nbaMarketLabel: String {
+        guard let market = nbaFilters.market else { return "All markets" }
+        return NbaPropCopy.markets(nbaProps.rows).first { $0.key == market }?.label ?? "All markets"
+    }
+
+    @ViewBuilder
+    private var nbaMatchupPillLabel: some View {
+        if let key = nbaFilters.gameKey,
+           let option = NbaPropCopy.games(nbaProps.rows).first(where: { $0.key == key }) {
+            pillContainer {
+                HStack(spacing: 3) {
+                    if let away = option.away {
+                        GameCardTeamAvatar(teamName: away, sport: "nba", size: 18, colors: NBATeams.colorPair(for: away))
+                    }
+                    if let home = option.home {
+                        GameCardTeamAvatar(teamName: home, sport: "nba", size: 18, colors: NBATeams.colorPair(for: home))
+                    }
+                }
+                Text(option.label)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(1)
+                pillChevron
+            }
+        } else {
+            pillLabel(icon: "square.grid.2x2.fill", text: "All games")
         }
     }
 
@@ -550,14 +689,22 @@ struct PropsView: View {
 
     @ViewBuilder
     private var bodyContent: some View {
-        if !store.selectedSport.hasProps {
+        if store.selectedSport == .nba {
+            NbaPropBoardView(store: nbaProps, filters: nbaFilters, query: activeQuickFilter)
+        } else if !store.selectedSport.hasProps {
             comingSoonState
+        } else if store.selectedSport == .nfl {
+            NflPropBoardFeed(
+                board: boardStore,
+                rail: $nflRail,
+                query: activeQuickFilter,
+                namespace: cardTransition,
+                onSelect: { selectedBoard = $0 }
+            )
         } else if store.isLoading && !store.hasCachedMatchups {
             loadingSkeleton
         } else if let msg = store.errorMessage, !store.hasCachedMatchups {
             errorState(msg)
-        } else if store.selectedSport == .nfl {
-            nflSections
         } else {
             matchupSections
         }
@@ -996,11 +1143,7 @@ private struct PropSportPickerSheet: View {
                 Text(sport.label)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
-                if sport == .nba {
-                    Text("Coming soon")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.appTextSecondary)
-                } else if offSeason {
+                if offSeason {
                     Text("Out of season")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.appTextSecondary)

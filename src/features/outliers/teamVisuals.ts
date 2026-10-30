@@ -5,6 +5,10 @@ import {
   getCFBTeamColors,
   getCFBTeamInitials,
   getMLBTeamColors,
+  getNBATeamColors,
+  getNBATeamInitials,
+  getNCAABTeamColors,
+  getNCAABTeamInitials,
   getNFLTeamColors,
 } from '@/utils/teamColors';
 import {
@@ -57,6 +61,44 @@ export const NFL_ABBR_META: Record<string, { name: string; slug: string }> = {
   WSH: { name: 'Washington', slug: 'wsh' },
 };
 
+/** Display code → franchise + ESPN slug. The slug is not the code (NYK → ny, GSW → gs). */
+const NBA_ABBR_META: Record<string, { name: string; slug: string }> = {
+  ATL: { name: 'Atlanta Hawks', slug: 'atl' },
+  BOS: { name: 'Boston Celtics', slug: 'bos' },
+  BKN: { name: 'Brooklyn Nets', slug: 'bkn' },
+  CHA: { name: 'Charlotte Hornets', slug: 'cha' },
+  CHI: { name: 'Chicago Bulls', slug: 'chi' },
+  CLE: { name: 'Cleveland Cavaliers', slug: 'cle' },
+  DAL: { name: 'Dallas Mavericks', slug: 'dal' },
+  DEN: { name: 'Denver Nuggets', slug: 'den' },
+  DET: { name: 'Detroit Pistons', slug: 'det' },
+  GSW: { name: 'Golden State Warriors', slug: 'gs' },
+  HOU: { name: 'Houston Rockets', slug: 'hou' },
+  IND: { name: 'Indiana Pacers', slug: 'ind' },
+  LAC: { name: 'LA Clippers', slug: 'lac' },
+  LAL: { name: 'LA Lakers', slug: 'lal' },
+  MEM: { name: 'Memphis Grizzlies', slug: 'mem' },
+  MIA: { name: 'Miami Heat', slug: 'mia' },
+  MIL: { name: 'Milwaukee Bucks', slug: 'mil' },
+  MIN: { name: 'Minnesota Timberwolves', slug: 'min' },
+  NOP: { name: 'New Orleans Pelicans', slug: 'no' },
+  NYK: { name: 'New York Knicks', slug: 'ny' },
+  OKC: { name: 'Oklahoma City Thunder', slug: 'okc' },
+  ORL: { name: 'Orlando Magic', slug: 'orl' },
+  PHI: { name: 'Philadelphia 76ers', slug: 'phi' },
+  PHX: { name: 'Phoenix Suns', slug: 'phx' },
+  POR: { name: 'Portland Trail Blazers', slug: 'por' },
+  SAC: { name: 'Sacramento Kings', slug: 'sac' },
+  SAS: { name: 'San Antonio Spurs', slug: 'sa' },
+  TOR: { name: 'Toronto Raptors', slug: 'tor' },
+  UTA: { name: 'Utah Jazz', slug: 'utah' },
+  WAS: { name: 'Washington Wizards', slug: 'wsh' },
+};
+
+function nbaLogoUrl(slug: string): string {
+  return `https://a.espncdn.com/i/teamlogos/nba/500/${slug}.png`;
+}
+
 export function initialsFrom(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
@@ -85,6 +127,42 @@ export function teamVisuals(sport: OutliersTrendsSport, teamKey: string): TeamVi
       colors: assetColors ?? getCFBTeamColors(teamKey),
       initials: abbr?.toUpperCase() ?? getCFBTeamInitials(teamKey),
       logoUrl: getCfbTeamLogo(teamKey),
+    };
+  }
+  if (sport === 'ncaab') {
+    // School names and abbreviations resolve through the same cfb_teams cache
+    // the slate fetch installs. Colors fall back to the static school map.
+    const assetColors = getCfbTeamColorsFromAssets(teamKey);
+    const abbr = getCfbTeamAbbrFromAssets(teamKey);
+    return {
+      colors: assetColors ?? getNCAABTeamColors(teamKey),
+      initials: abbr?.toUpperCase() ?? getNCAABTeamInitials(teamKey),
+      logoUrl: getCfbTeamLogo(teamKey),
+    };
+  }
+  if (sport === 'nba') {
+    const byAbbr = NBA_ABBR_META[teamKey.trim().toUpperCase()];
+    if (byAbbr) {
+      return {
+        colors: getNBATeamColors(byAbbr.name),
+        initials: teamKey.trim().toUpperCase(),
+        logoUrl: nbaLogoUrl(byAbbr.slug),
+      };
+    }
+    const byName = Object.entries(NBA_ABBR_META).find(
+      ([, meta]) => meta.name.toLowerCase() === teamKey.trim().toLowerCase(),
+    );
+    if (byName) {
+      return {
+        colors: getNBATeamColors(byName[1].name),
+        initials: byName[0],
+        logoUrl: nbaLogoUrl(byName[1].slug),
+      };
+    }
+    return {
+      colors: getNBATeamColors(teamKey),
+      initials: getNBATeamInitials(teamKey),
+      logoUrl: null,
     };
   }
   if (sport === 'mlb') {

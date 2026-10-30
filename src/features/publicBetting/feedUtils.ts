@@ -26,11 +26,6 @@ function startMs(game: PublicGame): number {
   return Number.isFinite(ms) ? ms : Number.POSITIVE_INFINITY;
 }
 
-function ticketCount(game: PublicGame, market: PublicMarket): number {
-  const count = game.markets[market]?.row.tickets;
-  return count === null || count === undefined ? -1 : count;
-}
-
 /** Bigger side's share of the dollars. The board stores a percentage, not a dollar handle. */
 function moneyLead(read: MarketRead): number {
   return Math.max(read.moneyAway, read.moneyHome);
@@ -68,7 +63,6 @@ export function selectPublicGames(
       const readA = readFor(a, market)!;
       const readB = readFor(b, market)!;
       if (sort === 'time') return byTime(a, b);
-      if (sort === 'tickets') return ticketCount(b, market) - ticketCount(a, market) || byTime(a, b);
       if (sort === 'money') return moneyLead(readB) - moneyLead(readA) || byTime(a, b);
       if (sort === 'diff') return splitGap(readB) - splitGap(readA) || byTime(a, b);
       return compareReads(readA, readB) || byTime(a, b);

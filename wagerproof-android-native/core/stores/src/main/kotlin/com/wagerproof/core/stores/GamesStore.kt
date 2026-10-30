@@ -5,6 +5,10 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.wagerproof.core.models.BasketballSignalMarket
+import com.wagerproof.core.models.FootballBlanketSignals
+import com.wagerproof.core.models.GameListSort
+import com.wagerproof.core.models.SignalBoardRank
 import com.wagerproof.core.models.CFBSlateFlag
 import com.wagerproof.core.models.CFBPredictedScore
 import com.wagerproof.core.models.CFBPrediction
@@ -13,8 +17,12 @@ import com.wagerproof.core.models.MLBGame
 import com.wagerproof.core.models.MLBSignalItem
 import com.wagerproof.core.models.MLBTeamMapping
 import com.wagerproof.core.models.MLBTeams
+import com.wagerproof.core.models.NBAFirstHalfMarket
 import com.wagerproof.core.models.NBAGame
+import com.wagerproof.core.models.NBASlateSignal
 import com.wagerproof.core.models.NCAABGame
+import com.wagerproof.core.models.NCAABSchoolColors
+import com.wagerproof.core.models.NCAABTeamAssets
 import com.wagerproof.core.models.NFLPrediction
 import com.wagerproof.core.models.serialization.FlexibleStringSerializer
 import com.wagerproof.core.models.serialization.WagerproofJson
@@ -23,9 +31,13 @@ import com.wagerproof.core.services.CFBSignalDefinitionsService
 import com.wagerproof.core.services.CFBTeamsService
 import com.wagerproof.core.services.NFLTeamsService
 import com.wagerproof.core.services.ServiceDates
+import com.wagerproof.core.services.SignalPerformanceService
+import com.wagerproof.core.services.SignalSport
+import com.wagerproof.core.services.ServiceHttp
 import com.wagerproof.core.services.SupabaseClients
 import com.wagerproof.core.services.runCatchingCancellable
 import io.github.jan.supabase.postgrest.from
+import okhttp3.Request
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.CancellationException
@@ -36,6 +48,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
@@ -55,7 +68,6 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
-import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
@@ -104,7 +116,9 @@ class GamesStore {
         }
     }
 
-    enum class SortMode(val raw: String) { TIME("time"), SPREAD("spread"), OU("ou") }
+    enum class SortMode(val raw: String) {
+        TIME("time"), SPREAD("spread"), OU("ou"), ML("ml"), SIGNALS("signals"),
+    }
 
     /** Per-sport cached games. Mirrors RN `cachedData: {nfl: {games,...}, ...}`. */
     data class SportFeed(
@@ -131,6 +145,25 @@ class GamesStore {
     // MARK: - Observable state
 
     var games: SportFeed by mutableStateOf(SportFeed()); private set
+    var nbaSignalsByGame by mutableStateOf<Map<Int, List<NBASlateSignal>>>(emptyMap()); private set
+    var nbaSignalsByAbbr by mutableStateOf<Map<String, List<NBASlateSignal>>>(emptyMap()); private set
+    /** Distinct `ncaab_slate_flags.signal_key` values per CBBD game id. The feed badge. */
+    var ncaabSignalCountByGame by mutableStateOf<Map<Int, Int>>(emptyMap()); private set
+    private var ncaabColorsLoaded = false
+    var nbaFirstHalfByGame by mutableStateOf<Map<Int, List<NBAFirstHalfMarket>>>(emptyMap()); private set
+    var nbaFirstHalfByAbbr by mutableStateOf<Map<String, List<NBAFirstHalfMarket>>>(emptyMap()); private set
+
+    fun ncaabSignalCount(gameId: Int): Int = ncaabSignalCountByGame[gameId] ?: 0
+
+    fun nbaSignals(gameId: Int, date: String, home: String, away: String): List<NBASlateSignal> {
+        nbaSignalsByGame[gameId]?.takeIf { it.isNotEmpty() }?.let { return it }
+        return nbaSignalsByAbbr["${date.take(10)}|$home|$away"].orEmpty()
+    }
+
+    fun nbaFirstHalf(gameId: Int, date: String, home: String, away: String): List<NBAFirstHalfMarket> {
+        nbaFirstHalfByGame[gameId]?.takeIf { it.isNotEmpty() }?.let { return it }
+        return nbaFirstHalfByAbbr["${date.take(10)}|$home|$away"].orEmpty()
+    }
     // Explicit generic: without it the delegate infers Map<Sport, LoadState.Idle>,
     // whose setter would reject a Map<Sport, LoadState> (invariant value type).
     var loadState: Map<Sport, LoadState> by mutableStateOf<Map<Sport, LoadState>>(Sport.entries.associateWith { LoadState.Idle }); private set
@@ -141,6 +174,15 @@ class GamesStore {
 
     /** Per-sport sort mode. Mirrors RN `sortModes` record. */
     var sortModes: Map<Sport, SortMode> by mutableStateOf(Sport.entries.associateWith { SortMode.TIME })
+
+    /**
+     * Best signal ROI (percentage points) and signal count, keyed by game id.
+     * Filled when each sport's slate loads.
+     */
+    var signalRanks: Map<Sport, Map<String, SignalBoardRank>> by mutableStateOf(
+        Sport.entries.associateWith { emptyMap() },
+    )
+        private set
 
     /** Per-sport search text. Mirrors RN `searchTexts` record. */
     var searchTexts: Map<Sport, String> by mutableStateOf(Sport.entries.associateWith { "" })
@@ -305,39 +347,175 @@ class GamesStore {
     private fun normalizedSearchText(sport: Sport): String =
         (searchTexts[sport] ?: "").trim().lowercase()
 
-    private fun sortNFL(list: List<NFLPrediction>, mode: SortMode): List<NFLPrediction> = when (mode) {
-        SortMode.TIME -> list.sortedBy { parseEpoch(it.gameDate) ?: Double.MAX_VALUE }
-        // RN uses confidence-based sorting for NFL.
-        SortMode.SPREAD -> list.sortedByDescending { confidence(it.homeAwaySpreadCoverProb) }
-        SortMode.OU -> list.sortedByDescending { confidence(it.ouResultProb) }
-    }
-
-    private fun sortCFB(list: List<CFBPrediction>, mode: SortMode): List<CFBPrediction> =
-        // All modes sort by conviction tier rank asc then kickoff asc.
-        list.sortedWith(
-            compareBy<CFBPrediction> { it.convictionTier.sortRank }
-                .thenBy { parseEpoch(it.kickoff ?: it.gameTime) ?: Double.MAX_VALUE },
-        )
-
-    private fun sortNBA(list: List<NBAGame>, mode: SortMode): List<NBAGame> = when (mode) {
-        // gameTime string asc, falling back to gameDate when tipoff is missing.
-        SortMode.TIME -> list.sortedBy { it.gameTime.ifEmpty { it.gameDate } }
-        SortMode.SPREAD -> list.sortedByDescending { confidence(it.homeAwaySpreadCoverProb) }
-        SortMode.OU -> list.sortedByDescending { confidence(it.ouResultProb) }
-    }
-
-    private fun sortNCAAB(list: List<NCAABGame>, mode: SortMode): List<NCAABGame> = when (mode) {
-        SortMode.TIME -> list.sortedBy { it.gameTime.ifEmpty { it.gameDate } }
-        SortMode.SPREAD -> list.sortedByDescending { confidence(it.homeAwaySpreadCoverProb) }
-        SortMode.OU -> list.sortedByDescending { confidence(it.ouResultProb) }
-    }
-
-    private fun sortMLB(list: List<MLBGame>, mode: SortMode): List<MLBGame> = when (mode) {
-        SortMode.TIME -> list.sortedBy { parseEpoch(it.gameTimeEt ?: it.officialDate) ?: Double.MAX_VALUE }
-        SortMode.SPREAD -> list.sortedByDescending {
-            max(abs(it.homeMlEdgePct ?: 0.0), abs(it.awayMlEdgePct ?: 0.0))
+    private fun sortNFL(list: List<NFLPrediction>, mode: SortMode): List<NFLPrediction> {
+        val ranks = signalRanks[Sport.nfl].orEmpty()
+        if (mode == SortMode.SIGNALS && list.none { (ranks[it.gameId]?.count ?: 0) > 0 }) {
+            return sortNFL(list, SortMode.TIME)
         }
-        SortMode.OU -> list.sortedByDescending { abs(it.ouEdge ?: 0.0) }
+        val anyRated = list.any { ranks[it.gameId]?.bestRoi != null }
+        return list.sortedWith { a, b ->
+            val primary = when (mode) {
+                SortMode.TIME -> 0
+                SortMode.SPREAD -> GameListSort.higherFirst(
+                    GameListSort.magnitude(a.fgSpreadEdge),
+                    GameListSort.magnitude(b.fgSpreadEdge),
+                )
+                SortMode.OU -> GameListSort.higherFirst(nflTotal(a), nflTotal(b))
+                SortMode.ML -> GameListSort.higherFirst(
+                    GameListSort.moneylineValue(a.homeAwayMlProb, a.homeMl, a.awayMl),
+                    GameListSort.moneylineValue(b.homeAwayMlProb, b.homeMl, b.awayMl),
+                )
+                SortMode.SIGNALS -> GameListSort.signalsFirst(
+                    ranks[a.gameId] ?: SignalBoardRank.empty,
+                    ranks[b.gameId] ?: SignalBoardRank.empty,
+                    anyRated,
+                )
+            }
+            if (primary != 0) primary else epoch(a.gameDate).compareTo(epoch(b.gameDate))
+        }
+    }
+
+    private fun nflTotal(game: NFLPrediction): Double? =
+        GameListSort.magnitude(game.fgTotalEdge) ?: GameListSort.gap(game.predTotal, game.overLine)
+
+    private fun sortCFB(list: List<CFBPrediction>, mode: SortMode): List<CFBPrediction> {
+        val ranks = signalRanks[Sport.cfb].orEmpty()
+        if (mode == SortMode.SIGNALS && list.none { (ranks[it.gameId]?.count ?: 0) > 0 }) {
+            return sortCFB(list, SortMode.TIME)
+        }
+        val anyRated = list.any { ranks[it.gameId]?.bestRoi != null }
+        return list.sortedWith { a, b ->
+            val primary = when (mode) {
+                SortMode.TIME -> 0
+                SortMode.SPREAD -> GameListSort.higherFirst(
+                    GameListSort.magnitude(a.fgSpreadEdge ?: a.homeSpreadDiff),
+                    GameListSort.magnitude(b.fgSpreadEdge ?: b.homeSpreadDiff),
+                )
+                SortMode.OU -> GameListSort.higherFirst(cfbTotal(a), cfbTotal(b))
+                SortMode.ML -> GameListSort.higherFirst(
+                    GameListSort.moneylineValue(a.homeAwayMlProb ?: a.fgHomeWinProb, a.homeMl, a.awayMl),
+                    GameListSort.moneylineValue(b.homeAwayMlProb ?: b.fgHomeWinProb, b.homeMl, b.awayMl),
+                )
+                SortMode.SIGNALS -> GameListSort.signalsFirst(
+                    ranks[a.gameId] ?: SignalBoardRank.empty,
+                    ranks[b.gameId] ?: SignalBoardRank.empty,
+                    anyRated,
+                )
+            }
+            if (primary != 0) primary else epoch(a.kickoff ?: a.gameTime).compareTo(epoch(b.kickoff ?: b.gameTime))
+        }
+    }
+
+    private fun cfbTotal(game: CFBPrediction): Double? =
+        GameListSort.magnitude(game.fgTotalEdge)
+            ?: GameListSort.gap(game.fgPredTotal ?: game.predTotal, game.overLine ?: game.fgTotalClose)
+
+    private fun sortNBA(list: List<NBAGame>, mode: SortMode): List<NBAGame> {
+        val ranks = signalRanks[Sport.nba].orEmpty()
+        if (mode == SortMode.SIGNALS && list.none { (ranks[it.gameId.toString()]?.count ?: 0) > 0 }) {
+            return sortNBA(list, SortMode.TIME)
+        }
+        val anyRated = list.any { ranks[it.gameId.toString()]?.bestRoi != null }
+        return list.sortedWith { a, b ->
+            val primary = when (mode) {
+                SortMode.TIME -> 0
+                SortMode.SPREAD -> GameListSort.higherFirst(
+                    GameListSort.gap(a.modelFairHomeSpread, a.homeSpread),
+                    GameListSort.gap(b.modelFairHomeSpread, b.homeSpread),
+                )
+                SortMode.OU -> GameListSort.higherFirst(
+                    GameListSort.gap(a.modelFairTotal, a.overLine),
+                    GameListSort.gap(b.modelFairTotal, b.overLine),
+                )
+                SortMode.ML -> GameListSort.higherFirst(
+                    GameListSort.moneylineValue(a.homeAwayMlProb, a.homeMl, a.awayMl),
+                    GameListSort.moneylineValue(b.homeAwayMlProb, b.homeMl, b.awayMl),
+                )
+                SortMode.SIGNALS -> GameListSort.signalsFirst(
+                    ranks[a.gameId.toString()] ?: SignalBoardRank.empty,
+                    ranks[b.gameId.toString()] ?: SignalBoardRank.empty,
+                    anyRated,
+                )
+            }
+            if (primary != 0) primary else tipoff(a).compareTo(tipoff(b))
+        }
+    }
+
+    private fun sortNCAAB(list: List<NCAABGame>, mode: SortMode): List<NCAABGame> {
+        val ranks = signalRanks[Sport.ncaab].orEmpty()
+        if (mode == SortMode.SIGNALS && list.none { (ranks[it.gameId.toString()]?.count ?: 0) > 0 }) {
+            return sortNCAAB(list, SortMode.TIME)
+        }
+        val anyRated = list.any { ranks[it.gameId.toString()]?.bestRoi != null }
+        return list.sortedWith { a, b ->
+            val primary = when (mode) {
+                SortMode.TIME -> 0
+                SortMode.SPREAD -> GameListSort.higherFirst(ncaabSpread(a), ncaabSpread(b))
+                SortMode.OU -> GameListSort.higherFirst(
+                    GameListSort.gap(a.predTotalPoints, a.overLine),
+                    GameListSort.gap(b.predTotalPoints, b.overLine),
+                )
+                SortMode.ML -> GameListSort.higherFirst(
+                    GameListSort.moneylineValue(a.homeAwayMlProb, a.homeMl, a.awayMl),
+                    GameListSort.moneylineValue(b.homeAwayMlProb, b.homeMl, b.awayMl),
+                )
+                SortMode.SIGNALS -> GameListSort.signalsFirst(
+                    ranks[a.gameId.toString()] ?: SignalBoardRank.empty,
+                    ranks[b.gameId.toString()] ?: SignalBoardRank.empty,
+                    anyRated,
+                )
+            }
+            if (primary != 0) primary else tipoff(a.gameTime, a.gameDate).compareTo(tipoff(b.gameTime, b.gameDate))
+        }
+    }
+
+    /** Fair home spread versus the posted home spread. */
+    private fun ncaabSpread(game: NCAABGame): Double? {
+        val model = game.modelFairHomeSpread ?: game.predHomeMargin?.let { -it }
+        return GameListSort.gap(model, game.homeSpread)
+    }
+
+    private fun sortMLB(list: List<MLBGame>, mode: SortMode): List<MLBGame> {
+        val ranks = signalRanks[Sport.mlb].orEmpty()
+        if (mode == SortMode.SIGNALS && list.none { (ranks[it.id]?.count ?: 0) > 0 }) {
+            return sortMLB(list, SortMode.TIME)
+        }
+        val anyRated = list.any { ranks[it.id]?.bestRoi != null }
+        return list.sortedWith { a, b ->
+            val primary = when (mode) {
+                SortMode.TIME -> 0
+                // Baseball has no spread model. A leftover spread selection uses the moneyline edge.
+                SortMode.SPREAD, SortMode.ML -> GameListSort.higherFirst(mlbMoneyline(a), mlbMoneyline(b))
+                SortMode.OU -> GameListSort.higherFirst(
+                    GameListSort.magnitude(a.ouEdge) ?: GameListSort.gap(a.ouFairTotal, a.totalLine),
+                    GameListSort.magnitude(b.ouEdge) ?: GameListSort.gap(b.ouFairTotal, b.totalLine),
+                )
+                SortMode.SIGNALS -> GameListSort.signalsFirst(
+                    ranks[a.id] ?: SignalBoardRank.empty,
+                    ranks[b.id] ?: SignalBoardRank.empty,
+                    anyRated,
+                )
+            }
+            if (primary != 0) primary else epoch(a.gameTimeEt ?: a.officialDate).compareTo(epoch(b.gameTimeEt ?: b.officialDate))
+        }
+    }
+
+    /** The larger published ML edge, matching the pill. */
+    private fun mlbMoneyline(game: MLBGame): Double? {
+        val home = game.homeMlEdgePct
+        val away = game.awayMlEdgePct
+        if (home != null && away != null) return kotlin.math.abs(maxOf(home, away))
+        if (home != null) return kotlin.math.abs(home)
+        if (away != null) return kotlin.math.abs(away)
+        return GameListSort.moneylineValue(game.mlHomeWinProb, game.homeMl, game.awayMl)
+    }
+
+    private fun tipoff(game: NBAGame): String = game.gameTime.ifEmpty { game.gameDate }
+    private fun tipoff(time: String, date: String): String = time.ifEmpty { date }
+    private fun epoch(raw: String): Double = parseEpoch(raw) ?: Double.MAX_VALUE
+
+    private fun putRanks(sport: Sport, ranks: Map<String, SignalBoardRank>) {
+        signalRanks = signalRanks + (sport to ranks)
     }
 
     // MARK: - NFL fetch (slate-first, then legacy 4-way merge)
@@ -348,6 +526,7 @@ class GamesStore {
         val slate = fetchNFLSlate(cfb)
         if (slate.isNotEmpty()) {
             games = games.copy(nfl = slate)
+            putRanks(Sport.nfl, nflSignalRanks(cfb, slate))
             return
         }
 
@@ -439,6 +618,7 @@ class GamesStore {
             WagerproofJson.decodeFromJsonElement(NFLPrediction.serializer(), obj)
         }
         games = games.copy(nfl = merged)
+        putRanks(Sport.nfl, emptyMap())
     }
 
     private val nflSlotLabels = mapOf(
@@ -553,6 +733,7 @@ class GamesStore {
             val slate = resolveFootballCurrentWeek(cfb, "cfb_slate_feed")
                 ?: run {
                     games = games.copy(cfb = emptyList())
+                    putRanks(Sport.cfb, emptyMap())
                     return@coroutineScope
                 }
             val (season, week) = slate
@@ -583,7 +764,10 @@ class GamesStore {
                 flag.withSignalDefinition(CFBSignalDefinitionsService.definition(flag.source, definitionsBySource))
             }
             val flagsByGame = flagModels.groupBy { it.gameId }
-            games = games.copy(cfb = rows.map { mapCFBSlate(it, flagsByGame, season, week) })
+            val built = rows.map { mapCFBSlate(it, flagsByGame, season, week) }
+            games = games.copy(cfb = built)
+            val performances = SignalPerformanceService.shared.performances(SignalSport.CFB, season)
+            putRanks(Sport.cfb, cfbSignalRanks(built, performances))
         }
     }
 
@@ -714,16 +898,21 @@ class GamesStore {
         val inputRows: List<NBAInputRow> = cfb.from("nba_input_values_view").select().decodeList()
         if (inputRows.isEmpty()) {
             games = games.copy(nba = emptyList())
+            nbaSignalsByGame = emptyMap()
+            nbaSignalsByAbbr = emptyMap()
+            nbaFirstHalfByGame = emptyMap()
+            nbaFirstHalfByAbbr = emptyMap()
+            putRanks(Sport.nba, emptyMap())
             return
         }
 
         // Originator model rows (spread margin + total) for the dates on the board. Replaced
         // nba_predictions' model_fair_* on 2026-10-13 (owner call): those were a transform of win
-        // probability with zero correlation to results. nba_predictions.home_win_prob = Phi(originator margin / 14.2) since 2026-10-19; old model deleted.
+        // probability with zero correlation to results. nba_predictions is kept for home_win_prob only.
         val dates = inputRows.mapNotNull { it.gameDate?.take(10) }.distinct()
         val modelRows: List<NBAModelPredRow> = if (dates.isEmpty()) emptyList() else runCatchingCancellable {
             cfb.from("nba_model_preds")
-                .select(columns = Columns.raw("espn_game_id, game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, tier")) {
+                .select(columns = Columns.raw("espn_game_id, game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, tier, home_win_prob")) {
                     filter { isIn("game_date", dates) }
                 }
                 .decodeList<NBAModelPredRow>()
@@ -740,7 +929,7 @@ class GamesStore {
 
         val predictionRows: List<NBAPredictionRow> = runCatchingCancellable {
             cfb.from("nba_predictions")
-                .select(columns = Columns.raw("game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc"))
+                .select(columns = Columns.raw("game_id, home_win_prob, away_win_prob, run_id, as_of_ts_utc"))
                 .decodeList<NBAPredictionRow>()
         }.getOrDefault(emptyList())
         val predictionsByGame = HashMap<Int, NBAPredictionRow>()
@@ -753,6 +942,73 @@ class GamesStore {
             }
         }
 
+        val flagRows: List<NBAFlagRow> = if (dates.isEmpty()) emptyList() else runCatchingCancellable {
+            cfb.from("nba_slate_flags")
+                .select(columns = Columns.raw("game_id, game_date, game, signal_key, side, record_text, market")) {
+                    filter { isIn("game_date", dates) }
+                }
+                .decodeList<NBAFlagRow>()
+        }.getOrDefault(emptyList())
+        val defRows: List<NBASignalDefRow> = runCatchingCancellable {
+            cfb.from("nba_signal_defs")
+                .select(columns = Columns.raw("signal_key, display_name, definition, record_text, season_record_text, market"))
+                .decodeList<NBASignalDefRow>()
+        }.getOrDefault(emptyList())
+        val defsByKey = defRows.associateBy { it.signalKey }
+        val signalsByGame = HashMap<Int, MutableList<NBASlateSignal>>()
+        val signalsByAbbr = HashMap<String, MutableList<NBASlateSignal>>()
+        for (flag in flagRows) {
+            val key = flag.signalKey ?: continue
+            if (key.isEmpty()) continue
+            val def = defsByKey[key]
+            val signal = NBASlateSignal(
+                id = "${flag.gameId ?: 0}|$key",
+                title = def?.displayName ?: key,
+                side = flag.side,
+                definition = def?.definition,
+                recordText = def?.recordText ?: flag.recordText,
+                seasonRecordText = def?.seasonRecordText,
+                market = BasketballSignalMarket.canonical(flag.market) ?: BasketballSignalMarket.canonical(def?.market) ?: "",
+            )
+            flag.gameId?.let { signalsByGame.getOrPut(it) { mutableListOf() }.add(signal) }
+            val parts = (flag.game ?: "").split("@").map { it.trim() }
+            if (parts.size == 2) {
+                val abbr = "${(flag.gameDate ?: "").take(10)}|${parts[1]}|${parts[0]}"
+                signalsByAbbr.getOrPut(abbr) { mutableListOf() }.add(signal)
+            }
+        }
+        nbaSignalsByGame = signalsByGame
+        nbaSignalsByAbbr = signalsByAbbr
+        putRanks(Sport.nba, nbaSignalRanks(signalsByGame))
+
+        val h1Rows: List<NBAH1Row> = if (dates.isEmpty()) emptyList() else runCatchingCancellable {
+            cfb.from("nba_model_preds_h1")
+                .select(columns = Columns.raw("game_id, game_date, home_abbr, away_abbr, market, model_home_margin, model_total, market_home_spread, market_total, disagreement, tier")) {
+                    filter { isIn("game_date", dates) }
+                }
+                .decodeList<NBAH1Row>()
+        }.getOrDefault(emptyList())
+        val h1ByGame = HashMap<Int, MutableList<NBAFirstHalfMarket>>()
+        val h1ByAbbr = HashMap<String, MutableList<NBAFirstHalfMarket>>()
+        for (row in h1Rows) {
+            val tracking = row.market == "h1_total"
+            val market = NBAFirstHalfMarket(
+                id = row.market,
+                title = if (row.market == "h1_spread") "1H spread" else "1H total",
+                modelNumber = if (row.market == "h1_spread") row.modelHomeMargin?.let { -it } else row.modelTotal,
+                marketNumber = if (row.market == "h1_spread") row.marketHomeSpread else row.marketTotal,
+                disagreement = row.disagreement,
+                tier = if (tracking && row.tier == "bet") "tracking" else row.tier,
+                trackingOnly = tracking,
+                homeAbbr = row.homeAbbr,
+                awayAbbr = row.awayAbbr,
+            )
+            row.gameId?.let { h1ByGame.getOrPut(it) { mutableListOf() }.add(market) }
+            h1ByAbbr.getOrPut(row.abbrKey) { mutableListOf() }.add(market)
+        }
+        nbaFirstHalfByGame = h1ByGame
+        nbaFirstHalfByAbbr = h1ByAbbr
+
         games = games.copy(
             nba = inputRows.map { input ->
                 val pred = predictionsByGame[input.gameId]
@@ -764,7 +1020,7 @@ class GamesStore {
                 val modelMargin = spreadRow?.modelHomeMargin
                 val modelFairSpreadNew: Double? = modelMargin?.let { -it }
                 // Total hidden while the model is warming up (< 10 games played): no season-to-date form yet.
-                val modelFairTotalNew: Double? = if (totalRow?.tier == "warmup") null else totalRow?.modelTotal
+                val modelFairTotalNew: Double? = totalRow?.modelTotal
                 val simTotal = totalRow?.modelTotal
                 val homeScorePredNew: Double? = if (simTotal != null && modelMargin != null) (simTotal + modelMargin) / 2 else null
                 val awayScorePredNew: Double? = if (simTotal != null && modelMargin != null) (simTotal - modelMargin) / 2 else null
@@ -814,7 +1070,7 @@ class GamesStore {
                     awayAtsPct = input.awayAtsPct,
                     homeOverPct = input.homeOverPct,
                     awayOverPct = input.awayOverPct,
-                    homeAwayMlProb = pred?.homeWinProb,
+                    homeAwayMlProb = spreadRow?.homeWinProb ?: pred?.homeWinProb,
                     homeAwaySpreadCoverProb = spreadCoverProb,
                     ouResultProb = ouProb,
                     runId = pred?.runId,
@@ -822,6 +1078,7 @@ class GamesStore {
                     awayScorePred = awayScorePredNew,
                     modelFairHomeSpread = modelFairSpreadNew,
                     modelFairTotal = modelFairTotalNew,
+                    totalTier = totalRow?.tier,
                 )
             },
         )
@@ -830,35 +1087,46 @@ class GamesStore {
     // MARK: - NCAAB fetch (3-way merge)
 
     private suspend fun fetchNCAAB() {
+        CFBTeamsService.ensureLoaded()
+        installNcaabSchoolColors()
         val cfb = SupabaseClients.cfb
 
         // This is the authoritative slate query. Let transport/decoding errors
         // propagate so refresh() keeps the prior cached list and reports
         // Failed; converting an outage to `emptyList()` erased good data for
         // the full five-minute TTL.
-        val inputs: List<NCAABInputRow> =
-            cfb.from("v_cbb_input_values").select().decodeList<NCAABInputRow>()
+        // Same window as the website: the opening slate before Sunday tip,
+        // then today and tomorrow once the season is underway.
+        val (startDate, endDate) = SportSeason.ncaabBoardSpan()
+        val columns = "game_id,away_team,home_team,away_team_id,home_team_id,homeMoneyline,awayMoneyline,spread,over_under,game_date_et,tipoff_time_et,start_utc,home_adj_offense,away_adj_offense,home_adj_defense,away_adj_defense,home_adj_pace,away_adj_pace,home_ranking,away_ranking,conference_game,neutral_site"
+        val inputs: List<NCAABInputRow> = cfb.from("v_cbb_input_values").select(columns = Columns.raw(columns)) {
+            filter {
+                gte("game_date_et", startDate)
+                lte("game_date_et", endDate)
+            }
+        }.decodeList<NCAABInputRow>()
         if (inputs.isEmpty()) {
             games = games.copy(ncaab = emptyList())
+            ncaabSignalCountByGame = emptyMap()
+            putRanks(Sport.ncaab, emptyMap())
             return
         }
 
-        val allPreds: List<NCAABPredictionRow> = runCatchingCancellable {
+        val latestRunId: String? = runCatchingCancellable {
+            cfb.from("ncaab_predictions").select(columns = Columns.raw("run_id")) {
+                order("as_of_ts_utc", Order.DESCENDING)
+                limit(1)
+            }.decodeList<NCAABRunRow>()
+        }.getOrDefault(emptyList()).firstOrNull()?.runId
+        val predictionRows: List<NCAABPredictionRow> = if (latestRunId.isNullOrBlank()) emptyList() else runCatchingCancellable {
             cfb.from("ncaab_predictions")
-                .select(columns = Columns.raw("game_id, run_id, as_of_ts_utc, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, home_score_pred, away_score_pred, model_fair_home_spread, vegas_home_spread, vegas_total"))
+                .select(columns = Columns.raw("game_id, run_id, as_of_ts_utc, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, home_score_pred, away_score_pred, model_fair_home_spread, vegas_home_spread, vegas_total")) {
+                    filter { eq("run_id", latestRunId) }
+                }
                 .decodeList<NCAABPredictionRow>()
         }.getOrDefault(emptyList())
-        // Prefer the run with the newest as_of_ts_utc; fall back to lexicographic run_id.
-        val latestRunId: String? = run {
-            val dated = allPreds.mapNotNull { p ->
-                val r = p.runId
-                val ts = p.asOfTsUtc
-                if (r != null && ts != null) r to ts else null
-            }
-            dated.maxByOrNull { it.second }?.first ?: allPreds.mapNotNull { it.runId }.maxOrNull()
-        }
         val predictionMap = HashMap<Int, NCAABPredictionRow>()
-        for (row in allPreds) if (row.runId == latestRunId) predictionMap[row.gameId] = row
+        for (row in predictionRows) predictionMap[row.gameId] = row
 
         val mappingRows: List<NCAABMappingRow> = runCatchingCancellable {
             cfb.from("ncaab_team_mapping")
@@ -871,12 +1139,37 @@ class GamesStore {
             val logo = espnId?.let { "https://a.espncdn.com/i/teamlogos/ncaa/500/$it.png" }
             mappingMap[row.apiTeamId] = row.teamAbbrev to logo
         }
+        val logosByName = HashMap<String, String>()
+        val abbrevsByName = HashMap<String, String>()
+        for (row in inputs) {
+            rememberNcaabIdentity(row.awayTeam, row.awayTeamId?.let { mappingMap[it] }, logosByName, abbrevsByName)
+            rememberNcaabIdentity(row.homeTeam, row.homeTeamId?.let { mappingMap[it] }, logosByName, abbrevsByName)
+        }
+        NCAABTeamAssets.install(logosByName, abbrevsByName)
+
+        val dates = inputs.mapNotNull { it.gameDateEt?.take(10)?.takeIf { date -> date.length == 10 } }.distinct()
+        val flagRows: List<NCAABFlagCountRow> = if (dates.isEmpty()) emptyList() else runCatchingCancellable {
+            cfb.from("ncaab_slate_flags")
+                .select(columns = Columns.raw("game_id, signal_key")) {
+                    filter { isIn("game_date", dates) }
+                }
+                .decodeList<NCAABFlagCountRow>()
+        }.getOrDefault(emptyList())
+        val keysByGame = HashMap<Int, MutableSet<String>>()
+        for (flag in flagRows) {
+            val gameId = flag.gameId ?: continue
+            val key = flag.signalKey?.takeIf { it.isNotBlank() } ?: continue
+            keysByGame.getOrPut(gameId) { mutableSetOf() }.add(key)
+        }
+        ncaabSignalCountByGame = keysByGame.mapValues { it.value.size }
+        putRanks(Sport.ncaab, ncaabSignalRanks(cfb, keysByGame))
 
         games = games.copy(
             ncaab = inputs.map { row ->
                 val pred = predictionMap[row.gameId]
                 val awayMap = row.awayTeamId?.let { mappingMap[it] }
                 val homeMap = row.homeTeamId?.let { mappingMap[it] }
+                val spread = row.homeSpread ?: pred?.vegasHomeSpread
                 NCAABGame(
                     id = row.gameId.toString(),
                     gameId = row.gameId,
@@ -884,8 +1177,8 @@ class GamesStore {
                     homeTeam = row.homeTeam ?: "",
                     homeMl = row.homeMl,
                     awayMl = row.awayMl,
-                    homeSpread = row.homeSpread ?: pred?.vegasHomeSpread,
-                    awaySpread = row.awaySpread,
+                    homeSpread = spread,
+                    awaySpread = spread?.let { -it },
                     overLine = row.overUnder ?: pred?.vegasTotal,
                     gameDate = row.gameDateEt ?: "",
                     gameTime = row.startUtc ?: row.tipoffTimeEt ?: "",
@@ -919,6 +1212,25 @@ class GamesStore {
         )
     }
 
+    private fun rememberNcaabIdentity(
+        name: String?,
+        mapped: Pair<String?, String?>?,
+        logos: MutableMap<String, String>,
+        abbrevs: MutableMap<String, String>,
+    ) {
+        val trimmed = name?.trim().orEmpty()
+        val abbrev = mapped?.first?.trim().orEmpty()
+        val logo = mapped?.second
+        if (!logo.isNullOrEmpty()) {
+            if (trimmed.isNotEmpty()) logos[trimmed] = logo
+            if (abbrev.isNotEmpty()) logos[abbrev] = logo
+        }
+        if (abbrev.isNotEmpty()) {
+            if (trimmed.isNotEmpty()) abbrevs[trimmed] = abbrev
+            abbrevs[abbrev] = abbrev
+        }
+    }
+
     // MARK: - MLB fetch
 
     private suspend fun fetchMLB() {
@@ -939,6 +1251,7 @@ class GamesStore {
             .decodeList<MLBGamesTodayRow>()
         if (gamesRows.isEmpty()) {
             games = games.copy(mlb = emptyList())
+            putRanks(Sport.mlb, emptyMap())
             return
         }
         val pks = gamesRows.mapNotNull { it.gamePk }
@@ -1068,6 +1381,7 @@ class GamesStore {
         }
 
         games = games.copy(mlb = merged)
+        putRanks(Sport.mlb, merged.associate { it.id to SignalBoardRank(count = it.signals.size) })
     }
 
     private fun fallbackMLBAbbrev(teamName: String): String {
@@ -1104,11 +1418,6 @@ class GamesStore {
 
     private companion object {
         private val FMT_DATETIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-
-        private fun confidence(prob: Double?): Double {
-            val p = prob ?: return 0.0
-            return max(p, 1 - p)
-        }
 
         /**
          * ISO8601 (with/without fractional seconds) → `yyyy-MM-dd HH:mm:ss` (UTC)
@@ -1207,7 +1516,109 @@ class GamesStore {
         }
     }
 
+    private suspend fun nflSignalRanks(
+        client: io.github.jan.supabase.SupabaseClient,
+        games: List<NFLPrediction>,
+    ): Map<String, SignalBoardRank> {
+        val season = games.firstNotNullOfOrNull { it.season } ?: return emptyMap()
+        val week = games.firstNotNullOfOrNull { it.week }
+        val performances = SignalPerformanceService.shared.performances(SignalSport.NFL, season)
+        val defs = runCatchingCancellable {
+            client.from("nfl_signal_defs")
+                .select(columns = Columns.raw("signal_key,typical_hit"))
+                .decodeList<SignalDefHitRow>()
+        }.getOrDefault(emptyList())
+        val flags = if (week == null) emptyList() else runCatchingCancellable {
+            client.from("nfl_slate_flags")
+                .select(columns = Columns.raw("game_id,signal_key,source")) {
+                    filter {
+                        eq("season", season)
+                        eq("week", week)
+                    }
+                }
+                .decodeList<FootballFlagKeyRow>()
+        }.getOrDefault(emptyList())
+        val hitByKey = defs.mapNotNull { row -> row.typicalHit?.let { row.signalKey to it } }.toMap()
+        val grouped = flags.mapNotNull { row -> row.gameId?.let { id -> id to row } }
+            .groupBy({ it.first }, { it.second })
+        return games.associate { game ->
+            val keys = FootballBlanketSignals.displayKeys(
+                "nfl",
+                (grouped[game.gameId] ?: emptyList()).mapNotNull { it.signalKey ?: it.source },
+            )
+            val ratings = keys.map { key ->
+                val row = performances[key]
+                GameListSort.rating(row?.roi, row?.n ?: 0, null, hitByKey[key])
+            }
+            game.gameId to GameListSort.boardRank(keys.size, ratings)
+        }
+    }
+
+    private fun cfbSignalRanks(
+        games: List<CFBPrediction>,
+        performances: Map<String, com.wagerproof.core.models.SignalPerformance>,
+    ): Map<String, SignalBoardRank> = games.associate { game ->
+        val flags = game.activeFlags
+        val keys = FootballBlanketSignals.displayKeys("cfb", flags.map { it.source })
+        val ratings = keys.map { key ->
+            val flag = flags.firstOrNull { it.source == key }
+            val perfKey = flag?.signalDefinition?.signalKey ?: key
+            val row = performances[perfKey] ?: performances[key]
+            GameListSort.rating(row?.roi, row?.n ?: 0, null, flag?.signalDefinition?.typicalHit)
+        }
+        game.gameId to GameListSort.boardRank(keys.size, ratings)
+    }
+
+    private fun nbaSignalRanks(byGame: Map<Int, List<NBASlateSignal>>): Map<String, SignalBoardRank> =
+        byGame.mapKeys { it.key.toString() }.mapValues { (_, signals) ->
+            val seen = linkedSetOf<String>()
+            val ratings = mutableListOf<Double?>()
+            for (signal in signals) {
+                if (!seen.add(signal.id)) continue
+                ratings += GameListSort.rating(null, 0, signal.seasonRecordText, signal.recordText)
+            }
+            GameListSort.boardRank(seen.size, ratings)
+        }
+
+    private suspend fun ncaabSignalRanks(
+        client: io.github.jan.supabase.SupabaseClient,
+        keysByGame: Map<Int, Set<String>>,
+    ): Map<String, SignalBoardRank> {
+        val defs = runCatchingCancellable {
+            client.from("ncaab_signal_defs")
+                .select(columns = Columns.raw("signal_key,record_text,season_record_text"))
+                .decodeList<NcaabSignalTextRow>()
+        }.getOrDefault(emptyList()).associateBy { it.signalKey }
+        return keysByGame.mapKeys { it.key.toString() }.mapValues { (_, keys) ->
+            val ratings = keys.map { key ->
+                val def = defs[key]
+                GameListSort.rating(null, 0, def?.seasonRecordText, def?.recordText)
+            }
+            GameListSort.boardRank(keys.size, ratings)
+        }
+    }
+
     // MARK: - Private row decoders
+
+    @Serializable
+    private data class FootballFlagKeyRow(
+        @SerialName("game_id") @Serializable(with = FlexibleStringSerializer::class) val gameId: String? = null,
+        @SerialName("signal_key") val signalKey: String? = null,
+        val source: String? = null,
+    )
+
+    @Serializable
+    private data class SignalDefHitRow(
+        @SerialName("signal_key") val signalKey: String = "",
+        @SerialName("typical_hit") val typicalHit: String? = null,
+    )
+
+    @Serializable
+    private data class NcaabSignalTextRow(
+        @SerialName("signal_key") val signalKey: String = "",
+        @SerialName("record_text") val recordText: String? = null,
+        @SerialName("season_record_text") val seasonRecordText: String? = null,
+    )
 
     @Serializable
     private data class NFLViewRow(
@@ -1419,6 +1830,7 @@ class GamesStore {
         @SerialName("model_home_margin") val modelHomeMargin: Double? = null,
         @SerialName("model_total") val modelTotal: Double? = null,
         val tier: String? = null,
+        @SerialName("home_win_prob") val homeWinProb: Double? = null,
     ) {
         val abbrKey: String get() = "${gameDate.take(10)}|$homeAbbr|$awayAbbr"
     }
@@ -1437,16 +1849,54 @@ class GamesStore {
     )
 
     @Serializable
+    private data class NBAFlagRow(
+        @SerialName("game_id") val gameId: Int? = null,
+        @SerialName("game_date") val gameDate: String? = null,
+        val game: String? = null,
+        @SerialName("signal_key") val signalKey: String? = null,
+        val side: String? = null,
+        @SerialName("record_text") val recordText: String? = null,
+        val market: String? = null,
+    )
+
+    @Serializable
+    private data class NBASignalDefRow(
+        @SerialName("signal_key") val signalKey: String,
+        @SerialName("display_name") val displayName: String? = null,
+        val definition: String? = null,
+        @SerialName("record_text") val recordText: String? = null,
+        @SerialName("season_record_text") val seasonRecordText: String? = null,
+        val market: String? = null,
+    )
+
+    @Serializable
+    private data class NBAH1Row(
+        @SerialName("game_id") val gameId: Int? = null,
+        @SerialName("game_date") val gameDate: String,
+        @SerialName("home_abbr") val homeAbbr: String,
+        @SerialName("away_abbr") val awayAbbr: String,
+        val market: String,
+        @SerialName("model_home_margin") val modelHomeMargin: Double? = null,
+        @SerialName("model_total") val modelTotal: Double? = null,
+        @SerialName("market_home_spread") val marketHomeSpread: Double? = null,
+        @SerialName("market_total") val marketTotal: Double? = null,
+        val disagreement: Double? = null,
+        val tier: String? = null,
+    ) {
+        val abbrKey: String get() = "${gameDate.take(10)}|$homeAbbr|$awayAbbr"
+    }
+
+    @Serializable
     private data class NCAABInputRow(
         @SerialName("game_id") val gameId: Int,
         @SerialName("away_team") val awayTeam: String? = null,
         @SerialName("home_team") val homeTeam: String? = null,
         @SerialName("away_team_id") val awayTeamId: Int? = null,
         @SerialName("home_team_id") val homeTeamId: Int? = null,
-        @SerialName("home_ml") val homeMl: Int? = null,
-        @SerialName("away_ml") val awayMl: Int? = null,
-        @SerialName("home_spread") val homeSpread: Double? = null,
-        @SerialName("away_spread") val awaySpread: Double? = null,
+        @SerialName("homeMoneyline") val homeMl: Int? = null,
+        @SerialName("awayMoneyline") val awayMl: Int? = null,
+        // One home number. Negative when home is favored; away is the negation.
+        @SerialName("spread") val homeSpread: Double? = null,
         @SerialName("over_under") val overUnder: Double? = null,
         @SerialName("game_date_et") val gameDateEt: String? = null,
         @SerialName("tipoff_time_et") val tipoffTimeEt: String? = null,
@@ -1461,6 +1911,17 @@ class GamesStore {
         @SerialName("away_ranking") val awayRanking: Int? = null,
         @SerialName("conference_game") val conferenceGame: Boolean? = null,
         @SerialName("neutral_site") val neutralSite: Boolean? = null,
+    )
+
+    @Serializable
+    private data class NCAABRunRow(
+        @SerialName("run_id") val runId: String? = null,
+    )
+
+    @Serializable
+    private data class NCAABFlagCountRow(
+        @SerialName("game_id") val gameId: Int? = null,
+        @SerialName("signal_key") val signalKey: String? = null,
     )
 
     @Serializable
@@ -1559,5 +2020,61 @@ class GamesStore {
         @SerialName("f5_away_ml_strong_signal") val f5AwayMlStrongSignal: Boolean? = null,
         @SerialName("is_final_prediction") val isFinalPrediction: Boolean? = null,
         @SerialName("projection_label") val projectionLabel: String? = null,
+    )
+
+    private suspend fun installNcaabSchoolColors() {
+        if (ncaabColorsLoaded) return
+        val body = runCatchingCancellable {
+            withContext(Dispatchers.IO) {
+                val request = Request.Builder()
+                    .url("https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=400")
+                    .build()
+                ServiceHttp.client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) null else response.body?.string()
+                }
+            }
+        }.getOrNull() ?: return
+        val payload = runCatching {
+            WagerproofJson.decodeFromString(EspnCollegeTeams.serializer(), body)
+        }.getOrNull() ?: return
+        val map = HashMap<String, NCAABSchoolColors.Hex>()
+        for (wrapper in payload.sports.flatMap { it.leagues }.flatMap { it.teams }) {
+            val team = wrapper.team
+            val color = team.color?.trim().orEmpty()
+            if (color.isEmpty()) continue
+            val alt = team.alternateColor?.trim().orEmpty().ifEmpty { color }
+            val hex = NCAABSchoolColors.Hex(color, alt)
+            listOf(team.displayName, team.location, team.name, team.abbreviation).forEach { raw ->
+                val key = raw?.trim()?.lowercase().orEmpty()
+                if (key.isNotEmpty()) map[key] = hex
+            }
+            val combined = listOfNotNull(team.location, team.name).joinToString(" ").trim().lowercase()
+            if (combined.isNotEmpty()) map[combined] = hex
+        }
+        if (map.isEmpty()) return
+        ncaabColorsLoaded = true
+        NCAABSchoolColors.install(map)
+    }
+
+    @Serializable
+    private data class EspnCollegeTeams(val sports: List<EspnSport> = emptyList())
+
+    @Serializable
+    private data class EspnSport(val leagues: List<EspnLeague> = emptyList())
+
+    @Serializable
+    private data class EspnLeague(val teams: List<EspnTeamWrap> = emptyList())
+
+    @Serializable
+    private data class EspnTeamWrap(val team: EspnTeam = EspnTeam())
+
+    @Serializable
+    private data class EspnTeam(
+        val displayName: String? = null,
+        val abbreviation: String? = null,
+        val location: String? = null,
+        val name: String? = null,
+        val color: String? = null,
+        val alternateColor: String? = null,
     )
 }

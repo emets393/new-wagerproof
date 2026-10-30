@@ -1,13 +1,18 @@
 package com.wagerproof.app.features.gamecards
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +67,19 @@ fun SportsbookLogoView(
     style: SportsbookLogoStyle = SportsbookLogoStyle.REGULAR,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val bundled = remember(bookKey) {
+        context.resources.getIdentifier("sportsbook_${bookKey.lowercase(Locale.US)}", "drawable", context.packageName)
+    }
+    if (bundled != 0) {
+        Image(
+            painterResource(bundled),
+            contentDescription = bookKey,
+            modifier = modifier.size(style.img),
+            contentScale = ContentScale.Fit,
+        )
+        return
+    }
     val url = logoURL ?: SportsbookDomainResolver.fallbackURL(bookKey, logoURL)
     Box(
         modifier.size(style.frame).clip(RoundedCornerShape(style.radius)).background(AppColors.appSurfaceMuted),

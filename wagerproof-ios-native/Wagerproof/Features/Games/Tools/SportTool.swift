@@ -31,6 +31,7 @@ struct SportTool: Identifiable, Hashable {
     /// page accent so the banner and its destination read as one feature.
     static let registry: [GamesStore.Sport: [SportTool]] = [
         .nfl: [
+            publicBetting(sport: .nfl, category: .nflPublicBetting, symbol: "football.fill", seed: 0.22),
             SportTool(
                 id: "nfl-historical-trends", sport: .nfl,
                 title: "NFL Historical Trends", subtitle: "See how any bet type has performed",
@@ -40,8 +41,18 @@ struct SportTool: Identifiable, Hashable {
                 seed: 0.41, speedFactor: 0.98, yJitter: -0.02,
                 category: .nflHistoricalAnalysis
             ),
+            SportTool(
+                id: "nfl-regression-report", sport: .nfl,
+                title: "NFL Regression Report", subtitle: "Weekly storylines, signals, and the model record",
+                actionWord: "Open",
+                primaryColor: Color(hex: 0x6366F1), secondaryColor: Color(hex: 0xA5B4FC),
+                symbols: ["chart.bar.xaxis", "football.fill", "waveform.path.ecg", "brain.head.profile", "sparkles", "chart.xyaxis.line", "arrow.triangle.2.circlepath", "bolt.fill", "flame.fill", "star.fill"],
+                seed: 0.33, speedFactor: 0.97, yJitter: -0.02,
+                category: .nflRegression
+            ),
         ],
         .cfb: [
+            publicBetting(sport: .cfb, category: .cfbPublicBetting, symbol: "graduationcap.fill", seed: 0.28),
             SportTool(
                 id: "cfb-historical-trends", sport: .cfb,
                 title: "CFB Historical Trends", subtitle: "See how any bet type has performed",
@@ -50,6 +61,15 @@ struct SportTool: Identifiable, Hashable {
                 symbols: ["chart.bar.fill", "chart.line.uptrend.xyaxis", "calendar", "graduationcap.fill", "percent", "arrow.up.arrow.down", "clock.fill", "chart.xyaxis.line", "bolt.fill", "star.fill"],
                 seed: 0.52, speedFactor: 1.0, yJitter: -0.02,
                 category: .cfbHistoricalAnalysis
+            ),
+            SportTool(
+                id: "cfb-regression-report", sport: .cfb,
+                title: "CFB Regression Report", subtitle: "Weekly storylines, signals, and the model record",
+                actionWord: "Open",
+                primaryColor: Color(hex: 0x6366F1), secondaryColor: Color(hex: 0xFCD34D),
+                symbols: ["chart.bar.xaxis", "graduationcap.fill", "waveform.path.ecg", "brain.head.profile", "sparkles", "chart.xyaxis.line", "arrow.triangle.2.circlepath", "bolt.fill", "flame.fill", "star.fill"],
+                seed: 0.61, speedFactor: 0.98, yJitter: -0.02,
+                category: .cfbRegression
             ),
         ],
         .mlb: [
@@ -73,17 +93,10 @@ struct SportTool: Identifiable, Hashable {
             ),
         ],
         .nba: [
-            SportTool(
-                id: "nba-model-accuracy", sport: .nba,
-                title: "NBA Model Accuracy", subtitle: "Track record on today's slate",
-                actionWord: "Open",
-                primaryColor: Color(hex: 0x14B8A6), secondaryColor: Color(hex: 0x5FD6C9),
-                symbols: ["target", "scope", "checkmark.seal.fill", "chart.bar.fill", "percent", "basketball.fill", "gauge.high", "chart.xyaxis.line", "bolt.fill", "star.fill"],
-                seed: 0.44, speedFactor: 1.02, yJitter: -0.03,
-                category: .nbaAccuracy
-            ),
+            publicBetting(sport: .nba, category: .nbaPublicBetting, symbol: "basketball.fill", seed: 0.19),
         ],
         .ncaab: [
+            publicBetting(sport: .ncaab, category: .ncaabPublicBetting, symbol: "basketball.fill", seed: 0.24),
             SportTool(
                 id: "ncaab-model-accuracy", sport: .ncaab,
                 title: "NCAAB Model Accuracy", subtitle: "The model's college track record",
@@ -95,6 +108,24 @@ struct SportTool: Identifiable, Hashable {
             ),
         ],
     ]
+
+    /// First card on NFL, CFB, NBA, and NCAAB. MLB has no Action Network board.
+    private static func publicBetting(
+        sport: GamesStore.Sport,
+        category: OutliersStore.Category,
+        symbol: String,
+        seed: Double
+    ) -> SportTool {
+        SportTool(
+            id: "\(sport.rawValue)-public-betting", sport: sport,
+            title: "Public Betting", subtitle: "Tickets, money, and which way the line moved",
+            actionWord: "Open",
+            primaryColor: Color(hex: 0x10B981), secondaryColor: Color(hex: 0x6EE7B7),
+            symbols: ["chart.bar.fill", "arrow.left.arrow.right", "dollarsign.circle.fill", "person.3.fill", symbol, "arrow.up.arrow.down", "clock.fill", "chart.xyaxis.line", "bolt.fill", "star.fill"],
+            seed: seed, speedFactor: 0.97, yJitter: -0.02,
+            category: category
+        )
+    }
 
     /// Tools for a sport (empty for sports without tools).
     static func tools(for sport: GamesStore.Sport) -> [SportTool] {

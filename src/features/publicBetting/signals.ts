@@ -253,7 +253,9 @@ export function readMarket(input: MarketInput): MarketRead {
     betsAway === 100 ||
     betsHome === 100;
   if (noSplit) return blank(true);
-  if (input.tickets === null || input.tickets < THRESHOLDS.MIN_TICKETS) return blank(true);
+  // A missing count is not a thin market. Action's latest snap is leaving `tickets` blank
+  // while the split itself is present; only a known count under the floor stays off.
+  if (input.tickets !== null && input.tickets < THRESHOLDS.MIN_TICKETS) return blank(true);
   // ⛔ ml ONLY — see THRESHOLDS.ML_MIN_MINORITY. On spreads and totals a 12/88 split is a
   // real lopsided football game, not noise, and this floor used to throw 25 of them away.
   if (input.market === 'ml' && Math.min(betsAway, betsHome) < THRESHOLDS.ML_MIN_MINORITY) {

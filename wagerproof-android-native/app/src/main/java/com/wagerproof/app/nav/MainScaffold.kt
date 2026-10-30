@@ -189,6 +189,18 @@ fun MainScaffold(modifier: Modifier = Modifier) {
                 if (graph.games.selectedSport != matching) graph.games.selectedSport = matching
             }
     }
+    // Opening Props lands on the sport already open on Games. drop(1) skips
+    // the first composition, so this cannot stamp Props' MLB default back
+    // onto the seasonal Games picker at cold start.
+    LaunchedEffect(Unit) {
+        snapshotFlow { tabStore.selected }
+            .drop(1)
+            .collect { tab ->
+                if (tab != MainTabStore.Tab.Props) return@collect
+                val matching = PropsStore.Sport.matching(graph.games.selectedSport)
+                if (graph.props.selectedSport != matching) graph.props.selectedSport = matching
+            }
+    }
 
     // Search → Agents handoff: push the pending agent route, then clear it.
     LaunchedEffect(tabStore.pendingAgentRoute) {

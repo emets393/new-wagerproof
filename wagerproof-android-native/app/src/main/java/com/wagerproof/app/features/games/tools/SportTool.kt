@@ -28,6 +28,7 @@ data class SportTool(
         /** Per-sport tool inventory. Accents mirror each tool's page accent. */
         val registry: Map<GamesStore.Sport, List<SportTool>> = mapOf(
             GamesStore.Sport.nfl to listOf(
+                publicBetting(GamesStore.Sport.nfl, OutliersStore.Category.nflPublicBetting, "football.fill", 0.22),
                 SportTool(
                     id = "nfl-historical-trends", sport = GamesStore.Sport.nfl,
                     title = "NFL Historical Trends", subtitle = "See how any bet type has performed",
@@ -39,6 +40,7 @@ data class SportTool(
                 ),
             ),
             GamesStore.Sport.cfb to listOf(
+                publicBetting(GamesStore.Sport.cfb, OutliersStore.Category.cfbPublicBetting, "graduationcap.fill", 0.28),
                 SportTool(
                     id = "cfb-historical-trends", sport = GamesStore.Sport.cfb,
                     title = "CFB Historical Trends", subtitle = "See how any bet type has performed",
@@ -76,17 +78,10 @@ data class SportTool(
                 ),
             ),
             GamesStore.Sport.nba to listOf(
-                SportTool(
-                    id = "nba-model-accuracy", sport = GamesStore.Sport.nba,
-                    title = "NBA Model Accuracy", subtitle = "Track record on today's slate",
-                    actionWord = "Open",
-                    primaryColor = Color(0xFF14B8A6), secondaryColor = Color(0xFF5FD6C9),
-                    symbols = listOf("target", "scope", "checkmark.seal.fill", "chart.bar.fill", "percent", "basketball.fill", "gauge.high", "chart.xyaxis.line", "bolt.fill", "star.fill"),
-                    seed = 0.44, speedFactor = 1.02, yJitter = -0.03f,
-                    category = OutliersStore.Category.nbaAccuracy,
-                ),
+                publicBetting(GamesStore.Sport.nba, OutliersStore.Category.nbaPublicBetting, "basketball", 0.19),
             ),
             GamesStore.Sport.ncaab to listOf(
+                publicBetting(GamesStore.Sport.ncaab, OutliersStore.Category.ncaabPublicBetting, "basketball", 0.24),
                 SportTool(
                     id = "ncaab-model-accuracy", sport = GamesStore.Sport.ncaab,
                     title = "NCAAB Model Accuracy", subtitle = "The model's college track record",
@@ -97,6 +92,26 @@ data class SportTool(
                     category = OutliersStore.Category.ncaabAccuracy,
                 ),
             ),
+        )
+
+        private fun publicBetting(
+            sport: GamesStore.Sport,
+            category: OutliersStore.Category,
+            symbol: String,
+            seed: Double,
+        ) = SportTool(
+            id = "${sport.name}-public-betting",
+            sport = sport,
+            title = "Public Betting",
+            subtitle = "Tickets, money, and which way the line moved",
+            actionWord = "Open",
+            primaryColor = Color(0xFF10B981),
+            secondaryColor = Color(0xFF6EE7B7),
+            symbols = listOf("chart.bar.fill", "arrow.left.arrow.right", "dollarsign.circle.fill", "person.3.fill", symbol, "arrow.up.arrow.down", "clock.fill", "chart.xyaxis.line", "bolt.fill", "star.fill"),
+            seed = seed,
+            speedFactor = 0.97,
+            yJitter = -0.02f,
+            category = category,
         )
 
         /** Tools for a sport (empty for sports without tools). */

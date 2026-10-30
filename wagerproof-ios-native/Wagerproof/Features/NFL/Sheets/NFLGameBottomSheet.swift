@@ -23,6 +23,9 @@ struct NFLGameBottomSheet: View {
     @Environment(PropsStore.self) private var propsStore: PropsStore?
 
     @State private var picks: [NFLSlatePickRow] = []
+    /// Mammoth bets from `nfl_slate_flags` that still match the live model.
+    /// A flag left on an old total is not the play.
+    @State private var mammothFlags: [MammothPlayLabel.Flag] = []
     /// Same-game perfect-streak parlays built from this matchup's props.
     @State private var matchupParlayTickets: [ParlayTicket] = []
     @State private var selectedParlay: ParlayTicket?
@@ -36,7 +39,6 @@ struct NFLGameBottomSheet: View {
     /// logo, and only the display row carries which side the signal is on.
     @State private var selectedSignal: NFLSignalDisplay?
     @State private var selectedTrendDetail: NFLTrendDetailSelection?
-    @State private var marketOddsHeadline: String?
     /// Every book's number on this game, one snapshot. Nil until loaded, and
     /// stays nil when the capture has no rows — cards fall back to the pick
     /// row's own `best_book` rather than showing an empty board.
@@ -317,10 +319,15 @@ struct NFLGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
-            PolymarketWidget(league: "nfl", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: NFLTeamColors.initials(for: game.awayTeam), homeLabel: NFLTeamColors.initials(for: game.homeTeam), awayColor: awayColors.primary, homeColor: homeColors.primary) {
-                marketOddsHeadline = $0
-            }
+        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money") {
+            GamePublicBettingCard(
+                sport: "nfl",
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                gameDate: game.gameDate,
+                awayColor: awayColors.primary,
+                homeColor: homeColors.primary
+            )
         }
     }
 
@@ -490,6 +497,14 @@ struct NFLGameBottomSheet: View {
             return "The model backs \(selection)."
 
         case "total", "h1_total":
+            if let play = mammothPlay(for: pick),
+               let flagDirection = MammothPlayLabel.direction(of: play) {
+                let word = flagDirection == "UNDER" ? "under" : "over"
+                let number = GameCardFormatting.roundToNearestHalf(play.betLine)
+                let line = (number.isEmpty || number == "—") ? "" : " \(number)"
+                let scope = group.cardGroup == "h1_total" ? "First half" : "Full game"
+                return "\(scope) Mammoth pick is the \(word)\(line)."
+            }
             guard let direction else { return "The model backs \(selection)." }
             let scope = group.cardGroup == "h1_total" ? "First half" : "Full game"
             if let modelLine, let marketLine, modelLine.isFinite, marketLine.isFinite {
@@ -598,7 +613,7 @@ struct NFLGameBottomSheet: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.74)
             }
-        } else if isTotalHeader(for: pick), let direction = overUnderDirection(for: pick) {
+        } else if isTotalHeader(for: pick), let direction = shownDirection(for: pick) {
             HStack(spacing: 8) {
                 Image(systemName: direction == "UNDER" ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
                     .font(.system(size: 24, weight: .black))
@@ -620,13 +635,14 @@ struct NFLGameBottomSheet: View {
 
     @ViewBuilder
     private func recommendationBadge(_ pick: NFLSlatePickRow) -> some View {
-        Text(pick.recommendation ?? "No Bet")
+        let tint = verdictTint(pick)
+        Text(verdictText(pick))
             .font(.system(size: 10, weight: .heavy))
-            .foregroundStyle(pick.hasPlay == true ? convictionColor(pick.conviction) : Color.appTextSecondary)
+            .foregroundStyle(tint)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background((pick.hasPlay == true ? convictionColor(pick.conviction) : Color.appTextSecondary).opacity(0.12), in: Capsule())
-            .overlay(Capsule().stroke((pick.hasPlay == true ? convictionColor(pick.conviction) : Color.appTextSecondary).opacity(0.22), lineWidth: 1))
+            .background(tint.opacity(0.12), in: Capsule())
+            .overlay(Capsule().stroke(tint.opacity(0.22), lineWidth: 1))
     }
 
     private var displayOnlyBadge: some View {
@@ -779,11 +795,12 @@ struct NFLGameBottomSheet: View {
     @ViewBuilder
     private func convictionLine(_ pick: NFLSlatePickRow) -> some View {
         let plays = pick.hasPlay == true
-        let tint = plays ? convictionColor(pick.conviction) : Color.appTextSecondary
+        let mammoth = isMammothPick(pick)
+        let tint = (mammoth || plays) ? verdictTint(pick) : Color.appTextSecondary
         HStack(spacing: 5) {
-            Image(systemName: plays ? "checkmark.seal.fill" : "minus.circle")
+            Image(systemName: mammoth ? "flame.fill" : (plays ? "checkmark.seal.fill" : "minus.circle"))
                 .font(.system(size: 10, weight: .black))
-            Text((pick.recommendation ?? "No Bet").uppercased())
+            Text(verdictText(pick))
                 .font(.system(size: 10, weight: .black))
                 .tracking(0.4)
             if pick.displayOnly == true {
@@ -821,7 +838,7 @@ struct NFLGameBottomSheet: View {
     /// Maps a card group + picked side onto the market the odds table stores.
     /// `pick_side` is AWAY/HOME on sides and OVER/UNDER on totals.
     private func market(for pick: NFLSlatePickRow) -> SportsbookMarket? {
-        let side = (pick.pickSide ?? "").uppercased()
+        let side = (shownDirection(for: pick) ?? pick.pickSide ?? "").uppercased()
         let isHome = side == "HOME"
         switch pick.cardGroup {
         case "spread": return .spread(isHome: isHome)
@@ -1354,6 +1371,14 @@ struct NFLGameBottomSheet: View {
             .execute()
             .value) ?? [])
 
+        async let mammothFlagsTask: [MammothPlayLabel.Flag] = ((try? await cfb
+            .from("nfl_slate_flags")
+            .select("market,side,bet_direction,bet_line,bet_team")
+            .eq("game_id", value: game.gameId)
+            .eq("mammoth", value: true)
+            .execute()
+            .value) ?? [])
+
         async let signalsTask: [NFLSignalDefinition] = ((try? await cfb
             .from("nfl_signal_defs")
             .select()
@@ -1390,6 +1415,7 @@ struct NFLGameBottomSheet: View {
         )
 
         let loadedPicks = await picksTask
+        let loadedMammothFlags = await mammothFlagsTask
         let loadedSignals = await signalsTask
         let loadedTrends = await trendsTask
         let loadedHistory = await historyTask
@@ -1397,6 +1423,7 @@ struct NFLGameBottomSheet: View {
         guard !Task.isCancelled else { return }
 
         picks = loadedPicks
+        mammothFlags = loadedMammothFlags
         signalsByKey = Dictionary(
             loadedSignals
                 .filter { !$0.signalKey.isEmpty }
@@ -1664,7 +1691,15 @@ struct NFLGameBottomSheet: View {
     }
 
     private func displayPickLabel(_ pick: NFLSlatePickRow) -> String {
+        if let mammothLabel = mammothPickLabel(pick) { return mammothLabel }
         guard pick.cardGroup == "spread" || pick.cardGroup == "h1_spread" else {
+            if isTotalHeader(for: pick),
+               let direction = overUnderDirection(for: pick),
+               isConvictionTitle(pick.pickLabel) {
+                let line = formatPickLine(preferredMarketLine(for: pick), pick: pick)
+                let word = direction == "UNDER" ? "Under" : "Over"
+                return line == "—" ? word : "\(word) \(line)"
+            }
             return pick.pickLabel ?? pick.recommendation ?? "No Bet"
         }
         guard let team = pick.pickTeam else {
@@ -1702,7 +1737,7 @@ struct NFLGameBottomSheet: View {
         case "h1_spread":
             return "\(name) 1H \(formatPickLine(preferredMarketLine(for: pick), pick: pick))"
         case "team_total":
-            if let direction = overUnderDirection(for: pick) {
+            if let direction = shownDirection(for: pick) {
                 return "\(name) \(direction.capitalized) \(formatPickLine(preferredMarketLine(for: pick), pick: pick))"
             }
             return displayPickLabel(pick).replacingOccurrences(of: team, with: name)
@@ -1769,6 +1804,70 @@ struct NFLGameBottomSheet: View {
 
     private func hasBestBook(_ pick: NFLSlatePickRow) -> Bool {
         pick.bestBook != nil || pick.bestBookName != nil || pick.bestBookLogo != nil || pick.bestLine != nil || pick.bestOdds != nil
+    }
+
+    /// A Mammoth total flag counts only when its side and number still match
+    /// the current model. The Cowboys total was left as Over 52.5 after the
+    /// market moved to 54.5 and the model went under.
+    private func mammothPlay(for pick: NFLSlatePickRow) -> MammothPlayLabel.Flag? {
+        guard let play = MammothPlayLabel.play(in: mammothFlags, cardGroup: pick.cardGroup, team: pick.pickTeam),
+              MammothPlayLabel.isCurrent(play, game: game) else { return nil }
+        return play
+    }
+
+    private func shownDirection(for pick: NFLSlatePickRow) -> String? {
+        if let play = mammothPlay(for: pick), let direction = MammothPlayLabel.direction(of: play) {
+            return direction
+        }
+        return overUnderDirection(for: pick)
+    }
+
+    private func mammothPickLabel(_ pick: NFLSlatePickRow) -> String? {
+        guard let play = mammothPlay(for: pick),
+              let direction = MammothPlayLabel.direction(of: play) else { return nil }
+        let number = GameCardFormatting.roundToNearestHalf(play.betLine)
+        let line = (number.isEmpty || number == "—") ? "" : " \(number)"
+        let word = direction == "UNDER" ? "Under" : "Over"
+        switch pick.cardGroup {
+        case "h1_total":
+            return "1H \(word)\(line)"
+        case "team_total":
+            let name = pick.pickTeam.map { teamNickname(for: $0) } ?? ""
+            return name.isEmpty ? "\(word)\(line)" : "\(name) \(word)\(line)"
+        default:
+            return "\(word)\(line)"
+        }
+    }
+
+    /// The stored recommendation stays "High Conviction" even when the row is
+    /// the Mammoth play. The card has to say so, and name the side.
+    private func isConvictionTitle(_ label: String?) -> Bool {
+        let text = (label ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if text.isEmpty { return true }
+        return text.contains("conviction") || text == "no bet"
+    }
+
+    private func isMammothPick(_ pick: NFLSlatePickRow) -> Bool {
+        if mammothPlay(for: pick) != nil { return true }
+        if pick.isMammoth == true { return true }
+        if pick.conviction?.lowercased() == "mammoth" { return true }
+        return pick.recommendation?.lowercased().contains("mammoth") == true
+    }
+
+    private func verdictText(_ pick: NFLSlatePickRow) -> String {
+        guard isMammothPick(pick) else {
+            return (pick.recommendation ?? "No Bet").uppercased()
+        }
+        if let direction = shownDirection(for: pick) {
+            return direction == "UNDER" ? "Mammoth Pick · Under" : "Mammoth Pick · Over"
+        }
+        return "Mammoth Pick"
+    }
+
+    private func verdictTint(_ pick: NFLSlatePickRow) -> Color {
+        if isMammothPick(pick) { return Color(hex: 0xF97316) }
+        if pick.hasPlay != true { return Color.appTextSecondary }
+        return convictionColor(pick.conviction)
     }
 
     private func convictionColor(_ raw: String?) -> Color {

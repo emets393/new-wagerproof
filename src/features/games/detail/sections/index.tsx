@@ -1,3 +1,4 @@
+import type { GameAgentConsensus } from '@/services/agentConsensusService';
 import type { GameFeedItem } from '../../types';
 import { NflSections } from './nfl';
 import { CfbSections } from './cfb';
@@ -11,6 +12,8 @@ export interface SportSectionsProps {
   /** AI completion texts for this game, keyed by widget type. */
   completions: Record<string, string>;
   onCompletionGenerated: (gameId: string) => void;
+  /** Kept for callers. Consensus leads the pane for every sport. */
+  consensus?: GameAgentConsensus;
 }
 
 /**

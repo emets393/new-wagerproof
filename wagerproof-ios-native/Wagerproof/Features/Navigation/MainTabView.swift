@@ -265,7 +265,18 @@ struct MainTabView: View {
             celebratingId = nil
             celebratedAchievement = nil
         }
-        .onChange(of: tabStore.selected) { _, _ in Task { await achievements.refresh() } }
+        .onChange(of: tabStore.selected) { _, tab in
+            Task { await achievements.refresh() }
+            // Opening Props should land on the sport already open on Games.
+            // Picker changes still mirror the other way; this only runs when
+            // the user actually switches tabs, so a cold start on Games keeps
+            // the seasonal default instead of Props' MLB fallback.
+            guard tab == .props else { return }
+            let matching = PropsStore.Sport.matching(gamesSport: gamesStore.selectedSport)
+            if propsStore.selectedSport != matching {
+                propsStore.selectedSport = matching
+            }
+        }
         // B21 — global Learn WagerProof walkthrough sheet.
         .sheet(item: Bindable(learnStore).activeTopic) { _ in
             LearnWagerProofBottomSheet(store: learnStore)

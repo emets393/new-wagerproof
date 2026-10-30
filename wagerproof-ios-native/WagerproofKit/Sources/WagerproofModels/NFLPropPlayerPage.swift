@@ -331,6 +331,12 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
     public let research: [String: NFLPropResearch]
     public let scheme: NFLPropScheme?
     public let schemeGameSplits: NFLPropGameSplits?
+    /// Top-level season snapshot (`pass_yds`, `rec_yds`). Not `fp_cards.baseline`.
+    public let baseline: [String: Double]
+    /// Fantasy-Points card blobs. Sparse; every key is optional.
+    public let fpCards: JSONValue?
+    public let ngs: JSONValue?
+    public let highlights: JSONValue?
 
     enum CodingKeys: String, CodingKey {
         case playerId = "player_id"
@@ -343,6 +349,9 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
         case headshotUrl = "headshot_url"
         case rookie, markets, projection, research, scheme
         case schemeGameSplits = "scheme_game_splits"
+        case baseline
+        case fpCards = "fp_cards"
+        case ngs, highlights
     }
 
     public init(from decoder: Decoder) throws {
@@ -364,6 +373,19 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
         research = Self.mapResearch((try? c.decodeIfPresent(JSONValue.self, forKey: .research)) ?? nil)
         scheme = Self.mapScheme((try? c.decodeIfPresent(JSONValue.self, forKey: .scheme)) ?? nil)
         schemeGameSplits = Self.mapGameSplits((try? c.decodeIfPresent(JSONValue.self, forKey: .schemeGameSplits)) ?? nil)
+        baseline = Self.numberMap(try? c.decodeIfPresent(JSONValue.self, forKey: .baseline))
+        fpCards = try? c.decodeIfPresent(JSONValue.self, forKey: .fpCards)
+        ngs = try? c.decodeIfPresent(JSONValue.self, forKey: .ngs)
+        highlights = try? c.decodeIfPresent(JSONValue.self, forKey: .highlights)
+    }
+
+    static func numberMap(_ json: JSONValue?) -> [String: Double] {
+        guard let object = json?.objectValue else { return [:] }
+        var out: [String: Double] = [:]
+        for (key, value) in object {
+            if let number = value.doubleValue { out[key] = number }
+        }
+        return out
     }
 
     public init(
@@ -375,7 +397,11 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
         projection: [String: NFLPropProjection] = [:],
         research: [String: NFLPropResearch] = [:],
         scheme: NFLPropScheme? = nil,
-        schemeGameSplits: NFLPropGameSplits? = nil
+        schemeGameSplits: NFLPropGameSplits? = nil,
+        baseline: [String: Double] = [:],
+        fpCards: JSONValue? = nil,
+        ngs: JSONValue? = nil,
+        highlights: JSONValue? = nil
     ) {
         self.playerId = playerId
         self.season = season
@@ -394,6 +420,10 @@ public struct NFLPropPlayerPage: Decodable, Hashable, Sendable {
         self.research = research
         self.scheme = scheme
         self.schemeGameSplits = schemeGameSplits
+        self.baseline = baseline
+        self.fpCards = fpCards
+        self.ngs = ngs
+        self.highlights = highlights
     }
 
     // MARK: JSONB mapping (exposed for decode-fixture tests)

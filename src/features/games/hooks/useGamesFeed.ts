@@ -21,7 +21,7 @@ export function useGamesFeed(sport: GamesSport) {
 
   return useQuery<SportFeed>({
     // v3: feed signalCount from slate_games flags_* / n_flags_* (excludes blanket keys)
-    queryKey: ['games-feed', sport, cfbAdminMode, 'signals-v3'],
+    queryKey: ['games-feed', sport, cfbAdminMode, 'signals-v4'],
     staleTime: STALE_TIME,
     queryFn: () => {
       switch (sport) {

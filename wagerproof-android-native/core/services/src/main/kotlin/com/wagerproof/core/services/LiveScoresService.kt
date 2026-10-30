@@ -220,7 +220,7 @@ class LiveScoresService {
             .select(
                 columns = Columns.raw(
                     "game_id, home_team, away_team, home_win_prob, away_win_prob, " +
-                        "model_fair_home_spread, model_fair_total, run_id"
+                        "run_id"
                 )
             ) {
                 filter { eq("run_id", runId) }

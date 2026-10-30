@@ -11,21 +11,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.components.CollapsingWidgetScroll
 import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
-import com.wagerproof.app.features.components.polymarket.PolymarketWidget
+import com.wagerproof.app.features.analytics.GamePublicBettingCard
 import com.wagerproof.app.features.agents.components.AgentPickRationaleWidget
 import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.app.features.gamecards.GameCardFormatting
@@ -61,9 +61,14 @@ import com.wagerproof.app.features.shared.hexColor
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.components.EdgeScale
 import com.wagerproof.core.design.components.ModelEdgeRail
+import com.wagerproof.core.design.components.MoneylineEdgeBar
+import com.wagerproof.core.design.components.MoneylineOutcome
+import com.wagerproof.core.design.components.PickSignalPillModel
+import com.wagerproof.core.design.components.PickSignalsSection
 import com.wagerproof.core.design.components.SpreadCoverBar
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.core.models.BasketballSignalMarket
 import com.wagerproof.core.models.NCAABAccuracyBucket
 import com.wagerproof.core.models.NCAABGame
 import com.wagerproof.core.models.NCAABModelAccuracyGame
@@ -72,21 +77,19 @@ import com.wagerproof.core.stores.GamesStore
 import com.wagerproof.core.stores.LoadState
 import com.wagerproof.core.stores.NCAABBettingTrendsStore
 import com.wagerproof.core.stores.NCAABModelAccuracyStore
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * NCAAB game-detail page — port of iOS `NCAABGameBottomSheet`. Section order:
- * Market Odds → Spread Prediction (fade alert wired but DORMANT) → O/U
- * Prediction → Betting Trends → Model Accuracy → Team Stats (Adj Off/Def/Pace) →
- * Match Simulator (2.5s reveal) → Model Projections fallback → Agent rationale.
+ * NCAAB game-detail page. Consensus, then the projected final, then market odds,
+ * spread, moneyline, total, first half, signals, trends, and team stats.
+ * Team trends sit inside each market card.
  *
  * Trends + accuracy stores are screen-local (mirrors NBA/iOS), hydrated in
  * LaunchedEffect keyed on the game. Team identity uses the authoritative
  * mapping-enriched logo/abbreviation fields and the shared college color map.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NCAABGameDetailPage(
     game: NCAABGame,
@@ -97,18 +100,14 @@ fun NCAABGameDetailPage(
     val achievementStore = com.wagerproof.app.di.appGraph().achievements
     androidx.compose.runtime.LaunchedEffect(Unit) { achievementStore.record("game_analysis") }
 
-    val scope = rememberCoroutineScope()
     val trendsStore = remember { NCAABBettingTrendsStore() }
     val accuracyStore = remember { NCAABModelAccuracyStore() }
-
+    val detailStore = remember(game.gameId) { NCAABGameDetailStore() }
     // Transient sheet state, reset when a new game opens (keyed on id).
     var spreadExpanded by remember(game.id) { mutableStateOf(false) }
     var ouExpanded by remember(game.id) { mutableStateOf(false) }
-    var simulating by remember(game.id) { mutableStateOf(false) }
-    var simulationRevealed by remember(game.id) { mutableStateOf(false) }
     var trendsDetailOpen by remember(game.id) { mutableStateOf(false) }
-    // Polymarket pushes its own prose read up once price history lands.
-    var marketOddsHeadline by remember(game.id) { mutableStateOf<String?>(null) }
+    var trendLog by remember(game.id) { mutableStateOf<NcaabTrendOpen?>(null) }
 
     val awayColors = CFBTeamColors.colorPair(game.awayTeam)
     val homeColors = CFBTeamColors.colorPair(game.homeTeam)
@@ -116,6 +115,7 @@ fun NCAABGameDetailPage(
     LaunchedEffect(game.id) {
         trendsStore.refreshIfNeeded()
         accuracyStore.refresh()
+        detailStore.load(game.gameId, game.gameDate, game.homeTeam, game.awayTeam)
     }
 
     val awayAbbr = game.awayTeamAbbrev?.trim().takeUnless { it.isNullOrEmpty() } ?: TeamInitials.from(game.awayTeam)
@@ -132,10 +132,8 @@ fun NCAABGameDetailPage(
         bottomInset = bottomInset,
         transparentPage = true,
         background = { Box(Modifier.fillMaxSize().background(AppColors.appSurface)) },
-        hero = { progress -> Hero(game, progress, awayColors, homeColors) },
+        hero = { progress -> Hero(game, progress, awayColors, homeColors, detailStore.tournament, detailStore.tv) },
     ) {
-        // FIRST, above every per-sport section — sport-agnostic crowd read,
-        // same placement as web's detail grid and iOS's sheets.
         item {
             AgentConsensusSection(
                 sport = GamesStore.Sport.ncaab,
@@ -146,25 +144,29 @@ fun NCAABGameDetailPage(
 
         item {
             WidgetCollapsingSection(
-                "Market Odds",
+                "Public Betting",
                 icon = AppIcon.fromSystemName("chart.bar.fill"),
                 iconTint = AppColors.appPrimary,
-                headline = marketOddsHeadline ?: GameWidgetHeadlines.marketOdds(),
+                headline = "Tickets and money",
             ) {
-                PolymarketWidget(
-                    league = "ncaab",
+                GamePublicBettingCard(
+                    sport = "ncaab",
                     awayTeam = game.awayTeam,
                     homeTeam = game.homeTeam,
-                    awayColors = awayColors,
-                    homeColors = homeColors,
-                    awayAbbr = awayAbbr,
-                    homeAbbr = homeAbbr,
-                    onHeadlineChange = { marketOddsHeadline = it },
+                    awayColor = awayColors.primary,
+                    homeColor = homeColors.primary,
+                    gameDate = game.gameDate,
                 )
             }
         }
 
-        spreadPrediction(game)?.let { pred ->
+        if (game.homeScorePred != null && game.awayScorePred != null) {
+            item {
+                ProjectedScoreSection(game, awayAbbr, homeAbbr, awayColors, homeColors)
+            }
+        }
+
+        spreadPrediction(game, detailStore.board?.fullGame?.firstOrNull { it.id == "spread" })?.let { pred ->
             item {
                 WidgetCollapsingSection(
                     "Spread Prediction",
@@ -223,12 +225,60 @@ fun NCAABGameDetailPage(
                             FadeAlertTooltip(FadeBetType.SPREAD, fadeSuggestionSpread(game, pred))
                         }
                         if (spreadExpanded) Explanation(spreadExplanation(pred))
+                        NcaabMarketSignals(detailStore.board?.signals.orEmpty(), "spread", modelLikesHome = pred.isHome, game = game, homeAbbr = homeAbbr, awayAbbr = awayAbbr)
+                        TeamTrendsFooter(detailStore.board, "spread", game, awayAbbr, homeAbbr, awayColors, homeColors) { trendLog = it }
                     }
                 }
             }
         }
 
-        ouPrediction(game)?.let { pred ->
+        moneylinePrediction(game)?.let { ml ->
+            item {
+                WidgetCollapsingSection(
+                    "Moneyline Prediction",
+                    icon = AppIcon.fromSystemName("dollarsign.circle.fill"),
+                    iconTint = AppColors.appPrimary,
+                    headline = GameWidgetHeadlines.moneyline(
+                        segment = "fg",
+                        pickAbbr = ml.abbrev,
+                        pickProbability = ml.probability,
+                        impliedProbability = ml.implied,
+                        pickEdgePct = ml.edge,
+                    ),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        MoneylineEdgeBar(
+                            price = ml.price,
+                            modelProbability = ml.probability,
+                            scale = EdgeScale.ncaab,
+                            teamAbbrev = ml.abbrev,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            GameCardTeamAvatar(
+                                sport = "ncaab",
+                                team = ml.team,
+                                diameter = 40.dp,
+                                colors = if (ml.team == game.homeTeam) homeColors else awayColors,
+                                logoURL = if (ml.team == game.homeTeam) game.homeTeamLogo else game.awayTeamLogo,
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Edge to ${ml.abbrev}", color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    String.format("%+.1f pts of win rate", ml.edge),
+                                    color = if (ml.edge > 0) AppColors.appPrimary else AppColors.appAccentRed,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                        NcaabMarketSignals(detailStore.board?.signals.orEmpty(), "moneyline", modelLikesHome = ml.team == game.homeTeam, game = game, homeAbbr = homeAbbr, awayAbbr = awayAbbr)
+                        TeamTrendsFooter(detailStore.board, "moneyline", game, awayAbbr, homeAbbr, awayColors, homeColors) { trendLog = it }
+                    }
+                }
+            }
+        }
+
+        ouPrediction(game, detailStore.board?.fullGame?.firstOrNull { it.id == "total" })?.let { pred ->
             val color = if (pred.isOver) AppColors.appPrimary else AppColors.appAccentRed
             item {
                 WidgetCollapsingSection(
@@ -268,8 +318,19 @@ fun NCAABGameDetailPage(
                             FadeAlertTooltip(FadeBetType.TOTAL, fadeSuggestionOU(pred))
                         }
                         if (ouExpanded) Explanation(ouExplanation(pred))
+                        NcaabMarketSignals(detailStore.board?.signals.orEmpty(), "total", modelLikesOver = pred.isOver, game = game, homeAbbr = homeAbbr, awayAbbr = awayAbbr)
+                        TeamTrendsFooter(detailStore.board, "total", game, awayAbbr, homeAbbr, awayColors, homeColors) { trendLog = it }
                     }
                 }
+            }
+        }
+
+        detailStore.board?.let { board ->
+            if (board.firstHalf.any { it.modelMargin != null || it.modelTotal != null }) {
+                item { NcaabFirstHalf(board, game, awayAbbr, homeAbbr, awayColors, homeColors) { trendLog = it } }
+            }
+            if (board.markets.any { it.id == "team_total" }) {
+                item { NcaabTeamTotal(board, game, awayAbbr, homeAbbr, awayColors, homeColors) { trendLog = it } }
             }
         }
 
@@ -306,8 +367,9 @@ fun NCAABGameDetailPage(
             }
         }
 
-        // Team Stats (Adj Off/Def/Pace only)
-        if (game.homeAdjOffense != null || game.awayAdjOffense != null) {
+        // Team Stats — season ratings when the board has them, else the feed's adjusted numbers.
+        val ratings = detailStore.board?.ratings.orEmpty()
+        if (ratings.isNotEmpty() || game.homeAdjOffense != null || game.awayAdjOffense != null) {
             item {
                 WidgetCollapsingSection(
                     "Team Stats",
@@ -320,40 +382,34 @@ fun NCAABGameDetailPage(
                         homeOffense = game.homeAdjOffense,
                     ),
                 ) {
-                    TeamStats(game, awayAbbr, homeAbbr)
+                    if (ratings.isEmpty()) {
+                        TeamStats(game, awayAbbr, homeAbbr)
+                    } else {
+                        RatingTable(ratings, awayAbbr, homeAbbr, detailStore.board?.earlySeason == true)
+                    }
                 }
             }
         }
 
-        // Match Simulator
-        if (game.homeScorePred != null && game.awayScorePred != null) {
+        detailStore.board?.let { board ->
             item {
                 WidgetCollapsingSection(
-                    "Match Simulator",
+                    "Thrill score",
                     icon = AppIcon.fromSystemName("sparkles"),
                     iconTint = AppColors.appAccentAmber,
-                    headline = GameWidgetHeadlines.projectedScore(
-                        awayName = awayAbbr,
-                        homeName = homeAbbr,
-                        awayScore = game.awayScorePred,
-                        homeScore = game.homeScorePred,
-                    ),
                 ) {
-                    MatchSimulator(
-                        game = game,
-                        awayColors = awayColors,
-                        homeColors = homeColors,
-                        simulating = simulating,
-                        revealed = simulationRevealed,
-                        onSimulate = {
-                            simulating = true
-                            scope.launch {
-                                delay(2500) // 2.5s reveal so the spinner reads as meaningful
-                                simulating = false
-                                simulationRevealed = true
-                            }
-                        },
-                    )
+                    if (!board.thrillScore.isNullOrBlank()) {
+                        Text(board.thrillScore, color = AppColors.appTextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                        if (board.thrillDetail.isNotBlank()) {
+                            Text(board.thrillDetail, color = AppColors.appTextSecondary, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    } else {
+                        Text(
+                            board.thrillDetail.ifBlank { "The watchability score posts the morning of the game." },
+                            color = AppColors.appTextSecondary,
+                            fontSize = 13.sp,
+                        )
+                    }
                 }
             }
         }
@@ -393,6 +449,13 @@ fun NCAABGameDetailPage(
             onDismiss = { trendsDetailOpen = false },
         )
     }
+
+    trendLog?.let { selection ->
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(onDismissRequest = { trendLog = null }, sheetState = sheetState) {
+            NcaabTrendLogSheet(selection)
+        }
+    }
 }
 
 // MARK: - Hero
@@ -403,6 +466,8 @@ private fun Hero(
     p: Float,
     awayColors: com.wagerproof.app.features.gamecards.TeamColorPair,
     homeColors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    tournament: String? = null,
+    tv: String? = null,
 ) {
     val logoSize = lerpDp(56.dp, 30.dp, p)
     val detail = (1f - p * 1.9f).coerceIn(0f, 1f)
@@ -425,6 +490,8 @@ private fun Hero(
             )
             if (game.conferenceGame == true) ContextChip("Conf")
             if (game.neutralSite == true) ContextChip("Neutral")
+            if (!tournament.isNullOrBlank()) ContextChip(tournament)
+            if (!tv.isNullOrBlank()) ContextChip(tv)
             Spacer(Modifier.width(1.dp))
         }
         Row(
@@ -503,6 +570,8 @@ private fun ContextChip(label: String) {
         color = AppColors.appPrimary,
         fontSize = 9.sp,
         fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         modifier = Modifier
             .clip(CircleShape)
             .background(AppColors.appPrimary.copy(alpha = 0.15f))
@@ -578,6 +647,319 @@ private fun FadeAlertPill() {
 }
 
 @Composable
+private fun TeamTrendsFooter(
+    board: NCAABDetailBoard?,
+    marketId: String,
+    game: NCAABGame,
+    awayAbbr: String,
+    homeAbbr: String,
+    awayColors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    homeColors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    onOpen: (NcaabTrendOpen) -> Unit,
+) {
+    val market = board?.markets?.firstOrNull { it.id == marketId } ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("TEAM TRENDS", color = AppColors.appTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.6.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NcaabTrendCard(
+                game.awayTeam, awayAbbr, game.awayTeamLogo, awayColors,
+                market.awayRecord, market.awayChips, board.awayTrend?.gameLog.orEmpty(),
+                market, Modifier.weight(1f), onOpen,
+            )
+            NcaabTrendCard(
+                game.homeTeam, homeAbbr, game.homeTeamLogo, homeColors,
+                market.homeRecord, market.homeChips, board.homeTrend?.gameLog.orEmpty(),
+                market, Modifier.weight(1f), onOpen,
+            )
+        }
+        Text(market.series, color = AppColors.appTextSecondary, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun NcaabTrendCard(
+    team: String,
+    abbr: String,
+    logoURL: String?,
+    colors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    record: String,
+    chips: List<String>,
+    games: List<NcaabGameLog>,
+    market: NcaabMarketLine,
+    modifier: Modifier = Modifier,
+    onOpen: (NcaabTrendOpen) -> Unit,
+) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(AppColors.appSurface.copy(alpha = 0.42f))
+            .border(0.7.dp, AppColors.appBorder.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+            .clickable {
+                onOpen(NcaabTrendOpen(team, abbr, logoURL, colors, market.id, market.label, games))
+            }
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            GameCardTeamAvatar(sport = "ncaab", team = team, diameter = 20.dp, colors = colors, logoURL = logoURL)
+            Text(abbr, color = AppColors.appTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, modifier = Modifier.weight(1f))
+            Text("›", color = AppColors.appTextMuted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+        Text(record, color = AppColors.appTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (chips.isEmpty()) {
+                Text("No L5", color = AppColors.appTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            } else {
+                Text("L${minOf(chips.size, 5)}", color = AppColors.appTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                chips.take(5).forEach { letter ->
+                    Text(
+                        letter.uppercase(),
+                        color = AppColors.appSurface,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier
+                            .size(17.dp)
+                            .clip(CircleShape)
+                            .background(ncaabChipFill(letter)),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun ncaabChipFill(letter: String): Color = when (letter.uppercase()) {
+    "W", "O" -> Color(0xFF22C55E)
+    "L", "U" -> Color(0xFFEF4444)
+    else -> AppColors.appTextMuted
+}
+
+@Composable
+private fun NcaabTrendLogSheet(selection: NcaabTrendOpen) {
+    val rows = selection.games.filter { !it.result(selection.marketId).isNullOrBlank() }
+    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            GameCardTeamAvatar(sport = "ncaab", team = selection.team, diameter = 34.dp, colors = selection.colors, logoURL = selection.logoURL)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("${selection.abbr} ${selection.label}", color = AppColors.appTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text("Season game log, newest first", color = AppColors.appTextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (rows.isEmpty()) {
+            Text(
+                "No games have been played this season yet.",
+                color = AppColors.appTextMuted,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        } else {
+            Row(Modifier.fillMaxWidth()) {
+                Text("DATE", color = AppColors.appTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(56.dp))
+                Text("OPP", color = AppColors.appTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("SCORE", color = AppColors.appTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(56.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                Text("RESULT", color = AppColors.appTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(52.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+            }
+            rows.forEach { entry ->
+                val result = entry.result(selection.marketId).orEmpty()
+                val score = if (entry.scoreFor != null && entry.scoreAgainst != null) "${entry.scoreFor}–${entry.scoreAgainst}" else "—"
+                val opp = entry.opp?.takeIf { it.isNotBlank() } ?: "—"
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(ncaabTrendDate(entry.date), color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(56.dp))
+                    Text(if (entry.isHome == false) "@ $opp" else opp, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.weight(1f))
+                    Text(score, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(56.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    Text(result.uppercase(), color = ncaabChipFill(result), fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.width(52.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                }
+            }
+        }
+    }
+}
+
+private fun ncaabTrendDate(raw: String?): String {
+    val day = raw?.take(10) ?: return "—"
+    val parts = day.split("-")
+    return if (parts.size == 3) "${parts[1]}/${parts[2]}" else day
+}
+
+private data class NcaabTrendOpen(
+    val team: String,
+    val abbr: String,
+    val logoURL: String?,
+    val colors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    val marketId: String,
+    val label: String,
+    val games: List<NcaabGameLog>,
+)
+
+@Composable
+private fun NcaabFirstHalf(
+    board: NCAABDetailBoard,
+    game: NCAABGame,
+    awayAbbr: String,
+    homeAbbr: String,
+    awayColors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    homeColors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    onOpen: (NcaabTrendOpen) -> Unit,
+) {
+    val spread = board.firstHalf.firstOrNull { it.id == "h1_spread" }
+    val total = board.firstHalf.firstOrNull { it.id == "h1_total" }
+    WidgetCollapsingSection("First half", icon = AppIcon.fromSystemName("timer"), iconTint = AppColors.appPrimary) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val margin = spread?.modelMargin
+            val hs = spread?.marketSpread
+            if (margin != null && hs != null) {
+                val gap = spread?.disagreementPts ?: (margin + hs)
+                val isHome = gap > 0
+                val fairHome = -margin
+                val line = if (isHome) hs else -hs
+                val modelSpread = if (isHome) fairHome else -fairHome
+                Text("1H Spread", color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                SpreadCoverBar(
+                    line = line,
+                    modelMargin = -modelSpread,
+                    scale = EdgeScale.ncaab,
+                    pickAbbrev = if (isHome) homeAbbr else awayAbbr,
+                    opponentAbbrev = if (isHome) awayAbbr else homeAbbr,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                NcaabMarketSignals(board.signals, "h1_spread", modelLikesHome = isHome, game = game, homeAbbr = homeAbbr, awayAbbr = awayAbbr)
+                TeamTrendsFooter(board, "h1_spread", game, awayAbbr, homeAbbr, awayColors, homeColors, onOpen)
+            }
+            val model = total?.modelTotal
+            val market = total?.marketTotal
+            if (model != null && market != null) {
+                Text("1H Total", color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                ModelEdgeRail(market = market, model = model, scale = EdgeScale.ncaab, modifier = Modifier.fillMaxWidth())
+                Text("Tracking only. The first-half total is never a bet.", color = AppColors.appTextSecondary, fontSize = 12.sp)
+                NcaabMarketSignals(board.signals, "h1_total", modelLikesOver = model > market, game = game, homeAbbr = homeAbbr, awayAbbr = awayAbbr)
+                TeamTrendsFooter(board, "h1_total", game, awayAbbr, homeAbbr, awayColors, homeColors, onOpen)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NcaabTeamTotal(
+    board: NCAABDetailBoard,
+    game: NCAABGame,
+    awayAbbr: String,
+    homeAbbr: String,
+    awayColors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    homeColors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    onOpen: (NcaabTrendOpen) -> Unit,
+) {
+    WidgetCollapsingSection("Team Total", icon = AppIcon.fromSystemName("trophy.fill"), iconTint = AppColors.appPrimary) {
+        NcaabMarketSignals(board.signals, "team_total", game = game, homeAbbr = homeAbbr, awayAbbr = awayAbbr)
+        TeamTrendsFooter(board, "team_total", game, awayAbbr, homeAbbr, awayColors, homeColors, onOpen)
+    }
+}
+
+@Composable
+private fun NcaabMarketSignals(
+    signals: List<NcaabSignalLine>,
+    market: String,
+    modelLikesHome: Boolean? = null,
+    modelLikesOver: Boolean? = null,
+    game: NCAABGame,
+    homeAbbr: String,
+    awayAbbr: String,
+) {
+    val ordered = remember(signals, market, modelLikesHome, modelLikesOver, game.homeTeam, game.awayTeam, homeAbbr, awayAbbr) {
+        val rows = signals.filter { BasketballSignalMarket.canonical(it.market) == market }
+        BasketballSignalMarket.supportingFirst(rows) { signal ->
+            BasketballSignalMarket.contradicts(
+                side = signal.side,
+                market = market,
+                modelLikesHome = modelLikesHome,
+                modelLikesOver = modelLikesOver,
+                homeName = game.homeTeam,
+                awayName = game.awayTeam,
+                homeAbbr = homeAbbr,
+                awayAbbr = awayAbbr,
+            )
+        }
+    }
+    if (ordered.isEmpty()) return
+    var selected by remember { mutableStateOf<NcaabSignalLine?>(null) }
+    PickSignalsSection(
+        signals = ordered.map { signal ->
+            PickSignalPillModel(
+                id = signal.id,
+                title = signal.name,
+                contradicts = BasketballSignalMarket.contradicts(
+                    side = signal.side,
+                    market = market,
+                    modelLikesHome = modelLikesHome,
+                    modelLikesOver = modelLikesOver,
+                    homeName = game.homeTeam,
+                    awayName = game.awayTeam,
+                    homeAbbr = homeAbbr,
+                    awayAbbr = awayAbbr,
+                ),
+            )
+        },
+        onSelect = { pill -> selected = ordered.firstOrNull { it.id == pill.id } },
+    )
+    selected?.let { signal ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { selected = null },
+            confirmButton = {
+                Text(
+                    "Close",
+                    color = AppColors.appPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { selected = null }.padding(8.dp),
+                )
+            },
+            title = { Text(signal.name) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (signal.side.isNotBlank()) Text(signal.side, fontWeight = FontWeight.SemiBold)
+                    if (signal.trigger.isNotBlank()) Text(signal.trigger, color = AppColors.appTextSecondary, fontSize = 14.sp)
+                    if (!signal.play) Text("Tracking read. Not a play.", color = AppColors.appTextSecondary, fontSize = 13.sp)
+                    Text("BACK-TEST", color = AppColors.appTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text(signal.record.ifBlank { "—" }, fontSize = 13.sp)
+                    Text("THIS SEASON", color = AppColors.appTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text(signal.seasonRecord.ifBlank { "—" }, fontSize = 13.sp)
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun RatingTable(rows: List<NcaabRatingLine>, awayAbbr: String, homeAbbr: String, earlySeason: Boolean) {
+    val shape = RoundedCornerShape(8.dp)
+    val better = Color(0xFF059669)
+    Column(
+        Modifier.fillMaxWidth().clip(shape).background(AppColors.appTextMuted.copy(alpha = 0.05f)).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+            Spacer(Modifier.weight(1f))
+            Text(awayAbbr, color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(homeAbbr, color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+        rows.forEach { row ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(row.label, color = AppColors.appTextSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                Text(row.away, color = if (row.better == "away") better else AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(row.home, color = if (row.better == "home") better else AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        }
+        if (earlySeason) {
+            Text(
+                "Season records start after opening night. Last five and head-to-head still use prior seasons. In-season rating fields stay blank until games are played.",
+                color = AppColors.appTextSecondary,
+                fontSize = 12.sp,
+            )
+        }
+    }
+}
+
+@Composable
 private fun TeamStats(game: NCAABGame, awayAbbr: String, homeAbbr: String) {
     val shape = RoundedCornerShape(8.dp)
     Column(
@@ -605,58 +987,62 @@ private fun StatRow(label: String, away: Double?, home: Double?) {
 }
 
 @Composable
-private fun MatchSimulator(
+private fun ProjectedScoreSection(
     game: NCAABGame,
+    awayAbbr: String,
+    homeAbbr: String,
     awayColors: com.wagerproof.app.features.gamecards.TeamColorPair,
     homeColors: com.wagerproof.app.features.gamecards.TeamColorPair,
-    simulating: Boolean,
-    revealed: Boolean,
-    onSimulate: () -> Unit,
 ) {
-    if (!revealed) {
-        val shape = RoundedCornerShape(12.dp)
+    val awayScore = game.awayScorePred ?: return
+    val homeScore = game.homeScorePred ?: return
+    WidgetCollapsingSection(
+        title = "Score Prediction",
+        icon = AppIcon.fromSystemName("sportscourt"),
+        iconTint = AppColors.appPrimary,
+    ) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .clip(shape)
-                .background(if (simulating) AppColors.appSurfaceMuted else AppColors.appPrimary)
-                .clickable(enabled = !simulating, onClick = onSimulate)
-                .padding(horizontal = 32.dp),
+            Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (simulating) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = AppColors.appTextPrimary)
-                Spacer(Modifier.width(8.dp))
-                Text("Simulating...", color = AppColors.appTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            } else {
-                Text("Simulate Match", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    } else {
-        val shape = RoundedCornerShape(12.dp)
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(shape)
-                .background(AppColors.appAccentAmber.copy(alpha = 0.15f))
-                .border(1.dp, AppColors.appAccentAmber.copy(alpha = 0.3f), shape)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SimScore(game.awayTeam, game.awayTeamLogo, game.awayScorePred, awayColors, Modifier.weight(1f))
-            Text("VS", color = AppColors.appTextSecondary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            SimScore(game.homeTeam, game.homeTeamLogo, game.homeScorePred, homeColors, Modifier.weight(1f))
+            ProjectedTeam(game.awayTeam, game.awayTeamLogo, awayAbbr, awayScore, awayColors, Modifier.weight(1f))
+            Text("–", color = AppColors.appTextMuted, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            ProjectedTeam(game.homeTeam, game.homeTeamLogo, homeAbbr, homeScore, homeColors, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun SimScore(team: String, logoURL: String?, score: Double?, colors: com.wagerproof.app.features.gamecards.TeamColorPair, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        GameCardTeamAvatar(sport = "ncaab", team = team, diameter = 64.dp, colors = colors, logoURL = logoURL)
-        Text("${(score ?: 0.0).roundToInt()}", color = AppColors.appTextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+private fun ProjectedTeam(
+    team: String,
+    logoURL: String?,
+    abbreviation: String,
+    score: Double,
+    colors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GameCardTeamAvatar(sport = "ncaab", team = team, diameter = 38.dp, colors = colors, logoURL = logoURL)
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(
+                abbreviation,
+                color = AppColors.appTextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.6.sp,
+            )
+            Text(
+                String.format(java.util.Locale.US, "%.1f", score),
+                color = AppColors.appTextPrimary,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+            )
+        }
     }
 }
 
@@ -773,7 +1159,23 @@ private data class SpreadPred(
 )
 private data class OUPred(val edge: Double, val isOver: Boolean, val modelTotal: Double?, val line: Double?, val isFadeAlert: Boolean)
 
-private fun spreadPrediction(game: NCAABGame): SpreadPred? {
+private fun spreadPrediction(game: NCAABGame, originator: NcaabModelLine? = null): SpreadPred? {
+    val originMargin = originator?.modelMargin
+    val originSpread = originator?.marketSpread ?: game.homeSpread
+    if (originMargin != null && originSpread != null) {
+        val fairHome = -originMargin
+        val gap = originator?.disagreementPts ?: (originMargin + originSpread)
+        val isHome = gap > 0
+        return SpreadPred(
+            abs(fairHome - originSpread),
+            if (isHome) game.homeTeam else game.awayTeam,
+            if (isHome) fairHome else -fairHome,
+            isHome,
+            false,
+            vegasSpread = if (isHome) originSpread else (game.awaySpread ?: -originSpread),
+            modelFairSpread = if (isHome) fairHome else -fairHome,
+        )
+    }
     val hs = game.homeSpread
     game.modelFairHomeSpread?.let { mf ->
         if (hs != null) {
@@ -823,10 +1225,37 @@ private fun modelProjectionsHeadline(game: NCAABGame): String? {
         "${GameWidgetHeadlines.one(total)} total points."
 }
 
-private fun ouPrediction(game: NCAABGame): OUPred? {
+private data class MlPred(val price: Int, val probability: Double, val abbrev: String, val team: String, val edge: Double, val implied: Double)
+
+private fun moneylinePrediction(game: NCAABGame): MlPred? {
+    val homeProb = game.homeAwayMlProb ?: return null
+    if (!homeProb.isFinite() || homeProb <= 0.0 || homeProb >= 1.0) return null
+    val isHome = homeProb >= 0.5
+    val probability = if (isHome) homeProb else 1 - homeProb
+    val price = (if (isHome) game.homeMl else game.awayMl) ?: return null
+    if (kotlin.math.abs(price) < 100) return null
+    val outcome = MoneylineOutcome(price, probability, EdgeScale.ncaab)
+    return MlPred(
+        price = price,
+        probability = probability,
+        abbrev = (if (isHome) game.homeTeamAbbrev else game.awayTeamAbbrev)?.trim().orEmpty().ifBlank {
+            if (isHome) game.homeTeam else game.awayTeam
+        },
+        team = if (isHome) game.homeTeam else game.awayTeam,
+        edge = outcome.edge,
+        implied = outcome.breakEvenPercent / 100.0,
+    )
+}
+
+private fun ouPrediction(game: NCAABGame, originator: NcaabModelLine? = null): OUPred? {
+    val pred = originator?.modelTotal
+    // Posted total on the list can move after the model run. Judge the lean
+    // against that live number, not the snapshot the model stored.
+    val posted = game.overLine ?: originator?.marketTotal
+    if (pred != null && posted != null) return OUPred(abs(pred - posted), pred > posted, pred, posted, false)
     val ol = game.overLine
-    game.predTotalPoints?.let { pred ->
-        if (ol != null) return OUPred(abs(pred - ol), pred > ol, pred, ol, false)
+    game.predTotalPoints?.let { predTotal ->
+        if (ol != null) return OUPred(abs(predTotal - ol), predTotal > ol, predTotal, ol, false)
     }
     game.ouResultProb?.let { prob ->
         val p = if (prob >= 0.5) prob else 1 - prob

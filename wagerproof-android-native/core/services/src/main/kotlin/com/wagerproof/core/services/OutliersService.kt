@@ -305,12 +305,7 @@ class OutliersService {
                         add(game, OutlierFadeAlert.PickType.TOTAL, if (edge > 0) "Over" else "Under", abs(edge).roundToInt())
                     }
                 }
-                SportLeague.NBA -> {
-                    // RN: NBA only spread fades, threshold 9.5.
-                    game.homeSpreadDiff?.takeIf { abs(it) >= 9.5 }?.let { edge ->
-                        add(game, OutlierFadeAlert.PickType.SPREAD, if (edge > 0) game.homeTeam else game.awayTeam, abs(edge).roundToInt())
-                    }
-                }
+                SportLeague.NBA -> Unit // NBA has no fade alerts.
                 SportLeague.NCAAB -> {
                     game.homeSpreadDiff?.takeIf { abs(it) > 5 }?.let { edge ->
                         add(game, OutlierFadeAlert.PickType.SPREAD, if (edge > 0) game.homeTeam else game.awayTeam, abs(edge).roundToInt())
@@ -386,8 +381,7 @@ class OutliersService {
                 cfb.from("nba_predictions")
                     .select(
                         columns = Columns.raw(
-                            "game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, " +
-                                "away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc"
+                            "game_id, home_win_prob, away_win_prob, run_id, as_of_ts_utc"
                         )
                     )
                     .decodeList<OutlierNBAPredictionRow>()

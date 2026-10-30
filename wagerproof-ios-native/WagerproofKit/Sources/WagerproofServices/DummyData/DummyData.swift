@@ -102,28 +102,6 @@ public enum DummyData {
         }
     }
 
-    /// One `NBAModelAccuracyData` per game (keyed by `gameId`).
-    public static func nbaAccuracy() -> [NBAModelAccuracyData] {
-        nba.map { g in
-            let s = g.gameId
-            let mlHome = (g.homeAwayMlProb ?? 0.5) >= 0.5
-            let mlProb = mlHome ? (g.homeAwayMlProb ?? 0.5) : 1 - (g.homeAwayMlProb ?? 0.5)
-            return NBAModelAccuracyData(
-                gameId: g.gameId, awayTeam: g.awayTeam, homeTeam: g.homeTeam,
-                awayAbbr: g.awayAbbr, homeAbbr: g.homeAbbr,
-                gameDate: g.gameDate, tipoffTime: g.gameTime,
-                homeSpread: g.homeSpread,
-                homeSpreadDiff: diff(g.modelFairHomeSpread, g.homeSpread),
-                spreadAccuracy: bucket(s, lo: 53, hi: 67),
-                homeWinProb: g.homeAwayMlProb, awayWinProb: g.homeAwayMlProb.map { 1 - $0 },
-                mlPickIsHome: mlHome, mlPickProbRounded: (mlProb * 100).rounded() / 100,
-                mlAccuracy: bucket(s + 1, lo: 58, hi: 74),
-                overLine: g.overLine, overLineDiff: diff(g.modelFairTotal, g.overLine),
-                ouAccuracy: bucket(s + 2, lo: 49, hi: 61)
-            )
-        }
-    }
-
     // MARK: - NCAAB widgets
 
     public static func ncaabTrendsData() -> [NCAABGameTrendsData] {
@@ -335,12 +313,6 @@ public enum DummyData {
 
     private static func delta(_ s: Int) -> Double {
         (Double((s % 60) - 30) / 10 * 10).rounded() / 10
-    }
-
-    private static func bucket(_ s: Int, lo: Int, hi: Int) -> NBAAccuracyBucket {
-        let games = 40 + (s % 90)
-        let acc = (Double(lo) + Double(s % 100) / 100 * Double(hi - lo))
-        return NBAAccuracyBucket(games: games, accuracyPct: (acc * 10).rounded() / 10)
     }
 
     private static func ncaabBucket(_ s: Int, lo: Int, hi: Int) -> NCAABAccuracyBucket {

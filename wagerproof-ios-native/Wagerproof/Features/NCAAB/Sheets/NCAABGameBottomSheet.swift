@@ -43,6 +43,7 @@ struct NCAABGameBottomSheet: View {
     // the cost paid per-sheet-open, on demand.
     @State private var trendsStore = NCAABBettingTrendsStore()
     @State private var accuracyStore = NCAABModelAccuracyStore()
+    @State private var detailStore = NCAABGameDetailStore()
     /// Expanded trends surface (full 5-section matrix sheet).
     @State private var trendsDetail: NCAABGameTrendsData?
 
@@ -50,14 +51,11 @@ struct NCAABGameBottomSheet: View {
 
     @State private var spreadExpanded: Bool = false
     @State private var ouExpanded: Bool = false
-    @State private var simulating: Bool = false
-    @State private var simulationRevealed: Bool = false
-    @State private var marketOddsHeadline: String?
+    @State private var selectedSignal: NCAABSignalLine?
+    @State private var trendLog: NCAABTrendOpen?
 
-    // No authoritative NCAAB brand-color table exists for the hundreds of D1
-    // teams, so derive a stable, pleasant glow color from the team name.
-    private var awayColors: TeamColorPair { FallbackTeamColor.colorPair(for: game.awayTeam) }
-    private var homeColors: TeamColorPair { FallbackTeamColor.colorPair(for: game.homeTeam) }
+    private var awayColors: TeamColorPair { NCAABTeamColors.colorPair(for: game.awayTeam) }
+    private var homeColors: TeamColorPair { NCAABTeamColors.colorPair(for: game.homeTeam) }
 
     var body: some View {
         CollapsingWidgetScroll(
@@ -79,18 +77,20 @@ struct NCAABGameBottomSheet: View {
         } hero: { progress in
             heroView(progress: progress)
         } content: {
-            // FIRST, above every per-sport section — the crowd's read on the
-            // game frames everything below it, and the widget is sport-agnostic
-            // (same placement as web's detail grid).
+            // Consensus, then the projected final, then odds and one market
+            // card at a time. Team trends sit inside each market card.
             AgentConsensusSection(sport: .ncaab, gameId: GameConsensusKey.ncaab(game), gameDate: game.gameDate)
             marketOddsSection
+            projectedScoreSection
             spreadAnalysis
             moneylineAnalysis
             ouAnalysis
+            firstHalfSection
+            teamTotalSection
             bettingTrendsSection
             modelAccuracySection
             teamStatsSection
-            matchSimulatorSection
+            thrillSection
             modelProjectionsSection
             // Agent rationale scrolls away at the very bottom (no pin). The
             // widget gates itself on the audit store; when no pick is selected
@@ -116,13 +116,18 @@ struct NCAABGameBottomSheet: View {
             // Reset transient sheet state when a new game opens.
             spreadExpanded = false
             ouExpanded = false
-            simulating = false
-            simulationRevealed = false
+            selectedSignal = nil
             // Hydrate trends + accuracy for this sheet. Refresh is idempotent
             // and cheap when the cache is warm; running it on every open
             // mirrors RN's hook re-mount on game change.
             await trendsStore.refreshIfNeeded()
             await accuracyStore.refresh()
+            await detailStore.load(
+                gameId: game.gameId,
+                gameDate: game.gameDate,
+                home: game.homeTeam,
+                away: game.awayTeam
+            )
         }
         .sheet(item: $trendsDetail) { trends in
             BettingTrendsDetailSheet(
@@ -137,6 +142,55 @@ struct NCAABGameBottomSheet: View {
                 onViewMatchup: nil   // already on the matchup page
             )
         }
+        .sheet(item: $selectedSignal) { signal in
+            signalDetail(signal)
+        }
+        .sheet(item: $trendLog) { selection in
+            trendLogSheet(selection)
+        }
+    }
+
+    private func signalDetail(_ signal: NCAABSignalLine) -> some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(signal.name).font(.system(size: 20, weight: .bold))
+                    if !signal.side.isEmpty {
+                        Text(signal.side).font(.system(size: 14, weight: .semibold))
+                    }
+                    if !signal.trigger.isEmpty {
+                        Text(signal.trigger).font(.system(size: 14)).foregroundStyle(Color.appTextSecondary)
+                    }
+                    if !signal.play {
+                        Text("Tracking read. Not a play.")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.appTextSecondary)
+                    }
+                    recordBlock("Back-test", signal.record)
+                    recordBlock("This season", signal.seasonRecord)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle("Signal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { selectedSignal = nil }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func recordBlock(_ title: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title.uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(Color.appTextSecondary)
+            Text(text.isEmpty ? "—" : text).font(.system(size: 13))
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.appSurfaceMuted, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: - Collapsing hero
@@ -159,11 +213,11 @@ struct NCAABGameBottomSheet: View {
                 .clipped()
             HStack(alignment: .center, spacing: heroLerp(14, 10, p)) {
                 heroTeamColumn(team: game.awayTeam, abbr: game.awayTeamAbbrev, ranking: game.awayRanking,
-                               colors: awayColors, size: logoSize,
+                               colors: awayColors, size: logoSize, logoURL: game.awayTeamLogo,
                                nameOpacity: detail, ml: game.awayMl, mlReveal: mlReveal)
                 heroLinesColumn(detail: detail, p: p)
                 heroTeamColumn(team: game.homeTeam, abbr: game.homeTeamAbbrev, ranking: game.homeRanking,
-                               colors: homeColors, size: logoSize,
+                               colors: homeColors, size: logoSize, logoURL: game.homeTeamLogo,
                                nameOpacity: detail, ml: game.homeMl, mlReveal: mlReveal)
             }
         }
@@ -177,12 +231,12 @@ struct NCAABGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func heroTeamColumn(team: String, abbr: String?, ranking: Int?, colors: TeamColorPair, size: CGFloat, nameOpacity: Double, ml: Int?, mlReveal: Double) -> some View {
+    private func heroTeamColumn(team: String, abbr: String?, ranking: Int?, colors: TeamColorPair, size: CGFloat, logoURL: String?, nameOpacity: Double, ml: Int?, mlReveal: Double) -> some View {
         let label = abbr?.trimmingCharacters(in: .whitespaces).nonEmpty ?? TeamInitials.from(team)
         let parts = TeamInitials.parts(of: team)
         VStack(spacing: 4) {
             ZStack(alignment: .topTrailing) {
-                GameCardTeamAvatar(teamName: team, sport: "ncaab", size: size, colors: colors)
+                GameCardTeamAvatar(teamName: team, sport: "ncaab", size: size, colors: colors, logoURL: logoURL)
                 // AP ranking badge — RN renders only when rank ≤ 25.
                 if let ranking, ranking <= 25 {
                     Text("#\(ranking)")
@@ -250,6 +304,12 @@ struct NCAABGameBottomSheet: View {
             if game.neutralSite == true {
                 contextChip(label: "Neutral")
             }
+            if let tournament = detailStore.tournament {
+                contextChip(label: tournament)
+            }
+            if let tv = detailStore.tv {
+                contextChip(label: tv)
+            }
             Spacer()
         }
     }
@@ -284,6 +344,22 @@ struct NCAABGameBottomSheet: View {
     /// prefers `model_fair_home_spread` for edge math, falls back to
     /// `pred_home_margin`, then to the cover probability.
     private var spreadPrediction: SpreadPrediction? {
+        if let line = detailStore.board?.fullGame.first(where: { $0.id == "spread" }),
+           let margin = line.modelMargin,
+           let hs = line.marketSpread ?? game.homeSpread {
+            let fairHome = -margin
+            let gap = line.disagreementPts ?? (margin + hs)
+            let isHome = gap > 0
+            return SpreadPrediction(
+                edge: abs(fairHome - hs),
+                predictedTeam: isHome ? game.homeTeam : game.awayTeam,
+                predictedSpread: isHome ? fairHome : -fairHome,
+                isHome: isHome,
+                vegasSpread: isHome ? hs : (game.awaySpread ?? -hs),
+                probability: nil,
+                isFadeAlert: false
+            )
+        }
         if let mf = game.modelFairHomeSpread, let hs = game.homeSpread {
             let edge = abs(mf - hs)
             let isHomeEdge = mf < hs
@@ -329,6 +405,20 @@ struct NCAABGameBottomSheet: View {
     }
 
     private var ouPrediction: OUPrediction? {
+        if let line = detailStore.board?.fullGame.first(where: { $0.id == "total" }),
+           let pred = line.modelTotal,
+           let ol = game.overLine ?? line.marketTotal {
+            // The posted total on the list can move after the model run.
+            // Judge the lean against that live number, not the snapshot the
+            // model stored, or the list and this card disagree.
+            return OUPrediction(
+                edge: abs(pred - ol),
+                isOver: pred > ol,
+                modelTotal: pred,
+                line: ol,
+                isFadeAlert: false
+            )
+        }
         if let pred = game.predTotalPoints, let ol = game.overLine {
             return OUPrediction(
                 edge: abs(pred - ol),
@@ -353,10 +443,15 @@ struct NCAABGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
-            PolymarketWidget(league: "ncaab", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: game.awayTeamAbbrev, homeLabel: game.homeTeamAbbrev, awayColor: awayColors.primary, homeColor: homeColors.primary) {
-                marketOddsHeadline = $0
-            }
+        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money") {
+            GamePublicBettingCard(
+                sport: "ncaab",
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                gameDate: game.gameDate,
+                awayColor: awayColors.primary,
+                homeColor: homeColors.primary
+            )
         }
     }
 
@@ -426,7 +521,8 @@ struct NCAABGameBottomSheet: View {
                     }
                     HStack(spacing: 12) {
                         GameCardTeamAvatar(teamName: prediction.predictedTeam, sport: "ncaab", size: 40,
-                                           colors: prediction.isHome ? homeColors : awayColors)
+                                           colors: prediction.isHome ? homeColors : awayColors,
+                                           logoURL: prediction.isHome ? game.homeTeamLogo : game.awayTeamLogo)
                         VStack(alignment: .leading, spacing: 4) {
                             let label = (prediction.isHome ? game.homeTeamAbbrev : game.awayTeamAbbrev)?
                                 .trimmingCharacters(in: .whitespaces)
@@ -453,6 +549,8 @@ struct NCAABGameBottomSheet: View {
                     if spreadExpanded {
                         explanation(text: spreadExplanation(prediction))
                     }
+                    marketSignals(market: "spread", modelLikesHome: prediction.isHome)
+                    teamTrendsFooter(marketId: "spread")
                 }
             }
         }
@@ -518,6 +616,8 @@ struct NCAABGameBottomSheet: View {
                     if ouExpanded {
                         explanation(text: ouExplanation(prediction))
                     }
+                    marketSignals(market: "total", modelLikesOver: prediction.isOver)
+                    teamTrendsFooter(marketId: "total")
                 }
             }
         }
@@ -566,7 +666,8 @@ struct NCAABGameBottomSheet: View {
                             teamName: resolved.team,
                             sport: "ncaab",
                             size: 40,
-                            colors: resolved.team == game.homeTeam ? homeColors : awayColors
+                            colors: resolved.team == game.homeTeam ? homeColors : awayColors,
+                            logoURL: resolved.team == game.homeTeam ? game.homeTeamLogo : game.awayTeamLogo
                         )
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Edge to \(resolved.abbrev)")
@@ -577,9 +678,296 @@ struct NCAABGameBottomSheet: View {
                                 .foregroundStyle(resolved.outcome.isPositiveValue ? Color.appPrimary : Color.appAccentRed)
                         }
                     }
+                    marketSignals(market: "moneyline", modelLikesHome: resolved.team == game.homeTeam)
+                    teamTrendsFooter(marketId: "moneyline")
                 }
             }
         }
+    }
+
+    // MARK: - First half, team total, signals
+
+    /// One "First half" card, matching the NBA sheet: spread on the cover bar,
+    /// total on the rail. The total is never a bet.
+    @ViewBuilder
+    private var firstHalfSection: some View {
+        let lines = detailStore.board?.firstHalf ?? []
+        let spread = lines.first { $0.id == "h1_spread" }
+        let total = lines.first { $0.id == "h1_total" }
+        let hasSpread = spread?.modelMargin != nil && (spread?.marketSpread != nil)
+        let hasTotal = total?.modelTotal != nil && (total?.marketTotal != nil)
+        if hasSpread || hasTotal {
+            WidgetCollapsingSection(title: "First half", systemImage: "timer", iconTint: Color.appPrimary) {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let spread, let margin = spread.modelMargin, let hs = spread.marketSpread {
+                        let gap = spread.disagreementPts ?? (margin + hs)
+                        let isHome = gap > 0
+                        let fairHome = -margin
+                        let line = isHome ? hs : -hs
+                        let modelSpread = isHome ? fairHome : -fairHome
+                        Text("1H Spread")
+                            .font(.system(size: 13, weight: .bold))
+                        SpreadCoverBar(
+                            line: line,
+                            modelMargin: -modelSpread,
+                            scale: .ncaab,
+                            pickAbbrev: isHome ? homeLabel : awayLabel,
+                            opponentAbbrev: isHome ? awayLabel : homeLabel
+                        )
+                        marketSignals(market: "h1_spread", modelLikesHome: isHome)
+                        teamTrendsFooter(marketId: "h1_spread")
+                    }
+                    if let total, let model = total.modelTotal, let market = total.marketTotal {
+                        Text("1H Total")
+                            .font(.system(size: 13, weight: .bold))
+                        ModelEdgeRail(market: market, model: model, scale: .ncaab)
+                        Text("Tracking only. The first-half total is never a bet.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.appTextSecondary)
+                        marketSignals(market: "h1_total", modelLikesOver: model > market)
+                        teamTrendsFooter(marketId: "h1_total")
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var teamTotalSection: some View {
+        if detailStore.board?.markets.contains(where: { $0.id == "team_total" }) == true {
+            WidgetCollapsingSection(title: "Team Total", systemImage: "trophy.fill", iconTint: Color.appPrimary) {
+                marketSignals(market: "team_total")
+                teamTrendsFooter(marketId: "team_total")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func marketSignals(market: String, modelLikesHome: Bool? = nil, modelLikesOver: Bool? = nil) -> some View {
+        let rows = (detailStore.board?.signals ?? []).filter {
+            BasketballSignalMarket.canonical($0.market) == market
+        }
+        let ordered = BasketballSignalMarket.supportingFirst(rows) { signal in
+            BasketballSignalMarket.contradicts(
+                side: signal.side,
+                market: market,
+                modelLikesHome: modelLikesHome,
+                modelLikesOver: modelLikesOver,
+                homeName: game.homeTeam,
+                awayName: game.awayTeam,
+                homeAbbr: homeLabel,
+                awayAbbr: awayLabel
+            )
+        }
+        if !ordered.isEmpty {
+            PickSignalsSection(
+                signals: ordered.map { signal in
+                    PickSignalPillModel(
+                        id: signal.id,
+                        title: signal.name,
+                        contradicts: BasketballSignalMarket.contradicts(
+                            side: signal.side,
+                            market: market,
+                            modelLikesHome: modelLikesHome,
+                            modelLikesOver: modelLikesOver,
+                            homeName: game.homeTeam,
+                            awayName: game.awayTeam,
+                            homeAbbr: homeLabel,
+                            awayAbbr: awayLabel
+                        ),
+                        tint: Color.appPrimary
+                    )
+                },
+                onSelect: { pill in
+                    selectedSignal = ordered.first { $0.id == pill.id }
+                }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func teamTrendsFooter(marketId: String) -> some View {
+        if let market = detailStore.board?.markets.first(where: { $0.id == marketId }) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("TEAM TRENDS")
+                    .font(.system(size: 10, weight: .black))
+                    .tracking(0.6)
+                    .foregroundStyle(Color.appTextSecondary)
+                HStack(alignment: .top, spacing: 8) {
+                    trendCard(
+                        team: game.awayTeam,
+                        abbr: awayLabel,
+                        logoURL: game.awayTeamLogo,
+                        colors: awayColors,
+                        record: market.awayRecord,
+                        chips: market.awayChips,
+                        games: detailStore.board?.awayTrend?.gameLog ?? [],
+                        market: market
+                    )
+                    trendCard(
+                        team: game.homeTeam,
+                        abbr: homeLabel,
+                        logoURL: game.homeTeamLogo,
+                        colors: homeColors,
+                        record: market.homeRecord,
+                        chips: market.homeChips,
+                        games: detailStore.board?.homeTrend?.gameLog ?? [],
+                        market: market
+                    )
+                }
+                Text(market.series)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.appTextSecondary)
+            }
+        }
+    }
+
+    private func trendCard(
+        team: String,
+        abbr: String,
+        logoURL: String?,
+        colors: TeamColorPair,
+        record: String,
+        chips: [String],
+        games: [NCAABGameLog],
+        market: NCAABMarketLine
+    ) -> some View {
+        Button {
+            trendLog = NCAABTrendOpen(
+                team: team,
+                abbr: abbr,
+                logoURL: logoURL,
+                colors: colors,
+                marketId: market.id,
+                label: market.label,
+                games: games
+            )
+        } label: {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 6) {
+                    GameCardTeamAvatar(teamName: team, sport: "ncaab", size: 20, colors: colors, logoURL: logoURL)
+                    Text(abbr)
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundStyle(Color.appTextPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.appTextMuted)
+                }
+                Text(record)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                HStack(spacing: 4) {
+                    if chips.isEmpty {
+                        Text("No L5")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(Color.appTextMuted)
+                    } else {
+                        Text("L\(min(chips.count, 5))")
+                            .font(.system(size: 8, weight: .black))
+                            .foregroundStyle(Color.appTextMuted)
+                        ForEach(Array(chips.prefix(5).enumerated()), id: \.offset) { _, letter in
+                            Text(letter.uppercased())
+                                .font(.system(size: 8, weight: .black))
+                                .foregroundStyle(Color.appSurface)
+                                .frame(width: 17, height: 17)
+                                .background(trendChipFill(letter), in: Circle())
+                        }
+                    }
+                }
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.appSurface.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.appBorder.opacity(0.45), lineWidth: 0.7))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func trendChipFill(_ letter: String) -> Color {
+        switch letter.uppercased() {
+        case "W", "O": return Color(red: 0.13, green: 0.77, blue: 0.37)
+        case "L", "U": return Color(red: 0.94, green: 0.27, blue: 0.27)
+        default: return Color.appTextMuted
+        }
+    }
+
+    private func trendLogSheet(_ selection: NCAABTrendOpen) -> some View {
+        let rows = selection.games.filter { ($0.result(for: selection.marketId) ?? "").isEmpty == false }
+        return NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 10) {
+                        GameCardTeamAvatar(teamName: selection.team, sport: "ncaab", size: 34, colors: selection.colors, logoURL: selection.logoURL)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(selection.abbr) \(selection.label)")
+                                .font(.system(size: 18, weight: .black))
+                                .foregroundStyle(Color.appTextPrimary)
+                            Text("Season game log, newest first")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(Color.appTextMuted)
+                        }
+                    }
+                    if rows.isEmpty {
+                        Text("No games have been played this season yet.")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.appTextMuted)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 24)
+                    } else {
+                        VStack(spacing: 0) {
+                            HStack {
+                                Text("DATE").frame(width: 72, alignment: .leading)
+                                Text("OPP").frame(maxWidth: .infinity, alignment: .leading)
+                                Text("SCORE").frame(width: 64, alignment: .trailing)
+                                Text("RESULT").frame(width: 52, alignment: .trailing)
+                            }
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color.appTextMuted)
+                            .padding(.bottom, 6)
+                            ForEach(Array(rows.enumerated()), id: \.offset) { _, gameLog in
+                                HStack(alignment: .center) {
+                                    Text(trendDate(gameLog.date))
+                                        .frame(width: 72, alignment: .leading)
+                                    Text(trendOpponent(gameLog))
+                                        .lineLimit(1)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Text(gameLog.scoreText)
+                                        .frame(width: 64, alignment: .trailing)
+                                    Text((gameLog.result(for: selection.marketId) ?? "—").uppercased())
+                                        .foregroundStyle(trendChipFill(gameLog.result(for: selection.marketId) ?? ""))
+                                        .frame(width: 52, alignment: .trailing)
+                                }
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.appTextPrimary)
+                                .padding(.vertical, 8)
+                            }
+                        }
+                        .padding(10)
+                        .background(Color.appSurfaceElevated.opacity(0.56), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color.appSurface.ignoresSafeArea())
+            .navigationTitle("Team Trend Detail")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func trendDate(_ raw: String?) -> String {
+        guard let raw, raw.count >= 10 else { return raw ?? "—" }
+        let parts = raw.prefix(10).split(separator: "-")
+        guard parts.count == 3 else { return String(raw.prefix(10)) }
+        return "\(parts[1])/\(parts[2])"
+    }
+
+    private func trendOpponent(_ gameLog: NCAABGameLog) -> String {
+        let name = gameLog.opp?.isEmpty == false ? gameLog.opp! : "—"
+        return gameLog.isHome == false ? "@ \(name)" : name
     }
 
     // MARK: - Betting trends + model accuracy
@@ -629,7 +1017,8 @@ struct NCAABGameBottomSheet: View {
 
     @ViewBuilder
     private var teamStatsSection: some View {
-        if game.homeAdjOffense != nil || game.awayAdjOffense != nil {
+        let ratings = detailStore.board?.ratings ?? []
+        if !ratings.isEmpty || game.homeAdjOffense != nil || game.awayAdjOffense != nil {
             WidgetCollapsingSection(
                 title: "Team Stats",
                 systemImage: "chart.bar",
@@ -643,24 +1032,63 @@ struct NCAABGameBottomSheet: View {
             ) {
                 VStack(spacing: 8) {
                     statsHeader
-                    statsRow(
-                        label: "Adj. Offense",
-                        away: game.awayAdjOffense.map { String(format: "%.1f", $0) } ?? "-",
-                        home: game.homeAdjOffense.map { String(format: "%.1f", $0) } ?? "-"
-                    )
-                    statsRow(
-                        label: "Adj. Defense",
-                        away: game.awayAdjDefense.map { String(format: "%.1f", $0) } ?? "-",
-                        home: game.homeAdjDefense.map { String(format: "%.1f", $0) } ?? "-"
-                    )
-                    statsRow(
-                        label: "Adj. Pace",
-                        away: game.awayAdjPace.map { String(format: "%.1f", $0) } ?? "-",
-                        home: game.homeAdjPace.map { String(format: "%.1f", $0) } ?? "-"
-                    )
+                    if ratings.isEmpty {
+                        statsRow(
+                            label: "Adj. Offense",
+                            away: game.awayAdjOffense.map { String(format: "%.1f", $0) } ?? "-",
+                            home: game.homeAdjOffense.map { String(format: "%.1f", $0) } ?? "-",
+                            better: nil
+                        )
+                        statsRow(
+                            label: "Adj. Defense",
+                            away: game.awayAdjDefense.map { String(format: "%.1f", $0) } ?? "-",
+                            home: game.homeAdjDefense.map { String(format: "%.1f", $0) } ?? "-",
+                            better: nil
+                        )
+                        statsRow(
+                            label: "Adj. Pace",
+                            away: game.awayAdjPace.map { String(format: "%.1f", $0) } ?? "-",
+                            home: game.homeAdjPace.map { String(format: "%.1f", $0) } ?? "-",
+                            better: nil
+                        )
+                    } else {
+                        ForEach(Array(ratings.enumerated()), id: \.offset) { _, row in
+                            statsRow(label: row.label, away: row.away, home: row.home, better: row.better)
+                        }
+                    }
+                    if detailStore.board?.earlySeason == true {
+                        Text("Season records start after opening night. Last five and head-to-head still use prior seasons. In-season rating fields stay blank until games are played.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.appTextSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .padding(12)
                 .background(Color.appTextMuted.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var thrillSection: some View {
+        if let board = detailStore.board {
+            WidgetCollapsingSection(title: "Thrill score", systemImage: "sparkles", iconTint: Color.appAccentAmber) {
+                if let score = board.thrillScore, !score.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(score)
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(Color.appTextPrimary)
+                        if !board.thrillDetail.isEmpty {
+                            Text(board.thrillDetail)
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.appTextSecondary)
+                        }
+                    }
+                } else {
+                    Text(board.thrillDetail.isEmpty ? "The watchability score posts the morning of the game." : board.thrillDetail)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.appTextSecondary)
+                }
             }
         }
     }
@@ -683,7 +1111,8 @@ struct NCAABGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func statsRow(label: String, away: String, home: String) -> some View {
+    private func statsRow(label: String, away: String, home: String, better: String?) -> some View {
+        let betterColor = Color(red: 0.02, green: 0.59, blue: 0.41)
         HStack {
             Text(label)
                 .font(.system(size: 13, weight: .medium))
@@ -691,92 +1120,40 @@ struct NCAABGameBottomSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(away)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.appTextPrimary)
+                .foregroundStyle(better == "away" ? betterColor : Color.appTextPrimary)
                 .frame(maxWidth: .infinity, alignment: .center)
             Text(home)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.appTextPrimary)
+                .foregroundStyle(better == "home" ? betterColor : Color.appTextPrimary)
                 .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
-    // MARK: - Match simulator
-
+    /// Open projected final, same widget the football sheets use. No tap to reveal.
     @ViewBuilder
-    private var matchSimulatorSection: some View {
+    private var projectedScoreSection: some View {
         if let homeScore = game.homeScorePred, let awayScore = game.awayScorePred {
             WidgetCollapsingSection(
-                title: "Match Simulator",
-                systemImage: "sparkles",
-                iconTint: Color.appAccentAmber,
-                headline: GameWidgetHeadlines.projectedScore(
-                    awayName: game.awayTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.awayTeam),
-                    homeName: game.homeTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.homeTeam),
-                    awayScore: awayScore,
-                    homeScore: homeScore
-                )
+                title: "Score Prediction",
+                systemImage: "sportscourt",
+                iconTint: Color.appPrimary
             ) {
-                VStack(alignment: .leading, spacing: 12) {
-                if !simulationRevealed {
-                    Button {
-                        simulating = true
-                        Task {
-                            // RN renders the 2.5s reveal delay so the
-                            // "Simulating..." spinner feels meaningful.
-                            try? await Task.sleep(nanoseconds: 2_500_000_000)
-                            simulating = false
-                            simulationRevealed = true
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if simulating {
-                                ProgressView()
-                                Text("Simulating...")
-                                    .font(.system(size: 18, weight: .bold))
-                            } else {
-                                Text("Simulate Match")
-                                    .font(.system(size: 18, weight: .bold))
-                            }
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 56)
-                        .padding(.horizontal, 32)
-                        .background(
-                            simulating ? Color.appSurfaceMuted : Color.appPrimary,
-                            in: RoundedRectangle(cornerRadius: 12)
-                        )
-                        .foregroundStyle(simulating ? Color.appTextPrimary : Color.white)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(simulating)
-                    .sensoryFeedback(.impact(weight: .medium), trigger: simulating)
-                } else {
-                    HStack {
-                        VStack(spacing: 12) {
-                            GameCardTeamAvatar(teamName: game.awayTeam, sport: "ncaab", size: 64, colors: awayColors)
-                            Text("\(Int(awayScore.rounded()))")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundStyle(Color.appTextPrimary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        Text("VS")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Color.appTextSecondary)
-                        VStack(spacing: 12) {
-                            GameCardTeamAvatar(teamName: game.homeTeam, sport: "ncaab", size: 64, colors: homeColors)
-                            Text("\(Int(homeScore.rounded()))")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundStyle(Color.appTextPrimary)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .padding(16)
-                    .background(Color.appAccentAmber.opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.appAccentAmber.opacity(0.3), lineWidth: 1)
+                ProjectedScoreRow(
+                    away: ProjectedScoreRow.Side(
+                        logoURL: game.awayTeamLogo,
+                        abbr: game.awayTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.awayTeam),
+                        primary: awayColors.primary,
+                        secondary: awayColors.secondary,
+                        score: awayScore
+                    ),
+                    home: ProjectedScoreRow.Side(
+                        logoURL: game.homeTeamLogo,
+                        abbr: game.homeTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.homeTeam),
+                        primary: homeColors.primary,
+                        secondary: homeColors.secondary,
+                        score: homeScore
                     )
-                }
-                }
+                )
             }
         }
     }
@@ -957,6 +1334,17 @@ struct NCAABGameBottomSheet: View {
         }
         return "Our model sees a significant \(edge)-point edge favoring the \(direction.lowercased()). This large difference between our \(modelTotal) projection and the Vegas \(line) line indicates the actual total is more likely to land on the \(direction.lowercased()) side than what the current market implies."
     }
+}
+
+struct NCAABTrendOpen: Identifiable {
+    let team: String
+    let abbr: String
+    let logoURL: String?
+    let colors: TeamColorPair
+    let marketId: String
+    let label: String
+    let games: [NCAABGameLog]
+    var id: String { "\(team)-\(marketId)" }
 }
 
 // Local helper — same shape as the one in NCAABGameCard.swift.

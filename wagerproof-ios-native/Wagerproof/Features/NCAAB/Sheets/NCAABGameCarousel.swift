@@ -23,8 +23,8 @@ struct NCAABGameCarousel: View {
             initialGame: initialGame,
             onClose: onClose,
             teamColors: { game in
-                (FallbackTeamColor.colorPair(for: game.awayTeam).primary,
-                 FallbackTeamColor.colorPair(for: game.homeTeam).primary)
+                (NCAABTeamColors.colorPair(for: game.awayTeam).primary,
+                 NCAABTeamColors.colorPair(for: game.homeTeam).primary)
             },
             chip: { game, isCurrent in
                 CarouselMatchupChip(
@@ -34,9 +34,9 @@ struct NCAABGameCarousel: View {
                         ?? TeamInitials.from(game.homeTeam),
                     isCurrent: isCurrent
                 ) {
-                    GameCardTeamAvatar(teamName: game.awayTeam, sport: "ncaab", size: 18, colors: FallbackTeamColor.colorPair(for: game.awayTeam))
+                    GameCardTeamAvatar(teamName: game.awayTeam, sport: "ncaab", size: 18, colors: NCAABTeamColors.colorPair(for: game.awayTeam), logoURL: game.awayTeamLogo)
                 } homeLogo: {
-                    GameCardTeamAvatar(teamName: game.homeTeam, sport: "ncaab", size: 18, colors: FallbackTeamColor.colorPair(for: game.homeTeam))
+                    GameCardTeamAvatar(teamName: game.homeTeam, sport: "ncaab", size: 18, colors: NCAABTeamColors.colorPair(for: game.homeTeam), logoURL: game.homeTeamLogo)
                 }
             },
             page: { game, topInset, bottomInset in

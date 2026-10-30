@@ -44,23 +44,43 @@ public final class OutliersStore {
     public enum Category: String, Hashable, Sendable {
         case value
         case fade
-        case nbaAccuracy = "nba-accuracy"
         case ncaabAccuracy = "ncaab-accuracy"
         case mlbRegression = "mlb-regression"
         case mlbHistoricalAnalysis = "mlb-historical-analysis"
         case nflHistoricalAnalysis = "nfl-historical-analysis"
         case cfbHistoricalAnalysis = "cfb-historical-analysis"
+        case nflRegression = "nfl-regression"
+        case cfbRegression = "cfb-regression"
+        case nflPublicBetting = "nfl-public-betting"
+        case cfbPublicBetting = "cfb-public-betting"
+        case nbaPublicBetting = "nba-public-betting"
+        case ncaabPublicBetting = "ncaab-public-betting"
 
         public var displayName: String {
             switch self {
             case .value: return "Prediction Market Alerts"
             case .fade: return "Model Fade Alerts"
-            case .nbaAccuracy: return "NBA Model Accuracy"
             case .ncaabAccuracy: return "NCAAB Model Accuracy"
             case .mlbRegression: return "MLB Regression Report"
             case .mlbHistoricalAnalysis: return "MLB Historical Trends"
             case .nflHistoricalAnalysis: return "NFL Historical Trends"
             case .cfbHistoricalAnalysis: return "CFB Historical Trends"
+            case .nflRegression: return "NFL Regression Report"
+            case .cfbRegression: return "CFB Regression Report"
+            case .nflPublicBetting, .cfbPublicBetting, .nbaPublicBetting, .ncaabPublicBetting:
+                return "Public Betting"
+            }
+        }
+
+        /// Games-page card that opens the Action Network board. The page itself
+        /// is free; only the chip and sentence are gated.
+        public var publicBettingSport: GamesStore.Sport? {
+            switch self {
+            case .nflPublicBetting: return .nfl
+            case .cfbPublicBetting: return .cfb
+            case .nbaPublicBetting: return .nba
+            case .ncaabPublicBetting: return .ncaab
+            default: return nil
             }
         }
     }

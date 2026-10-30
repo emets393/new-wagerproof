@@ -34,7 +34,7 @@ struct ParlayGodCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: isCompact ? compactCardHeight : nil, alignment: .top)
+        .frame(minHeight: isCompact ? compactCardHeight : nil, alignment: .top)
         .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -91,20 +91,20 @@ struct ParlayGodCard: View {
 
     @ViewBuilder
     private func legRow(_ leg: ParlayLeg) -> some View {
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             legAvatar(leg)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(leg.subject)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color.appTextPrimary)
-                        .lineLimit(1)
-                        .layoutPriority(1)
-                    Text(leg.betText)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.appTextSecondary)
-                        .lineLimit(1)
-                }
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(leg.subject)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text(leg.betText)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(isCompact ? 2 : nil)
+                    .fixedSize(horizontal: false, vertical: true)
                 if !isCompact {
                     Text(expandedEvidence(leg))
                         .font(.system(size: 11, weight: .medium))
@@ -112,18 +112,20 @@ struct ParlayGodCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            Spacer(minLength: 4)
-            Text(leg.oddsText)
-                .font(.system(size: 11, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.appTextSecondary)
-                .monospacedDigit()
-            Text(leg.fractionText)
-                .font(.system(size: 10, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.appWin)
-                .monospacedDigit()
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Color.appWin.opacity(0.12), in: Capsule())
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(leg.oddsText)
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .monospacedDigit()
+                Text(leg.fractionText)
+                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color.appWin)
+                    .monospacedDigit()
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.appWin.opacity(0.12), in: Capsule())
+            }
         }
     }
 
@@ -333,7 +335,7 @@ private struct MatchupParlayLegRow: View {
     let leg: ParlayLeg
 
     var body: some View {
-        HStack(alignment: .center, spacing: 9) {
+        HStack(alignment: .top, spacing: 9) {
             Text("\(number)")
                 .font(.system(size: 9, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color.appTextPrimary)
@@ -343,24 +345,22 @@ private struct MatchupParlayLegRow: View {
             MatchupParlayLegAvatar(leg: leg)
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(leg.subject)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color.appTextPrimary)
-                        .lineLimit(1)
-                    Text(leg.betText)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.appTextSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
+                Text(leg.subject)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text(leg.betText)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(leg.evidence)
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(Color.appTextMuted)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer(minLength: 4)
 

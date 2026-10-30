@@ -23,7 +23,7 @@ Legend: ⬜ not started · 🔨 in progress · ✅ source-complete/validated · 
 | Onboarding (24 steps — 21 carousel pages + 3 cinematics) | 22 | 06 | ✅ research-time/stakes cost/reclaim arc, leaderboard, generation/reveal/time summary; 🎫 ATT omitted |
 | Paywall (6) + RevenueCat | 6 | 08 | ✅ custom checkout + generic gates, default-hard remote gate, exact offer terms, restore/sign-out/error/accessibility paths, customer center, attribution, app-to-web checkout link-out (URL shapes unit-tested in `PaywallPlanResolverTest`) |
 | Games feed + GameCards (universal GameRowCard, CollapsingWidgetScroll) | 21 | 07 | ✅ audited expanded and compact layouts |
-| Sport detail pages: NFL / CFB / NBA / NCAAB / MLB bottom sheets | 31 | 07 | ✅ audited heroes, cards, charts, sheets, locked states, and compact layouts |
+| Sport detail pages: NFL / CFB / NBA / NCAAB / MLB bottom sheets | 31 | 07 | ✅ audited heroes, cards, charts, sheets, locked states, and compact layouts. NBA adds first-half markets from `nba_model_preds_h1` and signal pills from `nba_slate_flags` + `nba_signal_defs`. |
 | Scoreboard (live polling) | 6 | 07 | ✅ compiles |
 | Agents: hub / detail / public / settings / stats | 8 | 05 part1 | ✅ 2026-08-05 parity wave: opaque hero mask + transparent bar, leaderboard/stats pull-to-refresh, sticky Top Picks header, MY AGENTS header + sort menu, full-swipe delete, hub haptics, settings fast-paint, todaysBetItems on public page, 160-pt chart downsampling (🎫 #231, #336) |
 | Agents: creation wizard (6 steps + intro + celebration + inputs) | 17 | 05 part2 | ✅ PixelWave launch builder + existing wizard (🎫 #079); copy-build hides the bottom bar |
@@ -31,7 +31,7 @@ Legend: ⬜ not started · 🔨 in progress · ✅ source-complete/validated · 
 | Agents: office sim, cards, charts, HR/regen/autopilot sheets | 28 | 05 part4 | ✅ generation card visual suite (desk avatar, glyph matrix, thinking verbs, pulse waves), swipe-to-generate pill (#305 resolved), AutoPilot notifications card, office pauses off-tab (🎫 #205 chrome-only, #071, #301) |
 | Chat: WagerBot (SSE, ContentBlocks, threads) | 17 | 06 | ✅ compiles; assistant messages are selectable and copyable |
 | Chat: voice mode (OpenAI Realtime PTT) | | 06 | ✅ retained as developer-only code; no production entry point (owner decision) |
-| Props (16) | 16 | 06 | ✅ compiles (🎫 #240–#242); NFL detail rebuilt 2026-08-15 as the web player-analysis page (six sections: Projection / Recent Games / Matchup / H2H / Situations / Best Lines; picker filters like web MarketToggle; MLB hero chrome 134/126 + hit-% badge; signal strip/sheets removed) |
+| Props (16) | 16 | 06 | ✅ compiles (🎫 #240–#242); NFL detail rebuilt 2026-08-15 as the web player-analysis page. NBA board reads `nba_slate_props` + `nba_prop_defs` (both record lines), shop-the-line `nba_player_props_current`, movement `nba_player_props`. NBA game detail reads `nba_slate_flags` + `nba_signal_defs` (record_text and season_record_text) and `nba_model_preds_h1`. The NBA model-accuracy tool is removed. |
 | Outliers (29) | 29 | 06 | ✅ compiles (🎫 #024 carried, #230–#236) |
 | Analytics / Historical Trends (13) | 13 | 08 | ✅ full filters, MLB route/copy, hero/narrative/share, Saved Systems + leaderboard, NL filter chat |
 | LearnMore (11) | 11 | 08 | ✅ compiles |

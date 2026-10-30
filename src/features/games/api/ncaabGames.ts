@@ -41,6 +41,9 @@ export interface NCAABPrediction {
   away_ranking: number | null;
   conference_game: boolean | null;
   neutral_site: boolean | null;
+  tournament?: string | null;
+  broadcasts?: string | null;
+  game_type?: string | null;
   // Public betting splits (may not exist for basketball)
   spread_splits_label: string | null;
   total_splits_label: string | null;
@@ -154,51 +157,119 @@ export function convertNcaabTimeToEST(timeString: string | null | undefined): st
   }
 }
 
+/**
+ * Once the season is underway the board matches NBA: today and tomorrow.
+ * The view itself holds the whole season, so the window is applied here.
+ */
+export const NCAAB_BOARD_DAYS = 2;
+
+/** Opening week is posted before Sunday's tip, so the board reaches that slate. */
+export const NCAAB_OPENING_BOARD_DAYS = 10;
+
+const NCAAB_GAME_COLUMNS =
+  'game_id,game_date_et,tipoff_time_et,start_utc,home_team,away_team,home_team_id,away_team_id,spread,over_under,homeMoneyline,awayMoneyline,home_ranking,away_ranking,conference_game,neutral_site,tournament,broadcasts,game_type';
+
+function etDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+/**
+ * Days the board keeps, including today. From nine days before November 1
+ * through the first week of games (November 8) the opening slate is on the
+ * board. After that it is today and tomorrow, same as NBA.
+ */
+export function ncaabBoardDayCount(etDay: string): number {
+  const [year, month, day] = etDay.split('-').map(Number);
+  const openingYear = month <= 4 ? year - 1 : year;
+  const opening = Date.UTC(openingYear, 10, 1);
+  const today = Date.UTC(year, month - 1, day);
+  const dayMs = 86_400_000;
+  if (today >= opening - 9 * dayMs && today <= opening + 7 * dayMs) return NCAAB_OPENING_BOARD_DAYS;
+  return NCAAB_BOARD_DAYS;
+}
+
+/** Eastern window for `v_cbb_input_values`. */
+export function ncaabBoardRange(now = new Date()): { start: string; end: string } {
+  const start = etDate(now);
+  const [year, month, day] = start.split('-').map(Number);
+  const days = ncaabBoardDayCount(start);
+  const end = etDate(new Date(Date.UTC(year, month - 1, day + days - 1, 17)));
+  return { start, end };
+}
+
 export async function fetchNcaabGames(): Promise<SportFeed<NCAABPrediction>> {
-  // Step 1: ALL games from v_cbb_input_values
-  const { data: ncaabGames, error: gamesError } = await collegeFootballSupabase
-    .from('v_cbb_input_values')
-    .select('*')
-    .order('game_date_et', { ascending: true })
-    .order('tipoff_time_et', { ascending: true });
+  const { start, end } = ncaabBoardRange();
+
+  // The view is the whole season (~6,000 rows, ~9MB). Asking for every game id
+  // in the prediction filter comes back Bad Request, so the scores never attach.
+  const [{ data: ncaabGames, error: gamesError }, { data: latestRun, error: runError }, mappingsResult] =
+    await Promise.all([
+      collegeFootballSupabase
+        .from('v_cbb_input_values')
+        .select(NCAAB_GAME_COLUMNS)
+        .gte('game_date_et', start)
+        .lte('game_date_et', end)
+        .order('game_date_et', { ascending: true })
+        .order('tipoff_time_et', { ascending: true }),
+      collegeFootballSupabase
+        .from('ncaab_predictions')
+        .select('run_id')
+        .order('as_of_ts_utc', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      collegeFootballSupabase
+        .from('ncaab_team_mapping')
+        .select('api_team_id, espn_team_id, espn_team_url, team_abbrev'),
+    ]);
 
   if (gamesError) {
     throw new Error(`Games error: ${gamesError.message}`);
   }
 
-  // Step 2: predictions from latest run (by as_of_ts_utc), scoped to fetched game_ids
-  const { data: latestRun, error: runError } = await collegeFootballSupabase
-    .from('ncaab_predictions')
-    .select('run_id, as_of_ts_utc')
-    .order('as_of_ts_utc', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const dates = Array.from(
+    new Set((ncaabGames || []).map((game: { game_date_et?: string | null }) => String(game.game_date_et || '').slice(0, 10))),
+  ).filter(Boolean);
 
-  const predictionsMap = new Map<string | number, any>();
-  if (!runError && latestRun) {
-    const gameIds = (ncaabGames || []).map((g: any) => g.game_id);
-    const { data: predictions, error: predsError } = await collegeFootballSupabase
-      .from('ncaab_predictions')
-      .select(
-        'game_id, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, run_id, vegas_home_spread, vegas_total, vegas_home_moneyline, vegas_away_moneyline, home_score_pred, away_score_pred, model_fair_home_spread, home_team_id, away_team_id'
-      )
-      .eq('run_id', latestRun.run_id)
-      .in('game_id', gameIds);
+  const [predictionsResult, flagsResult] = await Promise.all([
+    latestRun?.run_id
+      ? collegeFootballSupabase
+          .from('ncaab_predictions')
+          .select(
+            'game_id, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, run_id, vegas_home_spread, vegas_total, vegas_home_moneyline, vegas_away_moneyline, home_score_pred, away_score_pred, model_fair_home_spread, home_team_id, away_team_id',
+          )
+          .eq('run_id', latestRun.run_id)
+      : Promise.resolve({ data: [], error: runError }),
+    dates.length
+      ? collegeFootballSupabase.from('ncaab_slate_flags').select('game_id, signal_key').in('game_date', dates)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
 
-    if (!predsError && predictions) {
-      predictions.forEach((pred) => predictionsMap.set(pred.game_id, pred));
-    } else {
-      debug.warn('No NCAAB predictions found or error:', predsError);
-    }
+  const predictionsMap = new Map<number, any>();
+  if (predictionsResult.error) {
+    debug.warn('No NCAAB predictions found or error:', predictionsResult.error);
   } else {
-    debug.warn('No NCAAB prediction run_id found');
+    for (const pred of predictionsResult.data || []) {
+      predictionsMap.set(Number(pred.game_id), pred);
+    }
   }
 
-  // Step 3: team mappings — api_team_id matches home_team_id/away_team_id in
-  // v_cbb_input_values; logo built from espn_team_id (ESPN NCAA CDN pattern).
-  const { data: teamMappingsData, error: teamMappingsError } = await collegeFootballSupabase
-    .from('ncaab_team_mapping')
-    .select('api_team_id, espn_team_id, espn_team_url, team_abbrev');
+  const signalKeysByGame = new Map<number, Set<string>>();
+  if (flagsResult.error) debug.warn('ncaab_slate_flags error:', flagsResult.error.message);
+  for (const flag of flagsResult.data || []) {
+    const gameId = Number(flag.game_id);
+    const key = String(flag.signal_key || '');
+    if (!Number.isFinite(gameId) || !key) continue;
+    const keys = signalKeysByGame.get(gameId) || new Set<string>();
+    keys.add(key);
+    signalKeysByGame.set(gameId, keys);
+  }
+
+  const { data: teamMappingsData, error: teamMappingsError } = mappingsResult;
 
   const teamMappingsById = new Map<number, NCAABTeamMappingEntry>();
   if (teamMappingsError) {
@@ -228,18 +299,18 @@ export async function fetchNcaabGames(): Promise<SportFeed<NCAABPrediction>> {
 
   // Step 4: merge games with predictions (game_id = game_id)
   const merged: NCAABPrediction[] = (ncaabGames || []).map((game: any) => {
-    const prediction = predictionsMap.get(game.game_id);
+    const prediction = predictionsMap.get(Number(game.game_id));
     const gameIdStr = String(game.game_id);
 
-    const vegasHomeSpread = prediction?.vegas_home_spread || game.spread || null;
-    const modelFairHomeSpread = prediction?.model_fair_home_spread || null;
+    const vegasHomeSpread = prediction?.vegas_home_spread ?? game.spread ?? null;
+    const modelFairHomeSpread = prediction?.model_fair_home_spread ?? null;
     const homeSpreadDiff =
       vegasHomeSpread !== null && modelFairHomeSpread !== null
         ? vegasHomeSpread - modelFairHomeSpread
         : null;
 
-    const vegasTotal = prediction?.vegas_total || game.over_under || null;
-    const predTotalPoints = prediction?.pred_total_points || null;
+    const vegasTotal = prediction?.vegas_total ?? game.over_under ?? null;
+    const predTotalPoints = prediction?.pred_total_points ?? null;
     const overLineDiff =
       vegasTotal !== null && predTotalPoints !== null ? predTotalPoints - vegasTotal : null;
 
@@ -285,12 +356,18 @@ export async function fetchNcaabGames(): Promise<SportFeed<NCAABPrediction>> {
       // Vegas lines for reference
       api_spread: vegasHomeSpread,
       api_over_line: vegasTotal,
-      home_score_pred: prediction?.home_score_pred || null,
-      away_score_pred: prediction?.away_score_pred || null,
+      pred_home_margin: prediction?.pred_home_margin ?? null,
+      home_score_pred: prediction?.home_score_pred ?? null,
+      away_score_pred: prediction?.away_score_pred ?? null,
       home_ranking: game.home_ranking || null,
       away_ranking: game.away_ranking || null,
       conference_game: game.conference_game || null,
       neutral_site: game.neutral_site || null,
+      tournament: game.tournament || null,
+      broadcasts: Array.isArray(game.broadcasts)
+        ? game.broadcasts.filter(Boolean).join(', ') || null
+        : game.broadcasts || null,
+      game_type: game.game_type || null,
       // Public betting splits not available for basketball
       spread_splits_label: null,
       ml_splits_label: null,
@@ -327,6 +404,7 @@ export async function fetchNcaabGames(): Promise<SportFeed<NCAABPrediction>> {
       totalEdge: row.over_line_diff ?? null,
       mlProb: row.home_away_ml_prob,
     },
+    signalCount: signalKeysByGame.get(Number(row.id))?.size ?? 0,
     raw: row,
   }));
 

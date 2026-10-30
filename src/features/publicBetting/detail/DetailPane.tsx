@@ -57,7 +57,7 @@ export function DetailPane({ game, market, isLoading }: DetailPaneProps) {
           </h1>
           <p className="mt-0.5 text-[12px] text-muted-foreground">
             {formatStart(game.startTime)}
-            {activeTickets !== null && activeTickets !== undefined && (
+            {typeof activeTickets === 'number' && activeTickets > 0 && (
               <span className="tabular-nums"> · {activeTickets.toLocaleString()} tickets</span>
             )}
           </p>
@@ -166,7 +166,7 @@ function MarketBlock({
               )}
             </>
           )}
-          {row.tickets !== null && (
+          {row.tickets !== null && row.tickets > 0 && (
             <p className="text-[11px] tabular-nums text-muted-foreground">
               🎟️ {row.tickets.toLocaleString()} tickets on this market
             </p>

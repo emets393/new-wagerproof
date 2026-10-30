@@ -188,6 +188,7 @@ describe('readMarket', () => {
     expect(readMarket(input({ hasSplit: false })).excluded).toBe(true);
     expect(readMarket(input({ tickets: 199 })).excluded).toBe(true);
     expect(readMarket(input({ tickets: 200 })).excluded).toBe(false);
+    expect(readMarket(input({ tickets: null })).excluded).toBe(false);
   });
 
   it('uses team names on a spread and keeps a mild lean out of the even bucket', () => {

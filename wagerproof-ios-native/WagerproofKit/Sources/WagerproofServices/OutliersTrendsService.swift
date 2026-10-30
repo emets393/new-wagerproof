@@ -54,8 +54,19 @@ public actor OutliersTrendsService {
         season: Int,
         week: Int
     ) async throws -> [OutliersTrendsCard] {
-        let table = sport == .ncaaf ? "cfb_outliers_trend_cards" : "nfl_outliers_trend_cards"
         let cfb = await CFBSupabase.shared.client
+        if sport == .nba || sport == .ncaab {
+            let table = sport == .nba ? "nba_outliers_trend_cards" : "ncaab_outliers_trend_cards"
+            let rows: [TrendCardRow] = try await cfb
+                .from(table)
+                .select(Self.trendCardColumns)
+                .eq("slate_date", value: etDayString(daysFromToday: 0))
+                .order("sort_rank", ascending: false)
+                .execute()
+                .value
+            return rows.map(\.model)
+        }
+        let table = sport == .ncaaf ? "cfb_outliers_trend_cards" : "nfl_outliers_trend_cards"
         let rows: [TrendCardRow] = try await cfb
             .from(table)
             .select(Self.trendCardColumns)
@@ -73,7 +84,8 @@ public actor OutliersTrendsService {
         case .nfl: return try await fetchNFLSlateGames()
         case .ncaaf: return try await fetchCFBSlateGames()
         case .mlb: return try await fetchMLBSlateGames()
-        default: return []
+        case .nba: return try await fetchNBASlateGames()
+        case .ncaab: return try await fetchNCAABSlateGames()
         }
     }
 
@@ -117,6 +129,133 @@ public actor OutliersTrendsService {
             .execute()
             .value
         return rows.map(\.model)
+    }
+
+    /// Today's ET NBA slate from `nba_input_values_view` — the same feed the games page uses.
+    private func fetchNBASlateGames() async throws -> [OutliersTrendsGame] {
+        let today = etDayString(daysFromToday: 0)
+        let tomorrow = etDayString(daysFromToday: 1)
+        let season = Int(today.prefix(4)) ?? 2026
+        let cfb = await CFBSupabase.shared.client
+        let rows: [NBASlateRow] = try await cfb
+            .from("nba_input_values_view")
+            .select("game_id,away_team,home_team,away_abbr,home_abbr,home_spread,total_line,game_date,tipoff_time_et")
+            .gte("game_date", value: today)
+            .lt("game_date", value: tomorrow)
+            .execute()
+            .value
+        return rows.compactMap { row in
+            let day = String((row.gameDate ?? "").prefix(10))
+            guard day == today, let gameId = row.gameId, !gameId.isEmpty else { return nil }
+            let awayName = row.awayTeam ?? ""
+            let homeName = row.homeTeam ?? ""
+            return OutliersTrendsGame(
+                id: gameId,
+                season: season,
+                week: 0,
+                awayAb: cleanedAbbr(row.awayAbbr, fallback: awayName),
+                homeAb: cleanedAbbr(row.homeAbbr, fallback: homeName),
+                awayTeam: awayName,
+                homeTeam: homeName,
+                fgSpreadClose: row.homeSpread,
+                fgTotalClose: row.totalLine,
+                kickoff: slateKickoff(date: day, time: row.tipoff),
+                slot: nil,
+                assignedReferee: nil
+            )
+        }
+    }
+
+    /// Today's ET college slate from `v_cbb_input_values`, with mapping abbrevs and logos.
+    private func fetchNCAABSlateGames() async throws -> [OutliersTrendsGame] {
+        await NCAABTeamIdentityService.shared.ensureLoaded()
+        await CFBTeamsService.shared.ensureLoaded()
+        let today = etDayString(daysFromToday: 0)
+        let tomorrow = etDayString(daysFromToday: 1)
+        let season = Int(today.prefix(4)) ?? 2026
+        let cfb = await CFBSupabase.shared.client
+        let rows: [NCAABSlateRow] = try await cfb
+            .from("v_cbb_input_values")
+            .select("game_id,away_team,home_team,away_team_id,home_team_id,spread,over_under,game_date_et,tipoff_time_et,start_utc")
+            .gte("game_date_et", value: today)
+            .lt("game_date_et", value: tomorrow)
+            .execute()
+            .value
+        let maps: [NCAABMapRow] = (try? await cfb
+            .from("ncaab_team_mapping")
+            .select("api_team_id,team_abbrev,espn_team_id,teamranking_team_name")
+            .execute()
+            .value) ?? []
+        var byId: [Int: NCAABMapRow] = [:]
+        var logos: [String: String] = [:]
+        var abbrevs: [String: String] = [:]
+        for row in maps {
+            if let id = row.apiTeamId { byId[id] = row }
+            let code = row.teamAbbrev?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let logo = row.espnTeamId.map { "https://a.espncdn.com/i/teamlogos/ncaa/500/\($0).png" }
+            let ranking = row.rankingName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let ranking, !ranking.isEmpty {
+                if let logo { logos[ranking] = logo }
+                if let code, !code.isEmpty { abbrevs[ranking] = code }
+            }
+            if let code, !code.isEmpty {
+                if let logo { logos[code] = logo }
+                abbrevs[code] = code
+            }
+        }
+        func remember(_ name: String, id: Int?) {
+            guard let id, let mapped = byId[id] else { return }
+            let code = mapped.teamAbbrev?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let logo = mapped.espnTeamId.map { "https://a.espncdn.com/i/teamlogos/ncaa/500/\($0).png" }
+            if let logo {
+                if !name.isEmpty { logos[name] = logo }
+                if let code, !code.isEmpty { logos[code] = logo }
+            }
+            if let code, !code.isEmpty {
+                if !name.isEmpty { abbrevs[name] = code }
+                abbrevs[code] = code
+            }
+        }
+        for row in rows {
+            remember(row.awayTeam ?? "", id: row.awayTeamId)
+            remember(row.homeTeam ?? "", id: row.homeTeamId)
+        }
+        let drafts: [(gameId: String, awayName: String, homeName: String, awayFallback: String, homeFallback: String, spread: Double?, total: Double?, kickoff: String?)] = rows.compactMap { row in
+            let day = String((row.gameDate ?? "").prefix(10))
+            guard day == today, let gameId = row.gameId, !gameId.isEmpty else { return nil }
+            let awayName = row.awayTeam ?? ""
+            let homeName = row.homeTeam ?? ""
+            return (
+                gameId,
+                awayName,
+                homeName,
+                cleanedAbbr(nil, fallback: awayName),
+                cleanedAbbr(nil, fallback: homeName),
+                row.spread,
+                row.total,
+                slateKickoff(date: day, time: row.startUtc ?? row.tipoff)
+            )
+        }
+        return await MainActor.run {
+            NCAABTeamAssets.install(logos)
+            NCAABTeamAssets.installAbbrevs(abbrevs)
+            return drafts.map { draft in
+                OutliersTrendsGame(
+                    id: draft.gameId,
+                    season: season,
+                    week: 0,
+                    awayAb: NCAABTeamAssets.abbrev(for: draft.awayName) ?? draft.awayFallback,
+                    homeAb: NCAABTeamAssets.abbrev(for: draft.homeName) ?? draft.homeFallback,
+                    awayTeam: draft.awayName,
+                    homeTeam: draft.homeName,
+                    fgSpreadClose: draft.spread,
+                    fgTotalClose: draft.total,
+                    kickoff: draft.kickoff,
+                    slot: nil,
+                    assignedReferee: nil
+                )
+            }
+        }
     }
 
     public func fetchMLBBundle() async throws -> MLBTrendsSlateBundle {
@@ -370,11 +509,63 @@ public actor OutliersTrendsService {
             .value
     }
 
+    private func etDayString(daysFromToday: Int) -> String {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = cal.timeZone
+        fmt.dateFormat = "yyyy-MM-dd"
+        let date = cal.date(byAdding: .day, value: daysFromToday, to: Date()) ?? Date()
+        return fmt.string(from: date)
+    }
+
+    /// Prefer a real instant. A clock-only tipoff is read as Eastern wall time on the slate date.
+    private func slateKickoff(date: String, time: String?) -> String? {
+        let clock = (time ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if clock.contains("T") { return clock }
+        guard let tz = TimeZone(identifier: "America/New_York") else { return clock.isEmpty ? date : clock }
+        let parts = date.split(separator: "-")
+        guard parts.count == 3, let year = Int(parts[0]), let month = Int(parts[1]), let day = Int(parts[2]) else {
+            return clock.isEmpty ? date : clock
+        }
+        var hour = 12
+        var minute = 0
+        let pieces = clock.split(separator: ":")
+        if pieces.count >= 2, let h = Int(pieces[0]), let m = Int(pieces[1].prefix(2)) {
+            hour = h
+            minute = m
+            let upper = clock.uppercased()
+            if upper.contains("PM"), hour < 12 { hour += 12 }
+            if upper.contains("AM"), hour == 12 { hour = 0 }
+        }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = tz
+        var comps = DateComponents()
+        comps.year = year
+        comps.month = month
+        comps.day = day
+        comps.hour = hour
+        comps.minute = minute
+        guard let instant = cal.date(from: comps) else { return date }
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withInternetDateTime]
+        return fmt.string(from: instant)
+    }
+
+    private func cleanedAbbr(_ raw: String?, fallback: String) -> String {
+        let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmed.isEmpty { return trimmed }
+        let letters = fallback.filter { $0.isLetter || $0.isNumber }
+        if letters.isEmpty { return "???" }
+        return String(letters.prefix(3)).uppercased()
+    }
+
     // MARK: - Row decoders
 
     private struct TrendCardRow: Decodable {
         let cardId: String
-        let gameId: String
+        let gameId: FlexibleString
         let matchupLabel: String
         let subjectKind: String
         let subjectName: String
@@ -412,7 +603,7 @@ public actor OutliersTrendsService {
         var model: OutliersTrendsCard {
             OutliersTrendsCard(
                 id: cardId,
-                gameId: gameId,
+                gameId: gameId.value,
                 matchupLabel: matchupLabel,
                 subjectKind: OutliersTrendsSubjectKind(rawValue: subjectKind) ?? .team,
                 subjectName: subjectName,
@@ -731,6 +922,128 @@ public actor OutliersTrendsService {
             } else {
                 value = ""
             }
+        }
+    }
+
+    private enum SlateJSON {
+        static func string<K: CodingKey>(_ c: KeyedDecodingContainer<K>, _ key: K) -> String? {
+            if let s = try? c.decodeIfPresent(String.self, forKey: key) { return s }
+            if let i = try? c.decodeIfPresent(Int.self, forKey: key) { return String(i) }
+            if let d = try? c.decodeIfPresent(Double.self, forKey: key) { return String(Int(d)) }
+            return nil
+        }
+
+        static func double<K: CodingKey>(_ c: KeyedDecodingContainer<K>, _ key: K) -> Double? {
+            if let d = try? c.decodeIfPresent(Double.self, forKey: key) { return d }
+            if let i = try? c.decodeIfPresent(Int.self, forKey: key) { return Double(i) }
+            if let s = try? c.decodeIfPresent(String.self, forKey: key) { return Double(s) }
+            return nil
+        }
+
+        static func int<K: CodingKey>(_ c: KeyedDecodingContainer<K>, _ key: K) -> Int? {
+            if let i = try? c.decodeIfPresent(Int.self, forKey: key) { return i }
+            if let s = try? c.decodeIfPresent(String.self, forKey: key), let i = Int(s) { return i }
+            if let d = try? c.decodeIfPresent(Double.self, forKey: key) { return Int(d) }
+            return nil
+        }
+    }
+
+    private struct NBASlateRow: Decodable {
+        let gameId: String?
+        let awayTeam: String?
+        let homeTeam: String?
+        let awayAbbr: String?
+        let homeAbbr: String?
+        let homeSpread: Double?
+        let totalLine: Double?
+        let gameDate: String?
+        let tipoff: String?
+
+        enum CodingKeys: String, CodingKey {
+            case gameId = "game_id"
+            case awayTeam = "away_team"
+            case homeTeam = "home_team"
+            case awayAbbr = "away_abbr"
+            case homeAbbr = "home_abbr"
+            case homeSpread = "home_spread"
+            case totalLine = "total_line"
+            case gameDate = "game_date"
+            case tipoff = "tipoff_time_et"
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            gameId = SlateJSON.string(c, .gameId)
+            awayTeam = try c.decodeIfPresent(String.self, forKey: .awayTeam)
+            homeTeam = try c.decodeIfPresent(String.self, forKey: .homeTeam)
+            awayAbbr = try c.decodeIfPresent(String.self, forKey: .awayAbbr)
+            homeAbbr = try c.decodeIfPresent(String.self, forKey: .homeAbbr)
+            homeSpread = SlateJSON.double(c, .homeSpread)
+            totalLine = SlateJSON.double(c, .totalLine)
+            gameDate = SlateJSON.string(c, .gameDate)
+            tipoff = SlateJSON.string(c, .tipoff)
+        }
+    }
+
+    private struct NCAABSlateRow: Decodable {
+        let gameId: String?
+        let awayTeam: String?
+        let homeTeam: String?
+        let awayTeamId: Int?
+        let homeTeamId: Int?
+        let spread: Double?
+        let total: Double?
+        let gameDate: String?
+        let tipoff: String?
+        let startUtc: String?
+
+        enum CodingKeys: String, CodingKey {
+            case gameId = "game_id"
+            case awayTeam = "away_team"
+            case homeTeam = "home_team"
+            case awayTeamId = "away_team_id"
+            case homeTeamId = "home_team_id"
+            case spread
+            case total = "over_under"
+            case gameDate = "game_date_et"
+            case tipoff = "tipoff_time_et"
+            case startUtc = "start_utc"
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            gameId = SlateJSON.string(c, .gameId)
+            awayTeam = try c.decodeIfPresent(String.self, forKey: .awayTeam)
+            homeTeam = try c.decodeIfPresent(String.self, forKey: .homeTeam)
+            awayTeamId = SlateJSON.int(c, .awayTeamId)
+            homeTeamId = SlateJSON.int(c, .homeTeamId)
+            spread = SlateJSON.double(c, .spread)
+            total = SlateJSON.double(c, .total)
+            gameDate = SlateJSON.string(c, .gameDate)
+            tipoff = SlateJSON.string(c, .tipoff)
+            startUtc = SlateJSON.string(c, .startUtc)
+        }
+    }
+
+    private struct NCAABMapRow: Decodable {
+        let apiTeamId: Int?
+        let teamAbbrev: String?
+        let espnTeamId: Int?
+        let rankingName: String?
+
+        enum CodingKeys: String, CodingKey {
+            case apiTeamId = "api_team_id"
+            case teamAbbrev = "team_abbrev"
+            case espnTeamId = "espn_team_id"
+            case rankingName = "teamranking_team_name"
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            apiTeamId = SlateJSON.int(c, .apiTeamId)
+            teamAbbrev = try c.decodeIfPresent(String.self, forKey: .teamAbbrev)
+            espnTeamId = SlateJSON.int(c, .espnTeamId)
+            rankingName = try c.decodeIfPresent(String.self, forKey: .rankingName)
         }
     }
 

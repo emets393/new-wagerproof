@@ -17,14 +17,13 @@ public enum OutliersTrendsSport: String, CaseIterable, Identifiable, Sendable, H
         }
     }
 
-    public var hasTrendsData: Bool { self == .nfl || self == .ncaaf || self == .mlb }
+    public var hasTrendsData: Bool { self == .nfl || self == .ncaaf || self == .mlb || self == .nba || self == .ncaab }
 
     public var allowedSubjects: [OutliersTrendsSubject] {
         switch self {
         case .nfl: return [.all, .teams, .coaches, .refs, .players]
         case .ncaaf: return [.all, .teams, .coaches]
-        case .mlb: return [.teams]
-        default: return []
+        case .mlb, .nba, .ncaab: return [.teams]
         }
     }
 
@@ -99,8 +98,8 @@ public enum OutliersTrendsGameMarket: String, CaseIterable, Identifiable, Sendab
             case .refs: return [.all, .spread, .moneyline, .total, .h1Spread, .h1Total]
             default: return [.all, .spread, .moneyline, .total, .teamTotal, .h1Spread, .h1Total]
             }
-        default:
-            return [.all]
+        case .nba, .ncaab:
+            return [.all, .spread, .moneyline, .total, .teamTotal, .h1Spread, .h1Total]
         }
     }
 }

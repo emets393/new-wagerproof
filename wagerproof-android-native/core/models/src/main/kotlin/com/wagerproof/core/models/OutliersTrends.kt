@@ -23,7 +23,7 @@ enum class OutliersTrendsSport(val raw: String) {
             NCAAB -> "NCAAB"
         }
 
-    val hasTrendsData: Boolean get() = this == NFL || this == NCAAF || this == MLB
+    val hasTrendsData: Boolean get() = this == NFL || this == NCAAF || this == MLB || this == NBA || this == NCAAB
 
     val allowedSubjects: List<OutliersTrendsSubject>
         get() = when (this) {
@@ -39,8 +39,7 @@ enum class OutliersTrendsSport(val raw: String) {
                 OutliersTrendsSubject.TEAMS,
                 OutliersTrendsSubject.COACHES,
             )
-            MLB -> listOf(OutliersTrendsSubject.TEAMS)
-            else -> emptyList()
+            MLB, NBA, NCAAB -> listOf(OutliersTrendsSubject.TEAMS)
         }
 
     val usesClientSideTrendCards: Boolean get() = this == MLB
@@ -129,7 +128,8 @@ enum class OutliersTrendsGameMarket(val raw: String) {
                 else ->
                     listOf(ALL, SPREAD, MONEYLINE, TOTAL, TEAM_TOTAL, H1_SPREAD, H1_TOTAL)
             }
-            else -> listOf(ALL)
+            OutliersTrendsSport.NBA, OutliersTrendsSport.NCAAB ->
+                listOf(ALL, SPREAD, MONEYLINE, TOTAL, TEAM_TOTAL, H1_SPREAD, H1_TOTAL)
         }
     }
 }

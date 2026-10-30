@@ -10,6 +10,7 @@ struct NBAGameCard: View {
     /// Public-agent consensus, looked up by the feed host. Surfaces that don't
     /// fetch it (Search) leave it nil and the strip simply doesn't render.
     var consensus: GameAgentConsensus? = nil
+    var signalCount: Int = 0
     var onPress: () -> Void = {}
 
     var body: some View {
@@ -23,19 +24,19 @@ struct NBAGameCard: View {
             dateLabel: GameCardFormatting.formatCompactDate(game.gameDate),
             timeLabel: GameCardFormatting.convertTimeToEST(game.gameTime),
             away: GameRowCard.TeamSide(
-                abbr: game.awayAbbr,
-                initials: TeamInitials.from(game.awayTeam),
+                abbr: NBATeams.abbreviation(for: game.awayTeam),
+                initials: NBATeams.abbreviation(for: game.awayTeam),
                 moneyline: game.awayMl,
                 spread: game.awaySpread,
-                logoURL: nil,
+                logoURL: NBATeams.logoURL(for: game.awayTeam),
                 colors: NBATeams.colorPair(for: game.awayTeam)
             ),
             home: GameRowCard.TeamSide(
-                abbr: game.homeAbbr,
-                initials: TeamInitials.from(game.homeTeam),
+                abbr: NBATeams.abbreviation(for: game.homeTeam),
+                initials: NBATeams.abbreviation(for: game.homeTeam),
                 moneyline: game.homeMl,
                 spread: game.homeSpread,
-                logoURL: nil,
+                logoURL: NBATeams.logoURL(for: game.homeTeam),
                 colors: NBATeams.colorPair(for: game.homeTeam)
             ),
             overLine: game.overLine,
@@ -43,8 +44,8 @@ struct NBAGameCard: View {
                 modelHomeProb: game.homeAwayMlProb,
                 homeMl: game.homeMl,
                 awayMl: game.awayMl,
-                homeAbbr: game.homeAbbr,
-                awayAbbr: game.awayAbbr
+                homeAbbr: NBATeams.abbreviation(for: game.homeTeam),
+                awayAbbr: NBATeams.abbreviation(for: game.awayTeam)
             ),
             ouEdge: GameEdgeMath.ouEdge(
                 modelFairTotal: game.modelFairTotal,
@@ -54,7 +55,8 @@ struct NBAGameCard: View {
             awayTeamFullName: game.awayTeam,
             homeTeamFullName: game.homeTeam,
             oddsBreakdown: oddsBreakdown,
-            consensus: consensus
+            consensus: consensus,
+            signalCount: signalCount > 0 ? signalCount : nil
         )
     }
 
@@ -64,13 +66,13 @@ struct NBAGameCard: View {
         let hasTotal = game.overLine != nil
         return GameRowCard.OddsBreakdown(
             away: GameRowCard.OddsBreakdown.Row(
-                abbr: game.awayAbbr,
+                abbr: NBATeams.abbreviation(for: game.awayTeam),
                 spread: GameCardFormatting.formatSpread(game.awaySpread),
                 moneyline: GameCardFormatting.formatMoneyline(game.awayMl),
                 total: hasTotal ? "O\(totalText)" : "—"
             ),
             home: GameRowCard.OddsBreakdown.Row(
-                abbr: game.homeAbbr,
+                abbr: NBATeams.abbreviation(for: game.homeTeam),
                 spread: GameCardFormatting.formatSpread(game.homeSpread),
                 moneyline: GameCardFormatting.formatMoneyline(game.homeMl),
                 total: hasTotal ? "U\(totalText)" : "—"

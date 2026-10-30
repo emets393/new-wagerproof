@@ -12,8 +12,8 @@ export type SportFilter = 'all' | PublicSport;
 
 export type TierFilter = 'all' | 'sharp';
 
-/** Feed order. `sharp` is the signal rank. The other four are the raw board numbers. */
-export type BoardSort = 'sharp' | 'time' | 'tickets' | 'money' | 'diff';
+/** Feed order. `sharp` is the signal rank. The other three are the raw board numbers. */
+export type BoardSort = 'sharp' | 'time' | 'money' | 'diff';
 
 /**
  * The nine reads. Two axes: whether the money sits on the side the crowd ISN'T on, and
@@ -81,7 +81,6 @@ export const SPORT_LABELS: Record<PublicSport, string> = {
 export const SORT_LABELS: Record<BoardSort, string> = {
   sharp: 'Sharp',
   time: 'Time',
-  tickets: 'Tickets',
   money: 'Money %',
   diff: 'Difference',
 };

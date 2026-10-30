@@ -1,17 +1,9 @@
-import { ArrowDown, ArrowUp, CircleDollarSign, Sigma, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, CircleDollarSign, Sigma, TrendingUp, Trophy } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
+import { cn } from '@/lib/utils';
 import { getEdgeInfo } from '../../edgeExplanations';
 import { ModelEdgeRail, ModelVsMarketRow, MoneylineEdgeBar, NBA_EDGE_SCALE, SpreadCoverBar, moneylineOutcome } from '../../charts';
-import {
-  CARD_STACK,
-  fmt1,
-  fmtSigned1,
-  OverUnderPickRow,
-  Recommendation,
-  round1,
-  SpreadPickRow,
-  toNum,
-} from './shared';
+import { CARD_STACK, fmt1, fmtSigned1, Recommendation, round1, TeamMark, toNum } from './shared';
 import type { NBAPrediction } from '../../../api/nbaGames';
 import type { GameFeedItem } from '../../../types';
 import { nbaSpreadHeadline, nbaTotalHeadline } from '../../headlines/nba';
@@ -28,6 +20,75 @@ import { NbaMarketSignals } from './NbaSignalsSection';
 
 interface NbaPredictionsSectionProps {
   game: GameFeedItem;
+}
+
+/** Open projected final. Sits above the market cards, under agent consensus. */
+export function NbaScorePredictionSection({ game }: NbaPredictionsSectionProps) {
+  const raw = game.raw as unknown as NBAPrediction;
+  const score = nbaPredictedScore(raw);
+  const homeWins = score !== null && score.home >= score.away;
+
+  return (
+    <WidgetCard
+      icon={<Trophy />}
+      title="Score Prediction"
+      subtitle="The final the model projects."
+      className="@xl:col-span-2"
+    >
+      {score ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <TeamMark team={game.awayTeam} size={28} dimmed={homeWins} />
+              <span className={cn('text-lg font-bold tabular-nums', homeWins ? 'text-muted-foreground' : 'text-foreground')}>
+                {game.awayTeam.abbrev} {score.away.toFixed(1)}
+              </span>
+              {!homeWins && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+            </span>
+            <span className="flex min-w-0 items-center gap-1.5">
+              {homeWins && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+              <span className={cn('text-lg font-bold tabular-nums', homeWins ? 'text-foreground' : 'text-muted-foreground')}>
+                {score.home.toFixed(1)} {game.homeTeam.abbrev}
+              </span>
+              <TeamMark team={game.homeTeam} size={28} dimmed={!homeWins} />
+            </span>
+          </div>
+          <div
+            className="flex h-2.5 overflow-hidden rounded-full bg-muted"
+            role="img"
+            aria-label={`Projected ${game.awayTeam.abbrev} ${score.away.toFixed(1)}, ${game.homeTeam.abbrev} ${score.home.toFixed(1)}`}
+          >
+            <div
+              style={{ width: `${scoreShare(score.away, score.home)}%`, backgroundColor: game.awayTeam.colors.primary }}
+              className={cn('transition-opacity', homeWins && 'opacity-35')}
+            />
+            <div
+              style={{ width: `${100 - scoreShare(score.away, score.home)}%`, backgroundColor: game.homeTeam.colors.primary }}
+              className={cn('transition-opacity', !homeWins && 'opacity-35')}
+            />
+          </div>
+        </div>
+      ) : (
+        <p className="text-[13px] text-muted-foreground">No projected score for this game yet.</p>
+      )}
+    </WidgetCard>
+  );
+}
+
+function scoreShare(away: number, home: number): number {
+  const total = away + home;
+  return total > 0 ? (away / total) * 100 : 50;
+}
+
+function nbaPredictedScore(raw: NBAPrediction): { away: number; home: number } | null {
+  const home = toNum(raw.home_score_pred);
+  const away = toNum(raw.away_score_pred);
+  if (home !== null && away !== null) return { away, home };
+  const total = toNum(raw.pred_over_line);
+  const fairHomeSpread = toNum(raw.pred_spread);
+  if (total === null || fairHomeSpread === null) return null;
+  const margin = -fairHomeSpread;
+  return { home: (total + margin) / 2, away: (total - margin) / 2 };
 }
 
 export function NbaSpreadSection({ game }: NbaPredictionsSectionProps) {
@@ -53,10 +114,6 @@ export function NbaSpreadSection({ game }: NbaPredictionsSectionProps) {
     modelLine !== null && marketLine !== null ? round1(marketLine - modelLine) : null;
   const edgePts = derivedEdge ?? round1(Math.abs(homeSpreadDiff as number));
 
-  const awayLine =
-    vegasHomeSpread === null ? '—' : fmtSigned1(round1(-vegasHomeSpread));
-  const homeLine = vegasHomeSpread === null ? '—' : fmtSigned1(round1(vegasHomeSpread));
-
   return (
     <WidgetCard
       icon={<CircleDollarSign />}
@@ -76,14 +133,6 @@ export function NbaSpreadSection({ game }: NbaPredictionsSectionProps) {
           team={pickTeam}
           edge={`+${edgePts.toFixed(1)}`}
           edgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
-        />
-
-        <SpreadPickRow
-          awayTeam={game.awayTeam}
-          homeTeam={game.homeTeam}
-          awayLine={awayLine}
-          homeLine={homeLine}
-          pickIsHome={pickIsHome}
         />
 
         {/* Margin, not lines: `modelLine` is the pick team's fair SPREAD, so it is
@@ -150,8 +199,6 @@ export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
             isOver ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
           }
         />
-
-        <OverUnderPickRow isOver={isOver} />
 
         {/* The rail names the lean from sign(model − market). `isOver` comes from
             the raw delta instead, so a stale `over_line` can make them disagree —

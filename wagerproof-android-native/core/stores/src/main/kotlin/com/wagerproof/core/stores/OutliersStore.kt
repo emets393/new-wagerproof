@@ -43,12 +43,25 @@ class OutliersStore {
     enum class Category(val raw: String, val displayName: String) {
         `value`("value", "Prediction Market Alerts"),
         fade("fade", "Model Fade Alerts"),
-        nbaAccuracy("nba-accuracy", "NBA Model Accuracy"),
         ncaabAccuracy("ncaab-accuracy", "NCAAB Model Accuracy"),
         mlbRegression("mlb-regression", "MLB Regression Report"),
         mlbHistoricalAnalysis("mlb-historical-analysis", "MLB Historical Trends"),
         nflHistoricalAnalysis("nfl-historical-analysis", "NFL Historical Trends"),
         cfbHistoricalAnalysis("cfb-historical-analysis", "CFB Historical Trends"),
+        nflPublicBetting("nfl-public-betting", "Public Betting"),
+        cfbPublicBetting("cfb-public-betting", "Public Betting"),
+        nbaPublicBetting("nba-public-betting", "Public Betting"),
+        ncaabPublicBetting("ncaab-public-betting", "Public Betting"),
+        ;
+
+        /** Games-page card. The page is free; the chip and sentence are gated. */
+        fun publicBettingSport(): GamesStore.Sport? = when (this) {
+            nflPublicBetting -> GamesStore.Sport.nfl
+            cfbPublicBetting -> GamesStore.Sport.cfb
+            nbaPublicBetting -> GamesStore.Sport.nba
+            ncaabPublicBetting -> GamesStore.Sport.ncaab
+            else -> null
+        }
     }
 
     // MARK: - Observable state

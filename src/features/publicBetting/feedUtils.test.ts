@@ -89,14 +89,13 @@ const slate = [
   game('3', '2026-10-23T00:00:00Z', 1000, 70, 30, 90, 10),
 ];
 
-function ids(sort: 'sharp' | 'time' | 'tickets' | 'money' | 'diff'): string[] {
+function ids(sort: 'sharp' | 'time' | 'money' | 'diff'): string[] {
   return selectPublicGames(slate, 'nfl', 'spread', 'all', '', sort).map((item) => item.id);
 }
 
 describe('selectPublicGames sort', () => {
-  it('orders by soonest start, ticket count, money share, and the money-ticket gap', () => {
+  it('orders by soonest start, money share, and the money-ticket gap', () => {
     expect(ids('time')).toEqual(['1', '2', '3']);
-    expect(ids('tickets')).toEqual(['2', '3', '1']);
     expect(ids('money')).toEqual(['3', '1', '2']);
     expect(ids('diff')).toEqual(['2', '3', '1']);
   });

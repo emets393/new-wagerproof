@@ -51,8 +51,14 @@ export type FootballTeamTrend = {
   last5Su?: string[];
   last5Ats?: string[];
   last5Ou?: string[];
+  /** College rows also carry team-total and first-half tails. Football leaves them empty. */
+  last5Tt?: string[];
+  last5H1Ats?: string[];
+  last5H1Ou?: string[];
   gameLog?: FootballTrendGameLog[];
-};
+}
+
+export type TeamTrendsVariant = 'both' | 'record' | 'last5';;
 
 type FootballTrendGameLog = {
   week?: number | null;
@@ -237,6 +243,22 @@ export function trendKindForCardGroup(group: string): TeamTrendKind | null {
   }
 }
 
+function last5Chips(kind: TeamTrendKind, trend: FootballTeamTrend): string[] {
+  const list =
+    kind === 'ats'
+      ? trend.last5Ats
+      : kind === 'ou'
+        ? trend.last5Ou
+        : kind === 'su'
+          ? trend.last5Su
+          : kind === 'tt'
+            ? trend.last5Tt
+            : kind === 'h1_ats'
+              ? trend.last5H1Ats
+              : trend.last5H1Ou;
+  return (list || []).filter(Boolean).slice(0, 5);
+}
+
 function pctText(pct: number | null | undefined): string {
   if (pct === null || pct === undefined || Number.isNaN(Number(pct))) return '';
   const n = Number(pct);
@@ -283,14 +305,7 @@ function metricForKind(
           ? (trend.ttO ?? 0) + (trend.ttU ?? 0)
           : (trend.suW ?? 0) + (trend.suL ?? 0));
 
-  const chipsPreview =
-    kind === 'ats'
-      ? (trend.last5Ats || []).slice(0, 5)
-      : kind === 'ou'
-        ? (trend.last5Ou || []).slice(0, 5)
-        : kind === 'su'
-          ? (trend.last5Su || []).slice(0, 5)
-          : [];
+  const chipsPreview = last5Chips(kind, trend);
 
   // Early-season rows can carry last-season L5 chips before this year's games
   // accumulate — still show the strip values rather than a false empty state.
@@ -303,45 +318,64 @@ function metricForKind(
       return {
         label,
         value: `${recordText(trend.atsW, trend.atsL, trend.atsP)} ${pctText(trend.atsPct)}`.trim(),
-        chips: (trend.last5Ats || []).slice(0, 5),
+        chips: last5Chips(kind, trend),
         empty: false,
       };
     case 'ou':
       return {
         label,
         value: `${recordText(trend.ouO, trend.ouU, trend.ouP)} ${pctText(trend.overPct)}`.trim(),
-        chips: (trend.last5Ou || []).slice(0, 5),
+        chips: last5Chips(kind, trend),
         empty: false,
       };
     case 'tt':
       return {
         label,
         value: `${trend.ttO ?? 0}-${trend.ttU ?? 0} ${pctText(trend.ttOverPct)}`.trim(),
-        chips: [],
+        chips: last5Chips(kind, trend),
         empty: false,
       };
     case 'su':
       return {
         label,
         value: trend.suRecord || recordText(trend.suW, trend.suL),
-        chips: (trend.last5Su || []).slice(0, 5),
+        chips: last5Chips(kind, trend),
         empty: false,
       };
     case 'h1_ats':
       return {
         label,
         value: `${recordText(trend.h1AtsW, trend.h1AtsL, trend.h1AtsP)} ${pctText(trend.h1AtsPct)}`.trim(),
-        chips: [],
+        chips: last5Chips(kind, trend),
         empty: false,
       };
     case 'h1_ou':
       return {
         label,
         value: `${trend.h1OuO ?? 0}-${trend.h1OuU ?? 0} ${pctText(trend.h1OverPct)}`.trim(),
-        chips: [],
+        chips: last5Chips(kind, trend),
         empty: false,
       };
   }
+}
+
+export function TrendResultChips({ chips }: { chips: string[] }) {
+  if (!chips.length) return null;
+  return (
+    <>
+      {chips.slice(0, 5).map((chip, i) => (
+        <span
+          key={`${chip}-${i}`}
+          className={cn(
+            'flex h-[17px] w-[17px] items-center justify-center rounded-full text-[8px] font-black',
+            chipColor(chip),
+          )}
+        >
+          {chip.slice(0, 1).toUpperCase()}
+        </span>
+      ))}
+    </>
+  );
 }
 
 function chipColor(raw: string): string {
@@ -357,11 +391,13 @@ function TrendTeamCard({
   kind,
   trend,
   onOpen,
+  variant,
 }: {
   team: TeamRef;
   kind: TeamTrendKind;
   trend: FootballTeamTrend | undefined;
   onOpen: () => void;
+  variant: TeamTrendsVariant;
 }) {
   const metric = metricForKind(kind, trend);
 
@@ -379,42 +415,36 @@ function TrendTeamCard({
             {metric.label}
           </div>
         </div>
-        <div className="ml-auto text-right">
-          <div className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground/70">
-            Season
+        {variant !== 'last5' && (
+          <div className="ml-auto text-right">
+            <div className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground/70">
+              Season
+            </div>
+            <div
+              className={cn(
+                'text-[11px] font-bold tabular-nums',
+                metric.empty ? 'text-muted-foreground' : 'text-foreground',
+              )}
+            >
+              {metric.value}
+            </div>
           </div>
-          <div
-            className={cn(
-              'text-[11px] font-bold tabular-nums',
-              metric.empty ? 'text-muted-foreground' : 'text-foreground',
-            )}
-          >
-            {metric.value}
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-1">
-        {metric.chips.length > 0 ? (
-          <>
-            <span className="text-[8px] font-bold text-muted-foreground/70">L{metric.chips.length}</span>
-            {metric.chips.map((chip, i) => (
-              <span
-                key={`${chip}-${i}`}
-                className={cn(
-                  'flex h-[17px] w-[17px] items-center justify-center rounded-full text-[8px] font-black',
-                  chipColor(chip),
-                )}
-              >
-                {chip.slice(0, 1).toUpperCase()}
-              </span>
-            ))}
-          </>
-        ) : (
-          <span className="text-[8px] font-bold text-muted-foreground/70">
-            {metric.empty ? 'Season not started' : 'No L5'}
-          </span>
         )}
       </div>
+      {variant !== 'record' && (
+        <div className="flex items-center gap-1">
+          {metric.chips.length > 0 ? (
+            <>
+              <span className="text-[8px] font-bold text-muted-foreground/70">L{metric.chips.length}</span>
+              <TrendResultChips chips={metric.chips} />
+            </>
+          ) : (
+            <span className="text-[8px] font-bold text-muted-foreground/70">
+              {metric.empty ? 'Season not started' : 'No L5'}
+            </span>
+          )}
+        </div>
+      )}
       <span className="text-[8px] font-bold text-muted-foreground/70">
         Tap for game log
       </span>
@@ -433,6 +463,7 @@ export function TeamTrendsStrip({
   trendsByKey,
   sport,
   pickTeams,
+  variant = 'both',
 }: {
   cardGroup: string;
   away: TeamRef;
@@ -441,6 +472,8 @@ export function TeamTrendsStrip({
   sport: FootballSport;
   /** For team_total cards, optionally restrict to the picked team names. */
   pickTeams?: Array<string | null | undefined>;
+  /** `record` is the season head-to-head. `last5` is the chip row. `both` is the football default. */
+  variant?: TeamTrendsVariant;
 }) {
   const kind = trendKindForCardGroup(cardGroup);
   const [selectedTeam, setSelectedTeam] = useState<TeamRef | null>(null);
@@ -480,17 +513,19 @@ export function TeamTrendsStrip({
           Team Trends
         </span>
         <span className="text-[9px] text-muted-foreground/70">
-          {kind === 'ats'
-            ? 'ATS this season'
-            : kind === 'ou'
-              ? 'O/U this season'
-              : kind === 'tt'
-                ? 'Team Total this season'
-                : kind === 'su'
-                  ? 'SU this season'
-                  : kind === 'h1_ats'
-                    ? '1H ATS this season'
-                    : '1H O/U this season'}
+          {variant === 'last5'
+            ? 'Last 5'
+            : kind === 'ats'
+              ? 'ATS this season'
+              : kind === 'ou'
+                ? 'O/U this season'
+                : kind === 'tt'
+                  ? 'Team Total this season'
+                  : kind === 'su'
+                    ? 'SU this season'
+                    : kind === 'h1_ats'
+                      ? '1H ATS this season'
+                      : '1H O/U this season'}
         </span>
       </div>
       <div className="flex gap-2">
@@ -500,6 +535,7 @@ export function TeamTrendsStrip({
             team={team}
             kind={kind}
             trend={resolve(team)}
+            variant={variant}
             onOpen={() => setSelectedTeam(team)}
           />
         ))}

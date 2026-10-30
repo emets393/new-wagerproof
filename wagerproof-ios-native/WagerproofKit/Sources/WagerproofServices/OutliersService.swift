@@ -370,16 +370,7 @@ public actor OutliersService {
                     ))
                 }
             case .nba:
-                // RN: NBA only spread fades, threshold 9.5.
-                if let edge = game.homeSpreadDiff, abs(edge) >= 9.5 {
-                    alerts.append(OutlierFadeAlert(
-                        gameId: game.gameId, sport: .nba,
-                        awayTeam: game.awayTeam, homeTeam: game.homeTeam,
-                        pickType: .spread,
-                        predictedTeam: edge > 0 ? game.homeTeam : game.awayTeam,
-                        confidence: Int(abs(edge).rounded()), game: game
-                    ))
-                }
+                break // NBA has no fade alerts.
             case .ncaab:
                 if let edge = game.homeSpreadDiff, abs(edge) > 5 {
                     alerts.append(OutlierFadeAlert(
@@ -481,7 +472,7 @@ public actor OutliersService {
         if !nbaGames.isEmpty {
             let preds: [NBAPredictionRow] = (try? await cfb
                 .from("nba_predictions")
-                .select("game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc")
+                .select("game_id, home_win_prob, away_win_prob, run_id, as_of_ts_utc")
                 .execute()
                 .value) ?? []
             // Keep latest per game_id.

@@ -505,6 +505,94 @@ public struct NCAABModelAccuracyGame: Identifiable, Hashable, Sendable {
     }
 }
 
+// MARK: - Logo cache
+
+/// Name → ESPN logo, filled when the college slate loads. Avatars read it
+/// synchronously, the same way NFL cards read `NFLTeamAssets`.
+public struct NCAABSchoolColor: Hashable, Sendable {
+    public var primary: String
+    public var secondary: String
+
+    public init(primary: String, secondary: String) {
+        self.primary = primary
+        self.secondary = secondary
+    }
+}
+
+@MainActor
+public enum NCAABTeamAssets {
+    private struct Mark {
+        var logo: String?
+        var abbrev: String?
+    }
+
+    private static var marks: [String: Mark] = [:]
+    private static var schoolColors: [String: NCAABSchoolColor] = [:]
+
+    /// Merges logo URLs keyed by school name or abbreviation. A later install
+    /// fills gaps (the slate names and the ranking-table names are not always
+    /// the same string) without dropping what is already cached.
+    public static func install(_ logos: [String: String]) {
+        for (raw, logo) in logos {
+            let key = normalize(raw)
+            guard !key.isEmpty, !logo.isEmpty else { continue }
+            var mark = marks[key] ?? Mark(logo: nil, abbrev: nil)
+            mark.logo = logo
+            marks[key] = mark
+        }
+    }
+
+    public static func installAbbrevs(_ abbrevs: [String: String]) {
+        for (raw, abbrev) in abbrevs {
+            let key = normalize(raw)
+            let code = abbrev.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, !code.isEmpty else { continue }
+            var mark = marks[key] ?? Mark(logo: nil, abbrev: nil)
+            mark.abbrev = code
+            marks[key] = mark
+        }
+    }
+
+    public static func installColors(_ colors: [String: NCAABSchoolColor]) {
+        schoolColors = colors
+    }
+
+    public static func logo(for team: String) -> String? {
+        resolve(team)?.logo
+    }
+
+    /// `ncaab_team_mapping.team_abbrev` when the school is known.
+    public static func abbrev(for team: String) -> String? {
+        resolve(team)?.abbrev
+    }
+
+    /// ESPN `color` / `alternateColor`, keyed by school name, nickname, and abbreviation.
+    public static func schoolColor(for team: String) -> NCAABSchoolColor? {
+        let key = normalize(team)
+        guard !key.isEmpty else { return nil }
+        return schoolColors[key]
+    }
+
+    private static func resolve(_ team: String) -> Mark? {
+        let key = normalize(team)
+        guard !key.isEmpty else { return nil }
+        if let exact = marks[key] { return exact }
+        guard key.count >= 6 else { return nil }
+        var best: (count: Int, mark: Mark)?
+        for (candidate, mark) in marks {
+            guard candidate.contains(key) || key.contains(candidate) else { continue }
+            if best == nil || candidate.count > best!.count {
+                best = (candidate.count, mark)
+            }
+        }
+        return best?.mark
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+}
+
 // MARK: - Team mapping cache entry
 
 /// Single row in the `ncaab_team_mapping` cache. Built once per session

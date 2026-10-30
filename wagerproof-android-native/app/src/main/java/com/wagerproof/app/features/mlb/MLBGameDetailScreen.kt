@@ -46,7 +46,7 @@ import com.wagerproof.app.features.components.CollapsingWidgetScroll
 import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
 import com.wagerproof.app.features.components.WidgetHeaderAccessory
-import com.wagerproof.app.features.components.polymarket.PolymarketWidget
+import com.wagerproof.app.features.analytics.GamePublicBettingCard
 import com.wagerproof.app.features.gamecards.BestBookChip
 import com.wagerproof.app.features.gamecards.HeroStat
 import com.wagerproof.app.features.gamecards.MatchupGlassHero
@@ -147,7 +147,6 @@ fun MLBGameDetailPage(
     var selectedParlay by remember(game.id) { mutableStateOf<ParlayTicket?>(null) }
     var showParlayPaywall by remember(game.id) { mutableStateOf(false) }
     // Polymarket pushes its own prose read up once price history lands.
-    var marketOddsHeadline by remember(game.id) { mutableStateOf<String?>(null) }
     var bookOdds by remember(game.gamePk) { mutableStateOf<SportsbookGameOdds?>(null) }
 
     LaunchedEffect(game.gamePk) {
@@ -198,20 +197,18 @@ fun MLBGameDetailPage(
 
         item {
             WidgetCollapsingSection(
-                "Market Odds",
+                "Public Betting",
                 icon = AppIcon.CHART_BAR_FILL,
                 iconTint = AppColors.appPrimary,
-                headline = marketOddsHeadline ?: GameWidgetHeadlines.marketOdds(),
+                headline = "Tickets and money",
             ) {
-                PolymarketWidget(
-                    league = "mlb",
+                GamePublicBettingCard(
+                    sport = "mlb",
                     awayTeam = awayName,
                     homeTeam = homeName,
-                    awayColors = awayColors,
-                    homeColors = homeColors,
-                    awayAbbr = game.awayAbbr,
-                    homeAbbr = game.homeAbbr,
-                    onHeadlineChange = { marketOddsHeadline = it },
+                    awayColor = awayColors.primary,
+                    homeColor = homeColors.primary,
+                    gameDate = game.officialDate,
                 )
             }
         }

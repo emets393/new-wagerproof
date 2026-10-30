@@ -52,7 +52,6 @@ struct MLBGameBottomSheet: View {
     @State private var projView: ProjectionView = .full
     @State private var mlExpanded: Bool = false
     @State private var ouExpanded: Bool = false
-    @State private var marketOddsHeadline: String?
     @State private var bookOdds: SportsbookGameOdds?
     @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKeysRaw: String = ""
     /// Fallback zoom namespace for standalone use (no carousel parent).
@@ -585,22 +584,19 @@ struct MLBGameBottomSheet: View {
         let awayName = game.awayTeamName ?? game.awayTeam ?? ""
         let homeName = game.homeTeamName ?? game.homeTeam ?? ""
         WidgetCollapsingSection(
-            title: "Market Odds",
+            title: "Public Betting",
             systemImage: "chart.bar.fill",
             iconTint: Color.appPrimary,
-            headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()
+            headline: "Tickets and money"
         ) {
-            PolymarketWidget(
-                league: "mlb",
+            GamePublicBettingCard(
+                sport: "mlb",
                 awayTeam: awayName,
                 homeTeam: homeName,
-                awayLabel: game.awayAbbr,
-                homeLabel: game.homeAbbr,
+                gameDate: game.officialDate,
                 awayColor: Color(hex: Int(MLBTeams.colors(for: awayName).primary)),
                 homeColor: Color(hex: Int(MLBTeams.colors(for: homeName).primary))
-            ) {
-                marketOddsHeadline = $0
-            }
+            )
         }
     }
 

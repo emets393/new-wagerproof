@@ -10,7 +10,6 @@ import {
   CARD_STACK,
   fmt1,
   fmtSigned1,
-  OverUnderPickRow,
   Recommendation,
   round1,
   toNum,
@@ -164,7 +163,6 @@ function FirstHalfTotal({ row }: { row: NbaH1Row }) {
           edge={`+${magnitude.toFixed(1)}`}
           edgeIcon={isOver ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
         />
-        <OverUnderPickRow isOver={isOver} />
         {railAgreesWithPick ? (
           <ModelEdgeRail
             market={marketTotal}

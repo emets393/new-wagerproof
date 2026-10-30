@@ -12,7 +12,7 @@ function isMarket(value: string | null): value is PublicMarket {
 }
 
 function isSort(value: string | null): value is BoardSort {
-  return value === 'sharp' || value === 'time' || value === 'tickets' || value === 'money' || value === 'diff';
+  return value === 'sharp' || value === 'time' || value === 'money' || value === 'diff';
 }
 
 /**

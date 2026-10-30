@@ -77,14 +77,14 @@ export function GameDetailPane({
           ref={gridRef}
           className="grid grid-cols-1 items-start gap-x-4 gap-y-4 px-4 pb-10 [--widget-card-bg:rgba(241,245,249,0.92)] [--widget-card-border:rgba(15,23,42,0.1)] @xl:grid-cols-2"
         >
-          {/* Sport-agnostic, so it leads the stack for all five sports rather
-              than being duplicated into each per-sport section list. */}
+          {/* Leads the stack for every sport. */}
           <AgentConsensusSection consensus={consensus} />
           <SportSections
             game={game}
             extras={extras}
             completions={completions[game.id] ?? {}}
             onCompletionGenerated={refreshGame}
+            consensus={consensus}
           />
         </div>
       </div>

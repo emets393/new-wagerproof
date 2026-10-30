@@ -10,7 +10,7 @@ import WagerproofStores
 ///   2. WagerBot insight pill
 ///   3. Header card (gradient stripe + date/time + matchup + line pills)
 ///   4. Polymarket market odds
-///   5. Spread Analysis (Vegas vs Model fair spread, edge, fade alert + tooltip)
+///   5. Spread Analysis (Vegas vs Model fair spread, edge)
 ///   6. Over/Under Analysis (Vegas vs Model fair total, edge)
 ///   7. Injury Report (pro feature)
 ///   8. Recent Trends (pro feature)
@@ -20,6 +20,7 @@ import WagerproofStores
 ///  12. Match Simulator (model-predicted scores)
 struct NBAGameBottomSheet: View {
     @Environment(AchievementsStore.self) private var achievements
+    @Environment(GamesStore.self) private var gamesStore
     let game: NBAGame
     var onClose: () -> Void = {}
     /// When false (carousel mode), the page paints a transparent base instead of
@@ -38,16 +39,12 @@ struct NBAGameBottomSheet: View {
     // Mirror that by instantiating one store per sheet and reusing its
     // `trends(for:)` / `accuracy(for:)` lookup after `refresh()`.
     @State private var trendsStore = NBABettingTrendsStore()
-    @State private var accuracyStore = NBAModelAccuracyStore()
     /// Expanded trends surface (full 5-section matrix sheet).
     @State private var trendsDetail: NBAGameTrendsData?
     @State private var spreadExpanded: Bool = false
     @State private var ouExpanded: Bool = false
     @State private var injuryExpanded: Bool = false
     @State private var trendsExpanded: Bool = false
-    @State private var simulating: Bool = false
-    @State private var simulationRevealed: Bool = false
-    @State private var marketOddsHeadline: String?
 
     private var awayColors: TeamColorPair { NBATeams.colorPair(for: game.awayTeam) }
     private var homeColors: TeamColorPair { NBATeams.colorPair(for: game.homeTeam) }
@@ -79,15 +76,20 @@ struct NBAGameBottomSheet: View {
             // (same placement as web's detail grid).
             AgentConsensusSection(sport: .nba, gameId: GameConsensusKey.nba(game), gameDate: game.gameDate)
             marketOddsSection
+            scorePredictionSection
             spreadAnalysis
             moneylineAnalysis
             ouAnalysis
+            NbaFirstHalfSection(
+                markets: gamesStore.nbaFirstHalf(gameId: game.gameId, date: game.gameDate, home: game.homeAbbr, away: game.awayAbbr),
+                signals: slateSignals,
+                homeName: game.homeTeam,
+                awayName: game.awayTeam
+            )
             injurySection
             recentTrendsSection
             bettingTrendsSection
-            modelAccuracySection
             teamStatsSection
-            matchSimulatorSection
             // Agent pick rationale renders ONLY when the audit store has a
             // pick whose gameId matches one of these keys. RN passes the
             // same three identifiers — game_id (int → string), training_key,
@@ -113,8 +115,6 @@ struct NBAGameBottomSheet: View {
             ouExpanded = false
             injuryExpanded = false
             trendsExpanded = false
-            simulating = false
-            simulationRevealed = false
             matchupStore.reset()
             // Three independent fetches in parallel — matches RN's hook-level
             // module caches that each fire-and-forget once per app session.
@@ -125,8 +125,7 @@ struct NBAGameBottomSheet: View {
                 gameDate: game.gameDate
             )
             async let trends: Void = trendsStore.refreshIfNeeded()
-            async let accuracy: Void = accuracyStore.refresh()
-            _ = await (matchup, trends, accuracy)
+            _ = await (matchup, trends)
         }
         .sheet(item: $trendsDetail) { trends in
             BettingTrendsDetailSheet(
@@ -147,9 +146,38 @@ struct NBAGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
-            PolymarketWidget(league: "nba", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: game.awayAbbr, homeLabel: game.homeAbbr, awayColor: awayColors.primary, homeColor: homeColors.primary) {
-                marketOddsHeadline = $0
+        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money") {
+            GamePublicBettingCard(
+                sport: "nba",
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                gameDate: game.gameDate,
+                awayColor: awayColors.primary,
+                homeColor: homeColors.primary
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var scorePredictionSection: some View {
+        if let homeScore = game.homeScorePred, let awayScore = game.awayScorePred {
+            WidgetCollapsingSection(title: "Score Prediction", systemImage: "sportscourt", iconTint: Color.appPrimary) {
+                ProjectedScoreRow(
+                    away: ProjectedScoreRow.Side(
+                        logoURL: NBATeams.logoURL(for: game.awayTeam),
+                        abbr: NBATeams.abbreviation(for: game.awayTeam),
+                        primary: awayColors.primary,
+                        secondary: awayColors.secondary,
+                        score: awayScore
+                    ),
+                    home: ProjectedScoreRow.Side(
+                        logoURL: NBATeams.logoURL(for: game.homeTeam),
+                        abbr: NBATeams.abbreviation(for: game.homeTeam),
+                        primary: homeColors.primary,
+                        secondary: homeColors.secondary,
+                        score: homeScore
+                    )
+                )
             }
         }
     }
@@ -237,20 +265,6 @@ struct NBAGameBottomSheet: View {
         }
     }
 
-    /// Renders ModelAccuracyWidget when the per-game lookup succeeds.
-    @ViewBuilder
-    private var modelAccuracySection: some View {
-        if let accuracy = accuracyStore.accuracy(for: game.gameId) {
-            WidgetCollapsingSection(title: "Model Accuracy", systemImage: "scope", iconTint: Color(hex: 0x14B8A6), headline: GameWidgetHeadlines.modelAccuracy()) {
-                ModelAccuracyWidget(
-                    awayAbbr: game.awayAbbr,
-                    homeAbbr: game.homeAbbr,
-                    nba: accuracy
-                )
-            }
-        }
-    }
-
     // MARK: - Collapsing hero
 
     /// Matchup hero rendered as ONE layout that continuously shrinks with scroll
@@ -288,7 +302,7 @@ struct NBAGameBottomSheet: View {
 
     @ViewBuilder
     private func heroTeamColumn(team: String, colors: TeamColorPair, size: CGFloat, nameOpacity: Double, ml: Int?, mlReveal: Double) -> some View {
-        let abbr = TeamInitials.from(team)
+        let abbr = NBATeams.abbreviation(for: team)
         let parts = TeamInitials.parts(of: team)
         VStack(spacing: 4) {
             GameCardTeamAvatar(teamName: team, sport: "nba", size: size, colors: colors)
@@ -374,8 +388,7 @@ struct NBAGameBottomSheet: View {
                 predictedSpread: predictedSpread,
                 isHome: isHomeEdge,
                 vegasSpread: vegasSpread,
-                probability: nil,
-                isFadeAlert: edge >= 9.5
+                probability: nil
             )
         }
         if let prob = game.homeAwaySpreadCoverProb {
@@ -387,8 +400,7 @@ struct NBAGameBottomSheet: View {
                 predictedSpread: isHome ? game.homeSpread : game.awaySpread,
                 isHome: isHome,
                 vegasSpread: isHome ? game.homeSpread : game.awaySpread,
-                probability: p,
-                isFadeAlert: p >= 0.8 || (p - 0.5) * 20 >= 9.5
+                probability: p
             )
         }
         return nil
@@ -482,30 +494,13 @@ struct NBAGameBottomSheet: View {
                                 .foregroundStyle(Color.appPrimary)
                         }
                     }
-                    if prediction.isFadeAlert {
-                        fadeAlertPill
-                        // RN renders FadeAlertTooltip immediately below the pill.
-                        // The suggested-bet copy mirrors the RN string:
-                        // fade direction is the opposite of the model's side.
-                        FadeAlertTooltip(
-                            betType: .spread,
-                            suggestedBet: fadeSuggestion(for: prediction)
-                        )
-                    }
                     if spreadExpanded {
                         explanation(text: spreadExplanation(prediction))
                     }
+                    attachedSignals(market: "spread", modelLikesHome: prediction.isHome)
                 }
             }
         }
-    }
-
-    /// RN's fade copy: `${prediction.isHome ? game.away_team : game.home_team} ${formatSpread(...)}`.
-    /// The "fade" team is the OPPOSITE of the side the model picks.
-    private func fadeSuggestion(for prediction: SpreadPrediction) -> String {
-        let fadeTeam = prediction.isHome ? game.awayTeam : game.homeTeam
-        let fadeSpread = prediction.isHome ? game.awaySpread : game.homeSpread
-        return "\(fadeTeam) \(GameCardFormatting.formatSpread(fadeSpread))"
     }
 
     @ViewBuilder
@@ -554,9 +549,15 @@ struct NBAGameBottomSheet: View {
                                 .foregroundStyle(color)
                         }
                     }
+                    if game.totalTier == "warmup" {
+                        Text("Tracking only while the total model warms up. This number is not a bet.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.appTextSecondary)
+                    }
                     if ouExpanded {
                         explanation(text: ouExplanation(prediction))
                     }
+                    attachedSignals(market: "total", modelLikesOver: prediction.isOver)
                 }
             }
         }
@@ -607,9 +608,31 @@ struct NBAGameBottomSheet: View {
                                 .foregroundStyle(resolved.outcome.isPositiveValue ? Color.appPrimary : Color.appAccentRed)
                         }
                     }
+                    attachedSignals(
+                        market: "moneyline",
+                        modelLikesHome: resolved.team == game.homeTeam
+                    )
                 }
             }
         }
+    }
+
+    private var slateSignals: [NBASlateSignal] {
+        gamesStore.nbaSignals(gameId: game.gameId, date: game.gameDate, home: game.homeAbbr, away: game.awayAbbr)
+    }
+
+    @ViewBuilder
+    private func attachedSignals(market: String, modelLikesHome: Bool? = nil, modelLikesOver: Bool? = nil) -> some View {
+        NbaAttachedSignals(
+            signals: slateSignals.filter { $0.market == market },
+            market: market,
+            modelLikesHome: modelLikesHome,
+            modelLikesOver: modelLikesOver,
+            homeName: game.homeTeam,
+            awayName: game.awayTeam,
+            homeAbbr: game.homeAbbr,
+            awayAbbr: game.awayAbbr
+        )
     }
 
     // MARK: - Team stats
@@ -691,84 +714,6 @@ struct NBAGameBottomSheet: View {
         }
     }
 
-    // MARK: - Match simulator
-
-    @ViewBuilder
-    private var matchSimulatorSection: some View {
-        if let homeScore = game.homeScorePred, let awayScore = game.awayScorePred {
-            WidgetCollapsingSection(
-                title: "Match Simulator",
-                systemImage: "sparkles",
-                iconTint: Color.appAccentAmber,
-                headline: GameWidgetHeadlines.projectedScore(
-                    awayName: game.awayAbbr,
-                    homeName: game.homeAbbr,
-                    awayScore: awayScore,
-                    homeScore: homeScore
-                )
-            ) {
-                VStack(alignment: .leading, spacing: 12) {
-                if !simulationRevealed {
-                    Button {
-                        simulating = true
-                        Task {
-                            // Mirror RN's 2.5s reveal delay.
-                            try? await Task.sleep(nanoseconds: 2_500_000_000)
-                            simulating = false
-                            simulationRevealed = true
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if simulating {
-                                ProgressView()
-                                Text("Simulating...")
-                                    .font(.system(size: 18, weight: .bold))
-                            } else {
-                                Text("Simulate Match")
-                                    .font(.system(size: 18, weight: .bold))
-                            }
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 56)
-                        .padding(.horizontal, 32)
-                        .background(simulating ? Color.appSurfaceMuted : Color.appPrimary,
-                                    in: RoundedRectangle(cornerRadius: 12))
-                        .foregroundStyle(simulating ? Color.appTextPrimary : Color.white)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(simulating)
-                    .sensoryFeedback(.impact(weight: .medium), trigger: simulating)
-                } else {
-                    HStack {
-                        VStack(spacing: 12) {
-                            GameCardTeamAvatar(teamName: game.awayTeam, sport: "nba", size: 64)
-                            Text("\(Int(awayScore.rounded()))")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundStyle(Color.appTextPrimary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        Text("VS")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Color.appTextSecondary)
-                        VStack(spacing: 12) {
-                            GameCardTeamAvatar(teamName: game.homeTeam, sport: "nba", size: 64)
-                            Text("\(Int(homeScore.rounded()))")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundStyle(Color.appTextPrimary)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .padding(16)
-                    .background(Color.appAccentAmber.opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.appAccentAmber.opacity(0.3), lineWidth: 1)
-                    )
-                }
-                }
-            }
-        }
-    }
-
     // MARK: - Wrappers / helpers
 
     @ViewBuilder
@@ -793,22 +738,6 @@ struct NBAGameBottomSheet: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(isHighlight ? color.opacity(0.25) : .clear, lineWidth: 1)
         )
-    }
-
-    @ViewBuilder
-    private var fadeAlertPill: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "bolt.fill")
-                .font(.system(size: 11))
-            Text("FADE ALERT")
-                .font(.system(size: 10, weight: .bold))
-                .tracking(1)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color.appAccentAmber.opacity(0.2), in: Capsule())
-        .overlay(Capsule().stroke(Color.appAccentAmber.opacity(0.4), lineWidth: 1))
-        .foregroundStyle(Color.appAccentAmber)
     }
 
     @ViewBuilder
@@ -840,7 +769,6 @@ struct NBAGameBottomSheet: View {
         let isHome: Bool
         let vegasSpread: Double?
         let probability: Double?
-        let isFadeAlert: Bool
     }
 
     private struct OUPrediction {

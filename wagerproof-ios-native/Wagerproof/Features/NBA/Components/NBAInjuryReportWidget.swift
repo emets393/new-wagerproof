@@ -68,11 +68,9 @@ struct NBAInjuryReportWidget: View {
         if awayInjuries.isEmpty && homeInjuries.isEmpty {
             emptyState
         } else {
-            VStack(spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
-                    teamColumn(name: awayTeam, injuries: awayInjuries)
-                    teamColumn(name: homeTeam, injuries: homeInjuries)
-                }
+            VStack(alignment: .leading, spacing: 16) {
+                teamBlock(name: awayTeam, injuries: awayInjuries)
+                teamBlock(name: homeTeam, injuries: homeInjuries)
                 Divider()
                 impactFooter
             }
@@ -98,62 +96,65 @@ struct NBAInjuryReportWidget: View {
     }
 
     @ViewBuilder
-    private func teamColumn(name: String, injuries: [NBAInjuryReport]) -> some View {
-        VStack(spacing: 8) {
-            GameCardTeamAvatar(teamName: name, sport: "nba", size: 40)
+    private func teamBlock(name: String, injuries: [NBAInjuryReport]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                GameCardTeamAvatar(teamName: name, sport: "nba", size: 28)
+                Text(name)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(1)
+            }
             if injuries.isEmpty {
                 Text("No injuries reported")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.appTextSecondary)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 8)
             } else {
                 injuryTable(injuries)
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
     private func injuryTable(_ injuries: [NBAInjuryReport]) -> some View {
-        VStack(spacing: 4) {
-            HStack {
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 8) {
                 Text("PLAYER")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.5)
-                    .foregroundStyle(Color.appTextSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text("STATUS")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.5)
-                    .foregroundStyle(Color.appTextSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(width: 88, alignment: .leading)
                 Text("PIE")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.5)
-                    .foregroundStyle(Color.appTextSecondary)
-                    .frame(minWidth: 50, alignment: .trailing)
+                    .frame(width: 56, alignment: .trailing)
             }
-            .padding(.bottom, 4)
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.5)
+            .foregroundStyle(Color.appTextSecondary)
+            .padding(.bottom, 6)
             .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.appBorder), alignment: .bottom)
 
             ForEach(Array(sortedByPIE(injuries).enumerated()), id: \.offset) { _, injury in
-                HStack {
-                    Text(formatPlayerName(injury.playerName))
-                        .font(.system(size: 11, weight: .medium))
+                HStack(alignment: .top, spacing: 8) {
+                    Text(injury.playerName)
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.appTextPrimary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(1)
                     Text(injury.status)
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                         .foregroundStyle(Color.appTextSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(width: 88, alignment: .leading)
                     Text(formatPIE(injury.pieValue))
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.appPrimary)
-                        .frame(minWidth: 50, alignment: .trailing)
+                        .lineLimit(1)
+                        .frame(width: 56, alignment: .trailing)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 8)
             }
         }
     }
@@ -184,15 +185,7 @@ struct NBAInjuryReportWidget: View {
         .padding(.top, 12)
     }
 
-    // MARK: - Helpers (mirror RN `formatPlayerName` / `formatPIE` / `sortByPIE`)
-
-    private func formatPlayerName(_ full: String) -> String {
-        let parts = full.split(separator: " ", omittingEmptySubsequences: true)
-        if parts.count < 2 { return full }
-        let firstInitial = parts[0].prefix(1).uppercased()
-        let last = parts.dropFirst().joined(separator: " ")
-        return "\(firstInitial). \(last)"
-    }
+    // MARK: - Helpers
 
     private func formatPIE(_ value: Double?) -> String {
         guard let v = value else { return "N/A" }

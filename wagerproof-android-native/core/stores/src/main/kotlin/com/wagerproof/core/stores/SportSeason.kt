@@ -32,8 +32,8 @@ object SportSeason {
     fun window(sport: GamesStore.Sport): Pair<MonthDay, MonthDay> = when (sport) {
         GamesStore.Sport.nfl -> MonthDay.of(9, 4) to MonthDay.of(2, 15)
         GamesStore.Sport.cfb -> MonthDay.of(8, 23) to MonthDay.of(1, 20)
-        GamesStore.Sport.nba -> MonthDay.of(10, 21) to MonthDay.of(6, 22)
-        GamesStore.Sport.ncaab -> MonthDay.of(11, 3) to MonthDay.of(4, 8)
+        GamesStore.Sport.nba -> MonthDay.of(10, 20) to MonthDay.of(6, 22)
+        GamesStore.Sport.ncaab -> MonthDay.of(11, 1) to MonthDay.of(4, 8)
         GamesStore.Sport.mlb -> MonthDay.of(3, 26) to MonthDay.of(11, 5)
     }
 
@@ -79,7 +79,7 @@ object SportSeason {
         date: LocalDate? = null,
     ): EmptyCopy {
         val today = todayET(date)
-        if (isInSeason(sport, today)) {
+        if (isInSeason(sport, today) || isOpeningLeadIn(sport, today)) {
             return EmptyCopy(
                 title = "Refreshing ${sport.label} analysis",
                 message = "We're refreshing analysis for today's $itemsNoun. Check back tomorrow for updated $dataNoun.",
@@ -91,5 +91,32 @@ object SportSeason {
             title = title,
             message = "The season begins ${startFormatter.format(start)}. Check back closer to the start date.",
         )
+    }
+
+    /**
+     * College tips off November 1. The nine days before that, and the first
+     * week of games, stay on a 10-day board so Friday still shows Sunday.
+     * After November 8 the board is today and tomorrow, same as NBA.
+     */
+    fun ncaabBoardDays(date: LocalDate = LocalDate.now(ET)): Int {
+        val openingYear = if (date.monthValue <= 4) date.year - 1 else date.year
+        val opening = LocalDate.of(openingYear, 11, 1)
+        val leadStart = opening.minusDays(9)
+        val tailEnd = opening.plusDays(7)
+        return if (!date.isBefore(leadStart) && !date.isAfter(tailEnd)) 10 else 2
+    }
+
+    /** Inclusive Eastern dates for the college board. */
+    fun ncaabBoardSpan(date: LocalDate = LocalDate.now(ET)): Pair<String, String> {
+        val end = date.plusDays((ncaabBoardDays(date) - 1).toLong())
+        return date.toString() to end.toString()
+    }
+
+    /** Games are already posted the week before tip. That is not the offseason. */
+    private fun isOpeningLeadIn(sport: GamesStore.Sport, date: LocalDate): Boolean {
+        if (sport != GamesStore.Sport.ncaab) return false
+        val start = nextSeasonStart(sport, date)
+        val days = java.time.temporal.ChronoUnit.DAYS.between(date, start)
+        return days in 1..9
     }
 }

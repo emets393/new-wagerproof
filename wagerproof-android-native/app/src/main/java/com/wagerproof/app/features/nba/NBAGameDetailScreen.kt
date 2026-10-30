@@ -2,7 +2,6 @@ package com.wagerproof.app.features.nba
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,13 +10,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,7 +22,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,12 +36,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.agents.components.AgentPickRationaleWidget
 import com.wagerproof.app.features.components.CollapsingWidgetScroll
-import com.wagerproof.app.features.components.FadeAlertTooltip
-import com.wagerproof.app.features.components.FadeBetType
 import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
 import com.wagerproof.app.features.components.WidgetHeaderAccessory
-import com.wagerproof.app.features.components.polymarket.PolymarketWidget
+import com.wagerproof.app.features.analytics.GamePublicBettingCard
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
 import com.wagerproof.app.features.gamecards.NBATeams
@@ -62,30 +56,27 @@ import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.shared.hexColor
 import com.wagerproof.core.design.components.EdgeScale
 import com.wagerproof.core.design.components.ModelEdgeRail
+import com.wagerproof.core.design.components.MoneylineEdgeBar
+import com.wagerproof.core.design.components.MoneylineOutcome
 import com.wagerproof.core.design.components.SpreadCoverBar
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
-import com.wagerproof.core.models.NBAAccuracyBucket
 import com.wagerproof.core.models.NBAGame
-import com.wagerproof.core.models.NBAModelAccuracyData
 import com.wagerproof.core.models.NBATrendsInsight
 import com.wagerproof.core.stores.GamesStore
 import com.wagerproof.core.stores.LoadState
 import com.wagerproof.core.stores.NBABettingTrendsStore
 import com.wagerproof.core.stores.NBAMatchupOverviewStore
-import com.wagerproof.core.stores.NBAModelAccuracyStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
  * NBA game-detail page — port of iOS `NBAGameBottomSheet`. Section order:
- * Market Odds → Spread Prediction (LIVE fade alert: edge ≥ 9.5 or prob ≥ 0.8) →
+ * Market Odds → Spread Prediction →
  * O/U Prediction → Injury Report (Pro) → Recent Trends (Pro) → Betting Trends →
  * Model Accuracy → Team Stats (Adj Off/Def/Pace + ATS% + Over%) → Match
  * Simulator (2.5s reveal) → Agent rationale.
@@ -103,24 +94,20 @@ fun NBAGameDetailPage(
     val achievementStore = com.wagerproof.app.di.appGraph().achievements
     androidx.compose.runtime.LaunchedEffect(Unit) { achievementStore.record("game_analysis") }
 
-    val scope = rememberCoroutineScope()
     val matchupStore = remember { NBAMatchupOverviewStore() }
     val trendsStore = remember { NBABettingTrendsStore() }
-    val accuracyStore = remember { NBAModelAccuracyStore() }
+    val gamesStore = com.wagerproof.app.di.appGraph().games
 
     // Transient sheet state, reset when a new game opens (keyed on id).
     var spreadExpanded by remember(game.id) { mutableStateOf(false) }
     var ouExpanded by remember(game.id) { mutableStateOf(false) }
     var injuryExpanded by remember(game.id) { mutableStateOf(false) }
     var trendsExpanded by remember(game.id) { mutableStateOf(false) }
-    var simulating by remember(game.id) { mutableStateOf(false) }
-    var simulationRevealed by remember(game.id) { mutableStateOf(false) }
     var trendsDetailOpen by remember(game.id) { mutableStateOf(false) }
-    // Polymarket pushes its own prose read up once price history lands.
-    var marketOddsHeadline by remember(game.id) { mutableStateOf<String?>(null) }
 
     val awayColors = NBATeams.colorPair(game.awayTeam)
     val homeColors = NBATeams.colorPair(game.homeTeam)
+    val slateSignals = gamesStore.nbaSignals(game.gameId, game.gameDate, game.homeAbbr, game.awayAbbr)
 
     LaunchedEffect(game.id) {
         matchupStore.reset()
@@ -128,8 +115,7 @@ fun NBAGameDetailPage(
         coroutineScope {
             val matchup = async { matchupStore.load(game.awayTeam, game.homeTeam, game.gameDate) }
             val trends = async { trendsStore.refreshIfNeeded() }
-            val accuracy = async { accuracyStore.refresh() }
-            matchup.await(); trends.await(); accuracy.await()
+            matchup.await(); trends.await()
         }
     }
 
@@ -157,21 +143,25 @@ fun NBAGameDetailPage(
 
         item {
             WidgetCollapsingSection(
-                "Market Odds",
+                "Public Betting",
                 icon = AppIcon.fromSystemName("chart.bar.fill"),
                 iconTint = AppColors.appPrimary,
-                headline = marketOddsHeadline ?: GameWidgetHeadlines.marketOdds(),
+                headline = "Tickets and money",
             ) {
-                PolymarketWidget(
-                    league = "nba",
+                GamePublicBettingCard(
+                    sport = "nba",
                     awayTeam = game.awayTeam,
                     homeTeam = game.homeTeam,
-                    awayColors = awayColors,
-                    homeColors = homeColors,
-                    awayAbbr = game.awayAbbr,
-                    homeAbbr = game.homeAbbr,
-                    onHeadlineChange = { marketOddsHeadline = it },
+                    awayColor = awayColors.primary,
+                    homeColor = homeColors.primary,
+                    gameDate = game.gameDate,
                 )
+            }
+        }
+
+        if (game.homeScorePred != null && game.awayScorePred != null) {
+            item {
+                NbaScorePrediction(game, awayColors, homeColors)
             }
         }
 
@@ -225,12 +215,63 @@ fun NBAGameDetailPage(
                                 Text(String.format(Locale.US, "%.1f pts delta", pred.edge), color = AppColors.appPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                        if (pred.isFadeAlert) {
-                            FadeAlertPill()
-                            // Fade = the OPPOSITE side of the model's pick, at its spread.
-                            FadeAlertTooltip(FadeBetType.SPREAD, fadeSuggestion(game, pred))
-                        }
                         if (spreadExpanded) Explanation(spreadExplanation(pred))
+                        NbaMarketSignals(
+                            signals = slateSignals.filter { it.market == "spread" },
+                            market = "spread",
+                            modelLikesHome = pred.isHome,
+                            homeName = game.homeTeam,
+                            awayName = game.awayTeam,
+                            homeAbbr = game.homeAbbr,
+                            awayAbbr = game.awayAbbr,
+                        )
+                    }
+                }
+            }
+        }
+
+        moneylinePrediction(game)?.let { ml ->
+            item {
+                WidgetCollapsingSection(
+                    "Moneyline Prediction",
+                    icon = AppIcon.fromSystemName("dollarsign.circle.fill"),
+                    iconTint = AppColors.appPrimary,
+                    headline = GameWidgetHeadlines.moneyline(
+                        segment = "fg",
+                        pickAbbr = ml.abbrev,
+                        pickProbability = ml.probability,
+                        impliedProbability = ml.implied,
+                        pickEdgePct = ml.edge,
+                    ),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        MoneylineEdgeBar(
+                            price = ml.price,
+                            modelProbability = ml.probability,
+                            scale = EdgeScale.nba,
+                            teamAbbrev = ml.abbrev,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            GameCardTeamAvatar(sport = "nba", team = ml.team, diameter = 40.dp, colors = NBATeams.colorPair(ml.team))
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Edge to ${ml.abbrev}", color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    String.format(Locale.US, "%+.1f pts of win rate", ml.edge),
+                                    color = if (ml.edge > 0) AppColors.appPrimary else AppColors.appAccentRed,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                        NbaMarketSignals(
+                            signals = slateSignals.filter { it.market == "moneyline" },
+                            market = "moneyline",
+                            modelLikesHome = ml.team == game.homeTeam,
+                            homeName = game.homeTeam,
+                            awayName = game.awayTeam,
+                            homeAbbr = game.homeAbbr,
+                            awayAbbr = game.awayAbbr,
+                        )
                     }
                 }
             }
@@ -272,7 +313,23 @@ fun NBAGameDetailPage(
                                 Text(String.format(Locale.US, "%.1f pts delta", pred.edge), color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
+                        if (game.totalTier == "warmup") {
+                            Text(
+                                "Tracking only while the total model warms up. This number is not a bet.",
+                                color = AppColors.appTextSecondary,
+                                fontSize = 12.sp,
+                            )
+                        }
                         if (ouExpanded) Explanation(ouExplanation(pred))
+                        NbaMarketSignals(
+                            signals = slateSignals.filter { it.market == "total" },
+                            market = "total",
+                            modelLikesOver = pred.isOver,
+                            homeName = game.homeTeam,
+                            awayName = game.awayTeam,
+                            homeAbbr = game.homeAbbr,
+                            awayAbbr = game.awayAbbr,
+                        )
                     }
                 }
             }
@@ -357,19 +414,14 @@ fun NBAGameDetailPage(
             }
         }
 
-        // Model Accuracy
-        accuracyStore.accuracy(game.gameId)?.let { acc ->
             item {
-                WidgetCollapsingSection(
-                    "Model Accuracy",
-                    icon = AppIcon.fromSystemName("scope"),
-                    iconTint = hexColor(0x14B8A6),
-                    headline = GameWidgetHeadlines.modelAccuracy(),
-                ) {
-                    ModelAccuracyTable(acc)
-                }
+                NbaFirstHalfSection(
+                    markets = gamesStore.nbaFirstHalf(game.gameId, game.gameDate, game.homeAbbr, game.awayAbbr),
+                    signals = slateSignals,
+                    homeName = game.homeTeam,
+                    awayName = game.awayTeam,
+                )
             }
-        }
 
         // Team Stats
         if (game.homeAdjOffense != null || game.awayAdjOffense != null) {
@@ -386,37 +438,6 @@ fun NBAGameDetailPage(
                     ),
                 ) {
                     TeamStats(game)
-                }
-            }
-        }
-
-        // Match Simulator
-        if (game.homeScorePred != null && game.awayScorePred != null) {
-            item {
-                WidgetCollapsingSection(
-                    "Match Simulator",
-                    icon = AppIcon.fromSystemName("sparkles"),
-                    iconTint = AppColors.appAccentAmber,
-                    headline = GameWidgetHeadlines.projectedScore(
-                        awayName = game.awayAbbr,
-                        homeName = game.homeAbbr,
-                        awayScore = game.awayScorePred,
-                        homeScore = game.homeScorePred,
-                    ),
-                ) {
-                    MatchSimulator(
-                        game = game,
-                        simulating = simulating,
-                        revealed = simulationRevealed,
-                        onSimulate = {
-                            simulating = true
-                            scope.launch {
-                                delay(2500) // Mirror RN's 2.5s reveal delay.
-                                simulating = false
-                                simulationRevealed = true
-                            }
-                        },
-                    )
                 }
             }
         }
@@ -496,7 +517,7 @@ private fun HeroTeamColumn(
     ml: Int?,
     mlReveal: Float,
 ) {
-    val abbr = TeamInitials.from(team)
+    val abbr = NBATeams.abbreviation(team)
     val (city, nick) = TeamInitials.parts(team)
     Column(Modifier.width(96.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         GameCardTeamAvatar(sport = "nba", team = team, diameter = size, colors = colors)
@@ -578,22 +599,6 @@ private fun Explanation(text: String) {
     }
 }
 
-@Composable
-private fun FadeAlertPill() {
-    Row(
-        Modifier
-            .clip(CircleShape)
-            .background(AppColors.appAccentAmber.copy(alpha = 0.2f))
-            .border(1.dp, AppColors.appAccentAmber.copy(alpha = 0.4f), CircleShape)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        AppIcon.fromSystemName("bolt.fill")?.let { Icon(it.imageVector, null, tint = AppColors.appAccentAmber, modifier = Modifier.size(11.dp)) }
-        Text("FADE ALERT", color = AppColors.appAccentAmber, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
 // MARK: - Team stats / simulator / accuracy
 
 @Composable
@@ -630,125 +635,58 @@ private fun StatRow(label: String, away: String, home: String) {
 }
 
 @Composable
-private fun MatchSimulator(
+private fun NbaScorePrediction(
     game: NBAGame,
-    simulating: Boolean,
-    revealed: Boolean,
-    onSimulate: () -> Unit,
+    awayColors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    homeColors: com.wagerproof.app.features.gamecards.TeamColorPair,
 ) {
-    val shape = RoundedCornerShape(12.dp)
-    if (!revealed) {
+    val awayScore = game.awayScorePred ?: return
+    val homeScore = game.homeScorePred ?: return
+    WidgetCollapsingSection(
+        title = "Score Prediction",
+        icon = AppIcon.fromSystemName("sportscourt"),
+        iconTint = AppColors.appPrimary,
+    ) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .clip(shape)
-                .background(if (simulating) AppColors.appSurfaceMuted else AppColors.appPrimary)
-                .clickable(enabled = !simulating, onClick = onSimulate)
-                .padding(horizontal = 32.dp),
+            Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (simulating) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = AppColors.appTextPrimary)
-                Spacer(Modifier.width(8.dp))
-                Text("Simulating...", color = AppColors.appTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            } else {
-                Text("Simulate Match", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    } else {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(shape)
-                .background(AppColors.appAccentAmber.copy(alpha = 0.15f))
-                .border(1.dp, AppColors.appAccentAmber.copy(alpha = 0.3f), shape)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SimScore(game.awayTeam, game.awayScorePred, Modifier.weight(1f))
-            Text("VS", color = AppColors.appTextSecondary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            SimScore(game.homeTeam, game.homeScorePred, Modifier.weight(1f))
+            NbaProjectedTeam(game.awayTeam, awayScore, awayColors, Modifier.weight(1f))
+            Text("–", color = AppColors.appTextMuted, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            NbaProjectedTeam(game.homeTeam, homeScore, homeColors, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun SimScore(team: String, score: Double?, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        GameCardTeamAvatar(sport = "nba", team = team, diameter = 64.dp, colors = NBATeams.colorPair(team))
-        Text("${(score ?: 0.0).roundToInt()}", color = AppColors.appTextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-/**
- * Inline Model Accuracy table — same shared `ModelAccuracyWidget` layout the
- * NCAAB page inlines (doc §2.9): Type/Pick/Edge/Accuracy header; rows
- * Spread/ML/O-U. Edge always blue #3B82F6; accuracy ≥60 green / ≥50 yellow /
- * else red.
- */
-@Composable
-private fun ModelAccuracyTable(game: NBAModelAccuracyData) {
-    val shape = RoundedCornerShape(8.dp)
-    Column(Modifier.fillMaxWidth().clip(shape).background(Color.White.copy(alpha = 0.05f)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.fillMaxWidth()) {
-            // Pick loses a little width and Edge gains it: the ML row's pick is
-            // now a bare abbr while every edge cell carries a " pts"/"%" unit.
-            HeaderCell("Type", 1.0f)
-            HeaderCell("Pick", 1.3f)
-            HeaderCell("Edge", 1.3f)
-            HeaderCell("Accuracy", 1.4f)
+private fun NbaProjectedTeam(
+    team: String,
+    score: Double,
+    colors: com.wagerproof.app.features.gamecards.TeamColorPair,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GameCardTeamAvatar(sport = "nba", team = team, diameter = 38.dp, colors = colors, logoURL = NBATeams.logoURL(team))
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(
+                NBATeams.abbreviation(team),
+                color = AppColors.appTextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.6.sp,
+            )
+            Text(
+                String.format(java.util.Locale.US, "%.1f", score),
+                color = AppColors.appTextPrimary,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+            )
         }
-        val homeCovers = (game.homeSpreadDiff ?: 0.0) > 0
-        AccuracyRow(
-            "Spread",
-            if (game.homeSpread != null) "${if (homeCovers) game.homeAbbr else game.awayAbbr} ${GameCardFormatting.formatSpread(if (homeCovers) game.homeSpread else -game.homeSpread!!)}" else "—",
-            // Spread/OU edges are POINTS; without the unit the column reads as a
-            // price or a percentage next to the ML row's percent.
-            game.homeSpreadDiff?.let { "+${fmtHalf(abs(it))} pts" } ?: "—",
-            game.spreadAccuracy,
-        )
-        AccuracyRow(
-            "ML",
-            // Pick cell is the bare abbr and the win probability IS the edge, so
-            // the column stops rendering a permanent "—" that reads as missing
-            // data (iOS `mlPick` / `mlEdge`).
-            game.mlPickIsHome?.let { if (it) game.homeAbbr else game.awayAbbr } ?: "—",
-            game.mlPickProbRounded?.let { "${(it * 100).roundToInt()}%" } ?: "—",
-            game.mlAccuracy,
-        )
-        val isOver = (game.overLineDiff ?: 0.0) > 0
-        AccuracyRow(
-            "O-U",
-            if (game.overLine != null) "${if (isOver) "Over" else "Under"} ${fmtHalf(game.overLine)}" else "—",
-            game.overLineDiff?.let { "+${fmtHalf(abs(it))} pts" } ?: "—",
-            game.ouAccuracy,
-        )
-    }
-}
-
-@Composable
-private fun androidx.compose.foundation.layout.RowScope.HeaderCell(text: String, weight: Float) {
-    Text(text, color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(weight))
-}
-
-@Composable
-private fun AccuracyRow(type: String, pick: String, edge: String, acc: NBAAccuracyBucket?) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(type, color = AppColors.appTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1.0f))
-        Text(pick, color = AppColors.appTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1, modifier = Modifier.weight(1.3f))
-        // Blue regardless of direction — the color encodes "this is the edge",
-        // not a good/bad result (RN convention, mirrored on iOS).
-        Text(edge, color = hexColor(0x3B82F6), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1.3f))
-        val accText = acc?.let { "${it.accuracyPct.roundToInt()}% (${it.games}g)" } ?: "—"
-        val accColor = when {
-            acc == null -> AppColors.appTextSecondary
-            acc.accuracyPct >= 60 -> hexColor(0x22C55E)
-            acc.accuracyPct >= 50 -> hexColor(0xEAB308)
-            else -> hexColor(0xEF4444)
-        }
-        Text(accText, color = accColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.4f))
     }
 }
 
@@ -759,7 +697,6 @@ private data class SpreadPred(
     val predictedTeam: String,
     val predictedSpread: Double?,
     val isHome: Boolean,
-    val isFadeAlert: Boolean,
     /** The pick side's market number, for the headline's model-vs-market read. */
     val vegasSpread: Double? = null,
     /**
@@ -787,8 +724,6 @@ private fun spreadPrediction(game: NBAGame): SpreadPred? {
                 predictedTeam = if (isHome) game.homeTeam else game.awayTeam,
                 predictedSpread = if (isHome) mf else -mf,
                 isHome = isHome,
-                // NBA fade alert is LIVE: fires at a 9.5-pt model/market gap.
-                isFadeAlert = edge >= 9.5,
                 vegasSpread = if (isHome) game.homeSpread else game.awaySpread,
                 modelFairSpread = if (isHome) mf else -mf,
             )
@@ -803,12 +738,31 @@ private fun spreadPrediction(game: NBAGame): SpreadPred? {
             predictedTeam = if (isHome) game.homeTeam else game.awayTeam,
             predictedSpread = if (isHome) game.homeSpread else game.awaySpread,
             isHome = isHome,
-            isFadeAlert = p >= 0.8 || edge >= 9.5,
             vegasSpread = if (isHome) game.homeSpread else game.awaySpread,
             probability = p,
         )
     }
     return null
+}
+
+private data class MlPred(val price: Int, val probability: Double, val abbrev: String, val team: String, val edge: Double, val implied: Double)
+
+private fun moneylinePrediction(game: NBAGame): MlPred? {
+    val homeProb = game.homeAwayMlProb ?: return null
+    if (!homeProb.isFinite() || homeProb <= 0.0 || homeProb >= 1.0) return null
+    val isHome = homeProb >= 0.5
+    val probability = if (isHome) homeProb else 1 - homeProb
+    val price = (if (isHome) game.homeMl else game.awayMl) ?: return null
+    if (kotlin.math.abs(price) < 100) return null
+    val outcome = MoneylineOutcome(price, probability, EdgeScale.nba)
+    return MlPred(
+        price = price,
+        probability = probability,
+        abbrev = if (isHome) game.homeAbbr else game.awayAbbr,
+        team = if (isHome) game.homeTeam else game.awayTeam,
+        edge = outcome.edge,
+        implied = outcome.breakEvenPercent / 100.0,
+    )
 }
 
 private fun ouPrediction(game: NBAGame): OUPred? {
@@ -821,12 +775,6 @@ private fun ouPrediction(game: NBAGame): OUPred? {
         return OUPred((p - 0.5) * 20, prob >= 0.5, null, game.overLine)
     }
     return null
-}
-
-private fun fadeSuggestion(game: NBAGame, p: SpreadPred): String {
-    val fadeTeam = if (p.isHome) game.awayTeam else game.homeTeam
-    val fadeSpread = if (p.isHome) game.awaySpread else game.homeSpread
-    return "$fadeTeam ${GameCardFormatting.formatSpread(fadeSpread)}"
 }
 
 private fun spreadExplanation(p: SpreadPred): String {

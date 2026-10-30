@@ -8,8 +8,7 @@ import type { GameFeedItem, SportFeed, TeamRef } from '../types';
  *   + nba_model_preds   — the ORIGINATOR models (spread margin + total), one row per game per market.
  *                         Replaced nba_predictions' model_fair_* on 2026-10-13 (owner call): those were a
  *                         transform of win probability with zero correlation to results.
- *   + nba_predictions   — home_win_prob = Phi(originator margin / 14.2), written by the same nightly (2026-10-19);
- *                         the old xgboost model is deleted. The spread row of nba_model_preds is preferred.
+ *   + nba_predictions   — kept ONLY for home_win_prob (the one number of the old model that is real).
  *   + nba_slate_flags   — situational signals + model-disagreement flags → feed ⚡ badge and the
  *                         Signals card (same table contract as cfb/nfl_slate_flags).
  *   + nba_teams_master  — logos.

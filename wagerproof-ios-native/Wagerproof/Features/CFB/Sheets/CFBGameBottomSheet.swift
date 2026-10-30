@@ -21,7 +21,6 @@ struct CFBGameBottomSheet: View {
     @State private var signalPerformanceByKey: [String: SignalPerformance] = [:]
     @State private var teamTrendsByTeam: [String: CFBTeamTrendRow] = [:]
     @State private var selectedTrendDetail: TrendDetailSelection?
-    @State private var marketOddsHeadline: String?
     @State private var bookOdds: SportsbookGameOdds?
     @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKeysRaw: String = ""
 
@@ -1554,10 +1553,15 @@ struct CFBGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
-            PolymarketWidget(league: "cfb", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: CFBTeamAssets.abbr(for: game.awayTeam), homeLabel: CFBTeamAssets.abbr(for: game.homeTeam), awayColor: awayColors.primary, homeColor: homeColors.primary) {
-                marketOddsHeadline = $0
-            }
+        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money") {
+            GamePublicBettingCard(
+                sport: "cfb",
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                gameDate: game.gameDate,
+                awayColor: awayColors.primary,
+                homeColor: homeColors.primary
+            )
         }
     }
 

@@ -7,7 +7,6 @@ import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.gamecards.CarouselMatchupChip
 import com.wagerproof.app.features.gamecards.GameDetailCarousel
 import com.wagerproof.app.features.gamecards.NBATeams
-import com.wagerproof.app.features.gamecards.TeamInitials
 import com.wagerproof.core.models.NBAGame
 
 /**
@@ -43,8 +42,8 @@ fun NBAGameCarousel(
             CarouselMatchupChip(
                 awayLogoURL = null,
                 homeLogoURL = null,
-                awayAbbr = TeamInitials.from(game.awayTeam),
-                homeAbbr = TeamInitials.from(game.homeTeam),
+                awayAbbr = NBATeams.abbreviation(game.awayTeam),
+                homeAbbr = NBATeams.abbreviation(game.homeTeam),
                 selected = selected,
                 sport = "nba",
                 onTap = onTap,

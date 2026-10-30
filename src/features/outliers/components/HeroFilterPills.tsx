@@ -18,11 +18,19 @@ export interface HeroFilterPillOption<T extends string> {
 }
 
 const menuClasses = {
-  content: 'max-h-[320px] min-w-[180px] overflow-y-auto rounded-2xl border border-border/60 bg-background/95 p-1.5 shadow-xl backdrop-blur-xl',
+  // The popover base defaults to z-0, so a sticky header at z-20 covers the
+  // first row. Overflow stays on the list so the rounded edge doesn't clip it.
+  base: 'z-[80]',
+  content: 'z-[80] min-w-[240px] w-max overflow-visible rounded-2xl border border-border/60 bg-background/95 p-0 shadow-xl backdrop-blur-xl',
 };
 
 const itemClasses = {
   base: 'rounded-xl px-2.5 py-2 text-[13px] data-[hover=true]:bg-muted/70 data-[focus=true]:bg-muted/70',
+  title: '!overflow-visible !whitespace-nowrap !text-clip',
+};
+
+const listClasses = {
+  base: 'max-h-[min(320px,70vh)] w-full overflow-y-auto overflow-x-visible p-1.5',
 };
 
 export function HeroFilterPill<T extends string>({ icon, label, options, value, onChange, defaultValue, className }: {
@@ -45,7 +53,7 @@ export function HeroFilterPill<T extends string>({ icon, label, options, value, 
           <span>{display}</span><ChevronDown className="h-3 w-3 text-muted-foreground" />
         </button>
       </DropdownTrigger>
-      <DropdownMenu aria-label={label} itemClasses={itemClasses} onAction={(key) => onChange(String(key) as T)}>
+      <DropdownMenu aria-label={label} classNames={listClasses} itemClasses={itemClasses} onAction={(key) => onChange(String(key) as T)}>
         {options.map((option) => (
           <DropdownItem key={option.value} isDisabled={option.disabled} startContent={option.icon} endContent={option.value === value ? <Check className="h-3.5 w-3.5 text-primary" /> : null}>
             {option.label}
@@ -76,7 +84,7 @@ export function HeroMultiFilterPill<T extends string>({ icon, allLabel, noun, op
           <span className="max-w-[14rem] truncate">{display}</span><ChevronDown className="h-3 w-3 text-muted-foreground" />
         </button>
       </DropdownTrigger>
-      <DropdownMenu aria-label={allLabel} closeOnSelect={false} itemClasses={itemClasses} onAction={(key) => key === '__all__' ? onChange([]) : toggle(String(key) as T)}>
+      <DropdownMenu aria-label={allLabel} classNames={listClasses} closeOnSelect={false} itemClasses={itemClasses} onAction={(key) => key === '__all__' ? onChange([]) : toggle(String(key) as T)}>
         <DropdownItem key="__all__" className="font-semibold" endContent={!isSet ? <Check className="h-3.5 w-3.5 text-primary" /> : null}>{allLabel}</DropdownItem>
         {options.map((option) => (
           <DropdownItem key={option.value} isDisabled={option.disabled} startContent={option.icon} endContent={values.includes(option.value) ? <Check className="h-3.5 w-3.5 text-primary" /> : null}>

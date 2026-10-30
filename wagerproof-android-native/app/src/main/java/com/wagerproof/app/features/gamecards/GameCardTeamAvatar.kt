@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import com.wagerproof.app.features.shared.RemoteImage
 import com.wagerproof.core.models.CFBTeamAssets
 import com.wagerproof.core.models.MLBTeams
+import com.wagerproof.core.models.NCAABTeamAssets
 import com.wagerproof.core.models.NFLTeamAssets
 
 /**
@@ -65,6 +66,8 @@ fun resolveLogo(sport: String, team: String): String? = when (sport.lowercase())
     "nfl" -> NFLTeamAssets.logo(team)
     "cfb", "ncaaf" -> CFBTeamAssets.logo(team)
     "mlb" -> MLBTeams.logoUrl(team)
+    "nba" -> NBATeams.logoURL(team)
+    "ncaab" -> NCAABTeamAssets.logo(team) ?: CFBTeamAssets.logo(team)
     else -> null
 }
 

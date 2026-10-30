@@ -30,8 +30,6 @@ const PropCardHarness = import.meta.env.DEV
     )
   : null;
 import CompetitionPage from "./features/competition/CompetitionPage";
-import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
-import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
 import HistoricalTrends from "./pages/HistoricalTrends";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import LearnWagerProof from "./pages/LearnWagerProof";
@@ -384,8 +382,9 @@ function AppRoutes() {
           <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true} minimumTier="premium"><PlayerPropsReportPage /></ProtectedRoute>} />
           <Route path="/mlb/picks-performance" element={<Navigate to="/mlb/picks-report?tab=performance" replace />} />
           <Route path="/ncaab/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="ncaab" />} />
-          <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
-          <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />
+          <Route path="/ncaab/halftime-trends" element={<LegacySportRedirect sport="ncaab" />} />
+          <Route path="/ncaab/todays-predictions" element={<LegacySportRedirect sport="ncaab" />} />
+          <Route path="/ncaab/signals" element={<LegacySportRedirect sport="ncaab" />} />
           <Route path="/historical-trends" element={<ProtectedRoute minimumTier="premium"><HistoricalTrends /></ProtectedRoute>} />
           <Route path="/competition" element={<ProtectedRoute authOnly={true}><CompetitionPage /></ProtectedRoute>} />
           <Route path="/nfl-analytics" element={<LegacyTrendsRedirect sport="nfl" />} />

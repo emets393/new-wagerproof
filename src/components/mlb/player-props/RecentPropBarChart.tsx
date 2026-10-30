@@ -14,6 +14,8 @@ interface RecentPropBarChartProps {
   line: number;
   valueLabel?: string;
   className?: string;
+  /** Replaces the slanted dates. NBA uses it for the opponent mark. */
+  mark?: (bar: ChartBar) => React.ReactNode;
 }
 
 function formatBarValue(v: number): string {
@@ -35,6 +37,7 @@ export function RecentPropBarChart({
   line,
   valueLabel = 'Val',
   className,
+  mark,
 }: RecentPropBarChartProps) {
   // Anchor so the threshold line stays at a stable height across line changes.
   const maxVal = useMemo(() => {
@@ -96,20 +99,30 @@ export function RecentPropBarChart({
           })}
         </div>
       </div>
-      {/* Slanted date labels. Fixed-height row + tilted origin so labels can sit
-          on their own line under each bar without colliding with each other. */}
-      <div className="flex gap-1 sm:gap-1.5 mt-1 h-7">
-        {bars.map((bar, i) => (
-          <div key={i} className="flex-1 min-w-[12px] flex items-start justify-center overflow-visible">
-            <span
-              className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap origin-top-left"
-              style={{ transform: 'rotate(-45deg) translateY(2px)' }}
-            >
-              {formatShortDate(bar.date)}
-            </span>
-          </div>
-        ))}
-      </div>
+      {mark ? (
+        <div className="mt-1 flex gap-1 sm:gap-1.5">
+          {bars.map((bar, i) => (
+            <div key={i} className="flex min-w-[12px] flex-1 flex-col items-center gap-0.5">
+              {mark(bar)}
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Slanted date labels. Fixed-height row + tilted origin so labels can sit
+           on their own line under each bar without colliding with each other. */
+        <div className="flex gap-1 sm:gap-1.5 mt-1 h-7">
+          {bars.map((bar, i) => (
+            <div key={i} className="flex-1 min-w-[12px] flex items-start justify-center overflow-visible">
+              <span
+                className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap origin-top-left"
+                style={{ transform: 'rotate(-45deg) translateY(2px)' }}
+              >
+                {formatShortDate(bar.date)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       <p className="text-[10px] text-muted-foreground text-center mt-1 tabular-nums">
         Last {bars.length} games · oldest left → most recent right
       </p>

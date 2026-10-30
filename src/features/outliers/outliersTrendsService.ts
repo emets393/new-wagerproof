@@ -1,9 +1,13 @@
 // Web port of the iOS OutliersTrendsService
 // (wagerproof-ios-native/WagerproofKit/Sources/WagerproofServices/OutliersTrendsService.swift).
-// NFL/NCAAF read server-pre-rendered cards; MLB fetches raw splits + odds and
-// builds cards client-side via mlbTrendsEngine. All tables live on the CFB
-// (sports-data) Supabase project.
+// NFL/NCAAF read server-pre-rendered cards for the current week; NBA/NCAAB
+// read today's ET cards; MLB fetches raw splits + odds and builds cards
+// client-side via mlbTrendsEngine. All tables live on the CFB (sports-data)
+// Supabase project.
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { fetchNbaGames } from '@/features/games/api/nbaGames';
+import { fetchNcaabGames } from '@/features/games/api/ncaabGames';
+import type { GameFeedItem } from '@/features/games/types';
 import {
   installCfbTeamAssets,
   lookupCfbTeam,
@@ -170,9 +174,90 @@ export async function fetchSlateGames(sport: OutliersTrendsSport): Promise<Outli
       return fetchNFLSlateGames();
     case 'ncaaf':
       return fetchCFBSlateGames();
+    case 'nba':
+    case 'ncaab':
+      return fetchBasketballSlateGames(sport);
     default:
       return [];
   }
+}
+
+/** Interpret a wall-clock time as America/New_York and return a UTC instant. */
+function wallClockInNewYork(date: string, hours: number, minutes: number): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(utcGuess);
+  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? '0');
+  const asUtc = Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second'));
+  return new Date(utcGuess.getTime() - (asUtc - utcGuess.getTime())).toISOString();
+}
+
+function basketballKickoff(gameDate: string, timeKey: string): string | null {
+  const date = gameDate.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  if (timeKey && (timeKey.includes('T') || timeKey.length > 10)) {
+    const parsed = new Date(timeKey);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  const hm = /^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i.exec(timeKey.trim());
+  if (!hm) return wallClockInNewYork(date, 12, 0);
+  let hours = Number(hm[1]);
+  const minutes = Number(hm[2]);
+  const meridiem = hm[3]?.toUpperCase();
+  if (meridiem === 'PM' && hours < 12) hours += 12;
+  if (meridiem === 'AM' && hours === 12) hours = 0;
+  return wallClockInNewYork(date, hours, minutes);
+}
+
+function feedItemToSlateGame(game: GameFeedItem, season: number): OutliersTrendsGame {
+  return {
+    id: game.id,
+    season,
+    week: 0,
+    awayAb: game.awayTeam.abbrev,
+    homeAb: game.homeTeam.abbrev,
+    awayTeam: game.awayTeam.name,
+    homeTeam: game.homeTeam.name,
+    awayLogoUrl: game.awayTeam.logoUrl,
+    homeLogoUrl: game.homeTeam.logoUrl,
+    awayColors: game.awayTeam.colors,
+    homeColors: game.homeTeam.colors,
+    fgSpreadClose: game.lines.homeSpread,
+    fgTotalClose: game.lines.total,
+    kickoff: basketballKickoff(game.gameDate, game.timeSortKey),
+    slot: null,
+    assignedReferee: null,
+  };
+}
+
+/**
+ * Today's ET slate via the games adapters. NCAAB also warms the cfb_teams
+ * cache so trend cards can resolve school logos from an abbreviation.
+ */
+async function fetchBasketballSlateGames(sport: 'nba' | 'ncaab'): Promise<OutliersTrendsGame[]> {
+  const today = todayET();
+  const season = Number(today.slice(0, 4));
+  if (sport === 'ncaab') {
+    const { data: teamRows } = await collegeFootballSupabase
+      .from('cfb_teams')
+      .select('team_name,abbr,logo,logo_dark,color,alt_color');
+    if (teamRows && teamRows.length > 0) {
+      installCfbTeamAssets(teamRows as CfbTeamRow[]);
+    }
+  }
+  const feed = sport === 'nba' ? await fetchNbaGames() : await fetchNcaabGames();
+  return feed.games
+    .filter((game) => game.gameDate.slice(0, 10) === today)
+    .map((game) => feedItemToSlateGame(game, season));
 }
 
 // MARK: - Pre-rendered trend cards (NFL / NCAAF)
@@ -209,11 +294,51 @@ function parseBettingLine(raw: unknown): OutliersTrendsBettingLine | null {
   };
 }
 
+function mapTrendCard(row: Record<string, unknown>): OutliersTrendsCard {
+  const kindRaw = toStr(row.subject_kind) ?? 'team';
+  const rows = Array.isArray(row.rows)
+    ? (row.rows.map(parseCardRow).filter(Boolean) as OutliersTrendsCardRow[])
+    : [];
+  const bettingLines = Array.isArray(row.betting_lines)
+    ? (row.betting_lines.map(parseBettingLine).filter(Boolean) as OutliersTrendsBettingLine[])
+    : [];
+  return {
+    id: toStr(row.card_id) ?? '',
+    gameId: toStr(row.game_id) ?? '',
+    matchupLabel: toStr(row.matchup_label) ?? '',
+    subjectKind: SUBJECT_KINDS.has(kindRaw as OutliersTrendsSubjectKind)
+      ? (kindRaw as OutliersTrendsSubjectKind)
+      : 'team',
+    subjectName: toStr(row.subject_name) ?? '',
+    subjectDetail: toStr(row.subject_detail),
+    teamAbbr: toStr(row.team_abbr),
+    playerId: toStr(row.player_id),
+    marketKey: toStr(row.market_key) ?? 'unknown',
+    betTypeLabel: toStr(row.bet_type_label) ?? '',
+    trendValue: toNum(row.trend_value) ?? 0,
+    trendSampleN: toInt(row.trend_sample_n) ?? 0,
+    headshotUrl: toStr(row.headshot_url),
+    bettingLines,
+    rows,
+    isPlayerOverflow: row.is_player_overflow === true,
+  };
+}
+
 export async function fetchPrecomputedCards(
   sport: OutliersTrendsSport,
   season: number,
   week: number,
 ): Promise<OutliersTrendsCard[]> {
+  if (sport === 'nba' || sport === 'ncaab') {
+    const table = sport === 'nba' ? 'nba_outliers_trend_cards' : 'ncaab_outliers_trend_cards';
+    const { data, error } = await collegeFootballSupabase
+      .from(table)
+      .select(TREND_CARD_COLUMNS)
+      .eq('slate_date', todayET())
+      .order('sort_rank', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row: Record<string, unknown>) => mapTrendCard(row));
+  }
   const table = sport === 'ncaaf' ? 'cfb_outliers_trend_cards' : 'nfl_outliers_trend_cards';
   const { data, error } = await collegeFootballSupabase
     .from(table)
@@ -222,35 +347,7 @@ export async function fetchPrecomputedCards(
     .eq('week', week)
     .order('sort_rank', { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((row: Record<string, unknown>): OutliersTrendsCard => {
-    const kindRaw = toStr(row.subject_kind) ?? 'team';
-    const rows = Array.isArray(row.rows)
-      ? (row.rows.map(parseCardRow).filter(Boolean) as OutliersTrendsCardRow[])
-      : [];
-    const bettingLines = Array.isArray(row.betting_lines)
-      ? (row.betting_lines.map(parseBettingLine).filter(Boolean) as OutliersTrendsBettingLine[])
-      : [];
-    return {
-      id: toStr(row.card_id) ?? '',
-      gameId: toStr(row.game_id) ?? '',
-      matchupLabel: toStr(row.matchup_label) ?? '',
-      subjectKind: SUBJECT_KINDS.has(kindRaw as OutliersTrendsSubjectKind)
-        ? (kindRaw as OutliersTrendsSubjectKind)
-        : 'team',
-      subjectName: toStr(row.subject_name) ?? '',
-      subjectDetail: toStr(row.subject_detail),
-      teamAbbr: toStr(row.team_abbr),
-      playerId: toStr(row.player_id),
-      marketKey: toStr(row.market_key) ?? 'unknown',
-      betTypeLabel: toStr(row.bet_type_label) ?? '',
-      trendValue: toNum(row.trend_value) ?? 0,
-      trendSampleN: toInt(row.trend_sample_n) ?? 0,
-      headshotUrl: toStr(row.headshot_url),
-      bettingLines,
-      rows,
-      isPlayerOverflow: row.is_player_overflow === true,
-    };
-  });
+  return (data ?? []).map((row: Record<string, unknown>) => mapTrendCard(row));
 }
 
 // MARK: - MLB slate bundle

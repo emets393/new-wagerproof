@@ -40,6 +40,9 @@ struct GameRowCard: View {
         let mammothTint = Color(hex: 0xF97316)
         return ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 8) {
+                if let callout = model.mammothCallout {
+                    mammothCallout(callout)
+                }
                 if let breakdown = model.oddsBreakdown {
                     breakdownScanRegion(breakdown)
                 } else {
@@ -117,6 +120,26 @@ struct GameRowCard: View {
             x: 0,
             y: model.isMammoth ? 5 : 2
         )
+    }
+
+    /// Names the actual Mammoth bet. The orange card alone does not say
+    /// whether the play is the under, the over, or a side.
+    @ViewBuilder
+    private func mammothCallout(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 11, weight: .black))
+            Text(text)
+                .font(.system(size: 12, weight: .heavy))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color(hex: 0xF97316))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color(hex: 0xF97316).opacity(colorScheme == .dark ? 0.22 : 0.14), in: Capsule())
+        .accessibilityLabel(text)
     }
 
     // MARK: - Main row
@@ -440,6 +463,7 @@ struct GameRowCard: View {
                     } else {
                         ouEdgeBlock
                         mlEdgeBlock
+                        signalPill
                     }
                 }
             }
@@ -764,6 +788,8 @@ extension GameRowCard {
         let oddsBreakdown: OddsBreakdown?
         /// Rare mammoth play — lights the card orange on the games slate.
         let isMammoth: Bool
+        /// The bet the Mammoth mark is for, e.g. "Mammoth pick · Under 44.5".
+        let mammothCallout: String?
         /// Public-agent consensus for this game, merged in by the feed host
         /// (`GamesView`) via a left-join lookup. `nil` is the normal case — a
         /// game no public agent bet, or any surface that doesn't fetch it
@@ -787,6 +813,7 @@ extension GameRowCard {
             slatePicks: SlatePicks? = nil,
             oddsBreakdown: OddsBreakdown? = nil,
             isMammoth: Bool = false,
+            mammothCallout: String? = nil,
             consensus: GameAgentConsensus? = nil,
             signalCount: Int? = nil
         ) {
@@ -804,6 +831,7 @@ extension GameRowCard {
             self.slatePicks = slatePicks
             self.oddsBreakdown = oddsBreakdown
             self.isMammoth = isMammoth
+            self.mammothCallout = mammothCallout
             self.consensus = consensus
             self.signalCount = signalCount
         }
@@ -1119,6 +1147,188 @@ struct PolymarketMoneylineSparkline: View {
         }
         .foregroundStyle(Color.appTextMuted.opacity(0.8))
         .frame(height: 24)
+    }
+}
+
+enum MammothPlayLabel {
+    /// A mammoth flag from `nfl_slate_flags`. The model's total side can flip
+    /// the other way after the line moves; the flag is the bet.
+    struct Flag: Decodable, Sendable, Hashable {
+        let market: String?
+        let side: String?
+        let betDirection: String?
+        let betLine: Double?
+        let betTeam: String?
+
+        enum CodingKeys: String, CodingKey {
+            case market, side
+            case betDirection = "bet_direction"
+            case betLine = "bet_line"
+            case betTeam = "bet_team"
+        }
+    }
+
+    /// UNDER before OVER, and OVER only as its own word, so "cover" is not an over.
+    static func direction(of raw: String?) -> String? {
+        let upper = (raw ?? "").uppercased()
+        if upper.range(of: #"\bUNDER\b"#, options: .regularExpression) != nil { return "UNDER" }
+        if upper.range(of: #"\bOVER\b"#, options: .regularExpression) != nil { return "OVER" }
+        return nil
+    }
+
+    static func direction(of flag: Flag) -> String? {
+        direction(of: flag.betDirection) ?? direction(of: flag.side)
+    }
+
+    /// Published OVER/UNDER wins. A neutral pick falls through to the model
+    /// number against the live market, so a stale flag cannot invent a side.
+    static func currentTotalSide(pick: String?, prediction: Double?, market: Double?) -> String? {
+        let upper = (pick ?? "").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if upper == "OVER" || upper == "UNDER" { return upper }
+        if upper.contains("UNDER") { return "UNDER" }
+        if upper.contains("OVER") { return "OVER" }
+        guard let prediction, let market, abs(prediction - market) >= 0.5 else { return nil }
+        return prediction < market ? "UNDER" : "OVER"
+    }
+
+    static func modelSide(for market: String?, game: NFLPrediction) -> String? {
+        switch market {
+        case "total":
+            return currentTotalSide(pick: game.fgTotalPick, prediction: game.predTotal, market: game.fgTotalClose ?? game.overLine)
+        case "h1_total":
+            return currentTotalSide(pick: game.h1TotalPick, prediction: game.h1PredTotal, market: game.h1TotalClose)
+        default:
+            return nil
+        }
+    }
+
+    static func marketLine(for market: String?, game: NFLPrediction) -> Double? {
+        switch market {
+        case "total": return game.fgTotalClose ?? game.overLine
+        case "h1_total": return game.h1TotalClose
+        default: return nil
+        }
+    }
+
+    /// A total flag at an old number, or on the opposite side of the current
+    /// model, is not the bet. Spread flags are left alone.
+    static func isCurrent(_ flag: Flag, game: NFLPrediction) -> Bool {
+        let name = flag.market ?? ""
+        guard name == "total" || name == "h1_total" else { return true }
+        guard let flagSide = direction(of: flag),
+              let side = modelSide(for: name, game: game),
+              flagSide == side else { return false }
+        if let flagLine = flag.betLine, let market = marketLine(for: name, game: game) {
+            return abs(flagLine - market) <= 0.5
+        }
+        return true
+    }
+
+    static func current(_ flags: [Flag], game: NFLPrediction) -> [Flag] {
+        flags.filter { isCurrent($0, game: game) }
+    }
+
+    /// Two rules on the same under are one play, not two banners.
+    static func uniquePlays(_ flags: [Flag]) -> [Flag] {
+        var seen = Set<String>()
+        var plays: [Flag] = []
+        for flag in flags {
+            let key = [
+                flag.market ?? "",
+                direction(of: flag) ?? "",
+                flag.betLine.map { String($0) } ?? "",
+                flag.betTeam ?? ""
+            ].joined(separator: "|")
+            if seen.insert(key).inserted { plays.append(flag) }
+        }
+        return plays
+    }
+
+    static func callout(flags: [Flag]) -> String? {
+        let plays = uniquePlays(flags)
+        guard let first = plays.first else { return nil }
+        if plays.count == 1 {
+            return callout(
+                cardGroup: first.market,
+                side: direction(of: first) ?? first.side,
+                label: first.side,
+                teamAbbr: first.betTeam.map(shortName),
+                line: GameCardFormatting.roundToNearestHalf(first.betLine)
+            )
+        }
+        return "Mammoth pick · " + plays.map(short).joined(separator: " · ")
+    }
+
+    static func play(in flags: [Flag], cardGroup: String?, team: String?) -> Flag? {
+        uniquePlays(flags).first { flag in
+            guard flag.market == cardGroup else { return false }
+            guard cardGroup == "team_total", let team, !team.isEmpty else { return true }
+            let bet = flag.betTeam ?? ""
+            if bet.isEmpty { return (flag.side ?? "").localizedCaseInsensitiveContains(shortName(team)) }
+            return bet == team || shortName(bet) == shortName(team)
+        }
+    }
+
+    private static func short(_ flag: Flag) -> String {
+        let word: String
+        switch direction(of: flag) {
+        case "UNDER": word = "Under"
+        case "OVER": word = "Over"
+        default: word = flag.side ?? "Play"
+        }
+        let number = GameCardFormatting.roundToNearestHalf(flag.betLine)
+        let line = (number.isEmpty || number == "—") ? "" : " \(number)"
+        switch flag.market {
+        case "h1_total": return "1st half \(word.lowercased())\(line)"
+        case "team_total":
+            let who = flag.betTeam.map { "\(shortName($0)) " } ?? ""
+            return "\(who)\(word.lowercased())\(line)"
+        case "total": return "\(word)\(line)"
+        default:
+            if let team = flag.betTeam { return "\(shortName(team))\(line)" }
+            return word
+        }
+    }
+
+    /// "Mammoth pick · Under 44.5". Side comes from the flag, not the model lean.
+    static func callout(cardGroup: String?, side: String?, label: String?, teamAbbr: String?, line: String?) -> String {
+        let resolved = direction(of: side) ?? direction(of: label)
+        let number = (line?.isEmpty == false && line != "—") ? " \(line!)" : ""
+        if resolved == "UNDER" {
+            switch cardGroup {
+            case "h1_total":
+                return "Mammoth pick · 1st half under\(number)"
+            case "team_total":
+                let who = teamAbbr.map { "\($0) " } ?? ""
+                return "Mammoth pick · \(who)under\(number)"
+            default:
+                return "Mammoth pick · Under\(number)"
+            }
+        }
+        if resolved == "OVER" {
+            switch cardGroup {
+            case "h1_total":
+                return "Mammoth pick · 1st half over\(number)"
+            case "team_total":
+                let who = teamAbbr.map { "\($0) " } ?? ""
+                return "Mammoth pick · \(who)over\(number)"
+            default:
+                return "Mammoth pick · Over\(number)"
+            }
+        }
+        if let teamAbbr, !teamAbbr.isEmpty {
+            return "Mammoth pick · \(teamAbbr)\(number)"
+        }
+        if let label, !label.isEmpty {
+            return "Mammoth pick · \(label)"
+        }
+        return "Mammoth pick"
+    }
+
+    private static func shortName(_ team: String) -> String {
+        let trimmed = team.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count <= 4 { return trimmed }
+        return trimmed.split(separator: " ").last.map(String.init) ?? trimmed
     }
 }
 

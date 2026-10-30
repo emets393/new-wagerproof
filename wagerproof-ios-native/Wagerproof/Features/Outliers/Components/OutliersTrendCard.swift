@@ -38,7 +38,19 @@ struct OutliersTrendCard: View {
         switch sport {
         case .ncaaf: return "cfb"
         case .mlb: return "mlb"
-        default: return "nfl"
+        case .nba: return "nba"
+        case .ncaab: return "ncaab"
+        case .nfl: return "nfl"
+        }
+    }
+
+    private func teamColors(for team: String) -> TeamColorPair {
+        switch sport {
+        case .ncaaf: return CFBTeamColors.colorPair(for: team)
+        case .ncaab: return NCAABTeamColors.colorPair(for: team)
+        case .mlb: return MLBTeamColors.colorPair(for: team)
+        case .nba: return NBATeams.colorPair(for: team)
+        case .nfl: return NFLTeamColors.colorPair(for: team)
         }
     }
 
@@ -640,8 +652,11 @@ struct OutliersTrendCard: View {
                 let home = CFBTeamAssets.displayName(for: game.homeTeam)
                 return "\(away) @ \(home)"
             }
-            if sport == .mlb {
+            if sport == .mlb || sport == .nba {
                 return "\(game.awayAb) @ \(game.homeAb)"
+            }
+            if sport == .ncaab {
+                return "\(game.awayTeam) @ \(game.homeTeam)"
             }
             let away = NFLTeamAssets.nickname(for: game.awayTeam)
             let home = NFLTeamAssets.nickname(for: game.homeTeam)
@@ -651,7 +666,7 @@ struct OutliersTrendCard: View {
         // BAL). Without a game model the old generic fallback expanded those
         // into 49ers/Falcons/Eagles/Ravens. The card already receives its sport,
         // so preserve the MLB matchup label exactly as supplied.
-        if sport == .mlb {
+        if sport == .mlb || sport == .nba || sport == .ncaab {
             return card.matchupLabel
         }
         let parts = card.matchupLabel.split(separator: "@", maxSplits: 1).map {
@@ -711,11 +726,7 @@ struct OutliersTrendCard: View {
                     teamName: team,
                     sport: avatarSport,
                     size: 36,
-                    colors: sport == .ncaaf
-                        ? CFBTeamColors.colorPair(for: team)
-                        : sport == .mlb
-                            ? MLBTeamColors.colorPair(for: team)
-                            : NFLTeamColors.colorPair(for: team)
+                    colors: teamColors(for: team)
                 )
             } else {
                 subjectIcon("sportscourt.fill")
@@ -726,11 +737,7 @@ struct OutliersTrendCard: View {
                     teamName: team,
                     sport: avatarSport,
                     size: 36,
-                    colors: sport == .ncaaf
-                        ? CFBTeamColors.colorPair(for: team)
-                        : sport == .mlb
-                            ? MLBTeamColors.colorPair(for: team)
-                            : NFLTeamColors.colorPair(for: team)
+                    colors: teamColors(for: team)
                 )
             } else {
                 subjectIcon("person.fill")
