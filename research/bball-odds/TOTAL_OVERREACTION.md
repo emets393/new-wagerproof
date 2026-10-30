@@ -1,5 +1,44 @@
 # NCAAB: the game after the total went way over (or way under)
 
+Study 2026-10-30 (`study_total_overreaction.py`). Owner theory: after a huge over the book and the public shade the next total up and the
+teams do not score as much → UNDER.
+
+## Verdict: the theory runs the other way. The book UNDER-reacts, and the OVER is the side.
+
+The shade is real: after a 30+ over the next total closes +4.5 above the two teams' prior average (ordinary game +2.1). But the teams
+score even more than that: actual total +6.5 above prior average, so the line is about 2 points short. The gap grows with the size of the
+over (over by 0–10: +0.8 · 10–20: +0.9 · 20–30: +1.1 · 30+: +2.0). The UNDER loses at every rung, monotone: 48.7% (10+) → 48.2 → 47.9
+→ 47.2 → 46.1% (30+). Records below are from the OVER side, graded at the close, one row per game.
+
+| spot (either team's LAST game went over the total by …) | bet | record | ROI | seasons | z vs 50.8% over base |
+|---|---|---|---|---|---|
+| 20+ | OVER | 2,997-2,748-47 (52.2%) | −0.4% | 6 of 6 | +2.1 |
+| 25+ | OVER | 1,931-1,707-28 (53.1%) | +1.3% | 5 of 6 | +2.7 |
+| **30+** | **OVER** | **1,166-994-17 (54.0%)** | **+3.1%** | 5 of 6 | +3.0 |
+| 35+ | OVER | 664-575-12 (53.6%) | +2.3% | 6 of 6 | +2.0 |
+
+**Sharpened: the book did NOT raise the total** (tonight's close within +3 of the two teams' prior average). When the book does raise it 3+,
+the edge is gone (30+: 52.1%). When it does not, the edge doubles:
+
+| either team over by … AND total not raised | bet | record | ROI | seasons | z |
+|---|---|---|---|---|---|
+| 15+ | OVER | 2,345-1,995-38 (54.0%) | +3.2% | 6 of 6 | +4.3 |
+| 20+ | OVER | 1,478-1,259-25 (54.0%) | +3.1% | 6 of 6 | +3.3 |
+| 25+ | OVER | 920-745-16 (55.3%) | +5.5% | 5 of 6 | +3.6 |
+| **30+** | **OVER** | **535-405-10 (56.9%)** | **+8.7%** | 5 of 6 | +3.8 |
+
+First-half total carries weakly (30+ & not raised: 1H over 221-182, 54.8%, 3 seasons). Team total of the team that did the scoring: nothing
+(48–49% under, i.e. ~51% over). Both-teams-over-by-X: same direction, thinner.
+
+**Mirror** (last game went UNDER by 25+/30+): the full-game total is a coin flip (49.8% / 50.0%), but that team's TEAM TOTAL goes OVER
+770-664 (53.7%, +2.5%) and 373-312 (54.5%, +4.0%), 3 of 3 seasons each — the book drops a team's own number too far after a dead night.
+
+Ship as: `ncaab_big_over_carry` (either team's last game over by 30+, regular season → OVER; 1,166-994, 54.0%, +3.1%) with the
+"not raised" variant as the premium tier, and `ncaab_dead_night_team_total` (team's last game under by 25+ → that team's TEAM TOTAL over;
+770-664, 53.7%, 2023-24→) as tracking. Owner decides.
+
+---
+
 Owner theory: a huge over makes the book and the public shade the next total up, and the teams do not score as much. Universe: regular-season team-games 2020-21 → 2025-26 with a same-season previous game that had a closing total (n = 53,999). Graded at the consensus close. Records from the bet's side (UNDER for the over-reaction cells, OVER for the mirror). 'Shade' = tonight's closing total minus the average of the two teams' prior closing totals this season (both teams need 3+ prior games).
 
 Base rates: FG under 49.2% · 1H under 51.1% · team total under 49.1%. Over-margin deciles: p5=-25, p10=-20, p25=-10, p50=+0, p75=+12, p90=+22, p95=+28
