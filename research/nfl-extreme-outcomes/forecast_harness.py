@@ -32,7 +32,8 @@ CONF=0.03; AIR_THR=35.0; OVR_THR=80.0; WIND_THR=15.0
 REG_EDGE=1.5   # regression-margin edge (points) for confluence; magnitude that historically tracks classification conf=.03
 # ---- MAMMOTH plays (b91, vaulted 2026-06): independent edges aligning on one game ----
 # SPREAD: sides_model conf>=MAM_CONF & confluence=1 & >=1 aligned spread spot. TOTAL: >=2 distinct
-# total rules, same game+direction. Pre-registered defs; backtest 2023-25 in LOCKED_MODELS §6.
+# total rules, same game+direction, AND the totals model pointing that way too (2026-10-30;
+# see load_model_total_dir). Pre-registered defs; backtest 2023-25 in LOCKED_MODELS §6.
 MAM_CONF=0.06
 MAMMOTH_SPREAD_SPOTS={"legacy_fade","legacy_primetime","spread_dog_cover_fade_away","spread_dog_cover_fade_home",
                       "fade_pr_in_tight_game","dk_heavy_home_juice","tight_soft_ml_fade_home","top_vs_top_pt_home"}
@@ -137,6 +138,33 @@ def load_legacy():
     except Exception as e:
         print(f"  ! legacy preds unavailable ({e}); legacy rules disabled")
         return pd.DataFrame(columns=["unique_id","leg_sp","leg_line"])
+
+def load_model_total_dir(target):
+    """Totals-model direction per game, keyed (season, week, "AWY@HOM").
+
+    Feeds the mammoth model-agreement gate below. consensus_totals.py writes this
+    csv at run_nfl_week.sh:65, before this script runs at :74, and its `game`
+    column is already away_ab@home_ab -- identical to `mtchp`, so no abbreviation
+    mapping is needed (verified 31/31 against the 2026 ledger).
+
+    A missing file, an unreadable file, or a NEUTRAL direction yields no entry,
+    and no entry means no mammoth: a mammoth the model cannot confirm is not a
+    mammoth. Failing closed is the point -- the old gate failed OPEN."""
+    path=os.path.join(OUT,f"predictions_totals_{target}.csv")
+    if not os.path.exists(path):
+        L(f"  ! totals model csv missing ({path}); total mammoths disabled")
+        return {}
+    try:
+        ct=pd.read_csv(path)
+    except Exception as e:
+        L(f"  ! totals model csv unreadable ({e}); total mammoths disabled")
+        return {}
+    out={}
+    for _,r in ct.iterrows():
+        d=str(r.get("direction","")).strip().upper()
+        if d in ("OVER","UNDER"):
+            out[(int(r.season),int(r.week),str(r.game))]=d
+    return out
 
 def load_bye_collisions(target, gap_thr=BYE_GAP, min_n=BYE_MIN_N):
     """Bye-collision signal for target season: coach career pre/post-bye ATS% from seasons < target (walk-forward
@@ -1076,11 +1104,23 @@ def generate(m, BASE, target, week=None):
             if len(al): led.loc[i,"mammoth"]=1
         tt=led[(led.market=="total")&led.rule.isin(MAMMOTH_TOTAL_RULES)]
         if len(tt):
+            # MODEL AGREEMENT, ported from CFB's `confirm` term (cfb_forecast.py:380-389,
+            # where a mammoth needs a second model CONFIRMING the side). Two spot rules
+            # agreeing with EACH OTHER is not confirmation of anything -- nothing here
+            # ever consulted the totals model, so the tier could contradict it outright.
+            # ARI@DAL wk8 2026 fired dk_giant_fav_over + total_low_line_over on OVER 52.5
+            # while the model had the game at 46.4 against a 54.5 close -- it wanted the
+            # UNDER by 8, the card read "No Bet" and listed both as Contradicts, and the
+            # board still badged the game mammoth. The model must point the same way.
+            mdir=load_model_total_dir(target)
             cnt=tt.assign(d=np.where(tt.bet_home==-1,"O","U")).groupby(["season","week","game","d"]).rule.nunique()
             for (s,w,gm,d),nr in cnt.items():
-                if nr>=2:
-                    sel=(led.market=="total")&led.rule.isin(MAMMOTH_TOTAL_RULES)&(led.season==s)&(led.week==w)&(led.game==gm)&((led.bet_home==-1)==(d=="O"))
-                    led.loc[sel,"mammoth"]=1
+                if nr<2: continue
+                # NEUTRAL / missing is a miss, not a pass: the model declining to play the
+                # total cannot confirm a 3-unit tier on it.
+                if mdir.get((int(s),int(w),str(gm)))!=("OVER" if d=="O" else "UNDER"): continue
+                sel=(led.market=="total")&led.rule.isin(MAMMOTH_TOTAL_RULES)&(led.season==s)&(led.week==w)&(led.game==gm)&((led.bet_home==-1)==(d=="O"))
+                led.loc[sel,"mammoth"]=1
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv")
     if os.path.exists(path) and len(led):   # a week with zero picks has no pick_id column -> keep the old ledger as is
         old=pd.read_csv(path); led=pd.concat([old[~old.pick_id.isin(led.pick_id)],led],ignore_index=True)
