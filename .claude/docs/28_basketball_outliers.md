@@ -37,8 +37,10 @@ trend_sample_n, sort_rank, trend_hit_side, rows jsonb, betting_lines jsonb, bett
   NBA division or conference game, college conference game · head-to-head vs tonight's opponent
   (cross-season, last 10 meetings). Example: `Under 5 of last 7 road games (71%)`.
 - `betting_lines[]` = `{id, label, line_text, odds_text, book_name: "Consensus", book_logo_url: null, team_abbr}`
-  — today's consensus from the team's side (spread `+7.5`, ML with the price, total, team total, 1H spread, 1H total).
-  No per-book shopping for basketball. NBA has no team-total or 1H-moneyline capture in production, so those
+  — today's consensus for **the side the trend supports** (owner 2026-10-30): a losing / failed-to-cover trend
+  attaches the OPPONENT's moneyline or spread (`team_abbr` = the team to bet, which can differ from the card's
+  subject), an under trend attaches `Under 221.5`, a team-total under stays on the subject team's own under.
+  `trend_hit_side` tells you whether the line backs (true) or fades (false) the subject. No per-book shopping. NBA has no team-total or 1H-moneyline capture in production, so those
   cards carry no line (the trend rows still render).
 - Sort: `sort_rank = dominant_pct × 1000 + sample_n`, best first. Teams only — no coach / referee / player cards.
 
