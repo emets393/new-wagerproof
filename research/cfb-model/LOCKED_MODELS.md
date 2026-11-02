@@ -203,6 +203,11 @@ fantasy tail like NFL, but confidence alone cannot gate big plays); totals clean
 Dose-response (textbook): control (no confirm, no spot) 50.0% → confirm-only 54.5% → **MAMMOTH 70.0% (n=30,
 CI[52,83], CLV+0.62, per-season 57/71/86/62/100)** ≈ 6/season. Mirrors NFL (ingredients 49-54 alone, ~70 together).
 Wired: `mammoth` column in cfb_predictions CSV (2025 slate: 7 flagged). Small-n stated: 2026 live = true test.
+⛔ The GATE owns the tier downstream, not the flag table: of its four confirming spots only RvR and
+padded-road publish a `cfb_slate_flags` row, so a mammoth qualified by the SunBelt or BigTen term has no
+mammoth flag to inherit. `gen_cfb_picks` therefore reads `mammoth` off the game frame directly — deriving
+it from `flags.mammoth.any()` alone carded Georgia State @ App State (wk10-2026) as a 1u "Lean" under a
+banner that said MAMMOTH and named no market, i.e. a mammoth with no pick.
 **TOTALS MAMMOTH: NOT REAL** — big-edge+struct 53.7% vs control-without-struct 54.5% (control better), >=2-struct
 28.6%(n7); no monotonic dose-response → per pre-registration, rejected. **MULTI-RULE MAMMOTH: n=0** (non-model
 spots never co-fire 2+ same direction in CFB) — not feasible with current spot set.

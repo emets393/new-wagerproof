@@ -106,12 +106,18 @@ def add_situational_flags(df):
     qbp = os.path.join(DATA, "qb_starts.parquet")
     if os.path.exists(qbp):
         qb = pd.read_parquet(qbp).sort_values(["team", "season", "week"])
-        def est(grp):
-            out, cum = [], {}
-            for _, r in grp.iterrows():
-                out.append(max(cum, key=cum.get) if cum else None); cum[r.qb] = cum.get(r.qb, 0) + r.att
-            grp = grp.copy(); grp["established"] = out; return grp
-        qb = qb.groupby(["team", "season"], group_keys=False).apply(est)
+        # established starter = most-attempted QB BEFORE this game, within (team, season).
+        # Written as an explicit group loop, NOT groupby.apply: pandas >=2.2 drops the grouping
+        # columns from the frame handed to the function, so the apply returned a frame with no
+        # team/season and the drop_duplicates below raised KeyError(['team','season']). Render's
+        # older pandas included them, so this only ever broke off-Render.
+        _est = {}
+        for _, grp in qb.groupby(["team", "season"], sort=False):
+            cum = {}
+            for _i, r in grp.iterrows():
+                _est[_i] = max(cum, key=cum.get) if cum else None
+                cum[r.qb] = cum.get(r.qb, 0) + r.att
+        qb["established"] = pd.Series(_est)
         qb["f_backup"] = ((qb.established.notna()) & (qb.qb != qb.established) & (qb.att >= 10)).astype(int)
         qb = qb.sort_values("att").drop_duplicates(["season", "week", "team"], keep="last")  # dup games in source
         tg = tg.merge(qb[["season", "week", "team", "f_backup"]], on=["season", "week", "team"], how="left")

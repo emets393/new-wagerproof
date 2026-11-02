@@ -17,6 +17,12 @@ gm, te, S = C.harness_week(SEASON, WEEK)
 # as pick'em). Override te's close lines from odds_game_frame; no Odds-API line -> NaN (skip).
 _ogf = pd.read_parquet("data/odds_game_frame.parquet")
 _ogf = _ogf[_ogf.season == SEASON][["home", "away", "open_spread", "close_spread", "open_total", "close_total"]]
+# One row per matchup or the merge below multiplies every card/flag for that game
+# (BYU @ Utah wk10-2026: 16 pick rows, two CORE TOTAL flags on different lines).
+# build_odds_frame dedupes post-orientation now; this is the belt-and-braces guard.
+_nd = len(_ogf)
+_ogf = _ogf.drop_duplicates(["home", "away"], keep="first")
+if len(_ogf) < _nd: print(f"  [ogf] dropped {_nd - len(_ogf)} duplicate matchup row(s) from odds_game_frame")
 te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
 te["spread_close"] = te["close_spread"]
 te["total_close"] = te["close_total"]
@@ -273,7 +279,11 @@ try:
     # #3 Notre Dame (next: at #8 BYU, which played Friday) and #5 Ohio State (next: at #7
     # Indiana, which kicked at 11am). A team's ranking is a property of (season, week, team)
     # and has nothing to do with whether that team has an unplayed game.
-    _rk = (pd.read_parquet("data/rankings_weekly.parquet")
+    # data/cfbd/, not data/ — fetch_cfbd_extra.py writes it there and every other reader in the
+    # repo joins DATA ("data/cfbd") to it. The bare "data/" path raised FileNotFoundError into the
+    # enclosing `except Exception`, which printed "[lookahead_fade] skipped" and moved on, so this
+    # whole signal stayed dead AFTER the fix that was meant to revive it.
+    _rk = (pd.read_parquet("data/cfbd/rankings_weekly.parquet")
              .rename(columns={"year": "season"}))
     _rk = _rk[(_rk.season == SEASON) & (_rk.poll == "AP Top 25")
               & (_rk.asof_week <= WEEK)]

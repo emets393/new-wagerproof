@@ -12,6 +12,7 @@ Usage:  python3 materialize_odds_history.py 2026
 """
 import os
 import sys
+import time
 import requests
 import pandas as pd
 
@@ -45,11 +46,26 @@ PAGE = 10000            # PostgREST clamps a page to 10,000 rows; 1,000 just mea
 def main():
     frames, page, total = [], 0, 0
     while True:
-        r = requests.get(f"{SUPA}/ncaaf_odds_history",
-                         headers={**HDRS, "Range-Unit": "items",
-                                  "Range": f"{page*PAGE}-{page*PAGE+PAGE-1}"},
-                         params={"season": f"eq.{SEASON}", "select": ",".join(COLS)}, timeout=120)
-        r.raise_for_status()
+        # RETRY THE PAGE, don't abort the week. This runs before any generator, under
+        # run_cfb_week.sh's `set -e`, so one slow page used to kill the whole build and leave the
+        # slate on the previous run's rows with nobody paged (2026-11-02, week 10: ReadTimeout on
+        # a single page, zero generators reached). The table is written by the odds cron every 15
+        # minutes while this pages through it, so an occasional slow response is expected.
+        for _try in range(4):
+            try:
+                r = requests.get(f"{SUPA}/ncaaf_odds_history",
+                                 headers={**HDRS, "Range-Unit": "items",
+                                          "Range": f"{page*PAGE}-{page*PAGE+PAGE-1}"},
+                                 params={"season": f"eq.{SEASON}", "select": ",".join(COLS)},
+                                 timeout=120)
+                r.raise_for_status()
+                break
+            except Exception as e:
+                if _try == 3:
+                    raise
+                print(f"  [retry] page {page} failed ({type(e).__name__}); "
+                      f"retrying in {8 * (_try + 1)}s", flush=True)
+                time.sleep(8 * (_try + 1))
         batch = r.json()
         n = len(batch)
         if n:
