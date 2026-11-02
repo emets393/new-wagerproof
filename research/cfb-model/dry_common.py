@@ -114,6 +114,31 @@ def harness_week(season, week):
     gm, feats, te, S = F.build_season(season, week)
     return gm, te.reset_index(drop=True), S
 
+def conviction_overrides(season, week):
+    """Owner-forced conviction for specific games, applied ON TOP of the validated gate.
+
+    WHY THIS EXISTS: the mammoth gate is a HARD threshold (|side_edge| >= 8). A published
+    play sits on the board for days while the model re-evaluates three times a day, so a
+    tenth-of-a-point drift can silently demote a bet that has already been advertised at 5
+    units. BYU @ Utah wk10-2026 went 8.7 -> 7.0 between the morning and afternoon builds.
+    The gate still decides what BECOMES a mammoth; this only stops one from un-becoming it.
+
+    ⛔ NOT a backtest input and never read by cfb_forecast — the graded record keeps using
+    the gate's own output, so forcing a tier here cannot flatter the model's numbers.
+    One row per (season, week, game_id). Returns {game_id: conviction}.
+    """
+    p = os.path.join(os.path.dirname(__file__), "data", "manual_conviction_overrides.csv")
+    if not os.path.exists(p):
+        return {}
+    df = pd.read_csv(p)
+    df = df[(df.season == int(season)) & (df.week == int(week))]
+    out = {int(r.game_id): str(r.conviction) for r in df.itertuples()}
+    if out:
+        print(f"  [override] {len(out)} manual conviction override(s) for {season} wk{week}: "
+              + ", ".join(f"{int(r.game_id)} {r.game} -> {r.conviction}" for r in df.itertuples()))
+    return out
+
+
 def model_side(r): return "AWAY" if r.side_edge < 0 else "HOME"
 def spread_line(r, grade, side):
     if grade == "open": return r.spread_open

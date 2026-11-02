@@ -93,6 +93,21 @@ if len(f):
         else:
             model_side = "OVER" if r.fg_total_edge > 0 else "UNDER"
             odds = r.fg_total_open if r.grade_line == "open" else r.fg_total_close
+        # DERIVED markets carry their OWN line. `market` is only ever spread/total in the flags
+        # table, so a team total (30.5) or a 1H total (22.5) was being drift-checked against the
+        # FULL-GAME total (55.5, 44.5) and every one of them cleared the 3-point bar: 75 bogus
+        # notes per week, which is how a genuinely stale full-game flag would go unnoticed. Point
+        # each at the column it actually fired on; skip the ones with no comparable row line.
+        _k = str(r.signal_key)
+        if _k.startswith("h1_") or _k.startswith("tt_") or _k == "team_total":
+            if _k == "h1_spread":
+                odds = r.h1_spread_close
+            elif _k == "h1_total":
+                odds = r.h1_total_close
+            elif _k == "h1_ml":
+                odds = None                      # moneyline has no line to drift
+            else:                                # team totals: `side` names the team
+                odds = r.tt_home_close if str(r.side).startswith(str(r.home_team)) else r.tt_away_close
         if r.signal_key in MODEL_KEYS and r.side != model_side:
             issues.append((r.game, "flag", f"{r.signal_key} contradicts the model", r.side, model_side))
         # A flag keeps the line it fired at (grade line = signal line) while the hourly refresher

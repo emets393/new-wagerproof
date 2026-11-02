@@ -25,6 +25,7 @@ gm, te, S = C.harness_week(SEASON, WEEK)
 # zero-fills — Miami@Stanford arrived as Stanford -22.5). Override from the Odds-API
 # game frame, mirroring gen_cfb_slate_flags, and recompute the edges the side pick
 # derives from. No Odds-API line -> NaN (card shows no line, no play).
+_OV = C.conviction_overrides(SEASON, WEEK)
 _ogf = pd.read_parquet("data/odds_game_frame.parquet")
 _ogf = _ogf[_ogf.season == SEASON][["home", "away", "close_spread", "close_total"]]
 # One row per matchup or the merge below multiplies every card/flag for that game
@@ -328,7 +329,7 @@ for _, r in te.iterrows():
         # Big Ten away fav) are internal terms that publish no flag -- so a mammoth qualified by
         # one of them read "Lean 1u" here while the game row said MAMMOTH, and the card's banner
         # named no market, i.e. a mammoth with no pick (Georgia State @ App State wk10-2026).
-        elif r.mammoth == 1: cv, mam = "mammoth", True
+        elif r.mammoth == 1 or _OV.get(int(gid)) == "mammoth": cv, mam = "mammoth", True
         # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR, LOCKED_MODELS.md §7): a bare model lean under 4 pts
         # loses — no side is shown (number still renders). A same-side validated spot keeps the pick.
         below = abs(side_edge) < C.LEAN_FLOOR and cv == "none"

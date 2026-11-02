@@ -25,6 +25,7 @@ g25 = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")[["id", "startDate"]].
 m = m.merge(g25, on="game_id", how="left")
 # ODDS-API lines (owner rule: every displayed/graded line comes from The Odds API, never CFBD). odds_game_frame
 # is the Odds-API consensus. Override model_games' CFBD consensus_lines for the shown FG spread/total + ML.
+_OV = C.conviction_overrides(SEASON, WEEK)
 of = pd.read_parquet("data/odds_game_frame.parquet")[
     ["season", "home", "away", "open_spread", "close_spread", "open_total", "close_total", "close_home_ml", "close_away_ml", "open_home_ml", "open_away_ml"]]
 m = m.merge(of, left_on=["season", "homeTeam", "awayTeam"], right_on=["season", "home", "away"], how="left")
@@ -206,7 +207,10 @@ for _, r in m.iterrows():
     mside = mdir if (edge is None or abs(edge) >= C.LEAN_FLOOR or spread_spot) else None
     tside = tdir if (tedge is None or abs(float(tedge)) >= C.LEAN_FLOOR or total_spot) else None
     has_tt = len(tt_csv[tt_csv.game_id == gid]) > 0
-    if r.mammoth == 1: tier = "mammoth"
+    # Owner override (dry_common.conviction_overrides) sits ON TOP of the gate so an advertised
+    # play cannot be demoted by a model refresh mid-week. gen_cfb_picks reads the same file.
+    _forced = _OV.get(int(gid))
+    if r.mammoth == 1 or _forced == "mammoth": tier = "mammoth"
     elif "T1" in convs: tier = "high"
     elif "T2" in convs or has_tt: tier = "med"
     elif "T3" in convs: tier = "low"
@@ -254,7 +258,8 @@ for _, r in m.iterrows():
         "h1_pred_margin": round(float(h1m[gid]), 1) if gid in h1m else None,
         "h1_pred_total": round(float(h1pt[gid]), 1) if gid in h1pt else None,
         "h1_spread_pick": h1sp.get(gid) or None, "h1_total_pick": h1tp.get(gid) or None, "h1_ml_pick": h1mlp.get(gid) or None,
-        "conviction_tier": tier, "stake_units": stake, "mammoth": bool(r.mammoth == 1),
+        "conviction_tier": tier, "stake_units": stake,
+        "mammoth": bool(r.mammoth == 1 or _forced == "mammoth"),
         "final_home": int(r.homePoints) if pd.notna(r.homePoints) else None,
         "final_away": int(r.awayPoints) if pd.notna(r.awayPoints) else None,
     })

@@ -1,0 +1,2 @@
+season,week,game_id,game,conviction,note
+2026,10,401856849,BYU @ Utah,mammoth,"Owner call 2026-11-02: published and advertised as a mammoth. The gate had it at side_edge 8.7 (>=8) on the morning board; an afternoon model refresh moved pred_margin 11.7 -> 11.0, putting the edge at 7.0 and dropping the tier. A play does not change stake after it is advertised."

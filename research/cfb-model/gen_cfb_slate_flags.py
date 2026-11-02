@@ -15,6 +15,7 @@ gm, te, S = C.harness_week(SEASON, WEEK)
 # OWNER RULE: every signal conditions on ODDS-API lines, never CFBD consensus. 2026 wk1 audit
 # found 5/51 CFBD lines bad (2 sign-FLIPPED: Miami@Stanford, Coastal@WVU; 3 zero-filled read
 # as pick'em). Override te's close lines from odds_game_frame; no Odds-API line -> NaN (skip).
+_OV = C.conviction_overrides(SEASON, WEEK)
 _ogf = pd.read_parquet("data/odds_game_frame.parquet")
 _ogf = _ogf[_ogf.season == SEASON][["home", "away", "open_spread", "close_spread", "open_total", "close_total"]]
 # One row per matchup or the merge below multiplies every card/flag for that game
@@ -65,7 +66,11 @@ for name, (mask, side, market, gl) in S.items():
             line = C.total_line(r, gl); edge = r.total_edge
         else:
             line = C.spread_line(r, gl, side); edge = r.side_edge
-        is_mam = bool(r.mammoth == 1 and mkt_norm == "spread" and side == C.model_side(r))
+        # Same owner override the games/picks generators read, so the signal chip under a forced
+        # mammoth card doesn't still read T2 — an incoherent chip above/below the banner is the
+        # exact class of bug this file's mammoth tagging caused in the first place.
+        is_mam = bool((r.mammoth == 1 or _OV.get(int(r.game_id)) == "mammoth")
+                      and mkt_norm == "spread" and side == C.model_side(r))
         rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK, "game": lab(r),
                      "source": name, "signal_key": C.key_for(name), "market": mkt_norm, "side": side,
                      "line": round(float(line), 1) if pd.notna(line) else None, "price": -110,
