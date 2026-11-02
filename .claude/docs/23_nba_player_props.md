@@ -116,4 +116,7 @@ No opponent / positional-defence context. No model edge: the originator (points 
 top-25% edge in research) is a later addition and will arrive as `model_pred` / `model_edge` columns plus
 new `nba_prop_defs` keys; nothing existing changes. The agents' `get_props` tool serves NBA since 2026-10-19
 (`nba_slate_props.game_id` = the view's balldontlie id is the join): a prop is bettable to an agent only when its row
-carries a flag and the player is not Out/Doubtful; picks grade through `nba_player_box` in `grade-avatar-picks`.
+carries a flag and the player is not Out/Doubtful, and ONLY on the side the flag bets: the agent payload carries
+`bettable_direction` (from `nba_prop_defs.bet_direction`) and `submit_picks` / `submit_parlay` reject the other side as
+`prop_wrong_side` (2026-11-02, after agents took Flagg and Mobley points OVER on a hot-shooter UNDER flag). Picks grade
+through `nba_player_box` in `grade-avatar-picks`.

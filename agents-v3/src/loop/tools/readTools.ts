@@ -51,7 +51,7 @@ const DEEP_TOOLS: Record<string, DeepToolDef> = {
   // get_props is dispatched by name (runProps) so it can populate
   // ctx.bettableProps, but it lives in DEEP_TOOLS so it's advertised + sport-gated
   // + budgeted like the other deep fetches. grounds:"all" → bettable props ground.
-  get_props: { groups: ["props"], sports: ["nfl", "nba"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form. NFL: the Fantasy-Points prop model's projection (fp_model_pred / fp_model_fires = clears its validated threshold) and the Player Prop Report's read where one exists (report_read with report_tells_for/against counts and the tells). NBA: rows from the NBA props board whose rule flag fired (cold player with a raised line; the player's points record with tonight's crew chief), each with the rule's back-test and this season's record in `signals`; bet the side the rule names." },
+  get_props: { groups: ["props"], sports: ["nfl", "nba"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form. NFL: the Fantasy-Points prop model's projection (fp_model_pred / fp_model_fires = clears its validated threshold) and the Player Prop Report's read where one exists (report_read with report_tells_for/against counts and the tells). NBA: rows from the NBA props board whose rule flag fired (cold player with a raised line; the player's points record with tonight's crew chief), each with the rule's back-test and this season's record in `signals`; bet the side the rule names. Every bettable prop carries bettable_direction — the side its signal bets. That is the ONLY side you may submit (prop_direction must equal it; the other side is rejected as prop_wrong_side). Never fade a signal: if you disagree with its side, skip the prop." },
   get_top_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "The week's RANKED prop shortlist across the slate (or given games): tier A = a validated model cell fired (bet these first), tier B = big model edge, context only. Rows also carry the FP model projection and the Prop Report read. Pass no game_ids for the whole slate." },
 
   // ── NFL/CFB-specific tools (our slate model output + validated signals) ──
@@ -125,6 +125,12 @@ export function propKey(playerName: unknown, market: unknown, line: unknown): st
   return `${String(playerName ?? "").toLowerCase()}::${String(market ?? "")}::${String(line ?? "")}`;
 }
 
+/** The side a bettable prop's signal bets, as the formatters put it on the row (`bettable_direction`). */
+function propDir(p: Record<string, unknown>): string | null {
+  const d = String(p.bettable_direction ?? "").toLowerCase();
+  return d === "over" || d === "under" ? d : null;
+}
+
 /** The week's ranked prop shortlist. Slate-wide by default (no game_ids -> every loaded
  *  NFL game); ranked rows only, ordered by rank_pos (tier A block first). Registers the
  *  returned props as bettable + fills propMeta exactly like get_props, so an agent can go
@@ -160,7 +166,7 @@ function runTopProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadT
     if (!meta) { meta = new Map(); ctx.propMeta.set(id, meta); }
     const pk = propKey(p.player_name, p.market, p.line);
     bettable.add(pk);
-    meta.set(pk, { team: String(p.team ?? ""), position: String(p.position ?? "") });
+    meta.set(pk, { team: String(p.team ?? ""), position: String(p.position ?? ""), direction: propDir(p) });
     for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);
   }
 
@@ -208,7 +214,7 @@ function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadTool
       if (!meta) { meta = new Map(); ctx.propMeta.set(id, meta); }
       const pk = propKey(p.player_name, p.market, p.line);
       bettable.add(pk);
-      meta.set(pk, { team: String((p as Record<string, unknown>).team ?? ""), position: String(p.position ?? "") });
+      meta.set(pk, { team: String((p as Record<string, unknown>).team ?? ""), position: String(p.position ?? ""), direction: propDir(p as Record<string, unknown>) });
     }
     // grounds:"all" — a deep prop fetch grounds the game for any bet type.
     for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);

@@ -1901,6 +1901,11 @@ function formatNBAProp(row: Record<string, unknown>, defs: Map<string, Record<st
   const status = String(row.report_status ?? '');
   const available = !/^(out|doubtful)$/i.test(status.trim());
   const detail = row.flag_detail && typeof row.flag_detail === 'object' ? (row.flag_detail as Record<string, unknown>) : {};
+  // The signal fixes the SIDE. Each flag's def says which way it bets and the agent may only take that side: on
+  // 2026-11-02 agents took Flagg and Mobley OVER on a hot-shooter UNDER flag because recent form pointed over, and
+  // nothing stopped them. Flags that disagree on direction leave the prop unbettable.
+  const dirs = [...new Set(flags.map((k) => String(defs.get(k)?.bet_direction ?? '').toLowerCase()).filter((d) => d === 'over' || d === 'under'))];
+  const direction = dirs.length === 1 ? dirs[0] : null;
   return {
     player_name: row.player_name,
     position: row.position,
@@ -1940,7 +1945,8 @@ function formatNBAProp(row: Record<string, unknown>, defs: Map<string, Record<st
         detail: detail[k] ?? null,
       };
     }),
-    is_bettable: flags.length > 0 && available,
+    bettable_direction: direction,
+    is_bettable: flags.length > 0 && available && direction != null,
   };
 }
 
@@ -2420,9 +2426,12 @@ function formatNFLGameFromSlate(
     props: props.length > 0
       ? props.map((p) => {
           const codes = Array.isArray(p.flags) ? (p.flags as string[]) : [];
-          return codes.length > 0
-            ? { ...p, signal: codes.map((c) => formatPropSignalLine(c, perfMap, defMap)).join(" | ") }
-            : p;
+          if (codes.length === 0) return p;
+          // The side the flags bet, resolved from nfl_signal_defs (P-code prefix match, as formatPropSignalLine does);
+          // the submit tools reject the other side. null when the codes disagree or carry no def -> no side gate.
+          const dirs = [...new Set(codes.map((c) => propFlagDirection(c, defMap)).filter((d): d is string => d != null))];
+          return { ...p, signal: codes.map((c) => formatPropSignalLine(c, perfMap, defMap)).join(" | "),
+                   bettable_direction: dirs.length === 1 ? dirs[0] : null };
         })
       : null,
     // Season-to-date team trends (nfl_team_trends). Owner rule 2026-08-17:
@@ -2709,6 +2718,20 @@ function formatPropSignalLine(
   const validated = def?.typical_hit ? ` · all-time ${def.typical_hit}` : "";
   const szn = perf ? ` · season ${perf.wins ?? 0}-${perf.losses ?? 0}` : "";
   return `${code} ${name}${dir}${validated}${szn}`;
+}
+
+// The side a prop flag bets ("over" | "under"), from the same prefix match formatPropSignalLine uses; null when
+// the code has no def or the def carries no direction.
+function propFlagDirection(code: string, defMap?: Map<string, Record<string, unknown>>): string | null {
+  if (!defMap) return null;
+  const prefix = `${code}_`;
+  for (const [k, v] of defMap) {
+    if (k.startsWith(prefix)) {
+      const d = String(v.bet_direction ?? '').toLowerCase();
+      return d === 'over' || d === 'under' ? d : null;
+    }
+  }
+  return null;
 }
 
 // Project one slate pick-card row (nfl_slate_picks / cfb_slate_picks). These

@@ -100,6 +100,13 @@ export async function submitPicks(
         reject(gameId, betType, "prop_not_bettable — only signal-backed props surfaced by get_props can be bet");
         continue;
       }
+      // The signal's side is the only side. Owner 2026-11-02: agents took Flagg / Mobley points OVER on a
+      // hot-shooter UNDER flag because recent form pointed over — a prop is bettable on its signal's side, full stop.
+      const side = ctx.propMeta.get(gameId)?.get(pk)?.direction;
+      if (side && String(pDir).toLowerCase() !== side) {
+        reject(gameId, betType, `prop_wrong_side — this prop's signal bets ${side.toUpperCase()}; agents take the signal's side, never fade it (submit prop_direction "${side}" or skip the prop)`);
+        continue;
+      }
     } else {
       const grounded = ctx.deepFetched.get(gameId);
       if (!grounded || !grounded.has(betType)) {

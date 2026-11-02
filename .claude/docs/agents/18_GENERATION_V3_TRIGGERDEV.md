@@ -94,7 +94,10 @@ The deep read-tool registry lives in `agents-v3/src/loop/tools/readTools.ts`
 dispatched by name instead because they don't fit the game-keyed projection loop:
 
 - `get_props` — populates the bettable-prop ledger (only `is_bettable` props can
-  be staked). Since 2026-09-21 each prop also carries the ADDITIVE Fantasy-Points
+  be staked, and only on `bettable_direction`, the side the prop's signal bets:
+  `submit_picks` / `submit_parlay` reject the other side as `prop_wrong_side`.
+  Added 2026-11-02 after agents took Flagg and Mobley points OVER on a
+  hot-shooter UNDER flag — the ledger keyed player+market+line, never the side). Since 2026-09-21 each prop also carries the ADDITIVE Fantasy-Points
   layer from `nfl_slate_props`: `fp_model_pred` / `fp_model_edge` / `fp_model_fires`
   / `fp_model_tier` (the FP-era prop model, `score_props_week.py` →
   `nfl_prop_model_preds`; `fires` = clears that market's validated threshold) and

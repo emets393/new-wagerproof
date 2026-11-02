@@ -97,7 +97,7 @@ export function buildSubmitPicksSchema(band: UnitBand): Record<string, unknown> 
             prop_player: { type: "string", description: 'REQUIRED when bet_type="prop". The player name copied VERBATIM from the get_props result, e.g. "Patrick Mahomes".' },
             prop_market: { type: "string", description: 'REQUIRED when bet_type="prop". The prop market copied VERBATIM from the get_props result, e.g. "passing_yards".' },
             prop_line: { type: "number", description: 'REQUIRED for lined markets (yards/receptions/TD-count); OMIT for player_anytime_td (it has no line).' },
-            prop_direction: { type: "string", enum: ["over", "under"], description: 'REQUIRED when bet_type="prop". Which side of the line — "over" or "under".' },
+            prop_direction: { type: "string", enum: ["over", "under"], description: 'REQUIRED when bet_type="prop". Which side of the line — "over" or "under". MUST equal that prop\'s bettable_direction from get_props (the side its signal bets); the other side is rejected as prop_wrong_side.' },
             units: {
               type: "number",
               enum: band.enumValues,
@@ -196,7 +196,7 @@ export function buildSubmitParlaySchema(band: UnitBand, maxLegs: number, opts?: 
                   prop_player: { type: "string", description: 'REQUIRED when bet_type="prop". The player name copied VERBATIM from the get_props result, e.g. "Patrick Mahomes".' },
                   prop_market: { type: "string", description: 'REQUIRED when bet_type="prop". The prop market copied VERBATIM from the get_props result, e.g. "passing_yards".' },
                   prop_line: { type: "number", description: 'REQUIRED for lined markets (yards/receptions/TD-count); OMIT for player_anytime_td (it has no line).' },
-                  prop_direction: { type: "string", enum: ["over", "under"], description: 'REQUIRED when bet_type="prop". Which side of the line — "over" or "under".' },
+                  prop_direction: { type: "string", enum: ["over", "under"], description: 'REQUIRED when bet_type="prop". Which side of the line — "over" or "under". MUST equal that prop\'s bettable_direction from get_props (the side its signal bets); the other side is rejected as prop_wrong_side.' },
                 },
                 required: ["game_id", "bet_type", "selection", "odds"],
               },

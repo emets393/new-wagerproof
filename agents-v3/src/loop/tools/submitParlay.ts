@@ -148,6 +148,9 @@ export async function submitParlay(
         // prop_line omitted for player_anytime_td; propKey coerces undefined → "".
         const pk = propKey(pPlayer, pMarket, leg?.prop_line);
         if (!ctx.bettableProps.get(gameId)?.has(pk)) { legFailure = `leg ${gameId}: prop_not_bettable`; break; }
+        // Same side rule as submit_picks: a prop leg must bet the side its signal bets.
+        const legSide = ctx.propMeta.get(gameId)?.get(pk)?.direction;
+        if (legSide && String(pDir).toLowerCase() !== legSide) { legFailure = `leg ${gameId}: prop_wrong_side — the signal bets ${legSide.toUpperCase()}; agents never fade a signal`; break; }
         // ── Sportsbook correlation rules (researched 2026-08-15, owner request) ──
         // 1) ONE prop leg per PLAYER per ticket: same-player multi-market legs are the
         //    heaviest correlation there is; books reprice or refuse, and our naive odds
