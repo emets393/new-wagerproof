@@ -25,8 +25,15 @@ gm, te, S = C.harness_week(SEASON, WEEK)
 # zero-fills — Miami@Stanford arrived as Stanford -22.5). Override from the Odds-API
 # game frame, mirroring gen_cfb_slate_flags, and recompute the edges the side pick
 # derives from. No Odds-API line -> NaN (card shows no line, no play).
+_OV = C.conviction_overrides(SEASON, WEEK)
 _ogf = pd.read_parquet("data/odds_game_frame.parquet")
 _ogf = _ogf[_ogf.season == SEASON][["home", "away", "close_spread", "close_total"]]
+# One row per matchup or the merge below multiplies every card/flag for that game
+# (BYU @ Utah wk10-2026: 16 pick rows, two CORE TOTAL flags on different lines).
+# build_odds_frame dedupes post-orientation now; this is the belt-and-braces guard.
+_nd = len(_ogf)
+_ogf = _ogf.drop_duplicates(["home", "away"], keep="first")
+if len(_ogf) < _nd: print(f"  [ogf] dropped {_nd - len(_ogf)} duplicate matchup row(s) from odds_game_frame")
 te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
 te["spread_close"] = te["close_spread"]
 te["total_close"] = te["close_total"]
@@ -317,6 +324,12 @@ for _, r in te.iterrows():
         bs = best_spread(gid, pside); model_line = round(-r.pred_margin if ph else r.pred_margin, 1)
         cv, mam, sig = conv_for(gid, "spread", side=pside)
         if capped: cv, mam, sig = "none", False, []
+        # The GATE owns the mammoth tier (cfb_forecast.py:389), not the flag table. conv_for only
+        # sees published flags, and two of the gate's four confirming spots (Sun Belt home fav,
+        # Big Ten away fav) are internal terms that publish no flag -- so a mammoth qualified by
+        # one of them read "Lean 1u" here while the game row said MAMMOTH, and the card's banner
+        # named no market, i.e. a mammoth with no pick (Georgia State @ App State wk10-2026).
+        elif r.mammoth == 1 or _OV.get(int(gid)) == "mammoth": cv, mam = "mammoth", True
         # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR, LOCKED_MODELS.md §7): a bare model lean under 4 pts
         # loses — no side is shown (number still renders). A same-side validated spot keeps the pick.
         below = abs(side_edge) < C.LEAN_FLOOR and cv == "none"

@@ -114,6 +114,29 @@ if len(sw):
           + ", ".join(f"{r.away} @ {r.home}" for r in sw.itertuples()))
 straight["swapped_orientation"] = False
 fr = pd.concat([straight, sw], ignore_index=True) if len(sw) else straight
+# SECOND dedup, AFTER the orientation flip. The one above ran on the Odds-API's own
+# orientation, so a matchup whose event arrives BOTH ways (one row home=A/away=B, one
+# home=B/away=A) passes it as two distinct keys and only becomes one matchup here, once
+# the swapped row is flipped into the schedule's orientation. BYU @ Utah wk10-2026 landed
+# twice with totals 47.5 AND 61.5: every downstream (home, away) merge fanned out, giving
+# that game 16 cfb_slate_picks rows instead of 8 and two CORE TOTAL flags on opposite sides
+# of two different lines. Keep the event with the most snapshots — phantoms are thin.
+# This also covers a genuine rematch (27 (season,home,away) pairs in model_games are teams
+# that met twice), where the unguarded mg merge duplicated the odds row outright.
+# Tiebreak on ORIENTATION FIRST, not snapshot count. The swapped path exists only to rescue a
+# game the straight join would have dropped entirely, so where both exist the straight row is the
+# one whose orientation the schedule itself agrees with. By snapshots alone, 2026 BYU @ Utah kept
+# the swapped row and its total 61.5 (175 snaps) over the real 47.5 (27 snaps) — the board, the
+# pick card and the primary total flag all say 47.5 — and Missouri @ Arkansas kept 62.5 over 48.5.
+_b2 = len(fr)
+fr = fr.sort_values(["swapped_orientation", "n_snaps"], ascending=[True, False]).drop_duplicates(
+    subset=["season", "home", "away"], keep="first")
+if len(fr) < _b2:
+    _d = pd.concat([straight, sw], ignore_index=True) if len(sw) else straight
+    _dups = _d[_d.duplicated(["season", "home", "away"], keep=False)].sort_values(["season", "home", "away"])
+    print(f"  [dedup] dropped {_b2 - len(fr)} post-orientation duplicate(s): "
+          + ", ".join(f"{r.season} {r.away} @ {r.home} (total {r.close_total}, {r.n_snaps} snaps)"
+                      for r in _dups.itertuples()))
 fr["home_cover_close"] = (fr.actual_margin + fr.close_spread) > 0
 fr["over_close"] = fr.actual_total > fr.close_total
 out = os.path.join(HERE, "data", "odds_game_frame.parquet")
