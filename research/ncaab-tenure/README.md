@@ -123,3 +123,33 @@ zero 3rd+-year minutes, Nov-Dec 156-129 (54.7%), dog of 7+ 82-65 (55.8%), 2022-2
 2026-27 screen (preseason weighting, CBBD rosters pulled 2026-11-02): 39 non-power teams in the cell, 15 of them with Jr/Sr
 share <= 20%. Opening day Monday 2026-11-02, games with a line: 12-10 ATS; as dogs of 7+ 8-7. Full list with results and the
 week's schedule in `SCREEN_2026-11-02.csv`. Rule for the watchlist: cell team, dog of 7+, D1 opponent, Nov-Dec.
+
+## KenPom components for non-power schools (owner follow-up 2026-11-02) -- `kenpom_profile.py`, `kenpom_followup.py`
+
+Preseason KenPom (first archive date of each season, 2022-23..2025-26) adjusted offense, adjusted defense and tempo, national
+ranks, own and opponent, on every non-power team-game Nov-Dec and inside the young-and-new cell. Records BACK the team.
+
+**On their own, nothing.** Offense rank bands 47.9-51.2%, defense 47.7-51.1%, tempo 49.2-51.3%, offense-led vs defense-led
+48.3-51.8% (the 150+ imbalance tails are 110-86 and 117-109), tempo vs the opponent 48.7-51.3%, fast-vs-slow matchups 49.7 /
+51.3%. The one shape: **rated non-power teams are a shade over-priced early** -- preseason top-100 offense OR defense fades
+1,109-1,003 (52.5%, shuffle p .012) Nov-Dec, 514-457 (52.9%) as a favourite of 7+, Jan-Feb placebo 48.9%. ROI is +0.2% / +1.1%:
+sub-vig, not a bet; the rank ladder is not monotone (151-200 band 55.1% with a 55.1% placebo). Of note only as context:
+the rated favourite fades 54.6% when its roster is young/uncohesive and 48.0% when it is not.
+
+**Inside the cell, the young team's own KenPom profile does not split it.** As a dog of 7+ every offense / defense / tempo
+tercile sits 53-63% on 110-260 games with no order (defense best-third 78-45, worst-third 145-117; fastest 100-76, slowest
+123-99; offense-led 67-56, defense-led 48-25). What matters is the **opponent's** preseason rank:
+
+| young-and-new cell, dog of 7+, Nov-Dec | record | % | ROI |
+|---|---|---|---|
+| vs opponent in the KenPom top 50 | 70-67 | 51.1% | -2.5% |
+| **vs opponent outside the top 50** | **265-190** | **58.2%** | **+11.2%** |
+| ... and dog of 12.5+ | 157-106 | 59.7% | +14.0% |
+| ... dog of 7 to 12 | 108-84 | 56.2% | +7.4% |
+| ... opponent is power-conference | 64-45 | 58.7% | |
+| ... opponent is non-power | 201-145 | 58.1% | |
+
+Seasons 47-47, 41-27, 86-49, 91-67; shuffle p .009; Jan-Feb placebo 248-220 (53.0%). Opponent band ladder 51-100 55.9%,
+101-150 58.5%, 151-250 61.1%, 251+ 57.1%; the top-25 opponents (39-29) and 26-50 (31-38) are noise around 50%. Reading: the
+elite teams cover their 30-point numbers; the mid-table hosts laying 10-20 to a young unknown do not. Post-hoc split on
+~600 games -- report it as the refinement, grade the broad cell live.
