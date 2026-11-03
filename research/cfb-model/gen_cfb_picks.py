@@ -294,14 +294,6 @@ def fmt_line(v):
     v = float(v)
     if abs(v) < 0.05: return "PK"
     return ("+" if v > 0 else "") + f"{v:g}"
-def driving_spread_side(gid):
-    """Cold-week spread pick side = the highest-conviction CONTEXTUAL spread signal that fired
-    (e.g. g5_dog_wk1_bigfav on the dog). Returns 'HOME'/'AWAY' or None. Blanket/model keys are
-    already excluded upstream, so any spread flag here is a real per-game signal."""
-    if not len(flags): return None
-    f = flags[(flags.game_id == gid) & (flags.market == "spread")]
-    if not len(f): return None
-    return f.sort_values("conviction", key=lambda s: s.map(lambda c: CONV_RANK.get(c, 0)), ascending=False).iloc[0].side
 for _, r in te.iterrows():
     gid = int(r.game_id); H, A = r.homeTeam, r.awayTeam
     side_edge = float(r.side_edge) if pd.notna(r.side_edge) else None
@@ -319,17 +311,19 @@ for _, r in te.iterrows():
         # A signal that AGREES with the model side still drives conviction (conv_for is
         # side-filtered) and exempts the degenerate-edge cap; a disagreeing signal renders
         # in the game's signal list, never as the headline pick.
-        drv = driving_spread_side(gid) if EARLY else None
-        capped = (abs(side_edge) > 14) and not (drv == pside)
         bs = best_spread(gid, pside); model_line = round(-r.pred_margin if ph else r.pred_margin, 1)
+        # Conviction is resolved FIRST because the cap reads it: C.spread_capped exempts a
+        # degenerate edge that a validated same-side spot backs, and conv_for is side-filtered.
         cv, mam, sig = conv_for(gid, "spread", side=pside)
-        if capped: cv, mam, sig = "none", False, []
         # The GATE owns the mammoth tier (cfb_forecast.py:389), not the flag table. conv_for only
         # sees published flags, and two of the gate's four confirming spots (Sun Belt home fav,
         # Big Ten away fav) are internal terms that publish no flag -- so a mammoth qualified by
         # one of them read "Lean 1u" here while the game row said MAMMOTH, and the card's banner
         # named no market, i.e. a mammoth with no pick (Georgia State @ App State wk10-2026).
-        elif r.mammoth == 1 or _OV.get(int(gid)) == "mammoth": cv, mam = "mammoth", True
+        if r.mammoth == 1 or _OV.get(int(gid)) == "mammoth": cv, mam = "mammoth", True
+        # ONE cap, shared with refresh_cfb_slate_lines (dry_common.spread_capped).
+        capped = C.spread_capped(side_edge, cv)
+        if capped: cv, mam, sig = "none", False, []
         # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR, LOCKED_MODELS.md §7): a bare model lean under 4 pts
         # loses — no side is shown (number still renders). A same-side validated spot keeps the pick.
         below = abs(side_edge) < C.LEAN_FLOOR and cv == "none"

@@ -318,6 +318,25 @@ try:
     from dry_common import LEAN_FLOOR          # single source of truth for the 4-pt lean floor
 except Exception:
     LEAN_FLOOR = 4.0
+# This file is the SECOND writer of a pick card: gen_cfb_picks writes it, then the refresh cron
+# re-derives conviction/is_mammoth/has_play 3x/day as the line moves. It used to patch those and
+# NOT `recommendation`, so the displayed label stayed frozen at whatever gen_cfb_picks computed
+# hours earlier -- Georgia State @ App State wk10-2026 shipped conviction=mammoth / is_mammoth /
+# 5.0u under the label "No Bet". The label is derived, never stored independently: any patch that
+# touches conviction or has_play MUST re-derive it here too.
+try:
+    from dry_common import spread_capped
+except Exception:
+    def spread_capped(side_edge, conviction):
+        return side_edge is not None and abs(float(side_edge)) > 14.0 and (conviction or "none") == "none"
+try:
+    from dry_common import recommendation as _rec_label
+except Exception:
+    def _rec_label(conviction, has_play):
+        if not has_play:
+            return "No Bet"
+        return {"mammoth": "MAMMOTH Play", "high": "High Conviction", "med": "Solid Play",
+                "low": "Lean", "lean": "Small Lean"}.get(conviction, "Play")
 
 
 def flip_stale_sides(hdr, season, week, gids, fills=None):
@@ -377,18 +396,24 @@ def flip_stale_sides(hdr, season, week, gids, fills=None):
                 rec = dict(pick_side=None, pick_team=None, pick_label=None, vegas_line=round(close if new == "HOME" else -close, 1),
                            model_line=round(prd if new == "HOME" else -prd, 1), edge=round(edge, 1),
                            best_line=None, best_odds=None, best_book=None, conviction="none", is_mammoth=False,
-                           has_play=False, display_only=True, signal_keys=[], stake_units=0.0)
+                           has_play=False, display_only=True, signal_keys=[], stake_units=0.0,
+                           recommendation=_rec_label("none", False),
+                           best_book_name=None, best_book_logo=None)
                 gpatch.setdefault(gid, {})["fg_spread_pick"] = None
             elif (cur and new != cur) or (not cur and not below):
                 team = g["home_team"] if new == "HOME" else g["away_team"]
                 vl = close if new == "HOME" else -close
                 ml = prd if new == "HOME" else -prd
-                capped = edge > 14 and cv == "none"   # EARLY degenerate cap
+                capped = spread_capped(edge, cv)   # ONE definition (dry_common)
                 rec = dict(pick_side=new, pick_team=team, pick_label=f"{team} {fmt(vl)}",
                            vegas_line=round(vl, 1), model_line=round(ml, 1), edge=round(edge, 1),
                            best_line=None, best_odds=None, best_book=None,
-                           conviction=(cv if not capped else "none"), is_mammoth=mam,
+                           conviction=(cv if not capped else "none"),
+                           is_mammoth=(mam and not capped),
                            has_play=(cv != "none" and not capped), display_only=capped,
+                           recommendation=_rec_label(cv if not capped else "none",
+                                                     cv != "none" and not capped),
+                           best_book_name=None, best_book_logo=None,
                            signal_keys=sig,
                            counter_signal_keys=counter_keys(gid, "spread",
                                lambda s, o=("AWAY" if new == "HOME" else "HOME"): s == o),
@@ -402,7 +427,9 @@ def flip_stale_sides(hdr, season, week, gids, fills=None):
             if cur and below:
                 rec = dict(pick_side=None, pick_team=None, pick_label=None, vegas_line=round(close, 1), model_line=round(prd, 1),
                            edge=round(abs(prd - close), 1), best_line=None, best_odds=None, best_book=None,
-                           conviction="none", is_mammoth=False, has_play=False, display_only=True, signal_keys=[], stake_units=0.0)
+                           conviction="none", is_mammoth=False, has_play=False, display_only=True, signal_keys=[], stake_units=0.0,
+                           recommendation=_rec_label("none", False),
+                           best_book_name=None, best_book_logo=None)
                 gpatch.setdefault(gid, {})["fg_total_pick"] = None
             elif (cur and new != cur) or (not cur and not below):
                 rec = dict(pick_side=new, pick_team=None, pick_label=f"{new.title()} {close:g}",
@@ -410,6 +437,8 @@ def flip_stale_sides(hdr, season, week, gids, fills=None):
                            edge=round(abs(prd - close), 1),
                            best_line=None, best_odds=None, best_book=None,
                            conviction=cv, is_mammoth=mam, has_play=(cv != "none"), display_only=False,
+                           recommendation=_rec_label(cv, cv != "none"),
+                           best_book_name=None, best_book_logo=None,
                            signal_keys=sig,
                            counter_signal_keys=counter_keys(gid, "total",
                                lambda s, o=("UNDER" if new == "OVER" else "OVER"): s == o),
@@ -431,6 +460,8 @@ def flip_stale_sides(hdr, season, week, gids, fills=None):
                                edge=round(float(prd) - float(close), 1),
                                best_line=None, best_odds=None, best_book=None,
                                conviction=cv, is_mammoth=False, has_play=(cv != "none"),
+                               recommendation=_rec_label(cv, cv != "none"),
+                               best_book_name=None, best_book_logo=None,
                                display_only=False, signal_keys=sig,
                                counter_signal_keys=counter_keys(gid, "team_total",
                                    lambda s, t=team, o=("UNDER" if new == "OVER" else "OVER"):

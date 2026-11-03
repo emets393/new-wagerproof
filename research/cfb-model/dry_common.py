@@ -196,6 +196,32 @@ def tt_conv_key(edge, pside, p5):
     if pside == "OVER" and p5 and edge >= 4: return "T2"
     return None
 
+DEGENERATE_EDGE = 14.0
+
+
+def spread_capped(side_edge, conviction):
+    """Is this spread card a degenerate edge with nothing backing it -> NO PLAY?
+
+    THE one definition. It had been written twice -- once in gen_cfb_picks, once in
+    refresh_cfb_slate_lines, which runs after it 3x/day and re-derives conviction when a
+    moved line flips the pick side. The two copies drifted and disagreed, so a card could
+    carry one writer's tier under the other writer's label: Georgia State @ App State
+    wk10-2026 shipped conviction=mammoth / 5.0u displaying "No Bet" (owner 2026-11-03:
+    "why the fuck would you do that? Its either a mammoth or its not").
+
+    The rule, as gen_cfb_picks' own comment always stated it: a model edge past
+    DEGENERATE_EDGE is the model disagreeing with the market by more than the model has
+    earned, so it is thrown out UNLESS a validated spot agrees with the side we are betting.
+    conv_for() is side-filtered, so a conviction above "none" IS that agreeing spot -- which
+    is why conviction is the input here. gen_cfb_picks used to test `drv == pside` instead,
+    but drv is only computed in EARLY weeks, so from week ~4 the exemption was dead and it
+    capped every large edge regardless of support.
+    """
+    if side_edge is None:
+        return False
+    return abs(float(side_edge)) > DEGENERATE_EDGE and (conviction or "none") == "none"
+
+
 def recommendation(conviction, has_play):
     """Ready-to-display bet-quality label so the app renders a string with no logic."""
     if not has_play: return "No Bet"
