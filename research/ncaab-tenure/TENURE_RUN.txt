@@ -1,0 +1,448 @@
+team-seasons: 4,021  by season {2021: 493, 2022: 680, 2023: 706, 2024: 717, 2025: 700, 2026: 725}
+metric means by season (censoring shows as a rising floor):
+        upper_share  senior_share  fresh_share  avg_exp  core_share  ret_share  avg_here  pair_ret  pair_core  avg_here_ros
+season                                                                                                                     
+2021          0.000         0.000        1.000    0.000       0.000      0.000     0.000     0.000      0.000         0.951
+2022          0.000         0.000        0.515    0.485       0.000      0.360     0.360     0.226      0.000         0.916
+2023          0.306         0.000        0.435    0.871       0.160      0.424     0.584     0.247      0.056         0.826
+2024          0.327         0.169        0.408    1.088       0.155      0.427     0.636     0.244      0.046         0.771
+2025          0.349         0.184        0.417    1.198       0.154      0.404     0.622     0.215      0.043         0.723
+2026          0.305         0.142        0.435    1.038       0.109      0.327     0.469     0.156      0.027         0.586
+
+team-games graded: 45,886 seasons [2023, 2024, 2025, 2026]; small-school share 0.77, low-major 0.70
+validation: avg_exp vs KenPom Exp (own side, h_Exp when home / a_Exp when away) corr = 0.709 ; avg_here (box) vs roster startSeason years corr = 0.953 ; actual-minutes vs prior-minutes weighting upper_share corr = 0.749
+
+=== A. IS TENURE/COHESION REAL AND IS IT PRICED? team-season regression, first 10 games, controls = prior-season margin ===
+ (team-seasons 1454, prior-season margin known for 100%; controls = preseason KenPom + prior-season margin)
+ -- all teams: n=1454
+    upper_share (Jr/Sr minutes share)    realised margin +2.18 (t +2.4) | market +2.11 (t +3.5) | ATS gap +0.07 (t +0.1)   per unit of the metric
+    core_share (3rd+ yr at school)       realised margin -0.21 (t -0.2) | market +0.31 (t +0.5) | ATS gap -0.52 (t -1.0)   per unit of the metric
+    avg_exp                              realised margin +0.98 (t +2.7) | market +0.96 (t +3.9) | ATS gap +0.02 (t +0.1)   per unit of the metric
+    avg_here                             realised margin -0.11 (t -0.3) | market +0.15 (t +0.6) | ATS gap -0.26 (t -1.2)   per unit of the metric
+    pair_core                            realised margin +0.24 (t +0.2) | market +0.83 (t +0.9) | ATS gap -0.59 (t -0.7)   per unit of the metric
+ -- small schools (non-power): n=1140
+    upper_share (Jr/Sr minutes share)    realised margin +1.72 (t +1.7) | market +1.52 (t +2.2) | ATS gap +0.19 (t +0.3)   per unit of the metric
+    core_share (3rd+ yr at school)       realised margin +1.35 (t +1.3) | market +1.71 (t +2.4) | ATS gap -0.36 (t -0.6)   per unit of the metric
+    avg_exp                              realised margin +0.48 (t +1.1) | market +0.39 (t +1.3) | ATS gap +0.09 (t +0.4)   per unit of the metric
+    avg_here                             realised margin +0.48 (t +1.1) | market +0.68 (t +2.3) | ATS gap -0.20 (t -0.8)   per unit of the metric
+    pair_core                            realised margin +1.98 (t +1.3) | market +2.45 (t +2.3) | ATS gap -0.46 (t -0.5)   per unit of the metric
+ -- power conferences: n=314
+    upper_share (Jr/Sr minutes share)    realised margin +3.49 (t +1.7) | market +3.15 (t +2.3) | ATS gap +0.34 (t +0.3)   per unit of the metric
+    core_share (3rd+ yr at school)       realised margin -5.55 (t -2.9) | market -4.73 (t -3.9) | ATS gap -0.82 (t -0.7)   per unit of the metric
+    avg_exp                              realised margin +2.16 (t +3.0) | market +2.09 (t +4.6) | ATS gap +0.07 (t +0.2)   per unit of the metric
+    avg_here                             realised margin -2.15 (t -2.6) | market -1.78 (t -3.4) | ATS gap -0.36 (t -0.7)   per unit of the metric
+    pair_core                            realised margin -7.71 (t -2.3) | market -6.98 (t -3.2) | ATS gap -0.73 (t -0.3)   per unit of the metric
+
+=== B. QUANTILE LADDERS -- all D1, 2022-23..2025-26 ===
+
+   TENURE: share of rotation minutes by juniors/seniors -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 751-691 (52.1%)  margin vs spread +0.30  spr +7.3  SU 36% | 23:184-176 24:176-182 25:200-162 26:191-171 | Jan-Feb 2256-2173 (50.9%)
+      Q2: 714-715 (50.0%)  margin vs spread -0.25  spr +2.7  SU 43% | 23:167-187 24:175-176 25:192-171 26:180-181 | Jan-Feb 2273-2191 (50.9%)
+      Q3: 690-744 (48.1%)  margin vs spread -0.58  spr -0.2  SU 50% | 23:170-188 24:174-182 25:168-190 26:178-184 | Jan-Feb 2211-2238 (49.7%)
+      Q4: 711-717 (49.8%)  margin vs spread +0.09  spr -3.1  SU 57% | 23:191-159 24:183-173 25:164-195 26:173-190 | Jan-Feb 2129-2268 (48.4%)
+      Q5: 728-704 (50.8%)  margin vs spread +0.65  spr -6.1  SU 65% | 23:183-171 24:177-180 25:180-178 26:188-175 | Jan-Feb 2226-2225 (50.0%)
+
+   TENURE: share of rotation minutes by juniors/seniors -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1459-1422 (50.6%)  margin vs spread +0.14  spr +6.6  SU 36% | 23:359-361 24:350-365 25:376-349 26:374-347 | Jan-Feb 2256-2173 (50.9%)
+      Q2: 1407-1447 (49.3%)  margin vs spread -0.30  spr +2.3  SU 43% | 23:329-378 24:358-345 25:352-369 26:368-355 | Jan-Feb 2273-2191 (50.9%)
+      Q3: 1413-1437 (49.6%)  margin vs spread -0.28  spr -0.1  SU 50% | 23:359-358 24:353-350 25:345-366 26:356-363 | Jan-Feb 2211-2238 (49.7%)
+      Q4: 1413-1438 (49.6%)  margin vs spread -0.01  spr -2.3  SU 55% | 23:375-328 24:347-362 25:347-370 26:344-378 | Jan-Feb 2129-2268 (48.4%)
+      Q5: 1445-1427 (50.3%)  margin vs spread +0.37  spr -5.0  SU 62% | 23:353-363 24:358-355 25:363-355 26:371-354 | Jan-Feb 2226-2225 (50.0%)
+
+   TENURE: share of rotation minutes by juniors/seniors -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1736-1680 (50.8%)  margin vs spread +0.19  spr +6.5  SU 36% | 23:460-444 24:398-420 25:437-397 26:441-419 | Jan-Feb 2256-2173 (50.9%)
+      Q2: 1679-1731 (49.2%)  margin vs spread -0.33  spr +2.1  SU 44% | 23:409-464 24:422-413 25:415-424 26:433-430 | Jan-Feb 2273-2191 (50.9%)
+      Q3: 1707-1726 (49.7%)  margin vs spread -0.26  spr -0.4  SU 51% | 23:456-445 24:412-419 25:415-420 26:424-442 | Jan-Feb 2211-2238 (49.7%)
+      Q4: 1725-1759 (49.5%)  margin vs spread -0.03  spr -2.5  SU 55% | 23:461-437 24:413-425 25:421-452 26:430-445 | Jan-Feb 2129-2268 (48.4%)
+      Q5: 1797-1748 (50.7%)  margin vs spread +0.41  spr -5.4  SU 63% | 23:457-453 24:444-412 25:440-435 26:456-448 | Jan-Feb 2226-2225 (50.0%)
+
+   TENURE: minutes-weighted D1 seasons played -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 758-685 (52.5%)  margin vs spread +0.43  spr +7.4  SU 36% | 23:185-173 24:173-186 25:211-153 26:189-173 | Jan-Feb 2252-2172 (50.9%)
+      Q2: 692-731 (48.6%)  margin vs spread -0.39  spr +3.3  SU 41% | 23:162-192 24:172-176 25:177-184 26:181-179 | Jan-Feb 2284-2169 (51.3%)
+      Q3: 724-711 (50.5%)  margin vs spread -0.22  spr -0.8  SU 52% | 23:188-168 24:178-180 25:182-175 26:176-188 | Jan-Feb 2209-2256 (49.5%)
+      Q4: 697-734 (48.7%)  margin vs spread -0.15  spr -2.3  SU 55% | 23:172-180 24:188-168 25:158-202 26:179-184 | Jan-Feb 2154-2245 (49.0%)
+      Q5: 723-710 (50.5%)  margin vs spread +0.54  spr -6.9  SU 66% | 23:188-168 24:174-183 25:176-182 26:185-177 | Jan-Feb 2196-2253 (49.4%)
+
+   TENURE: minutes-weighted D1 seasons played -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1467-1408 (51.0%)  margin vs spread +0.18  spr +6.5  SU 36% | 23:358-357 24:354-362 25:383-341 26:372-348 | Jan-Feb 2252-2172 (50.9%)
+      Q2: 1397-1458 (48.9%)  margin vs spread -0.23  spr +2.9  SU 42% | 23:328-380 24:353-347 25:345-378 26:371-353 | Jan-Feb 2284-2169 (51.3%)
+      Q3: 1435-1424 (50.2%)  margin vs spread -0.26  spr -0.6  SU 51% | 23:366-352 24:358-353 25:359-351 26:352-368 | Jan-Feb 2209-2256 (49.5%)
+      Q4: 1400-1449 (49.1%)  margin vs spread -0.09  spr -1.8  SU 54% | 23:359-348 24:347-355 25:338-380 26:356-366 | Jan-Feb 2154-2245 (49.0%)
+      Q5: 1438-1432 (50.1%)  margin vs spread +0.30  spr -5.5  SU 63% | 23:364-351 24:354-360 25:358-359 26:362-362 | Jan-Feb 2196-2253 (49.4%)
+
+   TENURE: minutes-weighted D1 seasons played -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1729-1666 (50.9%)  margin vs spread +0.19  spr +6.5  SU 36% | 23:448-439 24:402-420 25:443-387 26:436-420 | Jan-Feb 2252-2172 (50.9%)
+      Q2: 1675-1734 (49.1%)  margin vs spread -0.22  spr +2.6  SU 43% | 23:421-467 24:409-406 25:404-434 26:441-427 | Jan-Feb 2284-2169 (51.3%)
+      Q3: 1747-1718 (50.4%)  margin vs spread -0.17  spr -0.8  SU 52% | 23:461-446 24:429-420 25:437-409 26:420-443 | Jan-Feb 2209-2256 (49.5%)
+      Q4: 1705-1756 (49.3%)  margin vs spread -0.10  spr -2.1  SU 54% | 23:448-445 24:410-428 25:408-444 26:439-439 | Jan-Feb 2154-2245 (49.0%)
+      Q5: 1788-1770 (50.3%)  margin vs spread +0.29  spr -5.8  SU 64% | 23:465-446 24:439-415 25:436-454 26:448-455 | Jan-Feb 2196-2253 (49.4%)
+
+   COHESION: share of minutes by players in 3rd+ season at this school -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 739-702 (51.3%)  margin vs spread +0.13  spr +2.6  SU 44% | 23:182-177 24:177-178 25:191-173 26:189-174 | Jan-Feb 2195-2217 (49.8%)
+      Q2: 730-702 (51.0%)  margin vs spread +0.40  spr +0.2  SU 50% | 23:192-161 24:175-180 25:183-178 26:180-183 | Jan-Feb 2239-2207 (50.4%)
+      Q3: 739-687 (51.8%)  margin vs spread +0.30  spr +0.7  SU 50% | 23:186-167 24:179-176 25:176-182 26:198-162 | Jan-Feb 2288-2185 (51.2%)
+      Q4: 678-752 (47.4%)  margin vs spread -0.54  spr -1.0  SU 52% | 23:163-195 24:170-183 25:178-179 26:167-195 | Jan-Feb 2155-2266 (48.7%)
+      Q5: 708-728 (49.3%)  margin vs spread -0.07  spr -2.0  SU 53% | 23:172-181 24:184-176 25:176-184 26:176-187 | Jan-Feb 2218-2220 (50.0%)
+
+   COHESION: share of minutes by players in 3rd+ season at this school -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1439-1434 (50.1%)  margin vs spread -0.05  spr +2.7  SU 43% | 23:357-357 24:360-351 25:358-366 26:364-360 | Jan-Feb 2195-2217 (49.8%)
+      Q2: 1441-1416 (50.4%)  margin vs spread +0.09  spr +0.7  SU 49% | 23:368-340 24:339-364 25:359-362 26:375-350 | Jan-Feb 2239-2207 (50.4%)
+      Q3: 1441-1410 (50.5%)  margin vs spread +0.18  spr +0.7  SU 49% | 23:357-355 24:370-339 25:336-374 26:378-342 | Jan-Feb 2288-2185 (51.2%)
+      Q4: 1397-1459 (48.9%)  margin vs spread -0.14  spr -0.8  SU 52% | 23:348-366 24:344-360 25:360-355 26:345-378 | Jan-Feb 2155-2266 (48.7%)
+      Q5: 1419-1452 (49.4%)  margin vs spread -0.16  spr -1.9  SU 53% | 23:345-370 24:353-363 25:370-352 26:351-367 | Jan-Feb 2218-2220 (50.0%)
+
+   COHESION: share of minutes by players in 3rd+ season at this school -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1776-1725 (50.7%)  margin vs spread +0.11  spr +2.6  SU 44% | 23:460-452 24:426-408 25:437-433 26:453-432 | Jan-Feb 2195-2217 (49.8%)
+      Q2: 1722-1701 (50.3%)  margin vs spread +0.12  spr +0.2  SU 50% | 23:456-427 24:396-432 25:424-412 26:446-430 | Jan-Feb 2239-2207 (50.4%)
+      Q3: 1701-1715 (49.8%)  margin vs spread -0.00  spr +0.4  SU 50% | 23:447-454 24:430-395 25:391-441 26:433-425 | Jan-Feb 2288-2185 (51.2%)
+      Q4: 1728-1752 (49.7%)  margin vs spread -0.06  spr -1.0  SU 53% | 23:443-450 24:415-425 25:442-425 26:428-452 | Jan-Feb 2155-2266 (48.7%)
+      Q5: 1717-1751 (49.5%)  margin vs spread -0.17  spr -2.2  SU 54% | 23:437-460 24:422-429 25:434-417 26:424-445 | Jan-Feb 2218-2220 (50.0%)
+
+   COHESION: minutes-weighted seasons at this school -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 745-695 (51.7%)  margin vs spread +0.34  spr +2.0  SU 47% | 23:187-171 24:175-183 25:193-168 26:190-173 | Jan-Feb 2202-2246 (49.5%)
+      Q2: 738-693 (51.6%)  margin vs spread +0.43  spr +1.3  SU 47% | 23:188-164 24:178-174 25:189-176 26:183-179 | Jan-Feb 2245-2205 (50.4%)
+      Q3: 689-743 (48.1%)  margin vs spread -0.39  spr +0.8  SU 48% | 23:172-183 24:165-191 25:165-193 26:187-176 | Jan-Feb 2238-2191 (50.5%)
+      Q4: 714-709 (50.2%)  margin vs spread +0.19  spr -1.1  SU 53% | 23:178-177 24:182-169 25:176-181 26:178-182 | Jan-Feb 2200-2222 (49.8%)
+      Q5: 708-731 (49.2%)  margin vs spread -0.35  spr -2.4  SU 55% | 23:170-186 24:185-176 25:181-178 26:172-191 | Jan-Feb 2210-2231 (49.8%)
+
+   COHESION: minutes-weighted seasons at this school -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1474-1393 (51.4%)  margin vs spread +0.19  spr +2.2  SU 46% | 23:358-353 24:366-343 25:372-349 26:378-348 | Jan-Feb 2202-2246 (49.5%)
+      Q2: 1427-1435 (49.9%)  margin vs spread +0.07  spr +1.4  SU 47% | 23:357-353 24:352-355 25:358-365 26:360-362 | Jan-Feb 2245-2205 (50.4%)
+      Q3: 1385-1472 (48.5%)  margin vs spread -0.28  spr +1.0  SU 47% | 23:357-356 24:341-366 25:324-388 26:363-362 | Jan-Feb 2238-2191 (50.5%)
+      Q4: 1425-1426 (50.0%)  margin vs spread +0.18  spr -0.9  SU 53% | 23:351-359 24:355-350 25:354-362 26:365-355 | Jan-Feb 2200-2222 (49.8%)
+      Q5: 1426-1445 (49.7%)  margin vs spread -0.25  spr -2.2  SU 54% | 23:352-367 24:352-363 25:375-345 26:347-370 | Jan-Feb 2210-2231 (49.8%)
+
+   COHESION: minutes-weighted seasons at this school -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1788-1688 (51.4%)  margin vs spread +0.26  spr +2.0  SU 46% | 23:452-452 24:420-402 25:456-409 26:460-425 | Jan-Feb 2202-2246 (49.5%)
+      Q2: 1710-1726 (49.8%)  margin vs spread +0.05  spr +1.0  SU 48% | 23:451-440 24:417-413 25:408-427 26:434-446 | Jan-Feb 2245-2205 (50.4%)
+      Q3: 1694-1754 (49.1%)  margin vs spread -0.19  spr +0.7  SU 48% | 23:454-448 24:409-434 25:392-445 26:439-427 | Jan-Feb 2238-2191 (50.5%)
+      Q4: 1733-1737 (49.9%)  margin vs spread +0.13  spr -1.1  SU 53% | 23:445-450 24:423-415 25:429-427 26:436-445 | Jan-Feb 2200-2222 (49.8%)
+      Q5: 1719-1739 (49.7%)  margin vs spread -0.26  spr -2.6  SU 55% | 23:441-453 24:420-425 25:443-420 26:415-441 | Jan-Feb 2210-2231 (49.8%)
+
+   COHESION: top-7 pairs together 2+ years -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 741-695 (51.6%)  margin vs spread +0.20  spr +2.6  SU 45% | 23:187-174 24:178-177 25:187-173 26:189-171 | Jan-Feb 2227-2220 (50.1%)
+      Q2: 726-704 (50.8%)  margin vs spread +0.31  spr +1.2  SU 48% | 23:186-164 24:171-183 25:188-174 26:181-183 | Jan-Feb 2173-2252 (49.1%)
+      Q3: 714-722 (49.7%)  margin vs spread -0.16  spr -0.2  SU 50% | 23:174-183 24:178-178 25:175-185 26:187-176 | Jan-Feb 2310-2133 (52.0%)
+      Q4: 696-728 (48.9%)  margin vs spread -0.15  spr -1.2  SU 53% | 23:176-178 24:163-188 25:179-179 26:178-183 | Jan-Feb 2186-2255 (49.2%)
+      Q5: 717-722 (49.8%)  margin vs spread +0.02  spr -1.9  SU 54% | 23:172-182 24:195-167 25:175-185 26:175-188 | Jan-Feb 2199-2235 (49.6%)
+
+   COHESION: top-7 pairs together 2+ years -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1423-1447 (49.6%)  margin vs spread -0.06  spr +2.6  SU 44% | 23:350-373 24:351-356 25:355-363 26:367-355 | Jan-Feb 2227-2220 (50.1%)
+      Q2: 1448-1403 (50.8%)  margin vs spread +0.17  spr +1.4  SU 48% | 23:370-329 24:357-351 25:360-360 26:361-363 | Jan-Feb 2173-2252 (49.1%)
+      Q3: 1420-1443 (49.6%)  margin vs spread -0.14  spr +0.1  SU 49% | 23:353-362 24:356-351 25:344-373 26:367-357 | Jan-Feb 2310-2133 (52.0%)
+      Q4: 1434-1417 (50.3%)  margin vs spread +0.14  spr -0.7  SU 52% | 23:359-351 24:345-359 25:359-358 26:371-349 | Jan-Feb 2186-2255 (49.2%)
+      Q5: 1412-1461 (49.1%)  margin vs spread -0.20  spr -1.9  SU 53% | 23:343-373 24:357-360 25:365-355 26:347-373 | Jan-Feb 2199-2235 (49.6%)
+
+   COHESION: top-7 pairs together 2+ years -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1730-1746 (49.8%)  margin vs spread -0.00  spr +2.4  SU 45% | 23:455-467 24:411-412 25:422-436 26:442-431 | Jan-Feb 2227-2220 (50.1%)
+      Q2: 1761-1700 (50.9%)  margin vs spread +0.21  spr +1.2  SU 49% | 23:456-425 24:426-419 25:428-425 26:451-431 | Jan-Feb 2173-2252 (49.1%)
+      Q3: 1697-1735 (49.4%)  margin vs spread -0.11  spr -0.3  SU 49% | 23:447-448 24:407-420 25:415-418 26:428-449 | Jan-Feb 2310-2133 (52.0%)
+      Q4: 1738-1719 (50.3%)  margin vs spread +0.07  spr -1.2  SU 53% | 23:447-445 24:415-414 25:431-433 26:445-427 | Jan-Feb 2186-2255 (49.2%)
+      Q5: 1718-1744 (49.6%)  margin vs spread -0.17  spr -2.1  SU 54% | 23:438-458 24:430-424 25:432-416 26:418-446 | Jan-Feb 2199-2235 (49.6%)
+
+   COHESION: top-7 pairs who played here together last year -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 749-692 (52.0%)  margin vs spread +0.53  spr +2.3  SU 46% | 23:188-169 24:173-185 25:197-165 26:191-173 | Jan-Feb 2206-2248 (49.5%)
+      Q2: 715-715 (50.0%)  margin vs spread -0.02  spr +0.5  SU 49% | 23:183-169 24:167-185 25:179-185 26:186-176 | Jan-Feb 2242-2209 (50.4%)
+      Q3: 686-741 (48.1%)  margin vs spread -0.36  spr -0.3  SU 49% | 23:168-188 24:163-190 25:162-194 26:193-169 | Jan-Feb 2287-2154 (51.5%)
+      Q4: 716-710 (50.2%)  margin vs spread +0.09  spr +0.0  SU 51% | 23:180-171 24:184-169 25:193-170 26:159-200 | Jan-Feb 2154-2286 (48.5%)
+      Q5: 728-713 (50.5%)  margin vs spread -0.02  spr -2.0  SU 54% | 23:176-184 24:198-164 25:173-182 26:181-183 | Jan-Feb 2206-2198 (50.1%)
+
+   COHESION: top-7 pairs who played here together last year -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1481-1391 (51.6%)  margin vs spread +0.32  spr +2.4  SU 45% | 23:358-353 24:374-337 25:377-346 26:372-355 | Jan-Feb 2206-2248 (49.5%)
+      Q2: 1417-1438 (49.6%)  margin vs spread -0.06  spr +1.0  SU 47% | 23:357-350 24:345-357 25:346-375 26:369-356 | Jan-Feb 2242-2209 (50.4%)
+      Q3: 1400-1460 (49.0%)  margin vs spread -0.19  spr -0.2  SU 50% | 23:345-370 24:340-367 25:337-378 26:378-345 | Jan-Feb 2287-2154 (51.5%)
+      Q4: 1401-1444 (49.2%)  margin vs spread -0.05  spr +0.1  SU 49% | 23:351-356 24:352-353 25:362-356 26:336-379 | Jan-Feb 2154-2286 (48.5%)
+      Q5: 1438-1438 (50.0%)  margin vs spread -0.10  spr -1.8  SU 54% | 23:364-359 24:355-363 25:361-354 26:358-362 | Jan-Feb 2206-2198 (50.1%)
+
+   COHESION: top-7 pairs who played here together last year -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1793-1687 (51.5%)  margin vs spread +0.31  spr +2.2  SU 46% | 23:447-438 24:437-402 25:454-403 26:455-444 | Jan-Feb 2206-2248 (49.5%)
+      Q2: 1698-1726 (49.6%)  margin vs spread -0.02  spr +0.5  SU 48% | 23:449-451 24:401-417 25:403-437 26:445-421 | Jan-Feb 2242-2209 (50.4%)
+      Q3: 1696-1763 (49.0%)  margin vs spread -0.19  spr -0.5  SU 51% | 23:440-467 24:409-433 25:398-442 26:449-421 | Jan-Feb 2287-2154 (51.5%)
+      Q4: 1701-1742 (49.4%)  margin vs spread -0.09  spr -0.2  SU 50% | 23:442-443 24:416-413 25:435-421 26:408-465 | Jan-Feb 2154-2286 (48.5%)
+      Q5: 1756-1726 (50.4%)  margin vs spread -0.01  spr -2.1  SU 55% | 23:465-444 24:426-424 25:438-425 26:427-433 | Jan-Feb 2206-2198 (50.1%)
+
+=== C. QUANTILE LADDERS -- SMALL SCHOOLS ONLY (non-power), quintiles within small schools ===
+
+   TENURE: Jr/Sr minutes share -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 597-540 (52.5%)  margin vs spread +0.47  spr +9.1  SU 33% | 23:146-140 24:145-136 25:156-127 26:150-137 | Jan-Feb 1768-1710 (50.8%)
+      Q2: 557-563 (49.7%)  margin vs spread -0.59  spr +6.5  SU 35% | 23:138-144 24:125-148 25:154-129 26:140-142 | Jan-Feb 1780-1735 (50.6%)
+      Q3: 561-561 (50.0%)  margin vs spread -0.23  spr +3.5  SU 42% | 23:140-138 24:134-143 25:143-141 26:144-139 | Jan-Feb 1751-1723 (50.4%)
+      Q4: 548-567 (49.1%)  margin vs spread -0.28  spr +1.7  SU 47% | 23:143-133 24:141-134 25:126-156 26:138-144 | Jan-Feb 1672-1805 (48.1%)
+      Q5: 578-541 (51.7%)  margin vs spread +0.69  spr -0.6  SU 53% | 23:148-134 24:141-137 25:137-140 26:152-130 | Jan-Feb 1733-1730 (50.0%)
+
+   TENURE: Jr/Sr minutes share -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1144-1127 (50.4%)  margin vs spread +0.06  spr +8.0  SU 33% | 23:280-291 24:283-278 25:291-276 26:290-282 | Jan-Feb 1768-1710 (50.8%)
+      Q2: 1111-1125 (49.7%)  margin vs spread -0.28  spr +5.3  SU 37% | 23:269-293 24:269-279 25:277-285 26:296-268 | Jan-Feb 1780-1735 (50.6%)
+      Q3: 1118-1111 (50.2%)  margin vs spread -0.18  spr +2.8  SU 44% | 23:283-274 24:277-274 25:283-278 26:275-285 | Jan-Feb 1751-1723 (50.4%)
+      Q4: 1107-1124 (49.6%)  margin vs spread -0.18  spr +1.3  SU 48% | 23:285-272 24:273-276 25:265-297 26:284-279 | Jan-Feb 1672-1805 (48.1%)
+      Q5: 1135-1112 (50.5%)  margin vs spread +0.35  spr -0.9  SU 53% | 23:292-277 24:276-280 25:278-279 26:289-276 | Jan-Feb 1733-1730 (50.0%)
+
+   TENURE: Jr/Sr minutes share -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1344-1310 (50.6%)  margin vs spread +0.18  spr +8.1  SU 33% | 23:359-351 24:311-318 25:333-308 26:341-333 | Jan-Feb 1768-1710 (50.8%)
+      Q2: 1304-1330 (49.5%)  margin vs spread -0.33  spr +5.3  SU 38% | 23:329-355 24:314-327 25:318-324 26:343-324 | Jan-Feb 1780-1735 (50.6%)
+      Q3: 1326-1311 (50.3%)  margin vs spread -0.23  spr +2.8  SU 44% | 23:351-334 24:319-331 25:332-314 26:324-332 | Jan-Feb 1751-1723 (50.4%)
+      Q4: 1306-1325 (49.6%)  margin vs spread -0.13  spr +1.2  SU 48% | 23:347-344 24:311-317 25:317-344 26:331-320 | Jan-Feb 1672-1805 (48.1%)
+      Q5: 1375-1341 (50.6%)  margin vs spread +0.28  spr -1.1  SU 54% | 23:369-344 24:334-317 25:325-338 26:347-342 | Jan-Feb 1733-1730 (50.0%)
+
+   TENURE: avg D1 seasons -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 587-552 (51.5%)  margin vs spread +0.29  spr +9.6  SU 32% | 23:149-137 24:133-148 25:160-125 26:145-142 | Jan-Feb 1759-1730 (50.4%)
+      Q2: 563-556 (50.3%)  margin vs spread -0.35  spr +6.2  SU 35% | 23:131-150 24:132-141 25:153-128 26:147-137 | Jan-Feb 1783-1685 (51.4%)
+      Q3: 583-531 (52.3%)  margin vs spread +0.14  spr +3.2  SU 44% | 23:150-126 24:147-128 25:146-137 26:140-140 | Jan-Feb 1756-1750 (50.1%)
+      Q4: 534-586 (47.7%)  margin vs spread -0.49  spr +2.1  SU 45% | 23:133-145 24:136-140 25:126-156 26:139-145 | Jan-Feb 1688-1767 (48.9%)
+      Q5: 574-547 (51.2%)  margin vs spread +0.46  spr -1.0  SU 54% | 23:152-131 24:138-141 25:131-147 26:153-128 | Jan-Feb 1718-1771 (49.2%)
+
+   TENURE: avg D1 seasons -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1157-1114 (50.9%)  margin vs spread +0.17  spr +8.4  SU 32% | 23:288-283 24:275-286 25:302-265 26:292-280 | Jan-Feb 1759-1730 (50.4%)
+      Q2: 1109-1125 (49.6%)  margin vs spread -0.27  spr +5.2  SU 37% | 23:257-302 24:278-268 25:272-291 26:302-264 | Jan-Feb 1783-1685 (51.4%)
+      Q3: 1133-1096 (50.8%)  margin vs spread -0.09  spr +2.4  SU 46% | 23:288-270 24:290-263 25:285-275 26:270-288 | Jan-Feb 1756-1750 (50.1%)
+      Q4: 1092-1136 (49.0%)  margin vs spread -0.26  spr +1.6  SU 47% | 23:279-279 24:264-283 25:273-286 26:276-288 | Jan-Feb 1688-1767 (48.9%)
+      Q5: 1124-1128 (49.9%)  margin vs spread +0.21  spr -1.0  SU 53% | 23:297-273 24:271-287 25:262-298 26:294-270 | Jan-Feb 1718-1771 (49.2%)
+
+   TENURE: avg D1 seasons -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1361-1305 (51.1%)  margin vs spread +0.22  spr +8.5  SU 32% | 23:359-342 24:304-332 25:348-298 26:350-333 | Jan-Feb 1759-1730 (50.4%)
+      Q2: 1304-1327 (49.6%)  margin vs spread -0.29  spr +5.2  SU 38% | 23:329-366 24:318-312 25:313-330 26:344-319 | Jan-Feb 1783-1685 (51.4%)
+      Q3: 1347-1293 (51.0%)  margin vs spread -0.03  spr +2.2  SU 46% | 23:348-332 24:338-312 25:341-311 26:320-338 | Jan-Feb 1756-1750 (50.1%)
+      Q4: 1287-1339 (49.0%)  margin vs spread -0.27  spr +1.7  SU 46% | 23:347-345 24:305-331 25:315-330 26:320-333 | Jan-Feb 1688-1767 (48.9%)
+      Q5: 1356-1353 (50.1%)  margin vs spread +0.14  spr -1.3  SU 54% | 23:372-343 24:324-323 25:308-359 26:352-328 | Jan-Feb 1718-1771 (49.2%)
+
+   COHESION: 3rd+ year share -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 597-538 (52.6%)  margin vs spread +0.17  spr +6.5  SU 36% | 23:151-134 24:143-135 25:154-130 26:149-139 | Jan-Feb 1739-1734 (50.1%)
+      Q2: 578-542 (51.6%)  margin vs spread +0.35  spr +5.8  SU 40% | 23:148-132 24:137-139 25:145-137 26:148-134 | Jan-Feb 1750-1745 (50.1%)
+      Q3: 577-538 (51.7%)  margin vs spread +0.15  spr +4.0  SU 43% | 23:147-128 24:138-138 25:139-144 26:153-128 | Jan-Feb 1785-1714 (51.0%)
+      Q4: 520-598 (46.5%)  margin vs spread -0.66  spr +2.8  SU 44% | 23:129-155 24:128-145 25:137-142 26:126-156 | Jan-Feb 1697-1758 (49.1%)
+      Q5: 569-556 (50.6%)  margin vs spread +0.04  spr +1.1  SU 47% | 23:140-140 24:140-141 25:141-140 26:148-135 | Jan-Feb 1733-1752 (49.7%)
+
+   COHESION: 3rd+ year share -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1144-1118 (50.6%)  margin vs spread -0.05  spr +5.8  SU 37% | 23:287-281 24:286-269 25:282-283 26:289-285 | Jan-Feb 1739-1734 (50.1%)
+      Q2: 1130-1107 (50.5%)  margin vs spread +0.00  spr +5.0  SU 40% | 23:281-279 24:269-282 25:282-279 26:298-267 | Jan-Feb 1750-1745 (50.1%)
+      Q3: 1128-1103 (50.6%)  margin vs spread +0.13  spr +3.3  SU 44% | 23:284-271 24:284-268 25:268-294 26:292-270 | Jan-Feb 1785-1714 (51.0%)
+      Q4: 1088-1145 (48.7%)  margin vs spread -0.18  spr +2.1  SU 46% | 23:279-287 24:266-281 25:274-283 26:269-294 | Jan-Feb 1697-1758 (49.1%)
+      Q5: 1125-1126 (50.0%)  margin vs spread -0.13  spr +0.3  SU 48% | 23:278-289 24:273-287 25:288-276 26:286-274 | Jan-Feb 1733-1752 (49.7%)
+
+   COHESION: 3rd+ year share -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1385-1325 (51.1%)  margin vs spread +0.09  spr +5.9  SU 37% | 23:365-351 24:328-311 25:339-328 26:353-335 | Jan-Feb 1739-1734 (50.1%)
+      Q2: 1305-1284 (50.4%)  margin vs spread +0.02  spr +4.8  SU 41% | 23:347-336 24:300-325 25:322-304 26:336-319 | Jan-Feb 1750-1745 (50.1%)
+      Q3: 1316-1318 (50.0%)  margin vs spread +0.01  spr +3.1  SU 44% | 23:351-337 24:329-309 25:306-343 26:330-329 | Jan-Feb 1785-1714 (51.0%)
+      Q4: 1319-1350 (49.4%)  margin vs spread -0.13  spr +2.1  SU 46% | 23:348-347 24:316-328 25:324-330 26:331-345 | Jan-Feb 1697-1758 (49.1%)
+      Q5: 1330-1340 (49.8%)  margin vs spread -0.21  spr +0.2  SU 49% | 23:344-357 24:316-337 25:334-323 26:336-323 | Jan-Feb 1733-1752 (49.7%)
+
+   COHESION: avg seasons here -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 602-529 (53.2%)  margin vs spread +0.33  spr +6.8  SU 37% | 23:151-133 24:139-139 25:159-123 26:153-134 | Jan-Feb 1731-1770 (49.4%)
+      Q2: 574-546 (51.2%)  margin vs spread +0.18  spr +5.2  SU 40% | 23:154-123 24:132-143 25:150-135 26:138-145 | Jan-Feb 1748-1737 (50.2%)
+      Q3: 543-580 (48.4%)  margin vs spread -0.35  spr +4.7  SU 40% | 23:128-151 24:136-142 25:129-154 26:150-133 | Jan-Feb 1764-1713 (50.7%)
+      Q4: 558-552 (50.3%)  margin vs spread +0.32  spr +2.5  SU 46% | 23:142-139 24:138-133 25:135-143 26:143-137 | Jan-Feb 1727-1732 (49.9%)
+      Q5: 564-565 (50.0%)  margin vs spread -0.43  spr +0.9  SU 48% | 23:140-143 24:141-141 25:143-138 26:140-143 | Jan-Feb 1734-1751 (49.8%)
+
+   COHESION: avg seasons here -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1168-1088 (51.8%)  margin vs spread +0.06  spr +6.1  SU 37% | 23:280-285 24:289-264 25:297-265 26:302-274 | Jan-Feb 1731-1770 (49.4%)
+      Q2: 1121-1120 (50.0%)  margin vs spread +0.08  spr +4.5  SU 41% | 23:290-270 24:271-282 25:284-281 26:276-287 | Jan-Feb 1748-1737 (50.2%)
+      Q3: 1090-1148 (48.7%)  margin vs spread -0.16  spr +3.9  SU 41% | 23:270-288 24:273-279 25:255-307 26:292-274 | Jan-Feb 1764-1713 (50.7%)
+      Q4: 1111-1114 (49.9%)  margin vs spread +0.16  spr +1.9  SU 47% | 23:280-282 24:276-270 25:268-289 26:287-273 | Jan-Feb 1727-1732 (49.9%)
+      Q5: 1125-1129 (49.9%)  margin vs spread -0.38  spr +0.2  SU 49% | 23:289-282 24:269-292 25:290-273 26:277-282 | Jan-Feb 1734-1751 (49.8%)
+
+   COHESION: avg seasons here -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1382-1294 (51.6%)  margin vs spread +0.14  spr +6.1  SU 37% | 23:348-358 24:325-305 25:351-302 26:358-329 | Jan-Feb 1731-1770 (49.4%)
+      Q2: 1307-1326 (49.6%)  margin vs spread -0.04  spr +4.4  SU 42% | 23:356-332 24:307-324 25:319-321 26:325-349 | Jan-Feb 1748-1737 (50.2%)
+      Q3: 1315-1326 (49.8%)  margin vs spread -0.01  spr +3.7  SU 42% | 23:350-345 24:321-322 25:305-343 26:339-316 | Jan-Feb 1764-1713 (50.7%)
+      Q4: 1331-1334 (49.9%)  margin vs spread +0.13  spr +1.8  SU 47% | 23:351-348 24:325-321 25:316-335 26:339-330 | Jan-Feb 1727-1732 (49.9%)
+      Q5: 1320-1337 (49.7%)  margin vs spread -0.44  spr +0.1  SU 49% | 23:350-345 24:311-338 25:334-327 26:325-327 | Jan-Feb 1734-1751 (49.8%)
+
+   COHESION: pairs together 2+ yrs -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 573-556 (50.8%)  margin vs spread -0.01  spr +6.7  SU 37% | 23:145-142 24:139-137 25:144-137 26:145-140 | Jan-Feb 1757-1742 (50.2%)
+      Q2: 580-540 (51.8%)  margin vs spread +0.18  spr +5.3  SU 40% | 23:153-124 24:137-140 25:153-129 26:137-147 | Jan-Feb 1677-1781 (48.5%)
+      Q3: 568-554 (50.6%)  margin vs spread -0.25  spr +4.1  SU 41% | 23:139-140 24:134-140 25:144-141 26:151-133 | Jan-Feb 1813-1673 (52.0%)
+      Q4: 546-568 (49.0%)  margin vs spread -0.05  spr +2.4  SU 45% | 23:137-143 24:127-147 25:138-142 26:144-136 | Jan-Feb 1731-1750 (49.7%)
+      Q5: 574-554 (50.9%)  margin vs spread +0.18  spr +1.6  SU 47% | 23:141-140 24:149-134 25:137-144 26:147-136 | Jan-Feb 1726-1757 (49.6%)
+
+   COHESION: pairs together 2+ yrs -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1116-1145 (49.4%)  margin vs spread -0.13  spr +5.9  SU 38% | 23:273-302 24:279-276 25:274-285 26:290-282 | Jan-Feb 1757-1742 (50.2%)
+      Q2: 1130-1100 (50.7%)  margin vs spread -0.01  spr +4.5  SU 41% | 23:289-263 24:278-274 25:291-271 26:272-292 | Jan-Feb 1677-1781 (48.5%)
+      Q3: 1129-1110 (50.4%)  margin vs spread -0.15  spr +3.6  SU 42% | 23:280-279 24:276-271 25:278-289 26:295-271 | Jan-Feb 1813-1673 (52.0%)
+      Q4: 1118-1111 (50.2%)  margin vs spread +0.17  spr +2.0  SU 46% | 23:289-273 24:266-282 25:268-291 26:295-265 | Jan-Feb 1731-1750 (49.7%)
+      Q5: 1122-1133 (49.8%)  margin vs spread -0.11  spr +0.6  SU 48% | 23:278-290 24:279-284 25:283-279 26:282-280 | Jan-Feb 1726-1757 (49.6%)
+
+   COHESION: pairs together 2+ yrs -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1336-1354 (49.7%)  margin vs spread -0.02  spr +5.9  SU 38% | 23:354-364 24:319-315 25:322-339 26:341-336 | Jan-Feb 1757-1742 (50.2%)
+      Q2: 1348-1305 (50.8%)  margin vs spread +0.01  spr +4.7  SU 41% | 23:347-336 24:327-319 25:338-310 26:336-340 | Jan-Feb 1677-1781 (48.5%)
+      Q3: 1319-1307 (50.2%)  margin vs spread -0.12  spr +3.3  SU 42% | 23:353-337 24:307-319 25:324-316 26:335-335 | Jan-Feb 1813-1673 (52.0%)
+      Q4: 1327-1324 (50.1%)  margin vs spread +0.06  spr +1.7  SU 46% | 23:358-338 24:309-327 25:317-344 26:343-315 | Jan-Feb 1731-1750 (49.7%)
+      Q5: 1325-1327 (50.0%)  margin vs spread -0.17  spr +0.5  SU 48% | 23:343-353 24:327-330 25:324-319 26:331-325 | Jan-Feb 1726-1757 (49.6%)
+
+   TENURE: senior share (2024-26 only) -- first 5 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 584-554 (51.3%)  margin vs spread -0.05  spr +7.6  SU 35% | 23:140-143 24:138-145 25:159-125 26:147-141 | Jan-Feb 1768-1726 (50.6%)
+      Q2: 560-556 (50.2%)  margin vs spread +0.14  spr +5.9  SU 36% | 23:139-144 24:130-139 25:146-136 26:145-137 | Jan-Feb 1754-1716 (50.5%)
+      Q3: 560-557 (50.1%)  margin vs spread -0.36  spr +4.3  SU 41% | 23:144-132 24:131-144 25:152-132 26:133-149 | Jan-Feb 1745-1762 (49.8%)
+      Q4: 580-539 (51.8%)  margin vs spread +0.32  spr +2.7  SU 46% | 23:148-130 24:156-122 25:129-151 26:147-136 | Jan-Feb 1715-1752 (49.5%)
+      Q5: 557-566 (49.6%)  margin vs spread +0.02  spr -0.3  SU 51% | 23:144-140 24:131-148 25:130-149 26:152-129 | Jan-Feb 1722-1747 (49.6%)
+
+   TENURE: senior share (2024-26 only) -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1151-1121 (50.7%)  margin vs spread -0.10  spr +6.4  SU 36% | 23:283-287 24:277-286 25:299-267 26:292-281 | Jan-Feb 1768-1726 (50.6%)
+      Q2: 1117-1114 (50.1%)  margin vs spread -0.18  spr +4.8  SU 38% | 23:273-290 24:278-263 25:272-291 26:294-270 | Jan-Feb 1754-1716 (50.5%)
+      Q3: 1094-1138 (49.0%)  margin vs spread -0.30  spr +3.4  SU 43% | 23:280-276 24:262-289 25:284-280 26:268-293 | Jan-Feb 1745-1762 (49.8%)
+      Q4: 1146-1086 (51.3%)  margin vs spread +0.25  spr +2.2  SU 47% | 23:288-271 24:290-262 25:272-284 26:296-269 | Jan-Feb 1715-1752 (49.5%)
+      Q5: 1107-1140 (49.3%)  margin vs spread +0.09  spr -0.3  SU 51% | 23:285-283 24:271-287 25:267-293 26:284-277 | Jan-Feb 1722-1747 (49.6%)
+
+   TENURE: senior share (2024-26 only) -- Nov-Dec -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1349-1320 (50.5%)  margin vs spread -0.09  spr +6.5  SU 36% | 23:356-354 24:302-335 25:344-298 26:347-333 | Jan-Feb 1768-1726 (50.6%)
+      Q2: 1333-1307 (50.5%)  margin vs spread -0.00  spr +4.8  SU 39% | 23:354-348 24:323-305 25:318-330 26:338-324 | Jan-Feb 1754-1716 (50.5%)
+      Q3: 1288-1341 (49.0%)  margin vs spread -0.32  spr +3.2  SU 43% | 23:334-335 24:312-341 25:327-326 26:315-339 | Jan-Feb 1745-1762 (49.8%)
+      Q4: 1356-1278 (51.5%)  margin vs spread +0.17  spr +2.2  SU 47% | 23:366-343 24:327-304 25:320-313 26:343-318 | Jan-Feb 1715-1752 (49.5%)
+      Q5: 1329-1371 (49.2%)  margin vs spread +0.01  spr -0.5  SU 52% | 23:345-348 24:325-325 25:316-361 26:343-337 | Jan-Feb 1722-1747 (49.6%)
+
+=== C2. LOW-MAJOR ONLY, first 10 games ===
+
+   TENURE: Jr/Sr share -- first 10 games, low-majors -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1089-1066 (50.5%)  margin vs spread +0.10  spr +8.3  SU 33% | 23:275-287 24:271-261 25:268-260 26:275-258 | Jan-Feb 1672-1616 (50.9%)
+      Q2: 1030-1046 (49.6%)  margin vs spread -0.29  spr +5.7  SU 37% | 23:245-277 24:245-253 25:270-272 26:270-244 | Jan-Feb 1661-1602 (50.9%)
+      Q3: 1011-994 (50.4%)  margin vs spread -0.20  spr +3.3  SU 43% | 23:261-246 24:253-259 25:254-241 26:243-248 | Jan-Feb 1568-1545 (50.4%)
+      Q4: 979-1008 (49.3%)  margin vs spread -0.25  spr +1.6  SU 46% | 23:242-238 24:245-254 25:235-258 26:257-258 | Jan-Feb 1486-1596 (48.2%)
+      Q5: 1016-986 (50.7%)  margin vs spread +0.34  spr -0.5  SU 52% | 23:258-243 24:240-238 25:253-254 26:265-251 | Jan-Feb 1518-1555 (49.4%)
+
+   COHESION: 3rd+ year share -- first 10 games, low-majors -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1055-1031 (50.6%)  margin vs spread +0.00  spr +6.3  SU 36% | 23:274-275 24:267-249 25:257-259 26:257-248 | Jan-Feb 1589-1602 (49.8%)
+      Q2: 1014-998 (50.4%)  margin vs spread -0.05  spr +5.5  SU 39% | 23:253-258 24:250-252 25:256-258 26:255-230 | Jan-Feb 1561-1570 (49.9%)
+      Q3: 1015-980 (50.9%)  margin vs spread +0.12  spr +3.8  SU 43% | 23:261-246 24:246-236 25:238-255 26:270-243 | Jan-Feb 1589-1533 (50.9%)
+      Q4: 1007-1051 (48.9%)  margin vs spread -0.20  spr +2.4  SU 45% | 23:249-257 24:250-269 25:252-246 26:256-279 | Jan-Feb 1564-1604 (49.4%)
+      Q5: 1034-1040 (49.9%)  margin vs spread -0.16  spr +0.7  SU 47% | 23:244-255 24:241-259 25:277-267 26:272-259 | Jan-Feb 1602-1605 (50.0%)
+
+   COHESION: avg seasons here -- first 10 games, low-majors -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1056-996 (51.5%)  margin vs spread +0.02  spr +6.6  SU 36% | 23:267-279 24:269-245 25:254-232 26:266-240 | Jan-Feb 1564-1607 (49.3%)
+      Q2: 990-985 (50.1%)  margin vs spread +0.07  spr +5.1  SU 40% | 23:257-244 24:240-254 25:268-257 26:225-230 | Jan-Feb 1526-1531 (49.9%)
+      Q3: 1039-1081 (49.0%)  margin vs spread -0.09  spr +4.0  SU 41% | 23:257-272 24:249-244 25:251-301 26:282-264 | Jan-Feb 1665-1621 (50.7%)
+      Q4: 993-988 (50.1%)  margin vs spread +0.11  spr +2.6  SU 45% | 23:230-234 24:259-258 25:236-242 26:268-254 | Jan-Feb 1530-1541 (49.8%)
+      Q5: 1047-1050 (49.9%)  margin vs spread -0.40  spr +0.5  SU 48% | 23:270-262 24:237-264 25:271-253 26:269-271 | Jan-Feb 1620-1614 (50.1%)
+
+=== D. RULES (both directions reported; records from the winning side) ===
+ -- window: first 5 games
+   most tenured quintile (Jr/Sr share)                                BACK 728-704 (50.8%, ROI -2.9%, z +0.6) spr -6.1 | 23:183-171 24:177-180 25:180-178 26:188-175  | vs opener 750-693 (52.0%)  | shuffle p 0.517  | Jan-Feb placebo same side 2226-2225 (50.0%)
+   most cohesive quintile (3rd+ yr share)                             FADE 728-708 (50.7%, ROI -3.2%, z +0.5) spr -2.0 | 23:181-172 24:176-184 25:184-176 26:187-176  | vs opener 732-707 (50.9%)  | shuffle p 0.617  | Jan-Feb placebo same side 2220-2218 (50.0%)
+   BOTH most tenured and most cohesive                                FADE 254-219 (53.7%, ROI +2.5%, z +1.6) spr -5.0 | 23:75-58 24:50-48 25:71-71 26:58-42  | vs opener 253-226 (52.8%)  | shuffle p 0.098  | Jan-Feb placebo same side 731-742 (49.6%)
+     ... small school                                                 FADE 181-151 (54.5%, ROI +4.1%, z +1.6) spr -0.6 | 23:57-43 24:33-21 25:60-58 26:31-29  | vs opener 180-154 (53.9%)  | shuffle p 0.090  | Jan-Feb placebo same side 512-513 (50.0%)
+     ... low-major                                                    FADE 163-136 (54.5%, ROI +4.1%, z +1.6) spr +0.1 | 23:45-37 24:28-16 25:59-54 26:31-29  | vs opener 162-137 (54.2%)  | shuffle p 0.120  | Jan-Feb placebo same side 460-461 (49.9%)
+   Jr/Sr play 75%+ of minutes                                         BACK 493-485 (50.4%, ROI -3.8%, z +0.3) spr -6.2 | 23:158-148 24:111-128 25:152-147 26:72-62  | vs opener 509-477 (51.6%)  | shuffle p 0.804  | Jan-Feb placebo same side 1525-1510 (50.2%)
+     ... small school                                                 BACK 317-312 (50.4%, ROI -3.8%, z +0.2) spr -0.9 | 23:109-109 24:63-73 25:101-95 26:44-35  | vs opener 328-308 (51.6%)  | shuffle p 0.851  | Jan-Feb placebo same side 980-970 (50.3%)
+   3rd+ year players 50%+ of minutes                                  FADE 314-294 (51.6%, ROI -1.4%, z +0.8) spr -2.8 | 23:150-138 24:79-73 25:65-68 26:20-15  | vs opener 325-287 (53.1%)  | shuffle p 0.406  | Jan-Feb placebo same side 938-948 (49.7%)
+     ... small school                                                 FADE 239-233 (50.6%, ROI -3.3%, z +0.3) spr +0.2 | 23:116-114 24:60-53 25:53-56 26:10-10  | vs opener 248-224 (52.5%)  | shuffle p 0.796  | Jan-Feb placebo same side 732-732 (50.0%)
+   40%+ of top-7 pairs together 2+ years                              BACK 110-107 (50.7%, ROI -3.2%, z +0.2) spr -2.7 | 23:44-45 24:32-28 25:30-28 26:4-6  | vs opener 108-108 (50.0%)  | shuffle p 0.844  | Jan-Feb placebo same side 356-302 (54.1%)
+   tenure gap +35pts vs opponent                                      FADE 405-377 (51.8%, ROI -1.1%, z +1.0) spr -11.8 | 23:109-108 24:83-93 25:128-95 26:85-81  | vs opener 390-389 (50.1%)  | shuffle p 0.317  | Jan-Feb placebo same side 1003-959 (51.1%)
+     ... small school                                                 FADE 264-252 (51.2%, ROI -2.3%, z +0.5) spr -6.2 | 23:77-81 24:60-60 25:80-58 26:47-53  | vs opener 258-256 (50.2%)  | shuffle p 0.591  | Jan-Feb placebo same side 837-812 (50.8%)
+   cohesion gap +35pts vs opponent                                    FADE 285-271 (51.3%, ROI -2.1%, z +0.6) spr -3.5 | 23:101-98 24:78-72 25:69-66 26:37-35  | vs opener 289-263 (52.4%)  | shuffle p 0.577  | Jan-Feb placebo same side 694-709 (49.5%)
+   most tenured vs opponent playing freshmen 40%+                     FADE 91-77 (54.2%, ROI +3.4%, z +1.1) spr -14.1 | 23:14-19 24:14-20 25:33-17 26:30-21  | vs opener 85-83 (50.6%)  | shuffle p 0.326  | Jan-Feb placebo same side 199-217 (47.8%)
+   LEAST tenured quintile (young rotation)                            BACK 751-691 (52.1%, ROI -0.6%, z +1.6) spr +7.3 | 23:184-176 24:176-182 25:200-162 26:191-171  | vs opener 729-713 (50.6%)  | shuffle p 0.093  | Jan-Feb placebo same side 2256-2173 (50.9%)
+   LEAST cohesive quintile (all new to each other)                    BACK 739-702 (51.3%, ROI -2.1%, z +1.0) spr +2.6 | 23:182-177 24:177-178 25:191-173 26:189-174  | vs opener 736-706 (51.0%)  | shuffle p 0.305  | Jan-Feb placebo same side 2195-2217 (49.8%)
+   young AND new, small school                                        BACK 295-241 (55.0%, ROI +5.1%, z +2.3) spr +10.2 | 23:104-80 24:55-58 25:73-51 26:63-52  | vs opener 284-246 (53.6%)  | shuffle p 0.017  | Jan-Feb placebo same side 813-792 (50.7%)
+ -- window: first 10 games
+   most tenured quintile (Jr/Sr share)                                BACK 1445-1427 (50.3%, ROI -3.9%, z +0.3) spr -5.0 | 23:353-363 24:358-355 25:363-355 26:371-354  | vs opener 1467-1420 (50.8%)  | shuffle p 0.729  | Jan-Feb placebo same side 2226-2225 (50.0%)
+   most cohesive quintile (3rd+ yr share)                             FADE 1452-1419 (50.6%, ROI -3.4%, z +0.6) spr -1.9 | 23:370-345 24:363-353 25:352-370 26:367-351  | vs opener 1464-1419 (50.8%)  | shuffle p 0.502  | Jan-Feb placebo same side 2220-2218 (50.0%)
+   BOTH most tenured and most cohesive                                FADE 499-453 (52.4%, ROI +0.1%, z +1.5) spr -4.4 | 23:149-124 24:94-102 25:141-144 26:115-83  | vs opener 500-458 (52.2%)  | shuffle p 0.117  | Jan-Feb placebo same side 731-742 (49.6%)
+     ... small school                                                 FADE 353-318 (52.6%, ROI +0.4%, z +1.4) spr -1.3 | 23:110-95 24:56-53 25:120-117 26:67-53  | vs opener 355-314 (53.1%)  | shuffle p 0.166  | Jan-Feb placebo same side 512-513 (50.0%)
+     ... low-major                                                    FADE 317-286 (52.6%, ROI +0.4%, z +1.3) spr -0.7 | 23:87-80 24:46-43 25:117-110 26:67-53  | vs opener 318-281 (53.1%)  | shuffle p 0.182  | Jan-Feb placebo same side 460-461 (49.9%)
+   Jr/Sr play 75%+ of minutes                                         FADE 988-973 (50.4%, ROI -3.8%, z +0.3) spr -5.2 | 23:311-308 24:249-227 25:297-302 26:131-136  | vs opener 986-989 (49.9%)  | shuffle p 0.715  | Jan-Feb placebo same side 1510-1525 (49.8%)
+     ... small school                                                 FADE 642-623 (50.8%, ROI -3.1%, z +0.5) spr -1.4 | 23:219-222 24:147-126 25:197-195 26:79-80  | vs opener 643-629 (50.6%)  | shuffle p 0.611  | Jan-Feb placebo same side 970-980 (49.7%)
+   3rd+ year players 50%+ of minutes                                  FADE 620-605 (50.6%, ROI -3.4%, z +0.4) spr -2.7 | 23:308-279 24:154-149 25:119-147 26:39-30  | vs opener 636-592 (51.8%)  | shuffle p 0.659  | Jan-Feb placebo same side 938-948 (49.7%)
+     ... small school                                                 FADE 478-476 (50.1%, ROI -4.3%, z +0.1) spr -0.6 | 23:241-228 24:117-110 25:99-119 26:21-19  | vs opener 490-458 (51.7%)  | shuffle p 0.955  | Jan-Feb placebo same side 732-732 (50.0%)
+   40%+ of top-7 pairs together 2+ years                              FADE 217-215 (50.2%, ROI -4.1%, z +0.1) spr -2.8 | 23:92-86 24:59-58 25:53-64 26:13-7  | vs opener 219-214 (50.6%)  | shuffle p 0.944  | Jan-Feb placebo same side 302-356 (45.9%)
+   tenure gap +35pts vs opponent                                      FADE 762-745 (50.6%, ROI -3.5%, z +0.4) spr -10.1 | 23:227-220 24:170-185 25:226-187 26:139-153  | vs opener 747-762 (49.5%)  | shuffle p 0.645  | Jan-Feb placebo same side 1003-959 (51.1%)
+     ... small school                                                 BACK 521-521 (50.0%, ROI -4.5%, z +0.0) spr -5.8 | 23:172-168 24:124-122 25:118-145 26:107-86  | vs opener 525-520 (50.2%)  | shuffle p 1.000  | Jan-Feb placebo same side 812-837 (49.2%)
+   cohesion gap +35pts vs opponent                                    FADE 563-555 (50.4%, ROI -3.9%, z +0.2) spr -3.6 | 23:200-190 24:150-145 25:140-151 26:73-69  | vs opener 572-548 (51.1%)  | shuffle p 0.800  | Jan-Feb placebo same side 694-709 (49.5%)
+   most tenured vs opponent playing freshmen 40%+                     FADE 174-162 (51.8%, ROI -1.1%, z +0.7) spr -12.3 | 23:39-38 24:34-43 25:47-35 26:54-46  | vs opener 171-165 (50.9%)  | shuffle p 0.538  | Jan-Feb placebo same side 199-217 (47.8%)
+   LEAST tenured quintile (young rotation)                            BACK 1459-1422 (50.6%, ROI -3.3%, z +0.7) spr +6.6 | 23:359-361 24:350-365 25:376-349 26:374-347  | vs opener 1442-1449 (49.9%)  | shuffle p 0.434  | Jan-Feb placebo same side 2256-2173 (50.9%)
+   LEAST cohesive quintile (all new to each other)                    BACK 1439-1434 (50.1%, ROI -4.4%, z +0.1) spr +2.7 | 23:357-357 24:360-351 25:358-366 26:364-360  | vs opener 1446-1437 (50.2%)  | shuffle p 0.930  | Jan-Feb placebo same side 2195-2217 (49.8%)
+   young AND new, small school                                        BACK 567-503 (53.0%, ROI +1.2%, z +2.0) spr +8.9 | 23:199-166 24:115-112 25:132-117 26:121-108  | vs opener 560-507 (52.5%)  | shuffle p 0.048  | Jan-Feb placebo same side 813-792 (50.7%)
+ -- window: Nov-Dec
+   most tenured quintile (Jr/Sr share)                                BACK 1797-1748 (50.7%, ROI -3.2%, z +0.8) spr -5.4 | 23:457-453 24:444-412 25:440-435 26:456-448  | vs opener 1821-1741 (51.1%)  | shuffle p 0.345  | Jan-Feb placebo same side 2226-2225 (50.0%)
+   most cohesive quintile (3rd+ yr share)                             FADE 1751-1717 (50.5%, ROI -3.6%, z +0.6) spr -2.2 | 23:460-437 24:429-422 25:417-434 26:445-424  | vs opener 1758-1719 (50.6%)  | shuffle p 0.557  | Jan-Feb placebo same side 2220-2218 (50.0%)
+   BOTH most tenured and most cohesive                                FADE 599-572 (51.2%, ROI -2.3%, z +0.8) spr -4.8 | 23:183-166 24:113-128 25:166-169 26:137-109  | vs opener 598-575 (51.0%)  | shuffle p 0.413  | Jan-Feb placebo same side 731-742 (49.6%)
+     ... small school                                                 FADE 414-393 (51.3%, ROI -2.1%, z +0.7) spr -1.5 | 23:133-124 24:66-66 25:140-134 26:75-69  | vs opener 415-387 (51.7%)  | shuffle p 0.486  | Jan-Feb placebo same side 512-513 (50.0%)
+     ... low-major                                                    FADE 369-351 (51.2%, ROI -2.2%, z +0.7) spr -0.9 | 23:104-104 24:55-52 25:135-126 26:75-69  | vs opener 369-344 (51.8%)  | shuffle p 0.496  | Jan-Feb placebo same side 460-461 (49.9%)
+   Jr/Sr play 75%+ of minutes                                         BACK 1223-1206 (50.3%, ROI -3.9%, z +0.3) spr -5.4 | 23:400-388 24:282-288 25:371-362 26:170-168  | vs opener 1238-1205 (50.7%)  | shuffle p 0.701  | Jan-Feb placebo same side 1525-1510 (50.2%)
+     ... small school                                                 FADE 771-765 (50.2%, ROI -4.2%, z +0.2) spr -1.7 | 23:270-285 24:163-153 25:238-230 26:100-97  | vs opener 771-768 (50.1%)  | shuffle p 0.880  | Jan-Feb placebo same side 970-980 (49.7%)
+   3rd+ year players 50%+ of minutes                                  FADE 755-728 (50.9%, ROI -2.8%, z +0.7) spr -3.0 | 23:383-355 24:178-171 25:146-165 26:48-37  | vs opener 773-714 (52.0%)  | shuffle p 0.477  | Jan-Feb placebo same side 938-948 (49.7%)
+     ... small school                                                 FADE 567-557 (50.4%, ROI -3.7%, z +0.3) spr -0.7 | 23:296-282 24:131-122 25:117-130 26:23-23  | vs opener 581-538 (51.9%)  | shuffle p 0.766  | Jan-Feb placebo same side 732-732 (50.0%)
+   40%+ of top-7 pairs together 2+ years                              BACK 262-258 (50.4%, ROI -3.8%, z +0.2) spr -3.4 | 23:110-112 24:66-71 25:76-62 26:10-13  | vs opener 260-261 (49.9%)  | shuffle p 0.885  | Jan-Feb placebo same side 356-302 (54.1%)
+   tenure gap +35pts vs opponent                                      FADE 922-911 (50.3%, ROI -4.0%, z +0.3) spr -10.5 | 23:283-274 24:194-227 25:269-226 26:176-184  | vs opener 907-928 (49.4%)  | shuffle p 0.796  | Jan-Feb placebo same side 1003-959 (51.1%)
+     ... small school                                                 BACK 625-614 (50.4%, ROI -3.7%, z +0.3) spr -5.9 | 23:214-206 24:148-134 25:136-169 26:127-105  | vs opener 627-616 (50.4%)  | shuffle p 0.765  | Jan-Feb placebo same side 812-837 (49.2%)
+   cohesion gap +35pts vs opponent                                    FADE 690-677 (50.5%, ROI -3.6%, z +0.4) spr -3.8 | 23:251-246 24:182-173 25:170-174 26:87-84  | vs opener 699-670 (51.1%)  | shuffle p 0.722  | Jan-Feb placebo same side 694-709 (49.5%)
+   most tenured vs opponent playing freshmen 40%+                     FADE 215-192 (52.8%, ROI +0.8%, z +1.1) spr -12.8 | 23:52-48 24:43-52 25:49-39 26:71-53  | vs opener 212-195 (52.1%)  | shuffle p 0.268  | Jan-Feb placebo same side 199-217 (47.8%)
+   LEAST tenured quintile (young rotation)                            BACK 1736-1680 (50.8%, ROI -3.0%, z +1.0) spr +6.5 | 23:460-444 24:398-420 25:437-397 26:441-419  | vs opener 1715-1716 (50.0%)  | shuffle p 0.283  | Jan-Feb placebo same side 2256-2173 (50.9%)
+   LEAST cohesive quintile (all new to each other)                    BACK 1776-1725 (50.7%, ROI -3.2%, z +0.9) spr +2.6 | 23:460-452 24:426-408 25:437-433 26:453-432  | vs opener 1777-1734 (50.6%)  | shuffle p 0.329  | Jan-Feb placebo same side 2195-2217 (49.8%)
+   young AND new, small school                                        BACK 687-592 (53.7%, ROI +2.5%, z +2.7) spr +8.9 | 23:255-205 24:128-127 25:158-134 26:146-126  | vs opener 675-601 (52.9%)  | shuffle p 0.007  | Jan-Feb placebo same side 813-792 (50.7%)
+
+=== E. small schools, first 10 games: most-tenured-and-cohesive (small-school quintile 5 on both) by KenPom preseason quintile, venue, spread ===
+ -- tenured Q5 (small-school quintiles)
+   all                                                                BACK 1135-1112 (50.5%, ROI -3.6%, z +0.5) spr -0.9 | 23:292-277 24:276-280 25:278-279 26:289-276  | vs opener 1146-1116 (50.7%)  | shuffle p 0.596  | Jan-Feb placebo same side 1733-1730 (50.0%)
+     KenPom preseason Q1 worst                                        FADE 94-91 (50.8%, ROI -3.0%, z +0.2) spr +8.3 | 23:24-33 24:27-21 25:17-13 26:26-24  | vs opener 96-93 (50.8%)
+     KenPom preseason Q2                                              FADE 209-205 (50.5%, ROI -3.6%, z +0.2) spr +4.2 | 23:63-65 24:39-40 25:40-48 26:67-52  | vs opener 210-206 (50.5%)
+     KenPom preseason Q3                                              BACK 388-348 (52.7%, ROI +0.6%, z +1.5) spr +0.4 | 23:92-75 24:112-113 25:102-85 26:82-75  | vs opener 384-356 (51.9%)
+     KenPom preseason Q4                                              FADE 367-349 (51.3%, ROI -2.1%, z +0.7) spr -5.3 | 23:76-73 24:86-88 25:114-89 26:91-99  | vs opener 360-362 (49.9%)
+     KenPom preseason Q5 best                                         BACK 102-94 (52.0%, ROI -0.6%, z +0.6) spr -9.4 | 23:29-39 24:15-15 25:26-23 26:32-17  | vs opener 101-94 (51.8%)
+     home                                                             BACK 454-411 (52.5%, ROI +0.2%, z +1.5) spr -9.3 | 23:113-96 24:100-95 25:114-120 26:127-100  | vs opener 470-398 (54.1%)
+     away                                                             BACK 466-458 (50.4%, ROI -3.7%, z +0.3) spr +6.8 | 23:130-111 24:116-118 25:113-105 26:107-124  | vs opener 460-474 (49.3%)
+     underdog                                                         BACK 501-476 (51.3%, ROI -2.1%, z +0.8) spr +9.3 | 23:133-119 24:123-122 25:125-101 26:120-134  | vs opener 487-499 (49.4%)
+     dog of 7+                                                        BACK 257-247 (51.0%, ROI -2.7%, z +0.4) spr +14.6 | 23:67-55 24:55-65 25:58-52 26:77-75  | vs opener 246-263 (48.3%)
+     favorite                                                         FADE 629-627 (50.1%, ROI -4.4%, z +0.1) spr -8.9 | 23:157-159 24:156-153 25:177-150 26:139-165  | vs opener 610-652 (48.3%)
+     vs power-conference opponent                                     BACK 209-182 (53.5%, ROI +2.0%, z +1.4) spr +11.6 | 23:53-44 24:49-53 25:50-40 26:57-45  | vs opener 207-190 (52.1%)
+     vs non-power opponent                                            FADE 930-926 (50.1%, ROI -4.3%, z +0.1) spr -3.6 | 23:233-239 24:227-227 25:239-228 26:231-232  | vs opener 926-939 (49.7%)
+     vs opponent with Jr/Sr share <= 40%                              BACK 258-241 (51.7%, ROI -1.3%, z +0.8) spr -6.5 | 23:64-52 24:61-56 25:55-56 26:78-77  | vs opener 267-234 (53.3%)
+ -- cohesive Q5
+   all                                                                FADE 1126-1125 (50.0%, ROI -4.5%, z +0.0) spr +0.3 | 23:289-278 24:287-273 25:276-288 26:274-286  | vs opener 1145-1111 (50.8%)  | shuffle p 0.994  | Jan-Feb placebo same side 1752-1733 (50.3%)
+     KenPom preseason Q1 worst                                        FADE 148-145 (50.5%, ROI -3.6%, z +0.2) spr +7.9 | 23:33-24 24:26-22 25:40-48 26:49-51  | vs opener 157-139 (53.0%)
+     KenPom preseason Q2                                              FADE 282-278 (50.4%, ROI -3.9%, z +0.2) spr +3.5 | 23:68-60 24:64-63 25:80-90 26:70-65  | vs opener 288-274 (51.2%)
+     KenPom preseason Q3                                              BACK 326-304 (51.7%, ROI -1.2%, z +0.9) spr +0.1 | 23:89-68 24:70-78 25:80-69 26:87-89  | vs opener 326-303 (51.8%)
+     KenPom preseason Q4                                              FADE 326-325 (50.1%, ROI -4.4%, z +0.0) spr -4.0 | 23:81-76 24:109-108 25:80-67 26:56-74  | vs opener 328-323 (50.4%)
+     KenPom preseason Q5 best                                         FADE 66-51 (56.4%, ROI +7.7%, z +1.4) spr -9.7 | 23:39-29 24:10-10 25:7-3 26:10-9  | vs opener 69-49 (58.5%)
+     home                                                             BACK 419-408 (50.7%, ROI -3.3%, z +0.4) spr -7.3 | 23:110-100 24:102-108 25:108-97 26:99-103  | vs opener 420-405 (50.9%)
+     away                                                             FADE 504-501 (50.1%, ROI -4.3%, z +0.1) spr +7.0 | 23:124-114 24:122-114 25:134-136 26:124-137  | vs opener 523-489 (51.7%)
+     underdog                                                         BACK 538-513 (51.2%, ROI -2.3%, z +0.8) spr +9.3 | 23:131-130 24:126-122 25:143-122 26:138-139  | vs opener 519-537 (49.1%)
+     dog of 7+                                                        BACK 276-244 (53.1%, ROI +1.3%, z +1.4) spr +15.1 | 23:71-67 24:67-47 25:64-68 26:74-62  | vs opener 261-257 (50.4%)
+     favorite                                                         FADE 607-581 (51.1%, ROI -2.5%, z +0.8) spr -7.8 | 23:158-146 24:162-147 25:152-143 26:135-145  | vs opener 602-586 (50.7%)
+     vs power-conference opponent                                     BACK 185-171 (52.0%, ROI -0.8%, z +0.7) spr +14.2 | 23:51-45 24:49-40 25:38-47 26:47-39  | vs opener 177-176 (50.1%)
+     vs non-power opponent                                            FADE 955-940 (50.4%, ROI -3.8%, z +0.3) spr -2.3 | 23:244-227 24:247-224 25:229-250 26:235-239  | vs opener 969-934 (50.9%)
+     vs opponent with Jr/Sr share <= 40%                              FADE 289-266 (52.1%, ROI -0.6%, z +1.0) spr -3.3 | 23:68-59 24:71-52 25:70-63 26:80-92  | vs opener 290-271 (51.7%)
+ -- both Q5
+   all                                                                FADE 394-375 (51.2%, ROI -2.2%, z +0.7) spr -1.3 | 23:111-104 24:83-76 25:121-126 26:79-69  | vs opener 395-373 (51.4%)  | shuffle p 0.493  | Jan-Feb placebo same side 591-589 (50.1%)
+     KenPom preseason Q1 worst                                        FADE 22-17 (56.4%, ROI +7.7%, z +0.8) spr +8.4 | 23:5-4 24:5-5 25:4-6 26:8-2  | vs opener 23-17 (57.5%)
+     KenPom preseason Q2                                              FADE 64-46 (58.2%, ROI +11.1%, z +1.7) spr +3.0 | 23:23-17 24:11-9 25:15-15 26:15-5  | vs opener 63-47 (57.3%)
+     KenPom preseason Q3                                              BACK 148-128 (53.6%, ROI +2.4%, z +1.2) spr +0.4 | 23:36-23 24:22-28 25:63-46 26:27-31  | vs opener 145-130 (52.7%)
+     KenPom preseason Q4                                              FADE 150-146 (50.7%, ROI -3.3%, z +0.2) spr -4.3 | 23:33-36 24:36-33 25:56-42 26:25-35  | vs opener 147-148 (49.8%)
+     KenPom preseason Q5 best                                         FADE 30-18 (62.5%, ROI +19.3%, z +1.7) spr -9.9 | 23:27-11 24:3-7  | vs opener 32-16 (66.7%)
+     home                                                             BACK 153-139 (52.4%, ROI +0.0%, z +0.8) spr -9.2 | 23:39-39 24:30-33 25:52-40 26:32-27  | vs opener 155-132 (54.0%)
+     away                                                             FADE 171-158 (52.0%, ROI -0.8%, z +0.7) spr +5.9 | 23:41-52 24:33-30 25:57-52 26:40-24  | vs opener 178-155 (53.5%)
+     underdog                                                         FADE 158-142 (52.7%, ROI +0.5%, z +0.9) spr +9.3 | 23:45-39 24:31-31 25:46-53 26:36-19  | vs opener 165-139 (54.3%)
+     dog of 7+                                                        FADE 82-74 (52.6%, ROI +0.3%, z +0.6) spr +14.5 | 23:23-24 24:16-15 25:26-22 26:17-13  | vs opener 85-72 (54.1%)
+     favorite                                                         FADE 233-232 (50.1%, ROI -4.3%, z +0.0) spr -8.2 | 23:65-65 24:51-45 25:74-73 26:43-49  | vs opener 227-233 (49.3%)
+     vs power-conference opponent                                     FADE 64-61 (51.2%, ROI -2.3%, z +0.3) spr +11.6 | 23:19-18 24:16-14 25:20-17 26:9-12  | vs opener 64-60 (51.6%)
+     vs non-power opponent                                            FADE 330-314 (51.2%, ROI -2.2%, z +0.6) spr -3.8 | 23:92-86 24:67-62 25:101-109 26:70-57  | vs opener 331-313 (51.4%)
+     vs opponent with Jr/Sr share <= 40%                              FADE 82-77 (51.6%, ROI -1.5%, z +0.4) spr -5.3 | 23:18-24 24:15-11 25:23-24 26:26-18  | vs opener 80-79 (50.3%)
+
+=== F. ROBUSTNESS: prior-minutes weighting (no in-season info) and KenPom Exp quintiles, first 10 games ===
+
+   TENURE weighted by PRIOR-season minutes -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1422-1458 (49.4%)  margin vs spread -0.04  spr +5.4  SU 38% | 23:352-368 24:345-371 25:353-369 26:372-350 | Jan-Feb 2283-2154 (51.5%)
+      Q2: 1426-1413 (50.2%)  margin vs spread -0.10  spr +1.5  SU 47% | 23:353-351 24:347-355 25:359-353 26:367-354 | Jan-Feb 2187-2251 (49.3%)
+      Q3: 1423-1418 (50.1%)  margin vs spread -0.14  spr -0.6  SU 51% | 23:358-345 24:359-342 25:354-361 26:352-370 | Jan-Feb 2181-2258 (49.1%)
+      Q4: 1431-1422 (50.2%)  margin vs spread +0.15  spr -2.0  SU 54% | 23:354-355 24:357-351 25:355-359 26:365-357 | Jan-Feb 2232-2179 (50.6%)
+      Q5: 1417-1450 (49.4%)  margin vs spread +0.01  spr -2.9  SU 56% | 23:345-364 24:358-358 25:357-362 26:357-366 | Jan-Feb 2192-2227 (49.6%)
+
+   COHESION weighted by PRIOR-season minutes -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1442-1431 (50.2%)  margin vs spread -0.01  spr +2.4  SU 44% | 23:351-363 24:364-348 25:360-364 26:367-356 | Jan-Feb 2206-2220 (49.8%)
+      Q2: 1388-1452 (48.9%)  margin vs spread -0.19  spr -0.5  SU 51% | 23:368-337 24:330-372 25:324-385 26:366-358 | Jan-Feb 2208-2205 (50.0%)
+      Q3: 1479-1375 (51.8%)  margin vs spread +0.34  spr -1.1  SU 55% | 23:346-361 24:381-328 25:381-334 26:371-352 | Jan-Feb 2242-2204 (50.4%)
+      Q4: 1398-1453 (49.0%)  margin vs spread -0.05  spr +0.7  SU 49% | 23:361-349 24:327-381 25:344-367 26:366-356 | Jan-Feb 2172-2241 (49.2%)
+      Q5: 1412-1450 (49.3%)  margin vs spread -0.20  spr +0.0  SU 48% | 23:336-373 24:364-348 25:369-354 26:343-375 | Jan-Feb 2247-2199 (50.5%)
+
+   KenPom Exp (end-of-season, minutes-weighted class) -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1432-1444 (49.8%)  margin vs spread -0.19  spr +7.8  SU 31% | 23:350-367 24:351-362 25:371-353 26:360-362 | Jan-Feb 2226-2219 (50.1%)
+      Q2: 1420-1435 (49.7%)  margin vs spread -0.06  spr +4.0  SU 42% | 23:349-354 24:336-374 25:363-358 26:372-349 | Jan-Feb 2205-2239 (49.6%)
+      Q3: 1441-1409 (50.6%)  margin vs spread +0.10  spr +0.2  SU 50% | 23:357-363 24:363-339 25:359-347 26:362-360 | Jan-Feb 2211-2209 (50.0%)
+      Q4: 1416-1445 (49.5%)  margin vs spread +0.01  spr -3.3  SU 57% | 23:350-362 24:361-344 25:353-370 26:352-369 | Jan-Feb 2206-2224 (49.8%)
+      Q5: 1428-1438 (49.8%)  margin vs spread +0.05  spr -7.1  SU 66% | 23:369-342 24:355-358 25:337-381 26:367-357 | Jan-Feb 2247-2204 (50.5%)
+
+   KenPom Exp, small schools -- first 10 games -- BACK the team, by within-season quintile (1 = least, 5 = most):
+      Q1: 1369-1361 (50.1%)  margin vs spread -0.18  spr +8.7  SU 30% | 23:323-336 24:332-333 25:363-341 26:351-351 | Jan-Feb 2226-2219 (50.1%)
+      Q2: 1306-1323 (49.7%)  margin vs spread -0.06  spr +4.8  SU 40% | 23:291-294 24:323-359 25:337-334 26:355-336 | Jan-Feb 2205-2239 (49.6%)
+      Q3: 1219-1165 (51.1%)  margin vs spread +0.12  spr +2.1  SU 47% | 23:304-296 24:296-279 25:315-302 26:304-288 | Jan-Feb 2211-2209 (50.0%)
+      Q4: 931-971 (48.9%)  margin vs spread -0.14  spr +0.4  SU 48% | 23:238-246 24:230-221 25:225-250 26:238-254 | Jan-Feb 2206-2224 (49.8%)
+      Q5: 790-779 (50.4%)  margin vs spread +0.06  spr -3.1  SU 60% | 23:253-235 24:197-195 25:154-188 26:186-161 | Jan-Feb 2247-2204 (50.5%)
+
+wrote tenure_games.parquet, tenure_team_seasons.parquet

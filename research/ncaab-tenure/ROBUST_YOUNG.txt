@@ -1,0 +1,78 @@
+=== 1. 2-D dose grid, small schools, Nov-Dec, BACK %: rows = tenure quintile (1 young .. 5 old), cols = cohesion quintile (1 all-new .. 5 together) ===
+q_core_share              1            2            3            4            5
+q_upper_share                                                                  
+1              53.7% (1279)  50.3% (879)  47.7% (576)  49.2% (311)   54.9% (71)
+2               47.4% (608)  50.4% (669)  49.4% (658)  51.5% (497)  46.2% (422)
+3               48.8% (381)  52.2% (395)  54.7% (450)  47.6% (695)  48.7% (698)
+4               50.7% (229)  45.1% (255)  47.9% (587)  47.7% (654)  53.2% (726)
+5               50.0% (224)  53.2% (205)  53.2% (481)  52.2% (515)  48.7% (807)
+
+=== 2. the cell and its neighbours, Nov-Dec, small schools ===
+   young(Q1) AND new(Q1), small school                              BACK 687-592 (53.7%, ROI +2.5%, z +2.7) spr +8.9 SU 32% | 23:255-205 24:128-127 25:158-134 26:146-126 | opener 675-601 (52.9%) | shuffle p 0.004
+   young Q1, cohesion Q1-2                                          BACK 1129-1029 (52.3%, ROI -0.1%, z +2.2) spr +8.7 SU 32% | 23:355-325 24:230-234 25:284-244 26:260-226 | opener 1112-1045 (51.6%) | shuffle p 0.025
+   tenure Q1-2, new Q1                                              BACK 975-912 (51.7%, ROI -1.4%, z +1.5) spr +7.3 SU 33% | 23:299-265 24:239-236 25:232-214 26:205-197 | opener 965-924 (51.1%) | shuffle p 0.123
+   tenure Q1-2 AND cohesion Q1-2 (wider)                            BACK 1754-1681 (51.1%, ROI -2.5%, z +1.2) spr +7.1 SU 34% | 23:506-495 24:412-420 25:451-407 26:385-359 | opener 1734-1702 (50.5%) | shuffle p 0.171
+   young Q1 alone, small school                                     BACK 1596-1520 (51.2%, ROI -2.2%, z +1.4) spr +7.9 SU 33% | 23:432-405 24:335-352 25:406-365 26:423-398 | opener 1568-1558 (50.2%)
+   new Q1 alone, small school                                       BACK 1389-1332 (51.0%, ROI -2.5%, z +1.1) spr +5.8 SU 37% | 23:365-351 24:308-295 25:363-351 26:353-335 | opener 1375-1352 (50.4%)
+   young AND new, POWER conference                                  BACK 30-30 (50.0%, ROI -4.5%, z +0.0) spr -7.1 SU 67% | 23:5-6 24:18-18 25:7-6 | opener 32-29 (52.5%)
+   young AND new, all D1                                            BACK 717-622 (53.5%, ROI +2.2%, z +2.6) spr +8.1 SU 33% | 23:260-211 24:146-145 25:165-140 26:146-126 | opener 707-630 (52.9%) | shuffle p 0.007
+
+=== 3. absolute thresholds instead of quintiles (so the rule is statable), Nov-Dec, small schools ===
+   Jr/Sr share <= 10% and 3rd+-year share <= 0%                     BACK 166-140 (54.2%, ROI +3.6%, z +1.5) spr +8.9 SU 31% | 23:91-69 24:22-23 25:32-30 26:21-18 | opener 163-143 (53.3%) | shuffle p 0.142
+   Jr/Sr share <= 10% and 3rd+-year share <= 5%                     BACK 189-166 (53.2%, ROI +1.6%, z +1.2) spr +8.6 SU 32% | 23:103-85 24:22-23 25:38-34 26:26-24 | opener 189-167 (53.1%) | shuffle p 0.228
+   Jr/Sr share <= 15% and 3rd+-year share <= 0%                     BACK 251-213 (54.1%, ROI +3.3%, z +1.8) spr +8.7 SU 33% | 23:118-91 24:32-35 25:67-59 26:34-28 | opener 250-214 (53.9%) | shuffle p 0.071
+   Jr/Sr share <= 15% and 3rd+-year share <= 5%                     BACK 292-260 (52.9%, ROI +1.0%, z +1.4) spr +8.3 SU 34% | 23:140-112 24:36-44 25:77-70 26:39-34 | opener 295-258 (53.3%) | shuffle p 0.173
+   Jr/Sr share <= 20% and 3rd+-year share <= 0%                     BACK 344-296 (53.8%, ROI +2.6%, z +1.9) spr +9.0 SU 31% | 23:143-115 24:52-46 25:88-75 26:61-60 | opener 341-298 (53.4%) | shuffle p 0.060
+   Jr/Sr share <= 20% and 3rd+-year share <= 5%                     BACK 419-366 (53.4%, ROI +1.9%, z +1.9) spr +8.6 SU 32% | 23:171-141 24:63-59 25:105-89 26:80-77 | opener 417-367 (53.2%) | shuffle p 0.062
+
+=== 4. is this the new-coach / rebuilt family in disguise? (coach_yr from the panel; ret_share = any prior season here) ===
+   young AND new, small, NEW head coach                             BACK 219-187 (53.9%, ROI +3.0%, z +1.6) spr +10.4 SU 27% | 23:60-51 24:54-43 25:70-60 26:35-33 | opener 218-189 (53.6%)
+   young AND new, small, SAME head coach                            BACK 391-342 (53.3%, ROI +1.8%, z +1.8) spr +8.8 SU 31% | 23:143-114 24:70-77 25:75-64 26:103-87 | opener 377-350 (51.9%) | shuffle p 0.058
+   young AND new, small, kept <=30% of minutes (rebuilt)            BACK 364-304 (54.5%, ROI +4.0%, z +2.3) spr +9.9 SU 30% | 23:103-87 24:52-41 25:101-75 26:108-101 | opener 363-304 (54.4%)
+   young AND new, small, kept >30% (NOT rebuilt)                    BACK 323-288 (52.9%, ROI +0.9%, z +1.4) spr +7.8 SU 33% | 23:152-118 24:76-86 25:57-59 26:38-25 | opener 312-297 (51.2%)
+   REFERENCE: new coach + rebuilt + dog (continuity-study signal), small BACK 408-317 (56.3%, ROI +7.4%, z +3.4) spr +12.3 SU 23% | 23:55-42 24:85-61 25:154-114 26:114-100 | opener 403-327 (55.2%)
+     ... of which NOT young-and-new                                 BACK 267-215 (55.4%, ROI +5.8%, z +2.4) spr +11.8 SU 22% | 23:19-20 24:49-32 25:96-77 26:103-86 | opener 262-224 (53.9%)
+   young AND new, small, EXCLUDING new-coach+rebuilt teams          BACK 527-462 (53.3%, ROI +1.7%, z +2.1) spr +8.4 SU 32% | 23:215-173 24:86-95 25:95-88 26:131-106 | opener 513-471 (52.1%) | shuffle p 0.030
+
+=== 5. splits of the cell, Nov-Dec, small schools ===
+   KenPom preseason Q1 worst                                        BACK 437-391 (52.8%, ROI +0.8%, z +1.6) spr +11.9 SU 24% | 23:143-131 24:87-79 25:110-88 26:97-93 | opener 425-401 (51.5%)
+   KenPom preseason Q2                                              BACK 143-108 (57.0%, ROI +8.8%, z +2.2) spr +4.8 SU 41% | 23:73-42 24:33-33 25:15-19 26:22-14 | opener 143-106 (57.4%)
+   KenPom preseason Q3                                              BACK 93-82 (53.1%, ROI +1.5%, z +0.8) spr +1.6 SU 49% | 23:39-32 24:8-15 25:27-22 26:19-13 | opener 94-82 (53.4%)
+   KenPom preseason Q4                                              n=25 thin
+   KenPom preseason Q5 best                                         n=0 thin
+   underdog                                                         BACK 526-451 (53.8%, ROI +2.8%, z +2.4) spr +13.4 SU 19% | 23:174-146 24:103-97 25:143-106 26:106-102 | opener 505-470 (51.8%)
+   dog of 7+                                                        BACK 371-289 (56.2%, ROI +7.3%, z +3.2) spr +17.9 SU 11% | 23:114-89 24:67-68 25:104-68 26:86-64 | opener 352-306 (53.5%)
+   dog of 12.5+                                                     BACK 244-186 (56.7%, ROI +8.3%, z +2.8) spr +22.4 SU 5% | 23:69-46 24:43-43 25:72-51 26:60-46 | opener 226-200 (53.1%)
+   favorite                                                         BACK 159-138 (53.5%, ROI +2.2%, z +1.2) spr -5.8 SU 73% | 23:81-57 24:25-30 25:14-28 26:39-23 | opener 167-129 (56.4%)
+   home                                                             BACK 194-173 (52.9%, ROI +0.9%, z +1.1) spr -0.3 SU 54% | 23:84-57 24:37-42 25:31-38 26:42-36 | opener 199-170 (53.9%)
+   away                                                             BACK 416-358 (53.7%, ROI +2.6%, z +2.1) spr +14.2 SU 19% | 23:138-126 24:79-75 25:108-78 26:91-79 | opener 399-371 (51.8%)
+   neutral                                                          BACK 77-61 (55.8%, ROI +6.5%, z +1.4) spr +3.1 SU 42% | 23:33-22 24:12-10 25:19-18 26:13-11 | opener 77-60 (56.2%)
+   vs power opponent                                                BACK 147-110 (57.2%, ROI +9.2%, z +2.3) spr +25.2 SU 4% | 23:51-26 24:22-26 25:37-33 26:37-25 | opener 137-119 (53.5%)
+   vs non-power opponent                                            BACK 540-482 (52.8%, ROI +0.9%, z +1.8) spr +4.7 SU 38% | 23:204-179 24:106-101 25:121-101 26:109-101 | opener 538-482 (52.7%)
+   low-major                                                        BACK 668-573 (53.8%, ROI +2.8%, z +2.7) spr +8.9 SU 32% | 23:248-200 24:128-127 25:151-128 26:141-118 | opener 654-584 (52.8%)
+   mid-major                                                        BACK 19-19 (50.0%, ROI -4.5%, z +0.0) spr +6.2 SU 26% | 23:7-5 25:7-6 26:5-8 | opener 21-17 (55.3%)
+   games 1-5                                                        BACK 295-241 (55.0%, ROI +5.1%, z +2.3) spr +10.2 SU 30% | 23:104-80 24:55-58 25:73-51 26:63-52 | opener 284-246 (53.6%)
+   games 6-10                                                       BACK 270-260 (50.9%, ROI -2.7%, z +0.4) spr +7.7 SU 33% | 23:95-85 24:60-53 25:58-66 26:57-56 | opener 274-259 (51.4%)
+   games 11+ (still Nov-Dec)                                        BACK 122-91 (57.3%, ROI +9.3%, z +2.1) spr +8.4 SU 33% | 23:56-40 24:13-16 25:27-17 26:26-18 | opener 117-96 (54.9%)
+   PLACEBO Jan-Feb                                                  BACK 813-792 (50.7%, ROI -3.3%, z +0.5) spr +3.3 SU 39% | 23:256-271 24:171-164 25:184-195 26:202-162 | opener 817-792 (50.8%)
+   PLACEBO March                                                    BACK 132-150 (46.8%, ROI -10.6%, z -1.1) spr +3.2 SU 36% | 23:37-34 24:39-48 25:34-38 26:22-30 | opener 126-156 (44.7%)
+   freshmen play 50%+ of minutes                                    BACK 235-222 (51.4%, ROI -1.8%, z +0.6) spr +10.8 SU 26% | 23:77-77 24:40-35 25:62-53 26:56-57 | opener 236-221 (51.6%)
+   freshmen < 50%                                                   BACK 452-370 (55.0%, ROI +5.0%, z +2.9) spr +7.8 SU 35% | 23:178-128 24:88-92 25:96-81 26:90-69 | opener 439-380 (53.6%)
+
+=== 6. drop-one season, Nov-Dec cell ===
+   without 2023                                                     BACK 432-387 (52.7%, ROI +0.7%, z +1.6) spr +10.5 SU 27% | 24:128-127 25:158-134 26:146-126 | opener 419-402 (51.0%)
+   without 2024                                                     BACK 559-465 (54.6%, ROI +4.2%, z +2.9) spr +8.8 SU 31% | 23:255-205 25:158-134 26:146-126 | opener 549-469 (53.9%)
+   without 2025                                                     BACK 529-458 (53.6%, ROI +2.3%, z +2.3) spr +8.1 SU 34% | 23:255-205 24:128-127 26:146-126 | opener 521-462 (53.0%)
+   without 2026                                                     BACK 541-466 (53.7%, ROI +2.6%, z +2.4) spr +8.3 SU 33% | 23:255-205 24:128-127 25:158-134 | opener 536-470 (53.3%)
+
+=== 7. how many teams / games a season ===
+            teams  games
+season_end              
+2023           37    465
+2024           23    260
+2025           25    294
+2026           23    273
+
+=== 8. same cell, TOTALS (over = win_tot>0) and 1H spread, Nov-Dec ===
+   totals: over 634-643 (49.6%)
+   1H spread: back 424-389 (52.2%)
