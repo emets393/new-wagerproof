@@ -153,3 +153,20 @@ Seasons 47-47, 41-27, 86-49, 91-67; shuffle p .009; Jan-Feb placebo 248-220 (53.
 101-150 58.5%, 151-250 61.1%, 251+ 57.1%; the top-25 opponents (39-29) and 26-50 (31-38) are noise around 50%. Reading: the
 elite teams cover their 30-point numbers; the mid-table hosts laying 10-20 to a young unknown do not. Post-hoc split on
 ~600 games -- report it as the refinement, grade the broad cell live.
+
+### Both teams' KenPom, jointly -- `kenpom_matchup.py` -> `KENPOM_MATCHUP.txt`
+
+Own offense x opponent defense, own defense x opponent offense, tempo x tempo, overall x overall (national rank bands good
+1-100 / mid 101-225 / bad 226+), for every non-power team Nov-Dec (13,270 games) and the cell as a dog of 7+ (605 games).
+
+Non-power, all: 33 of 36 grid cells sit 49-51.8%. The three that do not all say the same thing -- the non-power team that is
+the paper mismatch FAVOURITE is over-priced early: top-100 defense vs a 226+ offense 158-225 (fade 58.7%), top-100 overall vs
+226+ overall 155-185 (fade 54.4%), both units 60+ ranks better 864-943 (fade 52.2%, p .045); the mirror image, a 226+ offense
+facing a top-100 defense, backs 805-708 (53.2%). Every gap ladder is flat (47-52%) and Jan-Feb placebos are ~50%, so this is
+the known "rated non-power favourite" lean, not a style read. Tempo x tempo 49.0-51.2% everywhere; shootout and grind
+mismatches 50.2% each; underdog style edges 44-50%.
+
+Cell as dog of 7+: every joint cell is 51-68% on 30-110 games with no structure (fast vs avg-tempo opponent 44%, fast vs slow
+60%; own-defense best third vs mid offense 52-27 but vs good offense 62-49). The only two-sided read that holds is the one
+already found: the cell team covers when the opponent is good-not-elite (opponent 51-250 overall 58-61%) and does not when
+the opponent is top-50 (51%). Nothing here to add to the rule.
