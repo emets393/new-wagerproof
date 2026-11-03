@@ -170,3 +170,47 @@ Cell as dog of 7+: every joint cell is 51-68% on 30-110 games with no structure 
 60%; own-defense best third vs mid offense 52-27 but vs good offense 62-49). The only two-sided read that holds is the one
 already found: the cell team covers when the opponent is good-not-elite (opponent 51-250 overall 58-61%) and does not when
 the opponent is top-50 (51%). Nothing here to add to the rule.
+
+### The same conditions on the other markets -- `markets_study.py` -> `MARKETS_RUN.txt`, `markets_followup.py` -> `MARKETS_FOLLOWUP.txt`
+
+Owner ask 2026-11-03: grade yesterday's conditions (tenure/cohesion quintiles, the two corners, preseason KenPom bands, both-team
+grids) on the **full-game total, first-half total and first-half spread**. Totals are graded once per game; `tot_resid` and
+`h1_tot_resid` are actual minus the T-60 line (asserted in the script), `h1_ats_pts` is the team's 1H cover amount. Non-power
+teams, Nov-Dec, Jan-Feb placebo, shuffle null, ROI at -110. 1H lines exist for 2023-24 onward (26k team-games), FG totals all four seasons (35k).
+
+**Tenure and cohesion do not move totals.** Every Jr/Sr, 3rd-year, experience, cohesion and freshman quintile is 50-52% over on
+the full-game total and 48-52% on the 1H total; young-vs-old, old-vs-young, both-young and both-old all 49-52%. The young-and-new
+cell as a whole is 51% over (dog of 7+ 84-72 over, p .39). The tenured-and-cohesive corner 51%.
+
+**First-half spread is the same bet as the full-game spread, not a second one.** The cell as a dog of 7+ backs 269-207 (56.5%) on
+the 1H spread with p .005, but 2023-24 lost (48-57) and 73% of the games land the same way as the FG cover (crosstab in
+MARKETS_FOLLOWUP §7). The FG spread version (56.0%, 4/4 seasons, opponent-outside-top-50 refinement 58.2%) is the one to bet;
+the 1H number is an alternative when the FG line is gone, not an add. Inside the cell the opponent-rank split flips on 1H (vs
+top-50 64-41, vs outside 203-165), which on ~100 games is noise.
+
+**One new full-game TOTAL read: a rated mid-major laying 7+ goes OVER.** Preseason-KenPom top-100 non-power team, favorite of 7
+or more, full-game total OVER:
+
+| window | record | over % | ROI | seasons | shuffle p | vs opener |
+|---|---|---|---|---|---|---|
+| Nov-Dec | **384-307** | **55.6%** | **+6.1%** | 118-102, 88-72, 91-69, 87-64 | .002 | 390-295 (56.9%) |
+| Jan-Feb | 381-315 | 54.7% | +4.5% | | | |
+| full season | **864-710** | **54.9%** | **+4.8%** | 253-214, 226-170, 214-168, 171-158 | .0005 | 872-696 (55.6%) |
+
+It is not an early-season effect (every month 52.7-56.8%) and it is specific: power-conference top-100 favorites of 7+ are
+1114-1105 (50.2%), all favorites of 7+ 50.9%, non-power favorites ranked 101-200 50.5%, ranked 200+ 48.0%. Dose on the favorite's
+rank: 1-25 46.8% (n 171, noise), 26-50 54.2%, **51-75 55.8%, 76-100 56.6%**, 101-150 52.3%, 151-200 48.8%, 201+ 48.6%. Dose on the
+spread: fav 3-5 49.1%, 5-7 50.0%, **7-10 55.1%, 10-14 55.5%, 14-20 55.3%**, 20+ 52.7%. Holds home (55.3%) and away (56.7%), conf
+(65%, n 63) and non-conf (54.6%), every line level (53.9-60.8%); by opponent rank 101-200 55.4%, 201-300 55.6%, 301+ 56.6%, while
+vs a top-100 opponent 77-84 (47.8%). Mean total residual +2.0 pts vs +0.7 for all games. The favorite's team total also goes over
+(235-196, 54.5%) while the favorite does NOT cover (FG 335-352, 1H 215-250), so both teams outscore the number. A-10 favorites are
+the one conference at 50% (149-147); American/MW/WCC/MVC/CUSA 53-59%. With the AS-OF KenPom rank (what production has) the edge
+thins to 53.9% Nov-Dec / 53.2% full season (p .03 / .009) -- the preseason rank is the better selector, i.e. the market catches up
+to teams whose live rank climbs. Meets the 2026-10-28 standard (~55% on 700+ games, 4/4 seasons): proposed key
+`ncaab_rated_midmajor_fav_over` (favorite is non-power, preseason/most-recent-October KenPom rank <= 100, spread <= -7, D1
+opponent outside the top 100; FG total OVER).
+
+1H total in the same spot 244-224 (52.1%): the over arrives in the second half. Other 1H-total cells: nothing above noise (cell
+with a slow own tempo under 134-104 p .10, 2 of 3 seasons; both-good-defenses under 143-119 p .17). FG total "both top-100
+defenses -> UNDER" 208-164 (55.9%, p .018) in Nov-Dec fails the controls: any-own-team 47.7% over Nov-Dec, Jan-Feb 51.2% over,
+full season 50.1%, both top-50 defenses 53.2% OVER. Not a signal.
