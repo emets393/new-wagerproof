@@ -109,3 +109,17 @@ minutes, (2) each player's prior D1 seasons and prior seasons at this school fro
 rotation is unknown -- use the roster with prior-minutes weighting (section F shows the same flat ladders for the theory
 side; the young-and-new cell should be re-graded under that weighting before shipping). Proposed key
 `ncaab_young_new_small_dog`: non-power, Jr/Sr share <= 20%, no 3rd+-year minutes, dog of 7+, Nov-Dec, tier tracking.
+
+## Follow-up 2026-11-02 (same day): clean definition + this season's screen -- `screen_2027.py`, `SCREEN_2026-11-02.csv`
+
+The study cell used a within-season quintile on 3rd+-year share, but 41-117 D1 teams a season have EXACTLY zero such
+minutes, so "Q1" was an arbitrary tie-break among them. Re-graded on the full set (young quintile AND zero 3rd+-year
+minutes, non-power), Nov-Dec: **633-555 (53.3%)**; **dog of 7+ 342-269 (56.0%, +6.9%), 4/4 seasons** (71-62, 54-51, 104-68,
+113-88); dog of 12.5+ 229-177 (56.4%); spread under +7 **291-286 (50.4%)** -- the whole edge is the big-dog side; Jan-Feb
+placebo 51.1%. Preseason roster weighting (prior-season minutes, freshmen at 50 minutes, calibrated so the league freshman
+share matches the first-10-games rotation; r = .93 with the actual metric) reproduces it: absolute rule Jr/Sr <= 20% and
+zero 3rd+-year minutes, Nov-Dec 156-129 (54.7%), dog of 7+ 82-65 (55.8%), 2022-23..2024-25.
+
+2026-27 screen (preseason weighting, CBBD rosters pulled 2026-11-02): 39 non-power teams in the cell, 15 of them with Jr/Sr
+share <= 20%. Opening day Monday 2026-11-02, games with a line: 12-10 ATS; as dogs of 7+ 8-7. Full list with results and the
+week's schedule in `SCREEN_2026-11-02.csv`. Rule for the watchlist: cell team, dog of 7+, D1 opponent, Nov-Dec.

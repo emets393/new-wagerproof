@@ -1,0 +1,61 @@
+date,tip,team,conf,venue,opponent,opp_d1,spread,dog7,result,jr_sr_pre,jr_sr_sofar,le20
+2026-11-01,Sun 11:59PM,Liberty,CUSA,neutral,High Point,True,,,57-72,0.41,0.17,False
+2026-11-02,Mon 10:00PM,UC Riverside,Big West,home,La Verne,False,,,live,0.05,,True
+2026-11-02,Mon 10:00PM,Robert Morris,Horizon,away,Nevada,True,12.5,True,live,0.32,,False
+2026-11-02,Mon 12:00PM,South Carolina State,MEAC,home,Morris College,False,,,94-55,0.27,0.33,False
+2026-11-02,Mon 3:00AM,Grambling,SWAC,neutral,Northern Illinois,True,8.5,True,89-87 COVER,0.29,0.41,False
+2026-11-02,Mon 7:00PM,UMass Lowell,Am. East,home,Rivier,False,,,121-57,0.2,0.16,True
+2026-11-02,Mon 7:00PM,Indiana State,MVC,home,Charlotte,True,5.5,False,70-78 LOSS,0.3,0.18,False
+2026-11-02,Mon 7:00PM,Florida International,CUSA,home,New College (FL),False,,,101-58,0.31,0.0,False
+2026-11-02,Mon 7:00PM,Youngstown State,Horizon,away,St. Bonaventure,True,10.5,True,79-71 COVER,0.44,0.22,False
+2026-11-02,Mon 7:00PM,Eastern Illinois,OVC,away,Indiana,True,34.5,True,57-91 COVER,0.02,0.05,True
+2026-11-02,Mon 7:00PM,Coastal Carolina,Sun Belt,home,Eastern Michigan,True,-1.5,False,70-71 LOSS,0.34,,False
+2026-11-02,Mon 7:00PM,Georgia Southern,Sun Belt,home,Ball State,True,1.5,False,67-55 COVER,0.16,0.0,True
+2026-11-02,Mon 7:00PM,New Haven,NEC,away,Syracuse,True,26.5,True,58-74 COVER,0.29,,False
+2026-11-02,Mon 7:30PM,Tennessee Tech,SoCon,away,Mississippi State,True,18.5,True,88-106 COVER,0.39,0.41,False
+2026-11-02,Mon 7:30PM,Louisiana Tech,Sun Belt,home,Kent State,True,5.5,False,85-75 COVER,0.02,0.11,True
+2026-11-02,Mon 7:30PM,North Carolina Central,MEAC,away,Georgia,True,40.5,True,62-78 COVER,0.19,,True
+2026-11-02,Mon 7:30PM,Stephen F. Austin,Southland,home,Lyon,False,,,120-61,0.32,,False
+2026-11-02,Mon 7:30PM,Morehead State,OVC,away,Western Kentucky,True,17.5,True,58-83 LOSS,0.4,,False
+2026-11-02,Mon 7:30PM,Belmont,MVC,home,Southern Indiana,True,,,72-54,0.32,0.2,False
+2026-11-02,Mon 8:00PM,Western Illinois,OVC,away,Valparaiso,True,18.5,True,58-80 LOSS,0.0,0.0,True
+2026-11-02,Mon 8:00PM,Austin Peay,UAC,home,Lane College,False,,,109-65,0.34,0.12,False
+2026-11-02,Mon 8:00PM,Evansville,MVC,home,Indiana-Kokomo,False,,,80-70,0.34,0.28,False
+2026-11-02,Mon 8:00PM,South Alabama,Sun Belt,home,Ohio,True,-1.5,False,77-86 LOSS,0.0,0.0,True
+2026-11-02,Mon 8:00PM,Lindenwood,OVC,away,TCU,True,29.5,True,59-98 LOSS,0.23,,False
+2026-11-02,Mon 8:00PM,UT Martin,OVC,away,Tulane,True,6.5,False,98-100 COVER,0.0,,True
+2026-11-02,Mon 8:00PM,Fairleigh Dickinson,NEC,away,Illinois,True,39.5,True,45-120 LOSS,0.15,0.08,True
+2026-11-02,Mon 8:00PM,Maryland Eastern Shore,MEAC,away,Wake Forest,True,32.5,True,62-83 COVER,0.15,0.29,True
+2026-11-02,Mon 8:00PM,Southern Illinois,MVC,home,Maryville University (MO),False,,,82-40,0.2,0.12,False
+2026-11-02,Mon 9:00PM,Texas Southern,SWAC,away,Grand Canyon,True,28.5,True,79-103 COVER,0.17,,True
+2026-11-02,Mon 9:00PM,Chicago State,NEC,away,Texas,True,40.5,True,59-109 LOSS,0.16,,True
+2026-11-02,Mon 9:00PM,New Mexico,Mountain West,home,Utah Tech,True,-23.5,False,100-60 COVER,0.33,0.28,False
+2026-11-02,Mon 9:15PM,Florida A&M,SWAC,neutral,Florida State,True,28.5,True,69-112 LOSS,0.44,0.26,False
+2026-11-02,Mon 9:30PM,Idaho State,Big Sky,away,Utah State,True,26.5,True,58-94 LOSS,0.25,0.06,False
+2026-11-03,Tue 8:00PM,Missouri State,CUSA,home,Lincoln (MO),False,,,,0.0,,True
+2026-11-03,Tue 8:00PM,Cleveland State,Horizon,away,Missouri,True,25.5,True,,0.39,,False
+2026-11-03,Tue 8:00PM,New Orleans,Southland,away,LSU,True,22.5,True,,0.4,,False
+2026-11-03,Tue 8:00PM,Arkansas-Pine Bluff,SWAC,away,Arkansas,True,40.0,True,,0.27,,False
+2026-11-04,Wed 7:00PM,Maryland Eastern Shore,MEAC,away,High Point,True,,,,0.15,0.29,True
+2026-11-04,Wed 7:00PM,Fairleigh Dickinson,NEC,away,Butler,True,,,,0.15,0.08,True
+2026-11-04,Wed 7:30PM,Tennessee Tech,SoCon,home,Blue Mountain,False,,,,0.39,0.41,False
+2026-11-04,Wed 8:00PM,SE Louisiana,Southland,away,Auburn,True,,,,0.33,,False
+2026-11-05,Thu 12:00AM,Grambling,SWAC,home,Jarvis Christian,False,,,,0.29,0.41,False
+2026-11-05,Thu 5:15PM,Morehead State,OVC,home,Virginia-Lynchburg,False,,,,0.4,,False
+2026-11-05,Thu 6:00PM,Chicago State,NEC,away,Incarnate Word,True,,,,0.16,,True
+2026-11-05,Thu 7:00PM,Florida A&M,SWAC,home,Fort Valley State,False,,,,0.44,0.26,False
+2026-11-05,Thu 7:00PM,Lindenwood,OVC,home,Central Bible,False,,,,0.23,,False
+2026-11-05,Thu 7:00PM,UMass Lowell,Am. East,away,Merrimack,True,,,,0.2,0.16,True
+2026-11-05,Thu 7:30PM,Belmont,MVC,home,Centre College,False,,,,0.32,0.2,False
+2026-11-05,Thu 7:30PM,Louisiana Tech,Sun Belt,home,Arkansas-Monticello,False,,,,0.02,0.11,True
+2026-11-05,Thu 8:00PM,South Alabama,Sun Belt,home,Jacksonville State,True,,,,0.0,0.0,True
+2026-11-05,Thu 8:00PM,Coastal Carolina,Sun Belt,away,Duke,True,,,,0.34,,False
+2026-11-06,Fri 5:00PM,Florida International,CUSA,home,West Florida,True,,,,0.31,0.0,False
+2026-11-06,Fri 5:00PM,Arkansas-Pine Bluff,SWAC,away,Baylor,True,,,,0.27,,False
+2026-11-06,Fri 6:30PM,South Carolina State,MEAC,away,South Carolina Upstate,True,,,,0.27,0.33,False
+2026-11-06,Fri 6:30PM,Youngstown State,Horizon,away,Ohio State,True,,,,0.44,0.22,False
+2026-11-06,Fri 7:00PM,Cleveland State,Horizon,home,Michigan-Dearborn,False,,,,0.39,,False
+2026-11-06,Fri 7:00PM,New Haven,NEC,away,Rutgers,True,,,,0.29,,False
+2026-11-06,Fri 7:00PM,Austin Peay,UAC,away,Kennesaw State,True,,,,0.34,0.12,False
+2026-11-06,Fri 7:00PM,Georgia Southern,Sun Belt,away,Georgia Tech,True,,,,0.16,0.0,True
+2026-11-06,Fri 7:00PM,Indiana State,MVC,away,Ball State,True,,,,0.3,0.18,False
