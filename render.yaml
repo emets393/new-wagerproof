@@ -139,9 +139,11 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; }
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; } && { python3 signal_alerts.py --sport nfl --send || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: SUPABASE_PAT            # signal_alerts.py -> push_broadcasts on MAIN
+        sync: false                  # (Management API: the repo's MAIN path, cf. comp_sync.py)
       - key: PYTHON_VERSION
         value: "3.11.9"
 
@@ -287,9 +289,11 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; }
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; } && { python3 signal_alerts.py --sport nfl --send || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: SUPABASE_PAT            # signal_alerts.py -> push_broadcasts on MAIN
+        sync: false                  # (Management API: the repo's MAIN path, cf. comp_sync.py)
       - key: PYTHON_VERSION
         value: "3.11.9"
 
@@ -308,9 +312,11 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; }
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; } && { python3 signal_alerts.py --sport nfl --send || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: SUPABASE_PAT            # signal_alerts.py -> push_broadcasts on MAIN
+        sync: false                  # (Management API: the repo's MAIN path, cf. comp_sync.py)
       - key: PYTHON_VERSION
         value: "3.11.9"
 
@@ -383,9 +389,11 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/cfb-model && bash run_cfb_week.sh && { python3 refresh_cfb_slate_lines.py || true; }
+    startCommand: cd research/cfb-model && bash run_cfb_week.sh && { python3 refresh_cfb_slate_lines.py || true; } && { python3 ../nfl-extreme-outcomes/signal_alerts.py --sport cfb --send || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: SUPABASE_PAT            # signal_alerts.py -> push_broadcasts on MAIN
+        sync: false                  # (Management API: the repo's MAIN path, cf. comp_sync.py)
       - key: PYTHON_VERSION
         value: "3.11.9"
 
