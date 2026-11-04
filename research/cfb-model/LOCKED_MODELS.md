@@ -174,6 +174,26 @@ Market popularity drives efficiency. P5 (both Power-5) = heavy two-sided action 
 - Secrets live in `.env.local` (gitignored) — CFBD + Odds API keys. **Never** put keys in `.env`
   (git-tracked). Keys were pasted in chat earlier → rotate when convenient.
 - 2020 is absent everywhere (COVID); per-season strings skip it.
+- **CFBD official adjusted metrics** (`fetch_cfbd_wepa.py` → `data/cfbd/wepa_asof.parquet`,
+  in `run_cfb_week.sh` since 2026-11-04). `/wepa/team/season` serves the opponent-adjusted
+  numbers that previously arrived only as a weekly emailed CSV — verified 744 of 744 values
+  against `training_data_2026_week10.csv` for epa (total/passing/rushing), epaAllowed,
+  successRate and rushing line/second-level/open-field yards. `explosiveness` is the ONE
+  field that disagrees (CSV ~1.28 vs API ~0.95, different normalisation) and is stored as
+  `adj_explosiveness_api` so the two definitions can never be compared by accident.
+  - ⛔ **It does NOT replace `build_ratings.py`.** The endpoint has no `week` parameter: every
+    response is season-to-date *as called*, so pulling 2019 today returns 2019's finals, which
+    leak against a 2019 week-5 game. `build_ratings.py` stays the only leak-safe source for
+    weeks already played; this accumulates honest as-of snapshots from 2026-11-04 forward,
+    keyed `(season, thru_week, team)`. `thru_week=99` marks a season-final row and the script
+    refuses to stamp it on a season that still has unplayed games.
+  - Our own adjustment is correlated but materially noisier — measured 2026 wk9, 138 FBS teams:
+    `adj_epa` r=0.938 (our sd 0.133 vs official 0.075), `adj_passing_epa` r=0.864 (0.210 vs
+    0.083), `adj_success` r=0.963 (0.057 vs 0.041). CFBD shrinks toward the mean far harder
+    than our un-regularised 12-iteration loop, so our ratings push thin-sample and extreme
+    teams ~2x too far out. Typical `adj_epa` error is 0.134 against an official spread of
+    0.075 — nearly two official SDs. **Switching the model's inputs to these requires a
+    retrain**, since train/serve must use the same definition.
 
 ---
 
