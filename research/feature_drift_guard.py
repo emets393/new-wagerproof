@@ -19,6 +19,22 @@ What it checks, per feature the frozen model actually consumes:
                      missing rather than wrong (and the `_aligned()`-style reindex-to-NaN
                      path in cfb_forecast, which silently fills absent columns).
   4. absent        — a feature the frozen model expects that the frame no longer builds.
+  5. mean shift    — the serve LEVEL, in training sd units. Added 2026-11-04: checks 1-4
+                     are all spread/presence tests, so they are blind to a feature that
+                     arrives at the right width in the wrong place.
+  6. family shift  — the MEDIAN |mean shift| across a model's features. The sharp one. A
+                     seasonal artifact moves one feature; a feed that changed SOURCE moves
+                     the whole family together.
+
+Models covered: NFL sides, NFL totals-b15, CFB total, CFB spread. The NFL TOTALS model was
+uncovered until 2026-11-04, which is why its break ran five weeks before a human spotted it:
+nflverse never published 2026 pbp_participation, so the 8 b50 scheme features first served
+100% NaN (wk1-4: the board ran ANTI-correlated with the market at -0.272 and went 13-33) and
+were then back-filled from plain pbp + Fantasy Points, which fixed the nulls but left the
+features measured differently (qb_epa_vs_zone -0.879 sd, family median 0.491). Checks 1-4
+pass all of that. Checks 5-6 do not. b55 keeps reporting coverage in its own b50 block --
+it builds its own frame internally -- while b15 is banded here against
+consensus_totals.b15_frame(), the same derivation the model trains on.
 
 ⚠ COMPARE WEEK-MATCHED WHERE THE HISTORY ALLOWS IT. Pooling all training weeks makes
 early-season rows look broken because season-to-date stats are genuinely wilder in week 2
@@ -71,6 +87,43 @@ OUT_OF_RANGE_MIN_N = 3
 # A feed that stopped arriving. Look-ahead features legitimately trip this (next week's
 # opponent isn't built yet), so they're named as known exceptions per sport rather than
 # silently tolerated.
+# A LEVEL break, which the spread checks above are blind to by construction. This guard was
+# built for the 2026 sides bug where "the MEANS were fine, only the SPREAD changed" -- so it
+# has no mean test at all, and the NFL TOTALS model then broke the opposite way and went
+# unnoticed for five weeks. nflverse never published 2026 pbp_participation, so the 8 b50
+# scheme features first served 100% NaN (wk1-4: the board ran ANTI-correlated with the
+# market, -0.272, and went 13-33) and were then back-filled from plain pbp + Fantasy Points
+# (618ac4bf), which fixed the nulls but left the features MEASURED DIFFERENTLY:
+#
+#     qb_epa_vs_zone    mean shift -0.879 sd   sd ratio 0.88   <- caught only by this check
+#     qb_epa_vs_man     mean shift -0.669 sd   sd ratio 0.86
+#     def_pressure_rate mean shift +0.497 sd   sd ratio 1.27
+#     def_man_rate      mean shift +0.485 sd   sd ratio 0.71
+#
+# Every one of those passes SD_RATIO_MAX, NULL_DELTA_MAX and the out-of-range band.
+# 0.75 sd is set from BOTH sides of the measured evidence: the break's worst feature sits at
+# 0.879, while the widest HEALTHY shift on the same board is temp_f at +0.56 -- a real
+# seasonal effect (a warm early-season sample), not a defect. Tightening below ~0.6 would
+# flag that every September, which is how a guard earns the ignore.
+MEAN_SHIFT_MAX = 0.75
+# GROUP signature, and the sharper of the two level checks. A seasonal artifact moves ONE
+# or two features (temp_f runs +0.56 sd on a warm early sample); a feed that changed source
+# moves the whole family together. Measured on the same 2026 board:
+#
+#     healthy b15 matchup features   median |shift| 0.070   8% of features over 0.4 sd
+#     broken  b50 scheme features    median |shift| 0.491  75% of features over 0.4 sd
+#
+# Calibrated against three MEASURED boards, not a guess:
+#
+#     healthy b15 matchup features (2026)      median |shift| 0.070
+#     healthy NFL sides, 38 feats, wk5/wk6     median |shift| 0.222 / 0.152
+#     broken  b50 scheme features (2026)       median |shift| 0.491
+#
+# 0.35 sits above the worst HEALTHY board seen (0.222, the 38-feature sides model, whose
+# variety legitimately widens the median) and well below the broken one. 0.25 was the first
+# cut and it left only a 0.03 margin over healthy sides -- near enough to flag a good board,
+# which is how a guard earns the ignore.
+GROUP_SHIFT_MAX = 0.35
 NULL_DELTA_MAX = 0.50
 MIN_TRAIN_N = 40
 MIN_SERVE_N = 5
@@ -85,6 +138,16 @@ KNOWN_NULL_AT_SERVE = {
     },
     "nfl": set(),
 }
+
+# DISTRIBUTION checks do not apply to weather. A windy or warm week is a real week, not a
+# feed that changed definition: on a 13-game 2026 wk6 slate wind_mph alone ran 2.17x the
+# training spread at +0.83 sd, which is one storm. Left in, the totals model would flag
+# weather most windy weeks and the guard would get ignored -- the failure mode this file
+# warns about twice. Exempt from the SPREAD/LEVEL/range checks ONLY: the null, absent and
+# constant-at-serve checks still apply, so a weather feed that DIES is still caught, and
+# that is the failure that actually matters (a frozen feed reads as constant, not as wide).
+DIST_EXEMPT = {"wind_mph", "temp_f", "wind_speed", "temperature", "precipitation_pct",
+               "precipitation_type", "wind_under", "cold"}
 
 
 def _num(s):
@@ -110,7 +173,30 @@ def load_nfl(season, week):
     tr_wk = tr_all[tr_all.week == week]
     tr = tr_wk if len(tr_wk) >= MIN_TRAIN_N else tr_all
     basis = f"week {week}" if len(tr_wk) >= MIN_TRAIN_N else "all weeks 4+ (too few same-week rows)"
-    return {"sides": (list(feats), tr, te, basis)}
+    out = {"sides": (list(feats), tr, te, basis)}
+
+    # The TOTALS model was uncovered, which is why its 2026 break ran five weeks before a
+    # human spotted it. Its features are DERIVED (off_ppd_sum, pass_epa_sum, ...) and do not
+    # exist in the raw matchup frame, so band them against consensus_totals.b15_frame() --
+    # the same function the model trains on -- never a re-derivation here.
+    # (b55 builds its own frame internally and reports coverage in its own b50 block.)
+    # Best-effort: a missing artifact must not take down the sides check, which is the one
+    # that has caught real breaks.
+    try:
+        import consensus_totals as CT
+        _b15 = os.path.join("data", f"totals_b15_{season}.pkl")
+        if os.path.exists(_b15):
+            _gb, _f15 = joblib.load(_b15)
+            _mf, _ = CT.b15_frame(strict_open=True)      # production mode is strict-open
+            _mf = _mf[_mf.week >= 4]
+            _tr15 = _mf[(_mf.season < season) & _mf.actual_total.notna()]
+            _te15 = _mf[(_mf.season == season) & (_mf.week == week)]
+            _trw = _tr15[_tr15.week == week]
+            out["totals-b15"] = (list(_f15), _trw if len(_trw) >= MIN_TRAIN_N else _tr15, _te15,
+                                 f"week {week}" if len(_trw) >= MIN_TRAIN_N else "all weeks 4+")
+    except Exception as _e:
+        print(f"[drift] totals-b15 skipped ({type(_e).__name__}: {_e})")
+    return out
 
 
 def load_cfb(season, week):
@@ -135,7 +221,7 @@ def load_cfb(season, week):
 
 def check(sport, feats, tr, te, basis, exempt):
     absent = [c for c in feats if c not in te.columns]
-    rows = []
+    rows, shifts = [], []
     for c in feats:
         if c in absent:
             continue
@@ -153,12 +239,24 @@ def check(sport, feats, tr, te, basis, exempt):
         ratio = (b.std() / a.std()) if a.std() > 1e-12 else np.nan
         continuous = a.nunique() >= MIN_DISTINCT_FOR_RATIO
         dead = continuous and a.std() > 1e-12 and b.std() <= 1e-12
-        bad = (ratio > SD_RATIO_MAX) or dead or \
-              (oor > OUT_OF_RANGE_MAX and n_out >= OUT_OF_RANGE_MIN_N) or \
+        # Level shift, in TRAINING sd units, so it is comparable across features.
+        shift = ((b.mean() - a.mean()) / a.std()) if a.std() > 1e-12 else np.nan
+        shifted = continuous and np.isfinite(shift) and abs(shift) > MEAN_SHIFT_MAX
+        _dx = c in DIST_EXEMPT          # weather: real variance, not a definition change
+        bad = ((ratio > SD_RATIO_MAX) and not _dx) or dead or (shifted and not _dx) or \
+              (oor > OUT_OF_RANGE_MAX and n_out >= OUT_OF_RANGE_MIN_N and not _dx) or \
               ((sn - tn > NULL_DELTA_MAX) and c not in exempt)
         if bad:
-            rows.append((c, ratio, oor, sn - tn, "CONSTANT at serve — dead feed?" if dead else ""))
-    return absent, pd.DataFrame(rows, columns=["feature", "sd_ratio", "out_of_range", "null_delta", "note"])
+            note = "CONSTANT at serve — dead feed?" if dead else (
+                   "LEVEL shift — same column, different measurement?" if shifted else "")
+            rows.append((c, ratio, shift, oor, sn - tn, note))
+        if continuous and np.isfinite(shift) and c not in DIST_EXEMPT:
+            shifts.append(abs(shift))   # weather would inflate the family median on any storm
+    group = {"n": len(shifts),
+             "median_abs_shift": float(np.median(shifts)) if shifts else float("nan"),
+             "share_over_0.4": float(np.mean([s > 0.4 for s in shifts])) if shifts else float("nan")}
+    return absent, pd.DataFrame(rows, columns=["feature", "sd_ratio", "mean_shift_sd",
+                                               "out_of_range", "null_delta", "note"]), group
 
 
 def main():
@@ -176,7 +274,8 @@ def main():
     exempt = KNOWN_NULL_AT_SERVE[a.sport]
     print(f"\n=== feature-drift guard :: {a.sport.upper()} {a.season} wk{a.week} ===")
     print(f"    thresholds: sd ratio >{SD_RATIO_MAX}x | out-of-range >{OUT_OF_RANGE_MAX:.0%} "
-          f"| null delta >{NULL_DELTA_MAX:.0%}")
+          f"| null delta >{NULL_DELTA_MAX:.0%} | mean shift >{MEAN_SHIFT_MAX} sd "
+          f"| family median shift >{GROUP_SHIFT_MAX} sd")
     drift = False
     for nm, (feats, tr, te, basis) in models.items():
         if a.self_test:
@@ -185,7 +284,7 @@ def main():
             for c in nets:
                 te[c] = pd.to_numeric(te[c], errors="coerce") * 3.0
             print(f"  [self-test] widened {len(nets)} net features 3x on the serve frame")
-        absent, bad = check(a.sport, feats, tr, te, basis, exempt)
+        absent, bad, group = check(a.sport, feats, tr, te, basis, exempt)
         tag = f"{nm} model ({len(feats)} feats, n_train={len(tr)}, n_serve={len(te)}"
         tag += f", banded vs {basis})" if basis else ")"
         print(f"\n  {tag}")
@@ -205,8 +304,32 @@ def main():
         if len(bad):
             drift = True
             print(f"    ⛔ {len(bad)} features drifted:")
-            print(bad.sort_values("sd_ratio", ascending=False).head(15)
-                  .to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+            # Rank by WORST severity across the checks, not by sd_ratio: a level break has
+            # a perfectly normal sd_ratio (0.88 on qb_epa_vs_zone) and would sort last,
+            # which is how it would get missed a second time.
+            _sev = pd.concat([
+                (bad.sd_ratio.abs() / SD_RATIO_MAX),
+                (bad.mean_shift_sd.abs() / MEAN_SHIFT_MAX),
+                (bad.out_of_range / OUT_OF_RANGE_MAX),
+                (bad.null_delta / NULL_DELTA_MAX),
+            ], axis=1).max(axis=1)
+            print(bad.assign(_sev=_sev).sort_values("_sev", ascending=False)
+                     .drop(columns="_sev").head(15)
+                     .to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+        # Group LEVEL signature. Checked even when no single feature crossed its own cut:
+        # that is exactly the state the 2026 totals break was in (1 of 8 features over
+        # MEAN_SHIFT_MAX, but a 0.49 median across the family).
+        if group["n"] >= 5 and np.isfinite(group["median_abs_shift"]) \
+                and group["median_abs_shift"] > GROUP_SHIFT_MAX:
+            drift = True
+            print(f"    ⛔ LEVEL SHIFT ACROSS THE FAMILY: median |mean shift| = "
+                  f"{group['median_abs_shift']:.3f} sd over {group['n']} features "
+                  f"({group['share_over_0.4']:.0%} past 0.4 sd), limit {GROUP_SHIFT_MAX}. "
+                  f"A whole family moving together is a feed that changed SOURCE, not a "
+                  f"strange week — check what now populates these columns.")
+        elif np.isfinite(group["median_abs_shift"]):
+            print(f"    level: median |mean shift| = {group['median_abs_shift']:.3f} sd "
+                  f"over {group['n']} features (limit {GROUP_SHIFT_MAX})")
         if not absent and not len(bad):
             print("    ✅ clean — every feature is inside its training distribution")
     if drift:
