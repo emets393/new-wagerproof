@@ -47,7 +47,7 @@ it, we buy the pregame feed.**
 sides GBM agreeing (edge ≥1 same direction) lifts the base to ≈61.7%/+18%
 (big_out-away+agree → HOME 64.0%/+22.3% n=100; big_out-home+agree → AWAY
 59.6%/+14.0% n=109; all test seasons positive).**
-**Production: needs pregame CBB injury/lineup feed (covers.com).**
+**Production: SHIPPED 2026-11-04 as `ncaab_big_out_fade` (cfb_automation `ncaab_big_out_fade_signal.py`), fed by the covers.com pregame list (`ncaab_injury_feed.py` → `ncaab_injury_report`, 10am/4pm ET). Base + 2-regulars + thin-bench tiers as conviction; paint-attacker and model-agreement tiers not yet wired. Graded live by `ncaab_signal_grader.py`.**
 
 ## S2 — NBA star-big totals over (VALIDATED)
 
