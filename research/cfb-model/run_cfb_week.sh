@@ -60,6 +60,14 @@ step "sync roster profile + schedule (MCP)";        python3 load_cfb_mcp_roster_
 step "player roster layer + reconstruction";        (python3 fetch_roster_layer.py && python3 -W ignore build_roster_scores.py) || true
 # TRUE preseason SP+/FPI for the current season (cfbtxt) — replaces stale prior-year finals
 step "current-season preseason power ratings";      python3 fetch_preseason_ratings.py "$SEASON" || true
+# CFBD's OFFICIAL opponent-adjusted team metrics (/wepa/team/season). This is the same data
+# that used to arrive only as a weekly emailed CSV — verified 744/744 values against
+# training_data_2026_week10.csv — so the board no longer depends on a hand-delivered file.
+# It does NOT replace build_ratings.py below: the endpoint has no `week` param, so it is
+# season-to-date AS CALLED and cannot produce leak-safe history for weeks already played.
+# Running here, once a week after the previous week completed, accumulates honest as-of
+# snapshots going forward. Best-effort: the board must never block on it.
+step "CFBD official adjusted metrics (as-of snapshot)"; python3 fetch_cfbd_wepa.py || true
 step "materialize 1H/TT odds (ncaaf_event_odds DB -> parquet; live_odds_cfb_1h writes the DB hourly)"
 python3 fetch_event_odds_live.py "$SEASON"
 step "fetch per-book odds history (STACK/SB/KEY)"; python3 fetch_odds_history.py --year "$SEASON" --go
