@@ -16,6 +16,10 @@ Checks (football season, both sports):
                          with no number; prices still populate, so nothing else catches it)
  11. public splits     — the hourly Action Network capture, per sport (GitHub Actions, not
                          Render, so its failures do not reach the Render alert channel)
+ 12. legacy NFL model  — nfl_betting_lines freshness PER GAME plus a null sweep on
+                         nfl_input_values_view. Checks 1-11 all watch the new slate model;
+                         the legacy EPA model reads a different table and went three weeks
+                         on JULY lines in 2026 with every probe green.
 
 Runs daily ~6:45am ET via render.yaml (football-health-sweep). Read-only.
 """
@@ -311,6 +315,70 @@ def main():
               warn_only=d.returncode != 2)
     except Exception as e:
         check("render blueprint", False, f"probe failed: {e}", warn_only=True)
+
+    # 12. the LEGACY NFL model's inputs — the one blind spot every check above shares.
+    # Checks 1-8 probe the new slate model (nfl_slate_games / _picks / nfl_prop_player_pages).
+    # The legacy EPA model reads something else entirely: nfl_input_values_view, whose lines come
+    # straight off nfl_betting_lines. Nothing watched that, and it failed exactly that way —
+    # nfl_betting_lines stopped being written after the 2025 season and until 2026-09-29 its
+    # newest row was a 2026-07-26 preseason seed, so the legacy model scored three weeks of real
+    # games against JULY lines (ARI@NYG: NYG -7 stored vs NYG +1 live, which flips the favourite).
+    # Every probe stayed green throughout, because the slate model it was watching was fine.
+    #
+    # Two separate failures, so two probes. The view resolves
+    #   row_number() OVER (PARTITION BY training_key ORDER BY as_of_ts DESC) = 1
+    # which means a WHOLE-TABLE freshness check is not enough: if one game's training_key stops
+    # getting rows (a team-name change, a dropped provider event), the view silently serves that
+    # game's old row forever while the table overall looks current. So age is measured PER GAME,
+    # and the worst game decides.
+    try:
+        vw = q(f"nfl_input_values_view?select=week&season=eq.{season}&order=week.desc&limit=1")
+        lw = vw[0]["week"] if vw else None
+        if lw is None:
+            check("NFL legacy model", True, f"no {season} rows in nfl_input_values_view (offseason)")
+        else:
+            rows = q(f"nfl_betting_lines?select=training_key,as_of_ts"
+                     f"&season_year=eq.{season}&week=eq.{lw}&limit=5000")
+            newest = {}
+            for r in rows:
+                k, a = r["training_key"], ts(r["as_of_ts"])
+                if k not in newest or a > newest[k]:
+                    newest[k] = a
+            # In season a line cron fires every day (Mon-Fri 14/20Z, Sat/Sun gameday sweep), so the
+            # widest legitimate gap is Sun 22Z -> Mon 14Z = 16h. 30h leaves slack for a skipped run
+            # without going quiet on a feed that has actually stopped.
+            ages = {k: (NOW - a).total_seconds() / 3600 for k, a in newest.items()}
+            stale = {k: h for k, h in ages.items() if h > 30}
+            worst = max(ages.values()) if ages else 999
+            check("NFL legacy lines", bool(ages) and not stale,
+                  f"week {lw}: {len(ages)} games, oldest line {worst:.1f}h old (limit 30h)"
+                  + (f" — STALE: {', '.join(sorted(stale))[:90]}" if stale else "")
+                  if ages else f"week {lw}: NO rows in nfl_betting_lines — model is scoring blind")
+
+            # And the view must actually serve those numbers. A row present with a null spread or
+            # total is a game the legacy model cannot score; the ratings columns are the other
+            # half of its feature set (season_year=2025 once had it reading July ratings for
+            # three weeks). Temperature is deliberately excluded — null is CORRECT for domes.
+            iv = q(f"nfl_input_values_view?select=home_team,away_team,home_spread,ou_vegas_line,"
+                   f"home_predictive_pr,away_predictive_pr&season=eq.{season}&week=eq.{lw}&limit=100")
+            def nulls(*cols):
+                return [f"{r['away_team']}@{r['home_team']}" for r in iv
+                        if any(r.get(c) is None for c in cols)]
+            no_line = nulls("home_spread", "ou_vegas_line")
+            no_rate = nulls("home_predictive_pr", "away_predictive_pr")
+            if not iv:
+                check("NFL legacy inputs", False,
+                      f"week {lw}: view returned NO rows — legacy model has nothing to score")
+            else:
+                bad = no_line or no_rate
+                detail = (f"week {lw}: {len(iv)} games, {len(no_line)} missing a line, "
+                          f"{len(no_rate)} missing power ratings"
+                          + (f" — {', '.join(bad)[:90]}" if bad else ""))
+                # A missing LINE is fatal: that game cannot be scored at all. Missing ratings
+                # degrade the prediction without blocking it, so they warn rather than page.
+                check("NFL legacy inputs", not bad, detail, warn_only=not no_line)
+    except Exception as e:
+        check("NFL legacy model", False, f"probe failed: {e}")
 
     print(f"FOOTBALL HEALTH SWEEP — {NOW.isoformat(timespec='minutes')}")
     for line in RED + WARN + OK:
