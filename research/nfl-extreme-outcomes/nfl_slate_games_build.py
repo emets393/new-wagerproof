@@ -299,6 +299,41 @@ def load_key():
     sys.exit("SUPABASE_SERVICE_KEY not found in .env.local")
 
 
+TOTAL_ANCHOR_CAP = 6.0   # CFB's CAP_T (cfb_early_week.py:158)
+
+
+def _anchor_total(pred, close, cap=TOTAL_ANCHOR_CAP):
+    """Displayed total = market close + the model's deviation, capped at +/- cap.
+
+    This is CFB's anchor (cfb_early_week.py:163, LAM=1.0 / CAP_T=6.0) applied to NFL, which
+    had none: fg_pred_total was the raw ensemble output. The owner's complaint was that every
+    game looked like the same game, and he was right -- across all of 2026 the raw number
+    never printed above 51.5 while the market reached 55.5, and 65% of predictions sat in the
+    5-point band 42.5-47.5. It is not a clip in the code; it is a gradient-boosting regressor
+    with weak features collapsing toward its training mean, and the symptom is that the shown
+    number stops tracking the game.
+
+    Measured effect on how well the displayed total tracks the market:
+
+        2025 (284 games)    corr 0.472 -> 0.568
+        2026 wk5-9 ( 57)    corr 0.406 -> 0.712
+
+    ⛔ THIS CHANGES NO PICKS, BY CONSTRUCTION, AND MUST NOT. fg_total_pick is
+    `direction if tier == "HC"`, and tier/direction come from the two COMPONENT edges against
+    the OPENER inside consensus_totals.predict_all -- they never read the displayed total. The
+    cap is therefore display-only. Verified separately: the production HC window [3,7] is the
+    best of eight tested on 2025 (29-19, 60.4%, +7.4u), so the bet rule is already tuned and
+    is deliberately left alone. A LAM<1 shrink was considered and REJECTED: expressed in the
+    rule the board actually uses it widens the window to [4,9.33] and grades 17-15 (53.1%).
+    """
+    if pred is None or pd.isna(pred):
+        return None
+    if close is None or pd.isna(close):
+        return round(float(pred), 2)      # no close to anchor to -> ship the model's own number
+    c = float(close)
+    return round(c + float(np.clip(float(pred) - c, -cap, cap)), 2)
+
+
 def amer(pay):
     """Decimal profit-per-1 -> American odds."""
     if pd.isna(pay) or pay <= 0 or not np.isfinite(pay):
@@ -472,6 +507,14 @@ def build_games():
                     "edge_open", "direction", "tier", "bet_quality"]],
                 on=GK, how="left")
 
+    # ONE anchored column, computed here so every DISPLAY consumer reads the same number and
+    # they cannot disagree on a card. Deliberately NOT written back over display_total:
+    # pred_tot_anch falls back to 0.495 * display_total further down and the 1H total pick is
+    # taken off pred_tot_anch, so overwriting the source would move a BET basis. This must stay
+    # display-only -- see _anchor_total.
+    g["display_total_anch"] = [_anchor_total(pv, cv) for pv, cv
+                               in zip(g.display_total, g.total_close_total_point)]
+
     # FG sides model (locked harness BASE+21), trained on seasons < 2025
     from forecast_harness import build, train_predict, CONF, REG_EDGE
     m, BASE = build()
@@ -504,8 +547,10 @@ def build_games():
     g["fg_home_win_prob"] = g.pred_margin.map(lambda x: round(win_prob(x), 4) if pd.notna(x) else None)
 
     # derived team totals: split FG pred total by pred margin (DISPLAY ONLY)
-    g["tt_home_pred"] = (g.display_total + g.pred_margin) / 2
-    g["tt_away_pred"] = (g.display_total - g.pred_margin) / 2
+    # From the ANCHORED total: fg_pred_home_pts + fg_pred_away_pts must equal fg_pred_total,
+    # or the card contradicts itself (slate-coherence rule).
+    g["tt_home_pred"] = (g.display_total_anch + g.pred_margin) / 2
+    g["tt_away_pred"] = (g.display_total_anch - g.pred_margin) / 2
 
     # ---- live 1H/TT close fallback (2026-08-24 incident) --------------------------------
     # h1tt_frame carries closes only for PLAYED games, so every 1H/TT card on an upcoming
@@ -1210,8 +1255,8 @@ def build_picks(g, fl, books, kickoff, meta):
         emit(r, card_group="total", bet_type="total", sort_order=2, pick_side=tdir,
              pick_team=None,
              pick_label=f"{tdir.title()} {(bln if bln is not None else vline):g}",
-             model_number=round(float(r.display_total), 1) if pd.notna(r.display_total) else None,
-             model_line=round(float(r.display_total), 1) if pd.notna(r.display_total) else None,
+             model_number=round(float(r.display_total_anch), 1) if pd.notna(r.display_total_anch) else None,
+             model_line=round(float(r.display_total_anch), 1) if pd.notna(r.display_total_anch) else None,
              vegas_line=float(vline) if pd.notna(vline) else None, vegas_price=-110.0,
              edge=round(edge, 2) if edge is not None else None,
              best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
@@ -1433,7 +1478,7 @@ def main():
             h1_total_under_price=amer(r.h1_total_close_pay_h1_total_under_price),
             h1_ml_home_close=amer(r.h1_ml_close_pay_h1_ml_home),
             h1_ml_away_close=amer(r.h1_ml_close_pay_h1_ml_away),
-            fg_pred_total=round(float(r.display_total), 2) if pd.notna(r.display_total) else None,
+            fg_pred_total=round(float(r.display_total_anch), 2) if pd.notna(r.display_total_anch) else None,
             fg_total_edge=r.edge_open,
             # TOTALS PICK = THE DOCUMENTED BET ONLY (2026-10-06). consensus_totals.py is explicit:
             # HC is "THE BET"; EXTREME / LEAN / WEAK / LEAN_EARLY are all "display only" — EXTREME
