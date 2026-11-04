@@ -100,10 +100,18 @@ def _carry(df,kid,col,out):
     grid=pl.merge(pd.DataFrame({"week":range(1,23)}),how="cross").merge(df[["season",kid,"week","_c"]],on=["season",kid,"week"],how="left").sort_values(["season",kid,"week"])
     grid[out]=grid.groupby(["season",kid])["_c"].ffill(); return grid[["season","week",kid,out]]
 
-def build_b15(target, strict_open=False):
-    """Train b15 walk-forward on seasons<target, predict target. Returns df with [season,week,home_ab,away_ab,pt_b15].
-    strict_open=True strips injury-derived features (key_recv_out, h_max_air_out, a_max_air_out) so the
-    model is fair to grade against the OPENING line (per b57 honesty test)."""
+def b15_frame(strict_open=False):
+    """Build the b15 matchup frame AND its feature list. One definition, shared.
+
+    Extracted 2026-11-04 so feature_drift_guard.py can band the TOTALS model against the
+    same derivation the model is fit on. The 13 sums below (off_ppd_sum, pass_epa_sum,
+    def_pass_allowed_sum, ...) do NOT exist in matchup.parquet -- they are computed right
+    here -- so a guard pointed at the raw frame reports all 13 as "ABSENT" every single
+    week. That is a false alarm, not coverage, and a guard that cries wolf weekly is how
+    this one gets ignored and then removed. Re-deriving them inside the guard was the other
+    option, and it is precisely how the two spread_capped definitions drifted apart in the
+    CFB pick cards earlier this session. So: one function, two callers.
+    """
     m=pd.read_parquet(os.path.join(DATA,"matchup.parquet"))
     inj=pd.read_parquet(os.path.join(DATA,"injuries_raw.parquet")); rec=pd.read_parquet(os.path.join(DATA,"ngs_receiving.parquet"))
     m["actual_total"]=m.home_score+m.away_score
@@ -138,6 +146,14 @@ def build_b15(target, strict_open=False):
     if strict_open: B15=[c for c in B15 if c not in B15_INJURY_FEATS]
     B15=[c for c in B15 if c in m.columns and pd.to_numeric(m[c],errors="coerce").notna().mean()>0.5]
     for c in B15: m[c]=pd.to_numeric(m[c],errors="coerce")
+    return m, B15
+
+
+def build_b15(target, strict_open=False):
+    """Train b15 walk-forward on seasons<target, predict target. Returns df with [season,week,home_ab,away_ab,pt_b15].
+    strict_open=True strips injury-derived features (key_recv_out, h_max_air_out, a_max_air_out) so the
+    model is fair to grade against the OPENING line (per b57 honesty test)."""
+    m, B15 = b15_frame(strict_open)
     W=m[m.week>=4].copy(); W["pt_b15"]=np.nan
     trn=W[W.season<target].dropna(subset=["actual_total"]+B15)
     te=W[W.season==target]
