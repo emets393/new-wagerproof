@@ -67,6 +67,10 @@ def ts(v):
     return dt.datetime.fromisoformat(re.sub(r"\.\d+", "", str(v).replace("Z", "+00:00")))
 
 
+class _LegacyLinesDone(Exception):
+    """Week fully kicked off — the per-game line-age test has nothing left to measure."""
+
+
 def check(label, ok, detail, warn_only=False):
     (OK if ok else (WARN if warn_only else RED)).append(f"{'OK ' if ok else ('WARN' if warn_only else 'RED')}  {label}: {detail}")
 
@@ -316,6 +320,24 @@ def main():
     except Exception as e:
         check("render blueprint", False, f"probe failed: {e}", warn_only=True)
 
+    # 9. is any cron FAILING? Every check here probes DATA, so a job that dies before it writes
+    # looks identical to a job that was never scheduled. nba-props-live failed 18 times in a row
+    # overnight on 2026-11-06 and nobody was paged — a failing cron does not email, and nothing
+    # looked at run outcomes. One failure is a blip; two in a row is a bug that will not self-heal.
+    try:
+        import subprocess
+        d = subprocess.run([sys.executable, str(Path(__file__).parent / "render_cron_failures.py")],
+                           capture_output=True, text=True, timeout=180)
+        tail = (d.stdout or d.stderr).strip().splitlines()
+        # exit 2 = failing repeatedly (RED). exit 1 = could not check (WARN, never RED — same
+        # contract as render_drift.py above, and for the same reason).
+        failing = [l.strip() for l in tail if l.strip().startswith("FAILING")]
+        check("cron failures", d.returncode == 0,
+              "; ".join(failing)[:220] if failing else (tail[-1][:160] if tail else "no output"),
+              warn_only=d.returncode != 2)
+    except Exception as e:
+        check("cron failures", False, f"probe failed: {e}", warn_only=True)
+
     # 12. the LEGACY NFL model's inputs — the one blind spot every check above shares.
     # Checks 1-8 probe the new slate model (nfl_slate_games / _picks / nfl_prop_player_pages).
     # The legacy EPA model reads something else entirely: nfl_input_values_view, whose lines come
@@ -337,13 +359,32 @@ def main():
         if lw is None:
             check("NFL legacy model", True, f"no {season} rows in nfl_input_values_view (offseason)")
         else:
-            rows = q(f"nfl_betting_lines?select=training_key,as_of_ts"
+            rows = q(f"nfl_betting_lines?select=training_key,as_of_ts,game_time_et"
                      f"&season_year=eq.{season}&week=eq.{lw}&limit=5000")
-            newest = {}
+            newest, kicked = {}, {}
             for r in rows:
                 k, a = r["training_key"], ts(r["as_of_ts"])
                 if k not in newest or a > newest[k]:
                     newest[k] = a
+                # the loader writes UPCOMING games only ("nothing upcoming to write"), so a game
+                # that has kicked off correctly stops getting rows and its age grows forever
+                try:
+                    ko = ts(r["game_time_et"])
+                    if k not in kicked or ko < kicked[k]:
+                        kicked[k] = ko
+                except Exception:
+                    pass
+            # ⛔ ONLY UPCOMING GAMES COUNT. Measuring played games too made this RED every week
+            # from the Thursday kickoff onward: 2026-11-07 it paged on Jacksonville @ Baltimore at
+            # 44.1h, a game that kicked off Nov 6, while all 14 live games were 0.1h old. That is
+            # the cry-wolf failure the schedule comments on this service warn about -- an alert
+            # that fires on healthy state every week is an alert nobody reads.
+            played = {k for k, ko in kicked.items() if ko < NOW}
+            newest = {k: a for k, a in newest.items() if k not in played}
+            if not newest:
+                check("NFL legacy lines", True,
+                      f"week {lw}: all {len(played)} game(s) have kicked off — nothing left to price")
+                raise _LegacyLinesDone
             # In season a line cron fires every day (Mon-Fri 14/20Z, Sat/Sun gameday sweep), so the
             # widest legitimate gap is Sun 22Z -> Mon 14Z = 16h. 30h leaves slack for a skipped run
             # without going quiet on a feed that has actually stopped.
@@ -377,6 +418,8 @@ def main():
                 # A missing LINE is fatal: that game cannot be scored at all. Missing ratings
                 # degrade the prediction without blocking it, so they warn rather than page.
                 check("NFL legacy inputs", not bad, detail, warn_only=not no_line)
+    except _LegacyLinesDone:
+        pass
     except Exception as e:
         check("NFL legacy model", False, f"probe failed: {e}")
 
