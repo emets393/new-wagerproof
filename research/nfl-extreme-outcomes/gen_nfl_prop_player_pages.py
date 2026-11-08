@@ -123,7 +123,18 @@ def main():
         games[a] = dict(opp=h, is_home=False, label=f"{g.away_team} @ {g.home_team}", kickoff=ko)
 
     tr = fetch("nfl_player_prop_trends", "select=player_id,player_name,position,current_team,markets,matchups")
+    # Name the real problem. An empty read carries no columns, so `tr.position` raised
+    # `AttributeError: 'DataFrame' object has no attribute 'position'` ~100 lines into the run and
+    # sent 2026-11-07's triage after a pandas ghost; the actual fault was gen_nfl_player_prop_trends
+    # timing out 21 minutes earlier and leaving the table at 0 rows. sg above already guards this
+    # way — this read deserves the same.
+    if tr.empty:
+        sys.exit("nfl_player_prop_trends is EMPTY — run gen_nfl_player_prop_trends.py first "
+                 "(it writes the table this reads; a failed write there leaves it at 0 rows)")
     tr = tr[tr.position.isin(POSITIONS) & tr.current_team.isin(games)]
+    if tr.empty:
+        sys.exit(f"nfl_player_prop_trends has rows but none at {POSITIONS} on this slate's teams "
+                 f"— check current_team against the {len(games)} teams in nfl_slate_games")
     props = fetch("nfl_slate_props", f"season=eq.{SEASON}&week=eq.{WEEK}")
 
     # LIVE captured lines (latest per player/market/book, 9-day fresh window) —

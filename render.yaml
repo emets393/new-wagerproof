@@ -551,6 +551,7 @@ services:
       paths:
         - research/health_sweep.py
         - research/render_drift.py
+        - research/render_cron_failures.py
         - render.yaml
     runtime: python
     # 12:45 UTC, NOT 10:45: the weekly slate builds run at 11:00 (cfb-slate-weekly Mon,
@@ -568,3 +569,10 @@ services:
     startCommand: cd research && python3 health_sweep.py
     envVars:
       - fromGroup: wagerproof-model-secrets
+      # Both Render watchdogs ask the API what is actually deployed and what actually ran, so
+      # without this key they exit 1 ("cannot check") and degrade to a WARN -- which is how the
+      # blueprint-drift check sat skipped and why nothing noticed nba-props-live failing 18 times
+      # overnight on 2026-11-06. sync: false keeps the secret out of the blueprint; the value is
+      # set on the service itself.
+      - key: RENDER_API_KEY
+        sync: false

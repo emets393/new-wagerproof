@@ -47,9 +47,26 @@ def insert_snapshot(hdr, rows, snap_iso, supa, table, ts_col, attempts=3, batch=
             # into the URL it decodes to a space and PostgREST answers `22007 invalid input
             # syntax for type timestamp with time zone: "...07471 00:00"`, so the scrub would
             # fail on every retry. Pass it as params and let requests encode it to %2B.
-            d = requests.delete(f"{supa}/{table}", headers=hdr, timeout=60,
-                                params={ts_col: f"eq.{snap_iso}"})
-            # If the scrub itself fails we cannot know what is in the table — stop rather
-            # than stack a second partial copy on top of the first.
-            d.raise_for_status()
+            # The scrub gets its OWN retries. The invariant below still holds — we never
+            # re-POST until the scrub has succeeded — but giving it a single 60s attempt made
+            # a transient blip fatal: 2026-11-07 15:18 cfb-live-odds-hourly died on
+            # `ReadTimeoutError ... (read timeout=60)` raised from this very line, losing the
+            # snapshot for the same reason the POST retry exists. A read timeout here is an
+            # availability blip, not a reason to give up; the delete is idempotent (it is
+            # scoped to this run's own snap_iso), so repeating it is always safe.
+            for scrub in range(1, 4):
+                try:
+                    d = requests.delete(f"{supa}/{table}", headers=hdr, timeout=120,
+                                        params={ts_col: f"eq.{snap_iso}"})
+                    d.raise_for_status()
+                    break
+                except requests.exceptions.RequestException as se:
+                    # If the scrub never succeeds we cannot know what is in the table — stop
+                    # rather than stack a second partial copy on top of the first.
+                    if scrub == 3:
+                        raise RuntimeError(
+                            f"scrub of {table} {ts_col}={snap_iso} failed {scrub}x ({se}); "
+                            f"refusing to re-POST over an unknown partial write") from se
+                    print(f"[write] scrub attempt {scrub}/3 failed ({se}); retrying", flush=True)
+                    time.sleep(5 * scrub)
             time.sleep(5 * attempt)
