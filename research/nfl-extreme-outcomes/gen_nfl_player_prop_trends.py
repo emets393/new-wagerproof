@@ -404,15 +404,43 @@ def main():
            "Content-Type": "application/json", "Prefer": "return=minimal"}
     # SNAPSHOT semantics: exactly ONE generation may live in this table. Wiping only our own
     # (season, week) pair let generations accumulate (2026-08-05: three coexisted — stale
-    # slate-era rows shipped to consumers). Delete EVERYTHING before insert.
-    requests.delete(f"{BASE_URL}/nfl_player_prop_trends?through_season=gte.0",
-                    headers=hdr, timeout=60)
-    for i in range(0, len(recs), 200):
-        resp = requests.post(f"{BASE_URL}/nfl_player_prop_trends", headers=hdr, json=recs[i:i + 200], timeout=120)
-        if resp.status_code != 201:
-            sys.exit(f"insert: {resp.status_code} {resp.text[:300]}")
-        print(f"  loaded {min(i+200,len(recs))}/{len(recs)}", end="\r")
-    print(f"\nloaded {len(recs)} rows -> nfl_player_prop_trends")
+    # slate-era rows shipped to consumers), so the stale ones must go.
+    #
+    # But NOT by deleting first. Delete-all-then-insert means any failed insert leaves the table
+    # EMPTY, and on 2026-11-07 that is exactly what happened: the first 200-row batch hit the 8s
+    # PostgREST statement timeout (57014), sys.exit fired, and the table sat at 0 rows -- blank
+    # Outliers player trends in the app, and every later step in the daily chain running against
+    # nothing. Three fat jsonb columns (splits, recent_game_log, matchups) make 200 rows a big
+    # statement; 50 keeps each one well inside the limit.
+    #
+    # Order is now upsert-then-prune, so the worst case is STALE trends instead of NO trends:
+    # write this generation over the top (PK is player_id, through_season, through_week), and only
+    # once every row is in, delete the generations that are not this one.
+    sent = 0
+    for i in range(0, len(recs), 50):
+        chunk = recs[i:i + 50]
+        resp = requests.post(f"{BASE_URL}/nfl_player_prop_trends",
+                             headers={**hdr, "Prefer": "return=minimal,resolution=merge-duplicates"},
+                             params={"on_conflict": "player_id,through_season,through_week"},
+                             json=chunk, timeout=120)
+        # a pure update returns 200, a create 201 -- both are success (see the slate write laws)
+        if resp.status_code not in (200, 201):
+            sys.exit(f"upsert at row {i}: {resp.status_code} {resp.text[:300]} "
+                     f"(previous generation left in place)")
+        sent += len(chunk)
+        print(f"  upserted {sent}/{len(recs)}", end="\r")
+    print(f"\nupserted {sent} rows -> nfl_player_prop_trends")
+
+    # prune only after a complete write
+    season, week = int(df.through_season.iloc[0]), int(df.through_week.iloc[0])
+    resp = requests.delete(
+        f"{BASE_URL}/nfl_player_prop_trends"
+        f"?or=(through_season.neq.{season},through_week.neq.{week})",
+        headers=hdr, timeout=60)
+    if resp.status_code not in (200, 204):
+        print(f"  [warn] prune of stale generations failed {resp.status_code}: {resp.text[:200]}")
+    else:
+        print(f"pruned generations other than {season} wk{week}")
 
 
 if __name__ == "__main__":
