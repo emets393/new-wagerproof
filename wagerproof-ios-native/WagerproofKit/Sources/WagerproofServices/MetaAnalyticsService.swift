@@ -3,13 +3,42 @@ import Foundation
 import UIKit
 import FBSDKCoreKit
 
-/// Advertising events and identity are sent only while ATT is authorized.
-/// Automatic SDK logging stays disabled so a later Settings revocation cannot
-/// leave background lifecycle observers sending events without consent.
+/// What the Meta SDK may do for a given ATT status. Kept pure so the consent
+/// rules are unit-testable without booting FBSDK.
+///
+/// - The SDK always starts and always logs funnel events (activate, registration,
+///   paywall, checkout, trial, Subscribe). Without ATT, FBSDK 17+ reads the
+///   status itself and sends those events with `advertiser_tracking_enabled=0`
+///   and no IDFA; Meta uses them only for SKAdNetwork / Aggregated Event
+///   Measurement, which Apple permits without tracking consent. This is also
+///   what lets iOS 14+ (SKAN) campaigns optimize for `Subscribe`.
+/// - Everything that identifies the person — IDFA, external user ID, hashed
+///   Advanced Matching, the FB anonymous ID handed to RevenueCat — still
+///   requires `.authorized`, exactly as App Review required for 3.6.3.
+public struct MetaConsentPolicy: Equatable, Sendable {
+    public let startsSDK: Bool
+    public let logsAggregatedEvents: Bool
+    public let collectsAdvertiserID: Bool
+    public let sendsIdentity: Bool
+
+    public init(status: ATTrackingManager.AuthorizationStatus) {
+        let authorized = status == .authorized
+        startsSDK = true
+        logsAggregatedEvents = true
+        collectsAdvertiserID = authorized
+        sendsIdentity = authorized
+    }
+}
+
+/// Funnel events are always logged for aggregated (SKAN/AEM) measurement;
+/// identity and advertiser identifiers are attached only while ATT is
+/// authorized — see `MetaConsentPolicy`. Automatic SDK logging stays disabled;
+/// `fb_mobile_activate_app` is logged explicitly on each foreground instead.
 public final class MetaAnalyticsService: @unchecked Sendable {
     public static let shared = MetaAnalyticsService()
 
     private var initialized = false
+    private var activeObserver: NSObjectProtocol?
 
     /// Guards `fb_mobile_complete_registration` to once per install. Onboarding
     /// completion can be re-entered (Reset Onboarding in Secret Settings, a
@@ -21,18 +50,12 @@ public final class MetaAnalyticsService: @unchecked Sendable {
 
     // MARK: - Lifecycle
 
+    /// Boot the SDK at launch for every user. Running inside the launch window
+    /// is what registers the install with SKAdNetwork; gating this on ATT (as
+    /// 3.6.3 did) meant most installs never reached Meta at all.
     public func initialize() {
-        updateTrackingAuthorization()
-    }
-
-    public func updateTrackingAuthorization() {
         Settings.shared.isAutoLogAppEventsEnabled = false
-        let authorized = ATTrackingManager.trackingAuthorizationStatus == .authorized
-        Settings.shared.isAdvertiserIDCollectionEnabled = authorized
-        guard authorized else {
-            clearUser()
-            return
-        }
+        applyConsent()
         guard !initialized else { return }
         ApplicationDelegate.shared.application(
             UIApplication.shared,
@@ -41,10 +64,43 @@ public final class MetaAnalyticsService: @unchecked Sendable {
         Settings.shared.setDataProcessingOptions([])
         initialized = true
         AppEvents.shared.activateApp()
+        // Auto-logging is off, so log the activate event on each foreground
+        // ourselves. Meta's install campaigns optimize against it.
+        activeObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard self?.initialized == true else { return }
+            AppEvents.shared.activateApp()
+        }
     }
 
+    /// Re-read ATT (after the prompt or a Settings change) and apply it.
+    public func updateTrackingAuthorization() {
+        if initialized {
+            applyConsent()
+        } else {
+            initialize()
+        }
+    }
+
+    private func applyConsent() {
+        let policy = MetaConsentPolicy(status: ATTrackingManager.trackingAuthorizationStatus)
+        Settings.shared.isAdvertiserIDCollectionEnabled = policy.collectsAdvertiserID
+        if !policy.sendsIdentity { clearIdentity() }
+    }
+
+    /// Aggregated funnel events: allowed for everyone once the SDK is up.
+    private var canLogEvents: Bool {
+        initialized
+            && MetaConsentPolicy(status: ATTrackingManager.trackingAuthorizationStatus).logsAggregatedEvents
+    }
+
+    /// Identity / matching: only with ATT authorization.
     private var canTrack: Bool {
-        initialized && ATTrackingManager.trackingAuthorizationStatus == .authorized
+        initialized
+            && MetaConsentPolicy(status: ATTrackingManager.trackingAuthorizationStatus).sendsIdentity
     }
 
     /// SwiftUI `.onOpenURL` handler. Returns `true` when the Meta SDK consumed
@@ -52,7 +108,7 @@ public final class MetaAnalyticsService: @unchecked Sendable {
     /// can short-circuit downstream deep-link routing.
     @discardableResult
     public func handleAppDelegate(url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        guard canTrack else { return false }
+        guard canLogEvents else { return false }
         return ApplicationDelegate.shared.application(
             UIApplication.shared,
             open: url,
@@ -113,14 +169,20 @@ public final class MetaAnalyticsService: @unchecked Sendable {
     /// from the next (anonymous or different) user aren't matched to the account
     /// that just left.
     public func clearUser() {
-        guard initialized else { return }
-        AppEvents.shared.clearUserData()
-        AppEvents.shared.userID = nil
+        clearIdentity()
         // Release the registration guard as well. It's a per-install flag, so
         // without this a second person signing up on the same device (shared
         // phone, QA handset, a returning user creating a new account) would
         // never report a registration to Meta.
         UserDefaults.standard.removeObject(forKey: Self.registrationFiredKey)
+    }
+
+    /// Drop hashed PII + external ID. Used on ATT denial/revocation, where the
+    /// per-install registration guard must survive (unlike sign-out).
+    private func clearIdentity() {
+        guard initialized else { return }
+        AppEvents.shared.clearUserData()
+        AppEvents.shared.userID = nil
     }
 
     // MARK: - Event Tracking
@@ -129,7 +191,7 @@ public final class MetaAnalyticsService: @unchecked Sendable {
     /// `method` is the sign-in mechanism ("google", "apple", "email").
     /// No-ops if it already fired on this install — see `registrationFiredKey`.
     public func trackCompleteRegistration(method: String) {
-        guard canTrack else { return }
+        guard canLogEvents else { return }
         guard !UserDefaults.standard.bool(forKey: Self.registrationFiredKey) else { return }
         UserDefaults.standard.set(true, forKey: Self.registrationFiredKey)
 
@@ -159,7 +221,7 @@ public final class MetaAnalyticsService: @unchecked Sendable {
         amount: Decimal?,
         currency: String
     ) {
-        guard canTrack else { return }
+        guard canLogEvents else { return }
         let value = amount.map { NSDecimalNumber(decimal: $0).doubleValue } ?? 0
         AppEvents.shared.logEvent(
             .viewedContent,
@@ -185,7 +247,7 @@ public final class MetaAnalyticsService: @unchecked Sendable {
         amount: Decimal,
         currency: String
     ) {
-        guard canTrack else { return }
+        guard canLogEvents else { return }
         AppEvents.shared.logEvent(
             .initiatedCheckout,
             valueToSum: NSDecimalNumber(decimal: amount).doubleValue,
@@ -210,7 +272,7 @@ public final class MetaAnalyticsService: @unchecked Sendable {
     /// `StartTrial`. Normalized so all four surfaces report the same event and
     /// Ads Manager columns roll up correctly.
     public func trackStartTrial(amount: Decimal, currency: String, parameters: [String: Any] = [:]) {
-        guard canTrack else { return }
+        guard canLogEvents else { return }
         // FB SDK's value bridge takes a Double. Funnel through NSDecimalNumber so
         // we don't lose precision before the final conversion.
         let nsd = NSDecimalNumber(decimal: amount)
@@ -231,7 +293,7 @@ public final class MetaAnalyticsService: @unchecked Sendable {
     /// Fire `Subscribe` for the initial paid subscription. Uses
     /// `valueToSum` so Meta's revenue dashboards roll the amount up correctly.
     public func trackSubscribe(amount: Decimal, currency: String, parameters: [String: Any] = [:]) {
-        guard canTrack else { return }
+        guard canLogEvents else { return }
         let nsd = NSDecimalNumber(decimal: amount)
         var typed = mapParameters(parameters)
         // Meta expects the currency under the standard parameter name so the
@@ -268,7 +330,7 @@ public final class MetaAnalyticsService: @unchecked Sendable {
     /// Force-flush queued events. Useful after a paywall conversion when we
     /// want Meta to see the event before the user backgrounds the app.
     public func flush() {
-        guard canTrack else { return }
+        guard canLogEvents else { return }
         AppEvents.shared.flush()
     }
 
