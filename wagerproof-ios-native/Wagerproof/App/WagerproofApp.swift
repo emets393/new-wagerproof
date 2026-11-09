@@ -65,7 +65,8 @@ struct WagerproofApp: App {
         // Configure Google Sign-In once at process launch — matches the RN
         // configureGoogleSignIn() call in contexts/AuthContext.tsx.
         GoogleSignInCoordinator.configureIfNeeded()
-        // Meta remains disabled until the device has authorized tracking.
+        // Meta SDK starts for everyone (aggregated SKAN/AEM events); identity and
+        // advertiser IDs stay gated on ATT. See MetaConsentPolicy.
         MetaAnalyticsService.shared.initialize()
         // Mixpanel. This call was missing entirely, and every AnalyticsService
         // method early-returns until it lands — so the whole paywall funnel was
