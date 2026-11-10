@@ -155,7 +155,7 @@ CREATE OR REPLACE VIEW public.all_game_results AS
             WHEN (nba.home_score_actual + nba.away_score_actual)::numeric > nba.total_line_num THEN 'OVER'::text
             WHEN (nba.home_score_actual + nba.away_score_actual)::numeric < nba.total_line_num THEN 'UNDER'::text
             ELSE 'PUSH'::text
-        END AS ou_result
+        END AS ou_result,
     nba.home_score_actual AS home_score,
     nba.away_score_actual AS away_score,
     (nba.home_score_actual + nba.away_score_actual) AS total_runs
@@ -188,3 +188,5 @@ UNION ALL
     (h.home_score + h.away_score) AS total_runs
    FROM ncaab_games_hist h
   WHERE h.home_score IS NOT NULL AND h.away_score IS NOT NULL;
+
+COMMENT ON VIEW public.all_game_results IS 'Final results for the agent grader (grade-avatar-picks, regrade-avatar-pushes). NBA: nba_input_values_archive latest line + nba_team_boxscores. NCAAB (2026-11-10): ncaab_games_hist (CBBD ids = cbb_game_schedule.game_id = avatar_picks.game_id; T-60 close from cbb_team_lines_history) -- replaced the dead cbb_input_values_archive + ncaab_teamrankings_schedule chain (archive stopped 2026-10-28, scraper hard-coded to the 2025-26 year) that graded every college pick as a postponed push. home_score/away_score/total_runs let the grader score against the agent''s own line instead of the archived close.';
