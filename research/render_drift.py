@@ -53,6 +53,17 @@ def norm(s):
 # 2026-10-10 while all 14 real checks were green.
 CANNOT_CHECK, DRIFT = 1, 2
 
+# Every field whose drift silently changes behaviour. startCommand was the original case (a
+# service running a retired entrypoint); SCHEDULE is added because it was never compared,
+# and a checker that diffs one field makes every other field LOOK verified -- "all match"
+# read as "render.yaml is live" when it only ever meant "the start commands are live".
+# WHEN a schedule drifts the failure is quiet and seasonal: these jobs are ordered against
+# each other (a sweep must run AFTER the builds it inspects), so a stale slot shows up as a
+# recurring false alarm on one weekday, not as an error. No schedule is drifting today --
+# all 15 services match on both fields -- this closes the blind spot before it costs
+# something, which is the cheap moment to do it.
+FIELDS = ("startCommand", "schedule")
+
 
 def main():
     if yaml is None:
@@ -62,9 +73,13 @@ def main():
     if not k:
         print("[drift] no RENDER_API_KEY — skipped")
         return CANNOT_CHECK
-    blue = {s["name"]: norm(s["startCommand"])
-            for s in yaml.safe_load((ROOT / "render.yaml").read_text()).get("services", [])
-            if s.get("startCommand")}
+    blue = {}
+    for s in yaml.safe_load((ROOT / "render.yaml").read_text()).get("services", []):
+        # Only fields the blueprint actually declares: a web service has no schedule, and
+        # absence in render.yaml means "unmanaged", not "must be empty live".
+        want = {f: norm(s[f]) for f in FIELDS if s.get(f)}
+        if want:
+            blue[s["name"]] = want
     # ⛔ MUST PAGINATE. `?limit=100` does NOT return every service: on 2026-10-10 the account
     # had 50 cron jobs and a single limit=100 call came back with 49, omitting
     # nfl-pregame-injuries-daily. A drift checker that silently cannot see a service is worse
@@ -91,22 +106,28 @@ def main():
         if n not in blue:
             continue
         seen.add(n)
-        live = norm((s.get("serviceDetails", {}).get("envSpecificDetails", {}) or {})
-                    .get("startCommand"))
-        if live != blue[n]:
-            drift.append((n, s["id"], live, blue[n]))
+        det = s.get("serviceDetails") or {}
+        for f, want in sorted(blue[n].items()):
+            # startCommand is nested under the env-specific block; schedule is not.
+            raw = ((det.get("envSpecificDetails") or {}).get(f)
+                   if f == "startCommand" else det.get(f))
+            live = norm(raw)
+            if live != want:
+                drift.append((n, s["id"], f, live, want))
 
     absent = sorted(set(blue) - seen)
-    print(f"[drift] {len(blue)} blueprint services with a start command, {len(seen)} found live")
-    for n, sid, live, want in sorted(drift):
-        print(f"  DRIFT {n} ({sid})")
-        print(f"    live      : {live[:160]}")
+    nfields = sum(len(v) for v in blue.values())
+    print(f"[drift] {len(blue)} blueprint services / {nfields} managed fields "
+          f"({', '.join(FIELDS)}), {len(seen)} found live")
+    for n, sid, f, live, want in sorted(drift):
+        print(f"  DRIFT {n} ({sid}) {f}")
+        print(f"    live      : {live[:160] or '(unset)'}")
         print(f"    blueprint : {want[:160]}")
     if absent:
         print(f"  not found live: {', '.join(absent)}")
     if drift:
-        print(f"\n{len(drift)} service(s) drifted — render.yaml was edited but not applied. "
-              f"Sync the blueprint in Render, or PATCH startCommand per service.")
+        print(f"\n{len(drift)} field(s) drifted — render.yaml was edited but not applied. "
+              f"Sync the blueprint in Render, or PATCH the field per service.")
         return DRIFT
     print("  all match")
     return 0

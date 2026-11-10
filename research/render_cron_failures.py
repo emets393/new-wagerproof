@@ -37,6 +37,18 @@ CANNOT_CHECK, FAILING = 1, 2
 LOOKBACK_H = 36        # long enough to catch a once-daily job twice
 REPEAT_RED = 2         # consecutive failures that mean "bug", not "blip"
 
+# ⛔ A WATCHDOG CANNOT BE ITS OWN ALARM.
+# This check runs inside football-health-sweep, and reporting a RED makes the sweep exit 1.
+# So its own failure becomes its own next input: once the sweep has failed twice for ANY
+# reason, this check reports "football-health-sweep: 2 in a row" forever and the run can
+# never go green again, no matter what it is actually measuring. Observed 2026-11-08/09 --
+# the sweep failed on a cry-wolf bug that was ALREADY FIXED, then stayed red on nothing but
+# itself while all 17 other checks passed. A permanently-red alarm is the same failure as a
+# cry-wolf alarm: the owner learns to ignore it.
+# Render sets these in the cron runtime; SELF_NAME covers a local run.
+SELF_ID = os.environ.get("RENDER_SERVICE_ID", "")
+SELF_NAME = os.environ.get("RENDER_SERVICE_NAME", "football-health-sweep")
+
 
 def key():
     k = os.environ.get("RENDER_API_KEY")
@@ -80,7 +92,11 @@ def main():
         print(f"[cron] service list failed ({e}) — cannot check")
         return CANNOT_CHECK
 
+    # Exclude self from the DECISION (see SELF_ID above); its runs are still reported
+    # below so a genuinely broken sweep is visible in the log, just never self-latching.
     crons = [s for s in svcs if s["type"] == "cron_job"]
+    mine = [s for s in crons if s["id"] == SELF_ID or s["name"] == SELF_NAME]
+    crons = [s for s in crons if s not in mine]
     cut = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=LOOKBACK_H)
 
     runs = defaultdict(list)           # name -> [(ts, ok)] newest first
@@ -119,7 +135,8 @@ def main():
             isolated.append((fails, len(rs), name, last_fail))
 
     total_runs = sum(len(v) for v in runs.values())
-    print(f"[cron] {len(crons)} cron jobs, {total_runs} runs in the last {LOOKBACK_H}h")
+    print(f"[cron] {len(crons)} cron jobs, {total_runs} runs in the last {LOOKBACK_H}h"
+          + (f" (excluding self: {mine[0]['name']})" if mine else ""))
 
     for streak, fails, n, name, last in sorted(repeat, reverse=True):
         print(f"  FAILING  {name}: {streak} in a row (and {fails} of its last {n}), "
