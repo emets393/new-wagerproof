@@ -521,6 +521,14 @@ services:
         - research/requirements.txt
         - render.yaml
     runtime: python
+    # 2GB. The hourly page-build branch below OOM-killed on starter's 512Mi 15 times in the
+    # 14 days to 2026-11-10 — EVERY failure this service had, and every one of them in a
+    # minute<15 run (0 of 1,008 capture-only runs failed). An OOM kills the whole cgroup, so
+    # the `|| true` guarding the page build cannot catch it: the kernel takes the run down and
+    # Render marks it failed no matter what the shell would have returned. Memory, not the
+    # wrapper, is what makes that guard mean anything. The frames it loads (player_offense,
+    # props_frame, scheme) grow every week of the season, so this gets worse, not better.
+    plan: standard
     schedule: "*/15 * * 8-12,1-2 *"   # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
       pip install -r research/requirements.txt &&
@@ -529,6 +537,8 @@ services:
     # After capture, hourly (minute<15 runs only) rebuild the player pages so the
     # props surface tracks what books ACTUALLY post: no posted line -> no card
     # (owner rule 2026-08-27), and newly posted players appear within the hour.
+    # The capture (live_props.py --write) has ALREADY committed by the time this runs, so an
+    # OOM here never cost a snapshot — it cost the page rebuild, silently, 15 times.
     startCommand: >-
       cd research/nfl-extreme-outcomes && { python3 refresh_player_offense.py || true; } &&
       python3 live_props.py --write &&
