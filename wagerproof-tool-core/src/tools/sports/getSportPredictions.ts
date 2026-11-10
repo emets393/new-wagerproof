@@ -675,33 +675,80 @@ async function getNcaab(ctx: ToolContext, date: string, team?: string) {
         conference_game: game.conference_game,
         neutral_site: game.neutral_site,
       },
+      // v_cbb_input_values column names: spread (home), homeMoneyline/awayMoneyline, over_under,
+      // h1_spread/h1_total/h1_*_moneyline, home_team_total/away_team_total. The view carries no
+      // ATS/over trends for college. Lines are The Odds API's best available book (DK first).
       vegas_lines: {
-        spread: `${game.home_team} ${fmtSpread(game.home_spread)}`,
-        moneyline: `${game.away_team} ${fmtML(game.away_moneyline)} / ${game.home_team} ${fmtML(game.home_moneyline)}`,
-        total: game.total_line,
+        spread: `${game.home_team} ${fmtSpread(game.spread)}`,
+        moneyline: `${game.away_team} ${fmtML(game.awayMoneyline)} / ${game.home_team} ${fmtML(game.homeMoneyline)}`,
+        total: numOrNull(game.over_under),
+        first_half:
+          game.h1_spread != null || game.h1_total != null
+            ? {
+                spread: `${game.home_team} ${fmtSpread(game.h1_spread)}`,
+                total: numOrNull(game.h1_total),
+                moneyline: `${game.away_team} ${fmtML(game.h1_away_moneyline)} / ${game.home_team} ${fmtML(game.h1_home_moneyline)}`,
+              }
+            : null,
+        team_totals:
+          game.home_team_total != null || game.away_team_total != null
+            ? { home: numOrNull(game.home_team_total), away: numOrNull(game.away_team_total) }
+            : null,
       },
-      betting_trends: {
-        home_ats_pct: game.home_ats_pct,
-        away_ats_pct: game.away_ats_pct,
-        home_over_pct: game.home_over_pct,
-        away_over_pct: game.away_over_pct,
-      },
-      model_predictions: preds
-        ? {
-            home_win_prob: preds.home_win_prob,
-            away_win_prob: preds.away_win_prob,
-            home_score_pred: preds.home_score_pred,
-            away_score_pred: preds.away_score_pred,
-            model_fair_home_spread: preds.model_fair_home_spread,
-            model_fair_total: preds.model_fair_total,
-          }
-        : null,
+      model_predictions: preds ? ncaabModelBlock(preds, numOrNull(game.spread), numOrNull(game.over_under)) : null,
     };
   });
 
   return { sport: "ncaab", games, date, count: games.length };
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * The college originator model's row for one game, shaped for the assistant. Fair lines are the
+ * model's own (no market input); the edges are quoted so a reader never has to work out the sign:
+ * `edge_home_pts` > 0 means the model rates the HOME side better than the market line by that many
+ * points, `edge_total_pts` > 0 means the model projects MORE points than the posted total.
+ */
+function ncaabModelBlock(
+  preds: Record<string, unknown>,
+  homeSpread: number | null,
+  total: number | null,
+): Record<string, unknown> {
+  const fairHome = numOrNull(preds.model_fair_home_spread);
+  const predTotal = numOrNull(preds.pred_total_points);
+  return {
+    model_version: preds.model_version ?? null,
+    as_of: preds.as_of_ts_utc ?? null,
+    home_win_prob: numOrNull(preds.home_win_prob),
+    away_win_prob: numOrNull(preds.away_win_prob),
+    pred_home_margin: numOrNull(preds.pred_home_margin),
+    pred_total_points: predTotal,
+    home_score_pred: numOrNull(preds.home_score_pred),
+    away_score_pred: numOrNull(preds.away_score_pred),
+    model_fair_home_spread: fairHome,
+    model_fair_away_spread: numOrNull(preds.model_fair_away_spread),
+    model_fair_home_moneyline: numOrNull(preds.model_fair_home_moneyline),
+    model_fair_away_moneyline: numOrNull(preds.model_fair_away_moneyline),
+    // line - fair: both are home spreads, so a fair -10 against a posted -7 is +3 for the home side
+    edge_home_pts: homeSpread != null && fairHome != null ? round2(homeSpread - fairHome) : null,
+    edge_total_pts: total != null && predTotal != null ? round2(predTotal - total) : null,
+    line_at_prediction: {
+      home_spread: numOrNull(preds.vegas_home_spread),
+      total: numOrNull(preds.vegas_total),
+    },
+  };
+}
+
+/**
+ * Latest prediction PER GAME. ncaab_predictions keeps every pass (four a day) and a tipped game is
+ * never re-predicted, so "the newest run" misses any game that tipped before that pass; and run_id
+ * is a random uuid, so ordering by it picked an arbitrary run (this tool returned null predictions
+ * for every college game from the 2026-27 tip until 2026-11-10). Order by as_of_ts_utc instead and
+ * keep the first row seen for each game.
+ */
 async function fetchNcaabPredictions(
   client: SupabaseLikeClient,
   gameIds: unknown[],
@@ -709,21 +756,19 @@ async function fetchNcaabPredictions(
   const result = new Map<unknown, Record<string, unknown>>();
   if (gameIds.length === 0) return result;
   try {
-    const { data: latestRun } = await client
-      .from("ncaab_predictions")
-      .select("run_id")
-      .order("run_id", { ascending: false })
-      .limit(1);
-    if (!latestRun || latestRun.length === 0) return result;
-    const runId = (latestRun[0] as Record<string, unknown>).run_id;
     const { data: preds } = await client
       .from("ncaab_predictions")
       .select(
-        "game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread",
+        "game_id, as_of_ts_utc, model_version, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, " +
+          "home_score_pred, away_score_pred, model_fair_home_spread, model_fair_away_spread, " +
+          "model_fair_home_moneyline, model_fair_away_moneyline, vegas_home_spread, vegas_total",
       )
-      .eq("run_id", runId)
-      .in("game_id", gameIds);
-    for (const row of preds ?? []) result.set(row.game_id, row);
+      .in("game_id", gameIds)
+      .order("as_of_ts_utc", { ascending: false })
+      .limit(gameIds.length * 12);
+    for (const row of preds ?? []) {
+      if (!result.has(row.game_id)) result.set(row.game_id, row);
+    }
   } catch {
     /* non-critical */
   }
