@@ -63,6 +63,12 @@ observed, so the last row before kickoff IS the closing state. The diff reads on
 key from `action_public_splits_latest`, so its cost is flat in season length instead of
 growing with the log. ⛔ Do not turn this into an unconditional insert.
 
+⛔ **NCAAB is requested with `division=D1`.** Without it Action Network returns only its featured
+college board — 13 of 59 games on 2026-11-13 — with no error, which is how the feed ran from
+opening night to 2026-11-13. College rows for Nov 1–13 are featured-games-only (~15 a day);
+there is no backfill because the capture-time columns are unrecoverable. NBA is a full slate
+either way.
+
 **It fails loud, without crying wolf.** Games-but-no-rows exits non-zero rather than writing
 blanks — see the `bookIds` note in `fetch_action.py`, where a bad query returns games with
 `markets: {}`, no odds and no error. The one case that is NOT a defect is a date whose games

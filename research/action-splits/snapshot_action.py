@@ -38,12 +38,16 @@ times a season — a name-and-week key silently collapses different games into o
 football CSV path still matches names fuzzily because the hand-pasted era carried no id;
 this path has one, so it uses it.
 
-TWO LEAGUE SHAPES, FOUR TRAPS
+TWO LEAGUE SHAPES, FIVE TRAPS
 -----------------------------
 Football is WEEK-based (`season=YYYY&week=N`); basketball is DATE-based (`date=YYYYMMDD`,
 the ET slate date) and ⛔ the date must be passed ALONE — adding `season=` to a basketball
 query returns zero games. We request today and tomorrow ET, because a line is posted the day
 before and the pre-tip arc is the whole point of capturing hourly.
+
+⛔ NCAAB needs `division=D1` or the endpoint returns only Action Network's featured board
+(~13-18 games a day, no error). Caught 2026-11-13; the log holds featured-only college rows
+from Nov 1 to Nov 13. See `get_date`.
 
 ⛔ `bookIds` is camelCase and the FULL ten-id list is load-bearing: `book_ids=` returns no
 games, and a short list returns games with `markets: {}` — no odds, no splits, NO ERROR.
@@ -150,10 +154,20 @@ def rest(method, path, hdr, body=None, extra=None):
 
 
 def get_date(league, day):
-    """Basketball: one ET slate date. ⛔ `date` travels ALONE — see the docstring."""
+    """Basketball: one ET slate date. ⛔ `date` travels ALONE (no `season=`) — see the docstring.
+
+    ⛔ NCAAB needs `division=D1`. Without it the endpoint returns Action Network's FEATURED college
+    board only — 13 of 59 games on 2026-11-13, and the feed ran that way from opening night
+    (Nov 1) to Nov 13, so `action_public_splits` holds ~15 college games a day for that stretch
+    instead of the full Division I slate. With it, every D1 game with a posted market comes back,
+    splits included (55 of 59 that day). NBA is unaffected either way; `division=all` is a 400.
+    """
     from urllib.parse import urlencode
-    q = urlencode({"period": "game", "date": f"{day:%Y%m%d}",
-                   "bookIds": ",".join(str(b) for b in BOOK_IDS)})
+    params = {"period": "game", "date": f"{day:%Y%m%d}",
+              "bookIds": ",".join(str(b) for b in BOOK_IDS)}
+    if league == "ncaab":
+        params["division"] = "D1"
+    q = urlencode(params)
     req = urllib.request.Request(f"{API.format(league=league)}?{q}",
                                  headers={"User-Agent": UA,
                                           "Referer": "https://www.actionnetwork.com/",
