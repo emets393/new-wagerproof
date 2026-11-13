@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import LandingNavBar from "@/components/landing/LandingNavBar";
-import Hero from "@/components/landing/LandingOutliersHero";
+import Hero from "@/components/landing/agentHero/LandingAgentHero";
+import { OutliersDashboard } from "@/features/outliers/components/OutliersDashboard";
 import AIAgentWorkforceSection from "@/components/landing/AIAgentWorkforceSection";
 import McpLandingFeature from "@/components/landing/McpLandingFeature";
 import RecipeImport from "@/components/landing/RecipeImport";
@@ -103,7 +104,7 @@ const NewLanding = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 transition-colors duration-300">
+    <div className="min-h-screen bg-[#f4f1ea] dark:bg-[#0d0e0e] transition-colors duration-300">
       <SEO
         title="WagerProof - Data-Driven Sports Betting Analytics"
         description="Professional sports betting analytics powered by real data. Get predictions and insights for NFL, College Football, NBA, and more. Access advanced analytics tools today."
@@ -115,6 +116,15 @@ const NewLanding = () => {
       <StructuredData type="faq" questions={faqQuestions} />
       <LandingNavBar />
       <Hero />
+      {/* Today's Outliers used to be the hero visual; the agent hero replaced it, so the live board sits right below. */}
+      <section className="px-4 py-16 sm:px-6 md:py-20">
+        <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-[28px] border border-black/[0.08] bg-white/78 p-4 shadow-[0_30px_80px_-34px_rgba(0,0,0,0.35)] backdrop-blur-2xl dark:border-white/[0.1] dark:bg-black/55 sm:p-6">
+          <div className="mb-5 border-b border-black/[0.06] pb-4 dark:border-white/[0.08]">
+            <h2 className="text-xl font-black tracking-tight text-gray-950 dark:text-gray-50 sm:text-2xl">Today&apos;s Outliers</h2>
+          </div>
+          <OutliersDashboard limited />
+        </div>
+      </section>
       <AIAgentWorkforceSection />
       <McpLandingFeature />
       <div className="space-y-6">

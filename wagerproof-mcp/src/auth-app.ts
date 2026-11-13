@@ -338,6 +338,10 @@ function consentStyles(): string {
   .foot { font-size:.72rem; color:#93A9AC; margin-top:1.25rem; font-weight:500; line-height:1.4; }
   .divider { display:flex; align-items:center; gap:.6rem; color:#8FA6A9; font-size:.78rem; margin:.5rem 0; }
   .divider::before, .divider::after { content:""; flex:1; height:1px; background:#17414c; }
+  .switch { font-size:.9rem; color:#A8BFC1; margin:.4rem 0 0; font-weight:500; }
+  .link { background:none; border:0; padding:0; cursor:pointer; color:#7fd858; font:inherit; font-weight:600;
+          text-decoration:underline; text-underline-offset:3px; }
+  .link:focus-visible { outline:2px solid #16a34a; outline-offset:3px; border-radius:4px; }
 </style>`;
 }
 
@@ -356,8 +360,17 @@ function renderConsent(cfg: ConsentConfig): string {
   const emailBlock = cfg.enableEmail
     ? `<input class="field" id="email" type="email" placeholder="you@example.com" autocomplete="email" />
        <input class="field" id="password" type="password" placeholder="Password" autocomplete="current-password" />
-       <button class="btn primary" id="emailSignIn">${EMAIL_SVG}<span>Sign in</span></button>`
+       <button class="btn primary" id="emailSignIn">${EMAIL_SVG}<span id="emailLabel">Sign in</span></button>`
     : "";
+  // People arrive here from an "Add to <AI>" button, often before they have a WagerProof
+  // account. Without a way to make one on this page the OAuth flow dead-ends and the
+  // connector install fails. Google/Apple already create the account on first sign-in;
+  // email needs an explicit sign-up mode.
+  const createAccount = cfg.enableEmail
+    ? `<p class="switch"><span id="switchText">New to WagerProof?</span> <button type="button" class="link" id="switchMode">Create an account</button></p>`
+    : cfg.enableGoogle || cfg.enableApple
+      ? `<p class="switch">New to WagerProof? Continue above and we’ll create your account.</p>`
+      : "";
 
   return `<!doctype html>
 <html lang="en"><head>
@@ -370,14 +383,15 @@ ${consentStyles()}
 </head><body>
   <div class="card">
     <img class="logo" src="/icon.png" alt="WagerProof" />
-    <h1>Connect WagerProof</h1>
-    <p class="sub">Sign in to let your AI provider read your WagerProof agents, picks, and model analytics.</p>
+    <h1 id="title">Connect WagerProof</h1>
+    <p class="sub" id="sub">Sign in to let your AI provider read your WagerProof agents, picks, and model analytics.</p>
     ${googleBtn}
     ${appleBtn}
     ${oauthDivider}
     ${emailBlock}
+    ${createAccount}
     <div class="msg" id="msg"></div>
-    <div class="foot">Use the same account you use in the WagerProof app. We never see your password.</div>
+    <div class="foot" id="foot">Use the same account you use in the WagerProof app. We never see your password.</div>
   </div>
 
 <script id="wp-config" type="application/json">${json}</script>
@@ -427,6 +441,39 @@ ${consentStyles()}
   var g = document.getElementById("google"); if(g) g.onclick = function(){ oauth("google"); };
   var a = document.getElementById("apple"); if(a) a.onclick = function(){ oauth("apple"); };
 
+  // One form, two modes. Sign-up reuses the same fields so a new user never leaves this
+  // page — leaving would drop the pending OAuth request (ls) and the connect would fail.
+  var mode = "signin";
+  var COPY = {
+    signin: {
+      title: "Connect WagerProof",
+      sub: "Sign in to let your AI provider read your WagerProof agents, picks, and model analytics.",
+      button: "Sign in", ask: "New to WagerProof?", link: "Create an account",
+      foot: "Use the same account you use in the WagerProof app. We never see your password.",
+      pw: "Password", ac: "current-password"
+    },
+    signup: {
+      title: "Create your WagerProof account",
+      sub: "It’s free. The same account works here, in the WagerProof app, and on wagerproof.bet.",
+      button: "Create account", ask: "Already have an account?", link: "Sign in",
+      foot: "Google and Apple create your account automatically. We never see your password.",
+      pw: "Create a password (6+ characters)", ac: "new-password"
+    }
+  };
+  function setMode(next){
+    mode = next; var c = COPY[mode];
+    document.getElementById("title").textContent = c.title;
+    document.getElementById("sub").textContent = c.sub;
+    document.getElementById("foot").textContent = c.foot;
+    document.getElementById("emailLabel").textContent = c.button;
+    document.getElementById("switchText").textContent = c.ask;
+    document.getElementById("switchMode").textContent = c.link;
+    var pw = document.getElementById("password");
+    pw.placeholder = c.pw; pw.setAttribute("autocomplete", c.ac);
+  }
+  var sw = document.getElementById("switchMode");
+  if(sw) sw.onclick = function(){ setMsg(""); setMode(mode === "signin" ? "signup" : "signin"); };
+
   var emailBtn = document.getElementById("emailSignIn");
   if(emailBtn){
     emailBtn.onclick = async function(){
@@ -434,6 +481,23 @@ ${consentStyles()}
       var password = document.getElementById("password").value;
       if(!email||!password){ setMsg("Enter your email and password.","err"); return; }
       disableAll(true); setMsg("");
+      if(mode === "signup"){
+        if(password.length < 6){ setMsg("Use at least 6 characters for your password.","err"); disableAll(false); return; }
+        var up = await supabase.auth.signUp({ email: email, password: password });
+        if(up.error){ setMsg(up.error.message||"Could not create the account","err"); disableAll(false); return; }
+        // Supabase hides "email already registered" behind a fake user with no identities.
+        if(up.data.user && up.data.user.identities && up.data.user.identities.length === 0){
+          setMode("signin"); setMsg("That email already has an account. Sign in instead.","err"); disableAll(false); return;
+        }
+        // No session means the project requires email confirmation before first sign-in.
+        if(!up.data.session){
+          setMode("signin");
+          setMsg("Check your email for a confirmation link, then come back here and sign in.","ok");
+          disableAll(false); return;
+        }
+        await complete(up.data.session);
+        return;
+      }
       var { data, error } = await supabase.auth.signInWithPassword({ email: email, password: password });
       if(error || !data.session){ setMsg((error&&error.message)||"Sign-in failed","err"); disableAll(false); return; }
       await complete(data.session);

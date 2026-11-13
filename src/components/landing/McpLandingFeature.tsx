@@ -6,7 +6,7 @@ import { MCP_TOOL_COUNT } from '@/features/mcp/mcpContent';
 
 export default function McpLandingFeature() {
   return (
-    <section id="mcp" className="relative isolate overflow-hidden bg-[#101213] px-4 py-24 text-white sm:px-6 md:py-32">
+    <section id="mcp" className="relative isolate overflow-hidden bg-[#0d0e0e] px-4 py-24 text-white sm:px-6 md:py-32">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[620px] bg-[radial-gradient(circle_at_50%_12%,rgba(184,255,56,0.11),transparent_36%),radial-gradient(circle_at_16%_50%,rgba(34,197,94,0.06),transparent_24%),radial-gradient(circle_at_86%_48%,rgba(217,119,87,0.055),transparent_24%)]"
