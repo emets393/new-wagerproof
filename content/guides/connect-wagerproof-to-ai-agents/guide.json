@@ -1,0 +1,83 @@
+{
+  "layout": "standard",
+  "slug": "connect-wagerproof-to-ai-agents",
+  "canonicalPath": "/guides/connect-wagerproof-to-ai-agents/",
+  "intent": "connect WagerProof data to an AI assistant",
+  "title": "Let Claude, ChatGPT, Grok, or Cursor research games with live WagerProof data",
+  "shortTitle": "WagerProof in your AI agent",
+  "seoTitle": "Connect WagerProof to Claude, ChatGPT, Grok, and Cursor",
+  "description": "How to add WagerProof to Claude, ChatGPT, Grok, Cursor, and other AI assistants, what each setup click does, and what the assistant can answer once it reads live model and agent data.",
+  "dek": "A general assistant can summarize what people wrote about a game. Connected to WagerProof, it can read the model line, the situational record, and what the top graded agents picked, then show its work.",
+  "category": "Product updates",
+  "publishedAt": "2026-11-13",
+  "updatedAt": "2026-11-13",
+  "reviewedAt": "2026-11-13",
+  "nextReviewAt": "2027-02-13",
+  "lastTestedAt": "2026-11-13",
+  "readingTimeMinutes": 6,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/connect-wagerproof-to-ai-agents/connect-wagerproof-to-ai-agents-title-card-v1.webp",
+    "socialSrc": "/guides/connect-wagerproof-to-ai-agents/connect-wagerproof-to-ai-agents-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "The words WagerProof in your AI agent beside a three-step path from agent to connector to data",
+    "caption": "Title card composed from checked-in metadata over an AI-assisted abstract data field.",
+    "source": "WagerProof app icon and editorial composition"
+  },
+  "disclosure": "This is a first-party WagerProof product guide. Setup steps depend on each assistant's own app and plan and can change without notice. The game figures are a dated snapshot from November 13, 2026. Model outputs are estimates and do not guarantee an outcome.",
+  "verdict": "Connecting WagerProof gives an AI assistant three things it cannot find on its own: the model line, situational records computed from historical closing numbers, and the picks and graded records of WagerProof agents. Setup takes one click for Cursor, Hermes, and Claude, and a copy and paste for ChatGPT, Grok, and the command-line tools. Access is read-only, and every answer is still an estimate to check.",
+  "relatedSlugs": [
+    "how-wagerproof-analysis-works",
+    "wagerproof-3-5-9",
+    "nfl-player-props",
+    "responsible-sports-betting-research"
+  ],
+  "redirectAliases": [],
+  "howTo": {
+    "name": "How to connect WagerProof to an AI assistant",
+    "description": "A three-step setup that ends with your assistant able to read WagerProof model, historical, and agent data.",
+    "steps": [
+      {
+        "name": "Pick your assistant",
+        "text": "On the WagerProof homepage, press Add to AI agent and choose Claude, ChatGPT, Grok, Cursor, Claude Code, OpenClaw, or Hermes."
+      },
+      {
+        "name": "Confirm inside the assistant",
+        "text": "Cursor, Hermes, and Claude open with WagerProof ready to add, so you only confirm. For ChatGPT and Grok, paste the copied connector address. For Claude Code and OpenClaw, run the copied command."
+      },
+      {
+        "name": "Sign in or create an account",
+        "text": "Sign in on the WagerProof page that opens, or use Create an account if you are new. Access is read-only."
+      },
+      {
+        "name": "Ask a question you can check",
+        "text": "Ask about a specific game or spot, then ask which data the answer came from and how many games are behind any record."
+      }
+    ]
+  },
+  "faqs": [
+    {
+      "question": "Which AI assistants work with WagerProof?",
+      "answer": "Claude, ChatGPT, Grok, Cursor, Claude Code, OpenClaw, and Hermes were supported when this page was reviewed on November 13, 2026. Any assistant that supports remote connectors with sign-in can use the same connector address."
+    },
+    {
+      "question": "Is setup really one click?",
+      "answer": "For Cursor, Hermes, and Claude the button opens the app with WagerProof ready and you confirm once. ChatGPT and Grok have no install link, so the button copies the address and opens the page where you paste it. Command-line tools need the copied command run in a terminal."
+    },
+    {
+      "question": "Can the assistant place bets or change my account?",
+      "answer": "No. The connector is read-only. It can read model data, historical records, public agent picks, and your own agents and records after you sign in. It cannot place a wager or edit anything."
+    },
+    {
+      "question": "Do I need a WagerProof account first?",
+      "answer": "No. The sign-in page at the end of setup has a Create an account link, and signing in with Google or Apple creates an account automatically."
+    },
+    {
+      "question": "Does connected data guarantee a winning pick?",
+      "answer": "No. Model lines are estimates and historical records describe the past. Any wager can lose. Use the figures as research to check, not as a promise."
+    }
+  ]
+}

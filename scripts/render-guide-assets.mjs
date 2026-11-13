@@ -27,6 +27,7 @@ function motifFor(slug) {
     'how-wagerproof-analysis-works': '<div class="method-flow"><i>MARKET</i><b></b><i>MODEL</i><b></b><i>GRADE</i></div>',
     'accurate-betting-performance-tracking-checklist': '<div class="ledger"><i></i><i></i><i></i><i></i></div>',
     'prediction-markets-vs-sportsbook-odds': '<div class="split-lane"><i>CONTRACT</i><b></b><i>ODDS</i></div>',
+    'connect-wagerproof-to-ai-agents': '<div class="method-flow"><i>AGENT</i><b></b><i>CONNECT</i><b></b><i>DATA</i></div>',
     'responsible-sports-betting-research': '<div class="limits"><i>TIME</i><i>LIMIT</i><i>STOP</i></div>',
   }
   return motifs[slug] || '<div class="probability-ring"><span>p</span></div>'

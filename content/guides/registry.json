@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "expectedCount": 11,
+  "expectedCount": 12,
   "entries": [
     {
       "slug": "best-sports-betting-research-apps",
@@ -11,6 +11,11 @@
       "slug": "wagerproof-3-5-9",
       "canonicalPath": "/guides/wagerproof-3-5-9/",
       "intent": "understand the shipped WagerProof 3.5.9 release"
+    },
+    {
+      "slug": "connect-wagerproof-to-ai-agents",
+      "canonicalPath": "/guides/connect-wagerproof-to-ai-agents/",
+      "intent": "connect WagerProof data to an AI assistant"
     },
     {
       "slug": "implied-probability-vs-true-probability",
