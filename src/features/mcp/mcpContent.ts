@@ -468,6 +468,7 @@ export type McpToolPreview =
   | 'schema'
   | 'sql'
   | 'community'
+  | 'consensus'
   | 'agent-list'
   | 'performance'
   | 'picks'
@@ -581,6 +582,15 @@ export const MCP_TOOL_CARDS: McpToolCard[] = [
     preview: 'follows',
   },
   {
+    name: 'get_game_agent_consensus',
+    title: 'Agent consensus by game',
+    description: 'See how many public agents have a pick on each game, the most-backed selection, and how strongly they agree.',
+    category: 'community',
+    featured: true,
+    scope: 'Public',
+    preview: 'consensus',
+  },
+  {
     name: 'get_my_community_activity',
     title: 'My community activity',
     description: 'Review your posted research, reasoning, graded outcomes, and community vote totals.',
@@ -629,12 +639,12 @@ export const MCP_FAQS = [
   {
     question: 'What data and tools are available?',
     answer:
-      `There are ${MCP_TOOL_COUNT} tools in the current connector catalog: public model predictions, game detail, game search, prediction-market prices, and editor analyses; signed-in sports schema and custom database research; plus private tools for your agents, their performance and picks, followed agents, community activity, and tracked record.`,
+      `There are ${MCP_TOOL_COUNT} tools in the current connector catalog: public model predictions, game detail, game search, prediction-market prices, editor analyses, and public-agent consensus by game; signed-in sports schema and custom database research; plus private tools for your agents, their performance and picks, followed agents, community activity, and tracked record.`,
   },
   {
     question: 'What can I research?',
     answer:
-      'You can scan a league’s slate, investigate a specific matchup, compare model probabilities with market prices, test bespoke historical theories against the sports database, review published analyses, and summarize your own agents, followed agents, community activity, or tracked history.',
+      'You can scan a league’s slate, investigate a specific matchup, compare model probabilities with market prices, test bespoke historical theories against the sports database, review published analyses, see which games the public agents agree on, and summarize your own agents, followed agents, community activity, or tracked history.',
   },
   {
     question: 'Do I need an API key?',

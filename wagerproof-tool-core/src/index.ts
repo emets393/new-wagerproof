@@ -23,6 +23,7 @@ export { getEditorPicks } from "./tools/sports/getEditorPicks.js";
 export {
   getTopCommunityAgentPicks,
 } from "./tools/community/getTopCommunityAgentPicks.js";
+export { getGameAgentConsensus } from "./tools/community/getGameAgentConsensus.js";
 export {
   listMyAgents,
   getAgentPerformance,

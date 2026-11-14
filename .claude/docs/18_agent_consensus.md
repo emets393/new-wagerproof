@@ -352,6 +352,15 @@ so the next tick retries instead of showing nothing for 90s.
 
 Failure is non-fatal everywhere: no strip, feed renders normally.
 
+### MCP connector
+
+The connector exposes the same RPC as the read-only tool `get_game_agent_consensus`
+(`wagerproof-tool-core/src/tools/community/getGameAgentConsensus.ts`). It takes `sport`
+and an optional `date` (today by default; NFL/CFB default to the current Tue–Mon week),
+labels each row with a matchup from the CFB feed tables, and returns a `verdict` using the
+same `LEAN_SHARE` / 3-agent floor as `consensusCopy.ts` — if those constants move, move
+them there too. It never returns `threshold`, and reduces `avatars` to names.
+
 ### Don't merge CONSENSUS into the model badge row
 
 On native, `convictionBadges` / `ConvictionBadges` already carries MAMMOTH PLAY /
