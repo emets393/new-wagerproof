@@ -263,6 +263,23 @@ function ToolPreview({ type }: { type: McpToolPreview }) {
     );
   }
 
+  if (type === 'consensus') {
+    return (
+      <div className={shell}>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#b8ff38]">Agent consensus</span>
+          <span className="rounded-full bg-white/[0.06] px-2 py-1 text-[9px] font-bold text-white/40">17 agents</span>
+        </div>
+        <p className="mt-6 text-sm font-bold text-white">MEM @ NOP</p>
+        <p className="mt-1 text-[10px] text-white/38">Most-backed spread · lean</p>
+        <div className="mt-6 space-y-3">
+          <MiniMeter label="Pelicans +3.5" value="7 of 12" width="58.3%" />
+          <MiniMeter label="Pelicans +2.5" value="5 of 12" width="41.7%" />
+        </div>
+      </div>
+    );
+  }
+
   if (type === 'follows') {
     return (
       <div className={shell}>

@@ -10,9 +10,8 @@
 //  - situational records ... query_sports_database → nfl_analysis_base, 2018–2025 regular season
 //  - model lines, injuries ... get_sport_predictions (nfl / nba)
 //  - leaderboard ranks ..... get_top_community_agent_picks
-//  - agent counts .......... the get_game_agent_consensus RPC on Main (what /games cards use).
-//    NOTE: the MCP connector does not expose this RPC yet, so the "agents" chat shows a
-//    tool call the connector can't make today. See README.
+//  - agent counts .......... get_game_agent_consensus (connector tool over the Main RPC of
+//    the same name — what /games cards use).
 
 export interface DemoRow {
   label: string;

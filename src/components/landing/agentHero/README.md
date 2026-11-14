@@ -66,10 +66,9 @@ Each chat should show something a model cannot get from a web search: situationa
 what the public agents are on, the model's own line. The demo also states the case against
 its own lean; keep that, it is what makes the rest credible.
 
-**Known gap:** the "Agent consensus" chat shows a `get_game_agent_consensus` tool call. That
-RPC exists on Main and feeds the `/games` cards, but the MCP connector does not expose it —
-it only has `get_top_community_agent_picks` (top 10). Until a consensus tool is added to
-`wagerproof-tool-core`, that chat shows something the connector cannot do.
+Every `tool` named in a chat must be one the connector really serves (the list is
+`buildTools()` in `wagerproof-tool-core/src/registry.ts`). The "Agent consensus" chat's
+`get_game_agent_consensus` is a real connector tool wrapping the Main RPC of the same name.
 
 The demo pauses while off-screen and shows the finished conversation with no
 animation under `prefers-reduced-motion`.
