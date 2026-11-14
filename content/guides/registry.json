@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "expectedCount": 15,
+  "expectedCount": 16,
   "entries": [
     {
       "slug": "connect-ai-agent-sports-research",
@@ -76,6 +76,11 @@
       "slug": "betting-trends-tested",
       "canonicalPath": "/guides/betting-trends-tested/",
       "intent": "find out whether popular betting trends and hunches actually win, judged against break-even and a professional bettor's win rate"
+    },
+    {
+      "slug": "connect-wagerproof-to-ai-agents",
+      "canonicalPath": "/guides/connect-wagerproof-to-ai-agents/",
+      "intent": "connect WagerProof data to an AI assistant"
     }
   ]
 }

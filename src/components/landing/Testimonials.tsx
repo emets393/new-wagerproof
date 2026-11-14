@@ -106,8 +106,8 @@ const Testimonials = () => {
               <ReviewCard key={review.name} {...review} />
             ))}
           </Marquee>
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-gray-100 dark:from-gray-950"></div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-gray-100 dark:from-gray-950"></div>
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-[#f4f1ea] dark:from-[#0d0e0e]"></div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-[#f4f1ea] dark:from-[#0d0e0e]"></div>
         </div>
       </div>
 

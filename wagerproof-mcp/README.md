@@ -22,6 +22,10 @@ Claude/ChatGPT ──Bearer─▶ POST /mcp (JSON-RPC: initialize / tools/list /
 - **Two trust tiers per request** (WagerProof-specific):
   - `scope: "user"` tools → a **user-JWT Main client** (RLS enforces isolation).
   - `scope: "global"` tools → **service-role Main** + **anon CFB** clients (public data).
+- **New users can sign up on the consent page**: "Create an account" switches the email form
+  to `supabase.auth.signUp`, and Google/Apple create the account on first sign-in. It has to
+  happen on this page — sending the user elsewhere drops the pending OAuth request. If the
+  Supabase project requires email confirmation, the user confirms and then signs in here.
 - **No password is ever seen**: the consent page runs Supabase sign-in client-side
   and posts only the resulting `{access_token, refresh_token}` to `/callback`.
 - **Token verification** is delegated to Supabase (`GET /auth/v1/user`) — no JWT
