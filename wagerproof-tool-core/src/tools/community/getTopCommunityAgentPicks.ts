@@ -10,6 +10,7 @@ import {
   type Tool,
   type ToolContext,
 } from "../../types.js";
+import { getGameAgentConsensus } from "./getGameAgentConsensus.js";
 
 interface LeaderboardRow extends Record<string, unknown> {
   avatar_id: string;
@@ -301,4 +302,7 @@ export const getTopCommunityAgentPicks: Tool = {
   },
 };
 
-export const communityAnalyticsTools: Tool[] = [getTopCommunityAgentPicks];
+export const communityAnalyticsTools: Tool[] = [
+  getTopCommunityAgentPicks,
+  getGameAgentConsensus,
+];

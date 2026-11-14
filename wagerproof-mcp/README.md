@@ -50,7 +50,17 @@ Claude/ChatGPT ──Bearer─▶ POST /mcp (JSON-RPC: initialize / tools/list /
 `list_my_agent_picks`, `list_my_follows`, `get_my_community_activity`,
 `get_my_record`.
 **Public analytics**: `get_sport_predictions`, `get_game_detail`, `search_games`,
-`get_market_odds`, `get_editor_picks`, `get_top_community_agent_picks`.
+`get_market_odds`, `get_editor_picks`, `get_top_community_agent_picks`,
+`get_game_agent_consensus`.
+
+`get_game_agent_consensus` wraps the Main RPC of the same name (the one behind
+the `/games` feed cards — see `.claude/docs/18_agent_consensus.md`): per game,
+how many public agents have a pick, the most-backed selection, and agreement
+within that selection's market. Inputs are `sport` and an optional `date`
+(defaults to today; NFL/CFB default to the current Tuesday–Monday week). It
+adds a matchup label from the CFB feed tables (falling back to
+`avatar_picks.matchup` for games the feeds have already dropped), reduces the
+RPC's `avatars` to names, and deliberately omits `threshold`.
 **SQL exploration** (signed-in only): `query_sports_database` — one read-only
 SELECT per call against the sports warehouse, executed by `public.mcp_run_sql`
 on the CFB project. Built for analysis, not export: SELECT-only grammar check,
