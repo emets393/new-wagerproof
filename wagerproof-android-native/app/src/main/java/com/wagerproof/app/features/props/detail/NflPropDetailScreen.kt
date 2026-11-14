@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.props.detail
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -59,6 +62,7 @@ import com.wagerproof.app.features.props.detail.nflpage.NflBestLinesBlock
 import com.wagerproof.app.features.props.detail.nflpage.NflHeadToHeadBlock
 import com.wagerproof.app.features.props.detail.nflpage.NflMatchupComparison
 import com.wagerproof.app.features.props.detail.nflpage.NflProjectionStrip
+import com.wagerproof.app.features.props.detail.nflpage.NflPropResearchStrip
 import com.wagerproof.app.features.props.detail.nflpage.NflRecentGamesChart
 import com.wagerproof.app.features.props.detail.nflpage.NflSituationsGrid
 import com.wagerproof.app.features.props.nflTeamColors
@@ -109,6 +113,16 @@ fun NflPropDetailScreen(
     selection: NFLPlayerPropSelection,
     onBack: () -> Unit,
 ) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Player Props") { NflPropDetailScreenContent(selection, onBack) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun NflPropDetailScreenContent(
+    selection: NFLPlayerPropSelection,
+    onBack: () -> Unit,
+) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     BackHandler(onBack = onBack)
     DisposableEffect(selection.id) {
@@ -143,9 +157,13 @@ fun NflPropDetailScreen(
             player.markets.map { fm -> NflDisplayMarket(fm.market, fm.label, null, fm) }
         }
     }
+    LaunchedEffect(displayMarkets.isNotEmpty()) {
+        if (featurePreview) return@LaunchedEffect
+        if (displayMarkets.isNotEmpty()) graph.achievements.record("props") }
     val activeDisplayMarket = displayMarkets.firstOrNull { it.key == activeMarket } ?: displayMarkets.firstOrNull()
 
     LaunchedEffect(listState, displayMarkets) {
+        if (featurePreview) return@LaunchedEffect
         snapshotFlow { listState.firstVisibleItemIndex }
             .distinctUntilChanged()
             .collect { index ->
@@ -156,6 +174,7 @@ fun NflPropDetailScreen(
     }
 
     LaunchedEffect(selection.id) {
+        if (featurePreview) return@LaunchedEffect
         val playerId = player.playerId?.takeIf { it.isNotEmpty() }
         detail = if (playerId != null) {
             NFLPropPageService.shared.detail(playerId)
@@ -309,6 +328,17 @@ fun NflPropDetailScreen(
                                 line = if (market.isYesNo) null else line,
                                 vegasOdds = odds,
                             )
+                        }
+                    }
+
+                    // 1b. Fantasy-Points prop model + Player Prop Report. Only the markets that
+                    // backtested carry this, so the section is omitted rather than shown empty.
+                    page?.research?.get(market.key)?.takeIf { it.hasContent }?.let { research ->
+                        WidgetCollapsingSection(
+                            title = widgetTitle("Prop Model & Report", market),
+                            systemImage = "chart.line.uptrend.xyaxis",
+                        ) {
+                            NflPropResearchStrip(research = research)
                         }
                     }
 

@@ -312,6 +312,7 @@ fun ParlayGodDetailSheet(
         containerColor = AppColors.appSurface,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
+        com.wagerproof.app.features.paywall.TieredAccessGate(com.wagerproof.core.models.SubscriptionTier.PREMIUM, "Parlay God") {
         Column(
             modifier
                 .fillMaxWidth()
@@ -350,7 +351,8 @@ fun ParlayGodDetailSheet(
                 displayMode = ParlayGodCardDisplayMode.Expanded,
             )
         }
-    }
+            }
+}
 }
 
 /**
@@ -439,6 +441,12 @@ private fun ParlayGodProGate(
     minHeight: Dp,
     content: @Composable () -> Unit,
 ) {
+    if (com.wagerproof.app.features.paywall.LocalFeatureGatePreview.current) { content(); return }
+    if (state == ParlayGodAccessState.Locked) {
+        com.wagerproof.app.features.paywall.ProContentSection(title = title,
+            minimumTier = com.wagerproof.core.models.SubscriptionTier.PREMIUM, minHeight = minHeight, content = content)
+        return
+    }
     if (state != ParlayGodAccessState.Locked) {
         content()
         return

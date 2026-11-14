@@ -148,6 +148,55 @@ data class NFLPropGameSplits(
 )
 
 /** Client model — one row of `nfl_prop_player_pages`, defensively mapped. */
+/**
+ * Fantasy-Points research for one market. ADDITIVE to `projection`, never a replacement: it
+ * covers far fewer players and only the markets that backtested (pass yds/tds/completions,
+ * receptions, reception yds). Rushing and anytime TD were tested and killed, so a market with
+ * no entry here is the expected state, not missing data.
+ * Mirrors iOS `NFLPropResearch` and web `MarketResearch`.
+ */
+data class NFLPropResearch(
+    val model: NFLPropFPModel? = null,
+    val report: NFLPropReport? = null,
+) {
+    val hasContent: Boolean get() = model != null || report != null
+}
+
+data class NFLPropFPModel(
+    /** Projected stat total. */
+    val pred: Double,
+    /** The line the model scored against — can differ slightly from the live board line. */
+    val line: Double?,
+    /** pred - line. The sign IS the side: positive = over, negative = under. */
+    val edge: Double,
+    /** This market's backtested threshold; |edge| must clear it for [fires]. */
+    val threshold: Double,
+    /** Backtested hit rate at that threshold, or "robust" where no single rate was pinned. */
+    val tier: String,
+    /** |edge| >= threshold — the validated trigger is live on this market. */
+    val fires: Boolean,
+)
+
+/** The Player Prop Report read — the same storylines the weekly regression report publishes. */
+data class NFLPropReport(
+    val read: String,
+    val line: Double?,
+    val score: Double,
+    /** Independent tells agreeing with the read, and disagreeing with it. */
+    val nFor: Int,
+    val nAgainst: Int,
+    val summary: String? = null,
+    val tells: List<NFLPropReportTell> = emptyList(),
+)
+
+data class NFLPropReportTell(
+    /** Side this tell points to. */
+    val dir: String,
+    /** Where it came from — model, coverage, scheme, usage... */
+    val src: String,
+    val text: String,
+)
+
 data class NFLPropPlayerPage(
     val playerId: String,
     val season: Int,
@@ -163,6 +212,8 @@ data class NFLPropPlayerPage(
     val rookie: Boolean = false,
     val markets: List<NFLPropPageMarket> = emptyList(),
     val projection: Map<String, NFLPropProjection> = emptyMap(),
+    /** Fantasy-Points layer, keyed by market. Sparse by design — see [NFLPropResearch]. */
+    val research: Map<String, NFLPropResearch> = emptyMap(),
     val scheme: NFLPropScheme? = null,
     val schemeGameSplits: NFLPropGameSplits? = null,
 ) {
@@ -219,6 +270,57 @@ data class NFLPropPlayerPage(
                         val rate = o["score_rate"].asDouble ?: continue
                         out[market] = NFLPropProjection.Rate(rate, status, source)
                     }
+                }
+            }
+            return out
+        }
+
+        /**
+         * `research` is sparse: most markets have no entry, and a present entry may carry only
+         * the model or only the report. Anything unparseable is dropped rather than defaulted,
+         * so the UI can rely on "present means real".
+         */
+        fun mapResearch(json: JsonElement?): Map<String, NFLPropResearch> {
+            val byMarket = json.asObj ?: return emptyMap()
+            val out = mutableMapOf<String, NFLPropResearch>()
+            for ((market, raw) in byMarket) {
+                val o = raw.asObj ?: continue
+                val model = o["fp_model"].asObj?.let { m ->
+                    val pred = m["pred"].asDouble
+                    val edge = m["edge"].asDouble
+                    val threshold = m["threshold"].asDouble
+                    if (pred == null || edge == null || threshold == null) null
+                    else NFLPropFPModel(
+                        pred = pred,
+                        line = m["line"].asDouble,
+                        edge = edge,
+                        threshold = threshold,
+                        tier = m["tier"].asString ?: "",
+                        fires = m["fires"].asBool ?: false,
+                    )
+                }
+                val report = o["prop_report"].asObj?.let { r ->
+                    val read = r["read"].asString ?: return@let null
+                    NFLPropReport(
+                        read = read,
+                        line = r["line"].asDouble,
+                        score = r["score"].asDouble ?: 0.0,
+                        nFor = r["n_for"].asInt ?: 0,
+                        nAgainst = r["n_against"].asInt ?: 0,
+                        summary = r["summary"].asString,
+                        tells = (r["tells"].asArr ?: emptyList()).mapNotNull { t ->
+                            val to = t.asObj ?: return@mapNotNull null
+                            val text = to["text"].asString ?: return@mapNotNull null
+                            NFLPropReportTell(
+                                dir = to["dir"].asString ?: "",
+                                src = to["src"].asString ?: "",
+                                text = text,
+                            )
+                        },
+                    )
+                }
+                if (model != null || report != null) {
+                    out[market] = NFLPropResearch(model, report)
                 }
             }
             return out
@@ -359,6 +461,7 @@ data class NFLPropPlayerPageRow(
     val scheme: JsonElement? = null,
     @SerialName("scheme_game_splits") val schemeGameSplits: JsonElement? = null,
     val projection: JsonElement? = null,
+    val research: JsonElement? = null,
     val highlights: JsonElement? = null,
 ) {
     fun toPage(): NFLPropPlayerPage = NFLPropPlayerPage(
@@ -376,6 +479,7 @@ data class NFLPropPlayerPageRow(
         rookie = rookie ?: false,
         markets = NFLPropPlayerPage.mapMarkets(markets),
         projection = NFLPropPlayerPage.mapProjection(projection),
+        research = NFLPropPlayerPage.mapResearch(research),
         scheme = NFLPropPlayerPage.mapScheme(scheme),
         schemeGameSplits = NFLPropPlayerPage.mapGameSplits(schemeGameSplits),
     )

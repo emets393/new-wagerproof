@@ -1,9 +1,11 @@
 # App Store Listing Copy (iOS)
 
+The current iOS 3.6.3 English (U.S.) description is in `asc_description.txt`, updated on 2026-09-23 to label paid features and the Premium, Premium Plus, and Pro plans. The older description below is historical.
+
 Source of truth for the App Store product page. Edit here, then push to App Store
 Connect. Per-release "What's New" lives in `RELEASE_NOTES.md`, not this file.
 
-App `6757089957` — `com.wagerproof.mobile`. Last synced to ASC: 2026-07-28 (v3.5.9 draft).
+App `6757089957` — `com.wagerproof.mobile`. 3.6.2 release metadata synced and read back on 2026-09-09. Exact live 3.6.1 promotional text and description are preserved in `release-metadata/3.6.2.json`; older copy below is historical.
 
 | Field | Limit | Current |
 |---|---|---|

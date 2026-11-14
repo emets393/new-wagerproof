@@ -19,7 +19,7 @@ export type OutliersTrendsMatchupFilter = string;
 export const OUTLIERS_SPORTS: OutliersTrendsSport[] = ['nfl', 'ncaaf', 'mlb', 'nba', 'ncaab'];
 
 /** The sports with a live trends source, in page order. */
-export const OUTLIERS_TRENDS_SPORTS: OutliersTrendsSport[] = ['nfl', 'ncaaf', 'mlb'];
+export const OUTLIERS_TRENDS_SPORTS: OutliersTrendsSport[] = ['nfl', 'ncaaf', 'mlb', 'nba', 'ncaab'];
 
 export const OUTLIERS_SPORT_FILTERS: OutliersSportFilter[] = ['all', ...OUTLIERS_SPORTS];
 
@@ -45,7 +45,7 @@ export const OUTLIERS_SUBJECT_LABELS: Record<OutliersTrendsSubject, string> = {
 };
 
 export function sportHasTrendsData(sport: OutliersTrendsSport): boolean {
-  return sport === 'nfl' || sport === 'ncaaf' || sport === 'mlb';
+  return OUTLIERS_TRENDS_SPORTS.includes(sport);
 }
 
 export function allowedSubjects(sport: OutliersTrendsSport): OutliersTrendsSubject[] {
@@ -55,6 +55,8 @@ export function allowedSubjects(sport: OutliersTrendsSport): OutliersTrendsSubje
     case 'ncaaf':
       return ['all', 'teams', 'coaches'];
     case 'mlb':
+    case 'nba':
+    case 'ncaab':
       return ['teams'];
     default:
       return [];
@@ -65,7 +67,8 @@ export function allowedSubjects(sport: OutliersTrendsSport): OutliersTrendsSubje
  * Sports the page should fetch for a multi-select pill. An EMPTY selection means
  * "everything", so there's no separate 'all' sentinel to keep in sync. Sports
  * without a trends source drop out — select only those and you get nothing,
- * which the dashboard renders as the "coming soon" card.
+ * which the dashboard renders as the "coming soon" card. NBA and NCAAB are
+ * live team-trend sports, so selecting them fetches today's slate.
  */
 export function activeSportsFor(selection: OutliersTrendsSport[]): OutliersTrendsSport[] {
   if (selection.length === 0) return OUTLIERS_TRENDS_SPORTS;
@@ -83,7 +86,7 @@ export function allowedSubjectsForSports(
 ): OutliersTrendsSubject[] {
   if (sports.length === 1) return allowedSubjects(sports[0]);
   const union = new Set(sports.flatMap(allowedSubjects));
-  // MLB alone never offers "All"; merged with football it should.
+  // A teams-only sport (MLB, NBA, NCAAB) never offers "All"; merged with football it should.
   if (union.size > 0) union.add('all');
   return SUBJECT_ORDER.filter((s) => union.has(s));
 }
@@ -127,7 +130,7 @@ export interface OutliersTrendsGame {
   kickoff: string | null;
   slot: string | null;
   assignedReferee: string | null;
-  /** Optional reference-table assets, currently populated for NCAAF. */
+  /** Optional reference-table assets, populated for NCAAF, NBA, and NCAAB. */
   awayLogoUrl?: string | null;
   homeLogoUrl?: string | null;
   awayColors?: { primary: string; secondary: string } | null;

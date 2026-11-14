@@ -1,0 +1,303 @@
+Final
+Patriots Team Icon
+Patriots
+451
+Seahawks Team Icon
+Seahawks
+452
+o45.5
+u45.5
+o44.5
+-105
+u44.5
+-110
+29%
+71%
+41%
+59%
++12%
+292,189
+Final
+49ers Team Icon
+49ers
+453
+Rams Team Icon
+Rams
+454
+o49.5
+u49.5
+o36.5
++9900
+u47.5
+-105
+20%
+80%
+30%
+70%
++10%
+268,970
+Final
+Broncos Team Icon
+Broncos
+481
+Chiefs Team Icon
+Chiefs
+482
+o43.5
+u43.5
+o41.5
++108
+u42.5
+-105
+24%
+76%
+37%
+63%
++13%
+244,014
+Final
+Cowboys Team Icon
+Cowboys
+479
+Giants Team Icon
+Giants
+480
+o48.5
+u48.5
+o48.5
++9900
+u47.5
+-105
+15%
+85%
+12%
+88%
++3%
+183,051
+Final - OT
+Saints Team Icon
+Saints
+469
+Lions Team Icon
+Lions
+470
+o49.5
+u49.5
+o50
+-108
+u50
+-110
+14%
+86%
+66%
+34%
++52%
+122,244
+Final
+Buccaneers Team Icon
+Buccaneers
+457
+Bengals Team Icon
+Bengals
+458
+o52.5
+u52.5
+o60.5
++9900
+u50.5
+-110
+10%
+90%
+25%
+75%
++15%
+120,341
+Final
+Bills Team Icon
+Bills
+463
+Texans Team Icon
+Texans
+464
+o44.5
+u44.5
+o44.5
+-110
+u44.5
+-108
+17%
+83%
+62%
+38%
++45%
+119,704
+Final
+Packers Team Icon
+Packers
+477
+Vikings Team Icon
+Vikings
+478
+o46.5
+u46.5
+o63.5
++9900
+u45.5
+-106
+9%
+91%
+16%
+84%
++7%
+106,548
+Final
+Bears Team Icon
+Bears
+465
+Panthers Team Icon
+Panthers
+466
+o45.5
+u45.5
+o46.5
+-114
+u47
+-108
+11%
+89%
+52%
+48%
++41%
+105,250
+Final
+Commanders Team Icon
+Commanders
+475
+Eagles Team Icon
+Eagles
+476
+o47.5
+u47.5
+o44.5
++127
+u45.5
+-115
+14%
+86%
+19%
+81%
++5%
+102,004
+Final
+Ravens Team Icon
+Ravens
+459
+Colts Team Icon
+Colts
+460
+o49.5
+u49.5
+o66.5
++9900
+u51.5
+-115
+13%
+87%
+14%
+86%
++1%
+100,110
+Final
+Falcons Team Icon
+Falcons
+461
+Steelers Team Icon
+Steelers
+462
+o41.5
+u41.5
+o35.5
++9900
+u40.5
+-105
+24%
+76%
+19%
+81%
++5%
+94,385
+Final
+Cardinals Team Icon
+Cardinals
+471
+Chargers Team Icon
+Chargers
+472
+o46.5
+u46.5
+o40.5
+-133
+u50.5
+-115
+10%
+90%
+23%
+77%
++13%
+93,269
+Final
+Browns Team Icon
+Browns
+455
+Jaguars Team Icon
+Jaguars
+456
+o39.5
+u39.5
+o46.5
++9900
+u42.5
+-120
+31%
+69%
+31%
+69%
+91,432
+Final
+Dolphins Team Icon
+Dolphins
+473
+Raiders Team Icon
+Raiders
+474
+o39.5
+u39.5
+o40.5
++9900
+u40.5
+-110
+30%
+70%
+36%
+64%
++6%
+85,015
+Final
+Jets Team Icon
+Jets
+467
+Titans Team Icon
+Titans
+468
+o38.5
+u38.5
+o35.5
++9900
+u39.5
+-108
+39%
+61%
+42%
+58%
++3%
+84,904

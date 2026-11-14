@@ -27,8 +27,8 @@ struct NBAGameCarousel: View {
             },
             chip: { game, isCurrent in
                 CarouselMatchupChip(
-                    awayAbbr: TeamInitials.from(game.awayTeam),
-                    homeAbbr: TeamInitials.from(game.homeTeam),
+                    awayAbbr: NBATeams.abbreviation(for: game.awayTeam),
+                    homeAbbr: NBATeams.abbreviation(for: game.homeTeam),
                     isCurrent: isCurrent
                 ) {
                     GameCardTeamAvatar(teamName: game.awayTeam, sport: "nba", size: 18, colors: NBATeams.colorPair(for: game.awayTeam))

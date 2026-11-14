@@ -174,6 +174,26 @@ Market popularity drives efficiency. P5 (both Power-5) = heavy two-sided action 
 - Secrets live in `.env.local` (gitignored) — CFBD + Odds API keys. **Never** put keys in `.env`
   (git-tracked). Keys were pasted in chat earlier → rotate when convenient.
 - 2020 is absent everywhere (COVID); per-season strings skip it.
+- **CFBD official adjusted metrics** (`fetch_cfbd_wepa.py` → `data/cfbd/wepa_asof.parquet`,
+  in `run_cfb_week.sh` since 2026-11-04). `/wepa/team/season` serves the opponent-adjusted
+  numbers that previously arrived only as a weekly emailed CSV — verified 744 of 744 values
+  against `training_data_2026_week10.csv` for epa (total/passing/rushing), epaAllowed,
+  successRate and rushing line/second-level/open-field yards. `explosiveness` is the ONE
+  field that disagrees (CSV ~1.28 vs API ~0.95, different normalisation) and is stored as
+  `adj_explosiveness_api` so the two definitions can never be compared by accident.
+  - ⛔ **It does NOT replace `build_ratings.py`.** The endpoint has no `week` parameter: every
+    response is season-to-date *as called*, so pulling 2019 today returns 2019's finals, which
+    leak against a 2019 week-5 game. `build_ratings.py` stays the only leak-safe source for
+    weeks already played; this accumulates honest as-of snapshots from 2026-11-04 forward,
+    keyed `(season, thru_week, team)`. `thru_week=99` marks a season-final row and the script
+    refuses to stamp it on a season that still has unplayed games.
+  - Our own adjustment is correlated but materially noisier — measured 2026 wk9, 138 FBS teams:
+    `adj_epa` r=0.938 (our sd 0.133 vs official 0.075), `adj_passing_epa` r=0.864 (0.210 vs
+    0.083), `adj_success` r=0.963 (0.057 vs 0.041). CFBD shrinks toward the mean far harder
+    than our un-regularised 12-iteration loop, so our ratings push thin-sample and extreme
+    teams ~2x too far out. Typical `adj_epa` error is 0.134 against an official spread of
+    0.075 — nearly two official SDs. **Switching the model's inputs to these requires a
+    retrain**, since train/serve must use the same definition.
 
 ---
 
@@ -203,6 +223,11 @@ fantasy tail like NFL, but confidence alone cannot gate big plays); totals clean
 Dose-response (textbook): control (no confirm, no spot) 50.0% → confirm-only 54.5% → **MAMMOTH 70.0% (n=30,
 CI[52,83], CLV+0.62, per-season 57/71/86/62/100)** ≈ 6/season. Mirrors NFL (ingredients 49-54 alone, ~70 together).
 Wired: `mammoth` column in cfb_predictions CSV (2025 slate: 7 flagged). Small-n stated: 2026 live = true test.
+⛔ The GATE owns the tier downstream, not the flag table: of its four confirming spots only RvR and
+padded-road publish a `cfb_slate_flags` row, so a mammoth qualified by the SunBelt or BigTen term has no
+mammoth flag to inherit. `gen_cfb_picks` therefore reads `mammoth` off the game frame directly — deriving
+it from `flags.mammoth.any()` alone carded Georgia State @ App State (wk10-2026) as a 1u "Lean" under a
+banner that said MAMMOTH and named no market, i.e. a mammoth with no pick.
 **TOTALS MAMMOTH: NOT REAL** — big-edge+struct 53.7% vs control-without-struct 54.5% (control better), >=2-struct
 28.6%(n7); no monotonic dose-response → per pre-registration, rejected. **MULTI-RULE MAMMOTH: n=0** (non-model
 spots never co-fire 2+ same direction in CFB) — not feasible with current spot set.
@@ -316,3 +341,29 @@ active (late steam confirm, 60.0% 5/5 seasons). Computed live per game from the
 `cfb_line_movement` snapshot series vs kickoff; judged only once each window has opened;
 any missing snapshot leaves the tier exactly as the pre-refinement ladder set it. Fires
 from week 5 with the rest of core_total_edge.
+
+---
+
+## 7. DOSE RESPONSE of the base models (owner question, 2026-09-18) — `dose_response.py`
+Walk-forward 2022-25, exact production recipe, bucketed by |model − line|, per season.
+**It is a THRESHOLD, not a slope.** Sides vs opener: |edge|<2 → 49.7% (loses), 2-4 → 53.6%, 4-6 →
+56.1% (≥54% in all four seasons — the only bucket that holds every year), 6+ → flat 54-55% (10+ was
+47.7% in 2024). Totals vs opener: <4 → ≤50%, 4-8 → 54-55%, 8-10 → 48.7% (41% in 2024), 10+ → 56%.
+Rank correlation of |edge| decile vs win rate: sides vs open +0.60/+0.41/+0.02/+0.09 by season —
+present in 2022-23, flat in 2024-25. Vs close both models are ~50-54% at every edge (CLV product).
+**Weeks 1-3 lose at every edge** (sides 44-51%, n≈580) — priors/carry-forward are not bettable;
+**weeks 4+ carry everything** (sides 4+ edge 57-60%). Display rule: show a lean at |edge|≥4 and do
+NOT rank games by edge size above that; suppress sides/totals leans in weeks 1-3.
+**WIRED 2026-09-18:** `dry_common.LEAN_FLOOR = 4.0` — `gen_cfb_slate_games.py` (game-row pick + tier),
+`gen_cfb_picks.py` (spread/total cards: `pick_side=None`, `display_only=True` under the floor) and
+`refresh_cfb_slate_lines.py` (clears a lean that drifts under 4 as the line moves, restores one that
+grows back past 4). A same-side validated spot keeps its play regardless. Applies in EARLY weeks too:
+the early blend's own 2026 wk1-2 record is 35% under 4 / 61% at 4+ (n=48/49).
+
+## 8. Predict-the-close (owner ask, 2026-09-18) — `../nfl-extreme-outcomes/exp_predict_close.py`
+Target = close − open, walk-forward 2022-25, feature set is clean (no line-derived inputs).
+  opener + model edge, |pred move|≥1.0: n=109, line our way 68%, CLV +0.93 pts, win vs open 55.6% (n=108)
+    by season: 2022 77%/+0.90/60.9% · 2023 55%/+0.37/48.1% · 2024 56%/+0.02/46.4% · 2025 83%/+2.33/66.7%
+  + fundamentals: n=138, our way 68%, CLV +0.75, win vs open 56.3%
+The move's direction is predictable ~2:1; the bet vs the opener is 55-56% pooled and swings by season.
+This IS the "+CLV product" of §1, now measured directly.

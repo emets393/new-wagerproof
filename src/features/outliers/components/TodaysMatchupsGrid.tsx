@@ -1,7 +1,7 @@
 // Today's Matchups: a logo-tile grid of the slate, deep-linking into /games.
 // Spans every active sport — MLB pulls its own today's-games list (React Query
-// dedupes with the Parlay God hook); NFL/NCAAF reuse the slates already fetched
-// by useOutliersTrendsMulti. See specs/outliers_spec.md §4d.
+// dedupes with the Parlay God hook); NFL, NCAAF, NBA, and NCAAB reuse the
+// slates already fetched by useOutliersTrendsMulti. See specs/outliers_spec.md §4d.
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { SkeletonBlock } from '@/components/ios';
@@ -130,20 +130,22 @@ function slateTile(
   todayKey: string,
   sportLabel?: string,
 ): MatchupTileData {
-  // NCAAF slate keys are full team names (no abbr logos); NFL keys are abbrs.
-  const awayKey = sport === 'ncaaf' ? game.awayTeam : game.awayAb;
-  const homeKey = sport === 'ncaaf' ? game.homeTeam : game.homeAb;
+  // NCAAF/NCAAB slate keys are school names; NFL and NBA keys are abbreviations.
+  const nameKeyed = sport === 'ncaaf' || sport === 'ncaab';
+  const awayKey = nameKeyed ? game.awayTeam : game.awayAb;
+  const homeKey = nameKeyed ? game.homeTeam : game.homeAb;
   const away = teamVisuals(sport, awayKey);
   const home = teamVisuals(sport, homeKey);
+  const preferGameArt = sport === 'ncaaf' || sport === 'nba' || sport === 'ncaab';
   return {
     key: `${sport}:${game.id}`,
     href: `/games?sport=${gamesSportParam(sport)}&game=${game.id}`,
     awayAbbr: game.awayAb || away.initials,
     homeAbbr: game.homeAb || home.initials,
-    awayLogoUrl: sport === 'ncaaf' ? (game.awayLogoUrl ?? away.logoUrl) : away.logoUrl,
-    homeLogoUrl: sport === 'ncaaf' ? (game.homeLogoUrl ?? home.logoUrl) : home.logoUrl,
-    awayColors: sport === 'ncaaf' ? (game.awayColors ?? away.colors) : away.colors,
-    homeColors: sport === 'ncaaf' ? (game.homeColors ?? home.colors) : home.colors,
+    awayLogoUrl: preferGameArt ? (game.awayLogoUrl ?? away.logoUrl) : away.logoUrl,
+    homeLogoUrl: preferGameArt ? (game.homeLogoUrl ?? home.logoUrl) : home.logoUrl,
+    awayColors: preferGameArt ? (game.awayColors ?? away.colors) : away.colors,
+    homeColors: preferGameArt ? (game.homeColors ?? home.colors) : home.colors,
     awayInitials: away.initials,
     homeInitials: home.initials,
     dayLabel: dayLabelFor(game.kickoff, todayKey),
@@ -157,11 +159,11 @@ function slateTile(
 }
 
 interface TodaysMatchupsGridProps {
-  /** Sports currently in scope — one, or all three under the "All Sports" pill. */
+  /** Sports currently in scope — one, or every live sport under an empty selection. */
   sports: OutliersTrendsSport[];
-  /** NFL/NCAAF slate games by sport (from useOutliersTrendsMulti). MLB self-fetches. */
+  /** NFL/NCAAF/NBA/NCAAB slate games by sport (from useOutliersTrendsMulti). MLB self-fetches. */
   gamesBySport: Partial<Record<OutliersTrendsSport, OutliersTrendsGame[]>>;
-  /** NFL/NCAAF slates still fetching — MLB manages its own loading state. */
+  /** Football and basketball slates still fetching — MLB manages its own loading state. */
   slateLoading?: boolean;
   /** Enables the public landing-page lock funnel without changing the core product. */
   landingPreview?: boolean;

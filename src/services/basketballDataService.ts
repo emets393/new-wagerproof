@@ -225,7 +225,7 @@ export async function fetchNBAGames(): Promise<NBAGame[]> {
       const gameIds = inputValues.map(g => g.game_id);
       const { data: predictions } = await collegeFootballSupabase
         .from('nba_predictions')
-        .select('game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id')
+        .select('game_id, home_win_prob, away_win_prob, run_id')
         .eq('run_id', latestRun.run_id)
         .in('game_id', gameIds);
 
@@ -241,27 +241,10 @@ export async function fetchNBAGames(): Promise<NBAGame[]> {
       
       // Calculate spread cover probability based on model's fair spread vs Vegas spread
       let spreadCoverProb = null;
-      if (prediction && prediction.model_fair_home_spread !== null && input.home_spread !== null) {
-        const spreadDiff = Math.abs(prediction.model_fair_home_spread - input.home_spread);
-        if (prediction.model_fair_home_spread < input.home_spread) {
-          spreadCoverProb = 0.5 + Math.min(spreadDiff * 0.05, 0.35);
-        } else {
-          spreadCoverProb = 0.5 - Math.min(spreadDiff * 0.05, 0.35);
-        }
-      } else if (prediction?.home_win_prob) {
+      if (prediction?.home_win_prob) {
         spreadCoverProb = prediction.home_win_prob;
       }
-      
-      // Calculate over/under probability based on predicted total vs Vegas line
-      let ouProb = null;
-      if (prediction && prediction.model_fair_total !== null && input.total_line !== null) {
-        const totalDiff = prediction.model_fair_total - input.total_line;
-        if (totalDiff > 0) {
-          ouProb = 0.5 + Math.min(Math.abs(totalDiff) * 0.02, 0.35);
-        } else {
-          ouProb = 0.5 - Math.min(Math.abs(totalDiff) * 0.02, 0.35);
-        }
-      }
+      const ouProb = null;
       
       return {
         id: gameIdStr,
@@ -404,7 +387,7 @@ export async function fetchNBAPredictions(runId?: string): Promise<NBAPrediction
   try {
     let query = collegeFootballSupabase
       .from('nba_predictions')
-      .select('*');
+      .select('game_id, home_team, away_team, home_win_prob, away_win_prob, run_id, as_of_ts_utc');
     
     if (runId) {
       query = query.eq('run_id', runId);
@@ -413,7 +396,18 @@ export async function fetchNBAPredictions(runId?: string): Promise<NBAPrediction
     const { data, error } = await query;
 
     if (error) throw error;
-    return data || [];
+    return (data || []).map((row) => ({
+      ...row,
+      model_fair_home_spread: null,
+      model_fair_away_spread: null,
+      model_fair_home_moneyline: null,
+      model_fair_away_moneyline: null,
+      pred_home_margin: null,
+      pred_total_points: null,
+      home_score_pred: null,
+      away_score_pred: null,
+      model_version: null,
+    })) as NBAPrediction[];
   } catch (error) {
     console.error('Error fetching NBA predictions:', error);
     return [];

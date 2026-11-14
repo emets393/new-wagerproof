@@ -1108,7 +1108,9 @@ async function fetchNBAGames(
   const [polymarketByGameKey, injuriesByTeam, accuracyByGameId, situationalByGameId] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nba', games),
     fetchNBAInjuriesByTeam(cfbClient, games, targetDate),
-    fetchPredictionAccuracyByGameId(cfbClient, 'nba_todays_games_predictions_with_accuracy_cache', games, targetDate, true),
+    // Legacy engine (no cron calls it; only the deprecated RN app). The NBA accuracy cache it read was built on
+    // nba_predictions.model_fair_* (dead numbers) and is being dropped -- hand it nothing instead of a 404.
+    Promise.resolve(new Map<string, Record<string, unknown>>()),
     fetchSituationalTrendsByGameId(cfbClient, 'nba_game_situational_trends_today', games),
   ]);
 

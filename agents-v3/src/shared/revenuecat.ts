@@ -1,8 +1,13 @@
+import { resolveRestSubscription, entitlementID, type SubscriptionTier, type RestEntitlement } from './subscriptionTiers';
+
 export const REVENUECAT_ENTITLEMENT_IDENTIFIER =
   process.env.REVENUECAT_ENTITLEMENT_IDENTIFIER || 'WagerProof Pro';
 
 export interface RevenueCatEntitlementState {
   entitlementIdentifier: string;
+  customerId?: string;
+  tier: SubscriptionTier | null;
+  isTieredCustomer: boolean;
   isActive: boolean;
   subscriptionStatus: string | null;
   expiresAt: string | null;
@@ -61,28 +66,26 @@ export async function fetchRevenueCatEntitlementState(
     throw new Error(`RevenueCat API error: ${response.status} - ${errorText}`);
   }
 
-  const subscriberData: any = await response.json();
+  const subscriberData = await response.json() as { subscriber?: { entitlements?: Record<string, RestEntitlement>; subscriptions?: Record<string, RestEntitlement> } };
   const subscriber = subscriberData?.subscriber;
-  const entitlement = subscriber?.entitlements?.[entitlementIdentifier];
-
-  let isActive = false;
-  if (entitlement) {
-    if ('is_active' in entitlement) {
-      isActive = entitlement.is_active === true;
-    } else if (entitlement.expires_date) {
-      isActive = new Date(entitlement.expires_date) > new Date();
-    } else {
-      isActive = true;
-    }
+  const resolved = resolveRestSubscription(subscriber?.entitlements, Date.now(), subscriber?.subscriptions);
+  // Preserve a configured legacy entitlement alias as Pro as well.
+  const legacy = subscriber?.entitlements?.[entitlementIdentifier];
+  if (entitlementIdentifier !== 'WagerProof Pro' && legacy) {
+    const legacyState = resolveRestSubscription({ 'WagerProof Pro': legacy });
+    if (legacyState.tier === 'pro') { resolved.tier = 'pro'; resolved.entitlement = legacy; }
   }
-
+  const entitlement = resolved.entitlement;
   const productIdentifier = entitlement?.product_identifier || null;
-
   return {
-    entitlementIdentifier,
-    isActive,
-    subscriptionStatus: isActive ? deriveSubscriptionStatus(productIdentifier) : null,
-    expiresAt: isActive ? entitlement?.expires_date || null : null,
+    customerId: appUserId,
+    entitlementIdentifier: resolved.tier ? entitlementID(resolved.tier) : entitlementIdentifier,
+    // Existing agent endpoints use isActive as Pro, never as any-paid.
+    isActive: resolved.tier === 'pro',
+    tier: resolved.tier,
+    isTieredCustomer: resolved.isTieredCustomer,
+    subscriptionStatus: resolved.tier ? deriveSubscriptionStatus(productIdentifier) : null,
+    expiresAt: resolved.tier ? entitlement?.expires_date || null : null,
     productIdentifier,
   };
 }

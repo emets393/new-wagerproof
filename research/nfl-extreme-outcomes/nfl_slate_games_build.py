@@ -90,9 +90,71 @@ REC = {"mammoth": "MAMMOTH Play", "high": "High Conviction", "med": "Solid Play"
        "low": "Lean", "lean": "Small Lean", "none": "No Bet"}
 STAKE = {"mammoth": 3.0, "high": 1.5, "med": 1.0, "low": 0.5, "lean": 0.25, "none": 0.0}
 CONV_RANK = {"none": 0, "lean": 1, "low": 2, "med": 3, "high": 4, "mammoth": 5}
+# DOSE-RESPONSE FLOOR + CAP (NFL_MODEL_NOTES.md, dose_response.py, 2026-09-18). The classifier is a
+# hump: |P(home cover)-.5| in .03-.06 = 50.0% at the opener (loses), .06-.15 = 58-60%, .15+ decays.
+# The regression gap INVERTS at the extreme: |pred margin - line| >= 7 = 38.9% vs close, losing all
+# five seasons. So a lean needs classifier confidence >= PLAY_CONF, and a regression gap >= REG_CAP
+# is display-only regardless. The regression magnitude no longer sets the tier (it never ranked).
+PLAY_CONF = 0.06
+REG_CAP = 7.0
+# ⛔ TOTALS PICK SUSPENDED 2026-10-22. The totals model has no measurable signal on 2026:
+# corr(pred_total, close) = +0.04 and corr(pred_total, actual) = -0.09 against corr(close,
+# actual) = +0.44, prediction sd 2.86 vs the market's 4.45, and MAE 12.12 vs the close's 10.67 —
+# it is less accurate than quoting Vegas. Cause: 21 of the b15 features are team_week `_s2d`
+# columns that are 8-season franchise averages, not season-to-date (within-team sd across 2026
+# weeks 0.0029 vs between-team 0.2475; 19 of 31 teams never moved all season), so the model
+# cannot see this year's form and its "edge" is just the market's own deviation negated.
+# Published record while it was live: 28-47 (37.3%) at the close, ROI -28.7%.
+# ⛔ Do NOT flip this back on until build_team_week_seasonal.py serves these features as real
+# season-to-date AND a walk-forward refit clears the market on MAE and sign agreement.
+# See .claude/docs/33_nfl_market_model_audit.md.
+TOTALS_PICK_ENABLED = False
+# ★ SPREAD CONFLUENCE GATE (2026-10-23). The sides model's entire edge lives in two
+# schedule-known subgroups. Walk-forward, fresh fit per fold, graded at the opener, all bands
+# pre-registered, placebo-controlled (see .claude/docs/33_nfl_market_model_audit.md):
+#
+#     primetime ONLY (no rest edge)     52-30   63.4%   n=82
+#     rest edge ONLY (not primetime)    27-13   67.5%   n=40
+#     BOTH                              11-4    73.3%   n=15
+#     NEITHER                          155-153  50.3%   n=308    <- a coin flip
+#     all gated picks                  245-200  55.1%   n=445
+#
+# The two gates select different games (overlap 15) and are additive. So the headline 55.1% was a
+# blend of a real ~64% edge on 137 picks and noise on 308 — which is why it never felt like it
+# worked. Publishing the 308 is the same mistake as the totals tiers: a coin flip presented as a
+# play. Per season both hold 3/3 (primetime 62.5/67.6/68.0, rest 75.0/71.4/68.8) and both clear
+# their placebo bands (primetime [47.4,57.3], rest [40.7,54.7]).
+# ⚠ Both live in the model's own feature set (primetime_i, home_rest/away_rest), so this is
+# conditional performance, not true confluence — the model sees them and still cannot price them.
+# ⚠ 7 signals were tested and 2 hit, so multiple comparisons apply; what carries this is 3/3
+# seasons + placebo + dose-response + mutual independence, not one p-value. rest-only n=40 is thin.
+# ⛔ Set False to publish every conviction pick again (the pre-2026-10-23 behaviour).
+SPREAD_GATE_ENABLED = True
+SPREAD_GATE_REST_DAYS = 3
+# primetime matches build.py:160 exactly — kick_hour_et >= 19. ⛔ Do NOT substitute `slot`: it
+# buckets Friday afternoon into thu_fri and Saturday into sun_late_sat, so it would gate a
+# different set of games than the one that was validated.
+SPREAD_GATE_PRIMETIME_HOUR_ET = 19
+# EARLY-SEASON SUPPRESSION (audit_nfl_prod_parity.py, 2026-10-06). forecast_harness.train_predict
+# trains on `week >= 4` but predicts EVERY week, so weeks 1-3 are scored by a model that has never
+# seen an early-season game. Walk-forward 2021-25 those weeks are 97-97 — exactly 50.0%, ROI -4.5%
+# on 194 bets, and no season is positive (21-18, 18-23, 16-21, 19-20, 23-15). That is ~17% of all
+# volume at zero edge. Suppressing them takes the full season from 51.9% to 52.3%.
+# ⛔ Do NOT "fix" this by training on weeks 1-3 instead: measured, that drops wks1-3 to 48.4% AND
+# wrecks wks4+ from 52.3% to 49.7% (early s2d features are unreliable and poison the fit). The
+# training filter is correct; the bet is what has to go. Scoped to the SPREAD side, which is what
+# was measured — the totals model is a separate fit and has not been tested for this.
+MIN_PLAY_WEEK = 4
 # the line a signal was computed from -> the line we GRADE against (grading framework)
 GRADE_LINE = {"fg_harness": "open", "consensus_totals": "open",
               "props": "close", "h1_model": "close", "k_signal": "close", "late_defense": "close"}
+# Per-RULE override of the source default. The legacy rules come from fg_harness, whose other
+# rules are opener-triggered and graded at the opener — but nfl-predictions now runs DAILY on
+# that morning's board (owner 2026-09-29), so a legacy trigger can first cross its threshold on
+# any day of the week. Grading a Friday trigger at Monday's opener books a price that was no
+# longer available; per the grade-at-the-line-the-signal-uses rule these grade at DETECTION,
+# and forecast_harness writes the model's own home_spread as the line.
+GRADE_LINE_BY_RULE = {"legacy_fade": "detection", "legacy_primetime": "detection"}
 # default conviction per source/tier for a flag row (mirrors nfl_signal_defs.default_conviction)
 ACTIVE_HIGH = {"legacy_primetime", "legacy_fade", "tight_soft_ml_fade_home",
                "top_vs_top_pt_home", "dk_heavy_home_juice", "dk_giant_fav_over",
@@ -192,11 +254,84 @@ def weather(r):
                 wx_precip_mm=None, wx_icon=icon, wx_summary=summary)
 
 
+_FC_CACHE = {}
+def forecast_wx(home_ab, away_ab):
+    """Pregame forecast for UPCOMING games, from the legacy nfl-weather feed
+    (production_weather, keyed HomeCity+AwayCity+season+week; dome flag from
+    team_mapping). weather() above reads REALIZED conditions out of historical
+    frames, which upcoming games cannot have — every 2026 wk1 card shipped
+    weather-blank (2026-09-08) while the forecast cron sat green and unread.
+    Returns None when no forecast exists (card stays blank, as before)."""
+    try:
+        if "map" not in _FC_CACHE:
+            key = load_key()
+            hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+            rws = requests.get(f"{BASE_URL}/production_weather?select=*", headers=hdr, timeout=30).json()
+            _FC_CACHE["map"] = {str(x.get("training_key")): x for x in rws} if isinstance(rws, list) else {}
+            tmw = pd.read_parquet(DATA / "team_mapping.parquet")
+            _FC_CACHE["city"] = {NORM.get(a, a): (n, bool(d)) for a, n, d in
+                                 zip(tmw["Team Abbrev"], tmw["team_name"], tmw["dome_stadium"])}
+        h = _FC_CACHE["city"].get(home_ab)
+        a = _FC_CACHE["city"].get(away_ab)
+        if not h or not a:
+            return None
+        if h[1]:
+            return dict(wx_indoors=True, wx_temp_f=None, wx_wind_mph=None,
+                        wx_precip_mm=None, wx_icon="indoor", wx_summary="Indoors (dome)")
+        row = _FC_CACHE["map"].get(f"{h[0]}{a[0]}{SEASON}{WEEK}")
+        if not row or row.get("temperature") is None:
+            return None
+        temp = float(row["temperature"])
+        wind = float(row.get("wind_speed") or 0)
+        icon = "wind" if wind >= 15 else ("cold" if temp <= 32 else "clear")
+        return dict(wx_indoors=False, wx_temp_f=temp, wx_wind_mph=wind,
+                    wx_precip_mm=None, wx_icon=icon,
+                    wx_summary=f"{int(temp)}\u00b0F, wind {int(wind)} mph")
+    except Exception as e:
+        print(f"[wx] forecast fill skipped: {e}")
+        return None
+
+
 def load_key():
     for line in (ROOT.parent.parent / ".env.local").read_text().splitlines():
         if line.startswith("SUPABASE_SERVICE_KEY="):
             return line.split("=", 1)[1].strip()
     sys.exit("SUPABASE_SERVICE_KEY not found in .env.local")
+
+
+TOTAL_ANCHOR_CAP = 6.0   # CFB's CAP_T (cfb_early_week.py:158)
+
+
+def _anchor_total(pred, close, cap=TOTAL_ANCHOR_CAP):
+    """Displayed total = market close + the model's deviation, capped at +/- cap.
+
+    This is CFB's anchor (cfb_early_week.py:163, LAM=1.0 / CAP_T=6.0) applied to NFL, which
+    had none: fg_pred_total was the raw ensemble output. The owner's complaint was that every
+    game looked like the same game, and he was right -- across all of 2026 the raw number
+    never printed above 51.5 while the market reached 55.5, and 65% of predictions sat in the
+    5-point band 42.5-47.5. It is not a clip in the code; it is a gradient-boosting regressor
+    with weak features collapsing toward its training mean, and the symptom is that the shown
+    number stops tracking the game.
+
+    Measured effect on how well the displayed total tracks the market:
+
+        2025 (284 games)    corr 0.472 -> 0.568
+        2026 wk5-9 ( 57)    corr 0.406 -> 0.712
+
+    ⛔ THIS CHANGES NO PICKS, BY CONSTRUCTION, AND MUST NOT. fg_total_pick is
+    `direction if tier == "HC"`, and tier/direction come from the two COMPONENT edges against
+    the OPENER inside consensus_totals.predict_all -- they never read the displayed total. The
+    cap is therefore display-only. Verified separately: the production HC window [3,7] is the
+    best of eight tested on 2025 (29-19, 60.4%, +7.4u), so the bet rule is already tuned and
+    is deliberately left alone. A LAM<1 shrink was considered and REJECTED: expressed in the
+    rule the board actually uses it widens the window to [4,9.33] and grades 17-15 (53.1%).
+    """
+    if pred is None or pd.isna(pred):
+        return None
+    if close is None or pd.isna(close):
+        return round(float(pred), 2)      # no close to anchor to -> ship the model's own number
+    c = float(close)
+    return round(c + float(np.clip(float(pred) - c, -cap, cap)), 2)
 
 
 def amer(pay):
@@ -215,28 +350,120 @@ def win_prob(margin):
     return 0.5 * (1 + math.erf(margin / (13.86 * math.sqrt(2))))
 
 
+def _seed_universe(fall_cols):
+    """Full-schedule game universe for the week (master slate + nflverse ids/kickoffs),
+    shaped to the h1tt frame's columns with 1H fields NaN."""
+    mm = pd.read_parquet(DATA / "master.parquet")
+    slate = mm[(mm.season == SEASON) & (mm.week == WEEK)][["season", "week", "home_ab", "away_ab"]].copy()
+    slate["home_ab"] = norm_ab(slate.home_ab); slate["away_ab"] = norm_ab(slate.away_ab)
+    # real nflverse game_id + gameday + gametime from the schedule (join on normalized abbrs)
+    sched = pd.read_parquet(DATA / "nflverse_games.parquet")
+    sched = sched[(sched.season == SEASON) & (sched.week == WEEK)][
+        ["season", "week", "home_team", "away_team", "game_id", "gameday", "gametime"]]
+    slate = slate.merge(sched, left_on=["season", "week", "home_ab", "away_ab"],
+                        right_on=["season", "week", "home_team", "away_team"], how="left")
+    kick = pd.to_datetime(slate.gameday.astype(str) + " " + slate.gametime.fillna("13:00"),
+                          errors="coerce").dt.tz_localize("America/New_York").dt.tz_convert("UTC")
+    f = slate.reindex(columns=fall_cols)
+    for c in ("season", "week", "home_ab", "away_ab", "game_id", "gameday"):
+        f[c] = slate[c].values
+    f["_seed_kickoff"] = kick.dt.strftime("%Y-%m-%dT%H:%M:%S+00:00").values
+    return f
+
+
+
+def _csv_or_empty(path, cols):
+    """Read an out/ CSV, or return an empty frame with these columns.
+
+    These are written by earlier steps of run_nfl_week.sh from whatever the books have posted.
+    On a MONDAY PREVIEW build the next week's derivative markets are not up yet, so the writer
+    produces a header-less/empty file, out/ is git-ignored so a fresh Render clone has no stale
+    copy from last week, and pandas raises EmptyDataError — that killed the first
+    nfl-slate-monday-preview run (2026-09-28). No rows here means no totals/ledger flags this
+    run; the game rows still write, which is the whole point of a preview build.
+    """
+    try:
+        d = pd.read_csv(path)
+        if len(d.columns):
+            return d
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        pass
+    print(f"  [slate] {os.path.basename(str(path))} missing/empty — continuing without it")
+    return pd.DataFrame(columns=cols)
+
+
+def spread_gate(r, kick_iso, pick_side):
+    """Does this game qualify for a published spread pick? -> (ok, reason).
+
+    See SPREAD_GATE_ENABLED. The model is 50.3% on the 308 games that clear NEITHER gate and
+    ~64% on the 137 that clear one, so an ungated pick is a coin flip dressed as a play.
+
+    ⛔ FAILS CLOSED. If neither the kick hour nor the rest days can be read, the pick is held
+    rather than published — an unverifiable gate is not a passed gate. main() prints the gate
+    distribution every run, so a feed that silently stops supplying gametime/rest shows up as a
+    board of all-NEUTRAL spreads instead of quietly reverting to publishing everything.
+    """
+    if not SPREAD_GATE_ENABLED:
+        return True, None
+    if pick_side not in ("HOME", "AWAY"):
+        return False, None          # no lean to gate; fg_spread_pick is NEUTRAL anyway
+    # primetime = ET kick hour >= 19, matching build.py:160's `primetime` exactly. gametime is
+    # already ET on this frame (build.py:330 localizes it as such); the UTC kickoff is a fallback.
+    # primetime: the study's own flag first (build.py:160, kick_hour_et >= 19), then the ET
+    # gametime string, then the UTC kickoff. Three sources because only the first is guaranteed
+    # to agree with the backtest, and only the last is guaranteed to be present.
+    _pf = pd.to_numeric(r.get("_gate_primetime"), errors="coerce")
+    if pd.notna(_pf):
+        hour, gt = (19 if _pf > 0 else 12), None
+    else:
+        hour, gt = None, (r.get("_gate_gametime") or r.get("gametime"))
+    if isinstance(gt, str) and ":" in gt:
+        try:
+            hour = int(gt.split(":")[0])
+        except ValueError:
+            hour = None
+    if hour is None and kick_iso:
+        try:
+            hour = pd.Timestamp(kick_iso).tz_convert("America/New_York").hour
+        except (ValueError, TypeError):
+            hour = None
+    prime = hour is not None and hour >= SPREAD_GATE_PRIMETIME_HOUR_ET
+    # rest edge is measured on the side the model is BACKING, not on the home team
+    hr = pd.to_numeric(r.get("home_rest"), errors="coerce")
+    ar = pd.to_numeric(r.get("away_rest"), errors="coerce")
+    rest = False
+    if pd.notna(hr) and pd.notna(ar):
+        edge = (hr - ar) if pick_side == "HOME" else (ar - hr)
+        rest = edge >= SPREAD_GATE_REST_DAYS
+    if prime and rest:
+        return True, "primetime+rest"
+    if prime:
+        return True, "primetime"
+    if rest:
+        return True, "rest"
+    if hour is None and not (pd.notna(hr) and pd.notna(ar)):
+        return False, "held_unverifiable"
+    return False, "held_no_gate"
+
+
 def build_games():
     fall = pd.read_parquet(DATA / "h1tt_frame.parquet")
     f = fall[(fall.season == SEASON) & (fall.week == WEEK)].copy()
+    # The game universe is ALWAYS the full schedule. h1tt_frame carries only PLAYED
+    # games (quarter scores), so mid-week it holds a partial slate — the morning after
+    # the 2026 opener it held exactly 1 game, the old empty-check kept it as the
+    # universe, and the write wiped the other 15 games off the site (2026-09-10).
+    # Seed rows fill every scheduled game the frame doesn't cover; played rows keep
+    # their 1H data, upcoming ones stay NaN exactly as before.
+    seed = _seed_universe(fall.columns)
     if f.empty:
-        # Upcoming week: unplayed games have no quarter scores, so h1tt_frame carries no rows for them.
-        # Seed the game universe from the master slate so every game still gets an FG card; the 1H
-        # columns stay NaN (blank 1H cards, accepted interim) and the FG merges below fill the rest.
-        mm = pd.read_parquet(DATA / "master.parquet")
-        slate = mm[(mm.season == SEASON) & (mm.week == WEEK)][["season", "week", "home_ab", "away_ab"]].copy()
-        slate["home_ab"] = norm_ab(slate.home_ab); slate["away_ab"] = norm_ab(slate.away_ab)
-        # real nflverse game_id + gameday + gametime from the schedule (join on normalized abbrs)
-        sched = pd.read_parquet(DATA / "nflverse_games.parquet")
-        sched = sched[(sched.season == SEASON) & (sched.week == WEEK)][
-            ["season", "week", "home_team", "away_team", "game_id", "gameday", "gametime"]]
-        slate = slate.merge(sched, left_on=["season", "week", "home_ab", "away_ab"],
-                            right_on=["season", "week", "home_team", "away_team"], how="left")
-        kick = pd.to_datetime(slate.gameday.astype(str) + " " + slate.gametime.fillna("13:00"),
-                              errors="coerce").dt.tz_localize("America/New_York").dt.tz_convert("UTC")
-        f = slate.reindex(columns=fall.columns)
-        for c in ("season", "week", "home_ab", "away_ab", "game_id", "gameday"):
-            f[c] = slate[c].values
-        f["_seed_kickoff"] = kick.dt.strftime("%Y-%m-%dT%H:%M:%S+00:00").values
+        f = seed
+    else:
+        have = set(zip(norm_ab(f.home_ab), norm_ab(f.away_ab)))
+        missing = seed[[not ((h, a) in have) for h, a in zip(seed.home_ab, seed.away_ab)]]
+        if len(missing):
+            print(f"[universe] h1tt frame covers {len(f)} played game(s); seeding {len(missing)} upcoming from schedule")
+            f = pd.concat([f, missing], ignore_index=True)
     hp = pd.read_parquet(DATA / "h1m_preds.parquet")
     hp = hp[(hp.season == SEASON) & (hp.week == WEEK)]
     g = f.merge(hp[["slot", "season", "week", "home_ab", "away_ab", "fg_sp", "fg_tot",
@@ -244,6 +471,16 @@ def build_games():
                     "resid_tot", "resid_cov"]], on=GK, how="left")
     ctx = pd.read_parquet(DATA / "h1tt_context.parquet")
     g = g.merge(ctx[GK + ["h_h1_pf_avg", "a_h1_pf_avg"]], on=GK, how="left")
+    # Gate inputs come from matchup.parquet, NOT h1tt_context: build.py writes it at step 57
+    # with 100% coverage on the current season, while the 1H frames are rebuilt later and
+    # carried no 2026 rows at all when the gate was written. It is also the SAME frame the
+    # confluence study was run on, so the gate selects exactly the games that were validated
+    # rather than a near-miss set. ⛔ If these stop arriving, spread_gate() fails closed and
+    # the run-end distribution print is how you find out.
+    _mg = pd.read_parquet(DATA / "matchup.parquet")
+    _mg = _mg[_mg.season == SEASON][GK + ["home_rest", "away_rest", "gametime", "primetime"]]
+    _mg = _mg.rename(columns={"gametime": "_gate_gametime", "primetime": "_gate_primetime"})
+    g = g.merge(_mg.drop_duplicates(GK), on=GK, how="left", suffixes=("", "_mg"))
 
     od = pd.read_parquet(DATA / "odds_consensus.parquet")
     od["home_ab"] = norm_ab(od.home_ab); od["away_ab"] = norm_ab(od.away_ab)
@@ -261,12 +498,22 @@ def build_games():
             g[col] = g[src]
 
     # FG totals model (locked consensus ensemble, strict-open artifact)
-    ct = pd.read_csv(ROOT / "out" / f"predictions_totals_{SEASON}.csv")
+    ct = _csv_or_empty(ROOT / "out" / f"predictions_totals_{SEASON}.csv",
+                       ["season", "week", "home_ab", "away_ab", "display_total",
+                        "edge_open", "direction", "tier", "bet_quality"])
     ct = ct[ct.week == WEEK].copy()
     ct["home_ab"] = norm_ab(ct.home_ab); ct["away_ab"] = norm_ab(ct.away_ab)
     g = g.merge(ct[["season", "week", "home_ab", "away_ab", "display_total",
                     "edge_open", "direction", "tier", "bet_quality"]],
                 on=GK, how="left")
+
+    # ONE anchored column, computed here so every DISPLAY consumer reads the same number and
+    # they cannot disagree on a card. Deliberately NOT written back over display_total:
+    # pred_tot_anch falls back to 0.495 * display_total further down and the 1H total pick is
+    # taken off pred_tot_anch, so overwriting the source would move a BET basis. This must stay
+    # display-only -- see _anchor_total.
+    g["display_total_anch"] = [_anchor_total(pv, cv) for pv, cv
+                               in zip(g.display_total, g.total_close_total_point)]
 
     # FG sides model (locked harness BASE+21), trained on seasons < 2025
     from forecast_harness import build, train_predict, CONF, REG_EDGE
@@ -285,8 +532,11 @@ def build_games():
         # Pre-2026-08-15 this used the classifier (ph) while the card used reg_edge — when
         # the two models split, header and card CONTRADICTED (the CFB Oklahoma failure).
         # NEUTRAL when the classifier disagrees with the margin side (the card shows
-        # conv=none there) or the classifier is inside its confidence band.
-        if pd.isna(r.reg_edge) or pd.isna(r.ph) or pd.isna(r.open_spread) or abs(r.ph - 0.5) < CONF:
+        # conv=none there), the classifier is under the PLAY_CONF floor, or the
+        # regression gap is past REG_CAP (the inverted extreme — see constants).
+        if pd.isna(r.reg_edge) or pd.isna(r.ph) or pd.isna(r.open_spread) or abs(r.ph - 0.5) < PLAY_CONF:
+            return "NEUTRAL"
+        if abs(r.reg_edge) >= REG_CAP:
             return "NEUTRAL"
         margin_home = r.reg_edge >= 0
         if margin_home != (r.ph >= 0.5):
@@ -297,8 +547,10 @@ def build_games():
     g["fg_home_win_prob"] = g.pred_margin.map(lambda x: round(win_prob(x), 4) if pd.notna(x) else None)
 
     # derived team totals: split FG pred total by pred margin (DISPLAY ONLY)
-    g["tt_home_pred"] = (g.display_total + g.pred_margin) / 2
-    g["tt_away_pred"] = (g.display_total - g.pred_margin) / 2
+    # From the ANCHORED total: fg_pred_home_pts + fg_pred_away_pts must equal fg_pred_total,
+    # or the card contradicts itself (slate-coherence rule).
+    g["tt_home_pred"] = (g.display_total_anch + g.pred_margin) / 2
+    g["tt_away_pred"] = (g.display_total_anch - g.pred_margin) / 2
 
     # ---- live 1H/TT close fallback (2026-08-24 incident) --------------------------------
     # h1tt_frame carries closes only for PLAYED games, so every 1H/TT card on an upcoming
@@ -460,10 +712,11 @@ def build_flags(g):
             price=price, edge=float(edge) if pd.notna(edge) else None,
             mammoth=bool(mammoth),
             signal_key=rule, conviction=conv, stake_units=STAKE[conv],
-            grade_line=GRADE_LINE.get(source, "close")))
+            grade_line=GRADE_LINE_BY_RULE.get(rule, GRADE_LINE.get(source, "close"))))
 
     # ---- FG harness ledger (already generated walk-forward at the opener)
-    led = pd.read_csv(ROOT / "out" / f"forecast_ledger_{SEASON}.csv")
+    led = _csv_or_empty(ROOT / "out" / f"forecast_ledger_{SEASON}.csv",
+                        ["week", "game", "side", "conviction", "source"])
     led = led[led.week == WEEK]
     gmap = {f"{r.away_ab}@{r.home_ab}": r for _, r in g.iterrows()}
     for _, p in led.iterrows():
@@ -606,6 +859,91 @@ def build_flags(g):
                     f"{r.away_ab} {-csp:+g}", -csp,
                     amer(r.spread_close_pay_spread_away_price), tt_vs_spread)
 
+    # ---- ROCK-FIGHT BOUNCE (owner-shipped 2026-09-15, exp battery 1999-2025 + splits).
+    # A team's previous game was LOW-SCORING AND CLOSE (<=35 combined, decided by <=7):
+    # the market over-discounts stifled offenses after a competitive slog -> next game
+    # OVER 53.5% (n=1751, z=+2.9); placebo (low-scoring BLOWOUT) 48.6% = closeness is
+    # the ingredient. BOOST: both teams triggered AND non-divisional -> 61.8% (n=136).
+    # Suppressed wk13+ (late-season rock fights are real weather: 50.6%); wk1 has no
+    # prior game. Graded vs close (validation basis).
+    if 2 <= WEEK <= 12:
+        try:
+            _sched_p = ROOT / "data" / "nflverse_games.parquet"
+            if _sched_p.exists():
+                _nv = pd.read_parquet(_sched_p)
+            else:
+                _nv = pd.read_csv("https://github.com/nflverse/nfldata/raw/master/data/games.csv")
+            _nv = _nv[(_nv.season == SEASON) & (_nv.game_type == "REG")]
+            _done = _nv[_nv.result.notna()]
+            _last = {}
+            for _, _gm in _done.sort_values("week").iterrows():
+                _tot, _mar = _gm.home_score + _gm.away_score, abs(_gm.result)
+                for _t in (_gm.home_team, _gm.away_team):
+                    _last[_t] = (_tot <= 35) and (_mar <= 7)
+            _divmap = {(str(x.away_team), str(x.home_team)): bool(x.div_game == 1)
+                       for _, x in _nv[_nv.week == WEEK].iterrows()}
+            for _, r in g.iterrows():
+                th, ta = _last.get(r.home_ab, False), _last.get(r.away_ab, False)
+                if not (th or ta):
+                    continue
+                tot_line = r.total_close_total_point if pd.notna(getattr(r, "total_close_total_point", np.nan)) else None
+                if tot_line is None:
+                    continue
+                both = th and ta
+                is_div = _divmap.get((r.away_ab, r.home_ab), False)
+                if both and not is_div:
+                    add(r, "rockfight", "rockfight_bounce_over", "active", "total",
+                        f"OVER {tot_line:g}", tot_line,
+                        amer(getattr(r, "total_close_pay_total_over_price", np.nan)), None)
+                else:
+                    add(r, "rockfight", "rockfight_bounce_lean", "tracking", "total",
+                        f"OVER {tot_line:g}", tot_line,
+                        amer(getattr(r, "total_close_pay_total_over_price", np.nan)), None)
+        except Exception as _e:
+            print(f"  [rockfight] skipped ({type(_e).__name__}: {_e})")
+
+    # ---- FAILED-COMEBACK OVER (owner battery 2026-09-15, tracking/paper).
+    # Previous game: team fell into a DEEP hole (own win prob <= .10 at some point),
+    # stormed back, and lost by <=3. Their offense ended the game white-hot but the
+    # box score says "loss" -> the market shades their next total down -> next game
+    # OVER 54.5% (n=503, 2012-25; eras 61/47/55). DOUBLE placebo separation: close
+    # loss WITHOUT the hole = 46.2% over; deep hole WITHOUT the close finish = 48.2%.
+    if WEEK >= 2:
+        try:
+            _pbp = pd.read_parquet(
+                f"https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{SEASON}.parquet",
+                columns=["game_id", "wp", "posteam", "home_team", "qtr"])
+            # study-identical construct: possession plays only, regulation only —
+            # raw min includes the final-whistle 0.0 every loser prints (2026-09-15 audit)
+            _pbp = _pbp[_pbp.posteam.notna() & _pbp.wp.notna() & (_pbp.qtr <= 4)]
+            _pbp["home_wp"] = np.where(_pbp.posteam == _pbp.home_team, _pbp.wp, 1 - _pbp.wp)
+            _wpmin = _pbp.groupby("game_id").home_wp.agg(["min", "max"])
+            _sp2 = ROOT / "data" / "nflverse_games.parquet"
+            _nv2 = pd.read_parquet(_sp2) if _sp2.exists() else pd.read_csv(
+                "https://github.com/nflverse/nfldata/raw/master/data/games.csv")
+            _done2 = _nv2[(_nv2.season == SEASON) & (_nv2.game_type == "REG") & _nv2.result.notna()]
+            _fc = set()
+            for _, _gm in _done2.sort_values("week").iterrows():
+                _w = _wpmin.loc[_gm.game_id] if _gm.game_id in _wpmin.index else None
+                if _w is None:
+                    continue
+                for _t, _hm in ((_gm.home_team, True), (_gm.away_team, False)):
+                    _marg = _gm.result if _hm else -_gm.result
+                    _tmin = _w["min"] if _hm else 1 - _w["max"]
+                    if _tmin <= 0.10 and -3 <= _marg < 0:
+                        _fc.add(_t)
+                    else:
+                        _fc.discard(_t)                            # only the MOST RECENT game counts
+            for _, r in g.iterrows():
+                if r.home_ab in _fc or r.away_ab in _fc:
+                    _tl = r.total_close_total_point
+                    if pd.notna(_tl):
+                        add(r, "rockfight", "failed_comeback_over", "tracking", "total",
+                            f"OVER {_tl:g}", _tl,
+                            amer(getattr(r, "total_close_pay_total_over_price", np.nan)), None)
+        except Exception as _e:
+            print(f"  [failed_comeback] skipped ({type(_e).__name__}: {_e})")
+
     # ---- LATE-SEASON DEFENSE family (NFL_LATE_SEASON_DEFENSE.md, owner-shipped 2026-08-23).
     # Entering-week league percentile ranks of defense (EPA allowed, lower=better) and offense
     # (EPA, higher=better) from team_week (= nfl_pregame_advanced_team_week, the legacy EPA feed
@@ -664,7 +1002,13 @@ def build_flags(g):
             f"OVER {r.total_close_total_point:g}", r.total_close_total_point,
             amer(r.total_close_pay_total_over_price), r.p11_resid)
 
-    return pd.DataFrame(flags)
+    # Keep the columns even with zero rows: a preview build fires no flags, and an empty frame
+    # with no columns KeyErrors every downstream groupby instead of just producing nothing.
+    return pd.DataFrame(flags, columns=None if flags else
+                        ["bet_team", "bet_direction", "bet_line", "game_id", "season", "week",
+                         "game", "source", "rule", "tier", "market", "side", "line", "price",
+                         "edge", "mammoth", "signal_key", "conviction", "stake_units",
+                         "grade_line"])
 
 
 def grade_play(kind, pick_side, line, r):
@@ -694,7 +1038,35 @@ def book_meta():
     return {b["book_key"]: (b["display_name"], b["logo_url"]) for b in resp.json()}
 
 
-def sig_objs(sub, pick_side, market, home_ab):
+def _fired_vs_board(f, market, ab, home_ab, board_home, board_total):
+    """(line the signal FIRED at, same side's line on the board NOW) — both from the bet's view.
+
+    A signal is priced when it triggers and the market keeps moving, so a card was printing
+    "Baltimore Ravens -2.5" next to a board of "Baltimore +3" with nothing saying those are two
+    different moments. That reads as a bug (the owner reported it as one) even though -2.5 was
+    correct at trigger time — BAL@ATL wk5 2026 moved 5.5 points on a QB change. Surface both so
+    the card can say which is which instead of leaving the user to guess.
+    """
+    import numpy as _np
+    def _n(v):
+        try:
+            return None if v is None or (isinstance(v, float) and _np.isnan(v)) else float(v)
+        except Exception:
+            return None
+    if market in ("spread", "h1_spread"):
+        fired = _n(getattr(f, "bet_line", None))
+        if fired is None:                       # derive: `line` is home-perspective
+            raw = _n(getattr(f, "line", None))
+            fired = None if raw is None else (raw if ab == home_ab else -raw)
+        bh = _n(board_home)
+        board = None if bh is None else (bh if ab == home_ab else -bh)
+        return fired, board
+    if market in ("total", "h1_total"):
+        return _n(getattr(f, "line", None)), _n(board_total)
+    return _n(getattr(f, "line", None)), None
+
+
+def sig_objs(sub, pick_side, market, home_ab, board_home=None, board_total=None):
     """Per-signal display objects for a card: which TEAM/side each fired signal backs
     and whether it agrees with the card's pick. The frontend groups these under
     'Supporting Signals' (stance=support) vs 'Contradicting Signals' (stance=counter)
@@ -722,9 +1094,32 @@ def sig_objs(sub, pick_side, market, home_ab):
             stance = "support" if tok[0].upper() == pick_side else "counter"
             dirn = "Over" if tok[0].upper() == "OVER" else ("Under" if tok[0].upper() == "UNDER" else None)
             action = f"{dirn}{half}" if dirn else side
+        fired, board = _fired_vs_board(f, market, (tok[0] if tok else None), home_ab,
+                                       board_home, board_total)
+        moved = (fired is not None and board is not None and abs(fired - board) >= 0.5)
+        if moved:
+            # name the drift in the human-readable line so it cannot read as a wrong number
+            action = f"{action} — priced at {fired:+g}, now {board:+g}"
         out.append(dict(key=f.signal_key, label=side, team=team,
-                        action=action, stance=stance, tier=f.tier))
+                        action=action, stance=stance, tier=f.tier,
+                        fired_line=fired, board_line=board, line_moved=bool(moved)))
     return sorted(out, key=lambda x: (x["stance"] != "support", x["key"]))
+
+
+def split_keys(objs):
+    """(agreeing, contradicting) signal keys for a card.
+
+    signal_keys is what refresh_signal_performance grades: it joins each key to the card
+    and credits the CARD's result to that signal. So a key here that points at the other
+    side books the wrong bet. legacy_primetime read 2-0 in 2026 off exactly that — the
+    PIT@CLE flag took Pittsburgh -3 (lost by 3) while the card was Cleveland +3 (won), and
+    the roll-up counted Cleveland's win under the Pittsburgh signal.
+
+    sig_objs already resolves stance per signal; this just keeps the two apart. CFB has
+    carried counter_signal_keys since its pick build; NFL never got the port.
+    """
+    return ([o["key"] for o in objs if o["stance"] == "support"],
+            [o["key"] for o in objs if o["stance"] != "support"])
 
 
 def build_picks(g, fl, books, kickoff, meta):
@@ -769,17 +1164,28 @@ def build_picks(g, fl, books, kickoff, meta):
             f.rule != "sides_model"
             and ((str(f.side).split()[0] == r.home_ab) == (side == "HOME"))
             for _, f in act_sp.iterrows())
-        if not agree:
-            conv = "none"                       # models split -> show prediction, no confident play
-        elif re_mag >= 3 or spot_aligned:
+        # DOSE-RESPONSE ladder (dose_response.py, 2026-09-18): the tier is the CLASSIFIER's
+        # confidence, not the regression magnitude — regression size never ranked outcomes and
+        # inverts past REG_CAP. .06+ classifier confidence with agreement = 58-60% at the opener.
+        clf_conf = abs(float(r.ph) - 0.5) if pd.notna(r.ph) else 0.0
+        _early = pd.notna(r.week) and int(r.week) < MIN_PLAY_WEEK
+        if not agree or clf_conf < PLAY_CONF or re_mag >= REG_CAP or _early:
+            conv = "none"                       # split / under the floor / inverted extreme /
+                                                # weeks 1-3 (untrained slice) -> number only
+        elif spot_aligned:
             conv = "high"
-        elif re_mag >= 1.5:
-            conv = "med"
-        elif re_mag > 0:
-            conv = "lean"
         else:
-            conv = "none"
-        is_mam = bool(r.mammoth) and agree        # locked mammoth gate (confluence=1 + spot)
+            conv = "med"
+        # MARKET-SCOPED mammoth gate. `r.mammoth` is a GAME-level OR over every flag on the
+        # game, so a TOTALS mammoth (>=2 MAMMOTH_TOTAL_RULES agreeing on one direction,
+        # forecast_harness.py:1077) promoted the SPREAD card to 3 units with zero spread
+        # signals on it. ARI@DAL wk8 2026 was the entire 2026 board's only mammoth spread
+        # card and was built out of two OVER totals flags the model itself contradicts (its
+        # total is 46.5 against a 54 close) -- they render as COUNTER signals on the total
+        # card while tripling the stake on the spread. Spread mammoth must come from a SPREAD
+        # flag, which is what the harness means by confluence=1 + an aligned
+        # MAMMOTH_SPREAD_SPOTS rule (forecast_harness.py:1072).
+        is_mam = bool(act_sp.mammoth.any()) and agree and conv != "none"
         if is_mam:
             conv = "mammoth"
         vline = r.open_spread if side == "HOME" else -r.open_spread
@@ -788,6 +1194,22 @@ def build_picks(g, fl, books, kickoff, meta):
         bbk, bln, bod = best_pick(bdf, "spread", side.lower())
         model_line = round(-r.pred_margin, 1) if side == "HOME" else round(r.pred_margin, 1)
         disp = conv == "none"
+        # STANCE MUST BE AGAINST WHAT THE CARD SHOWS (owner screenshot, BAL@ATL wk5 2026).
+        # `side` is the BET side and is chosen against the OPENER (reg_edge). A projection-only
+        # card renders the MODEL's lean against the board instead. Those diverge whenever the line
+        # moves across the model's own number — that game moved ~6.5 pts on a QB change, so the
+        # card displayed "Baltimore +3" while `side` was ATL, and every Baltimore signal was
+        # stamped "Contradicts" on a card that was telling the user Baltimore.
+        # A play card is answerable against its bet; a projection-only card must be answered
+        # against the projection it is actually displaying.
+        _close_home = r.get("spread_close_spread_home", np.nan)
+        _board_home = _close_home if pd.notna(_close_home) else r.open_spread
+        _shown_side = side
+        if disp and pd.notna(_board_home) and pd.notna(r.pred_margin):
+            _shown_side = "HOME" if float(r.pred_margin) > -float(_board_home) else "AWAY"
+        _sp_objs = sig_objs(act_sp, _shown_side, "spread", r.home_ab,
+                            board_home=_board_home)
+        _sp_sup, _sp_cnt = split_keys(_sp_objs)
         emit(r, card_group="spread", bet_type="spread", sort_order=1, pick_side=side,
              pick_team=team, pick_label=f"{team} {(bln if bln is not None else vline):+g}",
              model_number=model_line, model_line=model_line,
@@ -796,8 +1218,7 @@ def build_picks(g, fl, books, kickoff, meta):
              best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
              is_mammoth=is_mam,
              has_play=not disp, display_only=disp,
-             signal_keys=sorted(act_sp.signal_key.tolist()),
-             signals=sig_objs(act_sp, side, "spread", r.home_ab),
+             signal_keys=_sp_sup, counter_signal_keys=_sp_cnt, signals=_sp_objs,
              result=None if disp else grade_play("spread", side, vline, r))
 
         # ---- 2. total ----
@@ -816,21 +1237,31 @@ def build_picks(g, fl, books, kickoff, meta):
             conv = "lean"
         else:
             conv = "none"
+        # The games row NEUTRALs fg_total_pick under TOTALS_PICK_ENABLED, but that guard never
+        # reached THIS table, so the suspension shipped half-applied: week 7 published 7 live
+        # totals cards (5 of them "High Conviction", 1.5 units) on games whose fg_total_pick
+        # read NEUTRAL. "none" is the existing display-only semantic -- it sets disp, which
+        # clears has_play/result and drops the card out of game_conviction(), so conviction_tier
+        # and stake_units fall back to the spread instead of pricing a suspended market.
+        if not TOTALS_PICK_ENABLED:
+            conv = "none"
         vline = (cons.iloc[0].line if not cons.empty else r.open_total)
         edge = abs(r.edge_open) if pd.notna(r.edge_open) else None
         bbk, bln, bod = best_pick(bdf, "total", tdir.lower())
         disp = conv == "none"
+        _tot_objs = sig_objs(act_tot, tdir, "total", r.home_ab,
+                             board_total=(cons.iloc[0].line if not cons.empty else r.open_total))
+        _tot_sup, _tot_cnt = split_keys(_tot_objs)
         emit(r, card_group="total", bet_type="total", sort_order=2, pick_side=tdir,
              pick_team=None,
              pick_label=f"{tdir.title()} {(bln if bln is not None else vline):g}",
-             model_number=round(float(r.display_total), 1) if pd.notna(r.display_total) else None,
-             model_line=round(float(r.display_total), 1) if pd.notna(r.display_total) else None,
+             model_number=round(float(r.display_total_anch), 1) if pd.notna(r.display_total_anch) else None,
+             model_line=round(float(r.display_total_anch), 1) if pd.notna(r.display_total_anch) else None,
              vegas_line=float(vline) if pd.notna(vline) else None, vegas_price=-110.0,
              edge=round(edge, 2) if edge is not None else None,
              best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
              has_play=not disp, display_only=disp,
-             signal_keys=sorted(act_tot.signal_key.tolist()),
-             signals=sig_objs(act_tot, tdir, "total", r.home_ab),
+             signal_keys=_tot_sup, counter_signal_keys=_tot_cnt, signals=_tot_objs,
              result=None if disp else grade_play("total", tdir, vline, r))
 
         # ---- 3-4. team totals (display-only; conviction only if a K-signal attaches) ----
@@ -844,9 +1275,16 @@ def build_picks(g, fl, books, kickoff, meta):
             tside = "OVER" if (pd.notna(pred) and pd.notna(close) and pred >= close) else "UNDER"
             ksig = gf[(gf.market == "team_total") & (gf.side.str.startswith(f"{ab} TT", na=False))]
             conv = "low" if not ksig.empty else "none"
+            # Suspended with the parent total: half of each team total IS fg_pred_total (they
+            # rotate off it exactly), so a K-signal must not reactivate a market the full-game
+            # model no longer publishes.
+            if not TOTALS_PICK_ENABLED:
+                conv = "none"
             side_key = ("home" if "home" in bt else "away") + "_" + tside.lower()
             bbk, bln, bod = best_pick(bdf, "tt", side_key)
             edge = (abs(pred - close) if pd.notna(pred) and pd.notna(close) else None)
+            _tt_objs = sig_objs(ksig, tside, "team_total", r.home_ab)
+            _tt_sup, _tt_cnt = split_keys(_tt_objs)
             emit(r, card_group="team_total", bet_type=bt, sort_order=so, pick_side=tside,
                  pick_team=nm,
                  pick_label=f"{nm} {tside.title()} {(bln if bln is not None else close):g}"
@@ -858,8 +1296,7 @@ def build_picks(g, fl, books, kickoff, meta):
                  edge=round(edge, 2) if edge is not None else None,
                  best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
                  recommendation=REC[conv], has_play=False, display_only=True,
-                 signal_keys=sorted(ksig.signal_key.tolist()),
-                 signals=sig_objs(ksig, tside, "team_total", r.home_ab), result=None)
+                 signal_keys=_tt_sup, counter_signal_keys=_tt_cnt, signals=_tt_objs, result=None)
 
         # ---- 5. moneyline (display-only "Predicted Winner") ----
         ml_home = pd.notna(r.fg_home_win_prob) and r.fg_home_win_prob >= 0.5
@@ -874,7 +1311,7 @@ def build_picks(g, fl, books, kickoff, meta):
              vegas_line=None, vegas_price=(r.close_ml_home if ml_home else r.close_ml_away),
              edge=None, best_book=bbk, best_line=None, best_odds=bod, conviction="none",
              recommendation="Predicted Winner", has_play=False, display_only=True,
-             signal_keys=[], signals=[], result=None)
+             signal_keys=[], counter_signal_keys=[], signals=[], result=None)
 
         # ---- 6. h1 spread (tracking/display-only) ----
         # Single source: the 1H margin model (pred_m_anch). Pick the side that COVERS the
@@ -887,11 +1324,12 @@ def build_picks(g, fl, books, kickoff, meta):
             else r.pred_m_anch
         side = "HOME" if (pd.notna(h1_cov) and h1_cov >= 0) else "AWAY"
         conv = "low" if not h1f.empty else "none"
-        sk = sorted(h1f.signal_key.tolist())
         vline = h1c if side == "HOME" else (-h1c if pd.notna(h1c) else None)
         bbk, bln, bod = best_pick(bdf, "h1_spread", side.lower())
         m_line = (round(-r.pred_m_anch, 1) if side == "HOME" else round(r.pred_m_anch, 1)) \
             if pd.notna(r.pred_m_anch) else None
+        _h1s_objs = sig_objs(h1f, side, "h1_spread", r.home_ab, board_home=h1c)
+        _h1s_sup, _h1s_cnt = split_keys(_h1s_objs)
         emit(r, card_group="h1_spread", bet_type="h1_spread", sort_order=6, pick_side=side,
              pick_team=home_nm if side == "HOME" else away_nm,
              pick_label=f"{home_nm if side=='HOME' else away_nm} 1H "
@@ -903,7 +1341,7 @@ def build_picks(g, fl, books, kickoff, meta):
                               else r.h1_spread_close_pay_h1_spread_away_price),
              edge=None, best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
              recommendation=REC[conv], has_play=False, display_only=True,
-             signal_keys=sk, signals=sig_objs(h1f, side, "h1_spread", r.home_ab),
+             signal_keys=_h1s_sup, counter_signal_keys=_h1s_cnt, signals=_h1s_objs,
              result=None)
 
         # ---- 7. h1 total (tracking/display-only) ----
@@ -911,8 +1349,15 @@ def build_picks(g, fl, books, kickoff, meta):
         tside = "OVER" if (pd.notna(r.pred_tot_anch) and pd.notna(r.h1_total_close_h1_total_point)
                            and r.pred_tot_anch >= r.h1_total_close_h1_total_point) else "UNDER"
         conv = "low" if not h1tf.empty else "none"
+        # Suspended with the parent total: h1_pred_total is pred_tot_anch, anchored at 0.4936 of
+        # fg_pred_total, so it carries the same model and the same suspension.
+        if not TOTALS_PICK_ENABLED:
+            conv = "none"
         h1t = r.h1_total_close_h1_total_point
         bbk, bln, bod = best_pick(bdf, "h1_total", tside.lower())
+        _h1t_objs = sig_objs(h1tf, tside, "h1_total", r.home_ab,
+                             board_total=r.h1_total_close_h1_total_point)
+        _h1t_sup, _h1t_cnt = split_keys(_h1t_objs)
         emit(r, card_group="h1_total", bet_type="h1_total", sort_order=7, pick_side=tside,
              pick_team=None,
              pick_label=f"1H {tside.title()} {(bln if bln is not None else h1t):g}"
@@ -924,8 +1369,7 @@ def build_picks(g, fl, books, kickoff, meta):
                               else r.h1_total_close_pay_h1_total_under_price),
              edge=None, best_book=bbk, best_line=bln, best_odds=bod, conviction=conv,
              recommendation=REC[conv], has_play=False, display_only=True,
-             signal_keys=sorted(h1tf.signal_key.tolist()),
-             signals=sig_objs(h1tf, tside, "h1_total", r.home_ab), result=None)
+             signal_keys=_h1t_sup, counter_signal_keys=_h1t_cnt, signals=_h1t_objs, result=None)
 
         # ---- 8. h1 moneyline (display-only "Predicted Winner") ----
         h1_home = pd.notna(r.prob_home_1h) and r.prob_home_1h >= 0.5
@@ -940,9 +1384,14 @@ def build_picks(g, fl, books, kickoff, meta):
              vegas_price=amer(r.h1_ml_close_pay_h1_ml_home if h1_home else r.h1_ml_close_pay_h1_ml_away),
              edge=None, best_book=bbk, best_line=None, best_odds=bod, conviction="none",
              recommendation="Predicted Winner", has_play=False, display_only=True,
-             signal_keys=[], signals=[], result=None)
+             signal_keys=[], counter_signal_keys=[], signals=[], result=None)
 
-    return pd.DataFrame(picks)
+    # Same reason as build_flags: zero picks is a valid preview slate, not an error.
+    return pd.DataFrame(picks, columns=None if picks else
+                        ["game_id", "season", "week", "best_book_name", "best_book_logo",
+                         "is_mammoth", "stake_units", "result", "card_group", "bet_type",
+                         "sort_order", "pick_side", "pick_team", "pick_label", "model_number",
+                         "model_line", "vegas_line", "vegas_price", "edge", "conviction"])
 
 
 def game_conviction(pk):
@@ -972,11 +1421,19 @@ def main():
     g = p11_flag(g)
     fl = build_flags(g)
 
-    counts = fl.groupby(["game_id", "tier"]).size().unstack(fill_value=0)
-    g["flags_active"] = g.game_id.map(counts.get("active", pd.Series(dtype=int))).fillna(0).astype(int)
-    g["flags_tracking"] = g.game_id.map(counts.get("tracking", pd.Series(dtype=int))).fillna(0).astype(int)
-    mam = fl[fl.mammoth].game_id.unique()
-    g["mammoth"] = g.game_id.isin(mam)
+    # A preview build can legitimately produce ZERO flags — next week's derivative markets are not
+    # posted yet, so the totals/ledger inputs are empty and nothing fires. An empty frame has no
+    # columns, so grouping by game_id raises KeyError; zero flags is a valid slate, not an error.
+    if len(fl):
+        counts = fl.groupby(["game_id", "tier"]).size().unstack(fill_value=0)
+        g["flags_active"] = g.game_id.map(counts.get("active", pd.Series(dtype=int))).fillna(0).astype(int)
+        g["flags_tracking"] = g.game_id.map(counts.get("tracking", pd.Series(dtype=int))).fillna(0).astype(int)
+        g["mammoth"] = g.game_id.isin(fl[fl.mammoth].game_id.unique())
+    else:
+        print("  [slate] no flags fired this build — writing game rows with zero flags")
+        g["flags_active"] = 0
+        g["flags_tracking"] = 0
+        g["mammoth"] = False
 
     books, kickoff = load_books(g)
     meta = book_meta() if not args.no_load else {}
@@ -994,6 +1451,10 @@ def main():
         conv_tier, stake_u, summary = game_conviction(pk)
         bdf = books.get((r.home_ab, r.away_ab))
         wx = weather(r)
+        if wx.get("wx_temp_f") is None and not wx.get("wx_indoors"):
+            wx = forecast_wx(r.home_ab, r.away_ab) or wx
+        _kick = kickoff.get((r.home_ab, r.away_ab)) or r.get("_seed_kickoff")
+        _gate_ok, _gate_why = spread_gate(r, _kick, (bm.get("spread") or {}).get("pick_side"))
         rows.append(dict(
             game_id=r.game_id, season=SEASON, week=WEEK, gameday=r.gameday,
             kickoff=kickoff.get((r.home_ab, r.away_ab)) or r.get("_seed_kickoff"),
@@ -1017,16 +1478,39 @@ def main():
             h1_total_under_price=amer(r.h1_total_close_pay_h1_total_under_price),
             h1_ml_home_close=amer(r.h1_ml_close_pay_h1_ml_home),
             h1_ml_away_close=amer(r.h1_ml_close_pay_h1_ml_away),
-            fg_pred_total=round(float(r.display_total), 2) if pd.notna(r.display_total) else None,
-            fg_total_edge=r.edge_open, fg_total_pick=r.direction, fg_total_tier=r.tier,
+            fg_pred_total=round(float(r.display_total_anch), 2) if pd.notna(r.display_total_anch) else None,
+            fg_total_edge=r.edge_open,
+            # TOTALS PICK = THE DOCUMENTED BET ONLY (2026-10-06). consensus_totals.py is explicit:
+            # HC is "THE BET"; EXTREME / LEAN / WEAK / LEAN_EARLY are all "display only" — EXTREME
+            # because the model is overconfident past edge 7 and historically ~50%, the rest because
+            # the edge is too small to mean anything. The slate published r.direction for ALL of
+            # them, so 58 of 61 directional totals picks on the 2026 board were tiers the model says
+            # not to bet, and they graded 11-31 (26.2%) at the open vs 1-2 for HC. Nine rows even
+            # carried tier NONE with a direction, which predict_all cannot emit — that is pinned
+            # verdict columns drifting apart (same family as the fg_spread_edge basis flip).
+            # This mirrors what fg_spread_pick already does: carry a side only when it is a play,
+            # and let fg_total_tier + the display total speak for everything else.
+            # ⛔ AND SUSPENDED ENTIRELY (2026-10-22) — see TOTALS_PICK_ENABLED.
+            fg_total_pick=((r.direction if (r.tier == "HC" and r.direction in ("OVER", "UNDER"))
+                            else "NEUTRAL") if TOTALS_PICK_ENABLED else "NEUTRAL"),
+            fg_total_tier=r.tier,
             fg_home_cover_prob=round(float(r.ph), 4) if pd.notna(r.ph) else None,
             fg_pred_margin=round(float(r.pred_margin), 2) if pd.notna(r.pred_margin) else None,
             # slate spread pick = the margin model's covering side (matches the spread card).
             # fg_home_cover_prob (classification) is the agreement signal, not the headline.
+            # The card always carries a side (the model's lean) but only a card with conviction
+            # is a play; a no-bet card (under the PLAY_CONF floor, models split, past REG_CAP)
+            # must read NEUTRAL here or the header shows a lean the card refuses (2026-09-18:
+            # 16/16 headers had a pick while 9 cards were "No Bet").
             fg_spread_pick=(
                 f"{(r.home_ab if bm['spread']['pick_side'] == 'HOME' else r.away_ab)} "
                 f"{(r.open_spread if bm['spread']['pick_side'] == 'HOME' else -r.open_spread):+g}"
-                if bm.get("spread") and pd.notna(r.open_spread) else None),
+                if bm.get("spread") and pd.notna(r.open_spread)
+                and bm["spread"].get("conviction", "none") != "none"
+                and _gate_ok else "NEUTRAL"),
+            # which gate let this pick through (primetime / rest / both), or why it was held.
+            # Display + post-hoc grading by gate reason; never read back as an input.
+            fg_spread_gate=_gate_why,
             fg_spread_confluence=int(r.confluence),
             fg_home_win_prob=r.fg_home_win_prob,
             # FG predicted box score (DISPLAY): split of pred total by pred margin
@@ -1036,8 +1520,17 @@ def main():
             fg_spread_edge=round(float(r.reg_edge), 2) if pd.notna(r.reg_edge) else None,
             tt_home_pred=round(float(r.tt_home_pred), 2) if pd.notna(r.tt_home_pred) else None,
             tt_away_pred=round(float(r.tt_away_pred), 2) if pd.notna(r.tt_away_pred) else None,
-            tt_home_pick=bm.get("team_total_home", {}).get("pick_side"),
-            tt_away_pick=bm.get("team_total_away", {}).get("pick_side"),
+            # ⛔ SUSPENDED WITH THE TOTAL (2026-10-22). A team total is not a third market: it is
+            # an exact algebraic rotation of the two we already publish. Measured on the 2026
+            # board, tt_home_pred + tt_away_pred == fg_pred_total and tt_home_pred -
+            # tt_away_pred == fg_pred_margin on 106 of 107 rows, so each team total is
+            # (total +/- margin)/2 and HALF of it is the dead totals model. That is why home TT
+            # scores corr(pred, actual) = +0.001 — no relationship at all — while its parent
+            # margin model manages +0.146. These come back when the total does, not before.
+            tt_home_pick=(bm.get("team_total_home", {}).get("pick_side")
+                          if TOTALS_PICK_ENABLED else None),
+            tt_away_pick=(bm.get("team_total_away", {}).get("pick_side")
+                          if TOTALS_PICK_ENABLED else None),
             tt_home_edge=bm.get("team_total_home", {}).get("edge"),
             tt_away_edge=bm.get("team_total_away", {}).get("edge"),
             tt_home_best_over=best_tt(bdf, "home_over"),
@@ -1050,7 +1543,15 @@ def main():
             h1_home_win_prob=round(float(r.prob_home_1h), 4) if pd.notna(r.prob_home_1h) else None,
             h1_cover_tilt=round(float(r.resid_cov), 2) if pd.notna(r.resid_cov) else None,
             h1_spread_pick=bm.get("h1_spread", {}).get("pick_label"),
-            h1_total_pick=bm.get("h1_total", {}).get("pick_label"),
+            # ⛔ SUSPENDED WITH THE TOTAL (2026-10-22) — on the anchor, not on a measured record.
+            # h1_pred_total is pred_tot_anch: anchored on fg_pred_total, running at 0.4936 of it
+            # (sd 0.039) with corr +0.384, so a large part of its variation is inherited from a
+            # model with no signal. ⚠ Unlike the full-game total this was NOT graded: the local
+            # 2026 pbp only reaches week 3, so there is no honest 1H result set to score it
+            # against. It is suspended because its anchor is dead and it has no validation of its
+            # own — if a 1H grade later clears it, turn it back on independently.
+            h1_total_pick=(bm.get("h1_total", {}).get("pick_label")
+                           if TOTALS_PICK_ENABLED else None),
             h1_ml_pick=bm.get("h1_ml", {}).get("pick_label"),
             conviction_tier=conv_tier, stake_units=stake_u, conviction_summary=summary,
             flags_active=int(r.flags_active), flags_tracking=int(r.flags_tracking),
@@ -1062,6 +1563,23 @@ def main():
             h1_home=int(r.h1_home) if pd.notna(r.h1_home) else None,
             h1_away=int(r.h1_away) if pd.notna(r.h1_away) else None))
     games = pd.DataFrame(rows)
+    # Gate distribution, every run. The failure this catches: h1tt_context stops supplying
+    # gametime/rest, spread_gate() fails closed on every game, and the board silently goes to
+    # all-NEUTRAL spreads. "held_unverifiable" > 0 means the FEED broke, not that the slate was
+    # quiet — those are different problems and they look identical on the site.
+    if SPREAD_GATE_ENABLED and "fg_spread_gate" in games.columns:
+        gd = games.fg_spread_gate.fillna("no_lean").value_counts().to_dict()
+        passed = sum(v for k, v in gd.items() if k in ("primetime", "rest", "primetime+rest"))
+        print(f"[spread gate] {passed}/{len(games)} published; {gd}")
+        if gd.get("held_unverifiable"):
+            print(f"  ⛔ {gd['held_unverifiable']} game(s) had NO readable kick hour AND no rest "
+                  f"days — the gate could not be evaluated. Check h1tt_context.parquet.")
+    # int + None in one column re-floats it (10 -> 10.0 -> 22P02 on the DB's integer
+    # cols once the slate mixes played and seeded games); nullable Int64 keeps ints ints
+    for c in ("final_home", "final_away", "h1_home", "h1_away",
+              "fg_spread_confluence", "flags_active", "flags_tracking"):
+        if c in games.columns:
+            games[c] = games[c].astype("Int64")
     fl = fl.replace({np.nan: None})
 
     print(f"{len(games)} games, {len(fl)} flags "
@@ -1099,26 +1617,134 @@ def main():
     # grader's results every regen (CFB had the same bug, health_sweep 2026-09-03) and
     # re-derives cards from post-game odds. Games/flags still rebuild (games carry the
     # finals forward; flags hold no results).
+    # ⛔ PICKS FREEZE AT KICKOFF, not when the final score arrives. This used to key on
+    # `final_home=not.is.null`, which leaves a window as wide as the grader's lag — a game
+    # kicks off, the slate is rebuilt, and a PUBLISHED pick is silently rewritten on a game
+    # already in progress. PIT@CLE wk4-2026 fell straight into it: it kicked at 00:15 UTC and
+    # 23 hours later, with the final still unwritten, a rebuild flipped its pick from
+    # "PIT -2.5" to NEUTRAL. That erases a live bet from the record and is the same hindsight
+    # problem the flag freeze below was already written to prevent — so both now use the same
+    # kickoff basis. Finals stay in the set too, in case a final ever lands without a kickoff.
+    import datetime as _dtmod
+    # ⛔ THE VERDICT LOCKS BEFORE KICKOFF, NOT AT IT. Everything below used to key on
+    # `kickoff < now`, so a game was free to be re-verdicted every single run right up to the
+    # moment it started. BUF@LAR wk5-2026 is the case: the owner watched it go from 23-23 to
+    # 25-22 Rams during the afternoon with no new information. Nothing market-side moved it —
+    # the spread sat at -3.0/-3.5 and the total at 54.5 the whole week — and it was not
+    # injuries. The sides model takes the legacy EPA model's cover probability as a feature via
+    # forecast_harness.load_legacy(), which deliberately reads the LATEST run; that model
+    # re-FITS itself on every invocation (nfl_predict_with_epa.py) and scores from
+    # v_input_values_with_epa, a rolling CURRENT-WEEK view rebuilt from live upstream tables.
+    # Its output for that one game across seven daily runs: 0.743, 0.735, 0.207, 0.283, 0.365,
+    # 0.383, 0.468 — a 53-point swing between 10-07 and 10-08 on an IDENTICAL line with no
+    # games played in between. It is seeded (random_state=42), so that is input drift and a
+    # fresh fit, not randomness, and a coin-flip spread amplifies both.
+    # So: pin the verdict once a game is inside NFL_VERDICT_FREEZE_HOURS of kickoff (default
+    # 24h — past the final injury report for a Sunday game, and past Wednesday's practice
+    # report for TNF). Market lines, finals, weather, referee and kickoff keep refreshing; only
+    # the model's own verdict stops moving.
+    # ⛔ PICKS AND FLAGS MUST LOCK ON THE SAME BASIS. fg_spread_pick / fg_total_pick are in
+    # _VERDICT_COLS, so pinning the row while letting nfl_slate_picks regenerate from fresh
+    # model output would let a card's pick_side drift away from the row it renders under —
+    # which is precisely the contradiction that took the CFB board down on 2026-10-12. One
+    # basis for all three.
+    _FREEZE_H = float(os.environ.get("NFL_VERDICT_FREEZE_HOURS", "24"))
+    _kick_now = ((_dtmod.datetime.now(_dtmod.timezone.utc) + _dtmod.timedelta(hours=_FREEZE_H))
+                 .strftime("%Y-%m-%dT%H:%M:%S"))
     _finq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
                          f"&final_home=not.is.null&select=game_id", headers=hdr, timeout=30)
-    _fin_ids = {str(x["game_id"]) for x in (_finq.json() if _finq.ok else [])}
+    _koq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                        f"&kickoff=lt.{_kick_now}&select=game_id", headers=hdr, timeout=30)
+    _ko_ids = {str(x["game_id"]) for x in (_koq.json() if _koq.ok else [])}
+    _fin_ids = {str(x["game_id"]) for x in (_finq.json() if _finq.ok else [])} | _ko_ids
     if _fin_ids:
         picks = picks[~picks.game_id.astype(str).isin(_fin_ids)]
-        print(f"  skipping picks for {len(_fin_ids)} completed games (grades preserved)")
+        print(f"  freezing picks on {len(_fin_ids)} game(s) kicked off or within {_FREEZE_H:g}h of kickoff")
     _pick_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
     if _fin_ids:
         _pick_scope += "&game_id=not.in.(" + ",".join(sorted(_fin_ids)) + ")"
+    # KICKED-OFF games keep their existing FLAG rows too — frozen pregame history.
+    # A played game's regenerated flags use post-game inputs, which turns any
+    # later signal grading into hindsight (CFB regime_* audit, 2026-09-16).
+    if _ko_ids:
+        fl = fl[~fl.game_id.astype(str).isin(_ko_ids)]
+        print(f"  freezing flags on {len(_ko_ids)} game(s) kicked off or within {_FREEZE_H:g}h of kickoff")
+    _flag_scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
+    if _ko_ids:
+        _flag_scope += "&game_id=not.in.(" + ",".join(sorted(_ko_ids)) + ")"
     for t, scope in (("nfl_slate_picks", _pick_scope),
-                     ("nfl_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}"),
-                     ("nfl_slate_games", f"season=eq.{SEASON}&week=eq.{WEEK}")):
+                     ("nfl_slate_flags", _flag_scope)):
         resp = requests.delete(f"{BASE_URL}/{t}?{scope}", headers=hdr, timeout=60)
         if resp.status_code not in (200, 204):
             sys.exit(f"delete {t}: {resp.status_code} {resp.text[:300]}")
-    for t, df in (("nfl_slate_games", games), ("nfl_slate_flags", fl),
-                  ("nfl_slate_picks", picks)):
+    # nfl_slate_props FK-references games with NO cascade, so games can NOT be
+    # wipe+reinserted once props exist (23503 on 2026-09-10). UPSERT in place and
+    # delete only rows that fell out of the build.
+    _allq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                         f"&select=game_id", headers=hdr, timeout=30)
+    _stale = sorted({str(x["game_id"]) for x in (_allq.json() if _allq.ok else [])}
+                    - set(games.game_id.astype(str)))
+    if _stale:
+        resp = requests.delete(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                               "&game_id=in.(" + ",".join(_stale) + ")", headers=hdr, timeout=60)
+        if resp.status_code not in (200, 204):
+            sys.exit(f"delete stale nfl_slate_games: {resp.status_code} {resp.text[:300]}")
+    # A kicked-off game's PREGAME VERDICT is history — carry the STORED values forward rather
+    # than upserting freshly-computed ones. The picks/flags tables are protected by the freeze
+    # above, but `games` is a merge-duplicates upsert that rewrites every column, so without
+    # this the row's verdict is still rewritten after kickoff: PIT@CLE wk4-2026 went from a
+    # published "PIT -2.5" to NEUTRAL 23 hours after it kicked. Market lines, finals, weather,
+    # referee and kickoff all keep refreshing — only the model's own verdict is pinned.
+    _VERDICT_COLS = [
+        # ⛔ THE LINES BELONG IN THE PINNED SET. The verdict (edge, margin, pick) froze at kickoff
+        # while fg_spread_open / fg_spread_close kept refreshing, so a frozen edge sat beside live
+        # line columns and `fg_spread_edge` reconciled to NO published line: on the 64 rows where
+        # the line moved it matched pred_margin + open on 59%, + close on 16%, and NEITHER on
+        # weeks 4-5 (12 of 16, 7 of 15). Nobody could reconstruct a published edge, and conviction
+        # tiers key off it. Once a game has KICKED OFF its close is final by definition, so
+        # freezing the lines with the verdict is not a loss of information — it is what makes the
+        # row self-consistent and auditable: edge == pred_margin + fg_spread_open, always.
+        # This matters more now that build_odds.py bounds the opener (OPEN_MAX_DAYS): rebuilding
+        # odds_consensus legitimately MOVES historical openers, which would silently break every
+        # already-published edge if the lines were not pinned alongside it.
+        "fg_spread_open", "fg_spread_close", "fg_total_open", "fg_total_close",
+        "fg_spread_pick", "fg_pred_spread", "fg_pred_margin", "fg_spread_edge",
+        "fg_pred_home_pts", "fg_pred_away_pts", "fg_pred_total",
+        "fg_home_cover_prob", "fg_home_win_prob", "fg_spread_confluence",
+        "fg_total_pick", "fg_total_edge", "fg_total_tier", "fg_spread_gate",
+        "conviction_tier", "conviction_summary", "stake_units", "mammoth",
+        "tt_home_pick", "tt_away_pick", "tt_home_pred", "tt_away_pred",
+        "tt_home_edge", "tt_away_edge",
+        "h1_spread_pick", "h1_total_pick", "h1_ml_pick",
+        "h1_pred_margin", "h1_pred_total", "h1_home_win_prob", "h1_cover_tilt",
+    ]
+    if _ko_ids:
+        _vcols = [c for c in _VERDICT_COLS if c in games.columns]
+        _exq = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                            f"&select=game_id,{','.join(_vcols)}", headers=hdr, timeout=30)
+        _ex = {str(x["game_id"]): x for x in (_exq.json() if _exq.ok else [])}
+        for _c in _vcols:                      # object dtype so None / list values assign cleanly
+            games[_c] = games[_c].astype(object)
+        _pinned = 0
+        for _i, _r in games.iterrows():
+            _gid = str(_r.game_id)
+            if _gid not in _ko_ids or _gid not in _ex:
+                continue
+            for _c in _vcols:
+                games.at[_i, _c] = _ex[_gid].get(_c)
+            _pinned += 1
+        if _pinned:
+            print(f"  pinning the pregame verdict on {_pinned} kicked-off game(s) "
+                  f"({len(_vcols)} columns held)")
+    _up_hdr = {**hdr, "Prefer": "resolution=merge-duplicates,return=minimal"}
+    for t, df, url, h in (
+            ("nfl_slate_games", games, f"{BASE_URL}/nfl_slate_games?on_conflict=game_id", _up_hdr),
+            ("nfl_slate_flags", fl, f"{BASE_URL}/nfl_slate_flags", hdr),
+            ("nfl_slate_picks", picks, f"{BASE_URL}/nfl_slate_picks", hdr)):
         recs = json.loads(df.to_json(orient="records"))   # to_json handles numpy types
-        resp = requests.post(f"{BASE_URL}/{t}", headers=hdr, json=recs, timeout=60)
-        if resp.status_code != 201:
+        resp = requests.post(url, headers=h, json=recs, timeout=60)
+        # 201 = rows created; 200 = upsert that only updated existing rows
+        if resp.status_code not in (200, 201):
             sys.exit(f"insert {t}: {resp.status_code} {resp.text[:300]}")
         print(f"loaded {len(recs)} rows -> {t}")
 

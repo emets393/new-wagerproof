@@ -1,0 +1,36 @@
+=== C4 first true road game: fade, per season ===
+  first road game (3+ prior home/neutral), all                           FADE 408-350 (53.8%) n=768 | 21:68-77 22:64-54 23:68-54 24:79-46 25:69-50 26:60-69
+     as favorite                                                         FADE 156-111 (58.4%) n=272 | 21:19-23 22:30-19 23:29-20 24:29-13 25:27-16 26:22-20
+     as favorite of 5+                                                   FADE 76-61 (55.5%) n=138 | 21:14-12 22:13-8 23:14-11 24:15-8 25:8-10 26:12-12
+     as dog                                                              FADE 250-238 (51.2%) n=493 | 21:49-54 22:33-35 23:38-34 24:50-33 25:42-34 26:38-48
+     after 5+ home/neutral games                                         FADE 262-218 (54.6%) n=486 | 21:28-41 22:46-35 23:48-32 24:66-35 25:46-35 26:28-40
+     Nov only                                                            FADE 182-147 (55.3%) n=334 | 21:3-3 22:34-25 23:42-35 24:39-21 25:28-24 26:36-39
+     Dec+                                                                FADE 226-203 (52.7%) n=434 | 21:65-74 22:30-29 23:26-19 24:40-25 25:41-26 26:24-30
+     control: 2nd road game                                              FADE 1046-1075 (49.3%) n=2143 | 21:164-171 22:182-166 23:189-168 24:182-175 25:165-196 26:164-199
+     control: first road game but only 1-2 prior games                   FADE 722-628 (53.5%) n=1375 | 21:109-80 22:111-115 23:121-113 24:131-98 25:128-110 26:122-112
+  shuffle p, favorite split: 0.009
+
+=== C2 conference game 1 cells, per season ===
+  conf game 1: HARD non-conf & record <= .5                              FADE 120-91 (56.9%) n=212 | 21:16-11 22:20-14 23:22-14 24:23-19 25:18-17 26:21-16
+  conf game 1: HARD non-conf & record >= .7                              BACK 110-76 (59.1%) n=187 | 21:16-7 22:18-14 23:16-16 24:15-12 25:21-17 26:24-10
+  conf game 1: SOFT & >= .8                                              BACK 24-21 (53.3%) n=45 | 21:4-5 22:3-1 23:3-3 24:5-3 25:5-4 26:4-5
+  conf games 1-3: SOFT & >= .8                                           BACK 78-56 (58.2%) n=135 | 21:14-13 22:8-4 23:7-11 24:19-5 25:15-12 26:15-11
+  shuffle p conf game 1 hard&poor fade: 0.046; hard&good back: 0.019
+
+=== why C5 was empty ===
+  tournament column non-null in MTE rows: 0  notes non-null: 3306
+
+=== C4 combined: a team's FIRST true road game of the season, any number of prior games ===
+  first road game, all                                           FADE 1130-978 (53.6%, +2.4%) n=2143 | 21:177-157 22:175-169 23:189-167 24:210-144 25:197-160 26:182-181
+     as favorite                                                 FADE 243-185 (56.8%, +8.4%) n=434 | 21:38-35 22:46-30 23:50-35 24:42-23 25:40-27 26:27-35
+     as favorite of 3+                                           FADE 174-133 (56.7%, +8.2%) n=310 | 21:29-27 22:32-20 23:36-27 24:29-17 25:29-19 26:19-23
+     as dog                                                      FADE 883-792 (52.7%, +0.8%) n=1704 | 21:138-122 22:128-139 23:138-132 24:168-121 25:157-133 26:154-145
+     as dog of 10+                                               FADE 486-447 (52.1%, -0.4%) n=945 | 21:74-52 22:69-84 23:73-75 24:92-70 25:87-86 26:91-80
+     it is the team's season opener (gnum == 1)                  FADE 542-482 (52.9%, +1.2%) n=1044 | 21:79-56 22:83-90 23:89-95 24:98-77 25:94-82 26:99-82
+     gnum 2-4                                                    FADE 326-278 (54.0%, +3.2%) n=613 | 21:70-60 22:46-44 23:52-40 24:46-32 25:57-43 26:55-59
+     gnum 5+                                                     FADE 262-218 (54.6%, +4.2%) n=486 | 21:28-41 22:46-35 23:48-32 24:66-35 25:46-35 26:28-40
+     opponent at home is ALSO playing its first home game (home gnum==1) FADE 0-0 (0.0%, +0.0%) n=0 | 
+     control: 2nd road game                                      FADE 1046-1075 (49.3%, -5.8%) n=2143 | 21:164-171 22:182-166 23:189-168 24:182-175 25:165-196 26:164-199
+     control: 3rd road game                                      FADE 1026-1083 (48.6%, -7.1%) n=2142 | 21:162-168 22:164-182 23:182-175 24:177-177 25:173-188 26:168-193
+  shuffle p all: 0.000; favorite: 0.007
+  market: first-road-game teams are dogs of +9.1 on average; they lose by 10.0?? margin +10.0 vs spread +9.1 -> ATS margin -0.97

@@ -332,12 +332,46 @@ def main():
         return
 
     sk = _env("SUPABASE_SERVICE_KEY")
+    # nfl_player_props_uniq is (event_id, bookmaker, market, player_name, COALESCE(line,-999),
+    # snapshot_time). A book occasionally posts the same player/market/line twice in one payload,
+    # which makes two identical rows inside a single batch and a plain INSERT 409s on the whole
+    # request — it killed the 17:45 run on 2026-09-24 while 17:30 wrote fine. Dedupe on the
+    # constraint key first, then upsert so an overlapping snapshot is idempotent rather than fatal.
+    seen, uniq = set(), []
+    for r in rows:
+        key = (r.get("event_id"), r.get("bookmaker"), r.get("market"),
+               r.get("player_name"), r.get("line"))
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(r)
+    if len(uniq) != len(rows):
+        print(f"[write] dropped {len(rows) - len(uniq)} duplicate book-rows before insert")
+    rows = uniq
+
     hdr = {"apikey": sk, "Authorization": f"Bearer {sk}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
+    # No on_conflict: the unique index is on COALESCE(line, -999), an EXPRESSION index, and
+    # PostgREST's on_conflict can only name plain columns — pointing it at `line` fails outright.
+    # So a 409 is retried row by row and the conflicting rows are skipped. A snapshot that
+    # partially exists must not cost us the whole batch.
+    written = skipped = 0
     for i in range(0, len(rows), 500):
-        resp = requests.post(f"{SUPA}/{TABLE}", headers=hdr, json=rows[i:i + 500], timeout=60)
+        batch = rows[i:i + 500]
+        resp = requests.post(f"{SUPA}/{TABLE}", headers=hdr, json=batch, timeout=60)
+        if resp.status_code == 409:
+            for r in batch:
+                one = requests.post(f"{SUPA}/{TABLE}", headers=hdr, json=[r], timeout=30)
+                if one.status_code == 409:
+                    skipped += 1
+                else:
+                    one.raise_for_status()
+                    written += 1
+            continue
         resp.raise_for_status()
-    print(f"[write] inserted {len(rows)} rows at snap_ts={snap_iso}")
+        written += len(batch)
+    print(f"[write] inserted {written} rows at snap_ts={snap_iso}"
+          + (f" ({skipped} already present, skipped)" if skipped else ""))
 
 
 if __name__ == "__main__":

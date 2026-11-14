@@ -13,6 +13,8 @@ The flagship comparison additionally contains `distribution.md` and `monthly-rev
 
 `registry.json` is fail-closed. Its `expectedCount`, entry set, content folders, generated routes, sitemap entries, and feed items must match exactly. Canonical paths can stay under `/blog/` when preserving a valuable legacy URL; the renderer is identical and remains static-only.
 
+Optional `tool` (an interactive tool such as `parlay-calculator`) and `video` (a YouTube companion, rendered only once `youtubeId` is set) fields are documented in `docs/guides/EDITORIAL_DESIGN_BRIEF.md`.
+
 Every article must name exactly four related slugs. Covers are versioned 1672 by 941 WebP files with 1200 by 630 social crops. Product interfaces and app icons must be real, self-hosted assets with provenance recorded under `public/guides/`.
 
 Build order:

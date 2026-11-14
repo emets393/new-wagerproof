@@ -23,6 +23,7 @@ fun NCAABGameCard(
     onPress: () -> Unit,
     modifier: Modifier = Modifier,
     consensus: GameAgentConsensus? = null,
+    signalCount: Int = 0,
 ) {
     val awayAbbr = game.awayTeamAbbrev?.trim().takeUnless { it.isNullOrEmpty() } ?: game.awayTeam
     val homeAbbr = game.homeTeamAbbrev?.trim().takeUnless { it.isNullOrEmpty() } ?: game.homeTeam
@@ -65,6 +66,7 @@ fun NCAABGameCard(
         homeTeamFullName = game.homeTeam,
         oddsBreakdown = oddsBreakdown(game, awayAbbr, homeAbbr),
         consensus = consensus,
+        signalCount = signalCount.takeIf { it > 0 },
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)

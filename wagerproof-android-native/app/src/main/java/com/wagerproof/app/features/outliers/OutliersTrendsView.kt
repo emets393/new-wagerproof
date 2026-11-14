@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.outliers
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -57,6 +60,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
+import com.wagerproof.app.features.gamecards.CFBTeamColors
+import com.wagerproof.app.features.gamecards.NBATeams
 import com.wagerproof.app.features.gamecards.TeamInitials
 import com.wagerproof.app.features.components.InsetGroupedDivider
 import com.wagerproof.app.features.components.InsetGroupedSection
@@ -73,6 +78,7 @@ import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.models.CFBTeamAssets
 import com.wagerproof.core.models.MLBTeams
+import com.wagerproof.core.models.NCAABTeamAssets
 import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.models.OutliersTrendsCard
 import com.wagerproof.core.models.OutliersTrendsGame
@@ -109,6 +115,16 @@ fun OutliersTrendsView(
     store: OutliersTrendsStore,
     modifier: Modifier = Modifier,
 ) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Betting Trends") { OutliersTrendsViewContent(store, modifier) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun OutliersTrendsViewContent(
+    store: OutliersTrendsStore,
+    modifier: Modifier = Modifier,
+) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     val parlayGod = graph.parlayGod
     val scope = rememberCoroutineScope()
@@ -120,19 +136,23 @@ fun OutliersTrendsView(
 
     val parlayAccess = when {
         graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
-        graph.proAccess.isPro -> ParlayGodAccessState.Granted
+        graph.proAccess.hasAccess(com.wagerproof.core.models.SubscriptionTier.PREMIUM) -> ParlayGodAccessState.Granted
         else -> ParlayGodAccessState.Locked
     }
 
     // Keep this on the always-mounted page container. The rail intentionally
     // renders nothing on a thin slate, so attaching the fetch to the rail would
     // leave the feature permanently empty on its first appearance.
-    LaunchedEffect(Unit) { parlayGod.refreshIfNeeded() }
+    LaunchedEffect(Unit) {
+        if (featurePreview) return@LaunchedEffect
+ parlayGod.refreshIfNeeded() }
 
     // iOS `.onChange(of: store.sport)` — reset dependent filters + refetch. Skip
     // the initial composition so we don't refetch what the root screen already loaded.
     var firstSport by remember { mutableStateOf(true) }
     LaunchedEffect(store.sport) {
+        if (featurePreview) return@LaunchedEffect
+
         if (firstSport) {
             firstSport = false
             return@LaunchedEffect
@@ -456,10 +476,10 @@ private fun subjectIcon(subject: OutliersTrendsSubject): ImageVector = when (sub
     OutliersTrendsSubject.PLAYERS -> outlierSymbol("figure.run")
 }
 
-/** CFB logos resolve off full team name; NFL/MLB off the abbreviation. */
+/** CFB and NCAAB logos resolve off the school name; NFL, NBA, and MLB off the abbreviation. */
 private fun matchupLogoIdentifier(sport: OutliersTrendsSport, game: OutliersTrendsGame, away: Boolean): String =
     when (sport) {
-        OutliersTrendsSport.NCAAF -> if (away) game.awayTeam else game.homeTeam
+        OutliersTrendsSport.NCAAF, OutliersTrendsSport.NCAAB -> if (away) game.awayTeam else game.homeTeam
         else -> if (away) game.awayAb else game.homeAb
     }
 
@@ -555,7 +575,7 @@ private fun ComingSoonState(sport: OutliersTrendsSport) {
         )
         Text("Trends coming soon", color = AppColors.appTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         Text(
-            "${sport.label} situational betting trends aren't live yet — NFL, NCAAF, and MLB are available now.",
+            "${sport.label} situational betting trends aren't live yet.",
             color = AppColors.appTextSecondary, fontSize = 13.sp, textAlign = TextAlign.Center,
         )
     }
@@ -740,7 +760,8 @@ private fun teamName(sport: OutliersTrendsSport, game: OutliersTrendsGame, away:
     return when (sport) {
         OutliersTrendsSport.NCAAF -> CFBTeamAssets.displayName(full)
         OutliersTrendsSport.MLB -> MLBTeams.nickname(full)
-        else -> NFLTeamAssets.nickname(full)
+        OutliersTrendsSport.NBA, OutliersTrendsSport.NCAAB -> full
+        OutliersTrendsSport.NFL -> NFLTeamAssets.nickname(full)
     }
 }
 
@@ -764,22 +785,34 @@ private fun DiagonalMatchupLogos(
         OutlierGlassTeamAvatar(
             logoUrl = diagonalLogoUrl(awayTeam, sport),
             initials = TeamInitials.from(awayTeam),
-            primary = OutlierTeamPalette.color(awayTeam, sport.league(), OutlierTeamPalette.Slot.away),
+            primary = matchupTint(awayTeam, sport, away = true),
             size = size,
             modifier = Modifier.align(Alignment.TopStart),
         )
         OutlierGlassTeamAvatar(
             logoUrl = diagonalLogoUrl(homeTeam, sport),
             initials = TeamInitials.from(homeTeam),
-            primary = OutlierTeamPalette.color(homeTeam, sport.league(), OutlierTeamPalette.Slot.home),
+            primary = matchupTint(homeTeam, sport, away = false),
             size = size,
             modifier = Modifier.align(Alignment.BottomEnd),
         )
     }
 }
 
+private fun matchupTint(team: String, sport: OutliersTrendsSport, away: Boolean): Color = when (sport) {
+    OutliersTrendsSport.NBA -> NBATeams.colorPair(team).primary
+    OutliersTrendsSport.NCAAB -> CFBTeamColors.colorPair(team).primary
+    else -> OutlierTeamPalette.color(
+        team,
+        sport.league(),
+        if (away) OutlierTeamPalette.Slot.away else OutlierTeamPalette.Slot.home,
+    )
+}
+
 private fun diagonalLogoUrl(team: String, sport: OutliersTrendsSport): String? = when (sport) {
     OutliersTrendsSport.NCAAF -> CFBTeamAssets.logo(team)
+    OutliersTrendsSport.NCAAB -> NCAABTeamAssets.logo(team) ?: CFBTeamAssets.logo(team)
     OutliersTrendsSport.MLB -> MLBTeams.logoUrl(team)
-    else -> NFLTeamAssets.logo(team)
+    OutliersTrendsSport.NBA -> NBATeams.logoURL(team)
+    OutliersTrendsSport.NFL -> NFLTeamAssets.logo(team)
 }

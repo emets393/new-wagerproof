@@ -1,0 +1,62 @@
+{
+  "family": "experience",
+  "bytes": 9818032,
+  "variants": [
+    {
+      "frame_prefix": "Experience10",
+      "source": "artifacts/achievements/experience/experience-10/manifest.json",
+      "original_faces": 158768,
+      "runtime_faces": 102942,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Experience100",
+      "source": "artifacts/achievements/experience/experience-100/manifest.json",
+      "original_faces": 152718,
+      "runtime_faces": 97248,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Experience1000",
+      "source": "artifacts/achievements/experience/experience-1000/manifest.json",
+      "original_faces": 151464,
+      "runtime_faces": 96072,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Experience2500",
+      "source": "artifacts/achievements/experience/experience-2500/manifest.json",
+      "original_faces": 152028,
+      "runtime_faces": 96600,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Experience50",
+      "source": "artifacts/achievements/experience/experience-50/manifest.json",
+      "original_faces": 160720,
+      "runtime_faces": 104786,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Experience500",
+      "source": "artifacts/achievements/experience/experience-500/manifest.json",
+      "original_faces": 154742,
+      "runtime_faces": 99150,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Experience5000",
+      "source": "artifacts/achievements/experience/experience-5000/manifest.json",
+      "original_faces": 151972,
+      "runtime_faces": 96548,
+      "contour_retessellated": false
+    }
+  ],
+  "checks": {
+    "y_up": true,
+    "material_bindings": true,
+    "corner_normals": true,
+    "no_studio": true,
+    "lod_closed_outward": true
+  }
+}

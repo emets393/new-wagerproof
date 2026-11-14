@@ -1,0 +1,12 @@
+player,position,team,opp,home_away,storylines,lines
+Baker Mayfield,QB,TB,CLE,home,"REVENGE vs CLE (4 seasons there, left 5 seasons ago, drafted by them, drama tier 1) → historical read: QB UNDER (35% over 2023-25, n=114 markets)",pass_attempts 28; pass_completions 19; pass_tds 1.5; pass_yds 216.5; rush_yds 15.5
+Raheim Sanders,RB,CLE,TB,away,"HOMECOMING: born Rockledge, FL, 111 mi from the site → no read (50% over)",rush_yds 8.5
+Evan Engram,TE,DEN,JAX,home,"REVENGE vs JAX (3 seasons there, left 2 seasons ago, drama tier 2) → historical read: slight over (54%), not a bet",reception_yds 24.5; receptions 2.5
+Juwan Johnson,TE,NO,BAL,away,"HOMECOMING: born Glassboro, NJ, 86 mi from the site → no read (50% over)",reception_yds 38.5; receptions 3.5
+Odell Beckham Jr.,WR,NYG,LA,away,"REVENGE vs LA (1 season there, left 5 seasons ago, at the old stadium) → historical read: slight over (54%), not a bet",reception_yds 6.5
+MarShawn Lloyd,RB,GB,NYJ,away,"HOMECOMING: born Wilmington, DE, 107 mi from the site → no read (50% over)",reception_yds 6.5; receptions 1.5; rush_attempts 13.5; rush_yds 50.5
+Patrick Mahomes,QB,KC,IND,home,"BIRTHDAY Sep 17 (+3 days) → historical read: QB OVER (62% over, n=84)",pass_attempts 30.5; pass_completions 19.5; pass_tds 1.5; pass_yds 223.5; rush_attempts 3.5; rush_yds 17.5
+Demarcus Robinson,WR,SF,MIA,home,BIRTHDAY Sep 21 (-1 days) → no read (48% over),reception_yds 25.5; receptions 1.5
+Pat Freiermuth,TE,PIT,NE,away,"HOMECOMING: born Merrimac, MA, 53 mi from the site → no read (50% over)",reception_yds 30.5; receptions 3.5
+Darren Waller,TE,CAR,ATL,away,"HOMECOMING: born Acworth, GA, 27 mi from the site → no read (50% over)",reception_yds 17.5; receptions 2.5
+Tommy Tremble,TE,CAR,ATL,away,"HOMECOMING: born Johns Creek, GA, 22 mi from the site → no read (50% over)",reception_yds 13.5; receptions 1.5

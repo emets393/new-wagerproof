@@ -1,0 +1,79 @@
+{
+  "id": "game-analyst",
+  "family": "exploration",
+  "title": "GAME ANALYST",
+  "label": "analyst",
+  "tier": "silver",
+  "frame_prefix": "GameAnalyst",
+  "asset": "game-analyst.usdz",
+  "editable_master": "game-analyst.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "metal_compass_chassis": {
+      "vertices": 32004,
+      "faces": 64020,
+      "nonmanifold_edges": 0,
+      "volume": 0.2988260964258957
+    },
+    "acrylic_lime_center": {
+      "vertices": 16544,
+      "faces": 33084,
+      "nonmanifold_edges": 0,
+      "volume": 0.0425005988378318
+    },
+    "metal_lens_handle": {
+      "vertices": 621,
+      "faces": 1238,
+      "nonmanifold_edges": 0,
+      "volume": 0.0015152719987723752
+    },
+    "ivory_lens_handle": {
+      "vertices": 397,
+      "faces": 790,
+      "nonmanifold_edges": 0,
+      "volume": 0.0007745858660516178
+    },
+    "metal_pixel_lens": {
+      "vertices": 1304,
+      "faces": 2608,
+      "nonmanifold_edges": 0,
+      "volume": 0.010646358192100795
+    },
+    "ivory_pixel_lens": {
+      "vertices": 890,
+      "faces": 1780,
+      "nonmanifold_edges": 0,
+      "volume": 0.0067528658178224715
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 6,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle",
+      "top",
+      "back"
+    ]
+  },
+  "usdz_bytes": 4854824,
+  "family_palette": {
+    "primary": "#008D94",
+    "secondary": "#45CABB",
+    "enamel": "#CCFFF0",
+    "name": "Teal / aqua"
+  }
+}

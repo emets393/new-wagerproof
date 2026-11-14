@@ -97,7 +97,8 @@ object PaywallConversionTracker {
         pkg: Package?,
         offering: Offering?,
     ) {
-        val entitlement = customerInfo.entitlements.active[RevenueCatService.ENTITLEMENT_IDENTIFIER]
+        val tier = RevenueCatService.subscriptionTier(customerInfo)
+        val entitlement = tier?.let { customerInfo.entitlements.active[it.entitlementId] }
         val transactionProductId = transaction?.productIds?.firstOrNull()
 
         // Resolve price + currency. StoreTransaction deliberately doesn't carry
@@ -160,7 +161,7 @@ object PaywallConversionTracker {
                 "fb_currency" to currency,
                 "fb_content_type" to "product",
                 "fb_content_id" to "${subscriptionType}_subscription",
-                "fb_content_name" to "WagerProof Pro",
+                "fb_content_name" to "WagerProof ${tier?.title ?: "Pro"}",
                 "fb_num_items" to 1,
                 "fb_order_id" to orderId,
                 // Coarse LTV multiplier so Meta's optimization model bids against

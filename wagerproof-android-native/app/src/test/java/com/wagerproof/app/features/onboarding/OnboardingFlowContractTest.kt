@@ -20,26 +20,26 @@ class OnboardingFlowContractTest {
     }
 
     @Test
-    fun authoritativeFlowIsTwentyOneCarouselPagesThenThreeCinematics() {
+    fun authoritativeFlowIsTwentyTwoCarouselPagesThenThreeCinematics() {
         // ATT_PRIMING (no ATT on Android) and PERSONALIZED_VALUE (retired on iOS
         // for unsupported performance claims) are deliberately absent.
         val expected = listOf(
             "TERMS", "BETTOR_TYPE", "BETTING_PITFALLS",
             "ACQUISITION_SOURCE", "PRIMARY_GOAL", "RESEARCH_TIME", "WEEKLY_STAKES",
             "RESEARCH_COST", "RESEARCH_RECLAIM", "AGENT_HQ", "AGENT_VALUE_INTRO",
-            "AGENT_VALUE_PROOF", "AGENT_LEADERBOARD", "BUILDER_SPORTS", "BUILDER_ARCHETYPE",
+            "AGENT_VALUE_PROOF", "AGENT_LEADERBOARD", "ACHIEVEMENTS", "BUILDER_SPORTS", "BUILDER_ARCHETYPE",
             "BUILDER_MINDSET", "BUILDER_BET_STYLE", "BUILDER_DATA_TRUST",
             "BUILDER_SPORT_RULES", "BUILDER_INSIGHTS", "BUILDER_IDENTITY",
             "GENERATION", "REVEAL", "TIME_SUMMARY",
         )
         assertEquals(expected, OnboardingStore.Step.entries.map { it.name })
-        assertEquals((1..24).toList(), OnboardingStore.Step.entries.map { it.raw })
-        assertEquals(21, OnboardingStore.Step.carouselPageCount)
+        assertEquals((1..13).toList() + 25 + (14..24).toList(), OnboardingStore.Step.entries.map { it.raw })
+        assertEquals(22, OnboardingStore.Step.carouselPageCount)
 
-        OnboardingStore.Step.entries.take(21).forEachIndexed { index, step ->
+        OnboardingStore.Step.entries.take(22).forEachIndexed { index, step ->
             assertFalse(step.isCinematic)
             assertEquals(index, step.carouselIndex)
-            assertEquals((index + 1) / 21.0, step.progress)
+            assertEquals((index + 1) / 22.0, step.progress)
         }
         OnboardingStore.Step.entries.takeLast(3).forEach { step ->
             assertTrue(step.isCinematic)

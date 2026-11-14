@@ -1,5 +1,16 @@
 [
-  {"title":"Closing Line Value","publisher":"OddsJam Betting Education","url":"https://dev.oddsjam.com/betting-education/closing-line-value","accessedAt":"2026-08-26","usedFor":"Common CLV terminology"},
-  {"title":"Information, market efficiency and sports betting prices","publisher":"International Journal of Forecasting","url":"https://www.sciencedirect.com/science/article/pii/S0148619513000295","accessedAt":"2026-08-26","usedFor":"Opening and closing line evidence across college basketball markets"},
-  {"title":"The Dynamics of Price Discovery in Sports Betting","publisher":"Management Science","url":"https://pubsonline.informs.org/doi/abs/10.1287/mnsc.2022.00456","accessedAt":"2026-08-26","usedFor":"Evidence that prices can overreact and may not improve monotonically"}
+  {
+    "title": "Inefficient Forecasts at the Sportsbook: An Analysis of Real-Time Betting Line Movement",
+    "publisher": "Jay Simon, Management Science / INFORMS",
+    "url": "https://pubsonline.informs.org/doi/abs/10.1287/mnsc.2022.00456",
+    "accessedAt": "2026-09-18",
+    "usedFor": "Abstract: study of 3,681 MLB games; forecast quality did not always improve toward game time. Not evidence about WagerProof."
+  },
+  {
+    "title": "WagerProof: Sports Research AI",
+    "publisher": "WagerProof, LLC / Apple",
+    "url": "https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957",
+    "accessedAt": "2026-09-18",
+    "usedFor": "Configurable Agents, reasoning and graded records. No automatic CLV claim or current price quoted."
+  }
 ]

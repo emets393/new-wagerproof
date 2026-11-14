@@ -29,6 +29,8 @@ Only the schedule/finals table and the weather table are shared inputs.
 | `nfl-epa-weekly` | Tue | `epa_upsert_current_week.py` → EPA features | model input |
 | `nfl-team-stats-weekly` | Tue | `nfl_tr_scrape_team_stats.py` → `nfl_team_stats` (TeamRankings predictive/SOS) | power ratings for BOTH models |
 | `nfl-pregame-weekly` | Tue | `pregame_advanced_pbp_upsert_current_week.py` + `pregame_injuries_upsert_current_week.py` | advanced + injuries features |
+
+> **`nfl-pregame-weekly` is DISABLED (manually) and its injuries step is dead** — every scheduled run May–Jul 2026 failed ("No active week") and `nfl_data_py.import_injuries` now throws on the dropped `date_modified` column. It mirrored the nflverse injuries file, which is a post-week archive anyway (rewritten Monday morning). Since 2026-09-15 `nfl_injuries_raw` is written by `research/nfl-extreme-outcomes/espn_nfl_injuries.py` (ESPN pregame feed: official designations, inactives, practice note) as step 0 of `run_nfl_week.sh`, i.e. on every `nfl-slate-refresh` plus the `nfl-slate-gameday-{sun,prime}` crons in `render.yaml`. Same schema, same `gsis_id` keys — no consumer changed.
 | `nfl-betting-lines` | Mon–Thu (multiple) | betting lines → `nfl_betting_lines` | model input + web feed |
 | `nfl-weather` | daily | `fetch_nfl_weather.py` → `production_weather` | web feed + model |
 | `nfl-predictions` | chained after features (Tue) | `nfl_predict_with_epa.py` → `nfl_predictions_epa` | **THE legacy model that predicts games** — web feed + dual-feed column |

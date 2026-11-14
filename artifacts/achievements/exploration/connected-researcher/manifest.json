@@ -1,0 +1,77 @@
+{
+  "id": "connected-researcher",
+  "family": "exploration",
+  "title": "CONNECTED RESEARCHER",
+  "label": "mcp",
+  "tier": "silver",
+  "frame_prefix": "ConnectedResearcher",
+  "asset": "connected-researcher.usdz",
+  "editable_master": "connected-researcher.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "metal_compass_chassis": {
+      "vertices": 32004,
+      "faces": 64020,
+      "nonmanifold_edges": 0,
+      "volume": 0.2988260964258957
+    },
+    "acrylic_lime_center": {
+      "vertices": 16544,
+      "faces": 33084,
+      "nonmanifold_edges": 0,
+      "volume": 0.0425005988378318
+    },
+    "metal_lower_pixel_link": {
+      "vertices": 1917,
+      "faces": 3830,
+      "nonmanifold_edges": 0,
+      "volume": 0.008150416599293924
+    },
+    "ivory_lower_pixel_link": {
+      "vertices": 1888,
+      "faces": 3772,
+      "nonmanifold_edges": 0,
+      "volume": 0.005327743153473747
+    },
+    "metal_upper_pixel_link": {
+      "vertices": 1843,
+      "faces": 3682,
+      "nonmanifold_edges": 0,
+      "volume": 0.014746007706956778
+    },
+    "ivory_upper_pixel_link": {
+      "vertices": 1780,
+      "faces": 3556,
+      "nonmanifold_edges": 0,
+      "volume": 0.005311586695694641
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 6,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle"
+    ]
+  },
+  "usdz_bytes": 5245617,
+  "family_palette": {
+    "primary": "#008D94",
+    "secondary": "#45CABB",
+    "enamel": "#CCFFF0",
+    "name": "Teal / aqua"
+  }
+}

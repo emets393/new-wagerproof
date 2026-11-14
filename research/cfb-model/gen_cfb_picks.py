@@ -25,8 +25,15 @@ gm, te, S = C.harness_week(SEASON, WEEK)
 # zero-fills — Miami@Stanford arrived as Stanford -22.5). Override from the Odds-API
 # game frame, mirroring gen_cfb_slate_flags, and recompute the edges the side pick
 # derives from. No Odds-API line -> NaN (card shows no line, no play).
+_OV = C.conviction_overrides(SEASON, WEEK)
 _ogf = pd.read_parquet("data/odds_game_frame.parquet")
 _ogf = _ogf[_ogf.season == SEASON][["home", "away", "close_spread", "close_total"]]
+# One row per matchup or the merge below multiplies every card/flag for that game
+# (BYU @ Utah wk10-2026: 16 pick rows, two CORE TOTAL flags on different lines).
+# build_odds_frame dedupes post-orientation now; this is the belt-and-braces guard.
+_nd = len(_ogf)
+_ogf = _ogf.drop_duplicates(["home", "away"], keep="first")
+if len(_ogf) < _nd: print(f"  [ogf] dropped {_nd - len(_ogf)} duplicate matchup row(s) from odds_game_frame")
 te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
 te["spread_close"] = te["close_spread"]
 te["total_close"] = te["close_total"]
@@ -214,16 +221,79 @@ if EARLY:
     # Recompute edges off the blend — the harness edges belong to the cold model we just replaced.
     te["side_edge"] = te.pred_margin + te.spread_close
     te["total_edge"] = te.pred_total - te.total_close
+else:
+    # ONE BASIS. build_season() above is a SECOND, independent evaluation of the same model that
+    # produced the game row, so anything differing between the two runs (wk5-2026: the backup-QB
+    # overlay landing between them) puts a card at odds with the row it sits on.
+    # Basis = cfb_slate_games ITSELF, the row each card renders under, read back after the games
+    # step wrote it earlier in this same runner. The CSV was the old basis and it failed silently
+    # on 2026-10-03: `_c[_c.week == WEEK]` came back without a usable row, every `_csv_total` was
+    # NaN, `(NaN > 0.05)` is False so the divergence report printed NOTHING, and `.fillna()`
+    # quietly handed the cards back this run's own harness numbers. Bowling Green @ Miami (OH)
+    # then carded UNDER against a row that said OVER on a 0.5 edge, the sign guard refused the
+    # write (correctly), and cfb_slate_picks went 17 hours stale into a Saturday slate with
+    # nobody paged. Reading the row direct makes the card arithmetically incapable of
+    # contradicting it, and a missing row is now a named failure instead of a silent fallback.
+    _rows = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                         f"&select=game_id,fg_pred_margin,fg_pred_total,fg_spread_close,fg_total_close",
+                         headers={**C.H, "Prefer": ""}).json()
+    _rb = pd.DataFrame(_rows) if isinstance(_rows, list) else pd.DataFrame()
+    if len(_rb):
+        _rb["game_id"] = _rb.game_id.astype("int64")
+        _rb = _rb.rename(columns={"fg_pred_margin": "_row_margin", "fg_pred_total": "_row_total",
+                                  "fg_spread_close": "_row_sc", "fg_total_close": "_row_tc"})
+        te = te.merge(_rb, on="game_id", how="left")
+        _dm = (te.pred_margin - te._row_margin).abs()
+        _dt = (te.pred_total - te._row_total).abs()
+        _off = te[(_dm > 0.05) | (_dt > 0.05)]
+        if len(_off):
+            print(f"  [one-basis] {len(_off)} game(s) where this run's model differs from the game "
+                  f"row — aligning cards to the ROW (the basis users see):")
+            for _, _r in _off.iterrows():
+                print(f"     {_r.awayTeam} @ {_r.homeTeam}: margin {_r.pred_margin:+.1f} vs row "
+                      f"{_r._row_margin:+.1f} | total {_r.pred_total:.1f} vs row {_r._row_total:.1f}")
+        # ⛔ No fillna. A carded game with no row basis is the exact hole that produced the
+        # 2026-10-03 stall, so name it — but DROP that game rather than raising. Hard-failing
+        # here would trade a one-game gap for another whole-week stale slate, which is the
+        # fragility that cost 17 hours in the first place. A game with no row has nothing to
+        # render under anyway, so 55 fresh games beat 56 stale ones.
+        _miss = te[te._row_total.isna() | te._row_margin.isna()]
+        if len(_miss):
+            print(f"  ⛔ [one-basis] {len(_miss)} game(s) have no cfb_slate_games basis and get NO "
+                  f"cards this run — the games step must cover them: "
+                  + ", ".join(f"{r.awayTeam} @ {r.homeTeam}" for _, r in _miss.iterrows()))
+            te = te[te._row_total.notna() & te._row_margin.notna()].copy()
+        te["pred_margin"] = te._row_margin
+        te["pred_total"] = te._row_total
+        # The LINE is part of the basis too: side = pred - close, so a half-point move between the
+        # games step and this one flips any thin edge and trips the guard on the whole week. The
+        # games step ran minutes ago in this same runner and ensure_fresh_odds_frame can rebuild
+        # the parquet in between, which is exactly the 41.5-vs-42.0 race behind the 2026-10-03
+        # stall. Sides derive from the row's close; the displayed best_book line stays live.
+        _lm = te[(te._row_sc.notna() & (te.spread_close - te._row_sc).abs().gt(0.01))
+                 | (te._row_tc.notna() & (te.total_close - te._row_tc).abs().gt(0.01))]
+        if len(_lm):
+            print(f"  [one-basis] {len(_lm)} game(s) whose line moved since the games row — sides "
+                  f"key off the row's close:")
+            for _, _r in _lm.iterrows():
+                print(f"     {_r.awayTeam} @ {_r.homeTeam}: spread {_r.spread_close} vs row "
+                      f"{_r._row_sc} | total {_r.total_close} vs row {_r._row_tc}")
+        te["spread_close"] = te._row_sc.fillna(te.spread_close)
+        te["total_close"] = te._row_tc.fillna(te.total_close)
+        te["side_edge"] = te.pred_margin + te.spread_close
+        te["total_edge"] = te.pred_total - te.total_close
+        te = te.drop(columns=["_row_margin", "_row_total", "_row_sc", "_row_tc"])
+    else:
+        raise SystemExit(f"[one-basis] cfb_slate_games is empty for {SEASON} wk{WEEK} — the games "
+                         f"step must run before the picks step")
 
-def fmt_line(v): return ("+" if v > 0 else "") + f"{v:g}" if v is not None else None
-def driving_spread_side(gid):
-    """Cold-week spread pick side = the highest-conviction CONTEXTUAL spread signal that fired
-    (e.g. g5_dog_wk1_bigfav on the dog). Returns 'HOME'/'AWAY' or None. Blanket/model keys are
-    already excluded upstream, so any spread flag here is a real per-game signal."""
-    if not len(flags): return None
-    f = flags[(flags.game_id == gid) & (flags.market == "spread")]
-    if not len(f): return None
-    return f.sort_values("conviction", key=lambda s: s.map(lambda c: CONV_RANK.get(c, 0)), ascending=False).iloc[0].side
+def fmt_line(v):
+    """Pick-side spread for a label: '+5.25', '-3', 'PK'. A consensus can land on a quarter
+    point, so no one-decimal rounding here; ±0 prints PK, never '-0' (Clemson -0, wk4-2026)."""
+    if v is None: return None
+    v = float(v)
+    if abs(v) < 0.05: return "PK"
+    return ("+" if v > 0 else "") + f"{v:g}"
 for _, r in te.iterrows():
     gid = int(r.game_id); H, A = r.homeTeam, r.awayTeam
     side_edge = float(r.side_edge) if pd.notna(r.side_edge) else None
@@ -241,29 +311,44 @@ for _, r in te.iterrows():
         # A signal that AGREES with the model side still drives conviction (conv_for is
         # side-filtered) and exempts the degenerate-edge cap; a disagreeing signal renders
         # in the game's signal list, never as the headline pick.
-        drv = driving_spread_side(gid) if EARLY else None
-        capped = (abs(side_edge) > 14) and not (drv == pside)
         bs = best_spread(gid, pside); model_line = round(-r.pred_margin if ph else r.pred_margin, 1)
+        # Conviction is resolved FIRST because the cap reads it: C.spread_capped exempts a
+        # degenerate edge that a validated same-side spot backs, and conv_for is side-filtered.
         cv, mam, sig = conv_for(gid, "spread", side=pside)
+        # The GATE owns the mammoth tier (cfb_forecast.py:389), not the flag table. conv_for only
+        # sees published flags, and two of the gate's four confirming spots (Sun Belt home fav,
+        # Big Ten away fav) are internal terms that publish no flag -- so a mammoth qualified by
+        # one of them read "Lean 1u" here while the game row said MAMMOTH, and the card's banner
+        # named no market, i.e. a mammoth with no pick (Georgia State @ App State wk10-2026).
+        if r.mammoth == 1 or _OV.get(int(gid)) == "mammoth": cv, mam = "mammoth", True
+        # ONE cap, shared with refresh_cfb_slate_lines (dry_common.spread_capped).
+        capped = C.spread_capped(side_edge, cv)
         if capped: cv, mam, sig = "none", False, []
+        # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR, LOCKED_MODELS.md §7): a bare model lean under 4 pts
+        # loses — no side is shown (number still renders). A same-side validated spot keeps the pick.
+        below = abs(side_edge) < C.LEAN_FLOOR and cv == "none"
         sp_conv, sp_mam, sp_sig, sp_has = cv, mam, sig, (not capped and cv != "none")
         vline = r.spread_close if ph else -r.spread_close
-        rows.append(dict(game_id=gid, card_group="spread", bet_type="spread", sort_order=1, pick_side=pside, pick_team=pteam,
-            pick_label=f"{pteam} {fmt_line(bs[0] if bs else vline)}", model_number=round(float(r.pred_margin), 1), model_line=model_line,
+        # A capped game has NO side, same as the game row (fg_spread_pick null) — a side here made
+        # the app draw a "Sam Houston +37.5" cover bar under a "No Play" headline (wk4-2026).
+        noside = below or capped
+        rows.append(dict(game_id=gid, card_group="spread", bet_type="spread", sort_order=1, pick_side=(None if noside else pside), pick_team=(None if noside else pteam),
+            pick_label=(None if noside else f"{pteam} {fmt_line(bs[0] if bs else vline)}"), model_number=round(float(r.pred_margin), 1), model_line=model_line,
             vegas_line=round(float(vline), 1), vegas_price=-110, edge=round(abs(side_edge), 1),
             best_book=bs[2] if bs else None, best_line=round(bs[0], 1) if bs else None, best_odds=bs[1] if bs else None,
-            conviction=cv, is_mammoth=mam, has_play=(not capped and cv != "none"), display_only=capped,
+            conviction=cv, is_mammoth=mam, has_play=(not capped and cv != "none"), display_only=(capped or below),
             signal_keys=sig, counter_signal_keys=counter_keys(gid, "spread", pside),
             stake_units=C.STAKE.get({"mammoth":"mammoth","high":"T1","med":"T2","low":"T3","lean":"track"}.get(cv,"track"),0)))
     # ---- TOTAL ----
     if pd.notna(r.total_edge):
         pside = "OVER" if r.total_edge > 0 else "UNDER"; bt = best_total(gid, pside)
         cv, mam, sig = conv_for(gid, "total", side=pside)
-        rows.append(dict(game_id=gid, card_group="total", bet_type="total", sort_order=2, pick_side=pside, pick_team=None,
-            pick_label=f"{pside.title()} {bt[0] if bt else r.total_close:g}", model_number=round(float(r.pred_total), 1), model_line=round(float(r.pred_total), 1),
+        below_t = abs(float(r.total_edge)) < C.LEAN_FLOOR and cv == "none"   # same floor as the spread card
+        rows.append(dict(game_id=gid, card_group="total", bet_type="total", sort_order=2, pick_side=(None if below_t else pside), pick_team=None,
+            pick_label=(None if below_t else f"{pside.title()} {bt[0] if bt else r.total_close:g}"), model_number=round(float(r.pred_total), 1), model_line=round(float(r.pred_total), 1),
             vegas_line=round(float(r.total_close), 1), vegas_price=-110, edge=round(abs(float(r.total_edge)), 1),
             best_book=bt[2] if bt else None, best_line=round(bt[0], 1) if bt else None, best_odds=bt[1] if bt else None,
-            conviction=cv, is_mammoth=mam, has_play=(cv != "none"), display_only=False, signal_keys=sig,
+            conviction=cv, is_mammoth=mam, has_play=(cv != "none"), display_only=below_t, signal_keys=sig,
             counter_signal_keys=counter_keys(gid, "total", pside),
             stake_units=C.STAKE.get({"mammoth":"mammoth","high":"T1","med":"T2","low":"T3","lean":"track"}.get(cv,"track"),0)))
     # ---- TEAM TOTALS (both, always) ----
@@ -276,11 +361,19 @@ for _, r in te.iterrows():
         if vg is None:
             pside, edge, bt, ckey = None, None, None, None
         else:
-            edge = proj - vg; pside = "OVER" if proj >= vg else "UNDER"
-            # Weeks 1-3 the projections are the early blend, which tt_conv_key was never
-            # validated on — model TT conviction off until wk4; flag signals still promote.
-            ckey = None if EARLY else C.tt_conv_key(edge, pside, p5)
-            bt = best_tt(gid, team, pside)
+            edge = proj - vg
+            # Side off the DISPLAYED numbers (see the 1H total card): equal after rounding means
+            # the card would state a side next to two identical figures, and `>=` additionally
+            # called an exact tie OVER while the coherence audit calls it UNDER. No side on a
+            # displayed tie — the edge is zero there anyway, so nothing is lost.
+            pside = None if round(float(proj), 1) == round(float(vg), 1) else ("OVER" if proj > vg else "UNDER")
+            if pside is None:
+                ckey, bt = None, None
+            else:
+                # Weeks 1-3 the projections are the early blend, which tt_conv_key was never
+                # validated on — model TT conviction off until wk4; flag signals still promote.
+                ckey = None if EARLY else C.tt_conv_key(edge, pside, p5)
+                bt = best_tt(gid, team, pside)
         play = ckey is not None
         cv = {"T1": "high", "T2": "med"}.get(ckey, "none")
         # Attach REAL flag keys (tt_away_under et al) so signal_performance can roll
@@ -365,7 +458,14 @@ for _, r in te.iterrows():
                 signal_keys=[], stake_units=0))
         if tline is not None:
             bht = best_h1_total(gid, "OVER")
-            _lean = ("Over" if h1_proj_t > tline else "Under") if h1_proj_t is not None else None
+            # Lean off the DISPLAYED numbers, not the raw ones. A raw gap under a tenth of a point
+            # ("Over" on 23.52 vs 23.5) rendered as "1H Over 23.5" next to model 23.5 and vegas
+            # 23.5 — a card contradicting the two figures printed beneath it (Army @ Louisiana
+            # Tech, wk5-2026). Equal after rounding => state no side; the no-side branch already
+            # renders "1H O/U <line>".
+            _lean = None
+            if h1_proj_t is not None and round(float(h1_proj_t), 1) != round(float(tline), 1):
+                _lean = "Over" if h1_proj_t > tline else "Under"
             rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6,
                 pick_side=(_lean.upper() if _lean else None), pick_team=None,
                 pick_label=(f"1H {_lean} {tline:g}" if _lean else f"1H O/U {tline:g}"),
@@ -394,12 +494,16 @@ for _, r in te.iterrows():
             conviction=cv, is_mammoth=False, has_play=bool(play), display_only=not play, signal_keys=sig, stake_units=1.0 if play else 0))
         # 1H TOTAL
         tline = h1t_cons(gid)
-        pside_t = ("OVER" if h1pt > tline else "UNDER") if tline is not None else None
-        bht = best_h1_total(gid, pside_t) if tline is not None else None
+        # Side off the DISPLAYED numbers — same rule as the other 1H total card above.
+        pside_t = None
+        if tline is not None and round(float(h1pt), 1) != round(float(tline), 1):
+            pside_t = "OVER" if h1pt > tline else "UNDER"
+        bht = best_h1_total(gid, pside_t) if pside_t is not None else None
         play_t = inrow is not None and isinstance(inrow.h1_tot_bet, str) and pside_t is not None and inrow.h1_tot_bet.startswith(pside_t)
         cv, mam, sig = conv_for(gid, "h1_total", side=pside_t) if play_t else ("none", False, [])
         rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6, pick_side=pside_t, pick_team=None,
-            pick_label=(f"1H {pside_t.title()} {bht[0] if bht else tline:g}" if tline is not None else f"1H total proj {h1pt:.1f} (no line)"),
+            pick_label=(f"1H {pside_t.title()} {bht[0] if bht else tline:g}" if pside_t is not None
+                        else (f"1H O/U {tline:g}" if tline is not None else f"1H total proj {h1pt:.1f} (no line)")),
             model_number=round(float(h1pt), 1), model_line=round(float(h1pt), 1),
             vegas_line=round(float(tline), 1) if tline is not None else None, vegas_price=-110 if tline is not None else None,
             edge=round(abs(h1pt - tline), 1) if tline is not None else None,
@@ -445,7 +549,42 @@ print(f"  best_book coverage: {int(df.best_book.notna().sum())}/{len(df)}")
 # row correctly said AWAY. Cross-check spread + total sides against cfb_slate_games and
 # refuse to write on ANY mismatch (hard fail stops the runner before users see it).
 _g = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
-                  f"&select=game_id,fg_spread_pick,fg_total_pick", headers={**C.H, "Prefer": ""}).json()
+                  f"&select=game_id,fg_spread_pick,fg_total_pick,fg_total_edge",
+                  headers={**C.H, "Prefer": ""}).json()
+# fg_total_edge comes along so the failure below can say WHICH side is wrong. A games row whose
+# own total pick contradicts its own edge is the stale half of the pair: the edge is computed
+# (pred_total - total_close) and the pick is derived from its sign, so a row written against an
+# older close keeps the old side after the edge is recomputed. 2026-10-12 wk7: Louisville @
+# Syracuse held edge -0.4 with pick OVER (the open, 55.5, gave +0.6 = OVER), the guard fired,
+# and the week shipped 132 flags with ZERO pick cards — the CFB board sat empty until the row
+# was corrected by hand and the runner re-run.
+_gte = {int(x["game_id"]): x.get("fg_total_edge") for x in _g}
+
+# SELF-HEAL, authorised by the owner 2026-10-12 after wk7 shipped an empty board.
+# NARROW ON PURPOSE: this repairs ONLY a games row whose own fg_total_pick disagrees with the
+# sign of its own fg_total_edge. That row is internally impossible, and which half is stale is
+# not a judgement call — the edge is computed (pred_total - total_close) and the pick is derived
+# from it, so the pick is always the stale one. Every repair is printed. It touches no other
+# column, no other table, and never silences a CARD that disagrees with a self-consistent row:
+# the guard below still hard-fails on that, which is the sign flip it exists for (UTEP@OU wk1).
+_heal = []
+for _x in _g:
+    _e, _p = _x.get("fg_total_edge"), _x.get("fg_total_pick")
+    if _e is None or not _p:
+        continue
+    _want = "OVER" if float(_e) > 0 else "UNDER"
+    if _p != _want:
+        _heal.append((int(_x["game_id"]), _p, _want, float(_e)))
+        _x["fg_total_pick"] = _want
+for _gid, _was, _now, _e in _heal:
+    print(f"  [self-heal] game {_gid}: fg_total_pick {_was} -> {_now} "
+          f"(its own fg_total_edge is {_e:+.1f}); the pick was written against an older close")
+    _r = requests.patch(f"{C.URL}/rest/v1/cfb_slate_games?game_id=eq.{_gid}", headers=C.H,
+                        data=json.dumps({"fg_total_pick": _now}), timeout=30)
+    if not _r.ok:
+        raise SystemExit(f"[self-heal] PATCH failed for {_gid}: {_r.status_code} {_r.text[:200]}")
+if _heal:
+    print(f"  [self-heal] repaired {len(_heal)} incoherent games row(s) from their own edge sign")
 _gsp = {int(x["game_id"]): x["fg_spread_pick"] for x in _g if x.get("fg_spread_pick")}
 _gtp = {int(x["game_id"]): x["fg_total_pick"] for x in _g if x.get("fg_total_pick")}
 _bad = []
@@ -455,20 +594,44 @@ for _, r in df[df.pick_side.notna()].iterrows():
     if want and r.pick_side != want:
         _bad.append((int(r.game_id), r.bet_type, r.pick_side, f"games={want}"))
 if _bad:
+    # Name the likely culprit per game instead of printing a bare tuple. If the row's own pick
+    # disagrees with its own edge sign, the ROW is stale and the card is right; otherwise the
+    # CARD is the suspect and this is the sign flip the guard exists for.
+    for _gid, _bt, _side, _want in _bad:
+        if _bt == "total" and _gte.get(_gid) is not None:
+            _e = float(_gte[_gid])
+            _rowwant = "OVER" if _e > 0 else "UNDER"
+            if _want.removeprefix("games=") != _rowwant:
+                print(f"  [SIGN GUARD] game {_gid}: the GAMES ROW is stale — fg_total_edge {_e:+.1f} "
+                      f"implies {_rowwant} but fg_total_pick is {_want.removeprefix('games=')}; "
+                      f"the card ({_side}) agrees with the edge. Repair the row, then re-run:\n"
+                      f"    PATCH cfb_slate_games?game_id=eq.{_gid}  "
+                      f'{{"fg_total_pick":"{_rowwant}"}}')
+                continue
+        print(f"  [SIGN GUARD] game {_gid}: the CARD is the suspect — {_bt} card says {_side}, "
+              f"row says {_want.removeprefix('games=')}, and the row is self-consistent.")
     raise SystemExit(f"[SIGN GUARD] {len(_bad)} pick(s) contradict cfb_slate_games — REFUSING TO WRITE: {_bad[:6]}")
 print(f"  sign guard: {len(df[(df.bet_type == 'spread') & df.pick_side.notna()])} spread + "
       f"{len(df[(df.bet_type == 'total') & df.pick_side.notna()])} total sides agree with games table")
 
-# COMPLETED games keep their existing pick rows: the 3x-daily regen was wiping the
-# grader's results back to NULL every afternoon (found by health_sweep 2026-09-03 —
-# 12 played wk1 picks ungraded), and re-deriving a card from post-game odds is wrong
-# anyway. Wipe + reinsert only the games still to be played.
+# KICKED-OFF AND COMPLETED games keep their existing pick rows: the 3x-daily regen was wiping
+# the grader's results back to NULL every afternoon (found by health_sweep 2026-09-03 — 12
+# played wk1 picks ungraded), and re-deriving a card from post-game odds is wrong anyway.
+# ⛔ The gate was `final_home=not.is.null` alone, which leaves a window as wide as the grader's
+# lag: a game kicks off, a regen runs, and a PUBLISHED pick is rewritten on a game already in
+# progress. The NFL build had the identical bug and PIT@CLE wk4-2026 fell into it — kicked at
+# 00:15 UTC, pick flipped from "PIT -2.5" to NEUTRAL 23 hours later while the final was still
+# unwritten. Freeze on KICKOFF too (CFB's Tue/Wed MACtion games sit un-graded for hours).
+import datetime as _dtmod
+_kick_now = _dtmod.datetime.now(_dtmod.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 _fin = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
                     f"&final_home=not.is.null&select=game_id", headers={**C.H, "Prefer": ""}).json()
-_fin_ids = {int(x["game_id"]) for x in _fin}
+_ko = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                   f"&kickoff=lt.{_kick_now}&select=game_id", headers={**C.H, "Prefer": ""}).json()
+_fin_ids = {int(x["game_id"]) for x in _fin} | {int(x["game_id"]) for x in (_ko if isinstance(_ko, list) else [])}
 if _fin_ids:
     df = df[~df.game_id.astype(int).isin(_fin_ids)]
-    print(f"  skipping {len(_fin_ids)} completed games (grades preserved)")
+    print(f"  freezing {len(_fin_ids)} kicked-off/completed games (published picks preserved)")
 _scope = f"season=eq.{SEASON}&week=eq.{WEEK}"
 if _fin_ids:
     _scope += f"&game_id=not.in.({','.join(str(i) for i in sorted(_fin_ids))})"

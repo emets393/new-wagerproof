@@ -367,6 +367,11 @@ private fun ncaabSpreadPickText(game: NCAABModelAccuracyGame): String {
     return "$abbr ${GameCardFormatting.formatSpread(line)}"
 }
 
+internal fun roundHalfString(value: Double?): String {
+    val r = GameCardFormatting.roundToNearestHalf(value) ?: return "—"
+    return if (r == r.toLong().toDouble()) r.toLong().toString() else String.format(Locale.US, "%.1f", r)
+}
+
 private fun ncaabSpreadEdgeText(game: NCAABModelAccuracyGame): String? {
     val diff = game.homeSpreadDiff ?: return null
     return "+${roundHalfString(abs(diff))}"

@@ -32,6 +32,11 @@ struct MLBBestPicksView: View {
     }
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Player Props") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 headerCard

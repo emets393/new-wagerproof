@@ -41,6 +41,68 @@ Guards: sample ≥ 3 (`minSample`), juice floor −350 (`oddsFloor`), alternate
 lines need a ≥ 7 streak (`altLineMinStreak`). All tunables sit at the top of
 `ParlayGodEngine`.
 
+## Streaks are graded AT THE PRICE (fixed 2026-10-04)
+
+A streak leg is a claim that the player **beat the posted prop**, so every game
+in the window is graded against the line *that game* was priced at —
+`recent_game_log.lines[market]`, or the served O/U letter, both of which
+`gen_nfl_player_prop_trends` computes off each game's own T-60 close.
+
+It used to compare raw actuals to **today's** line, which manufactured perfect
+streaks wherever a line had since dropped. Calvin Ridley read `10/10` on
+receiving yards against a 5.5 line he clears on any catch; at the prices he was
+actually posted at he was **5-10**. Across the wk4 board **173 of 540
+player-markets (32%) read high** and 5 showed a false perfect run — and those
+low-line rows are exactly what a streak harvester surfaces first.
+
+Rules now in force:
+
+- `NFLPropRecentGame.line` carries the per-game line; `cleared` carries the
+  per-game grade. `NFLPropMarket.gradeAtPostedPrice` applies the precedence
+  (own line → served grade → today's line, which is a fallback, not a hit rate).
+- A **push** (actual exactly on that game's line) returns nil: it breaks a run
+  and leaves the denominator instead of counting as a miss.
+- A recent-form leg requires `l10HistoricalBasisShare == 1.0` — every game in
+  the window must have a real basis before the card advertises a streak.
+- `miniStrip` colors bars with the same grade the fraction uses, so the strip
+  and the "x/y" under it cannot disagree.
+- Streak evidence carries its DATE RANGE (`ParlayGodEngine.spanLabel`):
+  "Hit in 3 straight — 2024 wk2 to 2025 wk17". `NFLPropRecentGame.season` makes
+  that possible. Willis's pass-TD run really was two seasons old, and "3
+  straight" on its own reads as current form; a window that spans seasons now
+  says so. One season reads "— 2025 wks 6-12"; undated games add nothing.
+
+`nfl_slate_props.recent_games` now ships `{opp, week, actual, line}` too
+(`nfl_slate_props_build.prior_week_closes`): the line for week W is the
+`close_line` we published on the week-W board, so the strip is self-consistent
+with what users saw. About 57% of entries resolve — the rest are weeks no book
+posted that market and carry `line: null`. The same build grades its stored
+`over_rate_l5` / `over_rate_l10` at the posted price now, which matters because
+the **V3 agent prompt builder reads those columns** (`agentGameHelpers.ts`), so
+an inflated rate there became a false claim inside a generated pick.
+
+Still check `l10HistoricalBasisShare` before trusting a fraction from any new
+source: a partial basis is a blend of "beat the price" and "would clear today's
+number", and only the first is a hit rate.
+
+`nfl_player_prop_trends.recent_game_log` carries the current season as of
+2026-10-04. It used to advertise `through_season/through_week = (2026, 3)` with
+its newest game at **2025 wk22** — zero 2026 entries, because the generator read
+only `props_frame.parquet` / `props_rows_extra.parquet` and those backfills end
+at 2025. A "last 10 games" strip four weeks into the season was ten bars of last
+year, and every hit rate and career-vs-opponent record described 2025.
+
+`current_season_rows()` now adds this season: actuals from
+`nfl_player_game_logs`, lines from our own `nfl_slate_props` boards. A game with
+no posted line yields no row, so it adds no basis rather than a guess. Verified
+on wk4 — 3,059 current-season rows, log by season 2023:1000 2024:1159 2025:3299
+2026:1091, players 810 → 886.
+
+⚠ Both this generator and the slate build take the historical line from **our own
+published boards**, not from the raw capture. That is deliberate (the capture is
+784k rows for three weeks and grows weekly), and it means a week we never built
+a board for has no basis at all — it will read as missing, not as a guess.
+
 ## Categories
 
 `ParlayGodCategory` — each rail card is one category; every leg on it is

@@ -1,11 +1,16 @@
-"""Week 12 2025 DRY RUN — player props staging load.
+"""Player-props slate load — one row per (player, market) for the CURRENT slate week.
 
-One row per (player, market): consensus close line/price (median across the
-4 US books), point-in-time L5/L10 trends through Week 11, P-flags fired
-(PROPS_BRIEF1 P1-P10; the game-level P11 lives in nfl_slate_flags), and the
-headshot join via nfl_player_profiles. Loads nfl_slate_props.
+Consensus close line/price (median across the 4 US books), point-in-time L5/L10 trends through
+the prior week, P-flags fired (PROPS_BRIEF1 P1-P10; the game-level P11 lives in nfl_slate_flags),
+and the headshot join via nfl_player_profiles. Loads nfl_slate_props, which is what the Player
+Prop Report (nfl_prop_narratives.py) reads — so a thin load here is a thin report.
+
+Week: NFL_SEASON / NFL_WEEK if set (run_nfl_week.sh exports them for the whole chain), else the
+current slate resolved from nfl_slate_games. It originally DEFAULTED to 2025 wk12; see the note
+on that block for why a constant there is a trap.
 
 Usage:  python3 nfl_slate_props_build.py [--no-load]
+        NFL_SEASON=2025 NFL_WEEK=12 python3 nfl_slate_props_build.py    # rebuild a past week
 """
 import argparse
 import json
@@ -20,16 +25,69 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-# Target slate — override per week via env NFL_SEASON / NFL_WEEK; defaults to the
-# Wk12-2025 slate so an unparameterized run stays byte-for-byte the original.
-SEASON = int(os.environ.get("NFL_SEASON", 2025))
-WEEK = int(os.environ.get("NFL_WEEK", 12))
+# Target slate — env NFL_SEASON / NFL_WEEK wins (run_nfl_week.sh resolves the week once and
+# exports both, so the whole chain agrees). A bare run resolves the CURRENT slate the same way
+# score_props_week.py and nfl_prop_narratives.py do.
+#
+# This used to default to the 2025 wk12 slate "so an unparameterized run stays byte-for-byte the
+# original". That default is a trap: a bare run silently rebuilt a finished 2025 week out of
+# TODAY's odds and injuries — point-in-time nonsense written under a historical key, with no
+# error. It bit on 2026-09-23. Resolving beats a constant: being wrong loudly (no slate row)
+# beats being wrong quietly (the wrong slate).
+def _current_slate():
+    # Runs at import time, before load_key() is defined, so it reads the key itself.
+    key = ""
+    for line in (Path(__file__).resolve().parent.parent.parent / ".env.local").read_text().splitlines():
+        if line.startswith("SUPABASE_SERVICE_KEY="):
+            key = line.split("=", 1)[1].strip()
+    r = requests.get(f"{BASE_URL}/nfl_slate_games?select=season,week"
+                     f"&order=season.desc,week.desc&limit=1",
+                     headers={"apikey": key, "Authorization": f"Bearer {key}"}, timeout=30)
+    r.raise_for_status()
+    rows = r.json()
+    if not rows:
+        sys.exit("[slate-props] no nfl_slate_games rows — cannot resolve the current slate")
+    return int(rows[0]["season"]), int(rows[0]["week"])
+
+
+if os.environ.get("NFL_SEASON"):
+    SEASON = int(os.environ["NFL_SEASON"])
+    WEEK = int(os.environ["NFL_WEEK"])      # deliberately KeyError if only one is set
+else:
+    SEASON, WEEK = _current_slate()
 BATCH = 500
 STAT_OF = {
     "player_pass_yds": "passing_yards", "player_pass_tds": "passing_tds",
     "player_receptions": "receptions", "player_reception_yds": "receiving_yards",
     "player_rush_yds": "rushing_yards", "player_anytime_td": "td_any",
 }
+
+
+# ---- American-odds averaging ----------------------------------------------------------------
+# American prices are DISCONTINUOUS around zero: nothing exists between -100 and +100. Taking an
+# arithmetic median of two books that straddle it produces a number that is not a price —
+# median(-105, +101) = -2. That shipped on 17 rows in 2026 wk3 (Hurts completions -2, Swift rush
+# attempts -1, Dobbins -26), always on 2-book rows where the prices straddled. Average in implied
+# PROBABILITY space and convert back, which is the only meaningful way to combine them.
+def _am_to_prob(o):
+    o = pd.to_numeric(o, errors="coerce")
+    return np.where(o > 0, 100.0 / (o + 100.0), np.where(o < 0, -o / (-o + 100.0), np.nan))
+
+
+def _prob_to_am(p):
+    if p is None or not np.isfinite(p) or not (0 < p < 1):
+        return np.nan
+    return round(-100.0 * p / (1.0 - p)) if p >= 0.5 else round(100.0 * (1.0 - p) / p)
+
+
+def median_american(s):
+    """Median of a series of American odds, taken in probability space."""
+    pr = _am_to_prob(s)
+    pr = pr[np.isfinite(pr)]
+    if not len(pr):
+        return np.nan
+    return _prob_to_am(float(np.median(pr)))
+
 
 def load_key():
     for line in (ROOT.parent.parent / ".env.local").read_text().splitlines():
@@ -62,7 +120,7 @@ def consensus(pf):
     g = w.groupby(keys, dropna=False)
     c = g.agg(
         close_line=("close_line", "median"), open_line=("open_line", "median"),
-        over_price=("close_over", "median"), under_price=("close_under", "median"),
+        over_price=("close_over", median_american), under_price=("close_under", median_american),
         book_line_spread=("close_line", lambda s: s.max() - s.min()),
         n_books=("bookmaker", "nunique"),
         close_yes_prob=("close_yes_prob", "median"),
@@ -86,6 +144,98 @@ def consensus(pf):
     return c
 
 
+_PRIOR_CLOSES = None          # memoized; None = not built yet, {} = nothing to find
+
+
+def prior_week_closes():
+    """{(player_id, market, week): close_line} for the EARLIER weeks of this season,
+    read back off our own `nfl_slate_props` rows.
+
+    WHY (owner, 2026-10-04). `recent_games` shipped `{week, opp, actual}` with no line,
+    so every consumer had to grade history against TODAY's number. That read Calvin
+    Ridley 10/10 on receiving yards against a 5.5 line he clears on any catch, when he
+    was 5-10 at the prices he was actually posted at; 32% of the wk4 board read high.
+    A hit rate is a claim about beating the posted price, so the price has to travel
+    with the result.
+
+    The line for week W is the `close_line` we published on the week-W board — the
+    number users actually saw, which makes the strip self-consistent by construction.
+    Two sources were rejected: `props_frame.parquet` holds no 2026 close lines (its
+    backfill stops at 2025), and `nfl_player_prop_lines_history` is 784k rows for
+    three weeks and grows weekly — too big to page on every build when our own rows
+    already record the answer.
+
+    ~57% of entries resolve; the rest are weeks no book posted that market, and they
+    get a null line. Callers must treat a missing line as NO historical basis rather
+    than falling back silently — the iOS side gates streak claims on
+    `l10HistoricalBasisShare`. See .claude/docs/16_parlay_god.md.
+    """
+    global _PRIOR_CLOSES
+    if _PRIOR_CLOSES is not None:
+        return _PRIOR_CLOSES
+    out = {}
+    if WEEK <= 1:
+        _PRIOR_CLOSES = out
+        return out
+    key = load_key()
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+    for wk in range(1, WEEK):
+        try:
+            rows = requests.get(
+                f"{BASE_URL}/nfl_slate_props", headers=hdr, timeout=90,
+                params={"season": f"eq.{SEASON}", "week": f"eq.{wk}",
+                        "select": "player_id,market,close_line", "limit": "5000"}).json()
+        except Exception as e:                      # a missing week must not kill the build
+            print(f"  [prior-closes] wk{wk} fetch failed ({e}) — those games get no line")
+            continue
+        if not isinstance(rows, list):
+            print(f"  [prior-closes] wk{wk} returned {rows} — those games get no line")
+            continue
+        for r in rows:
+            if r.get("close_line") is not None:
+                out[(str(r["player_id"]), r["market"], wk)] = float(r["close_line"])
+    print(f"  [prior-closes] {len(out)} posted lines from weeks 1-{WEEK - 1}")
+    _PRIOR_CLOSES = out
+    return out
+
+
+def _recent_entry(player_id, market, week, opp, actual, closes):
+    """One `recent_games` element, carrying the line THAT week if we published one."""
+    return dict(week=int(week), opp=opp, actual=float(actual),
+                line=closes.get((str(player_id), market, int(week))))
+
+
+def _over_rate(entries, today_line, n):
+    """Share of the last `n` games that went OVER, graded AT THE PRICE EACH WAS POSTED.
+
+    Falls back to `today_line` only for games we never posted a line on. Pushes
+    (actual exactly on that game's line) leave the denominator instead of counting
+    as misses. Returns (rate, basis_share) where basis_share is the fraction graded
+    on a real historical line — anything below 1.0 means the rate is partly "would
+    clear today's number", which is NOT a hit rate.
+
+    These columns are read by the V3 agent prompt builder (agentGameHelpers.ts), so
+    an inflated rate here becomes a false claim inside a generated pick.
+    """
+    tail = entries[-n:]
+    if not tail:
+        return None, 0.0
+    hits = decided = backed = 0
+    for e in tail:
+        line = e.get("line")
+        if line is None:
+            line = today_line
+        else:
+            backed += 1
+        if line is None or e["actual"] == line:
+            continue                                  # no basis, or a push
+        decided += 1
+        hits += e["actual"] > line
+    if not decided:
+        return None, backed / len(tail)
+    return round(hits / decided, 3), round(backed / len(tail), 3)
+
+
 def recent_form(c):
     """L10 trends + per-game history from player_offense, weeks < 12 only."""
     po = pd.read_parquet(DATA / "player_offense.parquet")
@@ -100,24 +250,25 @@ def recent_form(c):
     po["opp"] = [opp_map.get((w, t)) for w, t in zip(po.week, po.team)]
 
     l10_avg, rate5, rate10, recent = [], [], [], []
+    closes = prior_week_closes()
     hist = {pid: d.sort_values("week") for pid, d in po.groupby("player_id")}
     for _, r in c.iterrows():
-        stat = STAT_OF[r.market]
+        # Books add markets without warning (player_rush_attempts appeared 2026-09-05
+        # and KeyError'd the whole build). Unknown market -> no form stats, not a crash.
+        stat = STAT_OF.get(r.market) or EXTRA_STAT.get(r.market)
         d = hist.get(r.player_id)
-        if d is None or stat not in d.columns:
+        if stat is None or d is None or stat not in d.columns:
             l10_avg.append(None); rate5.append(None); rate10.append(None); recent.append([])
             continue
         s = d.dropna(subset=[stat]).tail(10)
         vals = s[stat].astype(float)
         l10_avg.append(round(vals.mean(), 2) if len(vals) else None)
-        if pd.notna(r.close_line) and len(vals):
-            rate10.append(round((vals > r.close_line).mean(), 3))
-            v5 = vals.tail(5)
-            rate5.append(round((v5 > r.close_line).mean(), 3))
-        else:
-            rate5.append(None); rate10.append(None)
-        recent.append([dict(week=int(w), opp=o, actual=float(v))
-                       for w, o, v in zip(s.week, s.opp, vals)])
+        entries = [_recent_entry(r.player_id, r.market, w, o, v, closes)
+                   for w, o, v in zip(s.week, s.opp, vals)]
+        tl = float(r.close_line) if pd.notna(r.close_line) else None
+        rate10.append(_over_rate(entries, tl, 10)[0])
+        rate5.append(_over_rate(entries, tl, 5)[0])
+        recent.append(entries)
     c["l10_avg"] = l10_avg
     c["over_rate_l5"] = rate5
     c["over_rate_l10"] = rate10
@@ -255,7 +406,8 @@ def attempts_consensus():
     keys = ["event_id", "player_id", "player_name", "position", "team", "market",
             "home_team", "away_team"]
     snaps = ex.groupby(keys + ["snap", "mins"]).agg(
-        line=("line", "median"), over=("over_odds", "median"), under=("under_odds", "median"),
+        line=("line", "median"), over=("over_odds", median_american),
+        under=("under_odds", median_american),
         nb=("bookmaker", "nunique"), lo=("line", "min"), hi=("line", "max")
     ).reset_index().sort_values(keys + ["snap"])
     op = snaps.groupby(keys).first().reset_index()[keys + ["line"]].rename(columns={"line": "open_line"})
@@ -280,13 +432,14 @@ def attempts_form(d):
         opp_map[(r.week, r.home_team)] = r.away_team
         opp_map[(r.week, r.away_team)] = r.home_team
     po["opp"] = [opp_map.get((w, t)) for w, t in zip(po.week, po.team)]
+    closes = prior_week_closes()
     hist = {pid: g.sort_values("week") for pid, g in po.groupby("player_id")}
     cols = {k: [] for k in ("gp_prior", "last_game", "l3_avg", "l5_avg", "l10_avg",
                             "szn_avg", "szn_max", "szn_min", "over_rate_l5", "over_rate_l10", "recent_games")}
     for _, r in d.iterrows():
-        stat = EXTRA_STAT[r.market]
+        stat = EXTRA_STAT.get(r.market)
         g = hist.get(r.player_id)
-        if g is None or stat not in g.columns:
+        if stat is None or g is None or stat not in g.columns:
             for k in cols:
                 cols[k].append([] if k == "recent_games" else None)
             continue
@@ -300,14 +453,13 @@ def attempts_form(d):
         cols["szn_avg"].append(round(float(vals.mean()), 2) if len(vals) else None)
         cols["szn_max"].append(round(float(vals.max()), 2) if len(vals) else None)
         cols["szn_min"].append(round(float(vals.min()), 2) if len(vals) else None)
-        if pd.notna(r.close_line) and len(vals):
-            cols["over_rate_l10"].append(round(float((vals.tail(10) > r.close_line).mean()), 3))
-            cols["over_rate_l5"].append(round(float((vals.tail(5) > r.close_line).mean()), 3))
-        else:
-            cols["over_rate_l10"].append(None); cols["over_rate_l5"].append(None)
         t = s.tail(10)
-        cols["recent_games"].append([dict(week=int(w), opp=o, actual=float(v))
-                                     for w, o, v in zip(t.week, t.opp, t[stat].astype(float))])
+        entries = [_recent_entry(r.player_id, r.market, w, o, v, closes)
+                   for w, o, v in zip(t.week, t.opp, t[stat].astype(float))]
+        tl = float(r.close_line) if pd.notna(r.close_line) else None
+        cols["over_rate_l10"].append(_over_rate(entries, tl, 10)[0])
+        cols["over_rate_l5"].append(_over_rate(entries, tl, 5)[0])
+        cols["recent_games"].append(entries)
     for k, v in cols.items():
         d[k] = v
     return d
@@ -354,7 +506,10 @@ def attempts_def_matchup(d):
 
     def_allowed, lg_allowed, idx = [], [], []
     for market, position, o in zip(d.market, d.position, opp):
-        stat = EXTRA_STAT[market]
+        stat = EXTRA_STAT.get(market)
+        if stat is None:
+            def_allowed.append(None); lg_allowed.append(None); idx.append(None)
+            continue
         def_avg, lg_avg = tables.get((stat, position), ({}, None))
         if o in def_avg and lg_avg:
             da = float(def_avg[o])
@@ -447,15 +602,23 @@ def main():
         a = attempts_flags(a)
         c = pd.concat([c, a], ignore_index=True)
 
-    # map to slate game ids via home team
+    # map to slate game ids via home team. Key from the SLATE TABLE, not a model
+    # frame: h1m_preds only contains PLAYED games, so keying from it left every
+    # UPCOMING game's props with a NULL game_id all week — the agents' get_props
+    # matched nothing and zero prop picks were possible (found 2026-09-14, 368/375
+    # v3 runs saw empty props). Constructed ids are validated against
+    # nfl_slate_games so the FK can never break.
     tm = pd.read_parquet(DATA / "team_mapping.parquet")
     name_ab = dict(zip(tm.city_and_name, tm["Team Abbrev"].replace({"LAR": "LA"})))
-    hp = pd.read_parquet(DATA / "h1m_preds.parquet")
-    hp = hp[(hp.season == SEASON) & (hp.week == WEEK)]
-    gid = dict(zip(hp.home_ab, hp.game_id))
     c["home_ab"] = c.home_team.map(name_ab)
     c["away_ab"] = c.away_team.map(name_ab)
-    c["game_id"] = c.home_ab.map(gid)
+    _k = load_key()
+    _sg = requests.get(f"{BASE_URL}/nfl_slate_games?season=eq.{SEASON}&week=eq.{WEEK}&select=game_id",
+                       headers={"apikey": _k, "Authorization": f"Bearer {_k}"}, timeout=30)
+    _valid = {str(x["game_id"]) for x in (_sg.json() if _sg.ok else [])}
+    _mk = [f"{SEASON}_{int(WEEK):02d}_{a}_{h}" if pd.notna(a) and pd.notna(h) else None
+           for a, h in zip(c.away_ab, c.home_ab)]
+    c["game_id"] = [g if g in _valid else None for g in _mk]
     c["is_home"] = c.team == c.home_ab
     # attempts rows arrive without opp (the 6-market frame carries it); fill from home/away
     opp_calc = pd.Series(np.where(c.is_home, c.away_ab, c.home_ab), index=c.index)
@@ -509,6 +672,10 @@ def main():
 
     if args.no_load:
         return
+    # An empty frame must never reach the wipe: a stale local props_frame (0 rows) deleted the
+    # week's 1,103 rows and then crashed on the missing columns (2026-09-21). Keep what's there.
+    if df.empty:
+        sys.exit(f"no prop rows built for {SEASON} wk{WEEK} — refusing to wipe nfl_slate_props (props_frame stale?)")
 
     hdr = {"apikey": key, "Authorization": f"Bearer {key}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
@@ -527,7 +694,13 @@ def main():
     ez = df.groupby("market").model_edge.transform(
         lambda x: (x - x.mean()) / x.std() if x.notna().sum() > 2 and x.std() > 0 else np.nan)
     a_mask = df["flags"].map(lambda f: bool(set(f or []) & {"P14", "P17", "P18"}))
-    inj_ok = ~df.report_status.isin(["Out", "Doubtful"]) if "report_status" in df.columns else True
+    # Out/Doubtful never played in 2024-25 (0/826); a Questionable QB played 27% —
+    # neither belongs in a bettable tier (owner 2026-09-15). Questionable non-QBs stay.
+    if "report_status" in df.columns:
+        inj_ok = ~(df.report_status.isin(["Out", "Doubtful"])
+                   | ((df.report_status == "Questionable") & (df.position == "QB")))
+    else:
+        inj_ok = True
     df["rank_tier"] = np.where(a_mask & inj_ok, "A-validated",
                        np.where(ez.abs().ge(1.28) & inj_ok, "B-context", None))
     df["rank_pos"] = np.nan
@@ -544,10 +717,16 @@ def main():
     n_a = int((df.rank_tier == "A-validated").sum()); n_b = int((df.rank_tier == "B-context").sum())
     print(f"shortlist rank: {n_a} A-validated + {n_b} B-context of {len(df)} props")
 
+    # ── FANTASY-POINTS LAYER (additive, owner 2026-09-21): the FP-era prop model's projection
+    # (fp_*) and the Player Prop Report's read (report_*) ride alongside everything above.
+    # They gate nothing — is_bettable stays the P-flag set. See fp_prop_layer.py.
+    from fp_prop_layer import fetch_layer, attach_to_props
+    df = attach_to_props(df, fetch_layer(SEASON, WEEK))
+
     # Integer DB columns must not serialize as floats: rank_pos/gp_prior are
     # nullable so pandas holds them as float64 and to_json emits 118.0 -> 22P02
     # (killed the first two 2026 loads). Nullable Int64 emits int or null.
-    for _ic in ("rank_pos", "gp_prior", "n_books", "season", "week"):
+    for _ic in ("rank_pos", "gp_prior", "n_books", "season", "week", "report_for", "report_against"):
         if _ic in df.columns:
             df[_ic] = pd.to_numeric(df[_ic], errors="coerce").round().astype("Int64")
     recs = json.loads(df.to_json(orient="records"))

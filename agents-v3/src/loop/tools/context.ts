@@ -82,8 +82,10 @@ export interface AgentGenContext {
   // get_props populates this for props with is_bettable; the submit tool gates
   // prop bets against it. MUST match the key format readTools.ts builds.
   bettableProps: Map<string, Set<string>>;
-  /** propKey -> {team, position} for correlation guards (SGP passing-stack, one-per-player). */
-  propMeta: Map<string, Map<string, { team: string; position: string }>>;
+  /** propKey -> {team, position, direction} — team/position for the correlation guards (SGP passing-stack,
+   *  one-per-player); direction = the side the prop's signal bets ("over" | "under" | null), which is the ONLY
+   *  side submit_picks / submit_parlay accept for that prop (owner 2026-11-02: agents were fading under flags). */
+  propMeta: Map<string, Map<string, { team: string; position: string; direction: string | null }>>;
 
   // outputs / audit
   acceptedPicks: Record<string, unknown>[];

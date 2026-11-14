@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.props
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -78,6 +81,7 @@ import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
 import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
 import com.wagerproof.app.features.parlaygod.ParlayGodRail
 import com.wagerproof.app.features.paywall.PaywallDialogHost
+import com.wagerproof.app.features.gamecards.NBATeams
 import com.wagerproof.app.features.shared.InitialsDisc
 import com.wagerproof.app.features.shared.RemoteImage
 import com.wagerproof.core.design.components.liquidGlassCapsule
@@ -86,6 +90,13 @@ import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.models.MLBPlayerProps
+import com.wagerproof.core.models.NbaPropDef
+import com.wagerproof.core.models.NbaPropFeedFilters
+import com.wagerproof.core.models.NbaSlateProp
+import com.wagerproof.core.models.nbaGames
+import com.wagerproof.core.models.nbaMarkets
+import com.wagerproof.core.models.nbaSignalPlayerCount
+import com.wagerproof.core.services.NBAPropsService
 import com.wagerproof.core.models.NFLPlayerProps
 import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.models.ParlaySport
@@ -121,6 +132,16 @@ fun PropsScreen(
     modifier: Modifier = Modifier,
     onFullScreenChanged: (Boolean) -> Unit = {},
 ) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Player Props") { PropsScreenContent(modifier, onFullScreenChanged) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun PropsScreenContent(
+    modifier: Modifier = Modifier,
+    onFullScreenChanged: (Boolean) -> Unit = {},
+) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     val store = graph.props
     val parlayGod = graph.parlayGod
@@ -132,6 +153,15 @@ fun PropsScreen(
     var sortMode by remember { mutableStateOf(PropSortMode.TIME) }
     var mlbFilters by remember { mutableStateOf(MLBPropFeedFilters()) }
     var nflFilters by remember { mutableStateOf(NFLPropFeedFilters()) }
+    var nbaRows by remember { mutableStateOf<List<NbaSlateProp>>(emptyList()) }
+    var nbaDefs by remember { mutableStateOf<Map<String, NbaPropDef>>(emptyMap()) }
+    var nbaLoading by remember { mutableStateOf(false) }
+    var nbaError by remember { mutableStateOf<String?>(null) }
+    var nbaFilters by remember { mutableStateOf(NbaPropFeedFilters()) }
+    var showNBAMatchupSheet by remember { mutableStateOf(false) }
+    var showNBAMarketSheet by remember { mutableStateOf(false) }
+    var showNBASignalSheet by remember { mutableStateOf(false) }
+    var selectedNba by remember { mutableStateOf<NbaSlateProp?>(null) }
     // Screen-local (unlike Games, which keys the query per sport in its store):
     // the MLB and NFL prop boards share no vocabulary, so iOS clears the field
     // on every sport switch rather than restoring a stale one.
@@ -153,9 +183,18 @@ fun PropsScreen(
 
     // Screen-entry + sport-switch load, mirroring iOS `.task(id: selectedSport)`.
     LaunchedEffect(store.selectedSport) {
+        if (featurePreview) return@LaunchedEffect
         quickFilterText = ""
         if (store.selectedSport != PropsStore.Sport.MLB) mlbFilters = MLBPropFeedFilters()
         if (store.selectedSport != PropsStore.Sport.NFL) nflFilters = NFLPropFeedFilters()
+        if (store.selectedSport != PropsStore.Sport.NBA) nbaFilters = NbaPropFeedFilters()
+        if (store.selectedSport == PropsStore.Sport.NBA) {
+            nbaLoading = nbaRows.isEmpty()
+            runCatching { NBAPropsService.loadBoard() }
+                .onSuccess { (board, rules) -> nbaRows = board; nbaDefs = rules; nbaError = null }
+                .onFailure { nbaError = it.message }
+            nbaLoading = false
+        }
         if (sortMode !in PropSortMode.modes(store.selectedSport)) sortMode = PropSortMode.TIME
         store.refresh()
         if (store.selectedSport == PropsStore.Sport.MLB) {
@@ -166,6 +205,7 @@ fun PropsScreen(
 
     // Reactive filter rules (ported exactly).
     LaunchedEffect(mlbFilters.market) {
+        if (featurePreview) return@LaunchedEffect
         val market = mlbFilters.market
         if (market == "batter_home_runs") {
             mlbFilters = mlbFilters.copy(market = null)
@@ -174,6 +214,7 @@ fun PropsScreen(
         }
     }
     LaunchedEffect(nflFilters.market) {
+        if (featurePreview) return@LaunchedEffect
         val market = nflFilters.market
         if (market != null) {
             if (nflFilters.signalsOnly) nflFilters = nflFilters.copy(signalsOnly = false)
@@ -181,6 +222,7 @@ fun PropsScreen(
         }
     }
     LaunchedEffect(nflFilters.signalsOnly) {
+        if (featurePreview) return@LaunchedEffect
         if (store.selectedSport == PropsStore.Sport.NFL && nflFilters.signalsOnly) {
             sortMode = PropSortMode.HIT_RATE
             val gameId = nflFilters.gameId
@@ -190,6 +232,7 @@ fun PropsScreen(
         }
     }
     LaunchedEffect(store.nflPlayers) {
+        if (featurePreview) return@LaunchedEffect
         val market = nflFilters.market ?: return@LaunchedEffect
         if (market !in NFLPropFeedFilters.sheetMarkets(store.nflPlayers).allKeys) {
             nflFilters = nflFilters.copy(market = null)
@@ -201,11 +244,14 @@ fun PropsScreen(
         bestPicksDetail != null -> "bestPickDetail"
         selectedProp != null -> "mlbDetail"
         selectedNFLProp != null -> "nflDetail"
+        selectedNba != null -> "nbaDetail"
         showBestPicks -> "bestPicks"
         else -> "feed"
     }
 
-    LaunchedEffect(dest) { onFullScreenChanged(dest != "feed") }
+    LaunchedEffect(dest) {
+        if (featurePreview) return@LaunchedEffect
+        onFullScreenChanged(dest != "feed") }
     DisposableEffect(Unit) {
         onDispose { onFullScreenChanged(false) }
     }
@@ -226,6 +272,15 @@ fun PropsScreen(
             "nflDetail" -> selectedNFLProp?.let { sel ->
                 NflPropDetailScreen(selection = sel, onBack = { selectedNFLProp = null })
             }
+            "nbaDetail" -> selectedNba?.let { row ->
+                NbaPropDetailScreen(
+                    row = row,
+                    rows = nbaRows,
+                    defs = nbaDefs,
+                    onMarket = { selectedNba = it },
+                    onBack = { selectedNba = null },
+                )
+            }
             "bestPickDetail" -> bestPicksDetail?.let { (sel, line) ->
                 PlayerPropDetailScreen(selection = sel, initialLine = line, onBack = { bestPicksDetail = null })
             }
@@ -242,7 +297,7 @@ fun PropsScreen(
                 parlayGod = parlayGod,
                 parlayAccess = when {
                     graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
-                    graph.proAccess.isPro -> ParlayGodAccessState.Granted
+                    graph.proAccess.hasAccess(com.wagerproof.core.models.SubscriptionTier.PREMIUM) -> ParlayGodAccessState.Granted
                     else -> ParlayGodAccessState.Locked
                 },
                 sortMode = sortMode,
@@ -256,6 +311,22 @@ fun PropsScreen(
                 onOpenMlbMarket = { showMLBMarketSheet = true },
                 onOpenNflMatchup = { showNFLMatchupSheet = true },
                 onOpenNflMarket = { showNFLMarketSheet = true },
+                nbaRows = nbaRows,
+                nbaDefs = nbaDefs,
+                nbaLoading = nbaLoading,
+                nbaError = nbaError,
+                nbaFilters = nbaFilters,
+                onOpenNbaMatchup = { showNBAMatchupSheet = true },
+                onOpenNbaMarket = { showNBAMarketSheet = true },
+                onOpenNbaSignal = { showNBASignalSheet = true },
+                onSelectNba = { selectedNba = it },
+                onRefreshNba = {
+                    nbaLoading = nbaRows.isEmpty()
+                    runCatching { NBAPropsService.loadBoard() }
+                        .onSuccess { (board, rules) -> nbaRows = board; nbaDefs = rules; nbaError = null }
+                        .onFailure { nbaError = it.message }
+                    nbaLoading = false
+                },
                 onSelectMlb = { selectedProp = it },
                 onSelectNfl = { selectedNFLProp = it },
                 onOpenBestPicks = { showBestPicks = true },
@@ -305,6 +376,30 @@ fun PropsScreen(
             onDismiss = { showNFLMarketSheet = false },
         )
     }
+    if (showNBAMatchupSheet) {
+        NbaMatchupSheet(
+            options = nbaGames(nbaRows),
+            selection = nbaFilters.gameKey,
+            onSelect = { nbaFilters = nbaFilters.copy(gameKey = it) },
+            onDismiss = { showNBAMatchupSheet = false },
+        )
+    }
+    if (showNBAMarketSheet) {
+        NbaMarketSheet(
+            markets = nbaMarkets(nbaRows),
+            selection = nbaFilters.market,
+            onSelect = { nbaFilters = nbaFilters.copy(market = it) },
+            onDismiss = { showNBAMarketSheet = false },
+        )
+    }
+    if (showNBASignalSheet) {
+        NbaSignalSheet(
+            playerCount = nbaSignalPlayerCount(nbaRows),
+            signalsOnly = nbaFilters.signalsOnly,
+            onSelect = { nbaFilters = nbaFilters.copy(signalsOnly = it) },
+            onDismiss = { showNBASignalSheet = false },
+        )
+    }
 
     selectedParlay?.let { ticket ->
         ParlayGodDetailSheet(ticket = ticket, onDismiss = { selectedParlay = null })
@@ -338,6 +433,16 @@ private fun FeedContent(
     onOpenMlbMarket: () -> Unit,
     onOpenNflMatchup: () -> Unit,
     onOpenNflMarket: () -> Unit,
+    nbaRows: List<NbaSlateProp>,
+    nbaDefs: Map<String, NbaPropDef>,
+    nbaLoading: Boolean,
+    nbaError: String?,
+    nbaFilters: NbaPropFeedFilters,
+    onOpenNbaMatchup: () -> Unit,
+    onOpenNbaMarket: () -> Unit,
+    onOpenNbaSignal: () -> Unit,
+    onSelectNba: (NbaSlateProp) -> Unit,
+    onRefreshNba: suspend () -> Unit,
     onSelectMlb: (PlayerPropSelection) -> Unit,
     onSelectNfl: (NFLPlayerPropSelection) -> Unit,
     onOpenBestPicks: () -> Unit,
@@ -423,6 +528,11 @@ private fun FeedContent(
             onOpenMlbMarket = onOpenMlbMarket,
             onOpenNflMatchup = onOpenNflMatchup,
             onOpenNflMarket = onOpenNflMarket,
+            nbaRows = nbaRows,
+            nbaFilters = nbaFilters,
+            onOpenNbaMatchup = onOpenNbaMatchup,
+            onOpenNbaMarket = onOpenNbaMarket,
+            onOpenNbaSignal = onOpenNbaSignal,
         )
 
         PullToRefreshBox(
@@ -440,6 +550,7 @@ private fun FeedContent(
                     feed.await()
                     parlays.await()
                     bestPicks?.await()
+                    if (sport == PropsStore.Sport.NBA) onRefreshNba()
                     refreshing = false
                 }
             },
@@ -497,6 +608,13 @@ private fun FeedContent(
                     nflEmptyLabel = nflFilteredEmptyLabel(store, nflFilters, activeQuickFilter),
                     onSelectMlb = onSelectMlb,
                     onSelectNfl = onSelectNfl,
+                    nbaRows = nbaRows,
+                    nbaDefs = nbaDefs,
+                    nbaLoading = nbaLoading,
+                    nbaError = nbaError,
+                    nbaFilters = nbaFilters,
+                    query = query,
+                    onSelectNba = onSelectNba,
                 )
             }
         }
@@ -518,8 +636,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.feedBody(
     nflEmptyLabel: String,
     onSelectMlb: (PlayerPropSelection) -> Unit,
     onSelectNfl: (NFLPlayerPropSelection) -> Unit,
+    nbaRows: List<NbaSlateProp>,
+    nbaDefs: Map<String, NbaPropDef>,
+    nbaLoading: Boolean,
+    nbaError: String?,
+    nbaFilters: NbaPropFeedFilters,
+    query: String,
+    onSelectNba: (NbaSlateProp) -> Unit,
 ) {
     when {
+        sport == PropsStore.Sport.NBA -> item {
+            NbaPropBoard(nbaRows, nbaDefs, nbaLoading, nbaError, nbaFilters, query, onSelectNba, Modifier.fillParentMaxWidth())
+        }
         !sport.hasProps -> item { ComingSoonState(sport) }
         store.isLoading && !store.hasCachedMatchups -> item { LoadingSkeleton() }
         store.errorMessage != null && !store.hasCachedMatchups -> item { ErrorState(store.errorMessage!!) }
@@ -702,6 +830,11 @@ private fun FilterPills(
     onOpenMlbMarket: () -> Unit,
     onOpenNflMatchup: () -> Unit,
     onOpenNflMarket: () -> Unit,
+    nbaRows: List<NbaSlateProp>,
+    nbaFilters: NbaPropFeedFilters,
+    onOpenNbaMatchup: () -> Unit,
+    onOpenNbaMarket: () -> Unit,
+    onOpenNbaSignal: () -> Unit,
 ) {
     Row(
         Modifier
@@ -712,7 +845,23 @@ private fun FilterPills(
     ) {
         PillLabel(sportIcon(sport), sport.label, dimmed = sportOffSeason(sport), onClick = onOpenSportSheet)
 
-        if (sport.hasProps) {
+        if (sport == PropsStore.Sport.NBA) {
+            val games = nbaGames(nbaRows)
+            val selected = nbaFilters.gameKey?.let { key -> games.firstOrNull { it.key == key } }
+            if (selected != null) {
+                PillContainer(onClick = onOpenNbaMatchup) {
+                    selected.away?.let { MiniLogo(NBATeams.logoURL(it), it) }
+                    selected.home?.let { MiniLogo(NBATeams.logoURL(it), it) }
+                    Text(selected.label, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    PillChevron()
+                }
+            } else {
+                PillLabel(AppIcon.SQUARE_GRID_2X2_FILL.imageVector, "All games", onClick = onOpenNbaMatchup)
+            }
+            val marketLabel = nbaFilters.market?.let { key -> nbaMarkets(nbaRows).firstOrNull { it.key == key }?.label } ?: "All markets"
+            PillLabel(AppIcon.fromSystemName("slider.horizontal.3")?.imageVector ?: AppIcon.CHART_BAR.imageVector, marketLabel, onClick = onOpenNbaMarket)
+            PillLabel(AppIcon.BOLT_FILL.imageVector, if (nbaFilters.signalsOnly) "Has a signal" else "Signals", onClick = onOpenNbaSignal)
+        } else if (sport.hasProps) {
             when (sport) {
                 PropsStore.Sport.MLB -> {
                     val opt = mlbFilters.gamePk?.let { pk -> mlbOptions.firstOrNull { it.gamePk == pk } }

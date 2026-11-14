@@ -20,6 +20,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -51,9 +56,18 @@ import com.wagerproof.app.features.agents.ticketColor
 import com.wagerproof.app.features.agents.ticketLabel
 import com.wagerproof.core.design.components.WagerproofShield
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.app.features.gamecards.CFBTeamColors
+import com.wagerproof.app.features.gamecards.NBATeams
+import com.wagerproof.app.features.nfl.NFLTeamColors
 import com.wagerproof.core.models.AgentPick
 import com.wagerproof.core.models.AgentSport
+import com.wagerproof.core.models.CFBTeamAssets
 import com.wagerproof.core.models.MLBTeams
+import com.wagerproof.core.models.NCAABTeamAssets
+import com.wagerproof.core.models.NFLTeamAssets
+import com.wagerproof.core.services.CFBTeamsService
+import com.wagerproof.core.services.NCAABTeamIdentityService
+import com.wagerproof.core.services.NFLTeamsService
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -488,8 +502,19 @@ fun PickRouteLineRow(
 ) {
     val dotColor = pick.result.ticketColor
     val names = pick.awayHomeNames()
-    val away = PickTicketFormat.teamVisual(names?.first ?: pick.matchup, pick.sport)
-    val home = PickTicketFormat.teamVisual(names?.second ?: "", pick.sport)
+    var identityEpoch by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        CFBTeamsService.ensureLoaded()
+        NCAABTeamIdentityService.ensureLoaded()
+        NFLTeamsService.ensureLoaded()
+        identityEpoch += 1
+    }
+    val away = remember(names, pick.sport, identityEpoch) {
+        PickTicketFormat.teamVisual(names?.first ?: pick.matchup, pick.sport)
+    }
+    val home = remember(names, pick.sport, identityEpoch) {
+        PickTicketFormat.teamVisual(names?.second ?: "", pick.sport)
+    }
 
     Row(
         modifier = modifier,
@@ -745,14 +770,21 @@ object PickTicketFormat {
     fun teamCode(name: String, sport: AgentSport): String {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return "—"
-        if (sport == AgentSport.MLB) {
-            MLBTeams.info(trimmed)?.let { return it.team }
+        when (sport) {
+            AgentSport.MLB -> MLBTeams.info(trimmed)?.let { return it.team }
+            AgentSport.NFL -> return NFLTeamAssets.abbr(trimmed)
+            AgentSport.CFB -> return CFBTeamAssets.abbr(trimmed)
+            AgentSport.NBA -> return NBATeams.abbreviation(trimmed)
+            AgentSport.NCAAB -> {
+                NCAABTeamAssets.abbrev(trimmed)?.takeIf { it.isNotBlank() }?.let { return it.uppercase(Locale.US) }
+                CFBTeamAssets.team(trimmed)?.abbr?.takeIf { it.isNotBlank() }?.let { return it.uppercase(Locale.US) }
+            }
         }
         val words = trimmed.split(" ").filter { it.isNotEmpty() }
         if (words.size >= 2) {
-            return words.take(3).mapNotNull { it.firstOrNull() }.joinToString("").uppercase()
+            return words.take(3).mapNotNull { it.firstOrNull() }.joinToString("").uppercase(Locale.US)
         }
-        return trimmed.take(3).uppercase()
+        return trimmed.take(3).uppercase(Locale.US)
     }
 
     fun teamVisual(name: String, sport: AgentSport): PickTeamVisual {
@@ -760,13 +792,36 @@ object PickTicketFormat {
         if (trimmed.isEmpty()) {
             return PickTeamVisual("—", null, neutralTop, neutralBottom)
         }
-        if (sport == AgentSport.MLB) {
-            MLBTeams.info(trimmed)?.let { info ->
+        when (sport) {
+            AgentSport.MLB -> MLBTeams.info(trimmed)?.let { info ->
                 return PickTeamVisual(
                     code = info.team,
                     logoURL = info.logoUrl,
                     primary = Color(0xFF000000 or info.primaryHex),
                     secondary = Color(0xFF000000 or info.secondaryHex),
+                )
+            }
+            AgentSport.NFL -> {
+                val colors = NFLTeamColors.colorPair(trimmed)
+                return PickTeamVisual(NFLTeamAssets.abbr(trimmed), NFLTeamAssets.logo(trimmed), colors.primary, colors.secondary)
+            }
+            AgentSport.CFB -> {
+                val colors = CFBTeamColors.colorPair(trimmed)
+                return PickTeamVisual(CFBTeamAssets.abbr(trimmed), CFBTeamAssets.logo(trimmed), colors.primary, colors.secondary)
+            }
+            AgentSport.NBA -> {
+                val colors = NBATeams.colorPair(trimmed)
+                return PickTeamVisual(NBATeams.abbreviation(trimmed), NBATeams.logoURL(trimmed), colors.primary, colors.secondary)
+            }
+            AgentSport.NCAAB -> {
+                val colors = CFBTeamColors.colorPair(trimmed)
+                val code = NCAABTeamAssets.abbrev(trimmed)?.takeIf { it.isNotBlank() }
+                    ?: CFBTeamAssets.team(trimmed)?.abbr?.takeIf { it.isNotBlank() }
+                return PickTeamVisual(
+                    code = code?.uppercase(Locale.US) ?: teamCode(trimmed, sport),
+                    logoURL = NCAABTeamAssets.logo(trimmed) ?: CFBTeamAssets.logo(trimmed),
+                    primary = colors.primary,
+                    secondary = colors.secondary,
                 )
             }
         }

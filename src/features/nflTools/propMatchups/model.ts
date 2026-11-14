@@ -45,6 +45,122 @@ function dateKey(iso: string | null | undefined): string {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
+export interface LeanStrength {
+  direction: 'up' | 'down';
+  count: number;
+}
+
+/** Highlights that all point the same way. A mix of up and down is not a lean. */
+export function leanStrength(highlights: PropHighlight[] | null | undefined): LeanStrength | null {
+  let ups = 0;
+  let downs = 0;
+  for (const highlight of highlights ?? []) {
+    if (highlight?.direction === 'up') ups += 1;
+    else if (highlight?.direction === 'down') downs += 1;
+  }
+  if (ups > 0 && downs > 0) return null;
+  if (ups > 0) return { direction: 'up', count: ups };
+  if (downs > 0) return { direction: 'down', count: downs };
+  return null;
+}
+
+/** Lowest board rank per player. Missing ranks sort after numbered spotlight picks, still ahead of everyone else. */
+export function spotlightRankMap(
+  picks: readonly { player_id: string; board_rank: number | null }[],
+): Map<string, number> {
+  const ranks = new Map<string, number>();
+  for (const pick of picks) {
+    const rank = typeof pick.board_rank === 'number' ? pick.board_rank : Number.POSITIVE_INFINITY;
+    const previous = ranks.get(pick.player_id);
+    if (previous == null || rank < previous) ranks.set(pick.player_id, rank);
+  }
+  return ranks;
+}
+
+/** The spotlight market with the best board rank for each player. */
+export function bestSpotlightMarketByPlayer(
+  picks: readonly { player_id: string; board_rank: number | null; market: string }[],
+): Map<string, string> {
+  const markets = new Map<string, string>();
+  const ranks = new Map<string, number>();
+  for (const pick of picks) {
+    const rank = typeof pick.board_rank === 'number' ? pick.board_rank : Number.POSITIVE_INFINITY;
+    const previous = ranks.get(pick.player_id);
+    if (previous == null || rank < previous) {
+      ranks.set(pick.player_id, rank);
+      markets.set(pick.player_id, pick.market);
+    }
+  }
+  return markets;
+}
+
+export const EMPTY_SPOTLIGHT_RANK: ReadonlyMap<string, number> = new Map();
+export const EMPTY_LEAN_IDS: ReadonlySet<string> = new Set();
+
+export type NflPropList = 'spotlight' | 'leans' | 'all' | `g:${string}`;
+
+function listBand(playerId: string, spotlightRank: ReadonlyMap<string, number>, leanIds: ReadonlySet<string>): number {
+  if (spotlightRank.has(playerId)) return 0;
+  if (leanIds.has(playerId)) return 1;
+  return 2;
+}
+
+/**
+ * Spotlight, then lean-tagged players, then everyone else.
+ * Alphabetical inside each group. Board rank and lean strength are not an order.
+ */
+export function compareNflPropPlayers(
+  a: NflPropPlayerPage,
+  b: NflPropPlayerPage,
+  spotlightRank: ReadonlyMap<string, number>,
+  leanIds: ReadonlySet<string> = EMPTY_LEAN_IDS,
+): number {
+  const band = listBand(a.player_id, spotlightRank, leanIds) - listBand(b.player_id, spotlightRank, leanIds);
+  if (band !== 0) return band;
+  return a.player_name.localeCompare(b.player_name);
+}
+
+export function sortNflPropPlayers(
+  players: readonly NflPropPlayerPage[],
+  spotlightRank: ReadonlyMap<string, number> = EMPTY_SPOTLIGHT_RANK,
+  leanIds: ReadonlySet<string> = EMPTY_LEAN_IDS,
+): NflPropPlayerPage[] {
+  return [...players].sort((a, b) => compareNflPropPlayers(a, b, spotlightRank, leanIds));
+}
+
+export type NflPropPlayerFocus = NflPropList;
+
+/**
+ * The left rail. A search ignores the active filter and looks across every player.
+ * Matchup rails are `g:<game id>` built from the week's rows.
+ */
+export function browseNflPropPlayers(
+  players: readonly NflPropPlayerPage[],
+  focus: NflPropPlayerFocus,
+  query: string,
+  spotlightRank: ReadonlyMap<string, number>,
+  teamCity: (abbr: string) => string | null = () => null,
+  leanIds: ReadonlySet<string> = EMPTY_LEAN_IDS,
+  gameIdByPlayer: ReadonlyMap<string, string> = new Map(),
+): NflPropPlayerPage[] {
+  const needle = query.trim().toLowerCase();
+  const filtered = players.filter((player) => {
+    if (needle) {
+      const city = teamCity(player.team)?.toLowerCase() ?? '';
+      return (
+        player.player_name.toLowerCase().includes(needle) ||
+        player.team.toLowerCase().includes(needle) ||
+        city.includes(needle)
+      );
+    }
+    if (focus === 'spotlight') return spotlightRank.has(player.player_id);
+    if (focus === 'leans') return leanIds.has(player.player_id);
+    if (focus === 'all') return true;
+    return gameIdByPlayer.get(player.player_id) === focus.slice(2);
+  });
+  return sortNflPropPlayers(filtered, spotlightRank, leanIds);
+}
+
 function pickTopHighlight(
   players: NflPropPlayerPage[]
 ): { player: NflPropPlayerPage; highlight: PropHighlight } | null {

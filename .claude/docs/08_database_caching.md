@@ -127,15 +127,20 @@ CREATE TABLE polymarket_events (
 
 ### Edge Functions
 - **`polymarket-proxy`** - CORS proxy for browser requests (see `11_edge_functions.md`)
-- **`update-polymarket-cache`** - Cron job to refresh cache hourly
+- **`update-polymarket-cache`** - Cron job to refresh cache hourly. Reads the
+  week's games from the slate tables the apps render (`nfl_slate_feed`,
+  `cfb_slate_feed`, `mlb_games_today`, …), pulls only moneyline/spread/total
+  markets from gamma-api inside a dated window, and keys rows with the exact
+  team strings the clients use. See `supabase/functions/update-polymarket-cache/README.md`
+  for the key format, the legacy NFL short-name key, and why it must never fetch
+  whole-league `/events` again (it died on `WORKER_RESOURCE_LIMIT` in Sept 2026).
 
 ### Cache Flow
 ```
-1. Widget requests data → polymarketService.ts
-2. Service checks polymarket_markets table
-3. If cache miss or stale (>1h): calls polymarket-proxy Edge Function
-4. Edge Function fetches from Polymarket APIs, updates cache
-5. Returns data to widget
+1. Widget requests data → polymarketService.ts (web) / PolymarketService.swift / .kt
+2. Client reads polymarket_markets by game_key = {league}_{away_team}_{home_team}
+3. Web only: on a miss, falls back to polymarket_events (24h TTL) + live gamma/clob
+   calls from the browser. iOS and Android render "Market pending" on a miss.
 ```
 
 ---

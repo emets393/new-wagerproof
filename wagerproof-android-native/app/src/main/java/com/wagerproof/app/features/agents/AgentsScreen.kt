@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.agents
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import android.app.Activity
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -157,6 +160,13 @@ internal object AgentCopyBuildPresentation {
  */
 @Composable
 fun AgentsScreen(modifier: Modifier = Modifier) {
+    TieredAccessGate(SubscriptionTier.PRO, "AI Agents & Leaderboard") { AgentsScreenContent(modifier) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun AgentsScreenContent(modifier: Modifier = Modifier) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     val auth = graph.auth
     val proAccess = graph.proAccess
@@ -216,6 +226,7 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
     // on a user change, so a real account switch still refreshes — and
     // `needsInitialLoad` also retries a store the shell prefetch left Failed.
     LaunchedEffect(currentUserId) {
+        if (featurePreview) return@LaunchedEffect
         store.bind(currentUserId)
         if (store.loadState.needsInitialLoad) store.refresh()
         topPicksStore.bind(currentUserId)
@@ -231,6 +242,7 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
     // (AgentsView.swift:167-182), read from the launching Intent.
     val context = LocalContext.current
     LaunchedEffect(Unit) {
+        if (featurePreview) return@LaunchedEffect
         if (!BuildConfig.DEBUG) return@LaunchedEffect
         val forced = (context as? Activity)?.intent?.getStringExtra("agentsTab")?.lowercase()
             ?: return@LaunchedEffect
@@ -243,6 +255,7 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
 
     // Lazily refresh the Top Picks feed the first time that tab is opened.
     LaunchedEffect(store.activeTab) {
+        if (featurePreview) return@LaunchedEffect
         if (store.activeTab == AgentsStore.InnerTab.TopPicks &&
             topPicksStore.loadState is LoadState.Idle
         ) {

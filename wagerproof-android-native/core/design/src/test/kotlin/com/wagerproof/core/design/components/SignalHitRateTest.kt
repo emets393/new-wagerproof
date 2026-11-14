@@ -52,6 +52,25 @@ class SignalHitRateTest {
     }
 
     @Test
+    fun `does not chart ROI as a hit rate`() {
+        // P5 ATD Drift: profit-only typical_hit was scraped as 5.5% and shown as
+        // "loses to the vig" — the opposite of the copy.
+        assertNull(SignalHitRate.fraction("+5-6% ROI (n~1600/yr)"))
+        assertNull(SignalHitRate.fraction("+5% ROI"))
+    }
+
+    @Test
+    fun `keeps the hit-rate side when ROI is paired after a slash`() {
+        assertEquals(0.595, SignalHitRate.fraction("58-61% / +11-16% ROI")!!, 1e-9)
+        assertEquals(
+            0.562,
+            SignalHitRate.fraction("56.2% ATS / +7.2% ROI (n=349, wk4-11, 7/8 seasons)")!!,
+            1e-9,
+        )
+        assertEquals(0.66, SignalHitRate.fraction("63–69% / +5–9% ROI [67,63]")!!, 1e-9)
+    }
+
+    @Test
     fun `keeps the default band for ordinary rates`() {
         val w = SignalHitRate.window(0.58)
         assertEquals(0.35, w.start, 1e-9)

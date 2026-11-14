@@ -7,6 +7,7 @@ import WagerproofStores
 /// CFB Week 7 slate detail screen: a seven-market bet board from
 /// `cfb_slate_feed`, plus fired flags split into active picks and tracking.
 struct CFBGameBottomSheet: View {
+    @Environment(AchievementsStore.self) private var achievements
     let game: CFBPrediction
     var onClose: () -> Void = {}
     var showAura: Bool = true
@@ -20,7 +21,6 @@ struct CFBGameBottomSheet: View {
     @State private var signalPerformanceByKey: [String: SignalPerformance] = [:]
     @State private var teamTrendsByTeam: [String: CFBTeamTrendRow] = [:]
     @State private var selectedTrendDetail: TrendDetailSelection?
-    @State private var marketOddsHeadline: String?
     @State private var bookOdds: SportsbookGameOdds?
     @AppStorage(SportsbookPreference.defaultsKey) private var preferredBookKeysRaw: String = ""
 
@@ -98,6 +98,7 @@ struct CFBGameBottomSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.disabled)
         .onDisappear { auditStore.clear() }
+        .task { await achievements.record(.gameAnalysis) }
         .task(id: game.gameId) {
             // Seed the hero text cache so subsequent scroll frames reuse it
             // instead of re-parsing the kickoff and re-building the stat rows.
@@ -107,7 +108,9 @@ struct CFBGameBottomSheet: View {
             async let books: () = loadSportsbookOdds()
             async let performance = SignalPerformanceService.shared.performances(
                 for: .cfb,
-                season: game.season ?? 2025
+                // Fallback = CURRENT football season, not a hardcoded year — a nil
+                // game.season quietly queried 2025 forever (no 2026 records shown).
+                season: game.season ?? SignalPerformanceService.currentFootballSeason()
             )
             _ = await (picks, trends, books)
             signalPerformanceByKey = await performance
@@ -1092,7 +1095,26 @@ struct CFBGameBottomSheet: View {
         let fallback = (row.id == "h1-spread" ? game.h1SpreadPick : game.fgSpreadPick)?.uppercased()
         if let fallback, fallback.contains("HOME") { return "HOME" }
         if let fallback, fallback.contains("AWAY") { return "AWAY" }
-        return nil
+        return numbersSide(for: row, pick: pick)
+    }
+
+    /// The team a NO-PICK spread card's numbers are written from. A card under the lean floor
+    /// has no pick side, but its model_line / vegas_line are still stored on the model's side
+    /// (the generator's rule). Everything the row shows — bar, sportsbook tile, book board —
+    /// must use that same side; VT@BC wk4-2026 showed "Sportsbook -14" (VT, the board's
+    /// default) next to "Model +11.6" (BC, the row) and no bar.
+    private func numbersSide(for row: MarketRow, pick: CFBSlatePickRow?) -> String? {
+        guard row.id == "spread" || row.id == "h1-spread" else { return nil }
+        // model_line is a pick-side fair SPREAD; the game row's number is home-side.
+        let homeModel: Double? = row.id == "spread" ? game.fgPredSpread : game.h1PredMargin.map { -$0 }
+        if let ml = pick?.modelLine, let hm = homeModel, abs(hm) >= 0.05 {
+            return abs(ml - hm) <= abs(ml + hm) ? "HOME" : "AWAY"
+        }
+        let homeClose: Double? = row.id == "spread" ? game.fgSpreadClose : game.h1SpreadClose
+        if let vl = pick?.vegasLine, let hc = homeClose, abs(hc) >= 0.05 {
+            return abs(vl - hc) <= abs(vl + hc) ? "HOME" : "AWAY"
+        }
+        return pick == nil ? nil : "HOME"
     }
 
     private func chartAbbrevs(side: String) -> (pick: String, opponent: String) {
@@ -1334,6 +1356,20 @@ struct CFBGameBottomSheet: View {
     /// Concrete per-game pick copy — never raw HOME/AWAY.
     /// Mirrors web `resolveSignalDirectionDisplay` for the common cases.
     private func signalDirectionLabel(_ flag: CFBSlateFlag) -> String {
+        let label = baseSignalDirectionLabel(flag)
+        // Flags graded at the opener state the opener's number — tag it so it
+        // doesn't read as a wrong "current" line once the market moves
+        // (double_luck_fade "USA -4.5" while the book shows -7).
+        if flag.gradeLine?.lowercased() == "open",
+           flag.line != nil,
+           label.rangeOfCharacter(from: .decimalDigits) != nil,
+           !label.hasSuffix("ML") {
+            return label + " (open)"
+        }
+        return label
+    }
+
+    private func baseSignalDirectionLabel(_ flag: CFBSlateFlag) -> String {
         let market = flag.market.lowercased()
         let side = flag.side.trimmingCharacters(in: .whitespacesAndNewlines)
         let upper = side.uppercased()
@@ -1359,8 +1395,14 @@ struct CFBGameBottomSheet: View {
                 if let dir { return "\(abbr) \(dir)" }
             }
             let prefix = market.hasPrefix("h1_") ? "\(abbr) 1H" : abbr
+            // `bet_line` is already signed for the bet team. `line` is the HOME-perspective
+            // number, so an away-side signal must flip it (UK +16.5 showed as "UK -16.5").
+            if let betLine = flag.betLine {
+                return "\(prefix) \(GameCardFormatting.formatSpread(betLine))"
+            }
             if let line = flag.line {
-                return "\(prefix) \(GameCardFormatting.formatSpread(line))"
+                let signed = (team == game.awayTeam) ? -line : line
+                return "\(prefix) \(GameCardFormatting.formatSpread(signed))"
             }
             return prefix
         }
@@ -1511,10 +1553,15 @@ struct CFBGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
-            PolymarketWidget(league: "cfb", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: CFBTeamAssets.abbr(for: game.awayTeam), homeLabel: CFBTeamAssets.abbr(for: game.homeTeam), awayColor: awayColors.primary, homeColor: homeColors.primary) {
-                marketOddsHeadline = $0
-            }
+        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money") {
+            GamePublicBettingCard(
+                sport: "cfb",
+                awayTeam: game.awayTeam,
+                homeTeam: game.homeTeam,
+                gameDate: game.gameDate,
+                awayColor: awayColors.primary,
+                homeColor: homeColors.primary
+            )
         }
     }
 
@@ -2312,7 +2359,10 @@ struct CFBGameBottomSheet: View {
         let side = (pick?.pickSide ?? "").uppercased()
         switch row.id {
         case "spread":
+            // No pick side -> quote the side the card's numbers are written from, never a
+            // default. `chartSide` already resolves that (pick side, game pick, then numbers).
             let isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam
+                || (side.isEmpty && pick?.pickTeam == nil && chartSide(for: row, pick: pick) == "HOME")
             return .spread(isHome: isHome)
         case "total":
             let direction = pickDirection(pick?.pickSide)

@@ -85,7 +85,6 @@ fun GamesScreen(modifier: Modifier = Modifier) {
     // Model-accuracy reports back the NBA/NCAAB tool banners (hidden when
     // empty). Shell-scoped: a per-screen `remember` was thrown away on every
     // tab switch, so the banner vanished and refetched on each return.
-    val nbaAccuracy = graph.nbaModelAccuracy
     val ncaabAccuracy = graph.ncaabModelAccuracy
     var selectedTool by remember { mutableStateOf<SportTool?>(null) }
 
@@ -103,7 +102,6 @@ fun GamesScreen(modifier: Modifier = Modifier) {
             // so one failed fetch would otherwise hide the tool banner for good
             // (visibleTools drops it when the cache is empty) with no error row
             // and no retry affordance anywhere.
-            GamesStore.Sport.nba -> if (nbaAccuracy.loadState.needsInitialLoad) nbaAccuracy.refresh()
             GamesStore.Sport.ncaab -> if (ncaabAccuracy.loadState.needsInitialLoad) ncaabAccuracy.refresh()
             else -> Unit
         }
@@ -128,7 +126,6 @@ fun GamesScreen(modifier: Modifier = Modifier) {
     LaunchedEffect(sport, consensusDates) { graph.agentConsensus.refresh(sport, consensusDates) }
     val visibleTools = SportTool.tools(sport).filter { tool ->
         when (tool.category) {
-            com.wagerproof.core.stores.OutliersStore.Category.nbaAccuracy -> nbaAccuracy.games.isNotEmpty()
             com.wagerproof.core.stores.OutliersStore.Category.ncaabAccuracy -> ncaabAccuracy.games.isNotEmpty()
             else -> true
         }
@@ -360,10 +357,29 @@ private fun sportSymbol(sport: GamesStore.Sport): String = when (sport) {
     GamesStore.Sport.cfb -> "graduationcap"
 }
 
+/** Time, then the edges this sport publishes, then signals. Baseball has no spread model. */
+private fun sortChoices(sport: GamesStore.Sport): List<Pair<GamesStore.SortMode, String>> {
+    val choices = mutableListOf(
+        GamesStore.SortMode.TIME to "Sort by Time",
+        GamesStore.SortMode.ML to "Sort by Moneyline",
+    )
+    if (sport != GamesStore.Sport.mlb) {
+        choices += GamesStore.SortMode.SPREAD to "Sort by Spread Value"
+    }
+    choices += GamesStore.SortMode.OU to "Sort by O/U Value"
+    choices += GamesStore.SortMode.SIGNALS to "Sort by Signals"
+    return choices
+}
+
 @Composable
 private fun SortMenu(store: GamesStore) {
     var expanded by remember { mutableStateOf(false) }
-    val active = store.sortModes[store.selectedSport] ?: GamesStore.SortMode.TIME
+    val stored = store.sortModes[store.selectedSport] ?: GamesStore.SortMode.TIME
+    val active = if (store.selectedSport == GamesStore.Sport.mlb && stored == GamesStore.SortMode.SPREAD) {
+        GamesStore.SortMode.ML
+    } else {
+        stored
+    }
     Box {
         MenuIconButton(
             systemName = "arrow.up.arrow.down",
@@ -374,11 +390,7 @@ private fun SortMenu(store: GamesStore) {
             isActive = active != GamesStore.SortMode.TIME,
         ) { expanded = true }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            listOf(
-                GamesStore.SortMode.TIME to "Sort by Time",
-                GamesStore.SortMode.SPREAD to "Sort by Spread Value",
-                GamesStore.SortMode.OU to "Sort by O/U Value",
-            ).forEach { (mode, label) ->
+            sortChoices(store.selectedSport).forEach { (mode, label) ->
                 DropdownMenuItem(
                     text = { Text(label) },
                     trailingIcon = if (mode == active) {
@@ -398,6 +410,10 @@ private fun SortMenu(store: GamesStore) {
 @Composable
 private fun ToolBanners(tools: List<SportTool>, onTap: (SportTool) -> Unit) {
     val pagerState = rememberPagerState(pageCount = { tools.size })
+    val sport = tools.firstOrNull()?.sport
+    LaunchedEffect(sport) {
+        if (tools.isNotEmpty() && pagerState.currentPage != 0) pagerState.scrollToPage(0)
+    }
     Column(
         Modifier.padding(top = 4.dp, bottom = 6.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -548,7 +564,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                             graph.ncaabGameSheet.openGameSheet(game)
                             nav.openGameDetail("ncaab", game.id)
                         }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index),
-                            consensus = graph.agentConsensus.consensus(sport, GameConsensusKey.of(game)))
+                            consensus = graph.agentConsensus.consensus(sport, GameConsensusKey.of(game)),
+                            signalCount = store.ncaabSignalCount(game.gameId))
                     }
                 }
             }
@@ -584,7 +601,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                             graph.nbaGameSheet.openGameSheet(game)
                             nav.openGameDetail("nba", game.id)
                         }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index),
-                            consensus = graph.agentConsensus.consensus(sport, GameConsensusKey.of(game)))
+                            consensus = graph.agentConsensus.consensus(sport, GameConsensusKey.of(game)),
+                            signalCount = store.nbaSignals(game.gameId, game.gameDate, game.homeAbbr, game.awayAbbr).size)
                     }
                 }
             }

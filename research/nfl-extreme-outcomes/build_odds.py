@@ -46,9 +46,33 @@ def main():
 
     oh["snap_ts"] = pd.to_datetime(oh["snap_ts"], utc=True, errors="coerce")
     oh["commence_time"] = pd.to_datetime(oh["commence_time"], utc=True, errors="coerce")
-    # enforce pregame-only
+    # enforce pregame-only, AND bound how early an "opener" may come from.
+    #
+    # WHY THE BOUND (owner decision 2026-10-06: "weekly opener"). This filter was pregame-only, so
+    # `consensus(g,"open")` took each book's earliest snapshot EVER. NFL books post season-long
+    # lookahead lines in July and our capture starts 2026-07-26, so for games still far from
+    # kickoff the "opener" was a preseason futures number — and open_spread drives reg_edge,
+    # REG_CAP, the price printed on every published pick, spread_move, and the grading basis
+    # (GRADE_LINE fg_harness = "open"). There was a written policy for the close ("closing
+    # line" = T-60) and none for the opener; this is it.
+    #
+    # 11 DAYS, measured not guessed. Snapshot volume across 2023-26 holds through day 11
+    # (10,091 snaps / 777 games) and falls off a cliff at day 12 (3,163 / 205) — that is the
+    # boundary between the weekly board and the preseason lines. Coverage at the bound is
+    # 99.6% / 96.6% / 97.0% of games for 2023/24/25 and 117 of 117 played 2026 games.
+    #
+    # ⚠ MEASURED IMPACT IS SMALL, and that matters for how much to re-rate downstream: the
+    # unbounded opener was ALREADY a weekly number for 2023-2025 (mean 6.6 / 8.6 / 8.2 days out),
+    # so bounding moves the line by a mean of 0.02-0.04 pts there, and 0.14 pts in 2026 (where the
+    # old mean age was 17.5 days). No game in any season moves by 3+ points. So the locked
+    # opener-graded record is NOT materially inflated by this; the bound is a correctness and
+    # forward-safety fix, not a re-rating event.
+    OPEN_MAX_DAYS = 11
     pre = oh[oh["snap_ts"] < oh["commence_time"]].copy()
-    print(f"[odds] pregame snaps: {len(pre)}/{len(oh)}")
+    pre["_days_out"] = (pre["commence_time"] - pre["snap_ts"]).dt.total_seconds() / 86400.0
+    _n_pre = len(pre)
+    pre = pre[pre["_days_out"] <= OPEN_MAX_DAYS]
+    print(f"[odds] pregame snaps: {_n_pre}/{len(oh)}; within {OPEN_MAX_DAYS}d of kickoff: {len(pre)}")
 
     gkey = ["season", "home_ab", "away_ab"]
 
@@ -67,6 +91,8 @@ def main():
         rec["n_books"] = g["book"].nunique()
         rec["n_snaps"] = len(g)
         rec["open_ts"] = g["snap_ts"].min()
+        # publish the opener's age so any consumer can see how real it is and filter on it
+        rec["open_days_out"] = round(float(g["_days_out"].max()), 2)
         rec["close_ts"] = g["snap_ts"].max()
         rec["commence_time"] = g["commence_time"].iloc[0]
         # spread (home), total, ml home/away: median across books.

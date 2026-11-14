@@ -22,7 +22,6 @@ import com.wagerproof.core.stores.MLBF5SplitsStore
 import com.wagerproof.core.stores.MLBGameSheetStore
 import com.wagerproof.core.stores.MainTabStore
 import com.wagerproof.core.stores.NBAGameSheetStore
-import com.wagerproof.core.stores.NBAModelAccuracyStore
 import com.wagerproof.core.stores.NCAABGameSheetStore
 import com.wagerproof.core.stores.NCAABModelAccuracyStore
 import com.wagerproof.core.stores.NFLGameSheetStore
@@ -69,6 +68,7 @@ class AppGraph(val application: Application) {
     val onboarding = OnboardingStore()
     val theme = ThemeStore()
     val settings = SettingsStore()
+    val achievements = com.wagerproof.core.stores.AchievementsStore(application)
     val learn = LearnWagerProofStore()
     val agentPickAudit = AgentPickAuditStore()
     val reviewPrompts = ReviewPromptCoordinator.standard { BuildConfig.VERSION_NAME }
@@ -106,7 +106,6 @@ class AppGraph(val application: Application) {
 
     // Back the NBA/NCAAB tool banners on the Games feed. Shell-scoped so the
     // banner doesn't disappear and refetch each time the user returns to Games.
-    val nbaModelAccuracy = NBAModelAccuracyStore()
     val ncaabModelAccuracy = NCAABModelAccuracyStore()
 
     val props = PropsStore()

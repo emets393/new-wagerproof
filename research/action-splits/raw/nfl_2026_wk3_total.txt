@@ -1,0 +1,305 @@
+Scheduled     Open    Best Odds    % of Bets     % of Money     Diff     Bets 
+Final
+Ravens Team Icon
+Ravens
+485
+Cowboys Team Icon
+Cowboys
+486
+o50.5
+u50.5
+o51.5
+-110
+u61.5
+-150
+17%
+83%
+58%
+42%
++41%
+113,131
+Final
+Falcons Team Icon
+Falcons
+301
+Packers Team Icon
+Packers
+302
+o46.5
+u46.5
+o42.5
+-106
+u43.5
++100
+50%
+50%
+55%
+45%
++5%
+246,180
+Final
+Patriots Team Icon
+Patriots
+469
+Jaguars Team Icon
+Jaguars
+470
+o45.5
+u45.5
+o41.5
++9900
+u46.5
++102
+44%
+56%
+47%
+53%
++3%
+96,849
+Final
+Titans Team Icon
+Titans
+467
+Giants Team Icon
+Giants
+468
+o44.5
+u44.5
+o38.5
++108
+u38.5
+-108
+72%
+28%
+62%
+38%
++10%
+64,381
+Final
+Chiefs Team Icon
+Chiefs
+471
+Dolphins Team Icon
+Dolphins
+472
+o44.5
+u44.5
+o36.5
++9900
+u44.5
++106
+39%
+61%
+41%
+59%
++2%
+92,068
+Final
+Bengals Team Icon
+Bengals
+463
+Steelers Team Icon
+Steelers
+464
+o46.5
+u46.5
+o42.5
++106
+u42.5
+-106
+50%
+50%
+42%
+58%
++8%
+114,868
+Final
+Seahawks Team Icon
+Seahawks
+461
+Commanders Team Icon
+Commanders
+462
+o46.5
+u46.5
+o40.5
++106
+u40.5
+-106
+61%
+39%
+56%
+44%
++5%
+97,682
+Final
+Chargers Team Icon
+Chargers
+477
+Bills Team Icon
+Bills
+478
+o48.5
+u48.5
+o50.5
++106
+u50.5
+-104
+39%
+61%
+57%
+43%
++18%
+131,044
+Final
+Panthers Team Icon
+Panthers
+475
+Browns Team Icon
+Browns
+476
+o39.5
+u39.5
+o41.5
+-102
+u41.5
++102
+56%
+44%
+49%
+51%
++7%
+93,941
+Final
+Texans Team Icon
+Texans
+473
+Colts Team Icon
+Colts
+474
+o45.5
+u45.5
+o42.5
++106
+u42.5
+-106
+50%
+50%
+41%
+59%
++9%
+85,742
+Final
+Jets Team Icon
+Jets
+465
+Lions Team Icon
+Lions
+466
+o45.5
+u45.5
+o49.5
+-106
+u49.5
++106
+40%
+60%
+64%
+36%
++24%
+111,096
+Final
+Vikings Team Icon
+Vikings
+479
+Buccaneers Team Icon
+Buccaneers
+480
+o44.5
+u44.5
+o39.5
++9900
+u42.5
++106
+41%
+59%
+40%
+60%
++1%
+91,316
+Final
+Cardinals Team Icon
+Cardinals
+481
+49ers Team Icon
+49ers
+482
+o46.5
+u46.5
+o47.5
+-108
+u48.5
++106
+40%
+60%
+48%
+52%
++8%
+92,628
+Final
+Raiders Team Icon
+Raiders
+483
+Saints Team Icon
+Saints
+484
+o42.5
+u42.5
+o43.5
+-106
+u43.5
++106
+45%
+55%
+57%
+43%
++12%
+91,558
+Final
+Rams Team Icon
+Rams
+487
+Broncos Team Icon
+Broncos
+488
+o45.5
+u45.5
+o43.5
+-105
+u57.5
+-270
+46%
+54%
+39%
+61%
++7%
+151,082
+Final
+Eagles Team Icon
+Eagles
+489
+Bears Team Icon
+Bears
+490
+o46.5
+u46.5
+o42.5
++102
+u43.5
+-108
+55%
+45%
+59%
+41%
++4%
+224,859

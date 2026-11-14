@@ -78,13 +78,17 @@ import type { GameFeedItem, TeamRef } from '../../../types';
  * to `{sport}_slate_flags` so detail matches the feed ⚡ N Signals badge.
  */
 
-type SignalDefinition = {
+export type SignalDefinition = {
   signal_key?: string | null;
   display_name?: string | null;
   definition?: string | null;
   why_it_works?: string | null;
   bet_direction?: string | null;
   typical_hit?: string | null;
+  /** Back-test record. Rendered beside season_record_text, never added to it. */
+  record_text?: string | null;
+  /** This-season record. Rendered beside record_text, never added to it. */
+  season_record_text?: string | null;
 };
 
 type FootballSlatePick = {
@@ -188,8 +192,8 @@ const FLAGS_TABLE: Record<FootballSport, string> = {
 // PostgREST 42703 the ENTIRE CFB flags query (silently — debug.warn only), so CFB
 // gameFlags had always been empty and no flag data ever reached the signal chips.
 const FLAGS_SELECT: Record<FootballSport, string> = {
-  cfb: 'game_id,signal_key,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line',
-  nfl: 'game_id,signal_key,rule,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line',
+  cfb: 'game_id,signal_key,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line,grade_line',
+  nfl: 'game_id,signal_key,rule,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line,grade_line',
 };
 
 const SIGNAL_DEFS_TABLE: Record<FootballSport, string> = {
@@ -198,7 +202,7 @@ const SIGNAL_DEFS_TABLE: Record<FootballSport, string> = {
 };
 
 /** Game-level bet flag from `{sport}_slate_flags` (feed badge source of truth). */
-type SlateFlag = {
+export type SlateFlag = {
   game_id?: string | number | null;
   signal_key?: string | null;
   rule?: string | null;
@@ -213,7 +217,18 @@ type SlateFlag = {
   bet_team?: string | null;
   bet_direction?: string | null;
   bet_line?: number | string | null;
+  /** 'open' = this flag is graded (and its line stated) at the OPENER, not the live line. */
+  grade_line?: string | null;
 };
+
+/** Flags graded at the opener carry the opener's number — tag it so it doesn't
+    read as a wrong "current" line once the market moves (USA -4.5 vs live -7). */
+function withOpenTag(direction: string | null, flag?: SlateFlag | null): string | null {
+  if (!direction) return direction;
+  if (String(flag?.grade_line || '').toLowerCase() !== 'open') return direction;
+  // Only tag directions that state a number; "USA ML" has no line to mislabel.
+  return /\d/.test(direction) && !/\bML\b/.test(direction) ? `${direction} (open)` : direction;
+}
 
 function flagSignalKey(flag: SlateFlag): string {
   return String(flag.signal_key || flag.rule || '').trim();
@@ -356,18 +371,25 @@ function isGenericBetDirection(value?: string | null): boolean {
 function matchTeamToken(token: string, away: TeamRef, home: TeamRef): TeamRef | null {
   const u = token.trim().toUpperCase();
   if (!u) return null;
+  // Exact FULL NAME outranks everything — "Washington State" must never resolve to
+  // "Washington" via the exact-abbrev or prefix branches (WSU@UW bug, 2026-09-06).
+  if (u === away.name.toUpperCase()) return away;
+  if (u === home.name.toUpperCase()) return home;
   // Prefer exact abbrev so short tokens like "NE" don't false-match inside "NEW YORK".
   if (u === home.abbrev.toUpperCase()) return home;
   if (u === away.abbrev.toUpperCase()) return away;
 
   const hit = (team: TeamRef) => {
     const name = team.name.toUpperCase();
-    return u === name || name.startsWith(`${u} `) || name.startsWith(`${u}-`);
+    return name.startsWith(`${u} `) || name.startsWith(`${u}-`);
   };
   const homeHit = hit(home);
   const awayHit = hit(away);
   if (homeHit && !awayHit) return home;
   if (awayHit && !homeHit) return away;
+  // Both prefix-match (e.g. token "Washington" with Washington vs Washington State):
+  // ambiguous by name — prefer the team whose name IS the token's next-word stop, i.e.
+  // the shorter (exact-ish) one was already handled above, so fall back to home.
   if (homeHit) return home;
   if (awayHit) return away;
   return null;
@@ -518,15 +540,15 @@ function resolveSignalDirectionDisplay({
   })();
 
   const group = row ? normalizeCardGroup(row.card_group) : '';
+  // Full name first — splitting "Washington State" to its first word exact-matched
+  // the OTHER Washington. Only fall back to the first token when the full string misses.
+  const signalTeam =
+    teamName && away && home
+      ? matchTeamToken(teamName, away, home) ?? matchTeamToken(teamName.split(/\s+/)[0] || teamName, away, home)
+      : null;
   const signalHome =
     parseSignalHomeAway(action) ??
-    (teamName && away && home
-      ? matchTeamToken(teamName.split(/\s+/)[0] || teamName, away, home) === home
-        ? true
-        : matchTeamToken(teamName.split(/\s+/)[0] || teamName, away, home) === away
-          ? false
-          : null
-      : null);
+    (signalTeam === home ? true : signalTeam === away ? false : null);
 
   if (row && away && home && teamName && (group === 'spread' || group === 'h1_spread')) {
     const line = orientedSpreadLine(row, signalHome, away, home);
@@ -569,28 +591,34 @@ function resolvePickTeam(
   away: TeamRef,
   home: TeamRef,
 ): TeamRef | null {
-  const matches = (team: TeamRef, raw: string) => {
+  // Score, not boolean: exact name/abbrev (2) must beat fuzzy containment (1), or
+  // "Washington State" resolves to "Washington" because the raw CONTAINS the home
+  // name and the tie-break preferred home (WSU@UW bug, 2026-09-06).
+  const matchScore = (team: TeamRef, raw: string): number => {
     const u = raw.toUpperCase().trim();
-    if (!u) return false;
+    if (!u) return 0;
     const name = team.name.toUpperCase();
     const abbrev = team.abbrev.toUpperCase();
+    if (u === name || u === abbrev) return 2;
     // "New England" must hit "New England Patriots"; avoid abbrev false
     // positives inside longer words by preferring word-boundary abbrev checks.
-    if (u === name || u === abbrev) return true;
     if (name.startsWith(u) || u.startsWith(name) || name.includes(u) || u.includes(name)) {
-      return true;
+      return 1;
     }
     const abbrevRe = new RegExp(`(^|[^A-Z0-9])${abbrev}([^A-Z0-9]|$)`);
-    return abbrevRe.test(u);
+    return abbrevRe.test(u) ? 1 : 0;
   };
 
   const pickFromCandidates = (raw: string): TeamRef | null => {
-    const homeHit = matches(home, raw);
-    const awayHit = matches(away, raw);
-    if (homeHit && !awayHit) return home;
-    if (awayHit && !homeHit) return away;
-    if (homeHit) return home;
-    if (awayHit) return away;
+    const hs = matchScore(home, raw);
+    const as_ = matchScore(away, raw);
+    if (hs > as_) return home;
+    if (as_ > hs) return away;
+    if (hs > 0) {
+      // Equal fuzzy scores: prefer the LONGER team name — the more specific school
+      // ("Washington State") should win a containment tie over its prefix twin.
+      return away.name.length > home.name.length ? away : home;
+    }
     return null;
   };
 
@@ -1861,18 +1889,21 @@ function resolvePickSignals(
       betLogo: betTeamLogo(flag?.bet_team, away, home),
       betOU: normalizedBetOU(flag?.bet_direction),
       direction:
-        resolveSignalDirectionDisplay({
-          sideLabel: flag?.side,
-          action: flag?.side,
-          betDirection: def?.bet_direction,
-          betTeam: flag?.bet_team,
-          betOU: flag?.bet_direction,
-          betLine: flag?.bet_line,
-          flagMarket: flag?.market,
-          row,
-          away,
-          home,
-        }) || undefined,
+        withOpenTag(
+          resolveSignalDirectionDisplay({
+            sideLabel: flag?.side,
+            action: flag?.side,
+            betDirection: def?.bet_direction,
+            betTeam: flag?.bet_team,
+            betOU: flag?.bet_direction,
+            betLine: flag?.bet_line,
+            flagMarket: flag?.market,
+            row,
+            away,
+            home,
+          }),
+          flag,
+        ) || undefined,
     };
   });
   return signalKeys.map((key) => {
@@ -1892,19 +1923,22 @@ function resolvePickSignals(
       betLogo: betTeamLogo(flag?.bet_team, away, home),
       betOU: normalizedBetOU(flag?.bet_direction),
       direction:
-        resolveSignalDirectionDisplay({
-          sideLabel: embedded?.label,
-          action: embedded?.action || embedded?.team,
-          team: embedded?.team,
-          betDirection: def?.bet_direction,
-          betTeam: flag?.bet_team,
-          betOU: flag?.bet_direction,
-          betLine: flag?.bet_line,
-          flagMarket: flag?.market,
-          row,
-          away,
-          home,
-        }) || undefined,
+        withOpenTag(
+          resolveSignalDirectionDisplay({
+            sideLabel: embedded?.label,
+            action: embedded?.action || embedded?.team,
+            team: embedded?.team,
+            betDirection: def?.bet_direction,
+            betTeam: flag?.bet_team,
+            betOU: flag?.bet_direction,
+            betLine: flag?.bet_line,
+            flagMarket: flag?.market,
+            row,
+            away,
+            home,
+          }),
+          flag,
+        ) || undefined,
     };
   }).concat(counters);
 }
@@ -1913,17 +1947,24 @@ function resolvePickSignals(
 function betTeamLogo(betTeam: string | null | undefined, away: TeamRef | null, home: TeamRef | null): string | null {
   const t = (betTeam || '').trim().toUpperCase();
   if (!t) return null;
-  // Exact name, abbrev, or containment either way — NFL flags store the full
-  // "Kansas City Chiefs" while the TeamRef name may be city or nickname.
-  const hit = (team: TeamRef | null): boolean => {
-    if (!team) return false;
+  // Exact name/abbrev outranks containment, and a containment tie goes to the
+  // LONGER name — "Washington State" contains "Washington" and was getting the
+  // Huskies' logo because home was checked first (WSU@UW bug, 2026-09-06).
+  // NFL flags store the full "Kansas City Chiefs" while the TeamRef name may be
+  // city or nickname, so containment stays as the fuzzy tier.
+  const score = (team: TeamRef | null): number => {
+    if (!team) return 0;
     const name = team.name.toUpperCase();
     const ab = team.abbrev.toUpperCase();
-    return name === t || ab === t || t.includes(name) || name.includes(t);
+    if (name === t || ab === t) return 2;
+    return t.includes(name) || name.includes(t) ? 1 : 0;
   };
-  if (hit(home)) return home!.logoUrl;
-  if (hit(away)) return away!.logoUrl;
-  return null;
+  const hs = score(home);
+  const as_ = score(away);
+  if (hs === 0 && as_ === 0) return null;
+  if (hs > as_) return home!.logoUrl;
+  if (as_ > hs) return away!.logoUrl;
+  return (away!.name.length > home!.name.length ? away : home)!.logoUrl;
 }
 
 function normalizedBetOU(v: string | null | undefined): 'over' | 'under' | undefined {
@@ -2085,18 +2126,25 @@ function ResolvedSignalGroups({
 }
 
 /** Flat list when flags have no matching market card (or picks haven't loaded). */
-function GameLevelSignalList({
+/** Exported for the NBA Signals card: the flag contract is shared across sports. */
+export function GameLevelSignalList({
   flags,
   away,
   home,
   signalDefs,
   signalPerformance,
+  showLifecycleRecords = false,
+  listTitle = 'Signals on this game',
 }: {
   flags: SlateFlag[];
   away: TeamRef;
   home: TeamRef;
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
+  /** NBA defs carry a back-test line and a this-season line. Both render, neither is summed. */
+  showLifecycleRecords?: boolean;
+  /** Under a market card this is "Pick Signals". The standalone list names the game. */
+  listTitle?: string;
 }) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const resolved = useMemo(() => {
@@ -2138,7 +2186,7 @@ function GameLevelSignalList({
   return (
     <div className="flex flex-col gap-2.5">
       <PickSignalsSection
-        title="Signals on this game"
+        title={listTitle}
         signals={resolved.map((signal) => ({
           key: signal.key,
           title: signal.displayName,
@@ -2158,6 +2206,7 @@ function GameLevelSignalList({
           direction={selected.direction}
           betLogo={selected.betLogo}
           betOU={selected.betOU}
+          showLifecycleRecords={showLifecycleRecords}
         />
       )}
     </div>
@@ -2174,6 +2223,7 @@ function SignalDetail({
   direction,
   betLogo,
   betOU,
+  showLifecycleRecords = false,
 }: {
   signalKey: string;
   signal: SignalDefinition | undefined;
@@ -2185,6 +2235,7 @@ function SignalDetail({
   /** Structured render hints: bet team's logo, green arrow for over/under. */
   betLogo?: string | null;
   betOU?: 'over' | 'under';
+  showLifecycleRecords?: boolean;
 }) {
   const directionText =
     direction?.trim() ||
@@ -2234,6 +2285,22 @@ function SignalDetail({
         backtestRaw={signal?.typical_hit}
         performance={performance}
       />
+      {showLifecycleRecords && (signal?.record_text || signal?.season_record_text) && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {signal?.record_text ? (
+            <div className="rounded-xl bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Back-test</div>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-foreground">{signal.record_text}</p>
+            </div>
+          ) : null}
+          {signal?.season_record_text ? (
+            <div className="rounded-xl bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">This season</div>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-foreground">{signal.season_record_text}</p>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

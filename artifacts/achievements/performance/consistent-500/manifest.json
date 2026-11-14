@@ -1,0 +1,167 @@
+{
+  "id": "consistent-500",
+  "family": "performance",
+  "title": "PROVEN CONSISTENCY 500",
+  "label": "55%",
+  "tier": "gold",
+  "frame_prefix": "Consistent500",
+  "asset": "consistent-500.usdz",
+  "editable_master": "consistent-500.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "satin_diamond_back": {
+      "vertices": 11398,
+      "faces": 22792,
+      "nonmanifold_edges": 0,
+      "volume": 0.16165021050739667
+    },
+    "metal_diamond_frame": {
+      "vertices": 528,
+      "faces": 528,
+      "nonmanifold_edges": 0,
+      "volume": 0.0559170470705897
+    },
+    "acrylic_diamond_face": {
+      "vertices": 9912,
+      "faces": 19820,
+      "nonmanifold_edges": 0,
+      "volume": 0.0653595347954031
+    },
+    "satin_diamond_rear_border": {
+      "vertices": 288,
+      "faces": 288,
+      "nonmanifold_edges": 0,
+      "volume": 0.00036827362846405696
+    },
+    "metal_diamond_divider_left1": {
+      "vertices": 1000,
+      "faces": 1996,
+      "nonmanifold_edges": 0,
+      "volume": 0.0008494141848437923
+    },
+    "metal_diamond_divider_1": {
+      "vertices": 1000,
+      "faces": 1996,
+      "nonmanifold_edges": 0,
+      "volume": 0.0008494139826841655
+    },
+    "metal_number_55pct_0_0": {
+      "vertices": 1047,
+      "faces": 2090,
+      "nonmanifold_edges": 0,
+      "volume": 0.006423222224122745
+    },
+    "ivory_number_55pct_0_0": {
+      "vertices": 987,
+      "faces": 1970,
+      "nonmanifold_edges": 0,
+      "volume": 0.0021016525126092197
+    },
+    "metal_number_55pct_1_0": {
+      "vertices": 1047,
+      "faces": 2090,
+      "nonmanifold_edges": 0,
+      "volume": 0.006423245256391671
+    },
+    "ivory_number_55pct_1_0": {
+      "vertices": 987,
+      "faces": 1970,
+      "nonmanifold_edges": 0,
+      "volume": 0.002101669978686984
+    },
+    "metal_number_55pct_2_0": {
+      "vertices": 588,
+      "faces": 1176,
+      "nonmanifold_edges": 0,
+      "volume": 0.0012666464984423785
+    },
+    "ivory_number_55pct_2_0": {
+      "vertices": 582,
+      "faces": 1164,
+      "nonmanifold_edges": 0,
+      "volume": 0.00023925536636078216
+    },
+    "metal_number_55pct_2_1": {
+      "vertices": 588,
+      "faces": 1176,
+      "nonmanifold_edges": 0,
+      "volume": 0.0012666939672010666
+    },
+    "ivory_number_55pct_2_1": {
+      "vertices": 582,
+      "faces": 1164,
+      "nonmanifold_edges": 0,
+      "volume": 0.000239163558072713
+    },
+    "metal_number_55pct_2_2": {
+      "vertices": 536,
+      "faces": 1068,
+      "nonmanifold_edges": 0,
+      "volume": 0.0022301790023887364
+    },
+    "ivory_number_55pct_2_2": {
+      "vertices": 514,
+      "faces": 1024,
+      "nonmanifold_edges": 0,
+      "volume": 0.0006005187707505541
+    },
+    "metal_number_500_0_0": {
+      "vertices": 485,
+      "faces": 966,
+      "nonmanifold_edges": 0,
+      "volume": 0.0008940671983353222
+    },
+    "ivory_number_500_0_0": {
+      "vertices": 457,
+      "faces": 910,
+      "nonmanifold_edges": 0,
+      "volume": 9.378774930085163e-05
+    },
+    "metal_number_500_1_0": {
+      "vertices": 465,
+      "faces": 930,
+      "nonmanifold_edges": 0,
+      "volume": 0.0009779264596180821
+    },
+    "ivory_number_500_1_0": {
+      "vertices": 448,
+      "faces": 896,
+      "nonmanifold_edges": 0,
+      "volume": 0.00013389784537327793
+    },
+    "metal_number_500_2_0": {
+      "vertices": 465,
+      "faces": 930,
+      "nonmanifold_edges": 0,
+      "volume": 0.0009779263239156244
+    },
+    "ivory_number_500_2_0": {
+      "vertices": 448,
+      "faces": 896,
+      "nonmanifold_edges": 0,
+      "volume": 0.00013389783239329357
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 22,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle"
+    ]
+  },
+  "usdz_bytes": 3170708
+}

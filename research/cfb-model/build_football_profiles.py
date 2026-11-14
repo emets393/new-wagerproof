@@ -148,6 +148,13 @@ for grp in GROUPS:
         modal = sub[col].mode().iloc[0]
         rows.append({"mid_eq_end": int(mid == end),
                      "modal_share": (sub[col] == modal).mean()})
+    # A team-season needs 4+ weeks before a midpoint is worth comparing, so in September nothing
+    # qualifies and pd.DataFrame([]) has no columns to read. That AttributeError was the traceback
+    # in the 2026-09-21 weekly log — harmless (the step is `|| true`) but anyone debugging that
+    # run has to rule it out first.
+    if not rows:
+        print(f"  {grp:7s}: no team-season has 4+ weeks yet — stability undefined this early")
+        continue
     r = pd.DataFrame(rows)
     print(f"  {grp:7s}: mid==end {r.mid_eq_end.mean()*100:4.1f}%  |  mean modal-type share across weeks {r.modal_share.mean()*100:4.1f}%  (n_team_seasons={len(r)})")
 

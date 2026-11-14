@@ -10,10 +10,12 @@ import {
   loadEditorialSystem,
   slugify,
 } from './lib/guides.mjs'
+import { renderGuideTool, renderVideo, videoSchema } from './lib/guide-embeds.mjs'
 
 const DIST_DIR = path.join(ROOT, 'dist')
 const CSS_SOURCE = path.join(ROOT, 'src', 'styles', 'guides.css')
 const JS_SOURCE = path.join(ROOT, 'src', 'lib', 'guides.js')
+const PARLAY_MATH_SOURCE = path.join(ROOT, 'src', 'lib', 'parlay-math.js')
 const APP_STORE_URL = 'https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957'
 
 const ANALYTICS = `
@@ -140,6 +142,8 @@ function articleSchemas(guide) {
       })),
     })
   }
+  const video = videoSchema(guide, SITE_URL)
+  if (video) schemas.push(video)
   if (guide.howTo) {
     schemas.push({
       '@context': 'https://schema.org',
@@ -342,6 +346,7 @@ function tableOfContents(guide) {
   const extra = []
   if (guide.layout === 'feature') extra.push({ id: 'ranked-reviews', label: 'Ranked app reviews' })
   if (guide.layout === 'release') extra.push({ id: 'what-shipped', label: 'What shipped' }, { id: 'release-screens', label: 'Product screens' })
+  if (guide.video?.youtubeId) extra.unshift({ id: 'video', label: 'Watch the video' })
   if (guide.howTo) extra.push({ id: 'step-by-step', label: guide.howTo.name })
   if (guide.faqs?.length) extra.push({ id: 'frequently-asked-questions', label: 'Frequently asked questions' })
   if (guide.layout !== 'feature' && guide.showSourcesSection !== false) extra.push({ id: 'sources', label: 'Sources' })
@@ -362,6 +367,7 @@ function articleHeader(guide) {
     <dl><div><dt>Updated</dt><dd><time datetime="${escapeHtml(guide.updatedAt)}">${escapeHtml(formatDate(guide.updatedAt))}</time></dd></div>${guide.lastTestedAt ? `<div><dt>Last tested</dt><dd><time datetime="${escapeHtml(guide.lastTestedAt)}">${escapeHtml(formatDate(guide.lastTestedAt))}</time></dd></div>` : ''}<div><dt>Read</dt><dd>${escapeHtml(`${guide.readingTimeMinutes} minutes`)}</dd></div></dl>
   </div>
   </header>
+  ${renderGuideTool(guide)}
   <figure class="article-hero section-shell"><img src="${escapeHtml(guide.hero.src)}" width="1672" height="941" alt="${escapeHtml(guide.hero.alt)}" fetchpriority="high" decoding="async" /><figcaption>${escapeHtml(guide.hero.caption)} <span>Source: ${escapeHtml(guide.hero.source)}.</span></figcaption></figure>`
 }
 
@@ -440,7 +446,7 @@ function readMore(guide, guideMap) {
 
 function renderArticle(guide, guideMap) {
   const sourcesSection = guide.layout !== 'feature' && guide.showSourcesSection !== false ? renderSources(guide) : ''
-  const bodyContent = `${bottomLine(guide)}${guide.contentHtml}${guide.layout === 'feature' ? renderComparison(guide) : ''}${guide.layout === 'release' ? renderRelease(guide) : ''}${renderHowTo(guide)}${renderFaqs(guide)}${sourcesSection}${authorCard()}${articleCta(guide)}<p class="corrections">Have a correction or a newer first-party source? <a href="mailto:support@wagerproof.bet?subject=${encodeURIComponent(`Guide correction: ${guide.shortTitle}`)}">Email the editorial team</a>.</p>`
+  const bodyContent = `${bottomLine(guide)}${renderVideo(guide)}${guide.contentHtml}${guide.layout === 'feature' ? renderComparison(guide) : ''}${guide.layout === 'release' ? renderRelease(guide) : ''}${renderHowTo(guide)}${renderFaqs(guide)}${sourcesSection}${authorCard()}${articleCta(guide)}<p class="corrections">Have a correction or a newer first-party source? <a href="mailto:support@wagerproof.bet?subject=${encodeURIComponent(`Guide correction: ${guide.shortTitle}`)}">Email the editorial team</a>.</p>`
   const body = `<main id="main-content" class="article-page">
   ${articleHeader(guide)}
   <div class="article-layout section-shell">${tableOfContents(guide)}<article class="article-body">${disclosure(guide)}${bodyContent}</article></div>
@@ -456,7 +462,7 @@ function renderArticle(guide, guideMap) {
       schemas: articleSchemas(guide),
     }),
     body,
-    bodyClass: `guide-article layout-${guide.layout}`,
+    bodyClass: `guide-article layout-${guide.layout}${guide.tool ? ' has-tool' : ''}`,
   })
 }
 
@@ -508,12 +514,25 @@ function redirectLines(migration) {
   return `${lines.join('\n')}\n`
 }
 
+// guides-v1.js stays one classic (non-module) script: the shared parlay math is
+// inlined as a frozen global ahead of the data-attribute enhancements.
+async function buildClientScript() {
+  const [math, client] = await Promise.all([
+    fs.readFile(PARLAY_MATH_SOURCE, 'utf8'),
+    fs.readFile(JS_SOURCE, 'utf8'),
+  ])
+  const names = [...math.matchAll(/^export (?:function|const) ([A-Za-z0-9_]+)/gm)].map((match) => match[1])
+  if (/^\s*(?:import|export\s+(?!function|const))/m.test(math)) throw new Error('parlay-math.js must only use top-level export function/const declarations')
+  const body = math.replace(/^export (function|const) /gm, '$1 ')
+  return `var WagerProofParlayMath = (function () {\n'use strict';\n${body}\nreturn Object.freeze({ ${names.join(', ')} });\n})();\n${client}`
+}
+
 async function main() {
   const { guides, guideMap, migration } = await loadEditorialSystem()
   await fs.mkdir(path.join(DIST_DIR, 'guides'), { recursive: true })
   await Promise.all([
     fs.copyFile(CSS_SOURCE, path.join(DIST_DIR, 'guides', 'guides-v1.css')),
-    fs.copyFile(JS_SOURCE, path.join(DIST_DIR, 'guides', 'guides-v1.js')),
+    buildClientScript().then((script) => fs.writeFile(path.join(DIST_DIR, 'guides', 'guides-v1.js'), script)),
   ])
   await writeRoute('/guides/', renderHub(guides))
   await writeRoute('/guides/all/', renderAllGuides(guides))

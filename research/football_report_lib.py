@@ -55,7 +55,7 @@ def sync_storylines(env, sport, season, week, fresh):
     """
     H = hdr(env)
     existing = requests.get(
-        f"{SUPA}/football_regression_storylines?select=id,storyline_key,title,body,rank,status,updates"
+        f"{SUPA}/football_regression_storylines?select=id,storyline_key,title,body,rank,status,updates,data"
         f"&sport=eq.{sport}&season=eq.{season}&week=eq.{week}", headers=H, timeout=60).json()
     by_key = {e["storyline_key"]: e for e in existing}
     log, day = [], today_et()
@@ -82,6 +82,10 @@ def sync_storylines(env, sport, season, week, fresh):
                          updates=(old.get("updates") or []) + [
                              {"date": day, "status": "updated", "note": s.get("update_note") or "Details refreshed with today's data."}])
             log.append({"type": "updated", "key": key, "title": s["title"]})
+        elif s.get("data") is not None and old.get("data") != s.get("data"):
+            # payload-only change (e.g. a featured matchup's full rundown re-rendered while its
+            # summary stayed the same): refresh silently, no status flip, no update note.
+            patch["data"] = s.get("data")
         requests.patch(f"{SUPA}/football_regression_storylines?id=eq.{old['id']}",
                        headers=H, json=patch, timeout=30)
 
@@ -114,11 +118,30 @@ def fetch_model_record(env, sport, season):
     just these headline records, which is the sanctioned public surface.
     """
     rows = requests.get(
-        f"{SUPA}/football_model_record?select=market,wins,losses,pushes,roi_units,roi_n"
+        f"{SUPA}/football_model_record?select=market,wins,losses,pushes,roi_units,roi_n,updated_at"
         f"&sport=eq.{sport}&season=eq.{season}&scope=eq.overall&order=market",
         headers=hdr(env), timeout=30).json()
     if not isinstance(rows, list):
         return []
+    # STALENESS GUARD. football_model_record.py runs first in this cron's startCommand, wrapped
+    # in `|| true` so one sport's failure cannot block the reports. The cost of that is silence:
+    # on 2026-10-02 the side-resolution oracle correctly refused to grade h1_ml_pick="AWAY ML",
+    # the AssertionError was swallowed, and six report runs over three days embedded records
+    # frozen at Oct 2 while every cron reported success. The report cannot fix the rebuild, but
+    # it must never present a stale record as current — grep the cron log for this marker.
+    import datetime as _dt
+    import re as _rex
+    newest = max((r.get("updated_at") or "" for r in rows), default="")
+    if newest:
+        try:
+            age = _dt.datetime.now(_dt.timezone.utc) - _dt.datetime.fromisoformat(
+                _rex.sub(r"\.\d+", "", newest).replace("Z", "+00:00"))
+            if age > _dt.timedelta(hours=20):
+                print(f"  ⛔ [model-record-stale] {sport} {season}: football_model_record was last "
+                      f"rebuilt {age} ago — the record in this report is NOT current. "
+                      f"Run research/football_model_record.py {sport} and read its traceback.")
+        except Exception:
+            pass
     order = list(MARKET_LABELS)
     rows.sort(key=lambda r: order.index(r["market"]) if r["market"] in order else 99)
     return [dict(market=r["market"], label=MARKET_LABELS.get(r["market"], r["market"]),
@@ -148,32 +171,55 @@ def write_report(env, sport, season, week, narrative, narrative_model, run_log, 
         requests.post(f"{SUPA}/football_regression_reports", headers=H, json=row, timeout=30)
 
 
-NARRATIVE_SYSTEM = """You are a sharp sports analytics writer for WagerProof, a premium
-sports betting analytics platform. Write a concise 500-700 word weekly {league} report in
-markdown from the structured storylines provided.
+NARRATIVE_SYSTEM = """You write the weekly {league} report for WagerProof. Write 700-1000 words of markdown from
+the structured storylines provided, in the voice of a knowledgeable friend explaining the week to someone who
+likes football but does not follow analytics: full sentences, plain words, and you explain what a number means
+before you lean on it. Thorough beats clipped — but never padded.
 
 HARD RULES:
-- NEVER recommend, suggest, or imply a pick or bet. You describe what the data shows and
-  what to WATCH; the reader decides. No "take", "back", "fade", "play", "bet" imperatives.
-- Use ONLY facts present in the storylines JSON. Never invent numbers, players, trends,
-  or injuries. If a storyline lacks a number, describe it qualitatively.
-- When a signal storyline says the model agrees, say so plainly; when it conflicts with
-  the model, present it as tension, not as a resolution.
-- Line movement: repeat the storyline's own wording about WHICH TEAM money came in on.
-  NEVER re-derive direction from the numbers yourself — a home-perspective spread going
-  UP means money on the AWAY team, and getting this backwards is a firing offense.
-- Lead with the 2-4 most material storylines (rank order is provided). Group the rest
-  briefly by theme. Skip resolved storylines entirely.
-- Plain language, no hype. One fitting emoji at the start of each section heading is
-  encouraged (e.g. "## 🏥 Injuries"); none in body text. Numbers stated exactly as given."""
+- NEVER recommend, suggest, or imply a pick or bet. You describe what the data shows and what to WATCH; the
+  reader decides. No "take", "back", "fade", "play", "bet" imperatives.
+- Use ONLY facts present in the storylines JSON. Never invent numbers, players, trends, or injuries. If a
+  storyline lacks a number, describe it qualitatively. Numbers stated exactly as given.
+- Never point the reader to a record, split or number the storyline does not actually give ("his own record
+  will be the tell" is banned unless the record is stated). If the storyline says there is no personal history,
+  say that.
+- Every number gets its source in plain words, from the storyline's own wording or `source` field: "across three
+  seasons of sportsbook lines, 2023 to 2025", "on more than 4,000 plays he has called since 2022", "over his last
+  15 games". Never write vague sourcing like "based on recent trends".
+- When a signal storyline says the model agrees, say so plainly; when it conflicts with the model, present it as
+  tension, not as a resolution.
+- Line movement: repeat the storyline's own wording about WHICH TEAM money came in on. NEVER re-derive direction
+  from the numbers yourself — a home-perspective spread going UP means money on the AWAY team, and getting this
+  backwards is a firing offense.
+- Lead with the 2-4 most material storylines (rank order is provided). Group the rest by theme. Skip resolved
+  storylines entirely.
+
+LANGUAGE — translate every piece of shorthand into everyday words, e.g.:
+- "pass rate over expected +6" -> "throws about 6 percentage points more often than a typical team would in the
+  same down-and-distance spots"; "PROE" the same way
+- "over / under the line" -> "finished above / below the number the sportsbooks set"
+- "implied 46%" -> "the odds priced him at roughly a 46% chance"
+- "validated 56%" or "56% hit rate" -> "has come in 56% of the time in our records"
+- "L15" -> "his last 15 games"; "n=59" -> "59 games"; "spread -7" -> "favored by 7"; "cover" -> "win by more
+  than the spread" / "keep it closer than the spread"; "EPA" -> "how much each play moved the team's scoring
+  chances"
+- Coaching: say what the coach does in football terms ("keeps handing the ball to his starting back at the goal
+  line instead of rotating in the backup") rather than quoting a metric name.
+- No jargon without a plain-English gloss the first time. No hype, no exclamation marks. One fitting emoji at the
+  start of each section heading (e.g. "## 🏥 Injuries"); none in body text."""
 
 
-def generate_narrative(env, league, storylines, extra_context=""):
+def generate_narrative(env, league, storylines, extra_context="", max_tokens=1400):
     key = env.get("OPENAI_API_KEY_REPORTS") or env.get("OPENAI_API_KEY_MLB")
     if not key:
         return None, None
-    payload = [{k: s.get(k) for k in ("family", "title", "body", "rank", "matchup", "status")}
+    payload = [{**{k: s.get(k) for k in ("family", "title", "body", "rank", "matchup", "status")},
+                **({"source": (s.get("data") or {}).get("source")} if isinstance(s.get("data"), dict) and (s.get("data") or {}).get("source") else {})}
                for s in storylines]
+    # Featured-matchup weeks (NFL) carry 4 x 120-180-word sections on top of the 500-700
+    # word report, so the caller lifts max_tokens; the word budget in the system prompt is
+    # a floor for the non-featured part, not a cap on the whole.
     body = {
         "model": "gpt-4o",
         "messages": [
@@ -181,7 +227,7 @@ def generate_narrative(env, league, storylines, extra_context=""):
             {"role": "user", "content": (extra_context + "\n\nSTORYLINES:\n"
                                          + json.dumps(payload, default=str))[:60000]},
         ],
-        "max_tokens": 1400, "temperature": 0.4,
+        "max_tokens": max_tokens, "temperature": 0.4,
     }
     try:
         r = requests.post("https://api.openai.com/v1/chat/completions",
@@ -196,3 +242,204 @@ def generate_narrative(env, league, storylines, extra_context=""):
     except Exception as e:
         print(f"[narrative] failed ({e}) — shipping structured report without narrative")
         return None, None
+
+
+# ---------------------------------------------------------------------------
+# Signal CONFLUENCE engine (owner spec 2026-09-16) — shared by the CFB and NFL
+# regression reports so the logic can never drift between sports.
+#
+# Groups a week's flags per game+market and emits storylines for:
+#   (a) multi-signal alignments with no opposing signal  (rank rewards count)
+#   (b) strong solo signals (blended record >= SOLO_BAR, nothing opposing)
+#   (c) explicit conflicts — signals firing on BOTH sides = stay-away
+# Each family's record is graded live against this season's finals via the
+# structured bet_* fields, then blended with the validated backtest rate.
+# ---------------------------------------------------------------------------
+import re as _re
+
+CONF_PRIOR_N = 20    # pseudo-games behind the backtest rate in the blend
+CONF_SOLO_BAR = 57.0
+
+
+def live_signal_records(env, season, week, flags_table, games_table, excluded=()):
+    """{signal_key: (w, l)} — every prior-week flag this season graded against
+    finals. Only full-game spread/total/team_total markets grade (no 1H).
+    `excluded` families (ratings-fed) are skipped: their stored rows for played
+    games were historically regenerated with post-game inputs."""
+    fl = _fetch(env, flags_table,
+                f"select=game_id,signal_key,market,bet_team,bet_direction,bet_line"
+                f"&season=eq.{season}&week=lt.{week}")
+    gs = _fetch(env, games_table,
+                f"select=game_id,home_team,final_home,final_away"
+                f"&season=eq.{season}&week=lt.{week}&final_home=not.is.null")
+    fin = {str(g["game_id"]): g for g in gs}
+    rec = {}
+    for f in fl:
+        g = fin.get(str(f["game_id"]))
+        k = f["signal_key"]
+        if not g or any(k.startswith(p) for p in excluded) or f.get("bet_line") is None:
+            continue
+        bl = float(f["bet_line"])
+        bt, bd = f.get("bet_team"), f.get("bet_direction")
+        hm = g["final_home"] - g["final_away"]
+        tot = g["final_home"] + g["final_away"]
+        res = None
+        if f["market"] == "spread" and bt:
+            m = hm if bt == g["home_team"] else -hm
+            res = None if m + bl == 0 else m + bl > 0
+        elif f["market"] == "total" and bd:
+            res = None if tot == bl else (bd == "over") == (tot > bl)
+        elif f["market"] == "team_total" and bt and bd:
+            pts = g["final_home"] if bt == g["home_team"] else g["final_away"]
+            res = None if pts == bl else (bd == "over") == (pts > bl)
+        if res is not None:
+            w, l = rec.get(k, (0, 0))
+            rec[k] = (w + int(res), l + int(not res))
+    return rec
+
+
+def _fetch(env, table, params):
+    import requests as _rq
+    r = _rq.get(f"{SUPA}/{table}?{params}", headers=hdr(env), timeout=60)
+    j = r.json()
+    return j if isinstance(j, list) else []
+
+
+def _sig_label(key, defs, live):
+    d = defs.get(key) or {}
+    prior = 54.0
+    m = _re.search(r"(\d+(?:\.\d+)?)%", d.get("typical_hit") or "")
+    if m:
+        prior = float(m.group(1))
+    w, l = live.get(key, (0, 0))
+    score = (prior * CONF_PRIOR_N + 100.0 * w) / (CONF_PRIOR_N + w + l)
+    bits = []
+    if m:
+        bits.append(f"{m.group(1)}% validated")
+    if w + l >= 3:
+        bits.append(f"{w}-{l} this season")
+    return d.get("display_name", key) + (f" ({', '.join(bits)})" if bits else ""), score
+
+
+def confluence_storylines(env, sport, season, week, gmap, label, flags, defs,
+                          model_side, model_tot, flags_table, games_table,
+                          model_own_keys=(), ratings_fed=(), blanket_keys=()):
+    """Build the signals-family storylines. `gmap` = {gid: game row with
+    home_team/away_team/fg_spread_close/fg_total_close}; `flags` need
+    game_id/signal_key/market/bet_team/bet_direction/bet_line."""
+    live = live_signal_records(env, season, week, flags_table, games_table, ratings_fed)
+    out = []
+    by_game = {}
+    for f in flags:
+        gid = str(f["game_id"])
+        k = f["signal_key"]
+        if gid not in gmap or k in blanket_keys or any(k.startswith(p) for p in ratings_fed):
+            continue
+        by_game.setdefault(gid, []).append(f)
+
+    for gid, fl in by_game.items():
+        g = gmap[gid]
+        sc_, tc_ = g.get("fg_spread_close"), g.get("fg_total_close")
+
+        sp = [f for f in fl if f["market"] == "spread" and f.get("bet_team")]
+        teams = {f["bet_team"] for f in sp}
+        tt_under = {f["bet_team"] for f in fl
+                    if f["market"] == "team_total" and f.get("bet_direction") == "under"}
+        if len(teams) == 1 and sp:
+            team = next(iter(teams))
+            line = (float(sc_) if team == g["home_team"] else -float(sc_)) if sc_ is not None else None
+            target = f"{team} {line:+g}" if line is not None else team
+            labels, scores = zip(*(_sig_label(f["signal_key"], defs, live) for f in sp))
+            ms = model_side.get(gid)
+            agree = (ms == ("HOME" if team == g["home_team"] else "AWAY")) if ms else None
+            if any(f["signal_key"] in model_own_keys for f in sp):
+                agree = None       # the group contains the model's own lean — no circular bonus
+            tension = (f" One signal argues the other way: a team-total under is live on {team}"
+                       " — a thin-scoring cover is the risk."
+                       if team in tt_under and line is not None and line <= -14 else "")
+            if len(sp) >= 2:
+                out.append(dict(storyline_key=f"conf:spread:{gid}", family="signals", game_id=gid,
+                                matchup=label.get(gid), title=f"{len(sp)} signals align: {target}",
+                                body=f"{label.get(gid)}: {len(sp)} independent signals point the same way"
+                                     f" with nothing firing against them — {'; '.join(labels)}."
+                                     + (" The model leans the same way." if agree else "") + tension
+                                     + " Alignment of validated signals is the strongest read this board produces.",
+                                data={"market": "spread", "target": target,
+                                      "signals": [f["signal_key"] for f in sp],
+                                      "blended_score": round(sum(scores) / len(scores), 1),
+                                      "model_agrees": agree},
+                                rank=12 - 3 * min(len(sp), 4) + (0 if agree else 2)))
+            elif scores[0] >= CONF_SOLO_BAR:
+                key0 = sp[0]["signal_key"]
+                out.append(dict(storyline_key=f"solo:{key0}:{gid}", family="signals", game_id=gid,
+                                matchup=label.get(gid),
+                                title=f"{(defs.get(key0) or {}).get('display_name', key0)}: {target}",
+                                body=f"{label.get(gid)}: {labels[0]} points to {target}, and no other"
+                                     f" signal on this game argues against it. "
+                                     f"{((defs.get(key0) or {}).get('one_liner') or '').rstrip('.')}."
+                                     + (" The model leans the same way." if agree else "") + tension,
+                                data={"market": "spread", "target": target, "signals": [key0],
+                                      "blended_score": round(scores[0], 1), "model_agrees": agree},
+                                rank=22 if agree else 26))
+        elif len(teams) >= 2:
+            sides = []
+            for team in sorted(teams):
+                ls = [_sig_label(f["signal_key"], defs, live)[0] for f in sp if f["bet_team"] == team]
+                sides.append(f"{team}: {'; '.join(ls)}")
+            out.append(dict(storyline_key=f"conflict:spread:{gid}", family="signals", game_id=gid,
+                            matchup=label.get(gid),
+                            title=f"Signals conflict — {label.get(gid)} spread",
+                            body=f"{label.get(gid)}: our signals fire on BOTH sides of this spread — "
+                                 + " vs ".join(sides)
+                                 + ". When validated signals disagree, the edge cancels — this is a"
+                                   " stay-away, not a lean.",
+                            data={"market": "spread", "conflict": sides}, rank=46))
+
+        tot = [f for f in fl if f["market"] == "total" and f.get("bet_direction")]
+        tt = [f for f in fl if f["market"] == "team_total" and f.get("bet_direction")]
+        dirs = {f["bet_direction"] for f in tot} | {f["bet_direction"] for f in tt}
+        if len(dirs) == 1 and tot and tc_ is not None:
+            d0 = next(iter(dirs))
+            target = f"{d0.upper()} {float(tc_):g}"
+            group = tot + tt
+            labels, scores = zip(*(_sig_label(f["signal_key"], defs, live) for f in group))
+            agree = (model_tot.get(gid) == d0.upper()) if model_tot.get(gid) else None
+            if any(f["signal_key"] in model_own_keys for f in group):
+                agree = None
+            if len(group) >= 2:
+                out.append(dict(storyline_key=f"conf:total:{gid}", family="signals", game_id=gid,
+                                matchup=label.get(gid), title=f"{len(group)} signals align: {target}",
+                                body=f"{label.get(gid)}: every totals-family signal on this game points"
+                                     f" {d0} — {'; '.join(labels)}."
+                                     + (" The model leans the same way." if agree else "")
+                                     + " Alignment of validated signals is the strongest read this board produces.",
+                                data={"market": "total", "target": target,
+                                      "signals": [f["signal_key"] for f in group],
+                                      "blended_score": round(sum(scores) / len(scores), 1),
+                                      "model_agrees": agree},
+                                rank=12 - 3 * min(len(group), 4) + (0 if agree else 2)))
+            elif scores[0] >= CONF_SOLO_BAR:
+                key0 = tot[0]["signal_key"]
+                out.append(dict(storyline_key=f"solo:{key0}:{gid}", family="signals", game_id=gid,
+                                matchup=label.get(gid),
+                                title=f"{(defs.get(key0) or {}).get('display_name', key0)}: {target}",
+                                body=f"{label.get(gid)}: {labels[0]} points to {target}, with nothing"
+                                     f" firing the other way. "
+                                     f"{((defs.get(key0) or {}).get('one_liner') or '').rstrip('.')}."
+                                     + (" The model leans the same way." if agree else ""),
+                                data={"market": "total", "target": target, "signals": [key0],
+                                      "blended_score": round(scores[0], 1), "model_agrees": agree},
+                                rank=22 if agree else 26))
+        elif len(dirs) >= 2 and tc_ is not None:
+            sides = []
+            for d0 in sorted(dirs):
+                ls = [_sig_label(f["signal_key"], defs, live)[0] for f in tot + tt if f["bet_direction"] == d0]
+                sides.append(f"{d0}: {'; '.join(ls)}")
+            out.append(dict(storyline_key=f"conflict:total:{gid}", family="signals", game_id=gid,
+                            matchup=label.get(gid),
+                            title=f"Signals conflict — {label.get(gid)} total",
+                            body=f"{label.get(gid)}: totals signals fire in BOTH directions — "
+                                 + " vs ".join(sides)
+                                 + ". Conflicting signals cancel — stay away rather than pick a side.",
+                            data={"market": "total", "conflict": sides}, rank=46))
+    return out

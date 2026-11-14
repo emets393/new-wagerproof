@@ -42,6 +42,17 @@ step "fetch CFBD extras2";                         python3 fetch_cfbd_extra2.py 
 step "fetch CFBD teams";                           python3 fetch_cfbd_teams.py            || true
 # returning production + transfer portal (feed the wk1-3 early-roster signals; returning loads ~August)
 step "fetch CFBD returning-production + portal";    python3 fetch_cfbd_roster.py "$SEASON"  || true
+# QB starts -> data/cfbd/qb_starts.parquet. This was MISSING from the runner entirely, so on
+# Render's ephemeral disk the file never existed and cfb_forecast logged
+#   [qb_feature] live overlay skipped / [backup_qb] skipped
+# on every single run of 2026 — the validated backup-QB trigger was silently dead all season.
+# --force because the cached file goes stale every Saturday once the season is underway.
+step "QB starts per game (backup-QB trigger + live overlay)"; python3 fetch_qb.py --force || true
+# Prior CFBD seasons. The runner only ever fetched "$SEASON", and research/.gitignore blocks
+# **/*.parquet and */data/cfbd/ — so a fresh Render clone carried ONLY the current year, and
+# model_games.parquet came out as 271 games / seasons=[2026] with every spot backtest at n=0.
+# fetch_cfbd.py caches per year, so this is a no-op on a warm disk.
+step "backfill prior CFBD seasons (model history)"; python3 fetch_cfbd.py 2021 2022 2023 2024 2025 || true
 step "sync cfb_game_advanced (MCP warehouse)";      python3 load_cfb_game_advanced.py "$SEASON" || true
 step "sync roster profile + schedule (MCP)";        python3 load_cfb_mcp_roster_schedule.py "$SEASON" || true
 # player-level roster layer (rosters/recruits/player-PPA -> roster_scores) — feeds the early-week
@@ -49,6 +60,14 @@ step "sync roster profile + schedule (MCP)";        python3 load_cfb_mcp_roster_
 step "player roster layer + reconstruction";        (python3 fetch_roster_layer.py && python3 -W ignore build_roster_scores.py) || true
 # TRUE preseason SP+/FPI for the current season (cfbtxt) — replaces stale prior-year finals
 step "current-season preseason power ratings";      python3 fetch_preseason_ratings.py "$SEASON" || true
+# CFBD's OFFICIAL opponent-adjusted team metrics (/wepa/team/season). This is the same data
+# that used to arrive only as a weekly emailed CSV — verified 744/744 values against
+# training_data_2026_week10.csv — so the board no longer depends on a hand-delivered file.
+# It does NOT replace build_ratings.py below: the endpoint has no `week` param, so it is
+# season-to-date AS CALLED and cannot produce leak-safe history for weeks already played.
+# Running here, once a week after the previous week completed, accumulates honest as-of
+# snapshots going forward. Best-effort: the board must never block on it.
+step "CFBD official adjusted metrics (as-of snapshot)"; python3 fetch_cfbd_wepa.py || true
 step "materialize 1H/TT odds (ncaaf_event_odds DB -> parquet; live_odds_cfb_1h writes the DB hourly)"
 python3 fetch_event_odds_live.py "$SEASON"
 step "fetch per-book odds history (STACK/SB/KEY)"; python3 fetch_odds_history.py --year "$SEASON" --go
@@ -78,6 +97,24 @@ if [ "$WEEK" -le 3 ]; then
 fi
 # run the LOCKED model AS A SCRIPT so it WRITES out/cfb_{predictions,bets,team_totals,h1_model}_$SEASON.csv —
 # the slate generators (gen_cfb_slate_games/picks/flags) read these; harness_week() alone does NOT write them.
+# Train/serve drift guard — see the NFL runner. Banded WEEK-MATCHED against prior seasons,
+# because CFB season-to-date features are genuinely wilder in week 2 than week 12: pooled,
+# a healthy wk2 board reads 21.8 features "out of range"; week-matched it reads 6.6 at a
+# 1.07x sd ratio. It also FAILS on an empty serve frame — a guard that passes when it
+# checked nothing is worse than no guard.
+step "train/serve feature drift guard"
+python3 ../feature_drift_guard.py cfb --season "$SEASON" --week "$WEEK" \
+  || echo "[DRIFT] ^^ features are outside their training distribution — DO NOT SHIP THIS BOARD until the upstream feed is fixed"
+# covers.com injuries BEFORE the model (moved 2026-10-02). home_backup_qb / away_backup_qb are
+# MODEL FEATURES that build_season() fills live from this scrape. Running it after cfb_forecast
+# meant the CSVs gen_cfb_slate_games reads were computed WITHOUT the overlay, while gen_cfb_picks
+# re-runs build_season() later and got it WITH — two model evaluations on different inputs, so
+# cards and the game row disagreed by 1-4 pts on the same game in the same run (and the TT sides
+# inverted on Bowling Green @ Miami (OH), wk5-2026). Order is now
+# injuries -> model -> games -> flags -> picks, which also keeps the 2026-08-27 flags-before-picks
+# constraint intact. Guarded: a scrape failure must never block the slate.
+step "injuries (covers.com) — feeds the backup-QB MODEL FEATURE, must precede the model"
+python3 covers_cfb_injuries.py "$SEASON" "$WEEK" || true
 step "run locked CFB model -> prediction/spot/TT/1H CSVs (frozen ${SEASON} .pkl)"
 python3 cfb_forecast.py --season "$SEASON" --week "$WEEK"
 
@@ -93,11 +130,12 @@ python3 gen_cfb_sportsbooks.py
 # cfb_slate_flags for per-card conviction (conv_for), so picks-first ran every
 # fresh week against the PREVIOUS week's flags.
 step "slate: slate games";  python3 gen_cfb_slate_games.py
-# covers.com injuries -> backup-QB pregame trigger (live 2026-08-27). Guarded:
-# a scrape failure must never block the slate — the flags block skips silently.
-step "injuries (covers.com)"; python3 covers_cfb_injuries.py "$SEASON" "$WEEK" || true
+# (injuries now run BEFORE the model — see the note above the forecast step)
 step "slate: bet flags";     python3 gen_cfb_slate_flags.py
 step "slate: pick cards";    python3 gen_cfb_picks.py
+# Every number the apps render for a game must agree (pick side vs score vs cover prob vs flags).
+# Loud, not fatal: the slate is already written; a contradiction here is a generator bug to fix.
+step "slate: coherence audit"; python3 audit_cfb_slate_coherence.py || echo "[COHERENCE] contradictions above — fix the generator"
 step "slate: team trends";   python3 gen_cfb_team_trends.py
 # Outliers trends (team splits/matchups + coach career trends). Both no-op safely if the
 # Outliers DDL (cfb_outliers_trends.sql) hasn't been applied to the data project yet.

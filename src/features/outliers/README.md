@@ -1,8 +1,8 @@
 # Outliers Trends (web)
 
 Web port of the iOS "Outliers Trends" experience, rebuilt into a Linemate-style
-dashboard: a vertical stack of titled bands over today's NFL, NCAAF, and MLB
-slates. Mounted on the Today's Outliers page (`src/pages/TodayInSports.tsx`,
+dashboard: a vertical stack of titled bands over today's NFL, NCAAF, MLB, NBA,
+and NCAAB slates. Mounted on the Today's Outliers page (`src/pages/TodayInSports.tsx`,
 route `/today-in-sports`).
 
 Band order (see `OutliersDashboard`):
@@ -16,16 +16,16 @@ Band order (see `OutliersDashboard`):
 5. **Per-market trend carousels** — the restyled trend cards, unchanged pipeline.
 
 The two premium bands are **hidden** (not placeholder-locked) when MLB is out of
-scope — the engine only builds MLB legs this phase. NBA/NCAAB alone still render
-the "coming soon" card.
+scope — the engine only builds MLB legs this phase. NBA and NCAAB are live
+team-trend sports (today's ET slate), so they no longer render "coming soon".
 
 ## All Sports mode
 
 Sport and matchup are **multi-select** (`MultiFilterPill`). An empty selection
 means "everything" — there is no `'all'` sentinel to keep in sync, and clearing
 a filter is just `[]`. By default both are empty, so every band fans out across
-the three sports with a live trends source (`OUTLIERS_TRENDS_SPORTS` = NFL,
-NCAAF, MLB). Mechanics:
+every sport with a live trends source (`OUTLIERS_TRENDS_SPORTS` = NFL, NCAAF,
+MLB, NBA, NCAAB). Mechanics:
 
 - `useOutliersTrendsMulti` runs one query per sport, each its own cache entry,
   so narrowing the pill is instant — the data is already there.
@@ -39,8 +39,8 @@ NCAAF, MLB). Mechanics:
   `matchupIdsForSport()` narrows the selection to one slate's raw ids — it
   returns `null` for "no filter", distinct from an empty set meaning "games were
   picked but none are this sport's".
-- Selecting only sports without a trends source (NBA/NCAAB) yields no active
-  sports, which renders the "coming soon" card.
+- Every listed sport has a trends source, so selecting NBA or NCAAB fetches
+  that slate instead of the "coming soon" card.
 - The subject pill shows the **union** of subjects across the active sports; a
   subject one sport lacks simply contributes no cards from it.
 - Matchup tiles are ordered by start time across all sports and tagged with a
@@ -63,7 +63,11 @@ each file here names the Swift file it ports.
   assembled into tickets by the **`@/features/parlayGod`** engine (see that
   module's README). The dashboard consumes `useParlayGod(sports.includes('mlb'))`
   and `ProGate` from there — no engine logic lives in this module.
-- **NBA / NCAAB**: no trends source yet — renders a "coming soon" card, no fetch.
+- **NBA / NCAAB**: today's ET slate from the existing `fetchNbaGames` /
+  `fetchNcaabGames` adapters, plus precomputed team cards from
+  `nba_outliers_trend_cards` / `ncaab_outliers_trend_cards` where
+  `slate_date` is today ET, ordered by `sort_rank` descending (same columns
+  as the football card tables). Subject pill is teams only.
 
 All tables live on the CFB (sports-data) Supabase project via
 `collegeFootballSupabase`.
@@ -73,7 +77,7 @@ All tables live on the CFB (sports-data) Supabase project via
 | File | Purpose |
 |------|---------|
 | `types.ts` | Models: sport filter/subjects, slate game, card/row/betting-line, market section, MLB trend splits |
-| `outliersTrendsService.ts` | Supabase fetchers (NFL/NCAAF slates + cards, MLB bundle) |
+| `outliersTrendsService.ts` | Supabase fetchers (NFL/NCAAF week slates + cards, NBA/NCAAB today slates + cards, MLB bundle) |
 | `mlbTrendsEngine.ts` | TS port of the iOS MLBTrendsEngine (client-side MLB card building) |
 | `filtering.ts` | Filter pipeline (slate scope → subject → line → matchup → sort), qualified matchup keys, market-section bucketing (cap 24) |
 | `teamVisuals.ts` | Shared team logo/colors/initials resolver (trend cards + matchup tiles) |
@@ -84,7 +88,7 @@ All tables live on the CFB (sports-data) Supabase project via
 | `components/ParlayRailSection.tsx` | Shared Parlay God / Props Cheats band (+ the two presets); category quick-filter + Pro gate |
 | `components/ParlayTicketCard.tsx` | Parlay ticket card (compact rail + expanded dialog) — port of `ParlayGodCard.swift` |
 | `components/ParlayTicketCardSkeleton.tsx` | Ticket-card shimmer |
-| `components/TodaysMatchupsGrid.tsx` | Logo-tile grid across the active sports (MLB self-fetches; NFL/NCAAF reuse the dashboard's slates) |
+| `components/TodaysMatchupsGrid.tsx` | Logo-tile grid across the active sports (MLB self-fetches; NFL/NCAAF/NBA/NCAAB reuse the dashboard's slates) |
 | `components/MatchupTile.tsx` | One matchup tile → `/games` deep link; team-colored edge glows |
 | `components/OutliersTrendCard.tsx` | Fixed 300×240 trend card (top-right odds chip); click opens the breakdown dialog |
 | `components/OutliersTrendCardSkeleton.tsx` | Matching trend-card shimmer |
@@ -118,8 +122,8 @@ import { OutliersDashboard } from '@/features/outliers/components/OutliersDashbo
 The dashboard owns its own filter state (defaults: every sport / All subjects /
 every game — all three empty selections). Changing sports resets the matchup
 selection (its options are scoped to the sports on screen) and coerces subject
-when the new scope doesn't allow it (MLB alone is teams-only; NCAAF has no
-refs/players). Card
+when the new scope doesn't allow it (MLB, NBA, and NCAAB alone are teams-only;
+NCAAF has no refs/players). Card
 dimensions are fixed at **300×240** (trend) /
 **300×244** (ticket) in three coupled places — the card, its skeleton, and the
 rail's `SCROLL_STEP_PX`; keep them in sync if a card is resized.

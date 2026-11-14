@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { tierTitle } from '@/features/tieredPaywall/access';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import {
   useSportsbookPreference,
 } from '@/features/games/detail/sportsbooks';
 import {
+  AtSign,
   Bell,
   Bot,
   Building2,
@@ -44,16 +46,31 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SettingsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+function sanitizeUsername(raw: string): string {
+  return raw.trim().replace(/\s+/g, ' ').slice(0, 24);
+}
+
+/** Unique handle derived from the public name — letters/numbers/underscore only. */
+function usernameSlug(displayName: string): string {
+  const slug = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 24);
+  return slug || 'player';
+}
+
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { user, updatePassword, sendPasswordReset, signOut } = useAuth();
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
-  const { hasProAccess, customerInfo, subscriptionType } = useRevenueCatWeb();
+  const { hasSubscription, hasProAccess: hasTopTierAccess, loading: subscriptionLoading, subscriptionTier, isTieredCustomer, customerInfo, subscriptionType } = useRevenueCatWeb();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -61,15 +78,95 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordExpanded, setPasswordExpanded] = useState(false);
+  const [usernameExpanded, setUsernameExpanded] = useState(false);
+  const [usernameDraft, setUsernameDraft] = useState('');
+  const [savedUsername, setSavedUsername] = useState('');
   const [sportsbooksExpanded, setSportsbooksExpanded] = useState(false);
   const { selectedKeys, toggleBook, clearBooks } = useSportsbookPreference();
   const [didCopyUserId, setDidCopyUserId] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
 
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('username, display_name')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const name = sanitizeUsername(
+        (data?.display_name || data?.username || '').toString(),
+      );
+      setSavedUsername(name);
+      setUsernameDraft(name);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user?.id]);
+
   const openRoute = (route: string) => {
     onOpenChange(false);
     navigate(route);
+  };
+
+  const handleSaveUsername = async () => {
+    if (!user?.id) return;
+    setError('');
+    setSuccess('');
+    const name = sanitizeUsername(usernameDraft);
+    if (name.length < 2) {
+      setError('Username must be at least 2 characters.');
+      return;
+    }
+    if (name.length > 24) {
+      setError('Username must be 24 characters or fewer.');
+      return;
+    }
+    if (name === savedUsername) {
+      setUsernameExpanded(false);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const slug = usernameSlug(name);
+      const { error: bothErr } = await supabase
+        .from('profiles')
+        .update({ display_name: name, username: slug })
+        .eq('user_id', user.id);
+      if (bothErr) {
+        // Username is unique — still save the public competition name.
+        if (bothErr.code === '23505' || /unique|duplicate/i.test(bothErr.message)) {
+          const { error: displayErr } = await supabase
+            .from('profiles')
+            .update({ display_name: name })
+            .eq('user_id', user.id);
+          if (displayErr) {
+            setError(displayErr.message);
+            return;
+          }
+          setSavedUsername(name);
+          setUsernameDraft(name);
+          setUsernameExpanded(false);
+          setSuccess('Username updated — that handle was taken, so your competition name was saved.');
+          return;
+        }
+        setError(bothErr.message);
+        return;
+      }
+      setSavedUsername(name);
+      setUsernameDraft(name);
+      setUsernameExpanded(false);
+      setSuccess('Username updated. It will show on the Competition leaderboard.');
+    } catch {
+      setError('Failed to update username.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChangePassword = async () => {
@@ -172,11 +269,16 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
           <div className="mx-6 mt-3 grid grid-cols-2 gap-2.5">
             <HeroButton
-              title={hasProAccess ? 'You are Pro' : 'Go Pro Today'}
-              subtitle={hasProAccess ? 'Premium picks unlocked' : 'Unlock premium picks'}
-              action={hasProAccess ? 'Manage' : 'Upgrade'}
+              title={subscriptionLoading ? 'Verifying access' : hasTopTierAccess ? `WagerProof ${tierTitle('pro')}` : 'Upgrade to Pro'}
+              subtitle={subscriptionLoading ? 'Checking your plan' : hasTopTierAccess ? 'Your membership is active' : `Current plan: ${subscriptionTier ? tierTitle(subscriptionTier) : 'Free'}`}
+              action={subscriptionLoading ? 'Checking' : hasTopTierAccess ? 'Manage' : 'Upgrade'}
+              disabled={subscriptionLoading}
               icon={<CreditCard className="h-5 w-5" />}
-              onClick={hasProAccess ? handleManageBilling : () => openRoute(PAYWALL_ROUTE)}
+              onClick={() => {
+                if (subscriptionLoading) return;
+                if (hasTopTierAccess) handleManageBilling();
+                else openRoute('/plans/tiers?tier=pro&minimum=pro&origin=tier_upgrade_pro');
+              }}
             />
             <HeroButton
               title="Join our Discord"
@@ -272,6 +374,41 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           <SettingsGroup>
             <SettingsRow icon={<Mail />} title="Email" subtitle={user?.email || '—'} />
             <SettingsRow
+              icon={<AtSign />}
+              title="Username"
+              subtitle={savedUsername || 'Shown on Competition'}
+              trailing={<ChevronRight className="h-4 w-4" />}
+              onClick={() => setUsernameExpanded((value) => !value)}
+            />
+            {usernameExpanded && (
+              <div className="space-y-3 border-t border-black/[0.07] px-6 py-5 dark:border-white/[0.07]">
+                <div className="space-y-1.5">
+                  <Label htmlFor="username" className="text-xs text-black/55 dark:text-white/55">
+                    Competition username
+                  </Label>
+                  <Input
+                    id="username"
+                    value={usernameDraft}
+                    maxLength={24}
+                    onChange={(event) => setUsernameDraft(event.target.value)}
+                    placeholder="e.g. SharpChris"
+                    className="h-11 rounded-xl border-black/10 bg-neutral-50 text-black placeholder:text-black/25 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/25"
+                  />
+                  <p className="text-[11px] text-black/38 dark:text-white/32">
+                    2–24 characters. This is what other players see on the leaderboard and All Picks.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleSaveUsername}
+                  disabled={isLoading}
+                  className="h-10 w-full rounded-xl bg-black text-white hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/90"
+                >
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Username
+                </Button>
+              </div>
+            )}
+            <SettingsRow
               icon={<Hash />}
               title="User ID"
               subtitle={user?.id || '—'}
@@ -301,9 +438,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             <SettingsRow
               icon={<CreditCard />}
               title="Subscription"
-              subtitle={hasProAccess ? `WagerProof Pro${subscriptionType ? ` · ${subscriptionType}` : ''}` : 'Free plan'}
+              subtitle={hasSubscription ? `WagerProof ${tierTitle(subscriptionTier ?? 'pro')}${subscriptionType ? ` · ${subscriptionType}` : ''}` : 'Free plan'}
               trailing={<ChevronRight className="h-4 w-4" />}
-              onClick={hasProAccess ? handleManageBilling : () => openRoute(PAYWALL_ROUTE)}
+              onClick={hasSubscription ? handleManageBilling : () => openRoute(isTieredCustomer ? '/plans/tiers' : PAYWALL_ROUTE)}
             />
           </SettingsGroup>
 
@@ -377,9 +514,9 @@ function FeatureRow({ icon, title, subtitle, action, onClick }: { icon: ReactNod
   );
 }
 
-function HeroButton({ title, subtitle, action, icon, onClick }: { title: string; subtitle: string; action: string; icon: ReactNode; onClick: () => void }) {
+function HeroButton({ title, subtitle, action, icon, onClick, disabled = false }: { title: string; subtitle: string; action: string; icon: ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className="min-w-0 rounded-[18px] border border-black/[0.08] bg-gradient-to-br from-black/[0.04] to-black/[0.015] p-4 text-left transition hover:border-black/15 hover:bg-black/[0.055] active:scale-[0.98] dark:border-white/[0.08] dark:from-white/[0.055] dark:to-white/[0.02] dark:hover:border-white/15 dark:hover:bg-white/[0.06]">
+    <button type="button" onClick={onClick} disabled={disabled} className="disabled:cursor-wait disabled:opacity-60 min-w-0 rounded-[18px] border border-black/[0.08] bg-gradient-to-br from-black/[0.04] to-black/[0.015] p-4 text-left transition hover:border-black/15 hover:bg-black/[0.055] active:scale-[0.98] dark:border-white/[0.08] dark:from-white/[0.055] dark:to-white/[0.02] dark:hover:border-white/15 dark:hover:bg-white/[0.06]">
       <span className="mb-5 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.055] text-black/55 dark:bg-white/[0.07] dark:text-white/55">{icon}</span>
       <span className="block truncate text-sm font-medium text-black/90 dark:text-white/90">{title}</span>
       <span className="mt-0.5 block truncate text-[10px] text-black/38 dark:text-white/32">{subtitle}</span>

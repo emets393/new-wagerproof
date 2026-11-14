@@ -1,4 +1,5 @@
 import SwiftUI
+import WagerproofStores
 import WagerproofModels
 import WagerproofDesign
 import WagerproofServices
@@ -16,6 +17,7 @@ import WagerproofServices
 /// The hero renders instantly from the feed selection; the page + trends rows
 /// load per player through `NFLPropPageService` and degrade independently.
 struct NFLPropDetailView: View {
+    @Environment(AchievementsStore.self) private var achievements
     let selection: NFLPlayerPropSelection
 
     @State private var detail: NFLPropPlayerDetailBundle?
@@ -91,6 +93,11 @@ struct NFLPropDetailView: View {
     }
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Player Props") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         GeometryReader { root in
             let chrome = PropDetailChrome(safeTop: root.safeAreaInsets.top, safeBottom: root.safeAreaInsets.bottom)
             ScrollViewReader { proxy in
@@ -134,6 +141,7 @@ struct NFLPropDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: selection.id) {
             await loadDetail()
+            if !displayMarkets.isEmpty { await achievements.record(.props) }
         }
         .sheet(item: $metricHelp) { help in
             NFLPropMetricHelpSheet(help: help)
@@ -482,6 +490,18 @@ struct NFLPropDetailView: View {
             }
         }
 
+        // 1b. Fantasy-Points prop model + Player Prop Report. Only the markets that backtested
+        // carry this, so the whole section is omitted rather than rendered empty.
+        if NFLPropResearchStrip.hasContent(page?.research[market.key]) {
+            WidgetCollapsingSection(
+                title: widgetTitle("Prop Model & Report", market: market),
+                systemImage: "chart.line.uptrend.xyaxis",
+                accessory: .tapHint(expanded: false)
+            ) {
+                NFLPropResearchStrip(research: page?.research[market.key])
+            }
+        }
+
         // 2. Recent Games (renders from the feed log until trends arrive).
         WidgetCollapsingSection(
             title: widgetTitle("Recent Games", market: market),
@@ -618,7 +638,7 @@ struct NFLPropMetricHelp: Identifiable, Hashable {
             ("projection", "WagerProof Projection",
              "Our projected stat total for this market, placed against the Vegas line. \"Model\" means the live projection model produced the number; \"Preview\" means it comes from the player's recent game-by-game distribution until the model takes over. For anytime TD we project a probability to score and translate it into fair odds you can compare against the posted price."),
             ("recent_games", "Recent Games",
-             "Each bar is the player's actual stat total in one of his last 10 games (oldest left, most recent right). Green cleared TODAY's line; red missed it. The dashed line is today's threshold — historical results are graded against the current number, not the line posted at the time."),
+             "Each bar is the player's actual stat total in one of his last 10 games (oldest left, most recent right). Green cleared the line that was posted FOR THAT GAME; red missed it. The dashed line is today's threshold, shown for comparison — it is not what the bars are graded against. A game that landed exactly on its line pushed, and drops out of the hit count."),
             ("matchup", "Matchup",
              "The player's career production against the defensive look this week's opponent plays most — yards per target for receivers, EPA per dropback for QBs, EPA per rush for backs — compared with his career average. Below it: his per-game averages against similar defenses, how often he cleared this market's line against them, and how often the opponent actually uses each look (with the league percentile)."),
             ("h2h", "Head-to-Head",

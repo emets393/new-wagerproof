@@ -164,3 +164,25 @@ nfl_coach_trends 173 · nfl_referee_trends 91 · nfl_player_prop_trends 681 · n
 cfb_team_trends 137 · cfb_coach_trends 290 · cfb_outliers_trend_cards 1200 · nfl_teams · cfb_teams ·
 nfl/cfb_signal_defs.
 ⚠ empty-by-design: nfl_slate_props · cfb_slate_flags · cfb_slate_picks · football_game_results.
+
+## Which week a surface shows (2026-09-21)
+
+ONE rule on every client and every football surface: **the soonest UPCOMING kickoff, 6h grace,
+falling back to the latest week only when nothing is upcoming.**
+
+- web `src/features/games/api/footballSlate.ts` → `resolveUpcomingWeek` (+ the
+  `resolveNflCurrentWeek` / `resolveCfbCurrentWeek` / `resolveNflPropPagesWeek` wrappers)
+- iOS `WagerproofServices/FootballSlateAnchor.swift` → `FootballSlateAnchor.currentWeek`
+- Android `core/services/.../FootballSlateAnchor.kt` → `FootballSlateAnchor.currentWeek`
+
+Applies to `nfl_slate_feed`, `cfb_slate_feed` and `nfl_prop_player_pages` — all week-keyed with
+a `kickoff`.
+
+**Why max-week ("season desc, week desc") is now WRONG.** It was safe only while the pipeline
+wrote one week at a time. The Monday preview build (`nfl-slate-monday-preview`, Mon 12:00 UTC)
+publishes NEXT week's slate on Monday morning while the current week's Monday-night game is
+still pending. A max-week anchor jumps to next week and drops that game — which is still live
+and still bettable — from the scoreboard, the Outliers board and the props surfaces. The games
+feed was always correct; these three families were not, and were converted on 2026-09-21.
+`resolveLatestSlate` survives only as the fallback inside the resolver and on the web
+diagnostics page.

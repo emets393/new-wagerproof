@@ -48,6 +48,8 @@ public struct NBAGame: Identifiable, Codable, Hashable, Sendable {
     public let awayScorePred: Double?
     public let modelFairHomeSpread: Double?
     public let modelFairTotal: Double?
+    /// `nba_model_preds` total-row tier. `warmup` means the total is on screen as tracking, not a bet.
+    public let totalTier: String?
 
     public init(
         id: String,
@@ -82,7 +84,8 @@ public struct NBAGame: Identifiable, Codable, Hashable, Sendable {
         homeScorePred: Double? = nil,
         awayScorePred: Double? = nil,
         modelFairHomeSpread: Double? = nil,
-        modelFairTotal: Double? = nil
+        modelFairTotal: Double? = nil,
+        totalTier: String? = nil
     ) {
         self.id = id
         self.gameId = gameId
@@ -117,6 +120,7 @@ public struct NBAGame: Identifiable, Codable, Hashable, Sendable {
         self.awayScorePred = awayScorePred
         self.modelFairHomeSpread = modelFairHomeSpread
         self.modelFairTotal = modelFairTotal
+        self.totalTier = totalTier
     }
 }
 
@@ -412,84 +416,3 @@ public func formatNBASituation(_ situation: String?) -> String {
         .joined(separator: " ")
 }
 
-// MARK: - Model accuracy
-
-/// Single accuracy bucket (count of historical games + accuracy %). Mirrors
-/// RN `AccuracyBucket` in `types/modelAccuracy.ts`.
-public struct NBAAccuracyBucket: Codable, Hashable, Sendable {
-    public let games: Int
-    public let accuracyPct: Double
-    public init(games: Int, accuracyPct: Double) {
-        self.games = games
-        self.accuracyPct = accuracyPct
-    }
-}
-
-/// Per-game accuracy snapshot. Mirrors RN `GameAccuracyData` in
-/// `types/modelAccuracy.ts`. Built from a single row of the
-/// `nba_todays_games_predictions_with_accuracy` view.
-public struct NBAModelAccuracyData: Identifiable, Hashable, Sendable {
-    public let gameId: Int
-    public let awayTeam: String
-    public let homeTeam: String
-    public let awayAbbr: String
-    public let homeAbbr: String
-    public let gameDate: String
-    public let tipoffTime: String?
-    // Spread
-    public let homeSpread: Double?
-    public let homeSpreadDiff: Double?
-    public let spreadAccuracy: NBAAccuracyBucket?
-    // Moneyline
-    public let homeWinProb: Double?
-    public let awayWinProb: Double?
-    public let mlPickIsHome: Bool?
-    public let mlPickProbRounded: Double?
-    public let mlAccuracy: NBAAccuracyBucket?
-    // Over/Under
-    public let overLine: Double?
-    public let overLineDiff: Double?
-    public let ouAccuracy: NBAAccuracyBucket?
-
-    public var id: Int { gameId }
-
-    public init(
-        gameId: Int,
-        awayTeam: String,
-        homeTeam: String,
-        awayAbbr: String,
-        homeAbbr: String,
-        gameDate: String,
-        tipoffTime: String?,
-        homeSpread: Double?,
-        homeSpreadDiff: Double?,
-        spreadAccuracy: NBAAccuracyBucket?,
-        homeWinProb: Double?,
-        awayWinProb: Double?,
-        mlPickIsHome: Bool?,
-        mlPickProbRounded: Double?,
-        mlAccuracy: NBAAccuracyBucket?,
-        overLine: Double?,
-        overLineDiff: Double?,
-        ouAccuracy: NBAAccuracyBucket?
-    ) {
-        self.gameId = gameId
-        self.awayTeam = awayTeam
-        self.homeTeam = homeTeam
-        self.awayAbbr = awayAbbr
-        self.homeAbbr = homeAbbr
-        self.gameDate = gameDate
-        self.tipoffTime = tipoffTime
-        self.homeSpread = homeSpread
-        self.homeSpreadDiff = homeSpreadDiff
-        self.spreadAccuracy = spreadAccuracy
-        self.homeWinProb = homeWinProb
-        self.awayWinProb = awayWinProb
-        self.mlPickIsHome = mlPickIsHome
-        self.mlPickProbRounded = mlPickProbRounded
-        self.mlAccuracy = mlAccuracy
-        self.overLine = overLine
-        self.overLineDiff = overLineDiff
-        self.ouAccuracy = ouAccuracy
-    }
-}

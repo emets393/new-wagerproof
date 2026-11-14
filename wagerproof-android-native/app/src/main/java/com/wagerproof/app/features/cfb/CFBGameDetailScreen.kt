@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.components.CollapsingWidgetScroll
 import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
-import com.wagerproof.app.features.components.polymarket.PolymarketWidget
+import com.wagerproof.app.features.analytics.GamePublicBettingCard
 import com.wagerproof.app.features.gamecards.BestBookChip
 import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.app.features.gamecards.GameCardFormatting
@@ -99,6 +99,9 @@ fun CFBGameDetailPage(
     topInset: Dp,
     bottomInset: Dp,
 ) {
+    val achievementStore = com.wagerproof.app.di.appGraph().achievements
+    androidx.compose.runtime.LaunchedEffect(Unit) { achievementStore.record("game_analysis") }
+
     val awayColors = remember(game.awayTeam) { CFBTeamColors.colorPair(game.awayTeam) }
     val homeColors = remember(game.homeTeam) { CFBTeamColors.colorPair(game.homeTeam) }
 
@@ -109,7 +112,6 @@ fun CFBGameDetailPage(
 
     var selectedSignal by remember { mutableStateOf<CFBSlateFlag?>(null) }
     // Polymarket pushes its own prose read up once price history lands.
-    var marketOddsHeadline by remember(game.gameId) { mutableStateOf<String?>(null) }
     var selectedTrend by remember { mutableStateOf<TrendDetailSelection?>(null) }
     var bookOdds by remember(game.gameId) { mutableStateOf<SportsbookGameOdds?>(null) }
 
@@ -166,20 +168,18 @@ fun CFBGameDetailPage(
 
         item {
             WidgetCollapsingSection(
-                title = "Market Odds",
+                title = "Public Betting",
                 icon = AppIcon.fromSystemName("chart.bar.fill"),
                 iconTint = AppColors.appPrimary,
-                headline = marketOddsHeadline ?: GameWidgetHeadlines.marketOdds(),
+                headline = "Tickets and money",
             ) {
-                PolymarketWidget(
-                    league = "cfb",
+                GamePublicBettingCard(
+                    sport = "cfb",
                     awayTeam = game.awayTeam,
                     homeTeam = game.homeTeam,
-                    awayColors = awayColors,
-                    homeColors = homeColors,
-                    awayAbbr = CFBTeamAssets.abbr(game.awayTeam),
-                    homeAbbr = CFBTeamAssets.abbr(game.homeTeam),
-                    onHeadlineChange = { marketOddsHeadline = it },
+                    awayColor = awayColors.primary,
+                    homeColor = homeColors.primary,
+                    gameDate = game.gameDate,
                 )
             }
         }
@@ -236,7 +236,7 @@ fun CFBGameDetailPage(
     selectedSignal?.let { flag ->
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         ModalBottomSheet(onDismissRequest = { selectedSignal = null }, sheetState = sheetState) {
-            SignalDefinitionSheet(flag, signalDefs, perfByKey)
+            SignalDefinitionSheet(flag, game, signalDefs, perfByKey)
         }
     }
 
@@ -595,7 +595,16 @@ private fun sportsbookMarket(
     val side = (pick?.pickSide ?: "").uppercase(Locale.US)
     return when (row.id) {
         "spread" -> {
-            val isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam
+            // No pick side (lean under the floor): quote the side the card's own numbers are
+            // written from — model_line is a pick-side spread, the game row's is home-side.
+            // Defaulting to AWAY put "VT -14" next to the row's "BC +11.6" (wk4-2026).
+            val numbersHome = pick?.modelLine?.let { ml ->
+                game.fgPredSpread?.takeIf { kotlin.math.abs(it) >= 0.05 }?.let { hm -> kotlin.math.abs(ml - hm) <= kotlin.math.abs(ml + hm) }
+            } ?: pick?.vegasLine?.let { vl ->
+                game.fgSpreadClose?.takeIf { kotlin.math.abs(it) >= 0.05 }?.let { hc -> kotlin.math.abs(vl - hc) <= kotlin.math.abs(vl + hc) }
+            } ?: true
+            val isHome = side.contains("HOME") || pick?.pickTeam == game.homeTeam ||
+                (side.isEmpty() && pick?.pickTeam == null && numbersHome)
             SportsbookMarket.Spread(isHome)
         }
         "total" -> {
@@ -871,6 +880,7 @@ private fun HonestyNote(text: String) {
 @Composable
 private fun SignalDefinitionSheet(
     flag: CFBSlateFlag,
+    game: CFBPrediction,
     signalDefs: Map<String, CFBSignalDefinition>,
     perfByKey: Map<String, SignalPerformance>,
 ) {
@@ -883,8 +893,24 @@ private fun SignalDefinitionSheet(
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(def?.displayName ?: flag.source, color = AppColors.appTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                // Direction, signed for the side being bet: `betLine` is already signed for the
+                // bet team; `line` is home-perspective, so away-side spreads must flip.
+                val directionText = run {
+                    val upperSide = flag.side.uppercase(Locale.US)
+                    val team = flag.betTeam ?: when { upperSide.contains("HOME") -> game.homeTeam; upperSide.contains("AWAY") -> game.awayTeam; else -> null }
+                    val isOU = upperSide.startsWith("OVER") || upperSide.startsWith("UNDER") || flag.betDirection != null
+                    when {
+                        isOU -> "${(flag.betDirection ?: upperSide.split(" ").first()).lowercase(Locale.US).replaceFirstChar { it.uppercase() }} ${(flag.betLine ?: flag.line)?.let { fmt1(it) } ?: ""}".trim()
+                        team != null && flag.market.contains("moneyline") -> "${CFBTeamAssets.abbr(team)} ML"
+                        team != null -> {
+                            val signed = flag.betLine ?: flag.line?.let { if (team == game.awayTeam) -it else it }
+                            "${CFBTeamAssets.abbr(team)} ${signed?.let { GameCardFormatting.formatSpread(it) } ?: ""}".trim()
+                        }
+                        else -> "${flag.side} ${flag.line?.let { fmt1(it) } ?: ""}".trim()
+                    }
+                }
                 Text(
-                    def?.oneLiner ?: "${marketLabel(flag.market)} · ${flag.side} ${flag.line?.let { fmt1(it) } ?: ""}".trim(),
+                    "${marketLabel(flag.market)} · $directionText",
                     color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                 )
             }

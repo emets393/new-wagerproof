@@ -340,4 +340,60 @@ final class NFLPropPlayerPageTests: XCTestCase {
         XCTAssertNil(NFLPropVerdicts.headToHeadHeadline(matchup: thin, marketKey: "player_reception_yds", opponent: "DEN"))
         XCTAssertNil(NFLPropVerdicts.headToHeadHeadline(matchup: nil, marketKey: "player_reception_yds", opponent: "DEN"))
     }
+
+    // MARK: research (Fantasy-Points layer)
+
+    /// Shaped from a real `nfl_prop_player_pages.research` blob. The layer is SPARSE — a market
+    /// may carry only the model, only the report, or be absent entirely — so each case is asserted
+    /// rather than assuming a full payload.
+    func testResearchDecodesModelAndReport() throws {
+        let json = """
+        {
+          "player_pass_yds": {
+            "fp_model": {"pred": 182.55, "line": 208.0, "edge": -25.45,
+                         "threshold": 20.0, "tier": "robust", "fires": true},
+            "prop_report": {"read": "under", "line": 207.5, "score": 4.0,
+                            "n_for": 4, "n_against": 1, "summary": "Under is the read.",
+                            "tells": [{"dir": "under", "src": "model", "text": "projects 182.6"},
+                                      {"dir": "over", "src": "usage", "text": "target share up"}]}
+          },
+          "player_pass_tds": {
+            "fp_model": {"pred": 0.95, "line": 1.5, "edge": -0.55,
+                         "threshold": 0.35, "tier": "61.0%", "fires": true}
+          },
+          "player_rush_yds": {}
+        }
+        """
+        let value = try JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
+        let research = NFLPropPlayerPage.mapResearch(value)
+
+        // a market with both halves
+        let yds = try XCTUnwrap(research["player_pass_yds"])
+        XCTAssertEqual(yds.model?.pred, 182.55)
+        XCTAssertEqual(yds.model?.edge, -25.45)
+        XCTAssertEqual(yds.model?.fires, true)
+        XCTAssertEqual(yds.report?.read, "under")
+        XCTAssertEqual(yds.report?.nFor, 4)
+        XCTAssertEqual(yds.report?.tells.count, 2)
+        XCTAssertEqual(yds.report?.tells.first?.src, "model")
+
+        // model only — the common case
+        let tds = try XCTUnwrap(research["player_pass_tds"])
+        XCTAssertEqual(tds.model?.tier, "61.0%")
+        XCTAssertNil(tds.report)
+
+        // an empty object carries nothing and must not create a hollow entry the UI would render
+        XCTAssertNil(research["player_rush_yds"])
+        XCTAssertFalse(NFLPropResearchStripHasContentShim(research["player_rush_yds"]))
+    }
+
+    /// Mirrors `NFLPropResearchStrip.hasContent`, which lives in the app target and so is not
+    /// linkable from the models test bundle.
+    private func NFLPropResearchStripHasContentShim(_ r: NFLPropResearch?) -> Bool {
+        r?.model != nil || r?.report != nil
+    }
+
+    func testResearchMissingColumnDecodesEmpty() {
+        XCTAssertTrue(NFLPropPlayerPage.mapResearch(nil).isEmpty)
+    }
 }

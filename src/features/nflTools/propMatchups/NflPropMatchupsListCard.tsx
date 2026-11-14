@@ -1,17 +1,17 @@
 import { FeedPill, MlbToolListCard } from '@/features/mlbTools/shared/MlbToolListCard';
-import { shortPlayerName, type NflPropGameFeedItem } from './model';
+import type { NflPropGameFeedItem } from './model';
 
 export function NflPropMatchupsListCard({
   item,
   isSelected,
   onSelect,
+  spotlightCount = 0,
 }: {
   item: NflPropGameFeedItem;
   isSelected: boolean;
   onSelect: (id: string) => void;
+  spotlightCount?: number;
 }) {
-  const top = item.topHighlight;
-
   return (
     <MlbToolListCard
       item={item}
@@ -20,14 +20,11 @@ export function NflPropMatchupsListCard({
       caption={item.gameLabel}
       pills={
         <>
-          <FeedPill label="Edge">
-            {top ? (
-              <span className="truncate text-foreground">
-                {shortPlayerName(top.player.player_name)} ·{' '}
-                {top.highlight.direction === 'up' ? 'up' : 'down'}
-              </span>
+          <FeedPill label="Spotlight">
+            {spotlightCount > 0 ? (
+              <span className="truncate text-foreground">{spotlightCount}</span>
             ) : (
-              <span className="text-muted-foreground">No callout</span>
+              <span className="text-muted-foreground">None</span>
             )}
           </FeedPill>
           <FeedPill label="Players" trailing={`${item.playerCount}`}>

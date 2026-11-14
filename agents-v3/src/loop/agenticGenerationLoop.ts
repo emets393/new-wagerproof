@@ -46,7 +46,7 @@ function submitRepairInstruction(report: SubmitReport, ctx: AgentGenContext, too
 
   if (marketRejects.length === 0) return null;
   if (propOnly) {
-    return `Your last ${toolName} was rejected because this agent allows ONLY bet_type "prop". Stop submitting spread, moneyline, total, or team_total. Call get_props for NFL games, then submit only prop legs copied from returned is_bettable props: prop_player, prop_market, prop_line, prop_direction. If fewer than two prop legs clear the bar, finalize with submit_picks using an empty picks array and explain that no clean prop parlay cleared.`;
+    return `Your last ${toolName} was rejected because this agent allows ONLY bet_type "prop". Stop submitting spread, moneyline, total, or team_total. Call get_props for NFL or NBA games, then submit only prop legs copied from returned is_bettable props: prop_player, prop_market, prop_line, prop_direction. If fewer than two prop legs clear the bar, finalize with submit_picks using an empty picks array and explain that no clean prop parlay cleared.`;
   }
   return `Your last ${toolName} used a disallowed market. Allowed bet_type values for this agent are: ${allowed.join(", ")}. Resubmit only with those markets, or finalize with submit_picks using an empty picks array.`;
 }

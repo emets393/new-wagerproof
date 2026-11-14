@@ -1,0 +1,53 @@
+=== 1. OWN AdjOE quintile x OPP AdjDE quintile -> OVER % (n), six seasons, from the offense's row (each game appears from both sides) ===
+                           Q1 best D                    Q2                    Q3                    Q4            Q5 worst D
+  O Q1 worst           56.5% (  622)         51.4% ( 1414)         51.9% ( 2245)         51.5% ( 2756)         48.0% ( 3344)
+  O Q2                 52.7% (  952)         51.7% ( 1673)         51.3% ( 2410)         48.8% ( 2670)         50.5% ( 2820)
+  O Q3                 52.8% ( 1554)         51.8% ( 2075)         50.4% ( 2386)         51.5% ( 2361)         49.2% ( 2219)
+  O Q4                 52.5% ( 2680)         50.8% ( 2507)         51.7% ( 2031)         52.2% ( 1798)         50.4% ( 1547)
+  O Q5 best            48.9% ( 4695)         51.2% ( 2877)         47.7% ( 1443)         53.9% (  969)         53.3% (  808)
+  spread-matched expectation for the corner (worst O vs best D): see cell below
+  worst-20% offense vs best-20% defense (M7e)                                    n=  622 | OVER 350-269 (56.5%, +7.9%; spread-matched 52.6%) UNDER roi -17.0% tot +3.10 | own ATS 315-299 (51.3%) | line 138.0 own sprd +19.3 | p(over) 0.004
+      by season: 21: O 14-14 ATS 10-18 | 22: O 71-58 ATS 65-61 | 23: O 65-47 ATS 63-50 | 24: O 63-58 ATS 65-55 | 25: O 58-52 ATS 52-56 | 26: O 79-40 ATS 60-59
+     ... worst-10% offense vs best-10% defense                                   n=  122 | OVER 72-49 (59.5%, +13.5%; spread-matched 53.5%) UNDER roi -22.5% tot +2.56 | own ATS 65-56 (53.7%) | line 138.4 own sprd +28.1 | p(over) 0.044
+     ... worst-30% vs best-30%                                                   n= 2011 | OVER 1105-891 (55.4%, +5.7%; spread-matched 52.0%) UNDER roi -14.8% tot +2.79 | own ATS 1043-941 (52.6%) | line 138.7 own sprd +14.2 | p(over) 0.000
+     ... Nov-Dec                                                                 n=  318 | OVER 179-138 (56.5%, +7.7%; spread-matched 53.4%) UNDER roi -16.8% tot +2.68 | own ATS 166-148 (52.9%) | line 139.9 own sprd +25.9
+     ... Jan+                                                                    n=  304 | OVER 171-131 (56.6%, +8.1%; spread-matched 51.9%) UNDER roi -17.2% tot +3.55 | own ATS 149-151 (49.7%) | line 136.1 own sprd +12.4
+     ... non-conference                                                          n=  328 | OVER 183-144 (56.0%, +6.8%; spread-matched 53.4%) UNDER roi -15.8% tot +2.64 | own ATS 170-153 (52.6%) | line 140.2 own sprd +24.9
+     ... conference                                                              n=  294 | OVER 167-125 (57.2%, +9.1%; spread-matched 51.8%) UNDER roi -18.3% tot +3.62 | own ATS 145-146 (49.8%) | line 135.5 own sprd +13.1
+     ... bad O at home                                                           n=  156 | OVER 87-68 (56.1%, +7.1%; spread-matched 51.3%) UNDER roi -16.2% tot +3.74 | own ATS 76-78 (49.4%) | line 135.1 own sprd +10.2
+     ... bad O on the road                                                       n=  438 | OVER 247-189 (56.7%, +8.1%; spread-matched 53.2%) UNDER roi -17.2% tot +2.64 | own ATS 225-207 (52.1%) | line 139.1 own sprd +23.8
+     ... total line < 135                                                        n=  233 | OVER 122-111 (52.4%, -0.1%; spread-matched 52.2%) UNDER roi -9.0% tot +2.27 | own ATS 116-115 (50.2%) | line 128.5 own sprd +15.1
+     ... total 135-145                                                           n=  247 | OVER 151-94 (61.6%, +17.5%; spread-matched 52.7%) UNDER roi -26.7% tot +3.77 | own ATS 125-116 (51.9%) | line 139.6 own sprd +20.0
+     ... total > 145                                                             n=  142 | OVER 77-64 (54.6%, +4.3%; spread-matched 53.3%) UNDER roi -13.2% tot +3.29 | own ATS 74-68 (52.1%) | line 150.8 own sprd +25.0
+     ... big team favored by 20+                                                 n=  281 | OVER 159-121 (56.8%, +8.3%; spread-matched 53.9%) UNDER roi -17.4% tot +2.75 | own ATS 144-136 (51.4%) | line 142.1 own sprd +29.3
+     ... favored 10-20                                                           n=  240 | OVER 135-104 (56.5%, +7.8%; spread-matched 52.2%) UNDER roi -16.9% tot +3.51 | own ATS 119-114 (51.1%) | line 135.4 own sprd +15.2
+     ... favored < 10                                                            n=  110 | OVER 60-49 (55.0%, +5.1%; spread-matched 50.6%) UNDER roi -14.2% tot +3.30 | own ATS 55-54 (50.5%) | line 133.5 own sprd +2.7
+
+=== 2. OVERLAP with the size signal (3PA bottom quarter & 3P% below median & opp +1in & opp top-20% D) ===
+  size signal                                                                    n=  418 | OVER 247-167 (59.7%, +13.9%; spread-matched 51.7%) UNDER roi -23.0% tot +3.89 | own ATS 202-211 (48.9%) | line 141.7 own sprd +11.4
+      by season: 21: O 18-13 ATS 14-17 | 22: O 47-26 ATS 39-35 | 23: O 38-29 ATS 31-37 | 24: O 51-37 ATS 37-48 | 25: O 55-27 ATS 39-42 | 26: O 38-35 ATS 42-32
+     size signal AND bad-O-vs-great-D                                            n=   93 | OVER 66-27 (71.0%, +35.3%; spread-matched 53.1%) UNDER roi -44.5% tot +6.87 | own ATS 50-42 (54.3%) | line 138.9 own sprd +24.3
+     size signal, NOT bad-O (offense above the 20th pct)                         n=  325 | OVER 181-140 (56.4%, +7.6%; spread-matched 51.3%) UNDER roi -16.7% tot +3.04 | own ATS 152-169 (47.4%) | line 142.5 own sprd +7.7
+     bad-O-vs-great-D, NOT size                                                  n=  529 | OVER 284-242 (54.0%, +3.0%; spread-matched 52.6%) UNDER roi -12.1% tot +2.44 | own ATS 265-257 (50.8%) | line 137.9 own sprd +18.4
+     union (either)                                                              n=  947 | OVER 531-409 (56.5%, +7.8%; spread-matched 52.2%) UNDER roi -16.9% tot +3.08 | own ATS 467-468 (49.9%) | line 139.6 own sprd +15.3 | p(over) 0.000
+      by season: 21: O 31-27 ATS 23-35 | 22: O 106-81 ATS 97-88 | 23: O 94-70 ATS 86-80 | 24: O 101-88 ATS 90-95 | 25: O 96-73 ATS 81-86 | 26: O 103-70 ATS 90-84
+
+=== 3. THE TWO SIDE LEANS, per season ===
+  glass: own OREB top quarter & opp allows OREB top quarter & own taller by 1+   n=  647 | OVER 330-314 (51.2%, -2.2%; spread-matched 50.8%) UNDER roi -7.0% tot +1.69 | own ATS 355-286 (55.4%) | line 143.8 own sprd -2.5 | p(own ATS) 0.006
+      by season: 21: O 43-42 ATS 43-40 | 22: O 67-60 ATS 62-64 | 23: O 68-49 ATS 68-49 | 24: O 50-53 ATS 61-40 | 25: O 49-38 ATS 43-45 | 26: O 53-72 ATS 78-48
+     ... own taller by 0.5+                                                      n= 1079 | OVER 547-525 (51.0%, -2.6%; spread-matched 50.8%) UNDER roi -6.5% tot +1.33 | own ATS 585-481 (54.9%) | line 144.2 own sprd -1.6 | p(own ATS) 0.001
+      by season: 21: O 67-59 ATS 61-62 | 22: O 114-93 ATS 104-103 | 23: O 97-93 ATS 110-78 | 24: O 86-97 ATS 107-76 | 25: O 89-70 ATS 85-74 | 26: O 94-113 ATS 118-88
+     ... own taller by 2+                                                        n=  146 | OVER 64-82 (43.8%, -16.3%; spread-matched 50.8%) UNDER roi +7.2% tot +0.46 | own ATS 82-61 (57.3%) | line 144.3 own sprd -4.6
+     ... glass cell, own SHORTER (gap <= -1)                                     n= 1006 | OVER 513-487 (51.3%, -2.1%; spread-matched 51.1%) UNDER roi -7.0% tot +0.98 | own ATS 507-481 (51.3%) | line 144.5 own sprd +3.7
+     control: own OREB top quarter & own taller 1+ & opp D-glass GOOD (bottom quarter) n=  507 | OVER 249-256 (49.3%, -5.9%; spread-matched 50.8%) UNDER roi -3.2% tot -0.07 | own ATS 257-243 (51.4%) | line 142.0 own sprd -3.8
+  bench: own bench share 10+ pts higher than opp -> FADE own (own ATS shown)     n= 5262 | OVER 2669-2549 (51.1%, -2.4%; spread-matched 50.9%) UNDER roi -6.8% tot +0.91 | own ATS 2436-2765 (46.8%) | line 143.1 own sprd +2.5 | p(own ATS) 0.000
+      by season: 21: O 252-255 ATS 229-270 | 22: O 505-442 ATS 430-515 | 23: O 438-386 ATS 367-452 | 24: O 523-550 ATS 545-534 | 25: O 457-465 ATS 421-495 | 26: O 494-451 ATS 444-499
+     ... gap 15+                                                                 n= 1536 | OVER 777-746 (51.0%, -2.6%; spread-matched 50.9%) UNDER roi -6.5% tot +0.81 | own ATS 706-810 (46.6%) | line 143.1 own sprd +2.9 | p(own ATS) 0.011
+      by season: 21: O 76-78 ATS 69-83 | 22: O 158-141 ATS 135-165 | 23: O 119-92 ATS 92-117 | 24: O 153-164 ATS 166-152 | 25: O 115-126 ATS 112-126 | 26: O 156-145 ATS 132-167
+     ... gap 5-10                                                                n= 8725 | OVER 4381-4271 (50.6%, -3.3%; spread-matched 50.8%) UNDER roi -5.8% tot +0.98 | own ATS 4213-4385 (49.0%) | line 143.2 own sprd +1.3
+     ... own is the favorite                                                     n= 2045 | OVER 1021-1006 (50.4%, -3.9%; spread-matched 50.7%) UNDER roi -5.3% tot +0.66 | own ATS 925-1094 (45.8%) | line 143.3 own sprd -6.4
+     ... own is the dog                                                          n= 3184 | OVER 1630-1528 (51.6%, -1.5%; spread-matched 51.0%) UNDER roi -7.6% tot +1.02 | own ATS 1496-1653 (47.5%) | line 143.0 own sprd +8.2
+     ... Nov-Dec                                                                 n= 1286 | OVER 630-648 (49.3%, -5.9%; spread-matched 51.2%) UNDER roi -3.2% tot +0.66 | own ATS 595-678 (46.7%) | line 143.6 own sprd +3.0
+     ... Jan+                                                                    n= 3976 | OVER 2039-1901 (51.8%, -1.2%; spread-matched 50.8%) UNDER roi -7.9% tot +0.99 | own ATS 1841-2087 (46.9%) | line 143.0 own sprd +2.3
+  bench-share correlates with: KenPom EM r=+nan; spread r=+nan  (is 'deep bench' just 'bad team'?)
+     ... bench gap 10+ with KenPom EM within 5 of the opponent (matched quality) n= 1709 | OVER 869-822 (51.4%, -1.9%; spread-matched 50.4%) UNDER roi -7.2% tot +0.94 | own ATS 782-907 (46.3%) | line 143.0 own sprd +0.2 | p(own ATS) 0.000

@@ -1,0 +1,37 @@
+Nov-Dec, new head coach, by KenPom preseason quintile (BACK):
+     Q1 worst                                                     BACK 526-428 (55.1%, ROI +5.2%)  spread +12.1  SU 24% | 22:128-96 23:108-92 24:98-89 25:107-81 26:85-70
+     Q1 worst, as underdog                                        BACK 456-366 (55.5%, ROI +5.8%)  spread +14.8  SU 18% | 22:103-82 23:101-79 24:82-78 25:98-64 26:72-63
+     Q2                                                           BACK 358-342 (51.1%, ROI -2.3%)  spread +4.3  SU 41% | 22:40-40 23:92-90 24:63-56 25:90-88 26:73-68
+     Q2, as underdog                                              BACK 228-212 (51.8%, ROI -1.1%)  spread +10.5  SU 23% | 22:28-31 23:52-54 24:42-35 25:63-52 26:43-40
+     Q3                                                           BACK 308-337 (47.8%, ROI -8.6%)  spread +0.6  SU 46% | 22:45-46 23:46-72 24:109-106 25:51-67 26:57-46
+     Q3, as underdog                                              BACK 150-171 (46.7%, ROI -10.5%)  spread +8.4  SU 22% | 22:24-22 23:22-35 24:61-52 25:17-37 26:26-25
+     Q4                                                           BACK 265-264 (50.1%, ROI -4.3%)  spread -5.8  SU 67% | 22:39-40 23:37-43 24:33-34 25:76-66 26:80-81
+     Q4, as underdog                                              BACK 98-90 (52.1%, ROI -0.5%)  spread +7.1  SU 37% | 22:17-14 23:16-18 24:10-12 25:28-21 26:27-25
+     Q5 best                                                      BACK 212-205 (50.8%, ROI -2.9%)  spread -11.8  SU 73% | 22:41-41 23:51-52 24:19-19 25:28-36 26:73-57
+     Q5 best, as underdog                                         BACK 46-40 (53.5%, ROI +2.1%)  spread +6.2  SU 35% | 22:6-7 23:11-7 24:5-6 25:8-6 26:16-14
+
+ overlap of the two framings, Nov-Dec:
+   new coach, KenPom Q1                                           BACK 526-428 (55.1%, ROI +5.2%)  spread +12.1  SU 24% | 22:128-96 23:108-92 24:98-89 25:107-81 26:85-70
+   new coach, KenPom Q1, roster rebuilt                           BACK 326-267 (55.0%, ROI +4.9%)  spread +13.5  SU 22% | 22:38-31 23:67-58 24:52-50 25:92-60 26:77-68
+   new coach, KenPom Q1, roster NOT rebuilt                       BACK 200-161 (55.4%, ROI +5.6%)  spread +9.8  SU 29% | 22:90-65 23:41-34 24:46-39 25:15-21 26:8-2
+   new coach, rebuilt, KenPom NOT Q1                              BACK 656-595 (52.4%, ROI +0.1%)  spread -2.1  SU 55% | 22:45-33 23:64-73 24:130-114 25:176-172 26:241-203
+   new coach, rebuilt, KenPom Q2-Q5, underdog                     BACK 296-260 (53.2%, ROI +1.6%)  spread +9.3  SU 26% | 22:23-15 23:26-33 24:74-51 25:82-78 26:91-83
+   UNION: new coach AND (KenPom Q1 OR rebuilt), as underdog       BACK 752-626 (54.6%, ROI +4.1%)  spread +12.5  SU 21% | 22:126-97 23:127-112 24:156-129 25:180-142 26:163-146
+   UNION, dog of 7+                                               BACK 498-390 (56.1%, ROI +7.0%)  spread +17.3  SU 11% | 22:85-71 23:97-70 24:97-70 25:115-79 26:104-100
+
+ placebos (same rules Jan-Feb, BACK side):
+   new coach, KenPom Q1 -- Jan-Feb                                BACK 633-653 (49.2%, ROI -6.0%)  spread +4.9  SU 34% | 22:164-165 23:111-133 24:127-124 25:116-122 26:115-109
+   UNION as underdog -- Jan-Feb                                   BACK 937-942 (49.9%, ROI -4.7%)  spread +7.7  SU 25% | 22:170-164 23:125-145 24:191-177 25:223-255 26:228-201
+
+ Q1 by conference size / venue / opponent, Nov-Dec:
+     new coach Q1, low-major                                      BACK 503-418 (54.6%, ROI +4.2%)  spread +12.4  SU 23% | 22:112-89 23:108-92 24:98-89 25:100-78 26:85-70
+     new coach Q1, power                                          BACK 0-0 (0.0%, ROI +0.0%)  spread +nan  SU nan% | 
+     new coach Q1, home                                           BACK 133-117 (53.2%, ROI +1.5%)  spread +2.3  SU 43% | 22:40-25 23:25-21 24:26-29 25:20-27 26:22-15
+     new coach Q1, away                                           BACK 393-311 (55.8%, ROI +6.5%)  spread +15.7  SU 17% | 22:88-71 23:83-71 24:72-60 25:87-54 26:63-55
+     new coach Q1, neutral                                        BACK 51-38 (57.3%, ROI +9.2%)  spread +6.7  SU 32% | 22:12-11 23:13-12 24:9-4 25:9-8 26:8-3
+     new coach Q1, vs power opp                                   BACK 127-96 (57.0%, ROI +8.7%)  spread +26.6  SU 4% | 22:25-20 23:27-16 24:20-21 25:28-18 26:27-21
+     new coach Q1, vs low-major opp                               BACK 368-313 (54.0%, ROI +3.1%)  spread +7.5  SU 31% | 22:99-69 23:72-72 24:74-66 25:74-59 26:49-47
+     new coach Q1, first 5 games                                  BACK 232-178 (56.6%, ROI +7.8%)  spread +13.3  SU 23% | 22:63-40 23:46-34 24:36-44 25:49-29 26:38-31
+     new coach Q1, games 6+                                       BACK 294-250 (54.0%, ROI +3.1%)  spread +11.2  SU 26% | 22:65-56 23:62-58 24:62-45 25:58-52 26:47-39
+
+ teams per season: {2022: 22, 2023: 16, 2024: 17, 2025: 16, 2026: 14}  union: {2022: 29, 2023: 27, 2024: 39, 2025: 46, 2026: 50}

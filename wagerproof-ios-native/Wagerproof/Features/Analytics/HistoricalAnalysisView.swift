@@ -9,6 +9,19 @@ import WagerproofStores
 struct HistoricalAnalysisView: View {
     let sport: HistoricalAnalysisSport
 
+    var body: some View {
+        TieredAccessGate(minimum: .premium, title: "\(sport.shortTitle) Historical Trends") {
+            HistoricalAnalysisContent(sport: sport)
+        }
+        .navigationTitle(sport.shortTitle + " Trends")
+    }
+}
+
+private struct HistoricalAnalysisContent: View {
+    @Environment(\.isFeatureGatePreview) private var isFeaturePreview
+    @Environment(AchievementsStore.self) private var achievements
+    let sport: HistoricalAnalysisSport
+
     @Environment(AuthStore.self) private var authStore
     @Environment(\.colorScheme) private var colorScheme
     @State private var store: HistoricalAnalysisStore
@@ -61,7 +74,7 @@ struct HistoricalAnalysisView: View {
         // Chat dock replaces the tab bar on this screen — same pattern as
         // WagerBotChatView / detail pages.
         .toolbar(.hidden, for: .tabBar)
-        .toolbar { systemsToolbar }
+        .toolbar { if !isFeaturePreview { systemsToolbar } }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             chatDock
@@ -85,9 +98,14 @@ struct HistoricalAnalysisView: View {
             guard was, !isNow, let response = store.nlChatState.lastResponse else { return }
             presentToast(for: response)
         }
+        .onChange(of: store.analysis != nil) { _, loaded in
+            if loaded && !isFeaturePreview { Task { await achievements.record(.historicalAnalysis) } }
+        }
         .task {
+            guard !isFeaturePreview else { return }
             store.loadRecentQueries()
             await store.onAppear(userId: userId)
+            if store.analysis != nil { await achievements.record(.historicalAnalysis) }
         }
         .sheet(
             isPresented: $showSaveSystemSheet,
@@ -102,6 +120,7 @@ struct HistoricalAnalysisView: View {
                 SaveSystemSheet(store: store, userId: userId) { shared in
                     presentSystemSavedToast(shared: shared)
                     ReviewPromptCoordinator.shared.recordSystemSaved()
+                    Task { await achievements.refresh() }
                     // Continue in the shared hub so the new system is visible.
                     openMySystemsAfterSave = true
                 }
@@ -166,7 +185,7 @@ struct HistoricalAnalysisView: View {
         // Auth can still be `.launching` when `.task` first runs — re-fetch My
         // Systems once the session is ready so the list isn't stuck empty.
         .onChange(of: authStore.phase) { _, phase in
-            if case .authenticated(let id) = phase {
+            if !isFeaturePreview, case .authenticated(let id) = phase {
                 Task { await store.refreshSaved(userId: id) }
             }
         }

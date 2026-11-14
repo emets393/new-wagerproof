@@ -1,0 +1,304 @@
+Final
+Lions Team Icon
+Lions
+103
+Bills Team Icon
+Bills
+104
+o52.5
+u52.5
+o54.5
+-102
+u63.5
++104
+17%
+83%
+66%
+34%
++49%
+292,239
+Final
+Browns Team Icon
+Browns
+259
+Buccaneers Team Icon
+Buccaneers
+260
+o42.5
+u42.5
+o41.5
++102
+u46.5
++133
+33%
+67%
+67%
+33%
++34%
+106,361
+Final - OT
+Packers Team Icon
+Packers
+251
+Jets Team Icon
+Jets
+252
+o42.5
+u42.5
+o43.5
+-106
+u43.5
++106
+32%
+68%
+34%
+66%
++2%
+95,556
+Final
+Panthers Team Icon
+Panthers
+257
+Falcons Team Icon
+Falcons
+258
+o44.5
+u44.5
+o43.5
++106
+u43.5
+-106
+38%
+62%
+77%
+23%
++39%
+91,724
+Final
+Eagles Team Icon
+Eagles
+265
+Titans Team Icon
+Titans
+266
+o42.5
+u42.5
+o39.5
+-106
+u43.5
+-108
+29%
+71%
+27%
+73%
++2%
+116,165
+Final
+Bengals Team Icon
+Bengals
+261
+Texans Team Icon
+Texans
+262
+o46.5
+u46.5
+o45.5
++106
+u45.5
+-106
+34%
+66%
+49%
+51%
++15%
+117,761
+Final
+Saints Team Icon
+Saints
+263
+Ravens Team Icon
+Ravens
+264
+o46.5
+u46.5
+o42.5
++108
+u45.5
+-106
+25%
+75%
+46%
+54%
++21%
+115,817
+Final
+Vikings Team Icon
+Vikings
+253
+Bears Team Icon
+Bears
+254
+o45.5
+u45.5
+o30.5
++104
+u46.5
+-105
+27%
+73%
+48%
+52%
++21%
+125,086
+Final
+Steelers Team Icon
+Steelers
+255
+Patriots Team Icon
+Patriots
+256
+o43.5
+u43.5
+o41.5
++106
+u41.5
+-106
+37%
+63%
+32%
+68%
++5%
+88,922
+Final
+Raiders Team Icon
+Raiders
+267
+Chargers Team Icon
+Chargers
+268
+o42.5
+u42.5
+o43.5
++102
+u43.5
+-102
+32%
+68%
+37%
+63%
++5%
+78,315
+Final
+Jaguars Team Icon
+Jaguars
+269
+Broncos Team Icon
+Broncos
+270
+o43.5
+u43.5
+o34.5
++9900
+u45.5
+-110
+28%
+72%
+53%
+47%
++25%
+97,329
+Final
+Commanders Team Icon
+Commanders
+271
+Cowboys Team Icon
+Cowboys
+272
+o51.5
+u51.5
+o51.5
++108
+u52.5
+-115
+32%
+68%
+54%
+46%
++22%
+114,696
+Final
+Dolphins Team Icon
+Dolphins
+275
+49ers Team Icon
+49ers
+276
+o46.5
+u46.5
+o44.5
+-102
+u47.5
+-108
+31%
+69%
+29%
+71%
++2%
+85,964
+Final
+Seahawks Team Icon
+Seahawks
+273
+Cardinals Team Icon
+Cardinals
+274
+o44.5
+u44.5
+o36.5
+-122
+u45.5
+-110
+78%
+22%
+67%
+33%
++11%
+83,864
+Final - OT
+Colts Team Icon
+Colts
+277
+Chiefs Team Icon
+Chiefs
+278
+o47.5
+u47.5
+o45.5
++102
+u60.5
+-108
+35%
+65%
+27%
+73%
++8%
+183,571
+Final
+Giants Team Icon
+Giants
+279
+Rams Team Icon
+Rams
+280
+o48.5
+u48.5
+o39.5
++117
+u47.5
+-106
+62%
+38%
+60%
+40%
++2%
+235,840

@@ -1,0 +1,264 @@
+universe: 2225 team-game rows ({'2020-21': 282, '2021-22': 333, '2022-23': 432, '2023-24': 398, '2024-25': 394, '2025-26': 386}); hype team rows are a subset
+
+BASELINE -- every row in the universe, own side ATS at close: 1090-1104-31   49.7%  [lo 47.6%]  roi  -5.1%  n=2194
+BASELINE -- favourites ATS at close: 552-524-14   51.3%  [lo 48.3%]  roi  -2.1%  n=1076   dogs: 527-569-17   48.1%  [lo 45.1%]  roi  -8.1%  n=1096
+
+H1  composite hype top-10 vs opponent outside top-25: n=150
+   back the HYPE team ATS at close   70-78-2   47.3%  [lo 39.3%]  roi  -9.8%  n=148
+   back the HYPE team ATS at open    72-77-1   48.3%  [lo 40.3%]  roi  -8.5%  n=149
+   hype team straight up             87-63  (58.0%)   avg close spread -3.7, avg margin +2.7
+   by season: 2020-21 15-12  2021-22 8-12  2022-23 16-17  2023-24 11-10  2024-25 10-17  2025-26 10-10
+      neutral              26-32-1   44.8%  [lo 32.0%]  roi -14.4%  n=58
+      home                 24-16   60.0%  [lo 44.8%]  roi +14.4%  n=40
+      away                 20-30-1   40.0%  [lo 26.4%]  roi -23.8%  n=50
+      games 4-10           55-56   49.5%  [lo 40.2%]  roi  -5.5%  n=111
+      hype team favored    53-58-1   47.7%  [lo 38.5%]  roi  -9.0%  n=111
+      hype team dog        17-19-1   47.2%  [lo 30.9%]  roi  -9.8%  n=36
+      national TV          46-57-1   44.7%  [lo 35.1%]  roi -14.7%  n=103
+
+H2  3+ top-50 recruits on roster vs opponent with 0-1: n=273
+   back the HYPE team ATS at close   119-152-2   43.9%  [lo 38.0%]  roi -16.2%  n=271
+   back the HYPE team ATS at open    120-152-1   44.1%  [lo 38.2%]  roi -17.4%  n=272
+   hype team straight up             149-124  (54.6%)   avg close spread -2.7, avg margin +1.8
+   by season: 2020-21 14-20  2021-22 19-22  2022-23 23-30  2023-24 25-22  2024-25 19-32  2025-26 19-26
+      neutral              45-73   38.1%  [lo 29.4%]  roi -27.2%  n=118
+      home                 36-36-1   50.0%  [lo 38.5%]  roi  -4.6%  n=72
+      away                 38-43-1   46.9%  [lo 36.0%]  roi -10.5%  n=81
+      first 3 games        12-17-1   41.4%  [lo 23.5%]  roi -20.9%  n=29
+      games 4-10           80-111-1   41.9%  [lo 34.9%]  roi -20.1%  n=191
+      hype team favored    86-101-2   46.0%  [lo 38.8%]  roi -12.3%  n=187
+      hype team dog        33-50   39.8%  [lo 29.2%]  roi -24.0%  n=83
+      national TV          77-104-2   42.5%  [lo 35.3%]  roi -18.8%  n=181
+
+H3  recruiting class top-5 vs opponent class outside top-25: n=70
+   back the HYPE team ATS at close   26-43-1   37.7%  [lo 26.2%]  roi -28.1%  n=69
+   back the HYPE team ATS at open    25-44-1   36.2%  [lo 24.9%]  roi -33.9%  n=69
+   hype team straight up             36-34  (51.4%)   avg close spread -1.9, avg margin -0.6
+   by season: 2020-21 2-3  2021-22 6-4  2022-23 5-10  2023-24 2-12  2024-25 3-8  2025-26 8-6
+      neutral              13-20   39.4%  [lo 22.7%]  roi -24.8%  n=33
+      home                 3-12   20.0%  [lo -0.2%]  roi -61.9%  n=15
+      away                 10-11-1   47.6%  [lo 26.3%]  roi  -9.2%  n=21
+      games 4-10           18-30-1   37.5%  [lo 23.8%]  roi -28.5%  n=48
+      hype team favored    14-30-1   31.8%  [lo 18.1%]  roi -39.4%  n=44
+      hype team dog        12-13   48.0%  [lo 28.4%]  roi  -8.3%  n=25
+      national TV          21-30   41.2%  [lo 27.7%]  roi -21.4%  n=51
+
+H4  2+ top-50 FRESHMEN vs opponent with none: n=168
+   back the HYPE team ATS at close   73-94-1   43.7%  [lo 36.2%]  roi -16.6%  n=167
+   back the HYPE team ATS at open    74-93-1   44.3%  [lo 36.8%]  roi -16.9%  n=167
+   hype team straight up             97-71  (57.7%)   avg close spread -3.2, avg margin +2.1
+   by season: 2020-21 7-12  2021-22 9-8  2022-23 17-23  2023-24 14-16  2024-25 10-19  2025-26 16-16
+      neutral              34-46   42.5%  [lo 31.7%]  roi -18.8%  n=80
+      home                 19-23   45.2%  [lo 30.2%]  roi -13.7%  n=42
+      away                 20-25-1   44.4%  [lo 29.9%]  roi -15.4%  n=45
+      first 3 games        6-11-1   35.3%  [lo 12.6%]  roi -32.6%  n=17
+      games 4-10           54-64   45.8%  [lo 36.8%]  roi -12.7%  n=118
+      hype team favored    55-72-1   43.3%  [lo 34.7%]  roi -17.4%  n=127
+      hype team dog        17-22   43.6%  [lo 28.0%]  roi -16.7%  n=39
+      national TV          54-68-1   44.3%  [lo 35.4%]  roi -15.5%  n=122
+
+H5  poll premium 8+ (AP likes them 8+ spots more than KenPom) vs opponent premium <= 0: n=135
+   back the HYPE team ATS at close   66-68-1   49.3%  [lo 40.8%]  roi  -6.0%  n=134
+   back the HYPE team ATS at open    67-68   49.6%  [lo 41.2%]  roi  -5.8%  n=135
+   hype team straight up             70-65  (51.9%)   avg close spread -1.6, avg margin +1.1
+   by season: 2020-21 7-4  2021-22 4-13  2022-23 11-16  2023-24 21-12  2024-25 9-10  2025-26 14-13
+      neutral              32-33   49.2%  [lo 37.1%]  roi  -6.0%  n=65
+      home                 20-13   60.6%  [lo 43.9%]  roi +15.5%  n=33
+      away                 14-22-1   38.9%  [lo 23.0%]  roi -25.7%  n=36
+      games 4-10           52-46   53.1%  [lo 43.2%]  roi  +1.3%  n=98
+      hype team favored    41-36   53.2%  [lo 42.1%]  roi  +1.6%  n=77
+      hype team dog        25-31-1   44.6%  [lo 31.6%]  roi -14.7%  n=56
+      national TV          47-52   47.5%  [lo 37.6%]  roi  -9.3%  n=99
+
+H6  H1 and NEW hype (previous season KenPom final rank worse than 25): n=87
+   back the HYPE team ATS at close   42-43-2   49.4%  [lo 38.8%]  roi  -5.8%  n=85
+   back the HYPE team ATS at open    43-43-1   50.0%  [lo 39.4%]  roi  -5.0%  n=86
+   hype team straight up             49-38  (56.3%)   avg close spread -3.1, avg margin +3.0
+   by season: 2020-21 15-12  2021-22 2-4  2022-23 4-4  2023-24 8-9  2024-25 8-7  2025-26 5-7
+      neutral              10-17-1   37.0%  [lo 18.8%]  roi -29.3%  n=27
+      home                 17-9   65.4%  [lo 47.1%]  roi +24.6%  n=26
+      away                 15-17-1   46.9%  [lo 29.6%]  roi -10.8%  n=32
+      games 4-10           33-33   50.0%  [lo 37.9%]  roi  -4.7%  n=66
+      hype team favored    31-30-1   50.8%  [lo 38.3%]  roi  -3.2%  n=61
+      hype team dog        11-13-1   45.8%  [lo 25.9%]  roi -12.5%  n=24
+      national TV          21-35-1   37.5%  [lo 24.8%]  roi -28.5%  n=56
+
+H7  the hype GAP: own composite hype beats opponent's by 3+ z: n=157
+   back the HYPE team ATS at close   72-84-1   46.2%  [lo 38.3%]  roi -12.0%  n=156
+   back the HYPE team ATS at open    73-83-1   46.8%  [lo 39.0%]  roi -11.7%  n=156
+   hype team straight up             85-72  (54.1%)   avg close spread -3.4, avg margin +2.6
+   by season: 2020-21 16-13  2021-22 12-16  2022-23 19-22  2023-24 7-10  2024-25 12-14  2025-26 6-9
+      neutral              27-34-1   44.3%  [lo 31.8%]  roi -15.6%  n=61
+      home                 23-19   54.8%  [lo 39.7%]  roi  +4.4%  n=42
+      away                 22-31   41.5%  [lo 28.2%]  roi -20.9%  n=53
+      first 3 games        6-9-1   40.0%  [lo 15.2%]  roi -23.8%  n=15
+      games 4-10           56-58   49.1%  [lo 39.9%]  roi  -6.3%  n=114
+      hype team favored    54-59-1   47.8%  [lo 38.6%]  roi  -8.9%  n=113
+      hype team dog        18-24   42.9%  [lo 27.9%]  roi -18.1%  n=42
+      national TV          50-62-1   44.6%  [lo 35.4%]  roi -14.8%  n=112
+
+H8  opposite side: opponent is the hype team (fade view of H1): n=140
+   back the HYPE team ATS at close   71-67-2   51.4%  [lo 43.1%]  roi  -1.6%  n=138
+   back the HYPE team ATS at open    70-69-1   50.4%  [lo 42.0%]  roi  -4.2%  n=139
+   hype team straight up             55-85  (39.3%)   avg close spread +4.0, avg margin -3.4
+   by season: 2020-21 11-14  2021-22 8-9  2022-23 20-16  2023-24 10-9  2024-25 14-10  2025-26 8-9
+      neutral              28-23-1   54.9%  [lo 41.2%]  roi  +5.0%  n=51
+      home                 29-20-1   59.2%  [lo 45.4%]  roi +13.2%  n=49
+      away                 14-24   36.8%  [lo 21.5%]  roi -29.6%  n=38
+      games 4-10           51-53   49.0%  [lo 39.4%]  roi  -6.2%  n=104
+      hype team favored    16-14-1   53.3%  [lo 35.5%]  roi  +1.9%  n=30
+      hype team dog        54-53-1   50.5%  [lo 41.0%]  roi  -3.5%  n=107
+      national TV          51-45-1   53.1%  [lo 43.1%]  roi  +1.6%  n=96
+
+--- H1 teams and their early major games (closing spread from the hype team's side, ATS result) ---
+ season       date             team          opponent  neutral  is_home  spread  margin  ats_pts  ap_rank  o_ap_rank
+2020-21 2020-11-25    Arizona State      Rhode Island        1        0   -7.00     6.0    -1.00      NaN        NaN
+2020-21 2020-11-27             UCLA        Pepperdine        1        0   -7.50     9.0     1.50      NaN        NaN
+2020-21 2020-11-28        Villanova     Virginia Tech        1        0   -9.50    -8.0   -17.50      NaN        NaN
+2020-21 2020-12-01   North Carolina          Stanford        1        0   -4.00     4.0     0.00      NaN        NaN
+2020-21 2020-12-02   North Carolina             Texas        1        0    1.00    -2.0    -1.00      NaN        NaN
+2020-21 2020-12-03    Arizona State        California        0        0   -6.50     8.0     1.50     25.0        NaN
+2020-21 2020-12-06         Kentucky      Georgia Tech        0        1   -7.00   -17.0   -24.00      NaN        NaN
+2020-21 2020-12-06             UCLA        California        0        1  -10.25    20.0     9.75      NaN        NaN
+2020-21 2020-12-06        Villanova             Texas        0        0   -0.50     4.0     3.50      NaN        NaN
+2020-21 2020-12-08        Tennessee          Colorado        0        1   -6.00     9.0     3.00     12.0        NaN
+2020-21 2020-12-10    Arizona State   San Diego State        0        1   -2.50   -12.0   -14.50     23.0       24.0
+2020-21 2020-12-11             UCLA         Marquette        0        1   -5.00     9.0     4.00      NaN        NaN
+2020-21 2020-12-11        Villanova        Georgetown        0        0  -12.00    13.0     1.00      9.0        NaN
+2020-21 2020-12-12         Illinois          Missouri        0        0   -3.50    -3.0    -6.50      6.0        NaN
+2020-21 2020-12-12         Kentucky        Notre Dame        0        1   -7.50    -1.0    -8.50      NaN        NaN
+2020-21 2020-12-15         Illinois         Minnesota        0        1   -8.25    27.0    18.75     13.0        NaN
+2020-21 2020-12-19             UCLA        Ohio State        1        0   -2.00    -7.0    -9.00      NaN        NaN
+2020-21 2020-12-22             Iowa            Purdue        0        1   -7.00    15.0     8.00      4.0        NaN
+2020-21 2020-12-22   North Carolina          NC State        0        0   -1.75    -3.0    -4.75     17.0        NaN
+2020-21 2020-12-23         Illinois        Penn State        0        0   -4.00    17.0    13.00     18.0        NaN
+2020-21 2020-12-23        Villanova         Marquette        0        0   -5.50    17.0    11.50      5.0        NaN
+2020-21 2020-12-25             Iowa         Minnesota        0        0   -6.75    -7.0   -13.75      4.0        NaN
+2020-21 2020-12-26         Illinois           Indiana        0        1   -6.50     9.0     2.50     18.0        NaN
+2020-21 2020-12-29             Iowa      Northwestern        0        1  -11.00    15.0     4.00     10.0       19.0
+2020-21 2020-12-30   North Carolina      Georgia Tech        0        0   -4.00    -5.0    -9.00      NaN        NaN
+2020-21 2020-12-30        Tennessee          Missouri        0        0   -4.00    20.0    16.00      7.0       12.0
+2020-21 2020-12-30         Virginia        Notre Dame        0        0   -6.50     9.0     2.50     23.0        NaN
+2020-21 2020-12-31             UCLA              Utah        0        1   -6.50     2.0    -4.50      NaN        NaN
+2021-22 2021-11-16           Oregon               BYU        1        0   -4.50   -32.0   -36.50      NaN        NaN
+2021-22 2021-11-16         Virginia           Houston        0        0    5.50   -20.0   -14.50      NaN       15.0
+2021-22 2021-11-22         Virginia           Georgia        1        0   -7.75    10.0     2.25      NaN        NaN
+2021-22 2021-11-23         Virginia        Providence        1        0    2.00    18.0    20.00      NaN        NaN
+2021-22 2021-11-24           Oregon           Houston        1        0    5.00   -29.0   -24.00      NaN        NaN
+2021-22 2021-11-28          Alabama             Miami        1        0   -9.00    32.0    23.00      NaN        NaN
+2021-22 2021-11-29         Virginia              Iowa        0        1   -2.00    -1.0    -3.00      NaN        NaN
+2021-22 2021-11-30             Duke        Ohio State        0        0   -3.00    -5.0    -8.00      NaN        NaN
+2021-22 2021-12-05   North Carolina      Georgia Tech        0        0   -3.50    17.0    13.50      NaN        NaN
+2021-22 2021-12-07        Villanova          Syracuse        1        0   -8.50    14.0     5.50      NaN        NaN
+2021-22 2021-12-09            Texas        Seton Hall        0        0    1.00    -4.0    -3.00      NaN        NaN
+2021-22 2021-12-11          Alabama           Houston        0        1   -3.00     1.0    -2.00      9.0       14.0
+2021-22 2021-12-11         Kentucky        Notre Dame        0        0   -4.50    -4.0    -8.50     10.0        NaN
+2021-22 2021-12-11             UCLA         Marquette        0        0   -6.50    11.0     4.50      4.0        NaN
+2021-22 2021-12-12           Oregon          Stanford        0        0   -0.00    -3.0    -3.00      NaN        NaN
+2021-22 2021-12-17        Villanova         Creighton        0        0   -6.50   -20.0   -26.50      9.0        NaN
+2021-22 2021-12-19            Texas          Stanford        1        0   -9.50     7.0    -2.50      NaN        NaN
+2021-22 2021-12-21        Villanova            Xavier        0        1   -5.50    13.0     7.50     23.0       18.0
+2021-22 2021-12-22             Duke     Virginia Tech        0        1   -9.00    11.0     2.00      2.0        NaN
+2021-22 2021-12-22         Virginia           Clemson        0        1   -4.00   -17.0   -21.00      NaN        NaN
+2022-23 2022-11-20         Illinois          Virginia        1        0   -1.00    -9.0   -10.00      NaN        NaN
+2022-23 2022-11-23         Arkansas   San Diego State        1        0    1.50     4.0     5.50      NaN        NaN
+2022-23 2022-11-23        Creighton           Arizona        1        0    3.00    -2.0     1.00      NaN        NaN
+2022-23 2022-11-23           Kansas          NC State        1        0   -8.50     6.0    -2.50      NaN        NaN
+2022-23 2022-11-24           Kansas         Wisconsin        1        0   -7.00     1.0    -6.00      NaN        NaN
+2022-23 2022-11-24           Oregon             UConn        1        0    3.50   -24.0   -20.50      NaN        NaN
+2022-23 2022-11-25             Duke            Xavier        1        0   -4.50     7.0     2.50      NaN        NaN
+2022-23 2022-11-25   North Carolina        Iowa State        1        0   -5.50    -5.0   -10.50      NaN        NaN
+2022-23 2022-11-26           Oregon    Michigan State        1        0    3.50    -4.0    -0.50      NaN        NaN
+2022-23 2022-11-27             Duke            Purdue        1        0   -2.00   -19.0   -21.00      NaN        NaN
+2022-23 2022-11-29         Illinois          Syracuse        0        1  -12.00    29.0    17.00      NaN        NaN
+2022-23 2022-11-30             Duke        Ohio State        0        1   -5.50     9.0     3.50      NaN        NaN
+2022-23 2022-12-01        Creighton             Texas        0        0    7.00    -5.0     2.00      NaN        NaN
+2022-23 2022-12-01           Kansas        Seton Hall        0        1  -10.00    26.0    16.00      NaN        NaN
+2022-23 2022-12-01           Oregon  Washington State        0        1   -4.00    14.0    10.00      NaN        NaN
+2022-23 2022-12-01             UCLA          Stanford        0        0   -6.50    14.0     7.50     21.0        NaN
+2022-23 2022-12-02         Illinois          Maryland        0        0    1.50    -5.0    -3.50     16.0       22.0
+2022-23 2022-12-04   North Carolina     Virginia Tech        0        0    0.50    -8.0    -7.50     18.0        NaN
+2022-23 2022-12-06             Duke              Iowa        1        0   -1.75    12.0    10.25      NaN        NaN
+2022-23 2022-12-06         Illinois             Texas        1        0    3.50     7.0    10.50      NaN        NaN
+2022-23 2022-12-10         Arkansas          Oklahoma        1        0   -4.00    10.0     6.00      9.0        NaN
+2022-23 2022-12-10        Creighton               BYU        1        0  -10.50    -3.0   -13.50     21.0        NaN
+2022-23 2022-12-10         Illinois        Penn State        0        1  -10.50   -15.0   -25.50     17.0        NaN
+2022-23 2022-12-10           Kansas          Missouri        0        0   -3.50    28.0    24.50      6.0        NaN
+2022-23 2022-12-14             UCLA          Maryland        0        0    2.00    27.0    29.00     16.0       20.0
+2022-23 2022-12-16        Creighton         Marquette        0        0    3.50   -11.0    -7.50      NaN        NaN
+2022-23 2022-12-17   North Carolina        Ohio State        1        0   -2.50     5.0     2.50      NaN        NaN
+2022-23 2022-12-20             Duke       Wake Forest        0        0   -6.50   -11.0   -17.50     14.0        NaN
+2022-23 2022-12-22        Creighton            Butler        0        1   -8.00    22.0    14.00      NaN        NaN
+2022-23 2022-12-22         Illinois          Missouri        1        0   -6.50   -22.0   -28.50     16.0        NaN
+2022-23 2022-12-28         Arkansas               LSU        0        0   -4.00    -3.0    -7.00      9.0        NaN
+2022-23 2022-12-30   North Carolina        Pittsburgh        0        0   -6.00    -2.0    -8.00     25.0        NaN
+2022-23 2022-12-30             UCLA  Washington State        0        0   -8.50     1.0    -7.50     11.0        NaN
+2023-24 2023-11-10            Miami               UCF        0        1  -10.00    16.0     6.00     13.0        NaN
+2023-24 2023-11-17            Miami           Georgia        1        0   -7.50    11.0     3.50     12.0        NaN
+2023-24 2023-11-17   Michigan State            Butler        0        1  -10.00    20.0    10.00     18.0        NaN
+2023-24 2023-11-18 Washington State Mississippi State        1        0    7.50   -12.0    -4.50      NaN        NaN
+2023-24 2023-11-19            Miami      Kansas State        1        0   -3.00     8.0     5.00     12.0        NaN
+2023-24 2023-11-22   North Carolina     Northern Iowa        1        0  -11.50    22.0    10.50     14.0        NaN
+2023-24 2023-11-23         NC State        Vanderbilt        1        0   -7.50     6.0    -1.50      NaN        NaN
+2023-24 2023-11-23   North Carolina         Villanova        1        0   -2.50    -2.0    -4.50     14.0        NaN
+2023-24 2023-11-24       Iowa State     Virginia Tech        1        0   -5.00    -9.0   -14.00      NaN        NaN
+2023-24 2023-11-24         NC State               BYU        1        0    6.50    -9.0    -2.50      NaN        NaN
+2023-24 2023-11-28         NC State          Ole Miss        0        0    2.00   -20.0   -18.00      NaN        NaN
+2023-24 2023-12-02         NC State    Boston College        0        0    2.00     6.0     8.00      NaN        NaN
+2023-24 2023-12-03          Clemson        Pittsburgh        0        0    1.50     9.0    10.50      NaN        NaN
+2023-24 2023-12-05   Michigan State         Wisconsin        0        1   -5.00   -13.0   -18.00      NaN       23.0
+2023-24 2023-12-07       Iowa State              Iowa        0        1   -7.50    25.0    17.50      NaN        NaN
+2023-24 2023-12-09          Clemson               TCU        1        0    2.50     8.0    10.50     24.0        NaN
+2023-24 2023-12-10            Miami          Colorado        1        0   -1.50   -27.0   -28.50     15.0        NaN
+2023-24 2023-12-10   Michigan State          Nebraska        0        0   -3.50    -7.0   -10.50      NaN        NaN
+2023-24 2023-12-16          Clemson           Memphis        0        0    3.00    -2.0     1.00     13.0        NaN
+2023-24 2023-12-20   North Carolina          Oklahoma        1        0   -3.00    12.0     9.00     11.0        7.0
+2023-24 2023-12-29 Washington State              Utah        0        0    7.75   -22.0   -14.25      NaN        NaN
+2023-24 2023-12-31 Washington State          Colorado        0        0    7.00    -7.0     0.00      NaN        NaN
+2024-25 2024-11-15          Alabama            Purdue        0        0   -4.00    -9.0   -13.00      2.0       13.0
+2024-25 2024-11-16          Indiana    South Carolina        0        1   -8.00    16.0     8.00     16.0        NaN
+2024-25 2024-11-25   North Carolina            Dayton        1        0   -9.00     2.0    -7.00     12.0        NaN
+2024-25 2024-11-25            UConn           Memphis        1        0   -9.00    -2.0   -11.00      2.0        NaN
+2024-25 2024-11-26   North Carolina            Auburn        1        0    3.50   -13.0    -9.50     12.0        4.0
+2024-25 2024-11-26          Rutgers        Notre Dame        1        0   -1.50     1.0    -0.50      NaN        NaN
+2024-25 2024-11-27          Indiana        Louisville        1        0   -3.00   -28.0   -31.00     14.0        NaN
+2024-25 2024-11-28         Ole Miss               BYU        1        0    2.50    11.0    13.50     23.0        NaN
+2024-25 2024-11-28            UConn            Dayton        1        0   -8.00   -18.0   -26.00      NaN        NaN
+2024-25 2024-11-29          Indiana        Providence        1        0   -4.50    16.0    11.50     14.0        NaN
+2024-25 2024-11-29         Ole Miss            Purdue        1        0    3.00    -2.0     1.00     23.0       13.0
+2024-25 2024-11-30          Alabama            Oregon        1        0   -6.75    -2.0    -8.75      9.0        NaN
+2024-25 2024-12-03         Arkansas             Miami        0        0   -4.50     3.0    -1.50      NaN        NaN
+2024-25 2024-12-03         Kentucky           Clemson        0        0   -1.50    -4.0    -5.50      4.0        NaN
+2024-25 2024-12-03         Ole Miss        Louisville        0        0    3.25    23.0    26.25     23.0        NaN
+2024-25 2024-12-04             Duke            Auburn        0        1   -3.50     6.0     2.50      9.0        2.0
+2024-25 2024-12-04           Kansas         Creighton        0        0   -3.75   -13.0   -16.75      1.0        NaN
+2024-25 2024-12-08             Duke        Louisville        0        0   -8.50    11.0     2.50      9.0        NaN
+2024-25 2024-12-08           Kansas          Missouri        0        0   -6.50    -9.0   -15.50      1.0        NaN
+2024-25 2024-12-09          Indiana         Minnesota        0        1   -9.50    15.0     5.50      NaN        NaN
+2024-25 2024-12-10         Arkansas          Michigan        1        0    4.00     2.0     6.00      NaN       14.0
+2024-25 2024-12-10          Rutgers        Penn State        0        1   -2.75     4.0     1.25      NaN        NaN
+2024-25 2024-12-13          Indiana          Nebraska        0        0    4.75   -17.0   -12.25      NaN        NaN
+2024-25 2024-12-14          Alabama         Creighton        0        1  -11.50     8.0    -3.50      7.0        NaN
+2024-25 2024-12-14         Kentucky        Louisville        0        1   -9.50     8.0    -1.50      5.0        NaN
+2024-25 2024-12-14          Rutgers        Seton Hall        0        1  -11.00     3.0    -8.00      NaN        NaN
+2024-25 2024-12-21            UConn            Butler        0        0   -8.50     4.0    -4.50     11.0        NaN
+2025-26 2025-11-03              BYU         Villanova        1        0   -9.50     5.0    -4.50      8.0        NaN
+2025-26 2025-11-04             Duke             Texas        1        0  -10.50    15.0     4.50      6.0        NaN
+2025-26 2025-11-11        Creighton           Gonzaga        0        0   11.50   -27.0   -15.50     23.0       19.0
+2025-26 2025-11-14         Michigan               TCU        0        0   -7.50     4.0    -3.50      6.0        NaN
+2025-26 2025-11-19          Alabama          Illinois        1        0    2.50     4.0     6.50     11.0        8.0
+2025-26 2025-11-21              BYU         Wisconsin        0        1   -3.50    28.0    24.50      9.0       23.0
+2025-26 2025-11-24          Alabama           Gonzaga        1        0    4.50   -10.0    -5.50      8.0       12.0
+2025-26 2025-11-24        Creighton            Baylor        1        0    3.50    -7.0    -3.50      NaN        NaN
+2025-26 2025-11-25       St. John's            Baylor        1        0   -6.50    15.0     8.50     14.0        NaN
+2025-26 2025-11-26         Michigan           Gonzaga        1        0    2.50    40.0    42.50      7.0       12.0
+2025-26 2025-11-28            UConn          Illinois        1        0   -4.00    13.0     9.00      5.0       13.0
+2025-26 2025-12-03          Alabama           Clemson        0        1  -10.50     6.0    -4.50     12.0        NaN
+2025-26 2025-12-03           Auburn          NC State        0        1   -6.50    10.0     3.50     20.0        NaN
+2025-26 2025-12-07        Creighton          Nebraska        0        0    5.25   -21.0   -15.75      NaN        NaN
+2025-26 2025-12-09              BYU           Clemson        0        1   -5.50     3.0    -2.50     10.0        NaN
+2025-26 2025-12-13        Creighton      Kansas State        0        1   -4.25    -7.0   -11.25      NaN        NaN
+2025-26 2025-12-17        Creighton            Xavier        0        0    3.00    41.0    44.00      NaN        NaN
+2025-26 2025-12-20        Creighton         Marquette        0        1   -6.50    21.0    14.50      NaN        NaN
+2025-26 2025-12-30        Creighton            Butler        0        1   -6.00     4.0    -2.00      NaN        NaN
+2025-26 2025-12-31            UConn            Xavier        0        0  -11.50    23.0    11.50      4.0        NaN

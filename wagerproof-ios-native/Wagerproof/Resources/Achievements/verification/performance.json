@@ -1,0 +1,69 @@
+{
+  "family": "performance",
+  "bytes": 7406914,
+  "variants": [
+    {
+      "frame_prefix": "Consistent",
+      "source": "artifacts/achievements/performance/consistent/manifest.json",
+      "original_faces": 67196,
+      "runtime_faces": 51866,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Consistent250",
+      "source": "artifacts/achievements/performance/consistent-250/manifest.json",
+      "original_faces": 67752,
+      "runtime_faces": 52360,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Consistent500",
+      "source": "artifacts/achievements/performance/consistent-500/manifest.json",
+      "original_faces": 67840,
+      "runtime_faces": 52438,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "FirstWin",
+      "source": "artifacts/achievements/performance/first-win/manifest.json",
+      "original_faces": 55514,
+      "runtime_faces": 41754,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Plus10Units",
+      "source": "artifacts/achievements/performance/plus-10-units/manifest.json",
+      "original_faces": 57516,
+      "runtime_faces": 43440,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Plus100Units",
+      "source": "artifacts/achievements/performance/plus-100-units/manifest.json",
+      "original_faces": 60506,
+      "runtime_faces": 46000,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Plus25Units",
+      "source": "artifacts/achievements/performance/plus-25-units/manifest.json",
+      "original_faces": 57364,
+      "runtime_faces": 43312,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Plus50Units",
+      "source": "artifacts/achievements/performance/plus-50-units/manifest.json",
+      "original_faces": 58704,
+      "runtime_faces": 44452,
+      "contour_retessellated": false
+    }
+  ],
+  "checks": {
+    "y_up": true,
+    "material_bindings": true,
+    "corner_normals": true,
+    "no_studio": true,
+    "lod_closed_outward": true
+  }
+}

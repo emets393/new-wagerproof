@@ -89,63 +89,16 @@ struct WagerBotChatView: View {
         proAccess.isLoading
     }
 
+    @State private var showUpgrade = false
     private var lockedState: some View {
-        ZStack {
-            Color.appSurface.ignoresSafeArea()
-            VStack(spacing: 16) {
-                ZStack(alignment: .topTrailing) {
-                    WagerBotIcon(size: 56)
-                        .foregroundStyle(Color.appPrimary)
-                        .padding(.top, 8)
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Color.appAccentAmber)
-                        .padding(6)
-                        .background(Circle().fill(Color.appSurfaceElevated))
-                        .overlay(Circle().stroke(Color.appBorder, lineWidth: 1))
-                        .offset(x: 8, y: -4)
-                }
-                Text("WagerBot Pro")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(Color.appTextPrimary)
-                Text("Get unlimited AI-powered betting analysis across every sport.")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 36)
-
-                Button {
-                    // Launch the RevenueCat paywall via the existing
-                    // CustomerCenter flow. We dismiss the chat sheet
-                    // first so the paywall can present cleanly from the
-                    // tab shell (chained sheets flicker on iOS).
-                    dismiss()
-                    DispatchQueue.main.async {
-                        // The Settings sheet path opens the paywall via
-                        // CustomerCenterView — same surface used
-                        // elsewhere for upsells.
-                        tabStore.isSettingsPresented = true
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 13, weight: .bold))
-                        Text("Unlock with Pro")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 12)
-                    .background(Color.appAccentAmber)
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 24)
+        LockedFeaturePreview(minimum: .pro, title: "Research with WagerBot", action: { showUpgrade = true }) {
+            chatBody
         }
         .overlay(alignment: .topTrailing) {
-            Button("Close") { dismiss() }
-                .padding(16)
+            Button("Close") { dismiss() }.padding(16)
+        }
+        .sheet(isPresented: $showUpgrade) {
+            RevenueCatPaywallView(placementId: "tier_upgrade_pro", minimumTier: .pro)
         }
     }
 

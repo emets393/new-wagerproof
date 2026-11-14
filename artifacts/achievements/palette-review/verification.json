@@ -1,0 +1,38 @@
+{
+  "getting-started": {
+    "primary": "#008B48",
+    "material_bindings": true,
+    "primary_shader_verified": true,
+    "variant_anchors": true
+  },
+  "experience": {
+    "primary": "#175BC5",
+    "material_bindings": true,
+    "primary_shader_verified": true,
+    "variant_anchors": true
+  },
+  "streaks": {
+    "primary": "#E74712",
+    "material_bindings": true,
+    "primary_shader_verified": true,
+    "variant_anchors": true
+  },
+  "performance": {
+    "primary": "#763AB9",
+    "material_bindings": true,
+    "primary_shader_verified": true,
+    "variant_anchors": true
+  },
+  "leaderboard": {
+    "primary": "#AA1644",
+    "material_bindings": true,
+    "primary_shader_verified": true,
+    "variant_anchors": true
+  },
+  "exploration": {
+    "primary": "#008D94",
+    "material_bindings": true,
+    "primary_shader_verified": true,
+    "variant_anchors": true
+  }
+}

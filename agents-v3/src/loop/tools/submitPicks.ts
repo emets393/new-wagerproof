@@ -100,6 +100,13 @@ export async function submitPicks(
         reject(gameId, betType, "prop_not_bettable — only signal-backed props surfaced by get_props can be bet");
         continue;
       }
+      // The signal's side is the only side. Owner 2026-11-02: agents took Flagg / Mobley points OVER on a
+      // hot-shooter UNDER flag because recent form pointed over — a prop is bettable on its signal's side, full stop.
+      const side = ctx.propMeta.get(gameId)?.get(pk)?.direction;
+      if (side && String(pDir).toLowerCase() !== side) {
+        reject(gameId, betType, `prop_wrong_side — this prop's signal bets ${side.toUpperCase()}; agents take the signal's side, never fade it (submit prop_direction "${side}" or skip the prop)`);
+        continue;
+      }
     } else {
       const grounded = ctx.deepFetched.get(gameId);
       if (!grounded || !grounded.has(betType)) {
@@ -210,8 +217,23 @@ export async function submitPicks(
       };
       let slateOdds: string | null = null;
       if (effectiveBetType === "moneyline" && pickedSide) {
-        const mlKey = effectivePeriod === "f5" ? "f5_ml" : effectivePeriod === "h1" ? "h1_ml" : "full_ml";
-        slateOdds = readOdds(vegasLines?.[mlKey], pickedSide);
+        // TWO snapshot shapes exist (incident 2026-09-08: the original stamp
+        // only knew the MLB shape, so football odds went UNSTAMPED all along —
+        // "USC -250" shipped when the slate said -37500):
+        //   MLB:      vegas_lines.full_ml.{home,away} / f5_ml.{home,away}
+        //   NFL/CFB:  vegas_lines.{home_ml,away_ml} (strings),
+        //             vegas_lines.full_game.ml_{side}_close (numbers),
+        //             vegas_lines.first_half.ml_{side}_close (1H)
+        if (effectivePeriod === "f5") {
+          slateOdds = readOdds(vegasLines?.["f5_ml"], pickedSide);
+        } else if (effectivePeriod === "h1") {
+          slateOdds = readOdds(vegasLines?.["h1_ml"], pickedSide)
+            ?? readOdds(vegasLines?.["first_half"], `ml_${pickedSide}_close`);
+        } else {
+          slateOdds = readOdds(vegasLines?.["full_ml"], pickedSide)
+            ?? readOdds(vegasLines, `${pickedSide}_ml`)
+            ?? readOdds(vegasLines?.["full_game"], `ml_${pickedSide}_close`);
+        }
         if (slateOdds) {
           // The model embeds its (possibly wrong) price in the text — rewrite
           // to canonical "{Team} ML"; formatPickSelectionForPeriod re-adds F5.

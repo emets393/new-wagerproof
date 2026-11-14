@@ -1,0 +1,254 @@
+universe: 56064 team-games with a next game inside 7 days, regular season, 6 seasons
+baseline, every row: 28115-27081-868   50.9% [lo 50.5%] roi  -2.7% n=55196 | ranked teams tonight 1931-1959-54   49.6% [lo 48.1%] roi  -5.2% n=3890 | favorites 15+ 1802-1924-45   48.4% [lo 46.8%] roi  -7.7% n=3726
+
+A. next opponent is AP top-25 (rank as of tonight): n=3831
+   team ATS tonight (the look-ahead team covers)   1993-1786-52   52.7% [lo 51.1%] roi  +0.7% n=3779
+   blind baseline, same cut without the look-ahead 26122-25295-816   50.8% [lo 50.4%] roi  -3.0% n=51417
+   SU: wins 57.4%, avg spread -1.9, avg margin +2.5, avg cover amount +0.54
+   game total: OVER 1958-1831 (51.7%), avg total residual +0.76
+   first-half ATS: 1135-1072   51.4% [lo 49.3%] roi  -1.8% n=2207
+   by season: 2020-21 228-206  2021-22 296-258  2022-23 299-276  2023-24 381-346  2024-25 397-344  2025-26 392-356
+      favored tonight                1091-1012-25   51.9% [lo 49.7%] roi  -1.0% n=2103
+      favored by 7+                  551-534-6   50.8% [lo 47.8%] roi  -3.0% n=1085
+      favored by 15+                 189-201-2   48.5% [lo 43.5%] roi  -7.4% n=390
+      dog tonight                    902-774-27   53.8% [lo 51.4%] roi  +2.8% n=1676
+      tonight at home                922-889-23   50.9% [lo 48.6%] roi  -2.8% n=1811
+      tonight on the road            798-748-23   51.6% [lo 49.1%] roi  -1.4% n=1546
+      tonight non-conference         540-539-14   50.0% [lo 47.1%] roi  -4.4% n=1079
+      tonight conference game        1453-1247-38   53.8% [lo 51.9%] roi  +2.8% n=2700
+      tonight's opponent unranked    1557-1435-43   52.0% [lo 50.2%] roi  -0.6% n=2992
+      tonight's opponent ranked      436-351-9   55.4% [lo 51.9%] roi  +5.8% n=787
+      next game within 3 days        1029-836-28   55.2% [lo 52.9%] roi  +5.4% n=1865
+      team itself ranked tonight     526-470-10   52.8% [lo 49.7%] roi  +0.9% n=996
+
+B. next game is RANKED vs RANKED (team ranked tonight, next opponent ranked as of tonight): n=1006
+   team ATS tonight (the look-ahead team covers)   526-470-10   52.8% [lo 49.7%] roi  +0.9% n=996
+   blind baseline, same cut without the look-ahead 1405-1489-44   48.5% [lo 46.7%] roi  -7.3% n=2894
+   SU: wins 74.6%, avg spread -8.8, avg margin +9.7, avg cover amount +0.98
+   game total: OVER 502-495 (50.4%), avg total residual +0.76
+   first-half ATS: 321-290   52.5% [lo 48.6%] roi  +0.3% n=611
+   by season: 2020-21 65-50  2021-22 74-60  2022-23 60-67  2023-24 84-76  2024-25 125-113  2025-26 118-104
+      favored tonight                424-383-6   52.5% [lo 49.1%] roi  +0.3% n=807
+      favored by 7+                  276-248-1   52.7% [lo 48.4%] roi  +0.6% n=524
+      favored by 15+                 106-102   51.0% [lo 44.2%] roi  -2.6% n=208
+      dog tonight                    102-87-4   54.0% [lo 46.9%] roi  +3.1% n=189
+      tonight at home                266-248-3   51.8% [lo 47.4%] roi  -1.2% n=514
+      tonight on the road            181-169-5   51.7% [lo 46.5%] roi  -1.2% n=350
+      tonight non-conference         131-121-1   52.0% [lo 45.8%] roi  -0.6% n=252
+      tonight conference game        395-349-9   53.1% [lo 49.5%] roi  +1.4% n=744
+      tonight's opponent unranked    387-344-6   52.9% [lo 49.3%] roi  +1.1% n=731
+      tonight's opponent ranked      139-126-4   52.5% [lo 46.4%] roi  +0.2% n=265
+      next game within 3 days        251-219-3   53.4% [lo 48.9%] roi  +2.0% n=470
+      team itself ranked tonight     526-470-10   52.8% [lo 49.7%] roi  +0.9% n=996
+
+C. next opponent is top-10: n=1541
+   team ATS tonight (the look-ahead team covers)   818-698-25   54.0% [lo 51.4%] roi  +3.0% n=1516
+   blind baseline, same cut without the look-ahead 26122-25295-816   50.8% [lo 50.4%] roi  -3.0% n=51417
+   SU: wins 60.3%, avg spread -2.1, avg margin +3.0, avg cover amount +0.96
+   game total: OVER 796-730 (52.2%), avg total residual +1.04
+   first-half ATS: 456-449   50.4% [lo 47.1%] roi  -3.8% n=905
+   by season: 2020-21 94-81  2021-22 118-92  2022-23 124-102  2023-24 161-140  2024-25 156-141  2025-26 165-142
+      favored tonight                445-396-13   52.9% [lo 49.5%] roi  +1.0% n=841
+      favored by 7+                  223-215-2   50.9% [lo 46.2%] roi  -2.8% n=438
+      favored by 15+                 78-87   47.3% [lo 39.7%] roi  -9.7% n=165
+      dog tonight                    373-302-12   55.3% [lo 51.5%] roi  +5.5% n=675
+      tonight at home                377-357-8   51.4% [lo 47.7%] roi  -1.9% n=734
+      tonight on the road            305-290-14   51.3% [lo 47.2%] roi  -2.1% n=595
+      tonight non-conference         222-197-6   53.0% [lo 48.2%] roi  +1.2% n=419
+      tonight conference game        596-501-19   54.3% [lo 51.4%] roi  +3.7% n=1097
+      tonight's opponent unranked    628-554-20   53.1% [lo 50.3%] roi  +1.4% n=1182
+      tonight's opponent ranked      190-144-5   56.9% [lo 51.6%] roi  +8.6% n=334
+      next game within 3 days        454-330-10   57.9% [lo 54.5%] roi +10.6% n=784
+      team itself ranked tonight     226-196-7   53.6% [lo 48.8%] roi  +2.3% n=422
+
+D. next game is a conference showdown (conference game vs a ranked opponent): n=2785
+   team ATS tonight (the look-ahead team covers)   1470-1276-39   53.5% [lo 51.7%] roi  +2.2% n=2746
+   blind baseline, same cut without the look-ahead 18196-17398-552   51.1% [lo 50.6%] roi  -2.4% n=35594
+   SU: wins 56.9%, avg spread -1.1, avg margin +1.9, avg cover amount +0.76
+   game total: OVER 1450-1303 (52.7%), avg total residual +1.03
+   first-half ATS: 782-713   52.3% [lo 49.8%] roi  -0.1% n=1495
+   by season: 2020-21 197-169  2021-22 234-198  2022-23 222-218  2023-24 266-226  2024-25 282-231  2025-26 269-234
+      favored tonight                786-696-21   53.0% [lo 50.5%] roi  +1.2% n=1482
+      favored by 7+                  346-326-5   51.5% [lo 47.7%] roi  -1.7% n=672
+      favored by 15+                 64-78-1   45.1% [lo 36.9%] roi -13.9% n=142
+      dog tonight                    684-580-18   54.1% [lo 51.4%] roi  +3.4% n=1264
+      tonight at home                684-645-19   51.5% [lo 48.8%] roi  -1.7% n=1329
+      tonight on the road            621-578-18   51.8% [lo 49.0%] roi  -1.1% n=1199
+      tonight non-conference         64-57-1   52.9% [lo 44.0%] roi  +1.0% n=121
+      tonight conference game        1406-1219-38   53.6% [lo 51.7%] roi  +2.3% n=2625
+      tonight's opponent unranked    1094-977-31   52.8% [lo 50.7%] roi  +0.9% n=2071
+      tonight's opponent ranked      376-299-8   55.7% [lo 52.0%] roi  +6.4% n=675
+      next game within 3 days        808-632-19   56.1% [lo 53.5%] roi  +7.1% n=1440
+      team itself ranked tonight     396-354-9   52.8% [lo 49.2%] roi  +0.8% n=750
+
+E. next game is a RIVALRY (curated list): n=1052
+   team ATS tonight (the look-ahead team covers)   541-494-17   52.3% [lo 49.2%] roi  -0.2% n=1035
+   blind baseline, same cut without the look-ahead 27574-26587-851   50.9% [lo 50.5%] roi  -2.8% n=54161
+   SU: wins 64.8%, avg spread -4.0, avg margin +4.9, avg cover amount +0.91
+   game total: OVER 545-499 (52.2%), avg total residual +0.94
+   first-half ATS: 285-233   55.0% [lo 50.7%] roi  +5.0% n=518
+   by season: 2020-21 83-80  2021-22 98-77  2022-23 83-96  2023-24 97-83  2024-25 97-73  2025-26 83-85
+      favored tonight                341-323-12   51.4% [lo 47.6%] roi  -2.0% n=664
+      favored by 7+                  179-193-6   48.1% [lo 43.0%] roi  -8.1% n=372
+      favored by 15+                 54-77-1   41.2% [lo 32.8%] roi -21.3% n=131
+      dog tonight                    200-171-5   53.9% [lo 48.8%] roi  +3.0% n=371
+      tonight at home                286-271-8   51.3% [lo 47.2%] roi  -2.0% n=557
+      tonight on the road            211-199-8   51.5% [lo 46.6%] roi  -1.8% n=410
+      tonight non-conference         93-101-1   47.9% [lo 40.9%] roi  -8.5% n=194
+      tonight conference game        448-393-16   53.3% [lo 49.9%] roi  +1.7% n=841
+      tonight's opponent unranked    438-402-15   52.1% [lo 48.8%] roi  -0.5% n=840
+      tonight's opponent ranked      103-92-2   52.8% [lo 45.8%] roi  +0.8% n=195
+      next game within 3 days        260-219-6   54.3% [lo 49.8%] roi  +3.6% n=479
+      team itself ranked tonight     148-143-1   50.9% [lo 45.1%] roi  -2.9% n=291
+
+F. next game is a conference rivalry: n=876
+   team ATS tonight (the look-ahead team covers)   458-402-16   53.3% [lo 49.9%] roi  +1.7% n=860
+   blind baseline, same cut without the look-ahead 19208-18272-575   51.2% [lo 50.7%] roi  -2.1% n=37480
+   SU: wins 62.7%, avg spread -2.6, avg margin +3.6, avg cover amount +1.01
+   game total: OVER 457-412 (52.6%), avg total residual +0.81
+   first-half ATS: 235-187   55.7% [lo 50.9%] roi  +6.3% n=422
+   by season: 2020-21 74-68  2021-22 83-66  2022-23 68-79  2023-24 80-70  2024-25 82-55  2025-26 71-64
+      favored tonight                278-248-11   52.9% [lo 48.6%] roi  +0.8% n=526
+      favored by 7+                  133-132-5   50.2% [lo 44.2%] roi  -4.2% n=265
+      favored by 15+                 27-30   47.4% [lo 34.4%] roi  -9.6% n=57
+      dog tonight                    180-154-5   53.9% [lo 48.5%] roi  +2.9% n=334
+      tonight at home                225-198-7   53.2% [lo 48.4%] roi  +1.5% n=423
+      tonight on the road            199-188-8   51.4% [lo 46.4%] roi  -1.8% n=387
+      tonight non-conference         20-18   52.6% [lo 36.8%] roi  +0.4% n=38
+      tonight conference game        438-384-16   53.3% [lo 49.9%] roi  +1.7% n=822
+      tonight's opponent unranked    364-313-14   53.8% [lo 50.0%] roi  +2.6% n=677
+      tonight's opponent ranked      94-89-2   51.4% [lo 44.1%] roi  -2.0% n=183
+      next game within 3 days        242-185-6   56.7% [lo 52.0%] roi  +8.2% n=427
+      team itself ranked tonight     135-124-1   52.1% [lo 46.0%] roi  -0.5% n=259
+
+G. next game is a ROAD game at a ranked opponent: n=1842
+   team ATS tonight (the look-ahead team covers)   957-856-29   52.8% [lo 50.5%] roi  +0.8% n=1813
+   blind baseline, same cut without the look-ahead 26122-25295-816   50.8% [lo 50.4%] roi  -3.0% n=51417
+   SU: wins 54.7%, avg spread -0.9, avg margin +1.3, avg cover amount +0.45
+   game total: OVER 945-880 (51.8%), avg total residual +0.76
+   first-half ATS: 535-492   52.1% [lo 49.0%] roi  -0.5% n=1027
+   by season: 2020-21 117-107  2021-22 149-130  2022-23 145-137  2023-24 178-163  2024-25 178-159  2025-26 190-160
+      favored tonight                513-479-14   51.7% [lo 48.6%] roi  -1.3% n=992
+      favored by 7+                  262-233-4   52.9% [lo 48.5%] roi  +1.0% n=495
+      favored by 15+                 74-74   50.0% [lo 41.9%] roi  -4.5% n=148
+      dog tonight                    444-377-15   54.1% [lo 50.7%] roi  +3.3% n=821
+      tonight at home                580-508-17   53.3% [lo 50.3%] roi  +1.8% n=1088
+      tonight on the road            341-317-10   51.8% [lo 48.0%] roi  -1.0% n=658
+      tonight non-conference         293-272-10   51.9% [lo 47.7%] roi  -1.0% n=565
+      tonight conference game        664-584-19   53.2% [lo 50.4%] roi  +1.6% n=1248
+      tonight's opponent unranked    748-691-23   52.0% [lo 49.4%] roi  -0.7% n=1439
+      tonight's opponent ranked      209-165-6   55.9% [lo 50.9%] roi  +6.7% n=374
+      next game within 3 days        457-401-17   53.3% [lo 49.9%] roi  +1.7% n=858
+      team itself ranked tonight     212-179-4   54.2% [lo 49.3%] roi  +3.5% n=391
+
+H. next game on national TV, tonight not: n=6039
+   team ATS tonight (the look-ahead team covers)   3111-2838-90   52.3% [lo 51.0%] roi  -0.2% n=5949
+   blind baseline, same cut without the look-ahead 19343-18840-607   50.7% [lo 50.2%] roi  -3.3% n=38183
+   SU: wins 66.6%, avg spread -5.4, avg margin +6.0, avg cover amount +0.61
+   game total: OVER 3099-2886 (51.8%), avg total residual +1.19
+   first-half ATS: 1649-1650   50.0% [lo 48.3%] roi  -4.6% n=3299
+   by season: 2020-21 352-317  2021-22 491-454  2022-23 551-481  2023-24 563-536  2024-25 585-500  2025-26 569-550
+      favored tonight                2131-1964-60   52.0% [lo 50.5%] roi  -0.7% n=4095
+      favored by 7+                  1254-1272-33   49.6% [lo 47.7%] roi  -5.2% n=2526
+      favored by 15+                 500-499-10   50.1% [lo 46.9%] roi  -4.5% n=999
+      dog tonight                    980-874-30   52.9% [lo 50.6%] roi  +1.0% n=1854
+      tonight at home                1569-1610-36   49.4% [lo 47.6%] roi  -5.8% n=3179
+      tonight on the road            1084-1069-47   50.3% [lo 48.2%] roi  -3.9% n=2153
+      tonight non-conference         797-803-22   49.8% [lo 47.4%] roi  -4.9% n=1600
+      tonight conference game        2314-2035-68   53.2% [lo 51.7%] roi  +1.6% n=4349
+      tonight's opponent unranked    2899-2657-88   52.2% [lo 50.9%] roi  -0.4% n=5556
+      tonight's opponent ranked      212-181-2   53.9% [lo 49.0%] roi  +3.1% n=393
+      next game within 3 days        1571-1277-42   55.2% [lo 53.3%] roi  +5.3% n=2848
+      team itself ranked tonight     462-441-9   51.2% [lo 47.9%] roi  -2.3% n=903
+
+I. MIRROR: tonight's opponent looks ahead to a top-25 team, team does not -> the team covers?: n=2799
+   team ATS tonight (the look-ahead team covers)   1345-1419-35   48.7% [lo 46.8%] roi  -7.1% n=2764
+   blind baseline, same cut without the look-ahead 24777-23876-781   50.9% [lo 50.5%] roi  -2.8% n=48653
+   SU: wins 45.2%, avg spread +1.8, avg margin -1.9, avg cover amount -0.11
+   game total: OVER 1406-1365 (50.7%), avg total residual +0.89
+   first-half ATS: 796-802   49.8% [lo 47.4%] roi  -4.9% n=1598
+   by season: 2020-21 145-157  2021-22 193-214  2022-23 222-228  2023-24 266-257  2024-25 251-282  2025-26 268-281
+      favored tonight                579-653-20   47.0% [lo 44.2%] roi -10.3% n=1232
+      favored by 7+                  242-312-10   43.7% [lo 39.6%] roi -16.6% n=554
+      favored by 15+                 64-82-2   43.8% [lo 35.8%] roi -16.3% n=146
+      dog tonight                    766-766-15   50.0% [lo 47.5%] roi  -4.5% n=1532
+      tonight at home                567-627-18   47.5% [lo 44.7%] roi  -9.3% n=1194
+      tonight on the road            692-705-15   49.5% [lo 46.9%] roi  -5.4% n=1397
+      tonight non-conference         468-456-11   50.6% [lo 47.4%] roi  -3.3% n=924
+      tonight conference game        877-963-24   47.7% [lo 45.4%] roi  -9.0% n=1840
+      tonight's opponent unranked    1023-1070-31   48.9% [lo 46.7%] roi  -6.7% n=2093
+      tonight's opponent ranked      322-349-4   48.0% [lo 44.2%] roi  -8.4% n=671
+      next game within 3 days        615-705-11   46.6% [lo 43.9%] roi -11.0% n=1320
+      team itself ranked tonight     247-289-4   46.1% [lo 41.9%] roi -12.0% n=536
+
+J. MIRROR: tonight's opponent has ranked-vs-ranked next, team does not: n=828
+   team ATS tonight (the look-ahead team covers)   398-423-7   48.5% [lo 45.1%] roi  -7.4% n=821
+   blind baseline, same cut without the look-ahead 27191-26188-851   50.9% [lo 50.5%] roi  -2.7% n=53379
+   SU: wins 26.8%, avg spread +9.0, avg margin -9.5, avg cover amount -0.54
+   game total: OVER 402-417 (49.1%), avg total residual +0.54
+   first-half ATS: 232-250   48.1% [lo 43.7%] roi  -8.1% n=482
+   by season: 2020-21 41-51  2021-22 54-68  2022-23 64-55  2023-24 68-63  2024-25 91-97  2025-26 80-89
+      favored tonight                67-67-3   50.0% [lo 41.5%] roi  -4.6% n=134
+      dog tonight                    331-356-4   48.2% [lo 44.4%] roi  -8.0% n=687
+      tonight at home                148-160-4   48.1% [lo 42.5%] roi  -8.3% n=308
+      tonight on the road            217-232-2   48.3% [lo 43.7%] roi  -7.7% n=449
+      tonight non-conference         96-104-1   48.0% [lo 41.1%] roi  -8.3% n=200
+      tonight conference game        302-319-6   48.6% [lo 44.7%] roi  -7.1% n=621
+      tonight's opponent ranked      398-423-7   48.5% [lo 45.1%] roi  -7.4% n=821
+      next game within 3 days        199-205-2   49.3% [lo 44.4%] roi  -5.9% n=404
+      team itself ranked tonight     90-77-2   53.9% [lo 46.3%] roi  +2.9% n=167
+
+K. MIRROR: tonight's opponent has a rivalry next, team does not: n=912
+   team ATS tonight (the look-ahead team covers)   438-460-14   48.8% [lo 45.5%] roi  -6.8% n=898
+   blind baseline, same cut without the look-ahead 27136-26127-837   50.9% [lo 50.5%] roi  -2.7% n=53263
+   SU: wins 37.2%, avg spread +3.9, avg margin -4.6, avg cover amount -0.65
+   game total: OVER 463-441 (51.2%), avg total residual +0.63
+   first-half ATS: 198-252   44.0% [lo 39.4%] roi -16.0% n=450
+   by season: 2020-21 69-62  2021-22 68-88  2022-23 90-72  2023-24 72-80  2024-25 66-87  2025-26 73-71
+      favored tonight                153-169-5   47.5% [lo 42.1%] roi  -9.3% n=322
+      favored by 7+                  53-60-3   46.9% [lo 37.7%] roi -10.5% n=113
+      dog tonight                    285-291-9   49.5% [lo 45.4%] roi  -5.4% n=576
+      tonight at home                179-193-7   48.1% [lo 43.0%] roi  -8.1% n=372
+      tonight on the road            252-252-7   50.0% [lo 45.6%] roi  -4.5% n=504
+      tonight non-conference         91-85-1   51.7% [lo 44.3%] roi  -1.2% n=176
+      tonight conference game        347-375-13   48.1% [lo 44.4%] roi  -8.2% n=722
+      tonight's opponent unranked    310-329-13   48.5% [lo 44.6%] roi  -7.3% n=639
+      tonight's opponent ranked      128-131-1   49.4% [lo 43.3%] roi  -5.6% n=259
+      next game within 3 days        180-210-5   46.2% [lo 41.2%] roi -11.8% n=390
+      team itself ranked tonight     82-89-2   48.0% [lo 40.5%] roi  -8.4% n=171
+
+L. BOTH teams look ahead to a top-25 opponent: n=779
+   team ATS tonight (the look-ahead team covers)   387-377-15   50.7% [lo 47.1%] roi  -3.3% n=764
+   SU: wins 50.8%, avg spread -0.2, avg margin +0.3, avg cover amount +0.18
+   game total: OVER 403-363 (52.6%), avg total residual -0.36
+   first-half ATS: 223-215   50.9% [lo 46.2%] roi  -2.8% n=438
+   by season: 2020-21 57-53  2021-22 55-56  2022-23 51-51  2023-24 70-68  2024-25 78-78  2025-26 76-71
+      favored tonight                201-181-7   52.6% [lo 47.6%] roi  +0.5% n=382
+      favored by 7+                  84-81-2   50.9% [lo 43.3%] roi  -2.8% n=165
+      favored by 15+                 18-14   56.2% [lo 39.1%] roi  +7.4% n=32
+      dog tonight                    186-196-8   48.7% [lo 43.7%] roi  -7.0% n=382
+      tonight at home                182-168-6   52.0% [lo 46.8%] roi  -0.7% n=350
+      tonight on the road            171-180-7   48.7% [lo 43.5%] roi  -6.9% n=351
+      tonight non-conference         52-49-3   51.5% [lo 41.7%] roi  -1.6% n=101
+      tonight conference game        335-328-12   50.5% [lo 46.7%] roi  -3.5% n=663
+      tonight's opponent unranked    270-262-10   50.8% [lo 46.5%] roi  -3.1% n=532
+      tonight's opponent ranked      117-115-5   50.4% [lo 44.0%] roi  -3.7% n=232
+      next game within 3 days        203-197-5   50.7% [lo 45.9%] roi  -3.1% n=400
+      team itself ranked tonight     119-115-5   50.9% [lo 44.4%] roi  -2.9% n=234
+
+====================================================================================================
+ROBUSTNESS on B (ranked team tonight, ranked opponent next)
+====================================================================================================
+  B by spread band vs the ranked-no-lookahead baseline in the same band:
+     (-99, -15]   B 106-102   51.0% [lo 44.2%] roi  -2.6% n=208   | baseline 374-409-11   47.8% [lo 44.3%] roi  -8.9% n=783
+     (-15, -7]    B 170-146-1   53.8% [lo 48.3%] roi  +2.7% n=316 | baseline 413-440-12   48.4% [lo 45.1%] roi  -7.6% n=853
+     (-7, -3]     B 104-101-4   50.7% [lo 43.9%] roi  -3.1% n=205 | baseline 289-275-11   51.2% [lo 47.1%] roi  -2.2% n=564
+     (-3, 0]      B 45-36-1   55.6% [lo 44.7%] roi  +6.0% n=81    | baseline 90-113-2   44.3% [lo 37.5%] roi -15.4% n=203
+     (0, 3]       B 50-39-3   56.2% [lo 45.9%] roi  +7.3% n=89    | baseline 103-109-1   48.6% [lo 41.9%] roi  -7.2% n=212
+     (3, 7]       B 34-31-1   52.3% [lo 40.2%] roi  +0.1% n=65    | baseline 98-111-2   46.9% [lo 40.1%] roi -10.4% n=209
+     (7, 99]      B 17-15   53.1% [lo 35.8%] roi  +1.4% n=32      | baseline 38-32-5   54.3% [lo 42.6%] roi  +3.8% n=70
+  band-weighted expected cover rate for B from the baseline: 48.6%  vs observed 52.8%
+  within-night permutation among ranked teams: null 51.6% ± 1.2%, p(null >= obs) = 0.166
+  placebo -- ranked team, ranked opponent two games out, next game NOT ranked: 348-372-8   48.3% [lo 44.7%] roi  -7.7% n=720
+  B top contributors (team, n, record):
+   Kansas 21-28; Tennessee 27-18; Alabama 23-18; Purdue 19-19; Baylor 18-15; Iowa State 22-13; Auburn 20-13; Kentucky 16-16; Illinois 21-10; Houston 18-12; UConn 15-15; Arizona 17-12

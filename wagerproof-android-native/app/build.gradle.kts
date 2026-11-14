@@ -87,8 +87,8 @@ android {
         // The repo is NOT a reliable source for the next code — 92 was the last value it knew
         // about and 93 turned out to be taken. Read the live number from the Play Console
         // before bumping, the same trap the iOS build number has.
-        versionCode = 94
-        versionName = "3.6.0"
+        versionCode = 95
+        versionName = "3.6.2"
         buildConfigField("String", "FACEBOOK_APP_ID", quotedBuildConfig(facebookAppId))
         buildConfigField("String", "FACEBOOK_CLIENT_TOKEN", quotedBuildConfig(facebookClientToken))
     }
@@ -143,6 +143,8 @@ kotlin {
 }
 
 dependencies {
+    implementation("io.github.sceneview:sceneview:2.3.0")
+    implementation("com.airbnb.android:lottie-compose:6.6.2")
     implementation(project(":core:models"))
     implementation(project(":core:services"))
     implementation(project(":core:stores"))

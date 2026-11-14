@@ -29,18 +29,21 @@ class AgentEntitlementsStore(
     val isAdmin: Boolean get() = proAccess.isAdmin
     val isLoading: Boolean get() = proAccess.isLoading
 
+    val isTierRestricted get() = proAccess.isTierRestricted(com.wagerproof.core.models.SubscriptionTier.PRO)
+
     val canViewAgentPicks: Boolean get() = isPro || isAdmin
     val canCreatePublicAgent: Boolean get() = isPro || isAdmin
     val canUseAutopilot: Boolean get() = isPro || isAdmin
 
     val maxActiveAgents: Int?
-        get() = if (isAdmin) null else if (isPro) PRO_MAX_ACTIVE_AGENTS else FREE_AGENT_LIMIT
+        get() = if (isAdmin) null else if (isTierRestricted) 0 else if (isPro) PRO_MAX_ACTIVE_AGENTS else FREE_AGENT_LIMIT
 
     val maxTotalAgents: Int?
-        get() = if (isAdmin) null else if (isPro) PRO_MAX_TOTAL_AGENTS else FREE_AGENT_LIMIT
+        get() = if (isAdmin) null else if (isTierRestricted) 0 else if (isPro) PRO_MAX_TOTAL_AGENTS else FREE_AGENT_LIMIT
 
     /** Pro users gate on TOTAL count, free users gate on ACTIVE count. */
     fun canCreateAnotherAgent(activeCount: Int, totalCount: Int): Boolean {
+        if (isTierRestricted) return false
         if (isAdmin) return true
         if (isPro) return totalCount < PRO_MAX_TOTAL_AGENTS
         return activeCount < FREE_AGENT_LIMIT
@@ -48,6 +51,7 @@ class AgentEntitlementsStore(
 
     /** Free users can preview ranks 6–10 (the "you could be here" tease); Pro/admin see all. */
     fun canViewLeaderboardRank(rank: Int): Boolean {
+        if (isTierRestricted) return false
         if (isPro || isAdmin) return true
         return rank in FREE_LEADERBOARD_MIN_RANK..FREE_LEADERBOARD_MAX_RANK
     }

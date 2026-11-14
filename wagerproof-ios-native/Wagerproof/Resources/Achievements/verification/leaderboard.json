@@ -1,0 +1,34 @@
+{
+  "family": "leaderboard",
+  "bytes": 5932673,
+  "variants": [
+    {
+      "frame_prefix": "NumberOne",
+      "source": "artifacts/achievements/leaderboard/number-one/manifest.json",
+      "original_faces": 124178,
+      "runtime_faces": 86670,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Top10",
+      "source": "artifacts/achievements/leaderboard/top-10/manifest.json",
+      "original_faces": 130726,
+      "runtime_faces": 92814,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "Top100",
+      "source": "artifacts/achievements/leaderboard/top-100/manifest.json",
+      "original_faces": 134642,
+      "runtime_faces": 96506,
+      "contour_retessellated": false
+    }
+  ],
+  "checks": {
+    "y_up": true,
+    "material_bindings": true,
+    "corner_normals": true,
+    "no_studio": true,
+    "lod_closed_outward": true
+  }
+}

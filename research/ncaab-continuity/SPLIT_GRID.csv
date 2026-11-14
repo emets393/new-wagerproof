@@ -1,0 +1,543 @@
+rule,window,split,level,n,side,w,l,pct,z,p,placebo,placebo_pct,seasons_winning,per_season,spread
+kept 70%+ minutes,first 10,conference size,low-major,1350,FADE,687,644,51.6,1.18,0.2,1014-1053,49.1,4/5,22:330-313 23:113-129 24:150-129 25:81-66 26:13-7,0.0
+kept 70%+ minutes,first 10,conference size,power,238,BACK,120,114,51.3,0.39,0.749,181-189,48.9,3/4,22:51-47 23:20-29 24:33-24 25:16-14,-11.3
+kept 70%+ minutes,first 10,opp conference size,power,370,FADE,196,168,53.8,1.47,0.165,188-183,50.7,4/5,22:94-75 23:35-28 24:42-40 25:24-22 26:1-3,7.8
+kept 70%+ minutes,first 10,opp conference size,low-major,1244,BACK,623,600,50.9,0.66,0.487,1052-1016,50.9,2/5,22:304-293 23:137-103 24:116-125 25:62-68 26:4-11,-4.6
+kept 70%+ minutes,first 10,AP rank situation,neither ranked,1506,FADE,744,738,50.2,0.16,0.879,1119-1208,48.1,4/5,22:381-375 23:125-161 24:145-129 25:80-67 26:13-6,-1.7
+kept 70%+ minutes,first 10,KenPom preseason quintile,Q3,511,FADE,257,244,51.3,0.58,0.59,380-404,48.5,4/5,22:135-132 23:53-62 24:41-29 25:15-14 26:13-7,-0.7
+kept 70%+ minutes,first 10,KenPom preseason quintile,Q4,433,FADE,225,205,52.3,0.96,0.326,313-350,47.2,3/4,22:95-77 23:24-46 24:65-55 25:41-27,-3.8
+kept 70%+ minutes,first 10,KenPom preseason quintile,Q2,380,BACK,200,171,53.9,1.51,0.137,300-288,51.0,3/4,22:104-83 23:36-29 24:33-36 25:27-23,3.9
+kept 70%+ minutes,first 10,KenPom preseason quintile,Q5 best,306,FADE,159,142,52.8,0.98,0.336,245-230,51.6,2/4,22:74-62 23:44-24 24:27-40 25:14-16,-11.7
+kept 70%+ minutes,first 10,opp KenPom quintile,Q4,321,FADE,158,156,50.3,0.11,0.93,235-228,50.8,3/5,22:83-73 23:34-36 24:20-30 25:17-15 26:4-2,3.8
+kept 70%+ minutes,first 10,opp KenPom quintile,Q2,366,BACK,185,176,51.2,0.47,0.632,364-347,51.2,2/5,22:95-81 23:37-26 24:31-39 25:20-26 26:2-4,-6.5
+kept 70%+ minutes,first 10,opp KenPom quintile,Q1 worst,385,FADE,197,184,51.7,0.67,0.492,290-297,49.4,4/5,22:96-80 23:36-50 24:37-33 25:24-19 26:4-2,-11.5
+kept 70%+ minutes,first 10,opp KenPom quintile,Q3,349,BACK,176,166,51.5,0.54,0.605,299-262,53.3,3/5,22:91-85 23:30-22 24:40-45 25:15-13 26:0-1,-1.3
+kept 70%+ minutes,first 10,opp KenPom quintile,Q5 best,305,FADE,160,141,53.2,1.1,0.274,158-166,48.8,3/5,22:71-64 23:35-22 24:36-35 25:18-19 26:0-1,9.4
+kept 70%+ minutes,first 10,KenPom gap vs opp,worse,266,BACK,131,131,50.0,0.0,1.0,161-135,54.4,2/5,22:67-74 23:25-23 24:25-17 25:12-13 26:2-4,8.4
+kept 70%+ minutes,first 10,KenPom gap vs opp,better,443,FADE,221,217,50.5,0.19,0.879,477-508,48.4,3/5,22:98-102 23:41-55 24:45-36 25:33-22 26:4-2,-7.0
+kept 70%+ minutes,first 10,KenPom gap vs opp,much better,295,FADE,150,144,51.0,0.35,0.727,152-150,50.3,3/5,22:78-63 23:30-37 24:26-30 25:15-14 26:1-0,-18.0
+kept 70%+ minutes,first 10,KenPom gap vs opp,even,563,FADE,274,273,50.1,0.04,0.993,505-512,49.7,2/5,22:122-130 23:43-43 24:75-66 25:30-32 26:4-2,-0.0
+kept 70%+ minutes,first 10,KenPom gap vs opp,much worse,159,FADE,81,77,51.3,0.32,0.771,23-23,50.0,3/5,22:44-41 23:16-15 24:14-12 25:7-8 26:0-1,19.0
+kept 70%+ minutes,Nov-Dec,conference size,low-major,1514,FADE,758,735,50.8,0.6,0.537,1014-1053,49.1,4/5,22:349-326 23:131-155 24:167-157 25:98-86 26:13-11,-0.0
+kept 70%+ minutes,Nov-Dec,conference size,mid-major,153,BACK,89,60,59.7,2.38,0.022,120-89,57.4,4/4,22:40-38 23:36-15 24:7-4 25:6-3,-3.4
+kept 70%+ minutes,Nov-Dec,conference size,power,288,BACK,149,135,52.5,0.83,0.419,181-189,48.9,3/4,22:55-52 23:27-38 24:46-28 25:21-17,-11.7
+kept 70%+ minutes,Nov-Dec,opp conference size,power,418,FADE,220,190,53.7,1.48,0.145,188-183,50.7,3/5,22:100-79 23:43-33 24:48-47 25:28-28 26:1-3,7.6
+kept 70%+ minutes,Nov-Dec,opp conference size,low-major,1410,BACK,722,667,52.0,1.48,0.097,1052-1016,50.9,3/5,22:319-310 23:168-122 24:147-140 25:80-84 26:8-11,-4.8
+kept 70%+ minutes,Nov-Dec,AP rank situation,neither ranked,1687,BACK,843,819,50.7,0.59,0.536,1208-1119,51.9,1/5,22:391-401 23:200-149 24:156-162 25:86-94 26:10-13,-1.7
+kept 70%+ minutes,Nov-Dec,KenPom preseason quintile,Q3,555,FADE,274,270,50.4,0.17,0.883,380-404,48.5,4/5,22:138-130 23:62-78 24:43-34 25:18-17 26:13-11,-0.8
+kept 70%+ minutes,Nov-Dec,KenPom preseason quintile,Q4,497,FADE,251,242,50.9,0.41,0.675,313-350,47.2,3/4,22:101-86 23:29-52 24:72-68 25:49-36,-4.0
+kept 70%+ minutes,Nov-Dec,KenPom preseason quintile,Q2,427,BACK,225,193,53.8,1.57,0.103,300-288,51.0,3/4,22:110-90 23:44-35 24:37-41 25:34-27,4.2
+kept 70%+ minutes,Nov-Dec,KenPom preseason quintile,Q5 best,372,FADE,188,179,51.2,0.47,0.644,245-230,51.6,2/4,22:82-68 23:55-36 24:32-55 25:19-20,-11.8
+kept 70%+ minutes,Nov-Dec,opp KenPom quintile,Q4,380,FADE,187,186,50.1,0.05,0.98,235-228,50.8,2/5,22:94-83 23:44-45 24:26-35 25:19-21 26:4-2,3.4
+kept 70%+ minutes,Nov-Dec,opp KenPom quintile,Q2,409,BACK,214,190,53.0,1.19,0.231,364-347,51.2,2/5,22:93-84 23:48-25 24:44-44 25:26-33 26:3-4,-6.7
+kept 70%+ minutes,Nov-Dec,opp KenPom quintile,Q1 worst,426,FADE,214,208,50.7,0.29,0.787,290-297,49.4,3/5,22:94-80 23:43-60 24:43-41 25:30-23 26:4-4,-11.8
+kept 70%+ minutes,Nov-Dec,opp KenPom quintile,Q3,389,BACK,202,180,52.9,1.13,0.29,299-262,53.3,3/5,22:98-88 23:37-29 24:47-47 25:19-15 26:1-1,-1.8
+kept 70%+ minutes,Nov-Dec,opp KenPom quintile,Q5 best,351,FADE,182,163,52.8,1.02,0.336,158-166,48.8,2/5,22:79-67 23:43-28 24:39-43 25:21-24 26:0-1,9.2
+kept 70%+ minutes,Nov-Dec,KenPom gap vs opp,worse,288,FADE,145,139,51.1,0.36,0.761,135-161,45.6,3/5,22:80-66 23:29-29 24:17-30 25:15-12 26:4-2,8.2
+kept 70%+ minutes,Nov-Dec,KenPom gap vs opp,better,489,BACK,243,241,50.2,0.09,0.931,508-477,51.6,2/5,22:105-98 23:66-46 24:43-54 25:27-39 26:2-4,-6.9
+kept 70%+ minutes,Nov-Dec,KenPom gap vs opp,much better,351,BACK,178,172,50.9,0.32,0.773,150-152,49.7,3/5,22:66-81 23:47-35 24:45-32 25:18-23 26:2-1,-18.2
+kept 70%+ minutes,Nov-Dec,KenPom gap vs opp,even,641,BACK,321,304,51.4,0.68,0.494,512-505,50.3,4/5,22:139-135 23:58-57 24:77-76 25:43-32 26:4-4,-0.1
+kept 70%+ minutes,Nov-Dec,KenPom gap vs opp,much worse,186,BACK,92,91,50.3,0.07,0.975,23-23,50.0,3/5,22:45-45 23:18-17 24:15-20 25:13-9 26:1-0,18.9
+rebuilt (<=30% kept),first 10,conference size,low-major,3593,BACK,1811,1733,51.1,1.31,0.138,2735-2744,49.9,4/5,22:84-72 23:276-283 24:298-289 25:424-375 26:729-714,6.1
+rebuilt (<=30% kept),first 10,conference size,mid-major,380,FADE,187,185,50.3,0.1,0.927,300-301,49.9,1/5,22:10-10 23:9-10 24:22-17 25:52-54 26:94-94,1.4
+rebuilt (<=30% kept),first 10,conference size,power,1222,FADE,629,579,52.1,1.44,0.133,947-945,50.1,5/5,22:62-61 23:89-76 24:88-77 25:157-151 26:233-214,-9.1
+rebuilt (<=30% kept),first 10,opp conference size,power,1220,FADE,607,602,50.2,0.14,0.877,945-947,49.9,2/5,22:32-43 23:85-91 24:98-80 25:150-145 26:242-243,13.8
+rebuilt (<=30% kept),first 10,opp conference size,mid-major,378,BACK,193,179,51.9,0.73,0.462,300-302,49.8,4/5,22:7-6 23:21-33 24:34-21 25:51-44 26:80-75,2.5
+rebuilt (<=30% kept),first 10,opp conference size,low-major,3597,BACK,1780,1763,50.2,0.29,0.748,2734-2744,49.9,1/5,22:105-106 23:250-263 24:278-280 25:433-390 26:714-724,-1.7
+rebuilt (<=30% kept),first 10,AP rank situation,neither ranked,4695,BACK,2326,2304,50.2,0.32,0.713,3549-3547,50.0,2/5,22:142-132 23:334-357 24:354-367 25:564-511 26:932-937,1.8
+rebuilt (<=30% kept),first 10,AP rank situation,unranked vs ranked,297,BACK,148,144,50.7,0.23,0.834,262-257,50.5,3/5,22:10-8 23:17-11 24:25-24 25:42-43 26:54-58,21.3
+rebuilt (<=30% kept),first 10,AP rank situation,ranked vs unranked,161,BACK,81,79,50.6,0.16,0.905,123-137,47.3,2/5,22:3-4 23:11-12 24:10-8 25:18-26 26:39-29,-20.2
+rebuilt (<=30% kept),first 10,KenPom preseason quintile,Q3,958,BACK,499,444,52.9,1.79,0.07,723-753,49.0,3/5,22:31-36 23:37-32 24:87-88 25:114-85 26:230-203,1.1
+rebuilt (<=30% kept),first 10,KenPom preseason quintile,Q4,904,FADE,466,428,52.1,1.27,0.196,709-713,49.9,3/5,22:28-29 23:73-62 24:36-32 25:91-107 26:238-198,-5.6
+rebuilt (<=30% kept),first 10,KenPom preseason quintile,Q2,1036,BACK,518,500,50.9,0.56,0.598,803-793,50.3,4/5,22:21-9 23:78-76 24:105-99 25:121-132 26:193-184,4.7
+rebuilt (<=30% kept),first 10,KenPom preseason quintile,Q5 best,757,FADE,382,369,50.9,0.47,0.664,598-564,51.5,4/5,22:21-17 23:43-34 24:54-53 25:101-89 26:163-176,-11.3
+rebuilt (<=30% kept),first 10,KenPom preseason quintile,Q1 worst,1540,BACK,761,757,50.1,0.1,0.914,1178-1138,50.9,2/5,22:57-50 23:151-157 24:115-122 25:198-175 26:240-253,12.4
+rebuilt (<=30% kept),first 10,opp KenPom quintile,Q4,1020,BACK,522,489,51.6,1.04,0.303,762-839,47.6,4/5,22:35-23 23:75-65 24:81-74 25:122-118 26:209-209,7.7
+rebuilt (<=30% kept),first 10,opp KenPom quintile,Q2,1062,BACK,535,510,51.2,0.77,0.454,783-710,52.4,3/5,22:20-33 23:80-86 24:87-86 25:128-94 26:220-211,-2.9
+rebuilt (<=30% kept),first 10,opp KenPom quintile,Q1 worst,1060,FADE,542,500,52.0,1.3,0.174,887-812,52.2,4/5,22:33-34 23:81-73 24:94-75 25:122-116 26:212-202,-9.0
+rebuilt (<=30% kept),first 10,opp KenPom quintile,Q3,1050,BACK,522,513,50.4,0.28,0.807,835-794,51.3,3/5,22:28-24 23:64-79 24:85-67 25:139-129 26:206-214,1.0
+rebuilt (<=30% kept),first 10,opp KenPom quintile,Q5 best,1003,BACK,496,495,50.1,0.03,0.984,789-761,50.9,3/5,22:38-31 23:70-70 24:64-78 25:124-121 26:200-195,15.2
+rebuilt (<=30% kept),first 10,KenPom gap vs opp,worse,1158,BACK,588,547,51.8,1.22,0.212,1245-1218,50.5,4/5,22:32-29 23:88-104 24:116-82 25:148-146 26:204-186,7.6
+rebuilt (<=30% kept),first 10,KenPom gap vs opp,better,806,FADE,408,382,51.6,0.93,0.344,663-595,52.7,3/5,22:25-22 23:48-49 24:66-48 25:94-99 26:175-164,-7.8
+rebuilt (<=30% kept),first 10,KenPom gap vs opp,much better,606,FADE,314,289,52.1,1.02,0.311,62-75,45.3,3/5,22:20-14 23:43-33 24:41-28 25:62-64 26:148-150,-21.0
+rebuilt (<=30% kept),first 10,KenPom gap vs opp,even,1652,BACK,823,807,50.5,0.4,0.666,1797-1760,50.5,3/5,22:34-39 23:93-109 24:142-129 25:199-179 26:355-351,0.3
+rebuilt (<=30% kept),first 10,KenPom gap vs opp,much worse,973,BACK,493,473,51.0,0.64,0.542,269-288,48.3,3/5,22:53-31 23:99-77 24:58-81 25:119-103 26:164-181,21.8
+rebuilt (<=30% kept),Nov-Dec,conference size,low-major,4233,BACK,2126,2048,50.9,1.21,0.184,2735-2744,49.9,4/5,22:98-86 23:343-349 24:343-340 25:485-424 26:857-849,6.2
+rebuilt (<=30% kept),Nov-Dec,conference size,mid-major,451,FADE,224,218,50.7,0.29,0.796,300-301,49.9,2/5,22:10-10 23:11-11 24:25-19 25:58-62 26:120-116,1.5
+rebuilt (<=30% kept),Nov-Dec,conference size,power,1565,FADE,802,746,51.8,1.42,0.145,947-945,50.1,5/5,22:77-72 23:115-101 24:106-101 25:200-189 26:304-283,-9.3
+rebuilt (<=30% kept),Nov-Dec,opp conference size,power,1507,FADE,748,745,50.1,0.08,0.939,945-947,49.9,2/5,22:45-51 23:101-121 24:118-98 25:187-171 26:297-304,13.4
+rebuilt (<=30% kept),Nov-Dec,opp conference size,mid-major,455,BACK,230,218,51.3,0.57,0.584,300-302,49.8,3/5,22:7-7 23:24-37 24:38-26 25:60-50 26:101-98,2.4
+rebuilt (<=30% kept),Nov-Dec,opp conference size,low-major,4287,BACK,2115,2108,50.1,0.11,0.908,2734-2744,49.9,2/5,22:122-121 23:310-337 24:327-327 25:505-445 26:851-878,-2.1
+rebuilt (<=30% kept),Nov-Dec,AP rank situation,neither ranked,5607,BACK,2771,2758,50.1,0.17,0.843,3549-3547,50.0,2/5,22:162-155 23:413-445 24:419-427 25:655-592 26:1122-1139,1.5
+rebuilt (<=30% kept),Nov-Dec,AP rank situation,unranked vs ranked,373,BACK,189,179,51.4,0.52,0.606,262-257,50.5,1/5,22:12-13 23:28-12 24:28-31 25:51-52 26:70-71,21.1
+rebuilt (<=30% kept),Nov-Dec,AP rank situation,ranked vs unranked,216,FADE,109,106,50.7,0.2,0.857,137-123,52.7,2/5,22:4-6 23:17-14 24:12-12 25:33-24 26:43-50,-20.1
+rebuilt (<=30% kept),Nov-Dec,KenPom preseason quintile,Q3,1116,BACK,566,534,51.5,0.96,0.314,723-753,49.0,2/5,22:37-43 23:41-41 24:101-101 25:126-109 26:261-240,1.3
+rebuilt (<=30% kept),Nov-Dec,KenPom preseason quintile,Q4,1138,FADE,593,534,52.6,1.76,0.057,709-713,49.9,4/5,22:35-33 23:98-79 24:44-37 25:112-128 26:304-257,-5.5
+rebuilt (<=30% kept),Nov-Dec,KenPom preseason quintile,Q2,1222,BACK,612,588,51.0,0.69,0.485,803-793,50.3,4/5,22:22-10 23:96-100 24:120-119 25:143-140 26:231-219,4.5
+rebuilt (<=30% kept),Nov-Dec,KenPom preseason quintile,Q5 best,975,BACK,483,482,50.1,0.03,0.988,564-598,48.5,2/5,22:21-25 23:50-51 24:72-65 25:114-125 26:226-216,-11.8
+rebuilt (<=30% kept),Nov-Dec,KenPom preseason quintile,Q1 worst,1798,BACK,895,877,50.5,0.43,0.665,1178-1138,50.9,3/5,22:67-60 23:189-185 24:133-142 25:225-196 26:281-294,12.8
+rebuilt (<=30% kept),Nov-Dec,opp KenPom quintile,Q4,1237,BACK,622,605,50.7,0.49,0.633,762-839,47.6,3/5,22:36-27 23:93-82 24:94-85 25:144-148 26:255-263,7.4
+rebuilt (<=30% kept),Nov-Dec,opp KenPom quintile,Q2,1268,BACK,632,616,50.6,0.45,0.653,783-710,52.4,3/5,22:24-38 23:95-110 24:106-97 25:145-118 26:262-253,-3.0
+rebuilt (<=30% kept),Nov-Dec,opp KenPom quintile,Q1 worst,1258,FADE,649,589,52.4,1.71,0.093,887-812,52.2,4/5,22:37-38 23:102-93 24:110-85 25:137-135 26:263-238,-9.9
+rebuilt (<=30% kept),Nov-Dec,opp KenPom quintile,Q3,1240,BACK,630,590,51.6,1.15,0.276,835-794,51.3,4/5,22:35-30 23:80-98 24:100-83 25:163-131 26:252-248,0.6
+rebuilt (<=30% kept),Nov-Dec,opp KenPom quintile,Q5 best,1246,BACK,617,614,50.1,0.09,0.946,789-761,50.9,4/5,22:47-41 23:94-83 24:78-96 25:149-148 26:249-246,14.9
+rebuilt (<=30% kept),Nov-Dec,KenPom gap vs opp,worse,1373,BACK,702,647,52.0,1.5,0.112,1245-1218,50.5,4/5,22:40-36 23:109-123 24:137-95 25:169-168 26:247-225,7.5
+rebuilt (<=30% kept),Nov-Dec,KenPom gap vs opp,better,948,FADE,482,448,51.8,1.11,0.252,663-595,52.7,4/5,22:26-24 23:67-59 24:73-53 25:103-112 26:213-200,-7.9
+rebuilt (<=30% kept),Nov-Dec,KenPom gap vs opp,much better,791,FADE,401,385,51.0,0.57,0.576,62-75,45.3,3/5,22:23-17 23:56-43 24:47-42 25:80-87 26:195-196,-21.3
+rebuilt (<=30% kept),Nov-Dec,KenPom gap vs opp,even,1956,FADE,973,955,50.5,0.41,0.659,1760-1797,49.5,3/5,22:49-39 23:135-118 24:157-163 25:208-225 26:424-410,0.3
+rebuilt (<=30% kept),Nov-Dec,KenPom gap vs opp,much worse,1181,BACK,600,571,51.2,0.85,0.367,269-288,48.3,3/5,22:60-39 23:126-94 24:68-99 25:143-123 26:203-216,21.7
+continuity gap +35 vs opp,first 10,conference size,low-major,1270,FADE,651,603,51.9,1.36,0.174,844-823,50.6,3/5,22:149-129 23:120-139 24:150-129 25:137-110 26:95-96,-0.5
+continuity gap +35 vs opp,first 10,conference size,power,266,BACK,139,124,52.9,0.92,0.37,275-281,49.5,4/5,22:21-25 23:25-24 24:36-30 25:36-28 26:21-17,-14.4
+continuity gap +35 vs opp,first 10,opp conference size,power,409,BACK,210,193,52.1,0.85,0.409,277-281,49.6,4/5,22:53-56 23:36-35 24:42-35 25:48-39 26:31-28,7.6
+continuity gap +35 vs opp,first 10,opp conference size,low-major,1136,FADE,577,544,51.5,0.99,0.311,844-820,50.7,4/5,22:124-101 23:107-137 24:137-120 25:127-107 26:82-79,-6.8
+continuity gap +35 vs opp,first 10,AP rank situation,neither ranked,1471,FADE,750,701,51.7,1.29,0.175,1007-1015,49.8,4/5,22:178-151 23:137-163 24:167-148 25:158-133 26:110-106,-2.6
+continuity gap +35 vs opp,first 10,KenPom preseason quintile,Q3,372,FADE,204,161,55.9,2.25,0.025,258-250,50.8,4/5,22:61-41 23:32-46 24:33-20 25:44-36 26:34-18,-1.5
+continuity gap +35 vs opp,first 10,KenPom preseason quintile,Q4,379,FADE,206,172,54.5,1.75,0.07,301-337,47.2,3/5,22:49-31 23:32-32 24:58-44 25:46-38 26:21-27,-6.9
+continuity gap +35 vs opp,first 10,KenPom preseason quintile,Q2,372,BACK,185,181,50.5,0.21,0.847,182-210,46.4,2/5,22:44-33 23:43-36 24:44-45 25:30-35 26:24-32,2.3
+continuity gap +35 vs opp,first 10,KenPom preseason quintile,Q5 best,312,BACK,159,150,51.5,0.51,0.613,294-306,49.0,3/5,22:30-32 23:34-36 24:35-30 25:38-33 26:22-19,-14.0
+continuity gap +35 vs opp,first 10,KenPom preseason quintile,Q1 worst,219,BACK,120,94,56.1,1.78,0.078,132-127,51.0,3/5,22:18-19 23:23-18 24:28-22 25:21-22 26:30-13,7.7
+continuity gap +35 vs opp,first 10,opp KenPom quintile,Q4,273,FADE,136,134,50.4,0.12,0.932,208-197,51.4,2/5,22:31-23 23:31-33 24:18-22 25:30-27 26:26-29,4.0
+continuity gap +35 vs opp,first 10,opp KenPom quintile,Q2,322,FADE,161,156,50.8,0.28,0.814,243-228,51.6,2/5,22:29-23 23:29-32 24:49-37 25:32-39 26:22-25,-6.5
+continuity gap +35 vs opp,first 10,opp KenPom quintile,Q1 worst,517,FADE,266,245,52.1,0.93,0.341,376-362,50.9,3/5,22:79-56 23:50-61 24:53-49 25:63-51 26:21-28,-11.8
+continuity gap +35 vs opp,first 10,opp KenPom quintile,Q3,285,FADE,143,136,51.3,0.42,0.727,205-233,46.8,3/5,22:25-35 23:20-26 24:42-37 25:31-18 26:25-20,-1.4
+continuity gap +35 vs opp,first 10,opp KenPom quintile,Q5 best,257,FADE,129,126,50.6,0.19,0.864,170-175,49.3,2/5,22:30-27 23:24-26 24:26-26 25:24-28 26:25-19,9.8
+continuity gap +35 vs opp,first 10,KenPom gap vs opp,worse,220,BACK,111,105,51.4,0.41,0.686,100-78,56.2,3/5,22:24-25 23:15-21 24:24-18 25:24-18 26:24-23,8.9
+continuity gap +35 vs opp,first 10,KenPom gap vs opp,better,429,FADE,221,203,52.1,0.87,0.356,502-523,49.0,3/5,22:49-41 23:41-50 24:58-35 25:53-48 26:20-29,-7.6
+continuity gap +35 vs opp,first 10,KenPom gap vs opp,much better,336,FADE,172,162,51.5,0.55,0.584,186-189,49.6,2/5,22:58-38 23:33-37 24:31-39 25:38-31 26:12-17,-19.3
+continuity gap +35 vs opp,first 10,KenPom gap vs opp,even,508,FADE,263,237,52.6,1.16,0.269,428-376,53.2,3/5,22:42-42 23:46-56 24:69-55 25:58-50 26:48-34,-0.6
+continuity gap +35 vs opp,first 10,KenPom gap vs opp,much worse,161,BACK,84,74,53.2,0.8,0.426,7-8,46.7,3/5,22:19-20 23:20-13 24:18-12 25:10-13 26:17-16,19.6
+continuity gap +35 vs opp,Nov-Dec,conference size,low-major,1451,FADE,733,699,51.2,0.9,0.363,844-823,50.6,3/5,22:148-133 23:138-170 24:174-156 25:163-130 26:110-110,-0.3
+continuity gap +35 vs opp,Nov-Dec,conference size,power,340,BACK,176,161,52.2,0.82,0.432,275-281,49.5,4/5,22:23-31 23:32-31 24:45-39 25:47-36 26:29-24,-14.2
+continuity gap +35 vs opp,Nov-Dec,opp conference size,power,481,BACK,246,228,51.9,0.83,0.422,277-281,49.6,3/5,22:57-60 23:41-41 24:51-47 25:59-47 26:38-33,7.2
+continuity gap +35 vs opp,Nov-Dec,opp conference size,low-major,1318,FADE,662,639,50.9,0.64,0.523,844-820,50.7,4/5,22:124-104 23:126-172 24:159-145 25:154-124 26:99-94,-6.8
+continuity gap +35 vs opp,Nov-Dec,AP rank situation,neither ranked,1691,FADE,845,823,50.7,0.54,0.586,1007-1015,49.8,4/5,22:176-158 23:156-205 24:196-178 25:188-158 26:129-124,-2.6
+continuity gap +35 vs opp,Nov-Dec,KenPom preseason quintile,Q3,422,FADE,225,188,54.5,1.82,0.069,258-250,50.8,4/5,22:59-43 23:34-58 24:41-26 25:54-39 26:37-22,-1.2
+continuity gap +35 vs opp,Nov-Dec,KenPom preseason quintile,Q4,435,FADE,227,207,52.3,0.96,0.32,301-337,47.2,3/5,22:46-33 23:37-40 24:66-53 25:54-49 26:24-32,-6.8
+continuity gap +35 vs opp,Nov-Dec,KenPom preseason quintile,Q2,425,BACK,213,206,50.8,0.34,0.771,182-210,46.4,2/5,22:45-33 23:55-43 24:50-52 25:36-42 26:27-36,2.4
+continuity gap +35 vs opp,Nov-Dec,KenPom preseason quintile,Q5 best,395,BACK,200,191,51.2,0.46,0.651,294-306,49.0,3/5,22:33-40 23:43-45 24:45-38 25:48-43 26:31-25,-13.9
+continuity gap +35 vs opp,Nov-Dec,KenPom preseason quintile,Q1 worst,242,BACK,131,106,55.3,1.62,0.113,132-127,51.0,3/5,22:17-18 23:24-20 24:34-25 25:23-24 26:33-19,8.0
+continuity gap +35 vs opp,Nov-Dec,opp KenPom quintile,Q4,322,BACK,163,156,51.1,0.39,0.683,197-208,48.6,2/5,22:27-31 23:41-34 24:25-25 25:32-37 26:38-29,3.5
+continuity gap +35 vs opp,Nov-Dec,opp KenPom quintile,Q2,371,BACK,183,182,50.1,0.05,0.979,228-243,48.4,2/5,22:25-31 23:43-29 24:45-55 25:43-40 26:27-27,-6.7
+continuity gap +35 vs opp,Nov-Dec,opp KenPom quintile,Q1 worst,582,FADE,296,280,51.4,0.67,0.525,376-362,50.9,3/5,22:76-55 23:60-75 24:61-59 25:75-58 26:24-33,-11.9
+continuity gap +35 vs opp,Nov-Dec,opp KenPom quintile,Q3,336,FADE,166,163,50.5,0.17,0.894,205-233,46.8,3/5,22:24-36 23:27-31 24:48-45 25:35-28 26:32-23,-1.9
+continuity gap +35 vs opp,Nov-Dec,opp KenPom quintile,Q5 best,308,FADE,155,150,50.8,0.29,0.809,170-175,49.3,2/5,22:34-28 23:29-30 24:33-34 25:30-34 26:29-24,9.7
+continuity gap +35 vs opp,Nov-Dec,KenPom gap vs opp,worse,244,BACK,125,115,52.1,0.65,0.532,100-78,56.2,2/5,22:24-26 23:17-22 24:33-21 25:25-19 26:26-27,8.8
+continuity gap +35 vs opp,Nov-Dec,KenPom gap vs opp,better,510,FADE,256,247,50.9,0.4,0.725,502-523,49.0,3/5,22:47-45 23:50-69 24:69-41 25:65-56 26:25-36,-7.4
+continuity gap +35 vs opp,Nov-Dec,KenPom gap vs opp,much better,398,FADE,201,195,50.8,0.3,0.791,186-189,49.6,2/5,22:60-39 23:39-45 24:38-49 25:47-39 26:17-23,-19.4
+continuity gap +35 vs opp,Nov-Dec,KenPom gap vs opp,even,575,FADE,291,276,51.3,0.63,0.555,428-376,53.2,3/5,22:43-43 23:53-66 24:75-65 25:69-62 26:51-40,-0.6
+continuity gap +35 vs opp,Nov-Dec,KenPom gap vs opp,much worse,192,BACK,96,92,51.1,0.29,0.808,7-8,46.7,2/5,22:20-20 23:23-15 24:20-19 25:13-17 26:20-21,19.4
+continuity gap -35 vs opp,first 10,conference size,low-major,1132,BACK,571,546,51.1,0.75,0.46,844-820,50.7,4/5,22:111-96 23:110-140 24:139-129 25:127-108 26:84-73,6.9
+continuity gap -35 vs opp,first 10,conference size,power,383,FADE,200,177,53.1,1.18,0.256,277-281,49.6,4/5,22:47-52 23:35-28 24:42-36 25:47-38 26:29-23,-7.1
+continuity gap -35 vs opp,first 10,opp conference size,power,277,FADE,144,130,52.6,0.85,0.409,275-281,49.5,4/5,22:19-27 23:25-22 24:38-34 25:41-30 26:21-17,14.7
+continuity gap -35 vs opp,first 10,opp conference size,low-major,1232,BACK,622,593,51.2,0.83,0.415,844-823,50.6,4/5,22:132-121 23:118-140 24:147-136 25:134-108 26:91-88,0.7
+continuity gap -35 vs opp,first 10,AP rank situation,neither ranked,1444,BACK,727,697,51.1,0.79,0.423,1007-1015,49.8,4/5,22:161-143 23:136-169 24:166-155 25:158-132 26:106-98,2.8
+continuity gap -35 vs opp,first 10,KenPom preseason quintile,Q3,282,BACK,146,130,52.9,0.96,0.34,206-233,46.9,3/5,22:23-30 23:23-24 24:43-38 25:31-19 26:26-19,1.9
+continuity gap -35 vs opp,first 10,KenPom preseason quintile,Q4,260,BACK,130,127,50.6,0.19,0.897,207-197,51.2,2/5,22:27-22 23:29-30 24:20-21 25:32-26 26:22-28,-3.6
+continuity gap -35 vs opp,first 10,KenPom preseason quintile,Q2,323,BACK,161,158,50.5,0.17,0.88,243-228,51.6,2/5,22:29-24 23:27-34 24:49-40 25:34-38 26:22-22,6.7
+continuity gap -35 vs opp,first 10,KenPom preseason quintile,Q5 best,249,FADE,128,119,51.8,0.57,0.534,175-170,50.7,3/5,22:25-30 23:27-18 24:29-25 25:29-22 26:18-24,-9.2
+continuity gap -35 vs opp,first 10,KenPom preseason quintile,Q1 worst,513,BACK,256,250,50.6,0.27,0.786,376-362,50.9,3/5,22:68-53 23:53-66 24:53-52 25:61-53 26:21-26,11.8
+continuity gap -35 vs opp,first 10,opp KenPom quintile,Q4,375,BACK,200,174,53.5,1.34,0.175,301-336,47.3,3/5,22:43-33 23:32-32 24:57-46 25:47-38 26:21-25,6.9
+continuity gap -35 vs opp,first 10,opp KenPom quintile,Q2,357,FADE,177,175,50.3,0.11,0.944,182-209,46.5,2/5,22:41-29 23:44-37 24:44-44 25:27-32 26:21-33,-2.1
+continuity gap -35 vs opp,first 10,opp KenPom quintile,Q1 worst,213,FADE,115,93,55.3,1.53,0.13,132-127,51.0,3/5,22:15-15 23:23-17 24:30-24 25:20-24 26:27-13,-6.9
+continuity gap -35 vs opp,first 10,opp KenPom quintile,Q3,357,BACK,188,162,53.7,1.39,0.167,259-250,50.9,4/5,22:55-37 23:29-48 24:31-22 25:44-37 26:29-18,1.6
+continuity gap -35 vs opp,first 10,opp KenPom quintile,Q5 best,325,FADE,165,156,51.4,0.5,0.635,295-306,49.1,3/5,22:28-35 23:34-35 24:38-34 25:43-33 26:22-19,14.1
+continuity gap -35 vs opp,first 10,KenPom gap vs opp,worse,438,FADE,216,215,50.1,0.05,0.989,523-502,51.0,2/5,22:42-43 23:59-45 24:37-58 25:50-51 26:28-18,7.5
+continuity gap -35 vs opp,first 10,KenPom gap vs opp,better,213,FADE,105,104,50.2,0.07,0.974,100-78,56.2,2/5,22:20-24 23:14-20 24:26-19 25:22-18 26:23-23,-8.7
+continuity gap -35 vs opp,first 10,KenPom gap vs opp,even,495,BACK,257,232,52.6,1.13,0.269,428-376,53.2,3/5,22:38-38 23:43-54 24:69-59 25:60-51 26:47-30,0.7
+continuity gap -35 vs opp,first 10,KenPom gap vs opp,much worse,335,BACK,171,162,51.4,0.49,0.647,186-189,49.6,2/5,22:54-37 23:32-35 24:33-40 25:39-33 26:13-17,19.6
+continuity gap -35 vs opp,Nov-Dec,conference size,low-major,1318,BACK,662,639,50.9,0.64,0.514,844-820,50.7,4/5,22:124-104 23:126-172 24:159-145 25:154-124 26:99-94,6.8
+continuity gap -35 vs opp,Nov-Dec,conference size,power,481,FADE,246,228,51.9,0.83,0.424,277-281,49.6,3/5,22:57-60 23:41-41 24:51-47 25:59-47 26:38-33,-7.2
+continuity gap -35 vs opp,Nov-Dec,opp conference size,power,340,FADE,176,161,52.2,0.82,0.437,275-281,49.5,4/5,22:23-31 23:32-31 24:45-39 25:47-36 26:29-24,14.2
+continuity gap -35 vs opp,Nov-Dec,opp conference size,low-major,1451,BACK,733,699,51.2,0.9,0.365,844-823,50.6,3/5,22:148-133 23:138-170 24:174-156 25:163-130 26:110-110,0.3
+continuity gap -35 vs opp,Nov-Dec,AP rank situation,neither ranked,1691,BACK,845,823,50.7,0.54,0.561,1007-1015,49.8,4/5,22:176-158 23:156-205 24:196-178 25:188-158 26:129-124,2.6
+continuity gap -35 vs opp,Nov-Dec,KenPom preseason quintile,Q3,335,BACK,165,163,50.3,0.11,0.931,206-233,46.9,3/5,22:24-36 23:27-31 24:48-45 25:35-28 26:31-23,1.9
+continuity gap -35 vs opp,Nov-Dec,KenPom preseason quintile,Q4,322,FADE,163,156,51.1,0.39,0.669,197-207,48.8,2/5,22:27-31 23:41-34 24:25-25 25:32-37 26:38-29,-3.5
+continuity gap -35 vs opp,Nov-Dec,KenPom preseason quintile,Q2,371,BACK,183,182,50.1,0.05,0.98,243-228,51.6,3/5,22:31-25 23:29-43 24:55-45 25:40-42 26:28-27,6.6
+continuity gap -35 vs opp,Nov-Dec,KenPom preseason quintile,Q5 best,308,BACK,155,150,50.8,0.29,0.798,170-175,49.3,2/5,22:34-28 23:29-30 24:33-34 25:30-34 26:29-24,-9.7
+continuity gap -35 vs opp,Nov-Dec,KenPom preseason quintile,Q1 worst,583,BACK,296,281,51.3,0.62,0.531,376-362,50.9,3/5,22:76-55 23:60-75 24:61-59 25:75-59 26:24-33,11.9
+continuity gap -35 vs opp,Nov-Dec,opp KenPom quintile,Q4,432,BACK,225,206,52.2,0.92,0.369,301-336,47.3,3/5,22:45-33 23:36-40 24:66-52 25:54-49 26:24-32,6.7
+continuity gap -35 vs opp,Nov-Dec,opp KenPom quintile,Q2,425,FADE,214,205,51.1,0.44,0.67,182-209,46.5,2/5,22:45-33 23:55-42 24:50-52 25:36-42 26:28-36,-2.4
+continuity gap -35 vs opp,Nov-Dec,opp KenPom quintile,Q1 worst,241,FADE,130,106,55.1,1.56,0.129,132-127,51.0,3/5,22:17-18 23:24-20 24:34-25 25:23-24 26:32-19,-8.1
+continuity gap -35 vs opp,Nov-Dec,opp KenPom quintile,Q3,423,BACK,226,188,54.6,1.87,0.064,259-250,50.9,4/5,22:59-43 23:35-58 24:41-26 25:54-39 26:37-22,1.2
+continuity gap -35 vs opp,Nov-Dec,opp KenPom quintile,Q5 best,398,FADE,201,193,51.0,0.4,0.686,295-306,49.1,3/5,22:33-41 23:43-46 24:46-38 25:48-43 26:31-25,13.8
+continuity gap -35 vs opp,Nov-Dec,KenPom gap vs opp,worse,510,BACK,256,247,50.9,0.4,0.694,502-523,49.0,3/5,22:47-45 23:50-69 24:69-41 25:65-56 26:25-36,7.4
+continuity gap -35 vs opp,Nov-Dec,KenPom gap vs opp,better,244,FADE,125,115,52.1,0.65,0.535,100-78,56.2,2/5,22:24-26 23:17-22 24:33-21 25:25-19 26:26-27,-8.8
+continuity gap -35 vs opp,Nov-Dec,KenPom gap vs opp,much better,192,FADE,96,92,51.1,0.29,0.79,7-8,46.7,2/5,22:20-20 23:23-15 24:20-19 25:13-17 26:20-21,-19.4
+continuity gap -35 vs opp,Nov-Dec,KenPom gap vs opp,even,575,BACK,291,276,51.3,0.63,0.515,428-376,53.2,3/5,22:43-43 23:53-66 24:75-65 25:69-62 26:51-40,0.6
+continuity gap -35 vs opp,Nov-Dec,KenPom gap vs opp,much worse,398,BACK,201,195,50.8,0.3,0.785,186-189,49.6,2/5,22:60-39 23:39-45 24:38-49 25:47-39 26:17-23,19.4
+4-5 starters back,first 10,conference size,low-major,2540,FADE,1271,1232,50.8,0.78,0.42,1933-1949,49.8,3/5,22:460-425 23:311-344 24:255-230 25:197-175 26:48-58,1.2
+4-5 starters back,first 10,conference size,mid-major,208,BACK,103,100,50.7,0.21,0.857,166-151,52.4,3/4,22:46-52 23:32-25 24:15-14 25:10-9,-2.5
+4-5 starters back,first 10,conference size,power,485,BACK,251,226,52.6,1.14,0.256,376-379,49.8,3/5,22:97-95 23:64-64 24:53-34 25:27-23 26:10-10,-10.7
+4-5 starters back,first 10,opp conference size,power,705,FADE,348,346,50.1,0.08,0.963,377-377,50.0,1/5,22:138-126 23:84-84 24:65-66 25:50-52 26:11-18,9.3
+4-5 starters back,first 10,opp conference size,mid-major,207,FADE,110,95,53.7,1.05,0.307,153-166,48.0,3/5,22:39-35 23:29-22 24:21-24 25:19-12 26:2-2,-2.2
+4-5 starters back,first 10,opp conference size,low-major,2321,BACK,1145,1139,50.1,0.13,0.899,1948-1933,50.2,2/5,22:407-430 23:334-287 24:208-217 25:148-160 26:48-45,-3.8
+4-5 starters back,first 10,AP rank situation,neither ranked,2883,FADE,1423,1414,50.2,0.17,0.869,2181-2239,49.3,3/5,22:554-523 23:360-407 24:265-249 25:193-176 26:51-59,-0.8
+4-5 starters back,first 10,AP rank situation,ranked vs unranked,169,BACK,86,81,51.5,0.39,0.728,142-165,46.3,3/5,22:28-22 23:13-20 24:23-17 25:19-18 26:3-4,-19.3
+4-5 starters back,first 10,KenPom preseason quintile,Q3,770,FADE,396,361,52.3,1.27,0.205,582-606,49.0,4/5,22:169-149 23:100-113 24:66-51 25:43-36 26:18-12,-0.5
+4-5 starters back,first 10,KenPom preseason quintile,Q4,741,FADE,370,360,50.7,0.37,0.729,534-596,47.3,3/5,22:125-122 23:74-95 24:85-75 25:77-57 26:9-11,-4.4
+4-5 starters back,first 10,KenPom preseason quintile,Q2,756,BACK,388,355,52.2,1.21,0.225,561-597,48.4,4/5,22:138-137 23:97-76 24:73-76 25:59-51 26:21-15,4.4
+4-5 starters back,first 10,KenPom preseason quintile,Q5 best,534,FADE,268,259,50.9,0.39,0.688,432-396,52.2,3/5,22:113-101 23:84-72 24:35-52 25:31-29 26:5-5,-11.3
+4-5 starters back,first 10,KenPom preseason quintile,Q1 worst,432,BACK,218,208,51.2,0.48,0.624,332-318,51.1,3/5,22:58-63 23:63-66 24:47-41 25:31-27 26:19-11,8.7
+4-5 starters back,first 10,opp KenPom quintile,Q4,602,FADE,297,296,50.1,0.04,0.98,438-404,52.0,2/5,22:118-106 23:76-82 24:48-53 25:45-41 26:10-14,4.2
+4-5 starters back,first 10,opp KenPom quintile,Q2,690,FADE,343,337,50.4,0.23,0.84,612-612,50.0,2/5,22:118-120 23:87-99 24:71-59 25:53-45 26:14-14,-5.2
+4-5 starters back,first 10,opp KenPom quintile,Q1 worst,713,FADE,353,349,50.3,0.15,0.9,553-579,48.9,1/5,22:142-116 23:98-103 24:59-63 25:41-45 26:13-22,-10.1
+4-5 starters back,first 10,opp KenPom quintile,Q3,639,BACK,316,312,50.3,0.16,0.892,569-535,51.5,1/5,22:120-122 23:83-64 24:65-68 25:42-48 26:6-10,-1.0
+4-5 starters back,first 10,opp KenPom quintile,Q5 best,589,FADE,292,288,50.3,0.17,0.897,325-327,49.8,3/5,22:107-106 23:75-73 24:57-58 25:42-39 26:11-12,10.6
+4-5 starters back,first 10,KenPom gap vs opp,worse,513,BACK,254,252,50.2,0.09,0.946,397-371,51.7,3/5,22:97-111 23:68-56 24:51-43 25:30-35 26:8-7,8.0
+4-5 starters back,first 10,KenPom gap vs opp,better,757,BACK,387,362,51.7,0.91,0.333,799-777,50.7,2/5,22:145-130 23:116-96 24:59-62 25:53-59 26:14-15,-6.9
+4-5 starters back,first 10,KenPom gap vs opp,much better,482,FADE,251,227,52.5,1.1,0.282,210-221,48.7,2/5,22:116-90 23:67-68 24:32-39 25:32-24 26:4-6,-18.2
+4-5 starters back,first 10,KenPom gap vs opp,even,1076,FADE,529,519,50.5,0.31,0.748,1048-1022,50.6,2/5,22:175-165 23:129-135 24:129-115 25:74-76 26:22-28,-0.4
+4-5 starters back,first 10,KenPom gap vs opp,much worse,405,FADE,203,199,50.5,0.2,0.855,57-52,52.3,2/5,22:75-71 23:52-53 24:37-34 25:29-29 26:10-12,18.7
+4-5 starters back,Nov-Dec,conference size,low-major,2895,FADE,1435,1420,50.3,0.28,0.758,1933-1949,49.8,3/5,22:480-452 23:377-411 24:294-271 25:230-217 26:54-69,1.1
+4-5 starters back,Nov-Dec,conference size,mid-major,229,BACK,117,107,52.2,0.67,0.504,166-151,52.4,2/4,22:46-50 23:44-31 24:15-17 25:12-9,-2.5
+4-5 starters back,Nov-Dec,conference size,power,599,BACK,310,281,52.5,1.19,0.231,376-379,49.8,3/5,22:107-110 23:82-90 24:72-40 25:33-30 26:16-11,-10.8
+4-5 starters back,Nov-Dec,opp conference size,power,817,FADE,403,402,50.1,0.04,0.986,377-377,50.0,3/5,22:150-139 23:104-99 24:81-78 25:56-64 26:12-22,9.0
+4-5 starters back,Nov-Dec,opp conference size,mid-major,231,FADE,118,111,51.5,0.46,0.665,153-166,48.0,3/5,22:38-35 23:35-32 24:22-27 25:21-15 26:2-2,-2.3
+4-5 starters back,Nov-Dec,opp conference size,low-major,2675,BACK,1334,1302,50.6,0.62,0.513,1948-1933,50.2,3/5,22:431-452 23:406-359 24:253-248 25:183-192 26:61-51,-4.0
+4-5 starters back,Nov-Dec,AP rank situation,neither ranked,3289,BACK,1628,1613,50.2,0.26,0.755,2239-2181,50.7,2/5,22:552-580 23:494-445 24:292-305 25:218-225 26:72-58,-0.9
+4-5 starters back,Nov-Dec,AP rank situation,unranked vs ranked,174,FADE,89,84,51.4,0.38,0.705,66-66,50.0,1/5,22:31-19 23:22-23 24:19-22 25:15-15 26:2-5,19.2
+4-5 starters back,Nov-Dec,AP rank situation,ranked vs unranked,212,BACK,109,101,51.9,0.55,0.61,142-165,46.3,3/5,22:29-25 23:19-27 24:33-22 25:23-23 26:5-4,-19.2
+4-5 starters back,Nov-Dec,KenPom preseason quintile,Q3,860,FADE,438,408,51.8,1.03,0.289,582-606,49.0,4/5,22:172-147 23:120-140 24:76-60 25:51-45 26:19-16,-0.4
+4-5 starters back,Nov-Dec,KenPom preseason quintile,Q4,868,BACK,432,424,50.5,0.27,0.79,596-534,52.7,3/5,22:139-133 23:112-94 24:90-97 25:74-90 26:17-10,-4.7
+4-5 starters back,Nov-Dec,KenPom preseason quintile,Q2,862,BACK,441,407,52.0,1.17,0.257,561-597,48.4,4/5,22:150-148 23:115-96 24:83-88 25:70-56 26:23-19,4.4
+4-5 starters back,Nov-Dec,KenPom preseason quintile,Q5 best,657,FADE,329,321,50.6,0.31,0.78,432-396,52.2,3/5,22:128-111 23:113-96 24:41-71 25:42-35 26:5-8,-11.4
+4-5 starters back,Nov-Dec,KenPom preseason quintile,Q1 worst,476,BACK,245,225,52.1,0.92,0.372,332-318,51.1,3/5,22:58-59 23:74-75 24:54-49 25:38-30 26:21-12,9.1
+4-5 starters back,Nov-Dec,opp KenPom quintile,Q4,701,BACK,350,341,50.7,0.34,0.742,404-438,48.0,3/5,22:117-130 23:98-87 24:64-60 25:53-53 26:18-11,3.9
+4-5 starters back,Nov-Dec,opp KenPom quintile,Q2,784,BACK,387,386,50.1,0.04,0.988,612-612,50.0,1/5,22:121-124 23:120-104 24:76-79 25:55-63 26:15-16,-5.6
+4-5 starters back,Nov-Dec,opp KenPom quintile,Q1 worst,804,FADE,398,395,50.2,0.11,0.935,553-579,48.9,2/5,22:140-117 23:121-126 24:68-74 25:53-52 26:16-26,-10.5
+4-5 starters back,Nov-Dec,opp KenPom quintile,Q3,740,BACK,375,354,51.4,0.78,0.43,569-535,51.5,3/5,22:134-125 23:102-88 24:77-76 25:52-54 26:10-11,-1.3
+4-5 starters back,Nov-Dec,opp KenPom quintile,Q5 best,694,FADE,344,340,50.3,0.15,0.89,325-327,49.8,3/5,22:121-116 23:98-91 24:68-67 25:46-50 26:11-16,10.5
+4-5 starters back,Nov-Dec,KenPom gap vs opp,worse,574,BACK,287,279,50.7,0.34,0.731,397-371,51.7,3/5,22:99-115 23:81-66 24:62-50 25:35-40 26:10-8,7.9
+4-5 starters back,Nov-Dec,KenPom gap vs opp,better,864,BACK,442,414,51.6,0.96,0.327,799-777,50.7,3/5,22:151-132 23:137-115 24:72-76 25:64-74 26:18-17,-6.9
+4-5 starters back,Nov-Dec,KenPom gap vs opp,much better,581,FADE,296,281,51.3,0.62,0.527,210-221,48.7,2/5,22:122-97 23:87-87 24:39-57 25:43-30 26:5-10,-18.4
+4-5 starters back,Nov-Dec,KenPom gap vs opp,even,1242,FADE,608,605,50.1,0.09,0.936,1048-1022,50.6,3/5,22:192-180 23:173-172 24:136-127 25:82-93 26:25-33,-0.3
+4-5 starters back,Nov-Dec,KenPom gap vs opp,much worse,462,BACK,232,226,50.7,0.28,0.822,52-57,47.7,3/5,22:78-79 23:60-57 24:40-50 25:40-30 26:14-10,18.9
+0-1 starters back,first 10,conference size,low-major,3900,FADE,1938,1911,50.4,0.44,0.644,2968-2969,50.0,3/5,22:101-120 23:295-270 24:378-354 25:417-411 26:747-756,5.4
+0-1 starters back,first 10,conference size,mid-major,460,FADE,233,218,51.7,0.71,0.502,360-364,49.7,4/5,22:7-3 23:40-38 24:28-21 25:58-49 26:100-107,0.5
+0-1 starters back,first 10,conference size,power,1419,FADE,726,679,51.7,1.25,0.172,1113-1085,50.6,4/5,22:59-65 23:112-92 24:116-108 25:181-176 26:258-238,-9.7
+0-1 starters back,first 10,opp conference size,power,1351,FADE,684,653,51.2,0.85,0.399,1112-1085,50.6,3/5,22:36-53 23:91-99 24:126-100 25:170-144 26:261-257,12.3
+0-1 starters back,first 10,opp conference size,mid-major,413,BACK,208,198,51.2,0.5,0.659,357-363,49.6,3/5,22:6-8 23:23-37 24:38-29 25:54-43 26:87-81,2.3
+0-1 starters back,first 10,opp conference size,low-major,4015,FADE,2015,1947,50.9,1.08,0.202,2966-2976,49.9,4/5,22:123-129 23:319-278 24:367-345 25:443-438 26:763-757,-2.5
+0-1 starters back,first 10,AP rank situation,neither ranked,5180,FADE,2602,2510,50.9,1.29,0.117,3864-3870,50.0,4/5,22:145-164 23:417-364 24:481-434 25:566-559 26:993-989,1.1
+0-1 starters back,first 10,AP rank situation,unranked vs ranked,307,BACK,151,151,50.0,0.0,1.0,285-277,50.7,2/5,22:9-9 23:20-13 24:30-26 25:41-46 26:51-57,20.6
+0-1 starters back,first 10,AP rank situation,ranked vs unranked,234,BACK,123,110,52.8,0.85,0.415,182-212,46.2,4/5,22:14-12 23:16-15 24:16-14 25:30-37 26:47-32,-19.8
+0-1 starters back,first 10,KenPom preseason quintile,Q3,1116,FADE,553,549,50.2,0.12,0.913,875-838,51.1,3/5,22:36-31 23:52-57 24:123-103 25:132-125 26:210-233,1.0
+0-1 starters back,first 10,KenPom preseason quintile,Q4,1033,FADE,536,485,52.5,1.6,0.095,788-825,48.9,3/5,22:24-24 23:108-86 24:66-60 25:112-116 26:226-199,-5.2
+0-1 starters back,first 10,KenPom preseason quintile,Q2,1077,FADE,567,493,53.5,2.27,0.02,816-842,49.2,5/5,22:20-17 23:97-71 24:111-102 25:107-89 26:232-214,5.2
+0-1 starters back,first 10,KenPom preseason quintile,Q5 best,985,BACK,493,484,50.5,0.29,0.771,729-783,48.2,3/5,22:33-25 23:55-61 24:75-71 25:114-125 26:216-202,-12.0
+0-1 starters back,first 10,KenPom preseason quintile,Q1 worst,1568,BACK,788,757,51.0,0.79,0.386,1184-1179,50.1,4/5,22:83-62 23:131-129 24:143-151 25:192-180 26:239-235,11.5
+0-1 starters back,first 10,opp KenPom quintile,Q4,1146,BACK,585,552,51.5,0.98,0.306,863-935,48.0,4/5,22:40-25 23:87-81 24:101-99 25:126-128 26:231-219,7.0
+0-1 starters back,first 10,opp KenPom quintile,Q2,1200,FADE,592,591,50.0,0.03,0.986,768-849,47.5,3/5,22:37-33 23:100-86 24:113-112 25:123-135 26:219-225,-3.6
+0-1 starters back,first 10,opp KenPom quintile,Q1 worst,1182,FADE,610,555,52.4,1.61,0.096,935-858,52.1,4/5,22:40-42 23:93-72 24:119-102 25:131-123 26:227-216,-9.9
+0-1 starters back,first 10,opp KenPom quintile,Q3,1134,FADE,580,538,51.9,1.26,0.174,884-921,49.0,5/5,22:31-27 23:96-71 24:93-92 25:135-132 26:225-216,0.3
+0-1 starters back,first 10,opp KenPom quintile,Q5 best,1117,FADE,563,539,51.1,0.72,0.47,919-927,49.8,3/5,22:34-46 23:77-84 24:98-76 25:139-120 26:215-213,13.6
+0-1 starters back,first 10,KenPom gap vs opp,worse,1234,BACK,608,605,50.1,0.09,0.932,1308-1253,51.1,3/5,22:39-36 23:98-115 24:128-106 25:137-154 26:206-194,7.6
+0-1 starters back,first 10,KenPom gap vs opp,better,973,FADE,503,454,52.6,1.58,0.09,801-754,51.5,4/5,22:24-27 23:76-61 24:92-72 25:122-115 26:189-179,-7.8
+0-1 starters back,first 10,KenPom gap vs opp,much better,739,FADE,372,362,50.7,0.37,0.715,92-112,45.1,3/5,22:25-22 23:57-48 24:54-47 25:77-80 26:159-165,-21.6
+0-1 starters back,first 10,KenPom gap vs opp,even,1848,FADE,937,887,51.4,1.17,0.229,1986-1963,50.3,5/5,22:43-40 23:135-102 24:176-166 25:199-197 26:384-382,0.3
+0-1 starters back,first 10,KenPom gap vs opp,much worse,985,BACK,497,480,50.9,0.54,0.556,281-309,47.6,3/5,22:60-39 23:91-64 24:70-94 25:107-104 26:169-179,21.4
+0-1 starters back,Nov-Dec,conference size,low-major,4589,FADE,2273,2255,50.2,0.27,0.754,2968-2969,50.0,2/5,22:114-141 23:371-344 24:442-405 25:464-474 26:882-891,5.3
+0-1 starters back,Nov-Dec,conference size,mid-major,553,FADE,281,262,51.7,0.82,0.433,360-364,49.7,4/5,22:8-4 23:51-46 24:30-23 25:66-59 26:126-130,0.6
+0-1 starters back,Nov-Dec,conference size,power,1825,FADE,927,880,51.3,1.11,0.248,1113-1085,50.6,4/5,22:75-80 23:144-125 24:142-138 25:228-224 26:338-313,-9.9
+0-1 starters back,Nov-Dec,opp conference size,power,1660,FADE,832,809,50.7,0.57,0.559,1112-1085,50.6,2/5,22:47-65 23:112-132 24:153-118 25:206-175 26:314-319,11.9
+0-1 starters back,Nov-Dec,opp conference size,mid-major,514,BACK,256,249,50.7,0.31,0.765,357-363,49.6,3/5,22:8-11 23:34-50 24:42-33 25:63-51 26:109-104,1.9
+0-1 starters back,Nov-Dec,opp conference size,low-major,4793,FADE,2400,2332,50.7,0.99,0.276,2966-2976,49.9,3/5,22:139-152 23:404-349 24:428-406 25:501-519 26:928-906,-3.0
+0-1 starters back,Nov-Dec,AP rank situation,neither ranked,6186,FADE,3097,3007,50.7,1.15,0.139,3864-3870,50.0,3/5,22:166-189 23:525-457 24:557-510 25:651-659 26:1198-1192,0.8
+0-1 starters back,Nov-Dec,AP rank situation,unranked vs ranked,391,BACK,199,187,51.6,0.61,0.56,285-277,50.7,2/5,22:11-13 23:36-17 24:33-36 25:53-52 26:66-69,19.8
+0-1 starters back,Nov-Dec,AP rank situation,ranked vs unranked,318,BACK,160,157,50.5,0.17,0.894,182-212,46.2,3/5,22:23-17 23:21-22 24:19-18 25:38-47 26:59-53,-20.1
+0-1 starters back,Nov-Dec,KenPom preseason quintile,Q3,1309,FADE,658,636,50.9,0.61,0.543,875-838,51.1,3/5,22:44-37 23:66-66 24:144-121 25:158-143 26:246-269,1.1
+0-1 starters back,Nov-Dec,KenPom preseason quintile,Q4,1301,FADE,678,609,52.7,1.92,0.044,788-825,48.9,4/5,22:31-28 23:145-114 24:79-69 25:136-140 26:287-258,-5.2
+0-1 starters back,Nov-Dec,KenPom preseason quintile,Q2,1277,FADE,659,597,52.5,1.75,0.074,816-842,49.2,4/5,22:20-23 23:118-90 24:132-115 25:114-109 26:275-260,5.0
+0-1 starters back,Nov-Dec,KenPom preseason quintile,Q5 best,1270,BACK,644,614,51.2,0.85,0.382,729-783,48.2,4/5,22:43-31 23:80-74 24:99-87 25:149-153 26:273-269,-12.4
+0-1 starters back,Nov-Dec,KenPom preseason quintile,Q1 worst,1810,BACK,911,872,51.1,0.92,0.353,1184-1179,50.1,4/5,22:94-71 23:165-163 24:162-172 25:216-197 26:274-269,11.8
+0-1 starters back,Nov-Dec,opp KenPom quintile,Q4,1390,BACK,707,673,51.2,0.92,0.345,863-935,48.0,5/5,22:45-30 23:112-104 24:116-112 25:156-155 26:278-272,6.6
+0-1 starters back,Nov-Dec,opp KenPom quintile,Q2,1441,FADE,718,703,50.5,0.4,0.67,768-849,47.5,2/5,22:43-39 23:135-102 24:130-131 25:148-157 26:262-274,-3.8
+0-1 starters back,Nov-Dec,opp KenPom quintile,Q1 worst,1407,FADE,727,661,52.4,1.77,0.062,935-858,52.1,4/5,22:46-49 23:114-94 24:139-120 25:147-143 26:281-255,-10.9
+0-1 starters back,Nov-Dec,opp KenPom quintile,Q3,1346,FADE,670,655,50.6,0.41,0.679,884-921,49.0,3/5,22:36-37 23:116-94 24:111-108 25:142-153 26:265-263,-0.2
+0-1 starters back,Nov-Dec,opp KenPom quintile,Q5 best,1383,FADE,693,671,50.8,0.6,0.525,919-927,49.8,3/5,22:42-55 23:97-113 24:122-91 25:166-148 26:266-264,13.3
+0-1 starters back,Nov-Dec,KenPom gap vs opp,worse,1474,BACK,733,718,50.5,0.39,0.689,1308-1253,51.1,3/5,22:47-43 23:128-138 24:149-125 25:159-179 26:250-233,7.5
+0-1 starters back,Nov-Dec,KenPom gap vs opp,better,1155,FADE,598,539,52.6,1.75,0.077,801-754,51.5,4/5,22:26-34 23:101-72 24:103-79 25:135-130 26:233-224,-7.9
+0-1 starters back,Nov-Dec,KenPom gap vs opp,much better,971,FADE,483,481,50.1,0.06,0.958,92-112,45.1,2/5,22:32-29 23:74-64 24:65-68 25:99-107 26:213-213,-21.8
+0-1 starters back,Nov-Dec,KenPom gap vs opp,even,2184,FADE,1108,1046,51.4,1.34,0.151,1986-1963,50.3,4/5,22:50-47 23:167-136 24:207-189 25:227-231 26:457-443,0.3
+0-1 starters back,Nov-Dec,KenPom gap vs opp,much worse,1183,BACK,598,574,51.0,0.7,0.461,281-309,47.6,3/5,22:68-46 23:115-86 24:81-114 25:130-118 26:204-210,21.2
+3+ more starters back than opp,first 10,conference size,low-major,1119,BACK,571,532,51.8,1.17,0.232,741-705,51.2,3/5,22:103-114 23:137-122 24:138-117 25:109-111 26:84-68,0.4
+3+ more starters back than opp,first 10,conference size,power,242,BACK,126,113,52.7,0.84,0.423,217-223,49.3,3/5,22:16-26 23:32-27 24:27-23 25:36-22 26:15-15,-13.3
+3+ more starters back than opp,first 10,opp conference size,power,371,BACK,194,171,53.2,1.2,0.245,218-223,49.4,3/5,22:43-48 23:39-41 24:42-29 25:46-34 26:24-19,7.8
+3+ more starters back than opp,first 10,opp conference size,low-major,977,BACK,498,465,51.7,1.06,0.297,739-705,51.2,3/5,22:80-97 23:135-104 24:120-105 25:94-97 26:69-62,-6.2
+3+ more starters back than opp,first 10,AP rank situation,neither ranked,1283,BACK,663,601,52.5,1.74,0.065,895-830,51.9,4/5,22:121-132 23:175-141 24:150-128 25:131-125 26:86-75,-2.1
+3+ more starters back than opp,first 10,KenPom preseason quintile,Q3,319,BACK,158,154,50.6,0.23,0.842,218-216,50.2,2/5,22:38-44 23:45-33 24:27-28 25:30-29 26:18-20,-1.2
+3+ more starters back than opp,first 10,KenPom preseason quintile,Q4,338,FADE,173,164,51.3,0.49,0.645,250-292,46.1,3/5,22:36-17 23:34-42 24:41-50 25:46-44 26:16-11,-6.1
+3+ more starters back than opp,first 10,KenPom preseason quintile,Q2,330,BACK,181,143,55.9,2.11,0.039,173-191,47.5,5/5,22:30-26 23:48-34 24:39-32 25:34-27 26:30-24,3.1
+3+ more starters back than opp,first 10,KenPom preseason quintile,Q5 best,265,BACK,134,128,51.1,0.37,0.72,215-234,47.9,3/5,22:29-33 23:32-36 24:30-24 25:31-25 26:12-10,-13.6
+3+ more starters back than opp,first 10,KenPom preseason quintile,Q1 worst,196,BACK,109,83,56.8,1.88,0.068,130-102,56.0,4/5,22:15-12 23:21-22 24:27-18 25:18-17 26:28-14,8.2
+3+ more starters back than opp,first 10,opp KenPom quintile,Q4,251,BACK,132,116,53.2,1.02,0.319,180-176,50.6,4/5,22:19-22 23:36-35 24:23-18 25:31-28 26:23-13,3.6
+3+ more starters back than opp,first 10,opp KenPom quintile,Q2,284,BACK,150,127,54.2,1.38,0.172,209-208,50.1,4/5,22:19-19 23:38-29 24:39-34 25:31-26 26:23-19,-5.9
+3+ more starters back than opp,first 10,opp KenPom quintile,Q1 worst,411,BACK,212,196,52.0,0.79,0.467,280-289,49.2,4/5,22:38-55 23:57-47 24:48-37 25:45-41 26:24-16,-11.8
+3+ more starters back than opp,first 10,opp KenPom quintile,Q3,262,BACK,133,124,51.8,0.56,0.603,223-186,54.5,3/5,22:30-26 23:33-20 24:35-33 25:21-28 26:14-17,-1.4
+3+ more starters back than opp,first 10,opp KenPom quintile,Q5 best,240,BACK,119,118,50.2,0.06,0.973,136-134,50.4,2/5,22:23-29 23:24-28 24:28-21 25:29-21 26:15-19,10.7
+3+ more starters back than opp,first 10,KenPom gap vs opp,worse,202,BACK,119,81,59.5,2.69,0.009,111-80,58.1,4/5,22:19-21 23:20-17 24:33-12 25:26-20 26:21-11,8.7
+3+ more starters back than opp,first 10,KenPom gap vs opp,better,371,FADE,185,183,50.3,0.1,0.929,403-423,48.8,3/5,22:42-31 23:40-56 24:43-31 25:41-48 26:19-17,-7.5
+3+ more starters back than opp,first 10,KenPom gap vs opp,much better,263,BACK,135,126,51.7,0.56,0.615,125-126,49.8,3/5,22:29-39 23:34-31 24:38-19 25:25-30 26:9-7,-19.7
+3+ more starters back than opp,first 10,KenPom gap vs opp,even,454,BACK,228,216,51.4,0.57,0.583,363-377,49.1,3/5,22:30-35 23:59-50 24:57-57 25:47-42 26:35-32,-0.7
+3+ more starters back than opp,first 10,KenPom gap vs opp,much worse,158,BACK,81,73,52.6,0.64,0.561,6-7,46.2,3/5,22:20-14 23:19-21 24:14-12 25:11-11 26:17-15,19.5
+3+ more starters back than opp,Nov-Dec,conference size,low-major,1250,BACK,640,591,52.0,1.4,0.126,741-705,51.2,3/5,22:107-112 23:154-138 24:157-138 25:128-128 26:94-75,0.3
+3+ more starters back than opp,Nov-Dec,conference size,power,299,BACK,153,142,51.9,0.64,0.544,217-223,49.3,3/5,22:20-33 23:37-33 24:33-28 25:44-29 26:19-19,-13.3
+3+ more starters back than opp,Nov-Dec,opp conference size,power,426,BACK,224,195,53.5,1.42,0.169,218-223,49.4,3/5,22:48-52 23:43-45 24:49-37 25:56-41 26:28-20,7.4
+3+ more starters back than opp,Nov-Dec,opp conference size,low-major,1107,BACK,562,528,51.6,1.03,0.287,739-705,51.2,3/5,22:83-97 23:153-122 24:137-123 25:110-114 26:79-72,-6.3
+3+ more starters back than opp,Nov-Dec,AP rank situation,neither ranked,1448,BACK,752,673,52.8,2.09,0.037,895-830,51.9,4/5,22:128-132 23:203-159 24:168-151 25:154-145 26:99-86,-2.3
+3+ more starters back than opp,Nov-Dec,KenPom preseason quintile,Q3,352,BACK,177,167,51.5,0.54,0.652,218-216,50.2,1/5,22:38-41 23:51-36 24:33-35 25:33-33 26:22-22,-1.2
+3+ more starters back than opp,Nov-Dec,KenPom preseason quintile,Q4,383,BACK,191,191,50.0,0.0,1.0,292-250,53.9,3/5,22:19-35 23:46-37 24:55-47 25:57-53 26:14-19,-6.1
+3+ more starters back than opp,Nov-Dec,KenPom preseason quintile,Q2,371,BACK,204,161,55.9,2.25,0.026,173-191,47.5,5/5,22:31-27 23:58-39 24:44-40 25:40-29 26:31-26,3.3
+3+ more starters back than opp,Nov-Dec,KenPom preseason quintile,Q5 best,330,BACK,165,160,50.8,0.28,0.805,215-234,47.9,3/5,22:34-41 23:40-44 24:38-28 25:37-34 26:16-13,-13.5
+3+ more starters back than opp,Nov-Dec,KenPom preseason quintile,Q1 worst,214,BACK,117,92,56.0,1.73,0.08,130-102,56.0,3/5,22:15-11 23:23-25 24:29-20 25:19-21 26:31-15,8.2
+3+ more starters back than opp,Nov-Dec,opp KenPom quintile,Q4,290,BACK,158,129,55.1,1.71,0.098,180-176,50.6,4/5,22:22-22 23:46-37 24:25-21 25:38-35 26:27-14,3.0
+3+ more starters back than opp,Nov-Dec,opp KenPom quintile,Q2,318,BACK,167,143,53.9,1.36,0.171,209-208,50.1,4/5,22:20-22 23:45-31 24:44-37 25:34-31 26:24-22,-6.1
+3+ more starters back than opp,Nov-Dec,opp KenPom quintile,Q1 worst,466,BACK,239,223,51.7,0.74,0.446,280-289,49.2,4/5,22:39-53 23:64-54 24:55-46 25:52-51 26:29-19,-11.9
+3+ more starters back than opp,Nov-Dec,opp KenPom quintile,Q3,299,BACK,152,141,51.9,0.64,0.546,223-186,54.5,3/5,22:31-25 23:37-27 24:41-39 25:27-30 26:16-20,-1.7
+3+ more starters back than opp,Nov-Dec,opp KenPom quintile,Q5 best,277,BACK,138,135,50.5,0.18,0.88,136-134,50.4,2/5,22:25-33 23:26-32 24:34-27 25:35-23 26:18-20,10.5
+3+ more starters back than opp,Nov-Dec,KenPom gap vs opp,worse,221,BACK,131,88,59.8,2.91,0.002,111-80,58.1,4/5,22:19-22 23:25-18 24:38-14 25:27-22 26:22-12,8.7
+3+ more starters back than opp,Nov-Dec,KenPom gap vs opp,better,423,BACK,211,207,50.5,0.2,0.877,423-403,51.2,2/5,22:35-42 23:65-45 24:37-49 25:54-49 26:20-22,-7.3
+3+ more starters back than opp,Nov-Dec,KenPom gap vs opp,much better,312,BACK,160,150,51.6,0.57,0.568,125-126,49.8,3/5,22:31-41 23:41-36 24:44-25 25:32-38 26:12-10,-19.6
+3+ more starters back than opp,Nov-Dec,KenPom gap vs opp,even,516,BACK,262,242,52.0,0.89,0.375,363-377,49.1,3/5,22:31-36 23:68-59 24:64-64 25:58-48 26:41-35,-0.7
+3+ more starters back than opp,Nov-Dec,KenPom gap vs opp,much worse,178,BACK,90,84,51.7,0.45,0.699,6-7,46.2,3/5,22:21-14 23:19-23 24:16-18 25:15-13 26:19-16,19.5
+"leading scorer back, opp's gone",first 10,conference size,low-major,2506,FADE,1263,1207,51.1,1.13,0.232,1895-1871,50.3,3/5,22:317-261 23:324-315 24:265-274 25:230-210 26:127-147,1.0
+"leading scorer back, opp's gone",first 10,conference size,mid-major,202,FADE,101,94,51.8,0.5,0.647,156-190,45.1,2/5,22:30-24 23:18-23 24:28-30 25:20-12 26:5-5,-2.8
+"leading scorer back, opp's gone",first 10,conference size,power,838,FADE,434,390,52.7,1.53,0.112,671-615,52.2,3/5,22:87-64 23:90-76 24:96-103 25:83-99 26:78-48,-11.6
+"leading scorer back, opp's gone",first 10,opp conference size,power,827,FADE,423,393,51.8,1.05,0.285,667-616,52.0,3/5,22:119-95 23:104-88 24:80-94 25:67-71 26:53-45,8.3
+"leading scorer back, opp's gone",first 10,opp conference size,mid-major,245,FADE,131,109,54.6,1.42,0.172,157-188,45.5,4/5,22:27-19 23:35-27 24:28-25 25:23-23 26:18-15,-1.3
+"leading scorer back, opp's gone",first 10,opp conference size,low-major,2474,FADE,1244,1189,51.1,1.12,0.226,1898-1872,50.3,2/5,22:288-235 23:293-299 24:281-288 25:243-227 26:139-140,-5.7
+"leading scorer back, opp's gone",first 10,AP rank situation,neither ranked,3093,FADE,1569,1474,51.6,1.72,0.083,2325-2341,49.8,4/5,22:384-323 23:385-383 24:345-345 25:286-258 26:169-165,-1.8
+"leading scorer back, opp's gone",first 10,AP rank situation,unranked vs ranked,161,FADE,84,76,52.5,0.63,0.527,135-112,54.7,3/5,22:28-11 23:24-20 24:16-25 25:3-11 26:13-9,18.4
+"leading scorer back, opp's gone",first 10,AP rank situation,ranked vs unranked,250,FADE,123,122,50.2,0.06,0.972,204-176,53.7,2/5,22:21-14 23:20-11 24:24-33 25:39-44 26:19-20,-19.4
+"leading scorer back, opp's gone",first 10,KenPom preseason quintile,Q3,746,FADE,377,356,51.4,0.78,0.431,584-590,49.7,4/5,22:101-80 23:96-105 24:69-66 25:45-42 26:66-63,0.0
+"leading scorer back, opp's gone",first 10,KenPom preseason quintile,Q4,858,FADE,441,402,52.3,1.34,0.162,642-656,49.5,4/5,22:89-73 23:73-72 24:130-114 25:99-93 26:50-50,-6.0
+"leading scorer back, opp's gone",first 10,KenPom preseason quintile,Q2,694,BACK,344,337,50.5,0.27,0.782,500-530,48.5,3/5,22:101-110 23:85-77 24:72-62 25:60-63 26:26-25,4.3
+"leading scorer back, opp's gone",first 10,KenPom preseason quintile,Q5 best,763,FADE,408,346,54.1,2.26,0.029,591-551,51.8,3/5,22:95-67 23:98-65 24:77-95 25:84-85 26:54-34,-12.7
+"leading scorer back, opp's gone",first 10,KenPom preseason quintile,Q1 worst,485,BACK,243,235,50.8,0.37,0.731,379-375,50.3,2/5,22:28-39 23:87-88 24:60-51 25:41-42 26:27-15,8.7
+"leading scorer back, opp's gone",first 10,opp KenPom quintile,Q4,604,BACK,305,284,51.8,0.87,0.41,432-493,46.7,3/5,22:69-73 23:89-80 24:61-49 25:47-49 26:39-33,3.1
+"leading scorer back, opp's gone",first 10,opp KenPom quintile,Q2,743,FADE,373,361,50.8,0.44,0.655,581-586,49.8,3/5,22:55-50 23:102-88 24:100-101 25:74-73 26:42-49,-6.1
+"leading scorer back, opp's gone",first 10,opp KenPom quintile,Q1 worst,871,FADE,459,396,53.7,2.15,0.028,652-663,49.6,4/5,22:155-111 23:87-86 24:85-81 25:91-66 26:41-52,-11.7
+"leading scorer back, opp's gone",first 10,opp KenPom quintile,Q3,660,FADE,332,317,51.2,0.59,0.582,499-526,48.7,3/5,22:67-54 23:77-80 24:84-81 25:62-74 26:42-28,-2.1
+"leading scorer back, opp's gone",first 10,opp KenPom quintile,Q5 best,668,FADE,350,312,52.9,1.48,0.131,497-469,51.4,3/5,22:84-65 23:86-71 24:71-83 25:57-61 26:52-32,10.0
+"leading scorer back, opp's gone",first 10,KenPom gap vs opp,worse,534,BACK,280,243,53.5,1.62,0.109,414-420,49.6,4/5,22:48-60 23:83-68 24:64-46 25:51-40 26:34-29,7.7
+"leading scorer back, opp's gone",first 10,KenPom gap vs opp,better,856,FADE,430,416,50.8,0.48,0.646,908-875,50.9,3/5,22:99-106 23:88-85 24:96-81 25:100-93 26:47-51,-6.9
+"leading scorer back, opp's gone",first 10,KenPom gap vs opp,much better,692,FADE,371,312,54.3,2.26,0.027,235-254,48.1,4/5,22:114-65 23:81-65 24:65-79 25:68-64 26:43-39,-19.4
+"leading scorer back, opp's gone",first 10,KenPom gap vs opp,even,1079,FADE,563,494,53.3,2.12,0.023,1097-1074,50.5,5/5,22:102-82 23:140-122 24:150-145 25:101-91 26:70-54,-0.0
+"leading scorer back, opp's gone",first 10,KenPom gap vs opp,much worse,385,FADE,191,189,50.3,0.1,0.943,62-59,51.2,2/5,22:59-48 23:55-59 24:32-38 25:24-22 26:21-22,19.8
+"leading scorer back, opp's gone",Nov-Dec,conference size,low-major,2858,FADE,1430,1386,50.8,0.83,0.372,1895-1871,50.3,3/5,22:326-276 23:387-376 24:302-323 25:271-238 26:144-173,1.0
+"leading scorer back, opp's gone",Nov-Dec,conference size,mid-major,235,BACK,115,113,50.4,0.13,0.918,190-156,54.9,2/5,22:25-31 23:34-23 24:36-31 25:14-22 26:6-6,-3.1
+"leading scorer back, opp's gone",Nov-Dec,conference size,power,1068,FADE,536,516,51.0,0.62,0.528,671-615,52.2,3/5,22:97-73 23:117-104 24:115-133 25:111-128 26:96-78,-11.3
+"leading scorer back, opp's gone",Nov-Dec,opp conference size,power,996,FADE,492,488,50.2,0.13,0.902,667-616,52.0,2/5,22:131-102 23:124-114 24:96-119 25:85-90 26:56-63,7.8
+"leading scorer back, opp's gone",Nov-Dec,opp conference size,mid-major,281,FADE,145,131,52.5,0.84,0.43,157-188,45.5,4/5,22:30-21 23:40-39 24:29-28 25:27-27 26:19-16,-1.5
+"leading scorer back, opp's gone",Nov-Dec,opp conference size,low-major,2884,FADE,1442,1398,50.8,0.83,0.372,1898-1872,50.3,3/5,22:293-251 23:363-361 24:323-345 25:292-263 26:171-178,-6.0
+"leading scorer back, opp's gone",Nov-Dec,AP rank situation,neither ranked,3587,FADE,1793,1737,50.8,0.94,0.309,2325-2341,49.8,2/5,22:399-344 23:464-473 24:394-412 25:338-302 26:198-206,-2.0
+"leading scorer back, opp's gone",Nov-Dec,AP rank situation,unranked vs ranked,204,FADE,102,100,50.5,0.14,0.92,135-112,54.7,2/5,22:30-12 23:29-25 24:21-32 25:8-15 26:14-16,17.6
+"leading scorer back, opp's gone",Nov-Dec,AP rank situation,ranked vs unranked,315,FADE,160,150,51.6,0.57,0.603,204-176,53.7,2/5,22:23-15 23:30-14 24:29-41 25:53-53 26:25-27,-19.5
+"leading scorer back, opp's gone",Nov-Dec,KenPom preseason quintile,Q3,848,FADE,427,406,51.3,0.73,0.445,584-590,49.7,3/5,22:107-82 23:118-123 24:78-82 25:49-48 26:75-71,0.1
+"leading scorer back, opp's gone",Nov-Dec,KenPom preseason quintile,Q4,1027,FADE,522,488,51.7,1.07,0.283,642-656,49.5,3/5,22:93-81 23:92-92 24:148-132 25:128-113 26:61-70,-6.0
+"leading scorer back, opp's gone",Nov-Dec,KenPom preseason quintile,Q2,777,BACK,390,373,51.1,0.62,0.528,500-530,48.5,3/5,22:107-114 23:103-90 24:81-71 25:67-69 26:32-29,4.3
+"leading scorer back, opp's gone",Nov-Dec,KenPom preseason quintile,Q5 best,955,FADE,494,450,52.3,1.43,0.132,591-551,51.8,4/5,22:103-74 23:122-92 24:92-123 25:112-108 26:65-53,-12.7
+"leading scorer back, opp's gone",Nov-Dec,KenPom preseason quintile,Q1 worst,554,BACK,283,263,51.8,0.86,0.396,379-375,50.3,2/5,22:30-37 23:104-105 24:74-59 25:44-46 26:31-16,8.7
+"leading scorer back, opp's gone",Nov-Dec,opp KenPom quintile,Q4,717,BACK,367,333,52.4,1.29,0.192,432-493,46.7,3/5,22:78-84 23:109-92 24:72-61 25:57-62 26:51-34,2.7
+"leading scorer back, opp's gone",Nov-Dec,opp KenPom quintile,Q2,864,FADE,434,419,50.9,0.51,0.587,581-586,49.8,3/5,22:57-51 23:118-109 24:110-120 25:93-83 26:56-56,-6.4
+"leading scorer back, opp's gone",Nov-Dec,opp KenPom quintile,Q1 worst,995,FADE,515,463,52.7,1.66,0.105,652-663,49.6,4/5,22:150-118 23:111-104 24:100-98 25:106-80 26:48-63,-12.3
+"leading scorer back, opp's gone",Nov-Dec,opp KenPom quintile,Q3,776,FADE,386,379,50.5,0.25,0.816,499-526,48.7,2/5,22:71-58 23:98-99 24:95-97 25:69-86 26:53-39,-2.4
+"leading scorer back, opp's gone",Nov-Dec,opp KenPom quintile,Q5 best,809,FADE,411,389,51.4,0.78,0.446,497-469,51.4,3/5,22:92-69 23:108-93 24:82-105 25:74-74 26:55-48,9.6
+"leading scorer back, opp's gone",Nov-Dec,KenPom gap vs opp,worse,634,BACK,337,285,54.2,2.09,0.022,414-420,49.6,4/5,22:53-67 23:106-86 24:86-50 25:53-49 26:39-33,7.6
+"leading scorer back, opp's gone",Nov-Dec,KenPom gap vs opp,better,999,BACK,501,486,50.8,0.48,0.65,875-908,49.1,3/5,22:113-98 23:110-104 24:103-114 25:110-118 26:65-52,-7.0
+"leading scorer back, opp's gone",Nov-Dec,KenPom gap vs opp,much better,841,FADE,450,381,54.2,2.39,0.012,235-254,48.1,4/5,22:116-72 23:103-79 24:79-93 25:92-81 26:60-56,-19.6
+"leading scorer back, opp's gone",Nov-Dec,KenPom gap vs opp,even,1245,FADE,638,584,52.2,1.54,0.088,1097-1074,50.5,4/5,22:108-86 23:172-155 24:162-167 25:117-107 26:79-69,0.0
+"leading scorer back, opp's gone",Nov-Dec,KenPom gap vs opp,much worse,442,FADE,220,214,50.7,0.29,0.791,62-59,51.2,1/5,22:65-50 23:62-64 24:43-43 25:28-29 26:22-28,19.8
+6+ transfers in,first 10,conference size,low-major,288,BACK,151,132,53.4,1.13,0.276,196-239,45.1,5/5,22:20-17 23:10-9 24:15-14 25:31-29 26:75-63,-0.9
+6+ transfers in,first 10,conference size,power,566,FADE,284,278,50.5,0.25,0.801,443-426,51.0,3/5,22:19-20 23:16-13 24:52-48 25:84-82 26:113-115,-11.0
+6+ transfers in,first 10,opp conference size,power,260,BACK,139,121,53.5,1.12,0.271,425-443,49.0,2/5,22:12-12 23:6-6 24:23-23 25:37-30 26:61-50,3.5
+6+ transfers in,first 10,opp conference size,low-major,571,BACK,285,276,50.8,0.38,0.701,198-238,45.4,1/5,22:29-29 23:15-17 24:40-41 25:77-78 26:124-111,-12.5
+6+ transfers in,first 10,AP rank situation,neither ranked,785,BACK,397,378,51.2,0.68,0.47,474-502,48.6,3/5,22:39-38 23:23-24 24:60-57 25:101-101 26:174-158,-8.2
+6+ transfers in,first 10,KenPom preseason quintile,Q4,358,BACK,178,176,50.3,0.11,0.946,271-276,49.5,2/5,22:22-16 23:4-6 24:37-33 25:42-46 26:73-75,-8.2
+6+ transfers in,first 10,KenPom preseason quintile,Q5 best,348,BACK,178,169,51.3,0.48,0.63,244-286,46.0,2/5,22:9-11 23:9-10 24:22-28 25:50-48 26:88-72,-11.9
+6+ transfers in,first 10,opp KenPom quintile,Q4,189,FADE,98,90,52.1,0.58,0.587,209-182,53.5,3/5,22:6-5 23:5-8 24:20-15 25:30-30 26:37-32,-1.4
+6+ transfers in,first 10,opp KenPom quintile,Q2,167,BACK,92,72,56.1,1.56,0.131,40-35,53.3,4/5,22:9-7 23:6-6 24:15-10 25:24-15 26:38-34,-13.9
+6+ transfers in,first 10,opp KenPom quintile,Q1 worst,183,FADE,91,86,51.4,0.38,0.738,32-24,57.1,3/5,22:11-12 23:6-4 24:9-8 25:29-21 26:36-41,-21.6
+6+ transfers in,first 10,opp KenPom quintile,Q5 best,224,BACK,129,95,57.6,2.27,0.03,341-355,49.0,3/5,22:11-11 23:2-2 24:22-17 25:33-25 26:61-40,5.4
+6+ transfers in,first 10,KenPom gap vs opp,better,232,FADE,122,104,54.0,1.2,0.274,144-118,55.0,4/5,22:11-10 23:3-6 24:20-18 25:41-24 26:47-46,-8.6
+6+ transfers in,first 10,KenPom gap vs opp,much better,267,BACK,133,132,50.2,0.06,0.974,19-16,54.3,3/5,22:14-13 23:6-9 24:14-18 25:34-30 26:65-62,-22.9
+6+ transfers in,first 10,KenPom gap vs opp,even,228,BACK,116,111,51.1,0.33,0.771,278-320,46.5,2/5,22:4-9 23:2-6 24:21-24 25:40-30 26:49-42,-0.4
+6+ transfers in,Nov-Dec,conference size,low-major,350,BACK,180,165,52.2,0.81,0.425,196-239,45.1,3/5,22:26-21 23:11-11 24:17-16 25:33-33 26:93-84,-1.1
+6+ transfers in,Nov-Dec,conference size,power,722,BACK,358,358,50.0,0.0,1.0,426-443,49.0,3/5,22:24-21 23:17-21 24:60-63 25:107-106 26:150-147,-11.0
+6+ transfers in,Nov-Dec,opp conference size,power,332,BACK,173,159,52.1,0.77,0.459,425-443,49.0,3/5,22:12-13 23:10-10 24:28-27 25:45-43 26:78-66,3.4
+6+ transfers in,Nov-Dec,opp conference size,low-major,714,BACK,358,343,51.1,0.57,0.572,198-238,45.4,3/5,22:40-33 23:16-20 24:47-50 25:97-90 26:158-150,-12.8
+6+ transfers in,Nov-Dec,AP rank situation,neither ranked,959,BACK,483,463,51.1,0.65,0.531,474-502,48.6,3/5,22:46-43 23:24-31 24:69-69 25:122-114 26:222-206,-8.3
+6+ transfers in,Nov-Dec,KenPom preseason quintile,Q3,154,BACK,77,75,50.7,0.16,0.896,95-102,48.2,3/4,22:8-15 24:11-9 25:12-11 26:46-40,1.0
+6+ transfers in,Nov-Dec,KenPom preseason quintile,Q4,451,BACK,227,220,50.8,0.33,0.76,271-276,49.5,2/5,22:27-17 23:5-9 24:45-40 25:53-56 26:97-98,-8.3
+6+ transfers in,Nov-Dec,KenPom preseason quintile,Q5 best,445,BACK,226,216,51.1,0.48,0.612,244-286,46.0,2/5,22:11-13 23:12-12 24:27-35 25:67-60 26:109-96,-11.9
+6+ transfers in,Nov-Dec,opp KenPom quintile,Q4,226,FADE,118,106,52.7,0.8,0.452,209-182,53.5,3/5,22:6-5 23:6-8 24:24-17 25:35-35 26:47-41,-1.7
+6+ transfers in,Nov-Dec,opp KenPom quintile,Q2,203,BACK,111,88,55.8,1.63,0.108,40-35,53.3,3/5,22:12-7 23:6-8 24:18-11 25:30-17 26:45-45,-13.8
+6+ transfers in,Nov-Dec,opp KenPom quintile,Q1 worst,234,FADE,117,111,51.3,0.4,0.703,32-24,57.1,3/5,22:16-17 23:6-4 24:11-9 25:33-27 26:51-54,-22.2
+6+ transfers in,Nov-Dec,opp KenPom quintile,Q3,176,FADE,95,79,54.6,1.21,0.261,94-71,57.0,4/5,22:9-9 23:7-4 24:20-12 25:23-19 26:36-35,-9.6
+6+ transfers in,Nov-Dec,opp KenPom quintile,Q5 best,292,BACK,163,129,55.8,1.99,0.045,341-355,49.0,4/5,22:11-12 23:6-5 24:27-18 25:42-39 26:77-55,5.3
+6+ transfers in,Nov-Dec,KenPom gap vs opp,worse,165,BACK,95,68,58.3,2.11,0.032,206-200,50.7,4/5,22:10-6 23:7-6 24:16-7 25:22-22 26:40-27,6.3
+6+ transfers in,Nov-Dec,KenPom gap vs opp,better,273,FADE,143,123,53.8,1.23,0.206,144-118,55.0,3/5,22:11-12 23:3-6 24:24-23 25:45-27 26:60-55,-8.9
+6+ transfers in,Nov-Dec,KenPom gap vs opp,much better,349,BACK,176,170,50.9,0.32,0.762,19-16,54.3,3/5,22:20-17 23:6-11 24:16-24 25:48-36 26:86-82,-22.9
+6+ transfers in,Nov-Dec,KenPom gap vs opp,even,282,BACK,143,137,51.1,0.36,0.744,278-320,46.5,2/5,22:5-11 23:3-8 24:26-26 25:49-37 26:60-55,-0.5
+new players 60%+ of minutes,first 10,conference size,low-major,4134,BACK,2091,1982,51.3,1.71,0.051,3171-3141,50.2,5/5,22:187-168 23:299-287 24:358-344 25:489-459 26:758-724,6.0
+new players 60%+ of minutes,first 10,conference size,mid-major,480,BACK,246,227,52.0,0.87,0.401,393-371,51.4,3/5,22:25-15 23:19-21 24:52-37 25:54-52 26:96-102,1.5
+new players 60%+ of minutes,first 10,conference size,power,1447,FADE,734,696,51.3,1.0,0.316,1130-1114,50.4,4/5,22:88-84 23:98-105 24:109-95 25:191-173 26:248-239,-9.7
+new players 60%+ of minutes,first 10,opp conference size,power,1422,FADE,706,701,50.2,0.13,0.9,1129-1116,50.3,3/5,22:66-73 23:83-107 24:122-100 25:174-168 26:261-253,13.4
+new players 60%+ of minutes,first 10,opp conference size,mid-major,429,BACK,217,206,51.3,0.53,0.602,385-373,50.8,3/5,22:16-14 23:25-29 24:43-35 25:52-54 26:81-74,2.5
+new players 60%+ of minutes,first 10,opp conference size,low-major,4210,BACK,2115,2031,51.0,1.3,0.13,3177-3140,50.3,4/5,22:207-191 23:291-294 24:362-333 25:496-474 26:759-739,-2.0
+new players 60%+ of minutes,first 10,AP rank situation,neither ranked,5470,BACK,2750,2642,51.0,1.47,0.076,4150-4072,50.5,5/5,22:278-249 23:389-382 24:462-437 25:640-615 26:981-959,1.6
+new players 60%+ of minutes,first 10,AP rank situation,unranked vs ranked,324,FADE,169,150,53.0,1.06,0.298,300-289,50.9,3/5,22:11-11 23:9-17 24:40-26 25:49-44 26:60-52,21.0
+new players 60%+ of minutes,first 10,AP rank situation,ranked vs unranked,214,BACK,109,103,51.4,0.41,0.68,166-199,45.5,3/5,22:7-10 23:16-14 24:14-11 25:26-30 26:46-38,-19.7
+new players 60%+ of minutes,first 10,KenPom preseason quintile,Q3,1068,BACK,541,509,51.5,0.99,0.299,812-823,49.7,4/5,22:23-35 23:62-55 24:114-110 25:117-92 26:225-217,1.0
+new players 60%+ of minutes,first 10,KenPom preseason quintile,Q4,972,FADE,492,470,51.1,0.71,0.454,745-770,49.2,2/5,22:48-48 23:69-76 24:69-59 25:103-104 26:203-183,-6.0
+new players 60%+ of minutes,first 10,KenPom preseason quintile,Q2,1231,BACK,620,592,51.2,0.8,0.418,984-947,51.0,3/5,22:44-41 23:72-72 24:127-117 25:143-160 26:234-202,4.7
+new players 60%+ of minutes,first 10,KenPom preseason quintile,Q5 best,963,FADE,478,475,50.2,0.1,0.948,771-713,52.0,2/5,22:34-33 23:51-54 24:60-66 25:145-121 26:188-201,-11.6
+new players 60%+ of minutes,first 10,KenPom preseason quintile,Q1 worst,1827,BACK,927,872,51.5,1.3,0.182,1399-1356,50.8,3/5,22:148-113 23:159-159 24:139-134 25:231-202 26:250-264,11.9
+new players 60%+ of minutes,first 10,opp KenPom quintile,Q4,1166,BACK,597,559,51.6,1.12,0.264,893-968,48.0,4/5,22:59-44 23:85-67 24:97-97 25:141-139 26:215-212,7.7
+new players 60%+ of minutes,first 10,opp KenPom quintile,Q2,1226,BACK,622,589,51.4,0.95,0.341,923-839,52.4,3/5,22:52-59 23:87-95 24:114-103 25:146-122 26:223-210,-3.3
+new players 60%+ of minutes,first 10,opp KenPom quintile,Q1 worst,1303,BACK,640,636,50.2,0.11,0.912,957-991,49.1,3/5,22:71-69 23:95-92 24:100-104 25:143-152 26:231-219,-9.1
+new players 60%+ of minutes,first 10,opp KenPom quintile,Q3,1198,BACK,592,587,50.2,0.15,0.902,983-922,51.6,2/5,22:54-45 23:67-80 24:115-92 25:144-149 26:212-221,1.1
+new players 60%+ of minutes,first 10,opp KenPom quintile,Q5 best,1168,BACK,582,572,50.4,0.29,0.739,922-922,50.0,3/5,22:60-54 23:89-72 24:79-94 25:142-140 26:212-212,14.8
+new players 60%+ of minutes,first 10,KenPom gap vs opp,worse,1338,BACK,672,640,51.2,0.88,0.386,1430-1399,50.5,4/5,22:69-64 23:89-110 24:135-104 25:170-167 26:209-195,7.3
+new players 60%+ of minutes,first 10,KenPom gap vs opp,better,952,BACK,470,466,50.2,0.13,0.903,686-754,47.6,2/5,22:36-38 23:65-49 24:82-85 25:119-113 26:168-181,-7.5
+new players 60%+ of minutes,first 10,KenPom gap vs opp,much better,758,FADE,377,371,50.4,0.22,0.84,77-87,47.0,4/5,22:37-29 23:54-50 24:51-45 25:90-81 26:145-166,-21.2
+new players 60%+ of minutes,first 10,KenPom gap vs opp,even,1852,BACK,919,912,50.2,0.16,0.868,2131-2042,51.1,2/5,22:58-63 23:112-116 24:164-152 25:211-220 26:374-361,0.2
+new players 60%+ of minutes,first 10,KenPom gap vs opp,much worse,1161,BACK,601,548,52.3,1.56,0.112,344-370,48.2,3/5,22:104-69 23:107-77 24:79-98 25:135-112 26:176-192,21.3
+new players 60%+ of minutes,Nov-Dec,conference size,low-major,4808,BACK,2421,2318,51.1,1.5,0.083,3171-3141,50.2,5/5,22:204-181 23:367-357 24:409-399 25:558-522 26:883-859,6.1
+new players 60%+ of minutes,Nov-Dec,conference size,mid-major,565,BACK,283,273,50.9,0.42,0.696,393-371,51.4,3/5,22:26-17 23:22-25 24:55-41 25:62-58 26:118-132,1.5
+new players 60%+ of minutes,Nov-Dec,conference size,power,1857,FADE,931,905,50.7,0.61,0.538,1130-1114,50.4,4/5,22:109-102 23:127-141 24:134-119 25:238-227 26:323-316,-10.0
+new players 60%+ of minutes,Nov-Dec,opp conference size,power,1739,BACK,863,859,50.1,0.1,0.931,1116-1129,49.7,2/5,22:84-79 23:140-106 24:117-144 25:204-212 26:318-318,13.0
+new players 60%+ of minutes,Nov-Dec,opp conference size,mid-major,519,BACK,257,254,50.3,0.13,0.918,385-373,50.8,2/5,22:16-16 23:31-33 24:47-44 25:61-61 26:102-100,2.4
+new players 60%+ of minutes,Nov-Dec,opp conference size,low-major,4972,BACK,2489,2409,50.8,1.14,0.194,3177-3140,50.3,4/5,22:232-212 23:359-370 24:419-386 25:582-545 26:897-896,-2.5
+new players 60%+ of minutes,Nov-Dec,AP rank situation,neither ranked,6458,BACK,3234,3133,50.8,1.27,0.105,4150-4072,50.5,5/5,22:301-277 23:480-473 24:533-505 25:750-712 26:1170-1166,1.4
+new players 60%+ of minutes,Nov-Dec,AP rank situation,unranked vs ranked,408,FADE,205,198,50.9,0.35,0.755,300-289,50.9,3/5,22:15-15 23:11-27 24:49-30 25:56-55 26:74-71,20.7
+new players 60%+ of minutes,Nov-Dec,AP rank situation,ranked vs unranked,297,FADE,149,146,50.5,0.17,0.888,199-166,54.5,3/5,22:13-15 23:23-21 24:17-16 25:41-34 26:55-60,-20.0
+new players 60%+ of minutes,Nov-Dec,KenPom preseason quintile,Q3,1242,FADE,612,610,50.1,0.06,0.956,823-812,50.3,2/5,22:42-26 23:70-70 24:126-131 25:117-127 26:257-256,1.1
+new players 60%+ of minutes,Nov-Dec,KenPom preseason quintile,Q4,1227,FADE,622,594,51.2,0.8,0.437,745-770,49.2,3/5,22:61-55 23:94-99 24:85-69 25:124-132 26:258-239,-5.9
+new players 60%+ of minutes,Nov-Dec,KenPom preseason quintile,Q2,1412,BACK,716,674,51.5,1.13,0.234,984-947,51.0,3/5,22:45-41 23:90-91 24:142-132 25:167-171 26:272-239,4.7
+new players 60%+ of minutes,Nov-Dec,KenPom preseason quintile,Q5 best,1241,BACK,622,605,50.7,0.49,0.64,713-771,48.0,4/5,22:44-39 23:76-65 24:83-75 25:161-177 26:258-249,-12.2
+new players 60%+ of minutes,Nov-Dec,KenPom preseason quintile,Q1 worst,2108,BACK,1067,1009,51.4,1.27,0.175,1399-1356,50.8,4/5,22:162-124 23:195-189 24:158-156 25:260-229 26:292-311,12.3
+new players 60%+ of minutes,Nov-Dec,opp KenPom quintile,Q4,1410,BACK,715,683,51.1,0.86,0.394,893-968,48.0,3/5,22:62-50 23:103-90 24:117-109 25:170-170 26:263-264,7.2
+new players 60%+ of minutes,Nov-Dec,opp KenPom quintile,Q2,1463,BACK,725,720,50.2,0.13,0.9,923-839,52.4,3/5,22:60-66 23:105-123 24:133-122 25:165-151 26:262-258,-3.4
+new players 60%+ of minutes,Nov-Dec,opp KenPom quintile,Q1 worst,1517,FADE,746,742,50.1,0.1,0.925,991-957,50.9,2/5,22:76-78 23:108-116 24:120-110 25:173-168 26:269-270,-10.2
+new players 60%+ of minutes,Nov-Dec,opp KenPom quintile,Q3,1402,BACK,707,671,51.3,0.97,0.317,983-922,51.6,3/5,22:61-51 23:89-98 24:130-108 25:169-154 26:258-260,0.6
+new players 60%+ of minutes,Nov-Dec,opp KenPom quintile,Q5 best,1438,BACK,720,702,50.6,0.48,0.645,922-922,50.0,4/5,22:71-64 23:117-90 24:93-115 25:175-170 26:264-263,14.5
+new players 60%+ of minutes,Nov-Dec,KenPom gap vs opp,worse,1574,BACK,795,751,51.4,1.12,0.241,1430-1399,50.5,4/5,22:76-70 23:116-136 24:156-117 25:194-191 26:253-237,7.3
+new players 60%+ of minutes,Nov-Dec,KenPom gap vs opp,better,1108,FADE,546,544,50.1,0.06,0.968,754-686,52.4,3/5,22:42-40 23:65-76 24:98-86 25:121-139 26:220-203,-7.7
+new players 60%+ of minutes,Nov-Dec,KenPom gap vs opp,much better,982,BACK,489,481,50.4,0.26,0.818,87-77,53.0,1/5,22:37-43 23:64-67 24:60-62 25:111-114 26:217-195,-21.6
+new players 60%+ of minutes,Nov-Dec,KenPom gap vs opp,even,2182,FADE,1088,1067,50.5,0.45,0.628,2042-2131,48.9,4/5,22:73-66 23:145-143 24:179-189 25:259-241 26:432-428,0.1
+new players 60%+ of minutes,Nov-Dec,KenPom gap vs opp,much worse,1384,BACK,714,656,52.1,1.57,0.108,344-370,48.2,3/5,22:113-79 23:131-96 24:92-118 25:162-133 26:216-230,21.3
+new head coach,first 10,conference size,low-major,1970,BACK,999,936,51.6,1.43,0.145,1452-1542,48.5,4/5,22:172-162 23:204-208 24:220-185 25:199-194 26:204-187,5.8
+new head coach,first 10,conference size,mid-major,219,BACK,108,104,50.9,0.27,0.819,162-183,47.0,2/5,22:25-14 23:3-6 24:21-28 25:35-40 26:24-16,1.6
+new head coach,first 10,conference size,power,594,BACK,297,293,50.3,0.16,0.893,467-462,50.3,3/5,22:71-63 23:56-61 24:40-50 25:57-53 26:73-66,-8.9
+new head coach,first 10,opp conference size,power,636,BACK,323,307,51.3,0.64,0.526,469-464,50.3,4/5,22:69-58 23:56-61 24:60-56 25:66-63 26:72-69,13.8
+new head coach,first 10,opp conference size,mid-major,189,BACK,104,79,56.8,1.85,0.064,159-181,46.8,3/5,22:14-15 23:19-22 24:21-12 25:23-18 26:27-12,2.8
+new head coach,first 10,opp conference size,low-major,1958,BACK,977,947,50.8,0.68,0.491,1453-1542,48.5,3/5,22:185-166 23:188-192 24:200-195 25:202-206 26:202-188,-1.4
+new head coach,first 10,AP rank situation,neither ranked,2562,BACK,1296,1220,51.5,1.52,0.089,1863-1983,48.4,4/5,22:250-217 23:246-257 24:263-246 25:265-255 26:272-245,1.6
+new head coach,first 10,AP rank situation,unranked vs ranked,153,FADE,77,76,50.3,0.08,0.972,111-138,44.6,2/5,22:14-10 23:9-11 24:17-18 25:22-18 26:15-19,21.7
+new head coach,first 10,KenPom preseason quintile,Q3,565,FADE,285,269,51.4,0.68,0.5,443-411,51.9,2/5,22:43-43 23:58-38 24:90-97 25:54-45 26:40-46,0.3
+new head coach,first 10,KenPom preseason quintile,Q4,436,FADE,218,212,50.7,0.29,0.78,336-341,49.6,2/5,22:32-33 23:34-26 24:29-30 25:57-61 26:66-62,-5.9
+new head coach,first 10,KenPom preseason quintile,Q2,612,BACK,301,300,50.1,0.04,0.983,449-494,47.6,3/5,22:36-39 23:75-73 24:56-50 25:75-80 26:59-58,4.7
+new head coach,first 10,KenPom preseason quintile,Q5 best,328,BACK,168,158,51.5,0.55,0.593,247-261,48.6,3/5,22:37-33 23:39-38 24:14-16 25:20-29 26:58-42,-11.8
+new head coach,first 10,KenPom preseason quintile,Q1 worst,842,BACK,454,372,55.0,2.85,0.006,633-653,49.2,5/5,22:119-92 23:85-72 24:84-78 25:90-67 26:76-63,11.8
+new head coach,first 10,opp KenPom quintile,Q4,560,BACK,293,258,53.2,1.49,0.139,395-464,46.0,4/5,22:47-43 23:57-47 24:64-46 25:66-59 26:59-63,7.7
+new head coach,first 10,opp KenPom quintile,Q2,585,BACK,303,272,52.7,1.29,0.183,386-427,47.5,3/5,22:52-53 23:58-59 24:63-61 25:61-45 26:69-54,-2.3
+new head coach,first 10,opp KenPom quintile,Q1 worst,577,FADE,282,281,50.1,0.04,0.979,473-443,51.6,3/5,22:47-70 23:52-49 24:64-48 25:64-56 26:55-58,-8.7
+new head coach,first 10,opp KenPom quintile,Q3,557,FADE,277,272,50.5,0.21,0.836,440-444,49.8,2/5,22:51-51 23:65-52 24:48-61 25:68-58 26:45-50,1.4
+new head coach,first 10,opp KenPom quintile,Q5 best,504,BACK,255,244,51.1,0.49,0.643,413-383,51.9,3/5,22:48-45 23:47-52 24:45-44 25:50-51 26:65-52,15.4
+new head coach,first 10,KenPom gap vs opp,worse,672,BACK,343,313,52.3,1.17,0.219,677-645,51.2,3/5,22:70-70 23:61-62 24:73-54 25:77-72 26:62-55,7.2
+new head coach,first 10,KenPom gap vs opp,better,428,FADE,218,203,51.8,0.73,0.475,346-305,53.1,3/5,22:31-30 23:44-45 24:46-37 25:56-46 26:41-45,-7.7
+new head coach,first 10,KenPom gap vs opp,much better,298,FADE,154,141,52.2,0.76,0.47,33-36,47.8,3/5,22:28-31 23:37-27 24:16-12 25:29-22 26:44-49,-20.6
+new head coach,first 10,KenPom gap vs opp,even,844,BACK,422,406,51.0,0.56,0.588,870-939,48.1,4/5,22:63-54 23:67-88 24:104-100 25:91-87 26:97-77,0.1
+new head coach,first 10,KenPom gap vs opp,much worse,541,BACK,295,242,54.9,2.29,0.016,193-224,46.3,4/5,22:74-56 23:63-44 24:55-47 25:55-43 26:48-52,20.4
+new head coach,Nov-Dec,conference size,low-major,2292,BACK,1170,1081,52.0,1.88,0.051,1452-1542,48.5,4/5,22:187-167 23:255-263 24:247-211 25:239-225 26:242-215,5.9
+new head coach,Nov-Dec,conference size,mid-major,260,BACK,129,122,51.4,0.44,0.695,162-183,47.0,2/5,22:27-18 23:4-6 24:25-32 25:43-45 26:30-21,1.6
+new head coach,Nov-Dec,conference size,power,748,FADE,373,370,50.2,0.11,0.926,462-467,49.7,2/5,22:78-79 23:80-75 24:61-50 25:68-70 26:86-96,-9.0
+new head coach,Nov-Dec,opp conference size,power,760,BACK,383,371,50.8,0.44,0.662,469-464,50.3,4/5,22:73-69 23:75-73 24:70-67 25:75-77 26:90-85,13.4
+new head coach,Nov-Dec,opp conference size,mid-major,232,BACK,126,98,56.2,1.87,0.054,159-181,46.8,3/5,22:17-17 23:23-23 24:23-18 25:29-23 26:34-17,2.6
+new head coach,Nov-Dec,opp conference size,low-major,2308,BACK,1160,1107,51.2,1.11,0.224,1453-1542,48.5,4/5,22:203-177 23:236-253 24:229-219 25:248-238 26:244-220,-1.5
+new head coach,Nov-Dec,AP rank situation,neither ranked,3009,BACK,1528,1426,51.7,1.88,0.046,1863-1983,48.4,4/5,22:270-235 23:307-322 24:302-281 25:317-299 26:332-289,1.5
+new head coach,Nov-Dec,AP rank situation,unranked vs ranked,195,BACK,100,95,51.3,0.36,0.76,138-111,55.4,2/5,22:11-16 23:20-11 24:20-23 25:24-26 26:25-19,20.7
+new head coach,Nov-Dec,KenPom preseason quintile,Q3,660,FADE,337,308,52.2,1.14,0.242,443-411,51.9,3/5,22:46-45 23:72-46 24:106-109 25:67-51 26:46-57,0.6
+new head coach,Nov-Dec,KenPom preseason quintile,Q4,535,BACK,265,264,50.1,0.04,0.982,341-336,50.4,1/5,22:39-40 23:37-43 24:33-34 25:76-66 26:80-81,-5.8
+new head coach,Nov-Dec,KenPom preseason quintile,Q2,713,BACK,358,342,51.1,0.6,0.523,449-494,47.6,4/5,22:40-40 23:92-90 24:63-56 25:90-88 26:73-68,4.3
+new head coach,Nov-Dec,KenPom preseason quintile,Q5 best,420,BACK,212,205,50.8,0.34,0.74,247-261,48.6,1/5,22:41-41 23:51-52 24:19-19 25:28-36 26:73-57,-11.8
+new head coach,Nov-Dec,KenPom preseason quintile,Q1 worst,972,BACK,526,428,55.1,3.17,0.004,633-653,49.2,5/5,22:128-96 23:108-92 24:98-89 25:107-81 26:85-70,12.1
+new head coach,Nov-Dec,opp KenPom quintile,Q4,655,BACK,345,300,53.5,1.77,0.065,395-464,46.0,3/5,22:48-50 23:67-59 24:77-51 25:85-69 26:68-71,7.5
+new head coach,Nov-Dec,opp KenPom quintile,Q2,687,BACK,356,318,52.8,1.46,0.143,386-427,47.5,4/5,22:64-56 23:72-75 24:70-69 25:69-55 26:81-63,-2.4
+new head coach,Nov-Dec,opp KenPom quintile,Q1 worst,672,FADE,334,322,50.9,0.47,0.681,473-443,51.6,3/5,22:51-74 23:70-59 24:70-53 25:78-64 26:65-72,-9.5
+new head coach,Nov-Dec,opp KenPom quintile,Q3,663,BACK,330,322,50.6,0.31,0.767,444-440,50.2,3/5,22:57-54 23:70-80 24:70-60 25:69-74 26:64-54,1.5
+new head coach,Nov-Dec,opp KenPom quintile,Q5 best,623,BACK,316,302,51.1,0.56,0.579,413-383,51.9,3/5,22:50-52 23:66-65 24:52-54 25:65-62 26:83-69,15.0
+new head coach,Nov-Dec,KenPom gap vs opp,worse,790,BACK,409,364,52.9,1.62,0.107,677-645,51.2,3/5,22:75-77 23:76-78 24:90-61 25:92-82 26:76-66,7.3
+new head coach,Nov-Dec,KenPom gap vs opp,better,504,FADE,261,235,52.6,1.17,0.251,346-305,53.1,4/5,22:36-32 23:60-54 24:51-42 25:64-52 26:50-55,-7.8
+new head coach,Nov-Dec,KenPom gap vs opp,much better,370,FADE,189,177,51.6,0.63,0.534,33-36,47.8,3/5,22:35-37 23:47-33 24:19-13 25:35-30 26:53-64,-20.9
+new head coach,Nov-Dec,KenPom gap vs opp,even,989,BACK,497,471,51.3,0.84,0.437,870-939,48.1,4/5,22:69-52 23:92-108 24:114-112 25:108-104 26:114-95,0.0
+new head coach,Nov-Dec,KenPom gap vs opp,much worse,647,BACK,351,291,54.7,2.37,0.027,193-224,46.3,5/5,22:80-63 23:79-56 24:63-61 25:70-53 26:59-58,20.3
+new coach + rebuilt,first 10,conference size,low-major,1076,BACK,566,494,53.4,2.21,0.02,798-842,48.7,4/5,22:44-33 23:79-79 24:131-102 25:145-132 26:167-148,7.0
+new coach + rebuilt,first 10,conference size,power,358,BACK,182,174,51.1,0.42,0.677,276-272,50.4,3/5,22:27-20 23:18-22 24:16-24 25:54-46 26:67-62,-8.5
+new coach + rebuilt,first 10,opp conference size,power,359,BACK,185,171,52.0,0.74,0.48,277-272,50.5,3/5,22:22-12 23:23-22 24:25-28 25:55-48 26:60-61,15.0
+new coach + rebuilt,first 10,opp conference size,low-major,1092,BACK,562,512,52.3,1.53,0.102,798-843,48.6,4/5,22:46-39 23:69-76 24:119-105 25:153-136 26:175-156,-1.1
+new coach + rebuilt,first 10,AP rank situation,neither ranked,1423,BACK,742,657,53.0,2.27,0.021,1036-1103,48.4,4/5,22:67-46 23:92-102 24:149-132 25:200-174 26:234-203,2.2
+new coach + rebuilt,first 10,KenPom preseason quintile,Q3,309,BACK,164,137,54.5,1.56,0.133,220-245,47.3,5/5,22:13-6 23:15-14 24:68-59 25:26-24 26:42-34,0.3
+new coach + rebuilt,first 10,KenPom preseason quintile,Q4,288,BACK,148,139,51.6,0.53,0.607,223-227,49.6,2/5,22:20-18 23:13-17 24:10-10 25:46-34 26:59-60,-6.5
+new coach + rebuilt,first 10,KenPom preseason quintile,Q2,309,FADE,151,150,50.2,0.06,0.976,253-228,52.6,2/5,22:3-7 23:23-16 24:24-33 25:68-57 26:33-37,5.3
+new coach + rebuilt,first 10,KenPom preseason quintile,Q5 best,150,BACK,80,70,53.3,0.82,0.428,107-118,47.6,1/4,23:5-5 24:4-6 25:19-21 26:52-38,-11.7
+new coach + rebuilt,first 10,KenPom preseason quintile,Q1 worst,508,BACK,271,230,54.1,1.83,0.074,387-384,50.2,5/5,22:31-26 23:51-48 24:45-43 25:76-52 26:68-61,12.9
+new coach + rebuilt,first 10,opp KenPom quintile,Q4,311,BACK,170,136,55.6,1.94,0.057,217-255,46.0,4/5,22:11-6 23:22-14 24:39-28 25:50-35 26:48-53,8.0
+new coach + rebuilt,first 10,opp KenPom quintile,Q2,321,BACK,174,143,54.9,1.74,0.09,225-219,50.7,3/5,22:11-13 23:19-25 24:36-31 25:47-30 26:61-44,-2.3
+new coach + rebuilt,first 10,opp KenPom quintile,Q1 worst,317,FADE,163,147,52.6,0.91,0.384,282-241,53.9,3/5,22:14-20 23:23-19 24:35-23 25:49-39 26:42-46,-8.4
+new coach + rebuilt,first 10,opp KenPom quintile,Q3,313,BACK,169,140,54.7,1.65,0.122,241-248,49.3,4/5,22:12-9 23:22-24 24:40-25 25:48-43 26:47-39,1.6
+new coach + rebuilt,first 10,opp KenPom quintile,Q5 best,302,BACK,153,145,51.3,0.46,0.661,241-223,51.9,2/5,22:17-11 23:18-21 24:22-23 25:40-42 26:56-48,16.8
+new coach + rebuilt,first 10,KenPom gap vs opp,worse,390,BACK,209,170,55.1,2.0,0.043,410-398,50.7,5/5,22:18-17 23:27-26 24:49-28 25:63-55 26:52-44,7.5
+new coach + rebuilt,first 10,KenPom gap vs opp,better,229,FADE,117,107,52.2,0.67,0.503,180-143,55.7,3/5,22:6-9 23:17-12 24:23-18 25:40-30 26:31-38,-8.6
+new coach + rebuilt,first 10,KenPom gap vs opp,much better,161,FADE,82,79,50.9,0.24,0.832,12-17,41.4,3/5,22:8-6 23:9-8 24:9-3 25:17-17 26:39-45,-20.9
+new coach + rebuilt,first 10,KenPom gap vs opp,even,463,BACK,249,209,54.4,1.87,0.073,482-512,48.5,4/5,22:12-7 23:24-34 24:60-52 25:69-53 26:84-63,0.2
+new coach + rebuilt,first 10,KenPom gap vs opp,much worse,321,BACK,169,149,53.1,1.12,0.259,113-125,47.5,3/5,22:26-15 23:29-21 24:30-30 25:45-34 26:39-49,21.8
+new coach + rebuilt,Nov-Dec,conference size,low-major,1263,BACK,673,569,54.2,2.95,0.005,798-842,48.7,5/5,22:52-38 23:102-97 24:146-117 25:174-148 26:199-169,7.3
+new coach + rebuilt,Nov-Dec,conference size,mid-major,154,BACK,78,69,53.1,0.74,0.477,91-113,44.6,2/4,23:4-6 24:15-18 25:29-24 26:30-21,1.7
+new coach + rebuilt,Nov-Dec,conference size,power,458,BACK,231,224,50.8,0.33,0.763,276-272,50.4,3/5,22:31-26 23:25-28 24:21-29 25:65-60 26:89-81,-8.7
+new coach + rebuilt,Nov-Dec,opp conference size,power,445,BACK,226,216,51.1,0.48,0.653,277-272,50.5,3/5,22:25-19 23:33-26 24:30-34 25:62-61 26:76-76,14.6
+new coach + rebuilt,Nov-Dec,opp conference size,low-major,1290,BACK,674,592,53.2,2.3,0.017,798-843,48.6,4/5,22:54-42 23:88-96 24:134-118 25:186-154 26:212-182,-1.2
+new coach + rebuilt,Nov-Dec,AP rank situation,neither ranked,1687,BACK,889,767,53.7,3.0,0.0,1036-1103,48.4,4/5,22:76-55 23:118-123 24:170-150 25:237-200 26:288-239,2.1
+new coach + rebuilt,Nov-Dec,KenPom preseason quintile,Q3,358,BACK,184,164,52.9,1.07,0.334,220-245,47.3,3/5,22:13-7 23:16-18 24:77-68 25:27-31 26:51-40,0.6
+new coach + rebuilt,Nov-Dec,KenPom preseason quintile,Q4,356,BACK,185,170,52.1,0.8,0.416,223-227,49.6,3/5,22:24-23 23:18-21 24:11-12 25:55-41 26:77-73,-6.4
+new coach + rebuilt,Nov-Dec,KenPom preseason quintile,Q2,361,BACK,183,168,52.1,0.8,0.436,228-253,47.4,3/5,22:8-3 23:23-27 24:36-27 25:69-73 26:47-38,4.8
+new coach + rebuilt,Nov-Dec,KenPom preseason quintile,Q5 best,198,BACK,104,93,52.8,0.78,0.453,107-118,47.6,1/4,23:7-7 24:6-7 25:25-27 26:66-52,-11.8
+new coach + rebuilt,Nov-Dec,KenPom preseason quintile,Q1 worst,602,BACK,326,267,55.0,2.42,0.015,387-384,50.2,5/5,22:38-31 23:67-58 24:52-50 25:92-60 26:77-68,13.5
+new coach + rebuilt,Nov-Dec,opp KenPom quintile,Q4,374,BACK,203,166,55.0,1.93,0.049,217-255,46.0,4/5,22:12-10 23:28-20 24:46-31 25:60-45 26:57-60,7.9
+new coach + rebuilt,Nov-Dec,opp KenPom quintile,Q2,381,BACK,206,168,55.1,1.96,0.051,225-219,50.7,3/5,22:13-14 23:26-31 24:41-35 25:55-37 26:71-51,-2.2
+new coach + rebuilt,Nov-Dec,opp KenPom quintile,Q1 worst,371,FADE,187,175,51.7,0.63,0.541,282-241,53.9,3/5,22:16-23 23:29-24 24:37-24 25:56-46 26:49-58,-9.4
+new coach + rebuilt,Nov-Dec,opp KenPom quintile,Q3,368,BACK,205,157,56.6,2.52,0.008,241-248,49.3,4/5,22:16-9 23:26-27 24:45-32 25:58-42 26:60-47,1.6
+new coach + rebuilt,Nov-Dec,opp KenPom quintile,Q5 best,381,BACK,193,184,51.2,0.46,0.682,241-223,51.9,3/5,22:19-15 23:27-24 24:26-29 25:49-52 26:72-64,16.5
+new coach + rebuilt,Nov-Dec,KenPom gap vs opp,worse,456,BACK,251,194,56.4,2.7,0.006,410-398,50.7,5/5,22:23-21 23:32-31 24:59-30 25:71-59 26:66-53,7.6
+new coach + rebuilt,Nov-Dec,KenPom gap vs opp,better,267,FADE,135,126,51.7,0.56,0.594,180-143,55.7,3/5,22:6-9 23:22-16 24:26-19 25:44-34 26:37-48,-8.8
+new coach + rebuilt,Nov-Dec,KenPom gap vs opp,much better,205,BACK,104,100,51.0,0.28,0.792,17-12,58.6,2/5,22:8-9 23:10-13 24:4-9 25:24-22 26:58-47,-21.3
+new coach + rebuilt,Nov-Dec,KenPom gap vs opp,even,548,BACK,290,249,53.8,1.77,0.075,482-512,48.5,4/5,22:14-10 23:33-38 24:64-59 25:81-63 26:98-79,0.1
+new coach + rebuilt,Nov-Dec,KenPom gap vs opp,much worse,399,BACK,211,184,53.4,1.36,0.195,113-125,47.5,3/5,22:29-18 23:40-27 24:36-40 25:58-44 26:48-55,21.7
+"new coach + rebuilt, underdog",first 10,conference size,low-major,748,BACK,397,339,53.9,2.14,0.031,528-501,51.3,5/5,22:35-26 23:62-58 24:91-68 25:109-90 26:100-97,13.2
+"new coach + rebuilt, underdog",first 10,opp conference size,power,297,BACK,155,139,52.7,0.93,0.357,181-165,52.3,3/5,22:21-9 23:19-18 24:25-26 25:44-37 26:46-49,19.2
+"new coach + rebuilt, underdog",first 10,opp conference size,low-major,550,BACK,286,252,53.2,1.47,0.129,526-500,51.3,3/5,22:24-21 23:44-46 24:69-52 25:81-64 26:68-69,8.7
+"new coach + rebuilt, underdog",first 10,AP rank situation,neither ranked,820,BACK,432,370,53.9,2.19,0.021,658-654,50.2,4/5,22:44-27 23:63-68 24:94-74 25:121-97 26:110-104,10.9
+"new coach + rebuilt, underdog",first 10,KenPom preseason quintile,Q2,206,BACK,103,95,52.0,0.57,0.603,160-175,47.8,2/5,22:4-3 23:9-12 24:26-14 25:42-44 26:22-22,11.1
+"new coach + rebuilt, underdog",first 10,KenPom preseason quintile,Q1 worst,442,BACK,238,199,54.5,1.87,0.059,294-277,51.5,4/5,22:27-20 23:47-42 24:39-39 25:68-44 26:57-54,15.5
+"new coach + rebuilt, underdog",first 10,opp KenPom quintile,Q4,240,BACK,126,109,53.6,1.11,0.265,146-169,46.3,4/5,22:10-6 23:20-12 24:28-23 25:35-28 26:33-40,12.1
+"new coach + rebuilt, underdog",first 10,opp KenPom quintile,Q2,151,BACK,86,61,58.5,2.06,0.042,122-123,49.8,3/5,22:6-7 23:12-15 24:22-11 25:22-12 26:24-16,7.0
+"new coach + rebuilt, underdog",first 10,opp KenPom quintile,Q3,189,BACK,98,88,52.7,0.73,0.481,182-160,53.2,3/5,22:8-6 23:14-19 24:24-15 25:30-30 26:22-18,8.4
+"new coach + rebuilt, underdog",first 10,opp KenPom quintile,Q5 best,260,BACK,132,124,51.6,0.5,0.636,184-158,53.8,3/5,22:17-11 23:15-19 24:22-23 25:37-31 26:41-40,20.2
+"new coach + rebuilt, underdog",first 10,KenPom gap vs opp,worse,350,BACK,188,151,55.5,2.01,0.048,346-328,51.3,3/5,22:15-15 23:24-24 24:46-25 25:58-49 26:45-38,8.6
+"new coach + rebuilt, underdog",first 10,KenPom gap vs opp,even,234,BACK,117,113,50.9,0.26,0.831,268-257,51.0,3/5,22:7-2 23:14-24 24:28-29 25:30-26 26:38-32,5.0
+"new coach + rebuilt, underdog",first 10,KenPom gap vs opp,much worse,319,BACK,168,148,53.2,1.13,0.275,112-120,48.3,3/5,22:26-15 23:29-21 24:29-30 25:45-34 26:39-48,22.0
+"new coach + rebuilt, underdog",Nov-Dec,conference size,low-major,878,BACK,476,389,55.0,2.96,0.002,528-501,51.3,5/5,22:43-30 23:80-69 24:100-79 25:131-100 26:122-111,13.6
+"new coach + rebuilt, underdog",Nov-Dec,opp conference size,power,366,BACK,191,172,52.6,1.0,0.338,181-165,52.3,4/5,22:24-14 23:26-21 24:30-31 25:51-47 26:60-59,19.0
+"new coach + rebuilt, underdog",Nov-Dec,opp conference size,low-major,641,BACK,345,283,54.9,2.47,0.008,526-500,51.3,5/5,22:30-23 23:57-54 24:76-58 25:99-69 26:83-79,9.1
+"new coach + rebuilt, underdog",Nov-Dec,AP rank situation,neither ranked,966,BACK,521,426,55.0,3.09,0.002,658-654,50.2,5/5,22:52-32 23:80-78 24:107-83 25:145-110 26:137-123,11.2
+"new coach + rebuilt, underdog",Nov-Dec,KenPom preseason quintile,Q3,173,BACK,86,82,51.2,0.31,0.769,123-115,51.7,4/5,22:6-4 23:8-7 24:42-31 25:6-17 26:24-23,9.1
+"new coach + rebuilt, underdog",Nov-Dec,KenPom preseason quintile,Q2,233,BACK,122,103,54.2,1.27,0.198,160-175,47.8,4/5,22:5-3 23:11-15 24:28-15 25:50-45 26:28-25,10.8
+"new coach + rebuilt, underdog",Nov-Dec,KenPom preseason quintile,Q1 worst,529,BACK,292,231,55.8,2.67,0.011,294-277,51.5,4/5,22:34-24 23:63-49 24:45-46 25:84-51 26:66-61,15.9
+"new coach + rebuilt, underdog",Nov-Dec,opp KenPom quintile,Q4,283,BACK,151,127,54.3,1.44,0.167,146-169,46.3,4/5,22:10-8 23:25-15 24:33-25 25:42-37 26:41-42,12.3
+"new coach + rebuilt, underdog",Nov-Dec,opp KenPom quintile,Q2,177,BACK,101,72,58.4,2.2,0.031,122-123,49.8,3/5,22:8-8 23:15-18 24:25-13 25:27-14 26:26-19,7.2
+"new coach + rebuilt, underdog",Nov-Dec,opp KenPom quintile,Q3,218,BACK,119,96,55.3,1.57,0.13,182-160,53.2,4/5,22:12-6 23:18-20 24:26-18 25:35-29 26:28-23,8.8
+"new coach + rebuilt, underdog",Nov-Dec,opp KenPom quintile,Q5 best,329,BACK,168,157,51.7,0.61,0.577,184-158,53.8,3/5,22:19-15 23:22-22 24:26-29 25:46-38 26:55-53,19.9
+"new coach + rebuilt, underdog",Nov-Dec,KenPom gap vs opp,worse,412,BACK,227,174,56.6,2.65,0.01,346-328,51.3,5/5,22:20-19 23:29-27 24:53-27 25:66-53 26:59-48,8.7
+"new coach + rebuilt, underdog",Nov-Dec,KenPom gap vs opp,even,268,BACK,137,126,52.1,0.68,0.511,268-257,51.0,3/5,22:8-2 23:19-27 24:29-30 25:37-29 26:44-38,5.1
+"new coach + rebuilt, underdog",Nov-Dec,KenPom gap vs opp,much worse,395,BACK,210,182,53.6,1.41,0.141,112-120,48.3,3/5,22:29-18 23:40-26 24:35-40 25:58-44 26:48-54,22.0

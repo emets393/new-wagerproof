@@ -197,7 +197,7 @@ async function pollTriggerV3Run(
       if (TRIGGER_TERMINAL.has(triggerStatus)) {
         const { data: ledger } = await (supabase as any)
           .from('agent_generation_runs')
-          .select('status, picks_generated, error_message, slate_note')
+          .select('status, picks_generated, error_message')
           .eq('id', ledgerRunId)
           .single();
         if (triggerStatus === 'COMPLETED') {

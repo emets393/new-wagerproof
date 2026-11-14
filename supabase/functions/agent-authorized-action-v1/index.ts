@@ -100,6 +100,10 @@ serve(async (req) => {
     }
 
     const { isAdmin, entitlement: rcEntitlement, hasPremiumAccess } = await resolvePremiumAccess(serviceClient, userId);
+    if (!isAdmin && rcEntitlement?.isTieredCustomer && !hasPremiumAccess) {
+      return errorResponse(403, 'Agent access requires WagerProof Pro.', { requiredTier: 'pro' });
+    }
+
 
     switch (action) {
       case 'detail_snapshot': {

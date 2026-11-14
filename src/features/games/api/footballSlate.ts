@@ -5,8 +5,13 @@ import debug from '@/utils/debug';
  * Shared (season, week) resolvers for the NFL/CFB `*_slate_*` tables.
  * See `.claude/docs/agents/23_NFL_CFB_2026_DATA_MAP.md`.
  *
- * - Games feed: soonest upcoming kickoff with a 6h grace (rolls Week N → N+1).
- * - Everything else: latest season desc, week desc (pipeline writes current week only).
+ * - Soonest upcoming kickoff with a 6h grace (rolls Week N → N+1).
+ *
+ * EVERY surface uses that rule. "Latest week desc" was safe only while the pipeline wrote one
+ * week at a time; the Monday preview build (owner 2026-09-21) publishes NEXT week's slate while
+ * the current week's Monday-night game is still pending, so a max-week anchor would drop that
+ * game from the scoreboard, Outliers and the props surfaces on Monday morning.
+ * `resolveLatestSlate` stays as the no-upcoming-rows fallback and for the diagnostics page.
  */
 
 export interface FootballSlateAnchor {
@@ -135,7 +140,9 @@ export async function fetchSlateSignalCounts(
 
 const FALLBACK: FootballSlateAnchor = { season: 2026, week: 1 };
 
-async function resolveUpcomingWeek(table: 'nfl_slate_feed' | 'cfb_slate_feed'): Promise<FootballSlateAnchor> {
+export type FootballSlateTable = 'nfl_slate_feed' | 'cfb_slate_feed' | 'nfl_prop_player_pages';
+
+export async function resolveUpcomingWeek(table: FootballSlateTable): Promise<FootballSlateAnchor> {
   const grace = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
   const { data: upcoming } = await collegeFootballSupabase
     .from(table)
@@ -150,7 +157,7 @@ async function resolveUpcomingWeek(table: 'nfl_slate_feed' | 'cfb_slate_feed'): 
 }
 
 export async function resolveLatestSlate(
-  table: 'nfl_slate_feed' | 'cfb_slate_feed',
+  table: FootballSlateTable,
 ): Promise<FootballSlateAnchor> {
   const { data: latest } = await collegeFootballSupabase
     .from(table)
@@ -172,4 +179,9 @@ export function resolveNflCurrentWeek(): Promise<FootballSlateAnchor> {
 /** Games-feed pattern — soonest upcoming with 6h grace. */
 export function resolveCfbCurrentWeek(): Promise<FootballSlateAnchor> {
   return resolveUpcomingWeek('cfb_slate_feed');
+}
+
+/** Props surfaces — player pages are week-keyed and carry a kickoff, so the same rule applies. */
+export function resolveNflPropPagesWeek(): Promise<FootballSlateAnchor> {
+  return resolveUpcomingWeek('nfl_prop_player_pages');
 }

@@ -25,6 +25,8 @@ internal suspend fun runAgentCreationPreflight(
         return AgentCreationPreflight.Blocked("Sign in before creating an agent.")
     }
 
+    if (entitlements.isTierRestricted) return AgentCreationPreflight.Blocked("Upgrade to Pro to create agents.")
+
     agents.bind(normalizedUserId)
     agents.refresh()
     return evaluateAgentCreationPreflight(

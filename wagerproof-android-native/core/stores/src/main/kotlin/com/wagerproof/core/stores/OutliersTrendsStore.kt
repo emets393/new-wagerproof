@@ -17,6 +17,7 @@ import com.wagerproof.core.models.OutliersTrendsSearchEntry
 import com.wagerproof.core.models.OutliersTrendsSport
 import com.wagerproof.core.models.OutliersTrendsSubject
 import com.wagerproof.core.services.CFBTeamsService
+import com.wagerproof.core.services.NCAABTeamIdentityService
 import com.wagerproof.core.services.MLBTrendsEngine
 import com.wagerproof.core.services.NFLTeamsService
 import com.wagerproof.core.services.NFLTrendsEngine
@@ -62,7 +63,11 @@ class OutliersTrendsStore {
             when (sport) {
                 OutliersTrendsSport.NFL -> NFLTeamsService.ensureLoaded()
                 OutliersTrendsSport.NCAAF -> CFBTeamsService.ensureLoaded()
-                else -> {}
+                OutliersTrendsSport.NCAAB -> {
+                    CFBTeamsService.ensureLoaded()
+                    NCAABTeamIdentityService.ensureLoaded()
+                }
+                OutliersTrendsSport.NBA, OutliersTrendsSport.MLB -> {}
             }
 
             if (sport == OutliersTrendsSport.MLB) {
@@ -193,8 +198,8 @@ class OutliersTrendsStore {
         try {
             val all = mutableListOf<OutliersTrendsSearchEntry>()
 
-            // NFL + NCAAF: server-rendered cards keyed by the current slate week.
-            for (s in listOf(OutliersTrendsSport.NFL, OutliersTrendsSport.NCAAF)) {
+            // Football is keyed by the current slate week. Basketball is today's ET slate.
+            for (s in listOf(OutliersTrendsSport.NFL, OutliersTrendsSport.NCAAF, OutliersTrendsSport.NBA, OutliersTrendsSport.NCAAB)) {
                 try {
                     val games = OutliersTrendsService.shared.fetchSlateGames(sport = s)
                     val first = games.firstOrNull() ?: continue
@@ -243,7 +248,7 @@ class OutliersTrendsStore {
     }
 
     fun onSportChanged() {
-        if (sport == OutliersTrendsSport.MLB) {
+        if (sport == OutliersTrendsSport.MLB || sport == OutliersTrendsSport.NBA || sport == OutliersTrendsSport.NCAAB) {
             subject = OutliersTrendsSubject.TEAMS
         } else if (!sport.allowedSubjects.contains(subject)) {
             subject = OutliersTrendsSubject.ALL

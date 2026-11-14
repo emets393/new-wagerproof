@@ -18,8 +18,8 @@ import WagerproofStores
 ///   of `ProfileSectionHeader` + `ProfileRow` primitives.
 /// - The two `HoneydewOptionCard` hero banners (Pro CTA + Discord) are kept
 ///   from the prior design — they're the visual hook (gradient + drifting
-///   chrome + glass pill) and double as the "Plan" affordance, so they sit at
-///   the top above the flat sections.
+///   chrome + glass pill) and double as the "Plan" affordance, so they sit
+///   below the achievement collection and AI connector, above preferences.
 /// - All sheet/modal triggers go through `@State` flags that flip
 ///   `.sheet(item:)` / `.sheet(isPresented:)` / `.fullScreenCover(isPresented:)`
 ///   to mount the modal views from the same file. The modals themselves
@@ -87,11 +87,19 @@ struct SettingsView: View {
         // pops it.
         ScrollView {
             VStack(spacing: 0) {
+                AchievementDiscoverySection().padding(.horizontal, Spacing.lg)
+
                 claudeConnectorSection
 
                 // Hero banners (kept) double as the "Plan" affordance.
                 VStack(spacing: 10) {
                     heroCard
+                    if proAccess.hasSubscription && !proAccess.isPro {
+                        Button("Manage subscription", action: handleManageSubscriptionTap)
+                            .font(AppFont.caption)
+                            .foregroundStyle(Color.appTextSecondary)
+                            .disabled(proAccess.isLoading)
+                    }
                     discordCard
                 }
                 .padding(.horizontal, Spacing.lg)
@@ -150,7 +158,7 @@ struct SettingsView: View {
             SecretSettingsView()
         }
         .sheet(isPresented: $isPaywallPresented) {
-            RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
+            RevenueCatPaywallView(placementId: RevenueCatService.Placement.tierUpgradePro)
         }
         .sheet(isPresented: $isCustomerCenterPresented) {
             CustomerCenterView()
@@ -195,11 +203,11 @@ struct SettingsView: View {
         let isPro = proAccess.isPro
         let title = isLoading
             ? "Verifying access"
-            : (isPro ? "You are Pro" : "Go Pro Today")
+            : (isPro ? "WagerProof \(proAccess.subscriptionTier?.title ?? "Pro")" : "Upgrade to Pro")
         let subtitle = isLoading
             ? "Checking plan"
-            : (isPro ? "Premium picks unlocked" : "Unlock premium picks")
-        let actionWord = isLoading ? "Hold" : (isPro ? "Manage" : "Upgrade")
+            : (proAccess.isPreviewing ? "Previewing \(proAccess.planTitle) access" : (isPro ? "Your membership is active" : "Current plan: \(proAccess.planTitle)"))
+        let actionWord = isLoading ? "Hold" : (proAccess.isPreviewing ? "Preview" : (isPro ? "Manage" : "Upgrade"))
 
         HoneydewOptionCard(
             title: title,
@@ -667,6 +675,7 @@ struct SettingsView: View {
 
     private func handleHeroTap() {
         if proAccess.isLoading { return }
+        if proAccess.isPreviewing { isPaywallPresented = true; return }
         if proAccess.isPro {
             handleManageSubscriptionTap()
         } else {
@@ -676,7 +685,8 @@ struct SettingsView: View {
 
     private func handleManageSubscriptionTap() {
         if proAccess.isLoading { return }
-        if proAccess.isPro {
+        if proAccess.isPreviewing { isPaywallPresented = true; return }
+        if proAccess.hasSubscription {
             // Mirrors RN: prefer the in-SDK customer center, fall back to
             // App Store subscriptions URL if the SDK didn't enable the UI.
             isOpeningCustomerCenter = true

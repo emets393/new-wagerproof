@@ -71,19 +71,8 @@ public actor NFLPropPageService {
         if let slate, Date().timeIntervalSince(slate.at) < ttl {
             return (slate.season, slate.week)
         }
-        struct SlateRow: Decodable {
-            let season: Int
-            let week: Int
-        }
-        let rows: [SlateRow]? = try? await client
-            .from("nfl_prop_player_pages")
-            .select("season,week")
-            .order("season", ascending: false)
-            .order("week", ascending: false)
-            .limit(1)
-            .execute()
-            .value
-        guard let row = rows?.first else { return nil }
+        // Soonest UPCOMING kickoff, not max week — see FootballSlateAnchor (Monday preview).
+        guard let row = await FootballSlateAnchor.currentWeek(client, table: "nfl_prop_player_pages") else { return nil }
         slate = (Date(), row.season, row.week)
         return (row.season, row.week)
     }

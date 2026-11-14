@@ -1,6 +1,8 @@
 package com.wagerproof.core.stores
 
-import androidx.compose.runtime.Stable
+import androidx.compose.runtime.*
+import com.wagerproof.core.models.*
+import com.wagerproof.core.services.BuildFlags
 
 /**
  * Port of iOS `ProAccessStore.swift` (doc §4.2).
@@ -19,14 +21,24 @@ class ProAccessStore(
     private val revenueCat: RevenueCatStore,
     private val adminMode: AdminModeStore,
 ) {
-    val isPro: Boolean
-        get() {
-            if (revenueCat.forceFreemiumMode) return false
-            if (adminMode.isAdmin) return true
-            return revenueCat.entitlementStatus == RevenueCatStore.EntitlementStatus.Granted
-        }
-
-    val isAdmin: Boolean get() = adminMode.isAdmin
+    private var previewIdentity = revenueCat.identityRevision
+    private var selectedPreview by mutableStateOf(EntitlementPreview.ACTUAL)
+    var previewMode: EntitlementPreview
+        get() = if (BuildFlags.isDebugBuild && previewIdentity == revenueCat.identityRevision) selectedPreview else EntitlementPreview.ACTUAL
+        set(value) { if (BuildFlags.isDebugBuild) { previewIdentity = revenueCat.identityRevision; revenueCat.forceFreemiumMode = false; selectedPreview = value } }
+    val isPreviewing get() = previewMode != EntitlementPreview.ACTUAL
+    private val access get() = SubscriptionAccessState.resolve(revenueCat.subscriptionTier,
+        revenueCat.isTieredCustomer, adminMode.isAdmin, revenueCat.forceFreemiumMode, previewMode, BuildFlags.isDebugBuild)
+    val subscriptionTier get() = if (access.isAdmin) SubscriptionTier.PRO else access.tier
+    val isTieredCustomer get() = access.isTiered
+    val isPro get() = hasAccess(SubscriptionTier.PRO)
+    val hasSubscription get() = hasAccess(SubscriptionTier.STANDARD)
+    val isAdmin get() = access.isAdmin
+    val planTitle get() = if (isPreviewing) previewMode.title else
+        if (subscriptionTier == SubscriptionTier.PRO && !isTieredCustomer) "Pro · Existing plan"
+        else subscriptionTier?.title ?: "Free"
+    fun hasAccess(minimum: SubscriptionTier) = access.hasAccess(minimum)
+    fun isTierRestricted(minimum: SubscriptionTier) = access.isRestricted(minimum)
 
     val subscriptionType: String?
         get() {
@@ -41,6 +53,7 @@ class ProAccessStore(
     /** `true` while still resolving status. Disables Pro-gated CTAs during the resolution window. */
     val isLoading: Boolean
         get() {
+            if (isPreviewing) return false
             if (!adminMode.roleResolved) return true
             if (!adminMode.isAdmin && !revenueCat.isEntitlementResolved) return true
             if (revenueCat.isLoading) return true

@@ -30,7 +30,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.app.features.gamecards.GameCardFormatting
+import com.wagerproof.app.features.gamecards.NBATeams
 import com.wagerproof.app.features.gamecards.SportsbookLogoStyle
 import com.wagerproof.app.features.gamecards.SportsbookLogoView
 import com.wagerproof.app.features.gamecards.TeamInitials
@@ -40,6 +42,7 @@ import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.CFBTeamAssets
 import com.wagerproof.core.models.MLBTeams
+import com.wagerproof.core.models.NCAABTeamAssets
 import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.models.OutliersTrendsBettingLine
 import com.wagerproof.core.models.OutliersTrendsCard
@@ -203,7 +206,11 @@ private fun SubjectAvatar(card: OutliersTrendsCard, sport: OutliersTrendsSport) 
                 OutlierGlassTeamAvatar(
                     logoUrl = teamLogoUrl(team, sport),
                     initials = TeamInitials.from(team),
-                    primary = OutlierTeamPalette.color(team, sport.league(), OutlierTeamPalette.Slot.away),
+                    primary = when (sport) {
+                        OutliersTrendsSport.NBA -> NBATeams.colorPair(team).primary
+                        OutliersTrendsSport.NCAAB -> CFBTeamColors.colorPair(team).primary
+                        else -> OutlierTeamPalette.color(team, sport.league(), OutlierTeamPalette.Slot.away)
+                    },
                     size = 36.dp,
                 )
             } else {
@@ -230,8 +237,10 @@ private fun SubjectAvatar(card: OutliersTrendsCard, sport: OutliersTrendsSport) 
 
 private fun teamLogoUrl(team: String, sport: OutliersTrendsSport): String? = when (sport) {
     OutliersTrendsSport.NCAAF -> CFBTeamAssets.logo(team)
+    OutliersTrendsSport.NCAAB -> NCAABTeamAssets.logo(team) ?: CFBTeamAssets.logo(team)
     OutliersTrendsSport.MLB -> MLBTeams.logoUrl(team)
-    else -> NFLTeamAssets.logo(team)
+    OutliersTrendsSport.NBA -> NBATeams.logoURL(team)
+    OutliersTrendsSport.NFL -> NFLTeamAssets.logo(team)
 }
 
 @Composable
@@ -531,9 +540,13 @@ private fun displayMatchupLabel(card: OutliersTrendsCard, sport: OutliersTrendsS
         return when (sport) {
             OutliersTrendsSport.NCAAF ->
                 "${CFBTeamAssets.displayName(game.awayTeam)} @ ${CFBTeamAssets.displayName(game.homeTeam)}"
-            OutliersTrendsSport.MLB -> "${game.awayAb} @ ${game.homeAb}"
-            else -> "${NFLTeamAssets.nickname(game.awayTeam)} @ ${NFLTeamAssets.nickname(game.homeTeam)}"
+            OutliersTrendsSport.NCAAB -> "${game.awayTeam} @ ${game.homeTeam}"
+            OutliersTrendsSport.MLB, OutliersTrendsSport.NBA -> "${game.awayAb} @ ${game.homeAb}"
+            OutliersTrendsSport.NFL -> "${NFLTeamAssets.nickname(game.awayTeam)} @ ${NFLTeamAssets.nickname(game.homeTeam)}"
         }
+    }
+    if (sport == OutliersTrendsSport.MLB || sport == OutliersTrendsSport.NBA || sport == OutliersTrendsSport.NCAAB) {
+        return card.matchupLabel
     }
     val parts = card.matchupLabel.split("@", limit = 2).map { it.trim() }
     if (parts.size != 2) return card.matchupLabel

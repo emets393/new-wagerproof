@@ -56,9 +56,14 @@ def rank(df, names):
 
 def injury_exclusions(season, week):
     """player_ids to EXCLUDE from the shortlist: latest report this week says Out or
-    Doubtful, or final practice status was DNP. Books usually pull these lines, but a
+    Doubtful, or a QUESTIONABLE QUARTERBACK. Books usually pull these lines, but a
     late scratch can leave a stale line up — agents must never see it (owner 2026-08-15).
-    Questionable stays IN (plays ~75% of the time; the agent sees the tag, not a hole)."""
+    Questionable non-QBs stay IN (the agent sees the tag, not a hole).
+
+    Why the QB carve-out (owner 2026-09-15): 2024-25 skill-position designations vs
+    game logs — Out 0/725 played, Doubtful 0/101, Questionable 57% overall but only
+    27% for QBs (73 cases) vs ~60% for RB/WR/TE. A Questionable QB is a scratch three
+    times in four and every pass prop rides on him."""
     import os
     if not os.path.exists("data/injuries_raw.parquet"):
         return set()
@@ -67,7 +72,8 @@ def injury_exclusions(season, week):
     if inj.empty:
         return set()
     latest = inj.sort_values("date_modified").drop_duplicates("player_id", keep="last")
-    out = latest[latest.report_status.isin(["Out", "Doubtful"])]
+    out = latest[latest.report_status.isin(["Out", "Doubtful"])
+                 | ((latest.report_status == "Questionable") & (latest.position == "QB"))]
     return set(out.player_id)
 
 if __name__ == "__main__":
@@ -75,7 +81,7 @@ if __name__ == "__main__":
     p = p[(p.season == SEASON) & (p.week == WEEK)]
     excl = injury_exclusions(SEASON, WEEK)
     n0 = len(p); p = p[~p.player_id.isin(excl)]
-    print(f"injury exclusions: {n0 - len(p)} prop rows dropped ({len(excl)} Out/Doubtful players)")
+    print(f"injury exclusions: {n0 - len(p)} prop rows dropped ({len(excl)} Out/Doubtful/Questionable-QB players)")
     prof = pd.read_parquet("data/nfl_player_profiles.parquet") if __import__("os").path.exists("data/nfl_player_profiles.parquet") else None
     if prof is not None and "player_id" in prof.columns:
         nm = dict(zip(prof.player_id, prof.player_name + " (" + prof.team.fillna("?") + ")"))

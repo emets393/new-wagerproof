@@ -482,8 +482,18 @@ public enum ParlayGodEngine {
 
             for market in player.markets {
                 guard let line = market.closeLine else { continue }   // ATD yes-markets have no line
-                let games = market.recentGames.compactMap(\.actual)   // oldest → newest
-                let recent = Array(games.suffix(10))
+                // Grade every past game at the line IT was posted at. Comparing raw
+                // actuals to TODAY's number manufactured perfect streaks on markets
+                // whose line has since dropped — Ridley's receiving yards read 10/10
+                // against today's 5.5 while he was 5-10 at the posted prices. A leg
+                // that advertises a streak has to mean a streak against the price.
+                // Pushes come back nil and break the run rather than extending it.
+                let grades = market.recentGradesAtPostedPrice      // oldest → newest
+                let recent = Array(grades.suffix(10))
+                // Index-aligned with `recent` (both are the last 10), so the streak can say
+                // WHEN it happened. "Hit in 3 straight" read as recent form when Willis's run
+                // was 2024 wk2, wk3 and 2025 wk17 — true, but not what a bettor hears.
+                let window = Array(market.recentGames.suffix(10))
                 let marketLabel = NFLPlayerProps.marketLabel(market.market)
 
                 func nflLeg(category: ParlayGodCategory, over: Bool, odds: Int?, evidence: String, n: Int) -> ParlayLeg? {
@@ -497,32 +507,58 @@ public enum ParlayGodEngine {
                     )
                 }
 
-                if recent.count >= minSample {
-                    if recent.allSatisfy({ $0 > line }) {
+                // A streak claim needs a real basis for every game in it, so require
+                // the whole window to be historically graded before advertising one.
+                if recent.count >= minSample, market.l10HistoricalBasisShare >= 1.0,
+                   recent.allSatisfy({ $0 != nil }) {
+                    let hits = recent.compactMap { $0 }
+                    let when = spanLabel(window)
+                    if hits.allSatisfy({ $0 }) {
                         if let leg = nflLeg(category: .recentForm, over: true, odds: market.overPrice,
-                                            evidence: "Hit in \(recent.count) straight games", n: recent.count) {
+                                            evidence: "Hit in \(hits.count) straight\(when)", n: hits.count) {
                             legs.append(leg)
                         }
-                    } else if recent.allSatisfy({ $0 < line }) {
+                    } else if hits.allSatisfy({ !$0 }) {
                         if let leg = nflLeg(category: .recentForm, over: false, odds: market.underPrice,
-                                            evidence: "Stayed under in \(recent.count) straight", n: recent.count) {
+                                            evidence: "Stayed under in \(hits.count) straight\(when)", n: hits.count) {
                             legs.append(leg)
                         }
                     }
                 }
 
-                let vsOpp = market.recentGames
+                // Same rule vs-opponent: graded at the posted price, pushes excluded.
+                let vsGames = market.recentGames
                     .filter { $0.opp?.uppercased() == opponent.uppercased() }
-                    .compactMap(\.actual)
-                if vsOpp.count >= minSample, vsOpp.allSatisfy({ $0 > line }) {
+                let vsOpp = vsGames.compactMap { g -> Bool? in
+                    if let a = g.actual, let l = g.line { return a == l ? nil : a > l }
+                    return g.cleared
+                }
+                if vsOpp.count >= minSample, vsOpp.allSatisfy({ $0 }) {
                     if let leg = nflLeg(category: .versusOpponent, over: true, odds: market.overPrice,
-                                        evidence: "Hit in all \(vsOpp.count) vs \(opponent.uppercased())", n: vsOpp.count) {
+                                        evidence: "Hit in all \(vsOpp.count) vs \(opponent.uppercased())"
+                                                  + spanLabel(vsGames), n: vsOpp.count) {
                         legs.append(leg)
                     }
                 }
             }
         }
         return legs
+    }
+
+    /// " — 2025 wks 6-12" for one season, " — 2024 wk2 to 2025 wk17" across two, "" when the
+    /// games carry no season/week. Leads with an em dash so it appends straight onto evidence.
+    static func spanLabel(_ games: [NFLPropRecentGame]) -> String {
+        let dated = games.compactMap { g -> (Int, Int)? in
+            guard let s = g.season, let w = g.week else { return nil }
+            return (s, w)
+        }.sorted { $0 < $1 }
+        guard let first = dated.first, let last = dated.last else { return "" }
+        if first.0 == last.0 {
+            return first.1 == last.1
+                ? " — \(first.0) wk\(first.1)"
+                : " — \(first.0) wks \(first.1)-\(last.1)"
+        }
+        return " — \(first.0) wk\(first.1) to \(last.0) wk\(last.1)"
     }
 
     static func shortName(_ full: String) -> String {

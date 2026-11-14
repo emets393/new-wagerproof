@@ -156,6 +156,8 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = Spacing.xl),
         ) {
+            com.wagerproof.app.features.achievements.AchievementDiscovery()
+
             // --- AI Connector ---
             // First section on purpose (matches iOS): the connector is a shipped
             // cross-platform surface most users never discover, and it is open to
@@ -173,13 +175,13 @@ fun SettingsScreen(
             ) {
                 val proTitle = when {
                     proAccess.isLoading -> "Verifying access"
-                    proAccess.isPro -> "You are Pro"
-                    else -> "Go Pro Today"
+                    proAccess.isPro -> proAccess.planTitle
+                    else -> "Upgrade to Pro"
                 }
                 val proSubtitle = when {
                     proAccess.isLoading -> "Checking plan"
-                    proAccess.isPro -> "Premium picks unlocked"
-                    else -> "Unlock premium picks"
+                    proAccess.isPro -> "Your subscription is active"
+                    else -> "Current plan: ${proAccess.planTitle}"
                 }
                 val proAction = when {
                     proAccess.isLoading -> "Hold"
@@ -198,6 +200,11 @@ fun SettingsScreen(
                         }
                     },
                 )
+                if (proAccess.hasSubscription && !proAccess.isPro) {
+                    TextButton(enabled = !proAccess.isLoading, onClick = { modal = SettingsModal.CustomerCenter }) {
+                        Text("Manage subscription", color = AppColors.appTextSecondary)
+                    }
+                }
                 HeroBanner(
                     title = "Join our Discord",
                     subtitle = "Picks, updates, and live chat",
@@ -405,7 +412,7 @@ fun SettingsScreen(
         // pops Settings entirely instead of just closing the modal.
         SettingsModal.Paywall -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             BackHandler { modal = null }
-            PaywallScreen(onDismiss = { modal = null })
+            PaywallScreen(placementId = "tier_upgrade_pro", onDismiss = { modal = null })
         }
         SettingsModal.CustomerCenter -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             BackHandler { modal = null }

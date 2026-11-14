@@ -1,0 +1,64 @@
+WAGERPROOF CLV RECORDKEEPING SHEET
+Manual research aid. Not an app export, prediction or automated CLV feature.
+Use one sheet per selection. Never fill in an entry after seeing the result.
+
+Event / league:
+Market / side / period:
+Settlement rules:
+Entry source / book:
+Entry line / American odds / decimal odds:
+Entry timestamp and time zone:
+Was this your own recorded price or an Agent's published price?
+
+REFERENCE POLICY (set before the event)
+Chosen closing book or source:
+Capture cutoff policy:
+Scheduled start time:
+
+CLOSE
+Actual capture timestamp and time zone:
+Closing line and odds for your side:
+Opposing closing odds (two-outcome no-vig calculation only):
+Identical threshold and settlement rules? yes / no
+Source evidence:
+Valid / missing / mismatched:
+Reason if unavailable:
+
+CALCULATIONS
+Entry decimal odds E:
+Closing decimal odds C:
+Opposing closing decimal odds O, if applicable:
+Price-based CLV: (E / C - 1) * 100 percent.
+Raw probability movement: (1 / C - 1 / E) * 100 percentage points.
+Proportional no-vig close p: (1 / C) / ((1 / C) + (1 / O)).
+Entry return versus that benchmark: (E * p - 1) * 100 percent.
+Examples assume two outcomes with no push outcome and no commission.
+Do not apply the two-outcome formula to a three-way market.
+Push-capable markets require explicit treatment of pushes.
+Do not calculate a price-only ratio across different lines.
+Preserve unrounded values for calculations.
+
+AFTER THE EVENT
+Result / push / void:
+Settlement:
+Agent or research settings/version at entry:
+What changed after the research cutoff?
+Notes:
+
+FICTIONAL COMPLETED EXAMPLE
+Matching two-outcome moneyline; no push outcome or commission.
+Entry +120 (2.20).
+Close same side +105 (2.05), opposing side -125 (1.80).
+Price-based CLV +7.32%.
+Raw probability movement +3.33 percentage points.
+Proportional no-vig close 46.75%.
+Entry return versus that benchmark +2.86%.
+These describe a comparison, not a known true probability or actual profit.
+
+REVIEW COVERAGE
+Total selections:
+Valid closes:
+Missing closes:
+Mismatched markets:
+Report coverage separately; do not silently exclude missing records.
+Every selection can lose. Do not increase stakes because a CLV figure looks good.

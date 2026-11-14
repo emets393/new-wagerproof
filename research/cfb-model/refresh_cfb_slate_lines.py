@@ -45,7 +45,7 @@ def main():
         sys.exit("no slate")
     season, week = anchor[0]["season"], anchor[0]["week"]
     games = requests.get(
-        f"{SUPA}/cfb_slate_games?select=game_id,kickoff,fg_pred_spread,fg_pred_total,home_team,away_team"
+        f"{SUPA}/cfb_slate_games?select=game_id,kickoff,fg_pred_spread,fg_pred_total,h1_pred_margin,home_team,away_team"
         f"&season=eq.{season}&week=eq.{week}",
         headers=hdr, timeout=30).json()
     now = dt.datetime.now(dt.timezone.utc)
@@ -113,15 +113,36 @@ def main():
 
     # picks: the consensus number each card quotes (sides untouched)
     picks = requests.get(
-        f"{SUPA}/cfb_slate_picks?select=id,game_id,card_group,pick_side,pick_team,pick_label"
+        f"{SUPA}/cfb_slate_picks?select=id,game_id,card_group,pick_side,pick_team,pick_label,model_line"
         f"&season=eq.{season}&week=eq.{week}&game_id=in.({gids})",
         headers=hdr, timeout=60).json()
     fmap = {int(g): r for g, r in fills.iterrows()}
+
+    def card_side(p, home_model, model_is_margin=False):
+        """Which team a spread card is written from. A card with NO pick side (bare lean under the
+        4-pt floor) still carries model_line on the MODEL's side, so the market line must sit on
+        that same side — treating '' as AWAY (the old rule) flipped vegas_line to the other team
+        while model_line stayed put, and the bar could not draw (17 wk4-2026 cards)."""
+        s = (p.get("pick_side") or "").upper()
+        if s in ("HOME", "AWAY"):
+            return s
+        ml, hm = p.get("model_line"), home_model
+        if ml is None or hm is None or abs(float(hm)) < 0.05:
+            return "HOME"
+        home_val = -float(hm) if model_is_margin else float(hm)   # home-side fair spread
+        return "HOME" if abs(float(ml) - home_val) <= abs(float(ml) + home_val) else "AWAY"
+
     for p in picks:
         row = fmap.get(int(p["game_id"]))
         if row is None:
             continue
-        cg, side = p.get("card_group"), (p.get("pick_side") or "")
+        cg = p.get("card_group"); g0 = pred.get(int(p["game_id"])) or {}
+        if cg == "spread":
+            side = card_side(p, g0.get("fg_pred_spread"))
+        elif cg == "h1_spread":
+            side = card_side(p, g0.get("h1_pred_margin"), model_is_margin=True)
+        else:
+            side = (p.get("pick_side") or "")
         v = None
         if cg == "spread" and val(row, "fg_spread_home") is not None:
             v = val(row, "fg_spread_home") * (1 if side == "HOME" else -1)
@@ -139,6 +160,18 @@ def main():
             v = val(row, "h1_total")
         if v is not None:
             rec = {"id": p["id"], "vegas_line": round(v, 1)}
+            # Write model_line on the SAME side, from the game row's own projection. card_side()
+            # infers the side FROM model_line, so refreshing only vegas_line leaves the two
+            # numbers on opposite teams as soon as model_line later changes — Bowling Green @
+            # Miami (OH) wk5-2026 ended up vegas +13.5 (away) against model -16.0 (home) exactly
+            # that way: the refresher read a then-divergent model_line of 12.1, inferred AWAY from
+            # it, and the model number was corrected afterwards while the market number stayed
+            # put. Pinning both to the row's projection makes them move together or not at all.
+            if cg in ("spread", "h1_spread"):
+                _hm = g0.get("fg_pred_spread") if cg == "spread" else g0.get("h1_pred_margin")
+                if _hm is not None:
+                    _home_val = -float(_hm) if cg == "h1_spread" else float(_hm)
+                    rec["model_line"] = round(_home_val if side == "HOME" else -_home_val, 1)
             # pick_label bakes the number into text ("North Carolina Over 19.5")
             # — rebuild its numeric tail so the card can't contradict itself.
             lbl = p.get("pick_label") or ""
@@ -210,7 +243,7 @@ def main():
             b_up.append(r.status_code in (200, 204))
     print(f"best-book (tt/1h): {sum(b_up)}/{len(b_up)} picks refreshed")
     revalidate_banded_flags(hdr, season, week, gids)
-    flip_stale_sides(hdr, season, week, gids)
+    flip_stale_sides(hdr, season, week, gids, fills=fills)
 
 
 # ---- LINE-BAND RE-VALIDATION (owner catch 2026-08-30: g5_dog_wk1_bigfav is
@@ -281,9 +314,37 @@ def revalidate_banded_flags(hdr, season, week, gids):
 TIER_DISP = {"mammoth": "mammoth", "T1": "high", "T2": "med", "T3": "low", "track": "lean"}
 CONV_RANK = {"mammoth": 5, "T1": 4, "T2": 3, "T3": 2, "track": 1}
 STAKE_DISP = {"mammoth": 5.0, "high": 3.0, "med": 2.0, "low": 1.0, "lean": 0.5, "none": 0.0}
+try:
+    from dry_common import LEAN_FLOOR          # single source of truth for the 4-pt lean floor
+except Exception:
+    LEAN_FLOOR = 4.0
+# This file is the SECOND writer of a pick card: gen_cfb_picks writes it, then the refresh cron
+# re-derives conviction/is_mammoth/has_play 3x/day as the line moves. It used to patch those and
+# NOT `recommendation`, so the displayed label stayed frozen at whatever gen_cfb_picks computed
+# hours earlier -- Georgia State @ App State wk10-2026 shipped conviction=mammoth / is_mammoth /
+# 5.0u under the label "No Bet". The label is derived, never stored independently: any patch that
+# touches conviction or has_play MUST re-derive it here too.
+try:
+    from dry_common import spread_capped
+except Exception:
+    def spread_capped(side_edge, conviction):
+        return side_edge is not None and abs(float(side_edge)) > 14.0 and (conviction or "none") == "none"
+try:
+    from dry_common import recommendation as _rec_label
+except Exception:
+    def _rec_label(conviction, has_play):
+        if not has_play:
+            return "No Bet"
+        return {"mammoth": "MAMMOTH Play", "high": "High Conviction", "med": "Solid Play",
+                "low": "Lean", "lean": "Small Lean"}.get(conviction, "Play")
 
 
-def flip_stale_sides(hdr, season, week, gids):
+def flip_stale_sides(hdr, season, week, gids, fills=None):
+    # `fills` = main()'s latest-capture-per-game frame; the band-hygiene block below used it
+    # without receiving it (NameError, caught -> 'band hygiene skipped' on every run since it shipped).
+    def val(row, k):
+        v = row.get(k)
+        return None if v is None or (isinstance(v, float) and v != v) else float(v)
     gsel = ("game_id,home_team,away_team,fg_pred_spread,fg_pred_total,fg_spread_close,fg_total_close,"
             "fg_spread_pick,fg_total_pick,tt_home_pred,tt_away_pred,tt_home_close,tt_away_close")
     grows = {int(g["game_id"]): g for g in requests.get(
@@ -326,18 +387,33 @@ def flip_stale_sides(hdr, season, week, gids):
         if cg == "spread" and g.get("fg_spread_close") is not None and g.get("fg_pred_spread") is not None:
             close, prd = float(g["fg_spread_close"]), float(g["fg_pred_spread"])
             new = "HOME" if (close - prd) >= 0 else "AWAY"   # side_edge = close - pred; ties break HOME (generator rule)
-            if cur and new != cur:
+            edge = abs(close - prd)
+            cv, mam, sig = conv_for(gid, "spread", lambda s, n=new: s == n)
+            # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR): as the line moves, a bare model lean that drops
+            # under 4 pts is CLEARED, and a cleared card whose gap grows back past 4 gets its side again.
+            below = edge < LEAN_FLOOR and cv == "none"
+            if cur and below:
+                rec = dict(pick_side=None, pick_team=None, pick_label=None, vegas_line=round(close if new == "HOME" else -close, 1),
+                           model_line=round(prd if new == "HOME" else -prd, 1), edge=round(edge, 1),
+                           best_line=None, best_odds=None, best_book=None, conviction="none", is_mammoth=False,
+                           has_play=False, display_only=True, signal_keys=[], stake_units=0.0,
+                           recommendation=_rec_label("none", False),
+                           best_book_name=None, best_book_logo=None)
+                gpatch.setdefault(gid, {})["fg_spread_pick"] = None
+            elif (cur and new != cur) or (not cur and not below):
                 team = g["home_team"] if new == "HOME" else g["away_team"]
                 vl = close if new == "HOME" else -close
                 ml = prd if new == "HOME" else -prd
-                cv, mam, sig = conv_for(gid, "spread", lambda s, n=new: s == n)
-                edge = abs(close - prd)
-                capped = edge > 14 and cv == "none"   # EARLY degenerate cap
+                capped = spread_capped(edge, cv)   # ONE definition (dry_common)
                 rec = dict(pick_side=new, pick_team=team, pick_label=f"{team} {fmt(vl)}",
                            vegas_line=round(vl, 1), model_line=round(ml, 1), edge=round(edge, 1),
                            best_line=None, best_odds=None, best_book=None,
-                           conviction=(cv if not capped else "none"), is_mammoth=mam,
+                           conviction=(cv if not capped else "none"),
+                           is_mammoth=(mam and not capped),
                            has_play=(cv != "none" and not capped), display_only=capped,
+                           recommendation=_rec_label(cv if not capped else "none",
+                                                     cv != "none" and not capped),
+                           best_book_name=None, best_book_logo=None,
                            signal_keys=sig,
                            counter_signal_keys=counter_keys(gid, "spread",
                                lambda s, o=("AWAY" if new == "HOME" else "HOME"): s == o),
@@ -346,13 +422,23 @@ def flip_stale_sides(hdr, season, week, gids):
         elif cg == "total" and g.get("fg_total_close") is not None and g.get("fg_pred_total") is not None:
             close, prd = float(g["fg_total_close"]), float(g["fg_pred_total"])
             new = "OVER" if (prd - close) > 0 else "UNDER"
-            if cur and new != cur:
-                cv, mam, sig = conv_for(gid, "total", lambda s, n=new: s == n)
+            cv, mam, sig = conv_for(gid, "total", lambda s, n=new: s == n)
+            below = abs(prd - close) < LEAN_FLOOR and cv == "none"   # same floor as the spread card
+            if cur and below:
+                rec = dict(pick_side=None, pick_team=None, pick_label=None, vegas_line=round(close, 1), model_line=round(prd, 1),
+                           edge=round(abs(prd - close), 1), best_line=None, best_odds=None, best_book=None,
+                           conviction="none", is_mammoth=False, has_play=False, display_only=True, signal_keys=[], stake_units=0.0,
+                           recommendation=_rec_label("none", False),
+                           best_book_name=None, best_book_logo=None)
+                gpatch.setdefault(gid, {})["fg_total_pick"] = None
+            elif (cur and new != cur) or (not cur and not below):
                 rec = dict(pick_side=new, pick_team=None, pick_label=f"{new.title()} {close:g}",
                            vegas_line=round(close, 1), model_line=round(prd, 1),
                            edge=round(abs(prd - close), 1),
                            best_line=None, best_odds=None, best_book=None,
                            conviction=cv, is_mammoth=mam, has_play=(cv != "none"), display_only=False,
+                           recommendation=_rec_label(cv, cv != "none"),
+                           best_book_name=None, best_book_logo=None,
                            signal_keys=sig,
                            counter_signal_keys=counter_keys(gid, "total",
                                lambda s, o=("UNDER" if new == "OVER" else "OVER"): s == o),
@@ -374,6 +460,8 @@ def flip_stale_sides(hdr, season, week, gids):
                                edge=round(float(prd) - float(close), 1),
                                best_line=None, best_odds=None, best_book=None,
                                conviction=cv, is_mammoth=False, has_play=(cv != "none"),
+                               recommendation=_rec_label(cv, cv != "none"),
+                               best_book_name=None, best_book_logo=None,
                                display_only=False, signal_keys=sig,
                                counter_signal_keys=counter_keys(gid, "team_total",
                                    lambda s, t=team, o=("UNDER" if new == "OVER" else "OVER"):
@@ -423,6 +511,8 @@ def flip_stale_sides(hdr, season, week, gids):
                           f"&season=eq.{season}&week=eq.{week}&signal_key=in.({BAND_KEYS})"
                           f"&game_id=in.({gids})", headers=hdr, timeout=30).json()
         killed = 0
+        if fills is None:
+            raise RuntimeError("no line captures passed in")
         for f_ in (fl if isinstance(fl, list) else []):
             if f_["game_id"] not in fills.index:
                 continue

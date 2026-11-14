@@ -1,3 +1,4 @@
+import { tierRank, type SubscriptionTier } from './subscriptionTiers.ts';
 import {
   fetchRevenueCatEntitlementState,
   REVENUECAT_ENTITLEMENT_IDENTIFIER,
@@ -21,80 +22,67 @@ export async function getIsAdmin(serviceClient: any, userId: string): Promise<bo
 export async function getVerifiedEntitlementState(
   serviceClient: any,
   userId: string,
+  additionalCustomerId?: string,
 ): Promise<VerifiedRevenueCatEntitlementState> {
-  // A user's subscription can live under THREE RC identities, so probe in
-  // order and take the first ACTIVE one:
-  //   1. the stored mirror id (written by mobile sync / webhooks — covers
-  //      users stranded on an $RCAnonymousID),
-  //   2. the canonical lowercase Supabase uuid,
-  //   3. the UPPERCASE uuid twin — iOS <=3.5.6 logged into RC with Swift's
-  //      uppercase UUID.uuidString, so store purchases made there attached to
-  //      that customer (case incident 2026-07, see 03_payments_billing.md).
-  //      Once iOS 3.5.7 is fully adopted this candidate just 404s; safe to
-  //      drop it then.
-  // An inactive-but-found result is kept as fallback so genuinely-lapsed
-  // users still resolve with their real status rather than "unknown".
+  // Probe every historical identity before concluding access is lower/expired.
+  // A failure on one identity must not hide a valid legacy Pro on another.
   const storedRcId = await getStoredRevenueCatCustomerId(serviceClient, userId);
-  const candidates = [...new Set([storedRcId || userId, userId, userId.toUpperCase()])];
-
-  try {
-    let firstResolved: RevenueCatEntitlementState | null = null;
-    for (const candidateId of candidates) {
-      try {
-        const state = await fetchRevenueCatEntitlementState(candidateId, REVENUECAT_ENTITLEMENT_IDENTIFIER);
-        if (state.isActive) {
-          if (candidateId === userId.toUpperCase() && candidateId !== userId) {
-            console.warn(`[entitlements] resolved ACTIVE entitlement on UPPERCASE twin for user=${userId} — iOS case-incident customer`);
-          }
-          return { ...state, source: 'live' };
-        }
-        firstResolved = firstResolved ?? state;
-      } catch (candidateError) {
-        // 404 = this identity doesn't exist in RC; try the next one.
-        if (!(candidateError instanceof RevenueCatSubscriberNotFoundError)) {
-          throw candidateError;
-        }
+  const { data: cachedTier, error: cacheError } = await serviceClient.from('subscription_tier_access')
+    .select('tier, is_tiered_customer, expires_at').eq('user_id', userId).maybeSingle();
+  if (cacheError) throw new Error(`Subscription tier cache unavailable: ${cacheError.message}`);
+  const candidates = [...new Set([storedRcId || userId, userId, userId.toUpperCase(), additionalCustomerId].filter((id): id is string => !!id))];
+  let best: RevenueCatEntitlementState | null = null;
+  let sawTieredCustomer = cachedTier?.is_tiered_customer === true;
+  let lookupFailed = false;
+  for (const candidateId of candidates) {
+    try {
+      const state = await fetchRevenueCatEntitlementState(candidateId, REVENUECAT_ENTITLEMENT_IDENTIFIER);
+      sawTieredCustomer ||= state.isTieredCustomer;
+      if (!best || tierRank(state.tier) > tierRank(best.tier)) best = state;
+      if (state.isActive) return { ...state, isTieredCustomer: sawTieredCustomer, source: 'live' };
+    } catch (error) {
+      if (!(error instanceof RevenueCatSubscriberNotFoundError)) {
+        lookupFailed = true;
+        console.warn('[entitlements] identity lookup unavailable; checking remaining identities');
       }
     }
-
-    if (firstResolved) {
-      return { ...firstResolved, source: 'live' };
-    }
-
-    // No identity resolves — user is genuinely unknown to RC.
-    return {
-      entitlementIdentifier: REVENUECAT_ENTITLEMENT_IDENTIFIER,
-      isActive: false,
-      subscriptionStatus: null,
-      expiresAt: null,
-      productIdentifier: null,
-      source: 'live',
-    };
-  } catch (error) {
-    // Transient/network error: fall open to lenient cache to avoid denying
-    // paying users during RC outages.
-    console.warn('[entitlements] live RevenueCat lookup failed, using cache fallback:', error);
-    return await getCachedEntitlementState(serviceClient, userId);
   }
+  if (lookupFailed) {
+    const cached = await getCachedEntitlementState(serviceClient, userId);
+    // A coarse profiles mirror must never overrule an observed lower plan.
+    // An actual previously verified Pro cache can protect a legacy subscriber.
+    if (best && ((sawTieredCustomer && !cachedTier) || (best.tier && tierRank(best.tier) >= tierRank(cached.tier)))) {
+      return { ...best, isTieredCustomer: sawTieredCustomer, source: 'cache' };
+    }
+    return { ...cached, isTieredCustomer: sawTieredCustomer, source: 'cache' };
+  }
+  return {
+    ...(best ?? {
+      entitlementIdentifier: REVENUECAT_ENTITLEMENT_IDENTIFIER,
+      isActive: false, tier: null, subscriptionStatus: null,
+      expiresAt: null, productIdentifier: null,
+    }),
+    isTieredCustomer: sawTieredCustomer,
+    source: 'live',
+  };
 }
 
 export async function syncEntitlementCache(
   serviceClient: any,
   userId: string,
-  entitlement: Pick<VerifiedRevenueCatEntitlementState, 'isActive' | 'subscriptionStatus' | 'expiresAt'>,
+  entitlement: VerifiedRevenueCatEntitlementState,
 ): Promise<void> {
-  const { error } = await serviceClient
-    .from('profiles')
-    .update({
-      subscription_active: entitlement.isActive,
-      subscription_status: entitlement.subscriptionStatus,
-      subscription_expires_at: entitlement.expiresAt,
-    })
-    .eq('user_id', userId);
-
-  if (error) {
-    console.warn('[entitlements] failed to sync entitlement cache:', error.message);
-  }
+  if (entitlement.source !== 'live') return;
+  // Atomic, server-only write: sticky RevenueCat cohort + compatibility mirror.
+  const { error } = await serviceClient.rpc('sync_subscription_tier_access', {
+    p_user_id: userId,
+    p_tier: entitlement.tier,
+    p_is_tiered_customer: entitlement.isTieredCustomer,
+    p_expires_at: entitlement.expiresAt,
+    p_subscription_status: entitlement.subscriptionStatus,
+    p_revenuecat_customer_id: entitlement.customerId ?? null,
+  });
+  if (error) throw new Error(`Cannot persist subscription tier: ${error.message}`);
 }
 
 export async function resolvePremiumAccess(serviceClient: any, userId: string | null) {
@@ -156,12 +144,26 @@ async function getCachedEntitlementState(
     throw new Error(`RevenueCat lookup failed and cached entitlement could not be loaded: ${error.message}`);
   }
 
+  const { data: tierCache, error: tierError } = await serviceClient
+    .from('subscription_tier_access')
+    .select('tier, is_tiered_customer, expires_at')
+    .eq('user_id', userId).maybeSingle();
+  // An unavailable authoritative cache must not promote a new lower tier via
+  // profiles. Once rollout starts, deploy this migration before the functions.
+  if (tierError) throw new Error(`Subscription tier cache unavailable: ${tierError.message}`);
   const hasMirrorAccess = data?.subscription_active === true || !!data?.revenuecat_customer_id;
+  const cacheExpired = tierCache?.is_tiered_customer && tierCache.expires_at
+    && Date.parse(tierCache.expires_at) <= Date.now();
+  const tier: SubscriptionTier | null = tierCache
+    ? cacheExpired ? null : tierCache.tier
+    : hasMirrorAccess ? 'pro' : null;
   return {
     entitlementIdentifier: REVENUECAT_ENTITLEMENT_IDENTIFIER,
-    isActive: hasMirrorAccess,
-    subscriptionStatus: hasMirrorAccess ? data?.subscription_status ?? 'active' : null,
-    expiresAt: hasMirrorAccess ? data?.subscription_expires_at ?? null : null,
+    isActive: tier === 'pro',
+    tier,
+    isTieredCustomer: tierCache?.is_tiered_customer === true,
+    subscriptionStatus: tier ? data?.subscription_status ?? 'active' : null,
+    expiresAt: tierCache?.expires_at ?? data?.subscription_expires_at ?? null,
     productIdentifier: null,
     source: 'cache',
   };

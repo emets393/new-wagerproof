@@ -1,3 +1,4 @@
+import { resolvePremiumAccess } from '../shared/entitlements.ts';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
@@ -71,7 +72,7 @@ serve(async (req) => {
       return errorResponse(400, 'Invalid request', parseResult.error.errors);
     }
 
-    const { avatar_id, user_id, is_admin } = parseResult.data;
+    const { avatar_id, user_id } = parseResult.data;
 
     console.log(`[generate-avatar-picks] Starting generation for avatar ${avatar_id} by user ${user_id}`);
 
@@ -98,6 +99,19 @@ serve(async (req) => {
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
     const cfbClient = createClient(cfbSupabaseUrl, cfbSupabaseKey);
+    const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
+    if (token !== supabaseServiceKey) {
+      const { data: { user: caller }, error: authError } = await supabaseClient.auth.getUser(token);
+      if (authError || !caller || caller.id.toLowerCase() !== user_id.toLowerCase()) {
+        return errorResponse(401, 'Sign in to generate agent picks.');
+      }
+    }
+    const access = await resolvePremiumAccess(supabaseClient, user_id);
+    const is_admin = access.isAdmin;
+    if (access.entitlement?.isTieredCustomer && !access.hasPremiumAccess) {
+      return errorResponse(403, 'Agent picks require WagerProof Pro.');
+    }
+
 
     // ---------------------------------------------------------------------
     // 3. Fetch and Validate Avatar Profile
@@ -1047,7 +1061,9 @@ async function fetchNBAGames(
   const [polymarketByGameKey, injuriesByTeam, accuracyByGameId, situationalByGameId] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nba', games),
     fetchNBAInjuriesByTeam(cfbClient, games, targetDate),
-    fetchPredictionAccuracyByGameId(cfbClient, 'nba_todays_games_predictions_with_accuracy_cache', games, targetDate, true),
+    // Legacy engine (no cron calls it; only the deprecated RN app). The NBA accuracy cache it read was built on
+    // nba_predictions.model_fair_* (dead numbers) and is being dropped -- hand it nothing instead of a 404.
+    Promise.resolve(new Map<string, Record<string, unknown>>()),
     fetchSituationalTrendsByGameId(cfbClient, 'nba_game_situational_trends_today', games),
   ]);
 

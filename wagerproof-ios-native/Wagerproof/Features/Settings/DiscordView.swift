@@ -33,7 +33,7 @@ struct DiscordView: View {
                 VStack(spacing: Spacing.xl) {
                     heroBlock
 
-                    if proAccess.isPro {
+                    if proAccess.hasSubscription {
                         proStateCards
                     } else {
                         lockedCard
@@ -68,7 +68,7 @@ struct DiscordView: View {
                 await checkDiscordLink()
             }
             .sheet(isPresented: $isPaywallPresented) {
-                RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
+                RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature, minimumTier: .standard)
             }
         }
     }
@@ -146,63 +146,9 @@ struct DiscordView: View {
     // MARK: - Locked
 
     private var lockedCard: some View {
-        VStack(spacing: Spacing.lg) {
-            HStack(spacing: 6) {
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 14))
-                Text("PRO FEATURE")
-                    .font(.system(size: 13, weight: .bold))
-                    .tracking(0.5)
-            }
-            .foregroundStyle(Color(hex: 0xD97706))
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, 6)
-            .background(Color(hex: 0xD97706).opacity(0.15))
-            .clipShape(Capsule())
-
-            ZStack {
-                Circle()
-                    .fill(Color(hex: 0x22D35F).opacity(0.15))
-                    .frame(width: 80, height: 80)
-                Image(systemName: "checkmark.shield.fill")
-                    .font(.system(size: 40))
-                    .foregroundStyle(Color(hex: 0x22D35F))
-            }
-
-            Text("Unlock our private Discord server!")
-                .font(AppFont.title)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.appTextPrimary)
-
-            Text("Get instant alerts for Editors Picks on your phone, and share betting insights, strategies, and analysis with the community.")
-                .font(AppFont.body)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.appTextSecondary)
-
-            Button {
-                isPaywallPresented = true
-            } label: {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "lock.open.fill")
-                    Text("Unlock with Pro")
-                }
-                .font(AppFont.bodyEmphasized)
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.md)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: 0xF59E0B), Color(hex: 0xD97706)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
+        TierUpgradeCard(minimum: .standard, title: "Join the WagerProof community") {
+            isPaywallPresented = true
         }
-        .padding(Spacing.lg)
-        .background(Color.appSurfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, Spacing.lg)
     }
 

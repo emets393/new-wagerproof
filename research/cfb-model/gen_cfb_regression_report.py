@@ -7,13 +7,20 @@ vanished conditions RESOLVED instead of deleting them.
 
 Families v1 (data available now):
   injuries      — covers.com listings for slate teams (QBs lead), backup-QB triggers
-  signals       — active flags with model-agreement framing + live/all-time records
+  signals       — CONFLUENCE engine (owner spec 2026-09-16): flags are grouped per
+                  game+market, graded per family against this season's finals, and the
+                  report surfaces (a) multi-signal alignments with no opposing signal,
+                  (b) strong solo signals, (c) explicit conflict storylines — instead
+                  of one storyline per raw flag. regime_* (ratings-fed) excluded:
+                  the daily wipe+reinsert rewrites played games' rows with post-game
+                  ratings, so their "records" are hindsight, not live performance.
   line_movement — open->current across FG/TT/1H; steam vs the model's lean
   coach         — hammer/mercy-tier coaches laying big numbers (behavioral context)
 Families gated until current-season data exists: EPA/luck regression, team form.
 CFB cap: top ~30 by materiality (owner call). Usage: gen_cfb_regression_report.py [season week]
 """
 import datetime as dt
+import re
 import sys
 from pathlib import Path
 
@@ -31,6 +38,13 @@ def fetch(env, table, params):
     r = requests.get(f"{lib.SUPA}/{table}?{params}", headers=lib.hdr(env), timeout=60)
     j = r.json()
     return j if isinstance(j, list) else []
+
+
+# Confluence engine lives in football_report_lib (shared with the NFL report so
+# the logic can never drift between sports). Ratings-fed keys stay excluded there.
+RATINGS_FED = ("regime_", "padded_road", "rvr_")
+MODEL_OWN = {"early_total_edge", "model_total_over", "model_total_under",
+             "model_total_over_pace", "model_highedge_dog", "model_road_value", "model_lean"}
 
 
 def main():
@@ -52,16 +66,15 @@ def main():
     gmap = {str(g["game_id"]): g for g in upcoming}
     label = {str(g["game_id"]): f"{g['away_team']} @ {g['home_team']}" for g in upcoming}
     flags = fetch(env, "cfb_slate_flags",
-                  f"select=game_id,signal_key,side,market,conviction,tier,source"
+                  f"select=game_id,signal_key,side,market,conviction,tier,source,"
+                  f"bet_team,bet_direction,bet_line"
                   f"&season=eq.{season}&week=eq.{week}")
     picks = fetch(env, "cfb_slate_picks",
                   f"select=game_id,card_group,pick_side,pick_team&season=eq.{season}&week=eq.{week}")
     defs = {d["signal_key"]: d for d in fetch(env, "cfb_signal_defs",
             "select=signal_key,display_name,typical_hit,one_liner")}
-    # THIS season only — signal_performance is per-season; last year's record
-    # must never render as "Live this season" (NFL 0-1 incident, 2026-08-31).
-    perf = {p["signal_key"]: p for p in fetch(env, "signal_performance",
-            f"select=signal_key,n,wins,losses,hit_rate&sport=eq.cfb&season=eq.{season}")}
+    # (signal_performance no longer read here — live records are graded directly
+    # from finals in live_signal_records(), which also skips RATINGS_FED keys.)
     injuries = fetch(env, "cfb_injuries",
                      f"select=cfbd_team,player,pos,status,detail&season=eq.{season}&week=eq.{week}")
     model_side = {str(p["game_id"]): p.get("pick_side") for p in picks if p.get("card_group") == "spread"}
@@ -96,42 +109,11 @@ def main():
                            + ". CFB injury reporting is unmandated — an unlisted player is unreported, not confirmed healthy.",
                       data={"team": team, "listings": rows}, rank=100 - sev * 25))
 
-    # ---- signals with model-agreement framing --------------------------------
-    for f in flags:
-        gid = str(f["game_id"])
-        if gid not in gmap or f.get("tier") != "active":
-            continue
-        d = defs.get(f["signal_key"], {})
-        g = gmap[gid]
-        side, market = f.get("side"), f["market"]
-        # Resolve the abstract side to an explicit team + CURRENT line — the
-        # report must never say "the away side" or "the G5 team" (owner rule).
-        sc, tc = g.get("fg_spread_close"), g.get("fg_total_close")
-        target = None
-        if market == "spread" and sc is not None and side in ("HOME", "AWAY"):
-            team = g["home_team"] if side == "HOME" else g["away_team"]
-            line = float(sc) if side == "HOME" else -float(sc)
-            target = f"{team} {line:+g}"
-        elif market == "total" and tc is not None and side in ("OVER", "UNDER"):
-            target = f"{side} {float(tc):g}"
-        ms = model_side.get(gid) if market == "spread" else (
-            model_tot.get(gid) if market == "total" else None)
-        agree = (ms == side) if ms and side in ("HOME", "AWAY", "OVER", "UNDER") else None
-        pr = perf.get(f["signal_key"])
-        rec = (f" Live this season: {pr['wins']}-{pr['losses']}." if pr and (pr.get("wins") or pr.get("losses")) else "")
-        frame = (" The model leans the same way." if agree is True else
-                 (" Note: the model leans the other way — treat as tension, not confirmation." if agree is False else ""))
-        name = d.get("display_name", f["signal_key"])
-        S.append(dict(storyline_key=f"signal:{f['signal_key']}:{gid}", family="signals",
-                      game_id=gid, matchup=label.get(gid),
-                      title=f"{name}: {target}" if target else f"{name} — {label.get(gid)}",
-                      body=(f"This signal points to {target} in {label.get(gid)}. " if target else "")
-                           + f"{d.get('one_liner','Validated signal').rstrip('.')}. "
-                           f"Historical record: {d.get('typical_hit','validated')}." + rec + frame,
-                      data={"signal_key": f["signal_key"], "side": side, "target": target,
-                            "market": market, "model_agrees": agree,
-                            "conviction": f.get("conviction")},
-                      rank=20 if agree else 35))
+    # ---- signals: CONFLUENCE engine (shared, football_report_lib) ------------
+    S += lib.confluence_storylines(
+        env, "cfb", season, week, gmap, label, flags, defs, model_side, model_tot,
+        "cfb_slate_flags", "cfb_slate_games",
+        model_own_keys=MODEL_OWN, ratings_fed=RATINGS_FED)
 
     # ---- line movement (all markets) -----------------------------------------
     for g in upcoming:
@@ -193,7 +175,7 @@ def main():
     # outrank everything and evict injuries/movement/coach entirely (first-run
     # bug), and the eviction set churns between runs. Injuries always seat
     # (owner rule). Deterministic order: (rank, key).
-    QUOTA = {"injuries": 10, "signals": 12, "line_movement": 8, "coach": 5}
+    QUOTA = {"injuries": 10, "signals": 15, "line_movement": 6, "coach": 4}
     dedup = {}
     for s in S:
         dedup.setdefault(s["storyline_key"], s)

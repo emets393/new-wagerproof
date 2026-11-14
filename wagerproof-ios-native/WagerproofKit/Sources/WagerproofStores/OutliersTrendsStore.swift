@@ -77,7 +77,12 @@ public final class OutliersTrendsStore {
             case .ncaaf:
                 await CFBTeamsService.shared.ensureLoaded()
                 await SportsbookCatalogService.shared.ensureLoaded()
-            default:
+            case .nba:
+                break
+            case .ncaab:
+                await CFBTeamsService.shared.ensureLoaded()
+                await NCAABTeamIdentityService.shared.ensureLoaded()
+            case .mlb:
                 break
             }
 
@@ -201,8 +206,8 @@ public final class OutliersTrendsStore {
 
         var all: [OutliersTrendsSearchEntry] = []
 
-        // NFL + NCAAF: server-rendered cards keyed by the current slate week.
-        for s in [OutliersTrendsSport.nfl, .ncaaf] {
+        // Football is keyed by the current slate week. Basketball is today's ET slate.
+        for s in [OutliersTrendsSport.nfl, .ncaaf, .nba, .ncaab] {
             do {
                 let games = try await OutliersTrendsService.shared.fetchSlateGames(sport: s)
                 guard let first = games.first else { continue }
@@ -236,7 +241,7 @@ public final class OutliersTrendsStore {
     }
 
     public func onSportChanged() {
-        if sport == .mlb {
+        if sport == .mlb || sport == .nba || sport == .ncaab {
             subject = .teams
         } else if !sport.allowedSubjects.contains(subject) {
             subject = .all

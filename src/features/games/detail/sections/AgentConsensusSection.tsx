@@ -1,3 +1,5 @@
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import { tierRestricted } from '@/features/tieredPaywall/access';
 import * as React from 'react';
 import { ArrowDown, ArrowUp, UsersRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -125,6 +127,8 @@ function AgreementBar({ consensus }: { consensus: GameAgentConsensus }) {
 }
 
 export function AgentConsensusSection({ consensus }: { consensus?: GameAgentConsensus }) {
+  const { subscriptionTier, isTieredCustomer } = useRevenueCat();
+  if (tierRestricted(subscriptionTier, isTieredCustomer, 'pro')) return null;
   // No agents on this game is a normal state (picks land through the day), and
   // an empty card is worse than no card.
   if (!consensus || consensus.agents <= 0) return null;

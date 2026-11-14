@@ -1,7 +1,8 @@
 // Data hooks for the Outliers Trends section — mirrors OutliersTrendsStore.refresh()
 // (wagerproof-ios-native/WagerproofKit/Sources/WagerproofStores/OutliersTrendsStore.swift).
-// NFL/NCAAF fetch server-pre-rendered cards for the current slate; MLB fetches the
-// raw splits bundle and builds every card client-side. Subject/matchup filtering
+// NFL/NCAAF fetch server-pre-rendered cards for the current slate; NBA/NCAAB
+// fetch today's ET cards; MLB fetches the raw splits bundle and builds every
+// card client-side. Subject/matchup filtering
 // happens downstream in filtering.ts so one cache entry serves all filter states.
 import { useQueries } from '@tanstack/react-query';
 import { buildMLBCards } from '../mlbTrendsEngine';
@@ -31,7 +32,6 @@ export interface OutliersTrendsSportData extends OutliersTrendsData {
 function trendsQueryOptions(sport: OutliersTrendsSport) {
   return {
     queryKey: ['outliers-trends', sport] as const,
-    // NBA/NCAAB have no trends source yet — the section renders "coming soon" without fetching.
     enabled: sportHasTrendsData(sport),
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<OutliersTrendsData> => {

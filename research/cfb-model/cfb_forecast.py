@@ -106,12 +106,18 @@ def add_situational_flags(df):
     qbp = os.path.join(DATA, "qb_starts.parquet")
     if os.path.exists(qbp):
         qb = pd.read_parquet(qbp).sort_values(["team", "season", "week"])
-        def est(grp):
-            out, cum = [], {}
-            for _, r in grp.iterrows():
-                out.append(max(cum, key=cum.get) if cum else None); cum[r.qb] = cum.get(r.qb, 0) + r.att
-            grp = grp.copy(); grp["established"] = out; return grp
-        qb = qb.groupby(["team", "season"], group_keys=False).apply(est)
+        # established starter = most-attempted QB BEFORE this game, within (team, season).
+        # Written as an explicit group loop, NOT groupby.apply: pandas >=2.2 drops the grouping
+        # columns from the frame handed to the function, so the apply returned a frame with no
+        # team/season and the drop_duplicates below raised KeyError(['team','season']). Render's
+        # older pandas included them, so this only ever broke off-Render.
+        _est = {}
+        for _, grp in qb.groupby(["team", "season"], sort=False):
+            cum = {}
+            for _i, r in grp.iterrows():
+                _est[_i] = max(cum, key=cum.get) if cum else None
+                cum[r.qb] = cum.get(r.qb, 0) + r.att
+        qb["established"] = pd.Series(_est)
         qb["f_backup"] = ((qb.established.notna()) & (qb.qb != qb.established) & (qb.att >= 10)).astype(int)
         qb = qb.sort_values("att").drop_duplicates(["season", "week", "team"], keep="last")  # dup games in source
         tg = tg.merge(qb[["season", "week", "team", "f_backup"]], on=["season", "week", "team"], how="left")
@@ -133,15 +139,18 @@ def add_situational_flags(df):
 def spot_library(df):
     """Return ordered dict: spot_name -> (boolean mask, side, market). Each spot is curated &
     selective. Tiers: T1 = beats-close high conviction; T2 = bettable-at-open leans."""
-    ep = pd.to_numeric(df.get("expected_plays"), errors="coerce"); ep66 = ep.quantile(0.66)
+    # z default for every df.get: a DEGRADED frame (tendencies/pace stage skipped, e.g.
+    # CFBD hiccup mid-Saturday 2026-09-05) drops columns entirely, and a bare
+    # df.get(col) then returns scalar NaN whose .quantile AttributeError-kills the slate.
+    z = pd.Series(np.nan, index=df.index)
+    ep = pd.to_numeric(df.get("expected_plays", z), errors="coerce"); ep66 = ep.quantile(0.66)
     to = df["total_open"]
     df["tier"] = np.where(df.homeConference.isin(P5) & df.awayConference.isin(P5), "P5",
                   np.where(~df.homeConference.isin(P5) & ~df.awayConference.isin(P5), "G5", "mix"))
-    thr = pd.to_numeric(pd.concat([df.get("home_adj_passing_epa_allowed"), df.get("away_adj_passing_epa_allowed")]), errors="coerce").quantile(0.66)
-    both_weak = (pd.to_numeric(df.get("home_adj_passing_epa_allowed"), errors="coerce") >= thr) & \
-                (pd.to_numeric(df.get("away_adj_passing_epa_allowed"), errors="coerce") >= thr)
+    thr = pd.to_numeric(pd.concat([df.get("home_adj_passing_epa_allowed", z), df.get("away_adj_passing_epa_allowed", z)]), errors="coerce").quantile(0.66)
+    both_weak = (pd.to_numeric(df.get("home_adj_passing_epa_allowed", z), errors="coerce") >= thr) & \
+                (pd.to_numeric(df.get("away_adj_passing_epa_allowed", z), errors="coerce") >= thr)
     eb = lambda c: df.get(c, pd.Series(0, index=df.index)).fillna(0) == 1
-    z = pd.Series(np.nan, index=df.index)
     gap = pd.to_numeric(df.get("soft_gap", z), errors="coerce")        # sharp_close - soft_close (<0 sharp=home)
     dk = pd.to_numeric(df.get("dk_sp_close", z), errors="coerce")      # DraftKings close home-spread
     ec = pd.to_numeric(df.get("side_edge_close", z), errors="coerce")  # pred_margin + spread_close (model lean @ close)

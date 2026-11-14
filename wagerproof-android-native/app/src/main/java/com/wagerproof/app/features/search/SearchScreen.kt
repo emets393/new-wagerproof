@@ -65,6 +65,7 @@ import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
 import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
 import com.wagerproof.app.features.parlaygod.ParlayGodRail
 import com.wagerproof.app.features.paywall.PaywallDialogHost
+import com.wagerproof.app.features.paywall.TieredAccessGate
 import com.wagerproof.app.features.props.NFLPlayerPropSelection
 import com.wagerproof.app.features.props.NFLPropFeed
 import com.wagerproof.app.features.props.NFLPropFeedItem
@@ -85,6 +86,7 @@ import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.models.ParlayTicket
+import com.wagerproof.core.models.SubscriptionTier
 import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.stores.AuthStore
 import com.wagerproof.core.stores.GamesStore
@@ -279,7 +281,7 @@ fun SearchScreen(
             parlayGod = graph.parlayGod,
             parlayAccess = when {
                 graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
-                graph.proAccess.isPro -> ParlayGodAccessState.Granted
+                graph.proAccess.hasAccess(com.wagerproof.core.models.SubscriptionTier.PREMIUM) -> ParlayGodAccessState.Granted
                 else -> ParlayGodAccessState.Locked
             },
             onBrowse = { scope ->
@@ -787,13 +789,17 @@ private fun OutlierRail(
     results: List<SearchStore.SearchResult.Trend>,
     onOpen: (SearchStore.SearchResult.Trend) -> Unit,
 ) {
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(results, key = { it.id }) { result ->
-            Box(Modifier.width(300.dp).clickable { onOpen(result) }) {
-                OutliersTrendCard(card = result.card, sport = result.sport, game = result.game)
+    // Search renders these cards directly, without entering the gated Outliers tab.
+    // Protect both keyword results and Browse Outliers before any card is opened.
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Outliers") {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(results, key = { it.id }) { result ->
+                Box(Modifier.width(300.dp).clickable { onOpen(result) }) {
+                    OutliersTrendCard(card = result.card, sport = result.sport, game = result.game)
+                }
             }
         }
     }

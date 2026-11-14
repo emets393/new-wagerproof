@@ -92,9 +92,32 @@ private fun nflColorPair(team: String): TeamColorPair {
 }
 
 internal fun nflHasMammothPlay(game: NFLPrediction, picks: List<NFLSlatePickRow>): Boolean =
-    game.mammoth || picks.any { pick ->
-        pick.hasPlay == true && (pick.isMammoth == true || pick.conviction.equals("mammoth", ignoreCase = true))
+    picks.any { pick ->
+        val marked = pick.hasPlay == true &&
+            (pick.isMammoth == true || pick.conviction.equals("mammoth", ignoreCase = true))
+        marked && totalSideAgrees(game, pick)
     }
+
+/** `nfl_slate_feed.mammoth` stays true after the number moves. The pick row is the bet. */
+private fun totalSideAgrees(game: NFLPrediction, pick: NFLSlatePickRow): Boolean {
+    if (pick.cardGroup != "total" && pick.cardGroup != "h1_total") return true
+    val side = pickDirection(pick.pickSide ?: pick.pickLabel) ?: return true
+    val model = if (pick.cardGroup == "h1_total") {
+        currentTotalSide(game.h1TotalPick, game.h1PredTotal, game.h1TotalClose)
+    } else {
+        currentTotalSide(game.fgTotalPick, game.predTotal, game.fgTotalClose ?: game.overLine)
+    }
+    return model == null || side == model
+}
+
+private fun currentTotalSide(pick: String?, prediction: Double?, market: Double?): String? {
+    val upper = pick?.trim()?.uppercase(Locale.US).orEmpty()
+    if (upper == "OVER" || upper == "UNDER") return upper
+    if (upper.contains("UNDER")) return "UNDER"
+    if (upper.contains("OVER")) return "OVER"
+    if (prediction == null || market == null || kotlin.math.abs(prediction - market) < 0.5) return null
+    return if (prediction < market) "UNDER" else "OVER"
+}
 
 /** Same blanket strip the detail screen uses, so the feed pill never counts scaffolding keys like `sides_model`. */
 internal fun nflSignalCount(picks: List<NFLSlatePickRow>): Int =

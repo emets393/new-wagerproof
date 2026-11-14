@@ -15,6 +15,21 @@ import {
   getUserAccessToken,
 } from "./supabase";
 
+/** Best-effort durable use evidence, attributed only to the verified OAuth grant. */
+async function recordSuccessfulResearch(env: Env, userId: string): Promise<void> {
+  if (!env.MAIN_SERVICE_ROLE_KEY || !userId) return;
+  try {
+    const { error } = await createServiceMainClient(env).rpc("record_achievement_service_activity", {
+      p_user_id: userId,
+      activity: "mcp_tool_success",
+    });
+    if (error) console.warn("MCP achievement recording failed");
+  } catch {
+    // An unavailable achievement backend must never change the research result.
+    console.warn("MCP achievement recording failed");
+  }
+}
+
 const LATEST_PROTOCOL = "2025-06-18";
 
 // The connector exposes the user's own data tools + the global sports tools.
@@ -74,7 +89,7 @@ async function buildToolContext(tool: Tool, env: Env, props: Props): Promise<Too
   return { main: createServiceMainClient(env), cfb, cfbService, today };
 }
 
-async function handleMessage(msg: JsonRpcRequest, env: Env, props: Props): Promise<object | null> {
+async function handleMessage(msg: JsonRpcRequest, env: Env, props: Props, execution: ExecutionContext): Promise<object | null> {
   const { id, method, params } = msg;
   const isNotification = id === undefined || id === null;
 
@@ -101,6 +116,7 @@ async function handleMessage(msg: JsonRpcRequest, env: Env, props: Props): Promi
       try {
         const ctx = await buildToolContext(tool, env, props);
         const result = await tool.execute(args, ctx);
+        execution.waitUntil(recordSuccessfulResearch(env, props.userId));
         return ok(id, {
           content: [{ type: "text", text: JSON.stringify(result) }],
           structuredContent: result,
@@ -161,13 +177,13 @@ export const mcpApiHandler = {
 
     if (Array.isArray(body)) {
       const responses = (
-        await Promise.all(body.map((m) => handleMessage(m as JsonRpcRequest, env, props)))
+        await Promise.all(body.map((m) => handleMessage(m as JsonRpcRequest, env, props, ctx)))
       ).filter((r): r is object => r !== null);
       if (responses.length === 0) return new Response(null, { status: 202, headers: cors });
       return Response.json(responses, { headers: jsonHeaders });
     }
 
-    const response = await handleMessage(body as JsonRpcRequest, env, props);
+    const response = await handleMessage(body as JsonRpcRequest, env, props, ctx);
     if (response === null) return new Response(null, { status: 202, headers: cors });
     return Response.json(response, { headers: jsonHeaders });
   },

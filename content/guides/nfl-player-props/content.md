@@ -1,83 +1,123 @@
-## The old way takes too long
+To find NFL player props without opening a dozen tabs, start with a WagerProof Agent focused on NFL props. Use Outliers and Props to narrow the list, then open each player's trend page to check the line, recent results and matchup. Look at parlay combinations only after the individual legs make sense.
 
-On a full NFL Sunday, you can burn an hour bouncing between passing yards, receptions, rushing attempts, touchdowns, and alternate lines. You look up one player at a time, open too many tabs, and try to remember which trends were actually interesting. By kickoff, you have a pile of screenshots and no clear process.
+That is the routine this guide walks through. It is a research workflow, not a list of today's picks. The worked example below uses made-up numbers so you can follow the process without mistaking an old line for a current opportunity.
 
-We built WagerProof to take that repetitive searching off your plate. An AI Agent scans the slate, Outliers brings the strongest prop signals into one view, Parlay God finds possible combinations, and each player's deeper trends are one tap away. You still make the call, but you start with a useful short list instead of a blank page.
+## 1. Give your NFL props Agent a specific job
 
-Here is the exact routine I would use every week.
+We built Agents to take the repetitive searching off your plate. You set the preferences, the Agent reviews the available slate, and you get candidates with reasoning to inspect. You still decide whether that reasoning holds up.
 
-## 1. Set up an Agent for NFL player props
+Choose NFL when you create the Agent. In Markets & Props, enable Player Props and set Player Props Emphasis to Emphasize. If you want a props-only Agent, remove the other allowed markets too. Emphasize is a preference, not an instruction to exclude spreads, moneylines and totals.
 
-First, give the Agent one clear job: find NFL player props. Choose NFL, allow player props, and set the props emphasis to **Emphasize**. That keeps its card focused instead of filling it with unrelated sides and totals.
+Keep the first setup simple:
 
-Do not leave it on broad settings. Make it work the way you want to research:
+- Set a modest daily pick limit so you get a short list to review.
+- Turn on Skip Weak Slates. An empty card is better than a forced selection.
+- Choose a confidence threshold and risk preference you can stick with.
+- Start with straight selections while you learn what the Agent is finding. Weekly football parlays are a separate option, not a requirement.
 
-- Set a maximum number of picks per day so a large slate does not turn into noise.
-- Tell it to skip weak slates when nothing clears your settings.
-- Adjust the confidence threshold and how much the Agent should trust the model.
-- Choose its risk tolerance, over or under lean, and appetite for underdogs.
-- Turn on the weekly football parlay option and choose how many legs it can use.
+The Agent considers NFL props backed by available signals. Allowing props does not mean it will produce a pick for every player, every market or every slate. Raising the confidence setting also does not make the underlying data more certain.
 
-Set it up once and the Agent will check each new slate against the same rules. Every pick comes with its reasoning. Results are graded automatically, and the wins, losses, pushes, and units stay in the record. You can see whether the Agent is actually helping without judging it by one hot week.
+The full props and Parlay God workflow requires Pro. Check the current plan before subscribing; this guide does not assume that a free Agent includes every research screen. [Current feature and plan details](https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957).
 
-I would also build more than one. One Agent might favor conservative reception and yardage lines. Another might look for higher-risk touchdown or alternate-line opportunities. Keeping them separate makes it much easier to see which approach is working.
+## 2. Use Outliers and Props to build a short list
 
-## 2. Use Outliers to find individual prop signals
+The Agent gives you a starting point. Outliers and Props let you look through the available signals yourself, including candidates the Agent did not select. Narrow the view to the game or market you care about, then compare recent results against the actual line.
 
-When I only have a few minutes, I start in Outliers and Props. It turns a long list of markets into something I can scan quickly.
+A green streak is a reason to open a player, not a reason to stop researching. Check the numerator and denominator. Three hits in three tracked games and ten hits in ten games are both perfect records, but they are not the same amount of information.
 
-You can filter by market or matchup, show only props with signals, and sort by L10 hit rate. Props Cheats highlights props that hit in every tracked game in the sample shown. That is not a prediction. It is a quick way to say, "open this one and take a closer look."
+Before moving a candidate onto your short list, answer three questions:
 
-Before you get excited about the streak, check:
+1. What exact line produced this hit rate?
+2. How many games are in the sample, and which games are missing?
+3. Is the current price still available?
 
-- Is today's line the same line used for the streak?
-- Has the player's role or expected volume changed?
-- Was the recent sample built against unusually favorable opponents?
-- Is the available price still reasonable?
-- Does an official status update change the expected workload?
+Keep the list small enough that you can open every player page. You do not need to find something in every matchup.
 
-Before locking anything in, check the [official NFL injury report](https://www.nfl.com/injuries/). WagerProof makes the search faster, but an older trend means a lot less if the player's status or expected workload has changed.
+## 3. Open the player page before trusting the trend
 
-## 3. Find parlay combinations without forcing them
+Start with the selected market and its current line. Then check the recent game results, projection, matchup history and available situational splits. Use alternate lines where available to see how much the trend depends on the number you choose.
 
-Parlays get messy when one prop you like turns into three legs you barely researched. Parlay God gives you a better place to start by building combinations from props that are currently on perfect tracked streaks.
+Role comes before a colorful chart. For a reception prop, ask whether the player is still getting a comparable role and target opportunity. For rushing yards, consider whether the expected workload changed. A recent average does not carry over automatically after a roster or role change.
 
-I still open every leg. I want to know if two props need the same game script, if the lines have moved, or if one injury update could hurt the whole combination. A three-leg card can look varied while still depending on one quarterback, one offense, or one weather condition.
+Check the [official NFL injury report](https://www.nfl.com/injuries/) and final availability before relying on a player's usual workload.
 
-My rule is simple: use Parlay God to find the combination, then try to talk yourself out of every leg. If one does not hold up, remove it. There is no reason to force a parlay just because the recent streak looks clean.
+Early in the season, pay particular attention to the dates in a last-ten-games view. It may reach into the previous season, when the quarterback, coaching staff or depth chart was different. Use that history as context, not ten identical observations of today's situation.
 
-## 4. Open the individual player trend page
+WagerProof's book boards are snapshots. Confirm the current number, price and settlement rules at the sportsbook before making a decision. If the line moved, repeat the comparison at the new line.
 
-Once I have a short list, I spend most of my time on the individual player pages. Tap a player and you can see what sits behind the signal instead of treating every green badge the same.
+## A worked example: the same player, two different lines
 
-Look at the current line first, then the L10 chart. You can see which recent games finished above or below today's number, how long the streak has lasted, and whether the results are clustered near the line or comfortably past it. Then check the alternate lines. A player can look great at one number and completely ordinary one yard or one reception higher.
+Imagine a receiver with these reception totals in ten games, from oldest to newest:
 
-Keep moving through the context:
+**4, 6, 5, 7, 3, 6, 8, 5, 7, 6.**
 
-- season results compared with the recent sample
-- home and away splits
-- opponent and matchup history
-- recent opportunity, such as targets, carries, or attempts
-- the sportsbook line and available alternates
+These are fictional numbers, not a WagerProof recommendation or backtest. They make the line-change problem easy to see.
 
-The question is not simply, "is this card green?" I want to know **why this prop kept hitting and whether those same conditions are still there today.**
+| Games above the line | Over 4.5 catches | Over 5.5 catches |
+| --- | --- | --- |
+| Last ten games | 8 of 10 | 6 of 10 |
+| Last five games | 5 of 5 | 4 of 5 |
+| Current consecutive streak | 5 games | 2 games |
+| Hypothetical price | -175 | +105 |
+| Break-even win rate at that price | 63.64% | 48.78% |
 
-## My weekly NFL player props routine
+One extra catch changes the recent hit rate, the streak and the payout. Neither column is automatically the better choice.
 
-This is the five-minute version I would run each week:
+At -175, the break-even calculation is `175 / (175 + 100)`, or 63.64%. At +105, it is `100 / (105 + 100)`, or 48.78%. Those are price thresholds, not forecasts. Our [odds and implied-probability guide](/blog/implied-probability-vs-true-probability/) explains the distinction.
 
-1. Check the NFL props Agent and read the reasoning behind its candidates.
-2. Scan Outliers and Props for strong signals that the Agent may not have selected.
-3. Review Parlay God for combinations, without committing to every suggested leg.
-4. Open each individual player page and compare the actual line, alternates, L10 results, streaks, and role context.
-5. Save the final decision before kickoff, then let the graded record show what happened.
+Do not subtract the break-even rate from the ten-game hit rate and call the difference an edge. Ten selected games are not a reliable estimate of the next game's probability. The role, opponents and available information may have changed.
 
-Do not skip the last step. A hot week feels good, but a complete history tells you whether your settings, markets, and assumptions are holding up. That is why WagerProof keeps the full Agent record visible instead of only showing the wins.
+Instead, write a decision note. For example: "Over 4.5 has the stronger recent record, but the price is much shorter. I have not confirmed that the receiver's role is unchanged. Keep it on the research list, not the final list."
 
-## Spend your time checking signals, not hunting for them
+That note tells you what to check next. "Hit eight of ten" does not.
 
-The goal is not to generate the biggest list of NFL player props. It is to get to the small group worth your time as quickly as possible.
+## 4. Check parlay combinations one leg at a time
 
-Let the Agents scan the slate. Use Outliers and Props to find the signals. Check Parlay God for combinations. Then open the player pages and pressure-test the lines, alternates, and streaks. That gives you a repeatable weekly routine instead of another Sunday morning scramble.
+Parlay God finds combinations built from perfect tracked streaks. It helps you discover a group of candidates without assembling everything from scratch. A perfect historical streak is still only a description of the sample shown.
 
-No trend or Agent can tell you what will happen next. Every prop can lose. WagerProof simply gets you to the right questions faster and keeps an honest record of what happened afterward.
+Open every leg before accepting the combination. Use this quick check:
+
+| Question | What could change the decision? |
+| --- | --- |
+| Is the line still the same? | The streak was measured at a lower threshold than the number now offered. |
+| Does each leg hold up alone? | One selection was added only to increase the payout. |
+| What do the legs depend on together? | A quarterback yardage over and a receiver yardage over both need the passing game to produce. |
+| Is the combined price actually available? | A same-game combination is repriced or not offered by the book. |
+
+Shared conditions matter. Several legs can all be hurt by the same injury update or a change in game script. Do not multiply individual hit rates and treat the answer as the chance of the parlay winning. Historical hit rates are not forecasts, and the legs may not be independent.
+
+An Agent's weekly football parlay and a Parlay God streak-based combination are different features. Neither removes the need to review each leg. If one fails your check, leave the combination alone. There is no obligation to turn a good research session into a parlay.
+
+## Copy this weekly NFL props research sheet
+
+Use one copy per candidate. Fill it out before kickoff, then add the result afterward. This is your own worksheet, not a claim that every field is automatically saved by WagerProof.
+
+[Open the plain-text research sheet](/guides/nfl-player-props/weekly-research-sheet-v1.txt) and copy it into your notes. It includes an empty form and a separate fictional example.
+
+| Field | What to write |
+| --- | --- |
+| Research cutoff | Date, time and time zone. |
+| Exact selection | Player, opponent, market, over or under, line and period. |
+| Available offer | Sportsbook, price, time checked and settlement rule. |
+| Why it surfaced | Agent reasoning, prop signal or streak category. |
+| Sample behind it | Hit count, game count, dates and the line used. |
+| Role assumption | Expected opportunity and what could change it. |
+| Availability check | Official status, source and last check time. |
+| Alternate line | Other number and price considered, or not available. |
+| Shared dependencies | Other legs affected by the same player or game conditions. |
+| Decision before kickoff | Review further, pass, or retain for your final comparison, with a reason. |
+| After the game | Result, settlement and whether the original assumptions held. |
+
+For the fictional receiver, a useful entry would say: "Ten games at 4.5 catches: 8/10, including five straight. Hypothetical -175 price. Role not yet confirmed. Decision: review further." It would not say: "80% chance to win."
+
+Once you have several entries, look for repeated mistakes. Are you comparing streaks at the wrong line? Checking availability too early? Accepting a worse price because the first screenshot looked good? Those are things you can change in next week's routine.
+
+## Keep the losing picks in the review
+
+WagerProof grades Agent picks and keeps the record available to inspect. Read the losses as well as the wins, and keep your own decision notes alongside that record. The Agent's published price may differ from a price you found later.
+
+Avoid rebuilding the settings after one bad Sunday. Record what changed and why so you can compare the old approach with the new one. The [complete performance-tracking checklist](/blog/accurate-betting-performance-tracking-checklist/) covers that record in more detail.
+
+If you want the broader method for other sports, use our [player-prop research checklist](/guides/player-prop-research-guide/). This page is the NFL workflow: let the Agent do the initial searching, use Outliers and Props to narrow the options, open the player pages, and review any combination leg by leg.
+
+That is where WagerProof saves work. You spend less time collecting tabs and more time checking the few assumptions that matter. Every selection can still lose. Set limits before you start, and let a pass be a complete decision.

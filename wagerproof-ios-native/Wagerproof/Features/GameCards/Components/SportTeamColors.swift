@@ -6,11 +6,8 @@ import WagerproofModels
 /// hero avatars, and list cards. MLB has `MLBTeams.colors`; NFL has
 /// `NFLTeamColors.colorPair`. This file fills the remaining sports:
 ///   - NBA: a full 30-team table (`NBATeams.colorPair`)
-///   - CFB / NCAAB: no authoritative table exists for the hundreds of D1 teams,
-///     so `FallbackTeamColor` derives a STABLE, pleasant color from the team
-///     name. It isn't the school's real brand color — it just gives each team a
-///     consistent, distinct glow so the carousel's color transitions still read.
-///     Real CFB/NCAAB brand tables are a follow-up data task.
+///   - CFB / NCAAB: `cfb_teams` brand colors, then ESPN school colors, then a
+///     stable name hash when neither source has the school.
 
 // MARK: - NBA
 
@@ -20,12 +17,103 @@ enum NBATeams {
     static func colorPair(for team: String) -> TeamColorPair {
         if team.isEmpty { return fallback }
         if let direct = table[team] { return direct }
+        let key = team.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if let code = abbreviations[key],
+           let full = table.first(where: { abbreviations[$0.key.lowercased()] == code && $0.key.contains(" ") })?.value {
+            return full
+        }
         // Match on nickname contained in the supplied string.
         for (nickname, pair) in nicknameTable where team.localizedCaseInsensitiveContains(nickname) {
             return pair
         }
         return FallbackTeamColor.colorPair(for: team)
     }
+
+    /// ESPN mark for a full name, nickname, city, or abbreviation. Known at
+    /// render time, so the card does not wait on a team-table fetch.
+    static func logoURL(for team: String) -> String? {
+        let key = team.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard let slug = logoSlugs[key] else { return nil }
+        return "https://a.espncdn.com/i/teamlogos/nba/500/\(slug).png"
+    }
+
+    /// Display code (NYK, PHI, GSW). Logo slugs stay separate — ESPN's `ny`
+    /// is not the code shown on the card.
+    static func abbreviation(for team: String) -> String {
+        knownAbbreviation(for: team) ?? String(team.trimmingCharacters(in: .whitespacesAndNewlines).prefix(3)).uppercased()
+    }
+
+    /// Nil when the name is not a known franchise. The three-letter fallback
+    /// is not a real code and must not be used to match two teams.
+    static func knownAbbreviation(for team: String) -> String? {
+        abbreviations[team.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()]
+    }
+
+    private static let abbreviations: [String: String] = [
+        "atlanta hawks": "ATL", "atlanta": "ATL", "hawks": "ATL", "atl": "ATL",
+        "boston celtics": "BOS", "boston": "BOS", "celtics": "BOS", "bos": "BOS",
+        "brooklyn nets": "BKN", "brooklyn": "BKN", "nets": "BKN", "bkn": "BKN",
+        "charlotte hornets": "CHA", "charlotte": "CHA", "hornets": "CHA", "cha": "CHA",
+        "chicago bulls": "CHI", "chicago": "CHI", "bulls": "CHI", "chi": "CHI",
+        "cleveland cavaliers": "CLE", "cleveland": "CLE", "cavaliers": "CLE", "cavs": "CLE", "cle": "CLE",
+        "dallas mavericks": "DAL", "dallas": "DAL", "mavericks": "DAL", "mavs": "DAL", "dal": "DAL",
+        "denver nuggets": "DEN", "denver": "DEN", "nuggets": "DEN", "den": "DEN",
+        "detroit pistons": "DET", "detroit": "DET", "pistons": "DET", "det": "DET",
+        "golden state warriors": "GSW", "golden state": "GSW", "warriors": "GSW", "gsw": "GSW", "gs": "GSW",
+        "houston rockets": "HOU", "houston": "HOU", "rockets": "HOU", "hou": "HOU",
+        "indiana pacers": "IND", "indiana": "IND", "pacers": "IND", "ind": "IND",
+        "la clippers": "LAC", "los angeles clippers": "LAC", "clippers": "LAC", "lac": "LAC",
+        "la lakers": "LAL", "los angeles lakers": "LAL", "lakers": "LAL", "lal": "LAL",
+        "memphis grizzlies": "MEM", "memphis": "MEM", "grizzlies": "MEM", "mem": "MEM",
+        "miami heat": "MIA", "miami": "MIA", "heat": "MIA", "mia": "MIA",
+        "milwaukee bucks": "MIL", "milwaukee": "MIL", "bucks": "MIL", "mil": "MIL",
+        "minnesota timberwolves": "MIN", "minnesota": "MIN", "timberwolves": "MIN", "wolves": "MIN", "min": "MIN",
+        "new orleans pelicans": "NOP", "new orleans": "NOP", "pelicans": "NOP", "nop": "NOP", "no": "NOP",
+        "new york knicks": "NYK", "new york": "NYK", "knicks": "NYK", "nyk": "NYK", "ny": "NYK",
+        "oklahoma city thunder": "OKC", "oklahoma city": "OKC", "thunder": "OKC", "okc": "OKC",
+        "orlando magic": "ORL", "orlando": "ORL", "magic": "ORL", "orl": "ORL",
+        "philadelphia 76ers": "PHI", "philadelphia": "PHI", "76ers": "PHI", "sixers": "PHI", "phi": "PHI",
+        "phoenix suns": "PHX", "phoenix": "PHX", "suns": "PHX", "phx": "PHX",
+        "portland trail blazers": "POR", "portland": "POR", "trail blazers": "POR", "blazers": "POR", "por": "POR",
+        "sacramento kings": "SAC", "sacramento": "SAC", "kings": "SAC", "sac": "SAC",
+        "san antonio spurs": "SAS", "san antonio": "SAS", "spurs": "SAS", "sas": "SAS", "sa": "SAS",
+        "toronto raptors": "TOR", "toronto": "TOR", "raptors": "TOR", "tor": "TOR",
+        "utah jazz": "UTA", "utah": "UTA", "jazz": "UTA", "uta": "UTA",
+        "washington wizards": "WAS", "washington": "WAS", "wizards": "WAS", "was": "WAS", "wsh": "WAS",
+    ]
+
+    private static let logoSlugs: [String: String] = [
+        "atlanta hawks": "atl", "atlanta": "atl", "hawks": "atl", "atl": "atl",
+        "boston celtics": "bos", "boston": "bos", "celtics": "bos", "bos": "bos",
+        "brooklyn nets": "bkn", "brooklyn": "bkn", "nets": "bkn", "bkn": "bkn",
+        "charlotte hornets": "cha", "charlotte": "cha", "hornets": "cha", "cha": "cha",
+        "chicago bulls": "chi", "chicago": "chi", "bulls": "chi", "chi": "chi",
+        "cleveland cavaliers": "cle", "cleveland": "cle", "cavaliers": "cle", "cavs": "cle", "cle": "cle",
+        "dallas mavericks": "dal", "dallas": "dal", "mavericks": "dal", "mavs": "dal", "dal": "dal",
+        "denver nuggets": "den", "denver": "den", "nuggets": "den", "den": "den",
+        "detroit pistons": "det", "detroit": "det", "pistons": "det", "det": "det",
+        "golden state warriors": "gs", "golden state": "gs", "warriors": "gs", "gs": "gs", "gsw": "gs",
+        "houston rockets": "hou", "houston": "hou", "rockets": "hou", "hou": "hou",
+        "indiana pacers": "ind", "indiana": "ind", "pacers": "ind", "ind": "ind",
+        "la clippers": "lac", "los angeles clippers": "lac", "clippers": "lac", "lac": "lac",
+        "la lakers": "lal", "los angeles lakers": "lal", "lakers": "lal", "lal": "lal",
+        "memphis grizzlies": "mem", "memphis": "mem", "grizzlies": "mem", "mem": "mem",
+        "miami heat": "mia", "miami": "mia", "heat": "mia", "mia": "mia",
+        "milwaukee bucks": "mil", "milwaukee": "mil", "bucks": "mil", "mil": "mil",
+        "minnesota timberwolves": "min", "minnesota": "min", "timberwolves": "min", "wolves": "min", "min": "min",
+        "new orleans pelicans": "no", "new orleans": "no", "pelicans": "no", "nop": "no", "no": "no",
+        "new york knicks": "ny", "knicks": "ny", "nyk": "ny", "ny": "ny",
+        "oklahoma city thunder": "okc", "oklahoma city": "okc", "thunder": "okc", "okc": "okc",
+        "orlando magic": "orl", "orlando": "orl", "magic": "orl", "orl": "orl",
+        "philadelphia 76ers": "phi", "philadelphia": "phi", "76ers": "phi", "sixers": "phi", "phi": "phi",
+        "phoenix suns": "phx", "phoenix": "phx", "suns": "phx", "phx": "phx",
+        "portland trail blazers": "por", "portland": "por", "trail blazers": "por", "blazers": "por", "por": "por",
+        "sacramento kings": "sac", "sacramento": "sac", "kings": "sac", "sac": "sac",
+        "san antonio spurs": "sa", "san antonio": "sa", "spurs": "sa", "sas": "sa", "sa": "sa",
+        "toronto raptors": "tor", "toronto": "tor", "raptors": "tor", "tor": "tor",
+        "utah jazz": "utah", "utah": "utah", "jazz": "utah", "uta": "utah",
+        "washington wizards": "wsh", "washington": "wsh", "wizards": "wsh", "was": "wsh", "wsh": "wsh",
+    ]
 
     private static let fallback = TeamColorPair(primary: Color(hex: 0xC9082A), secondary: Color(hex: 0x17408B))
 
@@ -119,6 +207,33 @@ enum CFBTeamColors {
         let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "#", with: "")
         guard !cleaned.isEmpty else { return nil }
+        return Int(cleaned, radix: 16)
+    }
+}
+
+/// College basketball page colors. Football schools use `cfb_teams`. Everyone
+/// else uses the ESPN color cached beside the logo, then the name hash.
+@MainActor
+enum NCAABTeamColors {
+    static func colorPair(for team: String) -> TeamColorPair {
+        let football = CFBTeamAssets.colorHex(for: team)
+        if football.primary != nil {
+            return CFBTeamColors.colorPair(for: team)
+        }
+        if let school = NCAABTeamAssets.schoolColor(for: team),
+           let primary = Self.parse(school.primary) {
+            return TeamColorPair(
+                primary: Color(hex: primary),
+                secondary: Color(hex: Self.parse(school.secondary) ?? primary)
+            )
+        }
+        return FallbackTeamColor.colorPair(for: team)
+    }
+
+    private static func parse(_ raw: String) -> Int? {
+        let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "#", with: "")
+        guard cleaned.count == 6 else { return nil }
         return Int(cleaned, radix: 16)
     }
 }

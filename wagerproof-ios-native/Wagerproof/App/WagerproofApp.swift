@@ -11,6 +11,7 @@ import GoogleSignIn
 struct WagerproofApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
+    @State private var achievementsStore = AchievementsStore()
     @State private var authStore = AuthStore()
     @State private var rootRouter = RootRouter()
     @State private var onboardingStore = OnboardingStore()
@@ -56,13 +57,16 @@ struct WagerproofApp: App {
     #endif
 
     init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-enableTieredOnboardingPreview") {
+            UserDefaults.standard.set(true, forKey: "tieredOnboardingPreview")
+        }
+        #endif
         // Configure Google Sign-In once at process launch — matches the RN
         // configureGoogleSignIn() call in contexts/AuthContext.tsx.
         GoogleSignInCoordinator.configureIfNeeded()
-        // Boot the Meta SDK here, at process launch, rather than lazily from a
-        // view — the SDK has to install its lifecycle observers in time to
-        // auto-log `fb_mobile_activate_app` for THIS cold launch (Meta's install
-        // signal) and to register for SKAdNetwork inside Apple's launch window.
+        // Meta SDK starts for everyone (aggregated SKAN/AEM events); identity and
+        // advertiser IDs stay gated on ATT. See MetaConsentPolicy.
         MetaAnalyticsService.shared.initialize()
         // Mixpanel. This call was missing entirely, and every AnalyticsService
         // method early-returns until it lands — so the whole paywall funnel was
@@ -82,7 +86,9 @@ struct WagerproofApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ScreenshotHarness.isActive {
+            if ProcessInfo.processInfo.arguments.contains("-achievementPreview") {
+                AchievementPreview().environment(authStore)
+            } else if ScreenshotHarness.isActive {
                 ScreenshotHarnessView()
             } else {
                 productionRoot
@@ -97,6 +103,7 @@ struct WagerproofApp: App {
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active, case .authenticated(let userId) = authStore.phase else { return }
             Task {
+                await achievementsStore.refresh()
                 await WidgetSyncCoordinator.syncAll(userId: userId.uuidString)
                 await NotificationService.shared.refreshRegistrationIfPermitted(userId: userId)
             }
@@ -107,6 +114,7 @@ struct WagerproofApp: App {
     private var productionRoot: some View {
         RootView()
             .environment(authStore)
+            .environment(achievementsStore)
             .environment(rootRouter)
             .environment(onboardingStore)
             .environment(themeStore)
@@ -146,9 +154,12 @@ struct WagerproofApp: App {
                 // `isComplete=false` and renders OnboardingView for a frame
                 // before the second .onChange below flips it to .ready.
                 if case .authenticated(let userId) = newPhase {
+                    achievementsStore.bind(userId: userId.uuidString)
+                    Task { await achievementsStore.refresh() }
                     onboardingStore.attachUser(userId: userId.uuidString)
                     followedAgentsStore.bind(userId: userId.uuidString.lowercased())
                 } else if case .unauthenticated = newPhase {
+                    achievementsStore.bind(userId: nil)
                     onboardingStore.detachUser()
                     followedAgentsStore.bind(userId: nil)
                 }

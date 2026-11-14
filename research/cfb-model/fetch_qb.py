@@ -1,19 +1,38 @@
 """
-Pull per-game QB (top passer) per team from /games/players, 2021-2025 (line-available window).
+Pull per-game QB (top passer) per team from /games/players, 2021 -> current season.
 -> data/cfbd/qb_starts.parquet : season, week, game_id, team, qb, att, cmp, yds, td, int
+
+Usage: fetch_qb.py [--force]      (--force re-pulls instead of using the cached parquet)
 """
+import datetime
 import os
+import sys
+
 import pandas as pd
 import cfbd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data", "cfbd")
-YEARS = [2021, 2022, 2023, 2024, 2025]
+
+
+def _current_season() -> int:
+    """CFB season year — the season starts in August, so Jan-Jul belongs to the prior season."""
+    n = datetime.datetime.now(datetime.timezone.utc)
+    return n.year if n.month >= 8 else n.year - 1
+
+
+# Through the CURRENT season, not a frozen list. The old hardcoded [2021..2025] meant the live
+# season's QB starts were never pulled, and the two consumers that matter — the backup_qb trigger
+# and cfb_forecast's QB live overlay — need exactly that. On Render the file never existed at all
+# because this script was not in run_cfb_week.sh, so both printed "skipped" on every run of 2026.
+YEARS = list(range(2021, _current_season() + 1))
 
 
 def main():
     out = os.path.join(DATA, "qb_starts.parquet")
-    if os.path.exists(out):
+    # The cache is correct for frozen history but wrong mid-season, when the current year gains a
+    # week of starts every Saturday — so the weekly runner passes --force.
+    if os.path.exists(out) and "--force" not in sys.argv:
         print("cached"); return
     rows = []
     for y in YEARS:

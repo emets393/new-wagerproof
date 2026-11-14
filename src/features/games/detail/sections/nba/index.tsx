@@ -4,19 +4,20 @@ import { Button } from '@/components/ui/button';
 import { AIPayloadViewer } from '@/components/AIPayloadViewer';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { MarketOddsSection } from '../MarketOddsSection';
-import { MatchSimulatorSection } from '../MatchSimulatorSection';
-import { NbaSpreadSection, NbaTotalSection } from './NbaPredictionsSection';
+import { NbaMoneylineSection, NbaScorePredictionSection, NbaSpreadSection, NbaTotalSection } from './NbaPredictionsSection';
 import { NbaBettingTrendsSection } from './NbaBettingTrendsSection';
 import { NbaTeamStatsSection } from './NbaTeamStatsSection';
 import { NbaInjuriesSection } from './NbaInjuriesSection';
+import { NbaFirstHalfSection } from './NbaFirstHalfSection';
+import { NbaSignalProvider } from './NbaSignalsSection';
 import { useNbaMatchupOverview } from './useNbaMatchupOverview';
 import type { NBAPrediction } from '../../../api/nbaGames';
 import type { SportSectionsProps } from '../index';
 
 /**
- * NBA detail-pane stack: Spread + Total (one card per market, split out of the
- * old combined Model Predictions card) + Market Odds + Match Simulator, then
- * Betting Trends / Team Stats / Injuries, plus the admin-only AI Payload viewer.
+ * NBA detail-pane stack: the projected final, then one card per market. Signals
+ * sit on the market they belong to. Market odds, betting trends, team stats,
+ * and injuries follow. The admin-only AI Payload viewer stays at the end.
  */
 export function NbaSections({ game, onCompletionGenerated }: SportSectionsProps) {
   const { adminModeEnabled } = useAdminMode();
@@ -26,11 +27,13 @@ export function NbaSections({ game, onCompletionGenerated }: SportSectionsProps)
   const overview = useNbaMatchupOverview(raw.away_team, raw.home_team, raw.game_date);
 
   return (
-    <>
+    <NbaSignalProvider game={game}>
+      <NbaScorePredictionSection game={game} />
       <NbaSpreadSection game={game} />
+      <NbaMoneylineSection game={game} />
       <NbaTotalSection game={game} />
+      <NbaFirstHalfSection game={game} />
       <MarketOddsSection game={game} />
-      <MatchSimulatorSection game={game} />
       <NbaBettingTrendsSection game={game} trends={overview.trends} loading={overview.trendsLoading} />
       <NbaTeamStatsSection game={game} trends={overview.trends} loading={overview.trendsLoading} />
       <NbaInjuriesSection
@@ -60,6 +63,6 @@ export function NbaSections({ game, onCompletionGenerated }: SportSectionsProps)
           />
         </>
       )}
-    </>
+    </NbaSignalProvider>
   );
 }

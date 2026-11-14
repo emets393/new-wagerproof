@@ -13,8 +13,8 @@ public enum SportSeason {
         switch sport {
         case .nfl:   return (dc(9, 4),   dc(2, 15))
         case .cfb:   return (dc(8, 23),  dc(1, 20))
-        case .nba:   return (dc(10, 21), dc(6, 22))
-        case .ncaab: return (dc(11, 3),  dc(4, 8))
+        case .nba:   return (dc(10, 20), dc(6, 22))
+        case .ncaab: return (dc(11, 1),  dc(4, 8))
         case .mlb:   return (dc(3, 26),  dc(11, 5))
         }
     }
@@ -59,7 +59,7 @@ public enum SportSeason {
         dataNoun: String = "game data",
         on date: Date = Date()
     ) -> (title: String, message: String) {
-        if isInSeason(sport, on: date) {
+        if isInSeason(sport, on: date) || isOpeningLeadIn(sport, on: date) {
             return (
                 "Refreshing \(sport.label) analysis",
                 "We're refreshing analysis for today's \(itemsNoun). Check back tomorrow for updated \(dataNoun)."
@@ -71,6 +71,50 @@ public enum SportSeason {
         }
         return (title, "Check back when the season starts.")
     }
+
+    /// College tips off November 1. The nine days before that, and the first
+    /// week of games, stay on a 10-day board so Friday still shows Sunday.
+    /// After November 8 the board is today and tomorrow, same as NBA.
+    public static func ncaabBoardDays(on date: Date = Date()) -> Int {
+        let month = calendar.component(.month, from: date)
+        let year = calendar.component(.year, from: date)
+        let openingYear = month <= 4 ? year - 1 : year
+        guard let opening = calendar.date(from: DateComponents(year: openingYear, month: 11, day: 1, hour: 12)),
+              let leadStart = calendar.date(byAdding: .day, value: -9, to: opening),
+              let tailEnd = calendar.date(byAdding: .day, value: 7, to: opening) else { return 2 }
+        let today = calendar.startOfDay(for: date)
+        if today >= calendar.startOfDay(for: leadStart), today <= calendar.startOfDay(for: tailEnd) {
+            return 10
+        }
+        return 2
+    }
+
+    /// Inclusive Eastern dates for the college board.
+    public static func ncaabBoardSpan(on date: Date = Date()) -> (start: String, end: String) {
+        let start = calendar.startOfDay(for: date)
+        let days = ncaabBoardDays(on: start)
+        let end = calendar.date(byAdding: .day, value: days - 1, to: start) ?? start
+        return (ymd.string(from: start), ymd.string(from: end))
+    }
+
+    /// Games are already posted the week before tip. That is not the offseason.
+    private static func isOpeningLeadIn(_ sport: GamesStore.Sport, on date: Date) -> Bool {
+        guard sport == .ncaab, let start = nextSeasonStart(sport, on: date) else { return false }
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: date),
+            to: calendar.startOfDay(for: start)
+        ).day ?? 99
+        return (1...9).contains(days)
+    }
+
+    private static let ymd: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "America/New_York")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
 
     private static let startFormatter: DateFormatter = {
         let f = DateFormatter()

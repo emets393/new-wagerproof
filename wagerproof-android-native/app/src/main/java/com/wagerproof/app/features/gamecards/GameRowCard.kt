@@ -525,6 +525,7 @@ private fun BottomRow(model: GameRowCardModel) {
                     Text("+${String.format("%.1f", abs(ml.edgePoints))}%", color = ml.color, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 }
             }
+            model.signalCount?.takeIf { it > 0 }?.let { SignalPill(it) }
             }
             if (model.oddsBreakdown != null) TimePill(model.timeLabel)
         }

@@ -1,3 +1,5 @@
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import { tierRestricted, type SubscriptionTier } from '@/features/tieredPaywall/access';
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccessControl } from "@/hooks/useAccessControl";
@@ -12,12 +14,14 @@ interface ProtectedRouteProps {
       For acquisition surfaces (competition): a brand-new free account goes straight in.
       allowFreemium still requires the paywall-dismissed localStorage flag; authOnly doesn't. */
   authOnly?: boolean;
+  minimumTier?: SubscriptionTier;
 }
 
-export function ProtectedRoute({ children, allowFreemium = false, authOnly = false }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, allowFreemium = false, authOnly = false, minimumTier = 'standard' }: ProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
   const { hasAccess, isLoading: accessLoading } = useAccessControl();
   const { isFreemiumUser } = useFreemiumAccess();
+  const { subscriptionTier, isTieredCustomer, loading: tierLoading, hasSubscription } = useRevenueCat();
   
   // Priority 1: Check authentication first
   if (authLoading) {
@@ -40,7 +44,7 @@ export function ProtectedRoute({ children, allowFreemium = false, authOnly = fal
   }
   
   // Priority 3: Check access for authenticated users
-  if (accessLoading) {
+  if (accessLoading || tierLoading) {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -48,8 +52,12 @@ export function ProtectedRoute({ children, allowFreemium = false, authOnly = fal
     );
   }
   
+  if (tierRestricted(subscriptionTier, isTieredCustomer, minimumTier)) {
+    return <Navigate to={`/plans/tiers?tier=${minimumTier}&minimum=${minimumTier}`} replace />;
+  }
+
   // Priority 4: Allow freemium users on designated pages
-  if (!hasAccess) {
+  if (!hasAccess && !hasSubscription) {
     // If this route allows freemium and user is in freemium mode, allow access
     if (allowFreemium && isFreemiumUser) {
       return <>{children}</>;

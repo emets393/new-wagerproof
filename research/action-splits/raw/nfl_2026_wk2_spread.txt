@@ -1,0 +1,300 @@
+Final
+Lions Team Icon
+Lions
+103
+Bills Team Icon
+Bills
+104
++3
+-3
++16.5
+-104
+-5.5
++102
+50%
+50%
+39%
+61%
++11%
+292,239
+Final
+Browns Team Icon
+Browns
+259
+Buccaneers Team Icon
+Buccaneers
+260
++5.5
+-5.5
++7.5
++102
+-1.5
+-144
+12%
+88%
+11%
+89%
++1%
+106,361
+Final - OT
+Packers Team Icon
+Packers
+251
+Jets Team Icon
+Jets
+252
+-5.5
++5.5
+-3.5
++120
++3.5
+-112
+75%
+25%
+48%
+52%
++27%
+95,556
+Final
+Panthers Team Icon
+Panthers
+257
+Falcons Team Icon
+Falcons
+258
++1.5
+-1.5
+-2.5
++102
++17.5
+-113
+69%
+31%
+55%
+45%
++14%
+91,724
+Final
+Eagles Team Icon
+Eagles
+265
+Titans Team Icon
+Titans
+266
+-4.5
++4.5
+-6.5
+-111
++9.5
+-117
+94%
+6%
+92%
+8%
++2%
+116,165
+Final
+Bengals Team Icon
+Bengals
+261
+Texans Team Icon
+Texans
+262
++2.5
+-2.5
++2.5
++111
++3.5
++100
+56%
+44%
+47%
+53%
++9%
+117,761
+Final
+Saints Team Icon
+Saints
+263
+Ravens Team Icon
+Ravens
+264
++7.5
+-7.5
++10.5
+-104
+-7.5
+-102
+18%
+82%
+14%
+86%
++4%
+115,817
+Final
+Vikings Team Icon
+Vikings
+253
+Bears Team Icon
+Bears
+254
++3.5
+-3.5
++4.5
+-102
+-3.5
+-104
+36%
+64%
+37%
+63%
++1%
+125,086
+Final
+Steelers Team Icon
+Steelers
+255
+Patriots Team Icon
+Patriots
+256
++4.5
+-4.5
++7.5
+-133
+-4.5
++102
+57%
+43%
+55%
+45%
++2%
+88,922
+Final
+Raiders Team Icon
+Raiders
+267
+Chargers Team Icon
+Chargers
+268
++8.5
+-8.5
++6.5
++106
+-1.5
++104
+51%
+49%
+40%
+60%
++11%
+78,315
+Final
+Jaguars Team Icon
+Jaguars
+269
+Broncos Team Icon
+Broncos
+270
++2.5
++106
++2.5
+-108
+69%
+31%
+81%
+19%
++12%
+97,329
+Final
+Commanders Team Icon
+Commanders
+271
+Cowboys Team Icon
+Cowboys
+272
++10.5
++104
+-3.5
+-106
+55%
+45%
+68%
+32%
++13%
+114,696
+Final
+Dolphins Team Icon
+Dolphins
+275
+49ers Team Icon
+49ers
+276
++10.5
+-10.5
++14.5
++104
+-12.5
+-106
+13%
+87%
+50%
+50%
++37%
+85,964
+Final
+Seahawks Team Icon
+Seahawks
+273
+Cardinals Team Icon
+Cardinals
+274
+-10
++10
+-3.5
++117
++5.5
+-110
+63%
+37%
+46%
+54%
++17%
+83,864
+Final - OT
+Colts Team Icon
+Colts
+277
+Chiefs Team Icon
+Chiefs
+278
++6.5
+-6.5
++9.5
+-108
+-5.5
+-102
+19%
+81%
+41%
+59%
++22%
+183,571
+Final
+Giants Team Icon
+Giants
+279
+Rams Team Icon
+Rams
+280
++8.5
+-8.5
++17.5
+-108
+-7
++102
+58%
+42%
+61%
+39%
++3%
+235,840

@@ -302,4 +302,34 @@ final class ParlayGodEngineTests: XCTestCase {
             totalsSide: totalsSide
         )
     }
+
+    // MARK: - Streak date ranges
+
+    /// A streak has to say WHEN. Willis's real pass-TD run was 2024 wk2, wk3 and 2025 wk17 —
+    /// "Hit in 3 straight" read as recent form and wasn't.
+    func testSpanLabelCrossesSeasons() {
+        let g = [
+            NFLPropRecentGame(opp: "IND", week: 2, actual: 1, line: 0.5, season: 2024),
+            NFLPropRecentGame(opp: "TEN", week: 3, actual: 1, line: 0.5, season: 2024),
+            NFLPropRecentGame(opp: "BAL", week: 17, actual: 1, line: 0.5, season: 2025),
+        ]
+        XCTAssertEqual(ParlayGodEngine.spanLabel(g), " — 2024 wk2 to 2025 wk17")
+    }
+
+    func testSpanLabelWithinOneSeason() {
+        let g = [
+            NFLPropRecentGame(opp: "SEA", week: 6, actual: 14, line: 6.5, season: 2025),
+            NFLPropRecentGame(opp: "ARI", week: 12, actual: 12, line: 2.5, season: 2025),
+        ]
+        XCTAssertEqual(ParlayGodEngine.spanLabel(g), " — 2025 wks 6-12")
+    }
+
+    func testSpanLabelSingleGameAndUndated() {
+        XCTAssertEqual(
+            ParlayGodEngine.spanLabel([NFLPropRecentGame(opp: "GB", week: 4, actual: 3, season: 2026)]),
+            " — 2026 wk4")
+        // No season/week -> no claim about when.
+        XCTAssertEqual(ParlayGodEngine.spanLabel([NFLPropRecentGame(opp: "GB", week: nil, actual: 3)]), "")
+        XCTAssertEqual(ParlayGodEngine.spanLabel([]), "")
+    }
 }

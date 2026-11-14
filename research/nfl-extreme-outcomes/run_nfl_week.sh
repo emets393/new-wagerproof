@@ -35,12 +35,25 @@ echo "=== NFL weekly run :: season=$SEASON week=$WEEK ==="
 step() { echo; echo ">>> $*"; }
 
 # --- 1) DATA LAYER -------------------------------------------------------------
+# Per-game player stats + schedule for THIS season, refreshed every run (nflverse overnight +
+# ESPN finals same day). The tracked parquets froze at 2025 and every 2026 prop card shipped
+# with empty form / L5 chips until 2026-09-21. Guarded: a fetch failure keeps the last copy.
+step "player game stats + schedule (nflverse + ESPN finals)"; python3 refresh_player_offense.py "$SEASON" "$WEEK" || true
+# ESPN pregame injuries FIRST: fetch.py caches nfl_injuries_raw right after, so today's
+# designations/inactives reach the props builder and prop_rank in this same run. Guarded —
+# a feed hiccup must not stop the slate build (the table just stays at the last pull).
+step "injuries (ESPN pregame feed)";    python3 espn_nfl_injuries.py || true
 step "fetch Supabase tables (pregame, team_week, odds_hist, lines, mapping, training_epa)"
 python3 fetch.py --force
 step "pull play-by-play scheme priors (nflverse)"
 python3 b46_pull_scheme.py "$SEASON" || true
 
 # --- 2) FEATURE BUILD (order matters: each reads the prior output) --------------
+# TRUE season-to-date team features for the sides model (shipped 2026-09-17): the prod team_week
+# `_s2d` columns never reset by season, so the 4 core stats are rebuilt from play-by-play here.
+# Both guarded — a failed refresh keeps last week's cache and the builder carries state forward.
+step "play-by-play refresh (nflverse)";  python3 refresh_pbp_current.py "$SEASON" || true
+step "true season-to-date team_week";    python3 build_team_week_seasonal.py > /dev/null || true
 step "master game frame";              python3 build.py
 step "odds consensus + splits";        python3 build_odds.py
 step "matchup feature matrix";         python3 build_matchup.py
@@ -50,6 +63,14 @@ step "offense-matchup frame";          python3 b23_matchup_build.py
 
 # --- 3) MODELS (frozen-.pkl load+predict once task #13 lands) -------------------
 step "totals model -> predictions csv"; python3 consensus_totals.py --season "$SEASON" --week "$WEEK"
+# Train/serve drift guard — BEFORE the models run, so a broken feed is caught while the
+# board can still be held back rather than after it ships. A frozen .pkl is a contract
+# with a distribution; this asserts it. Loud, not fatal (same posture as the CFB coherence
+# audit): the 2026 wk4 break produced no null and no exception, only a 2.4-7.2x widening,
+# and it flattened the board for four weeks before a human noticed two bad numbers.
+step "train/serve feature drift guard"
+python3 ../feature_drift_guard.py nfl --season "$SEASON" --week "$WEEK" \
+  || echo "[DRIFT] ^^ features are outside their training distribution — DO NOT SHIP THIS BOARD until the upstream feed is fixed"
 step "sides model + spot ledger";       python3 forecast_harness.py --season "$SEASON" --week "$WEEK"
 
 # --- 3b) 1H SUB-PIPELINE (market-anchored residual GBM; LOCKED_MODELS.md §8) ----
@@ -68,9 +89,12 @@ step "live props frame (DB -> current-week frame)"; python3 live_props_frame.py
 step "slate slate: player props";   python3 nfl_slate_props_build.py
 step "h2h matchup history";           python3 nfl_slate_matchups.py
 step "sync MCP warehouse tables";     python3 load_nfl_mcp_tables.py || true
-step "team trends (Outliers tab)";    python3 nfl_slate_trends.py
-step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
-step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py
+# Outliers-tab content, not the slate: a Supabase read timeout in coach trends killed the whole
+# 2026-09-17 14:00 UTC run (exit 1) and skipped every step below it. Guarded like the other
+# non-slate steps; the 18:00 run refills them.
+step "team trends (Outliers tab)";    python3 nfl_slate_trends.py || true
+step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py || true
+step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py || true
 # Roster refresh MUST precede the prop builders: player->team assignment comes from
 # nfl_player_profiles + the nflverse roster, both of which go stale every offseason
 # (2026-08-27: Geno Smith shipped as LV in player pages; he's a Jet).
@@ -81,9 +105,12 @@ step "game venues (weather source)"; python3 nfl_game_venues_load.py --season "$
 step "player-prop trends (Outliers)"; python3 gen_nfl_player_prop_trends.py
 step "QB/RB scheme substrates";          python3 build_qb_rb_scheme.py || true
 step "FTN player stats";                  python3 build_ftn_player_stats.py || true
-step "prop player pages (web contract)"; python3 gen_nfl_prop_player_pages.py
-step "outliers trend cards (weekly)"; python3 gen_nfl_outliers_trend_cards.py
-step "outliers trend lines (live books)"; python3 refresh_nfl_outliers_trend_lines.py
+# Outliers/props-tab content, not the slate — a Supabase read timeout in the player pages killed
+# the 2026-09-20 23:00 UTC (Sunday night) run after the slate had already written. Guarded like
+# the other non-slate steps; the next refresh refills them.
+step "prop player pages (web contract)"; python3 gen_nfl_prop_player_pages.py || true
+step "outliers trend cards (weekly)"; python3 gen_nfl_outliers_trend_cards.py || true
+step "outliers trend lines (live books)"; python3 refresh_nfl_outliers_trend_lines.py || true
 
 echo
 echo "=== DONE :: slate_* + nfl_{team,coach,referee,player_prop}_trends + outliers cards for $SEASON wk$WEEK ==="

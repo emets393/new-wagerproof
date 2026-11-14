@@ -51,8 +51,8 @@ const DEEP_TOOLS: Record<string, DeepToolDef> = {
   // get_props is dispatched by name (runProps) so it can populate
   // ctx.bettableProps, but it lives in DEEP_TOOLS so it's advertised + sport-gated
   // + budgeted like the other deep fetches. grounds:"all" → bettable props ground.
-  get_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form." },
-  get_top_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "The week's RANKED prop shortlist across the slate (or given games): tier A = a validated model cell fired (bet these first), tier B = big model edge, context only. Pass no game_ids for the whole slate." },
+  get_props: { groups: ["props"], sports: ["nfl", "nba"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form. NFL: the Fantasy-Points prop model's projection (fp_model_pred / fp_model_fires = clears its validated threshold) and the Player Prop Report's read where one exists (report_read with report_tells_for/against counts and the tells). NBA: rows from the NBA props board whose rule flag fired (cold player with a raised line; the player's points record with tonight's crew chief), each with the rule's back-test and this season's record in `signals`; bet the side the rule names. Every bettable prop carries bettable_direction — the side its signal bets. That is the ONLY side you may submit (prop_direction must equal it; the other side is rejected as prop_wrong_side). Never fade a signal: if you disagree with its side, skip the prop." },
+  get_top_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "The week's RANKED prop shortlist across the slate (or given games): tier A = a validated model cell fired (bet these first), tier B = big model edge, context only. Rows also carry the FP model projection and the Prop Report read. Pass no game_ids for the whole slate." },
 
   // ── NFL/CFB-specific tools (our slate model output + validated signals) ──
   get_signals: { groups: ["signals"], sports: ["nfl", "cfb"], grounds: "all", desc: "Validated betting signals firing on this game — each with its stance (the side/market it triggers) + tier. These are our proven high-ROI SPOT triggers, not just model output; a firing signal makes the game bettable on its side. Each signal carries TWO distinct records (do not conflate): all_time = the validated backtest record (validated_hit + one_liner/why_it_works/bet_direction), and season_to_date = this season's live record so far (sample/record/hit_rate/roi, may be null early in the season). IMPORTANT: signals with tier 'tracking' / conviction 'track' (marked ⚠ TRACKING ONLY) are paper-traded to build a live record and are NOT validated for betting — treat them as informational context only, never as a reason to place a bet." },
@@ -125,6 +125,12 @@ export function propKey(playerName: unknown, market: unknown, line: unknown): st
   return `${String(playerName ?? "").toLowerCase()}::${String(market ?? "")}::${String(line ?? "")}`;
 }
 
+/** The side a bettable prop's signal bets, as the formatters put it on the row (`bettable_direction`). */
+function propDir(p: Record<string, unknown>): string | null {
+  const d = String(p.bettable_direction ?? "").toLowerCase();
+  return d === "over" || d === "under" ? d : null;
+}
+
 /** The week's ranked prop shortlist. Slate-wide by default (no game_ids -> every loaded
  *  NFL game); ranked rows only, ordered by rank_pos (tier A block first). Registers the
  *  returned props as bettable + fills propMeta exactly like get_props, so an agent can go
@@ -160,7 +166,7 @@ function runTopProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadT
     if (!meta) { meta = new Map(); ctx.propMeta.set(id, meta); }
     const pk = propKey(p.player_name, p.market, p.line);
     bettable.add(pk);
-    meta.set(pk, { team: String(p.team ?? ""), position: String(p.position ?? "") });
+    meta.set(pk, { team: String(p.team ?? ""), position: String(p.position ?? ""), direction: propDir(p) });
     for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);
   }
 
@@ -208,7 +214,7 @@ function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadTool
       if (!meta) { meta = new Map(); ctx.propMeta.set(id, meta); }
       const pk = propKey(p.player_name, p.market, p.line);
       bettable.add(pk);
-      meta.set(pk, { team: String((p as Record<string, unknown>).team ?? ""), position: String(p.position ?? "") });
+      meta.set(pk, { team: String((p as Record<string, unknown>).team ?? ""), position: String(p.position ?? ""), direction: propDir(p as Record<string, unknown>) });
     }
     // grounds:"all" — a deep prop fetch grounds the game for any bet type.
     for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);
@@ -219,6 +225,43 @@ function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadTool
     ok: true,
     summary: `get_props: ${results.length} game(s)`,
   };
+}
+
+/** fp_cards carries ~19,000 chars per player — 3.5x this tool's whole 1-player compaction
+ *  budget — so handing it over raw gets it pruned to rubble at depth. Select the families that
+ *  bear on the markets this player actually has, and drop `fp_cards.scheme` outright: at 8.4k it
+ *  is the single biggest family and it duplicates the `scheme` COLUMN this tool already hoists. */
+const CARD_FAMILIES: Record<string, string[]> = {
+  pass: ["baseline", "throw_depth", "efficiency", "trenches"],
+  rush: ["baseline", "run_concept", "run_consistency", "role", "trenches"],
+  // `routes` is the richest receiving family at ~3.3k and `route_overall` carries the same
+  // headline in ~140 chars; a pass-catching back takes BOTH rush and recv, so the full list
+  // put the worst case at 13.5k — nearly double a 5-player budget share.
+  recv: ["baseline", "coverage", "route_overall", "role", "trenches"],
+};
+// `situational` (game-script splits) and `redzone` are deliberately out: redzone only bears on
+// anytime-TD, which the owner took off the board, and situational duplicates what the agent can
+// read from the game's own spread/total. Add them back if TD props return.
+
+function slimPropStats(cards: unknown, markets: unknown): Record<string, unknown> | null {
+  if (!cards || typeof cards !== "object") return null;
+  const keys = Array.isArray(markets)
+    ? markets.map((m) => String((m as Record<string, unknown>)?.key ?? "")).filter(Boolean)
+    : [];
+  const want = new Set<string>();
+  for (const k of keys) {
+    if (k.includes("pass")) CARD_FAMILIES.pass.forEach((f) => want.add(f));
+    if (k.includes("rush")) CARD_FAMILIES.rush.forEach((f) => want.add(f));
+    if (k.includes("reception") || k.includes("receptions") || k.includes("targets")) {
+      CARD_FAMILIES.recv.forEach((f) => want.add(f));
+    }
+  }
+  // anytime_td only, or an unmapped market: give the shared context rather than nothing
+  if (want.size === 0) ["baseline", "role", "trenches"].forEach((f) => want.add(f));
+  const src = cards as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const f of want) if (src[f] !== undefined && src[f] !== null) out[f] = src[f];
+  return Object.keys(out).length ? out : null;
 }
 
 /** get_prop_player_page — deep dive on an NFL player from nfl_prop_player_pages
@@ -237,12 +280,40 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
     return { content: JSON.stringify({ error: "player_names is required (1-5 names as they appear in get_props)" }), ok: false, summary: "no player_names" };
   }
 
+  // The FP-era model lives in its own table, one row per (player, market). Fetch it ONCE for
+  // all requested names rather than per player, and key it by player_name because that is what
+  // the caller passes. `fires` = cleared the market's validated threshold on 2023-25 priced lines.
+  const fpByMarket: Record<string, Record<string, unknown>> = {};
+  try {
+    const { data: fpRows } = await ctx.cfb
+      .from("nfl_prop_model_preds")
+      .select("player_name, market, line, pred, edge, threshold, tier, fires")
+      .in("player_name", names)
+      // ⛔ ORDER BY SEASON FIRST. The `??=` below keeps the first row per (player, market), so
+      // ordering on week alone would let a prior season's week 18 outrank the live week 5 the
+      // moment this table holds more than one season. It holds only 2026 today, which is exactly
+      // how this would have shipped unnoticed and gone wrong next September.
+      .order("season", { ascending: false })
+      .order("week", { ascending: false })
+      .limit(120);
+    for (const r of (fpRows ?? []) as Record<string, unknown>[]) {
+      const pn = String(r.player_name);
+      const mk = String(r.market);
+      (fpByMarket[pn] ??= {})[mk] ??= {
+        pred: r.pred, edge: r.edge, threshold: r.threshold, tier: r.tier, fires: r.fires === true,
+        line_modelled: r.line,
+      };
+    }
+  } catch {
+    // a missing FP table must not cost the whole page — the other layers still stand
+  }
+
   const players: Record<string, unknown> = {};
   for (const name of names) {
     try {
       const { data, error } = await ctx.cfb
         .from("nfl_prop_player_pages")
-        .select("player_name, position, team, opponent, game_label, rookie, markets, baseline, ngs, scheme, projection")
+        .select("player_name, position, team, opponent, game_label, rookie, markets, baseline, ngs, scheme, fp_cards, projection")
         .ilike("player_name", `%${name}%`)
         .order("season", { ascending: false })
         .order("week", { ascending: false })
@@ -268,7 +339,21 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
         matchup_look_focus: scheme.look_focus ?? null,
         player_overall: scheme.player_overall ?? null,
         player_vs_look_splits: scheme.player_splits ?? null,
+        // BOTH MODELS, ADDITIVE (owner, 2026-10-11: "add our new player prop model to the
+        // existing one that agents use... the agents current prop model is actually doing well").
+        // This reverses, FOR THE AGENT PATH ONLY, the 2026-10-07 call to stop surfacing a
+        // projection. That call was about what the PRODUCT shows a user; agents are an internal
+        // reasoning layer, and their prop record is 71-67 (51.4%) since the season started with
+        // October at 26-21 (55.3%). `research`/fp_prop_layer stays gutted, so the web and native
+        // clients are unchanged — nothing a user sees gains a forecast.
+        //   model_projection — the ORIGINAL model (308 of 402 wk5 pages). Measured 50.5% against
+        //                      the close, 336-329, so it is context and not an edge.
+        //   fp_model         — the FP-era model from nfl_prop_model_preds, per market, with the
+        //                      `fires` flag meaning it cleared that market's backtested threshold.
+        //   prop_stats       — the granular stats layer the agent reasons over itself.
         model_projection: row.projection ?? null,
+        fp_model: fpByMarket[String(row.player_name)] ?? null,
+        prop_stats: slimPropStats(row.fp_cards, row.markets),
       };
     } catch (e) {
       players[name] = { error: e instanceof Error ? e.message : String(e) };
@@ -277,13 +362,13 @@ async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenCon
 
   const payload = {
     tool: "get_prop_player_page",
-    note: "model_projection bands are PREVIEW (first live season) — use as context, not as a validated edge. markets with status 'pending' have no posted line yet. Only props returned by get_props are bettable.",
+    note: "TWO models plus the stats, and they disagree often — weigh them, do not just follow one. model_projection is the ORIGINAL model and graded 50.5% against the close (336-329), so treat it as context, never as an edge on its own. fp_model is the newer Fantasy-Points model per market: `fires` means it cleared that market's backtested threshold on 2023-25 priced lines, and a market with fires=false is the model declining to call it. Neither model is surfaced to users; they are yours to reason with. prop_stats carries the granular per-market layer (usage, splits, and the opponent's allowance with its league baseline and rank); every defensive measure is paired with a league figure at the SAME denominator, so compare a defence to its league value and never to the player's own per-game rate. Ranks print as 'Nth of M' — read M, it is not always 32. markets with status 'pending' have no posted line yet. Only props returned by get_props are bettable.",
     players,
   };
   // Multi-player payloads overflow the default 4000-char compaction target and
   // would collapse to the top-level summary — scale the target per player.
   return {
-    content: compactDeepFetch("get_prop_player_page", payload, 3000 + 2500 * names.length),
+    content: compactDeepFetch("get_prop_player_page", payload, 3000 + 6000 * names.length),
     ok: true,
     summary: `prop pages: ${Object.keys(players).length} player(s)`,
   };
@@ -340,7 +425,7 @@ export function buildReadToolDefs(steering: SteeringProfile): ToolDef[] {
       type: "function",
       function: {
         name: "get_prop_player_page",
-        description: "Deep dive on NFL prop players (sports: nfl): per-market prop lines, per-game baselines, advanced stats (NGS/charting with league percentiles), the opponent-defense scheme identity + the player's splits vs those looks (man/zone, one-high/two-high, box counts, pressure), and our prop MODEL's projection band per market (preview status this season). Use AFTER get_props to research the players you're considering — this tool is context only and does not make a prop bettable.",
+        description: "Deep dive on NFL prop players (sports: nfl): per-market prop lines, per-game baselines, advanced stats (NGS/charting with league percentiles), the opponent-defense scheme identity + the player's splits vs those looks (man/zone, one-high/two-high, box counts, pressure), and the granular per-market stats layer (usage, route/alignment splits, and the opponent's allowance against its league baseline and rank). There is deliberately NO model projection — you reason from the stats and the line. Use AFTER get_props to research the players you're considering; context only, does not make a prop bettable.",
         parameters: {
           type: "object",
           properties: {

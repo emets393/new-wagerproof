@@ -87,6 +87,11 @@ struct OutliersTrendsView: View {
     private let cardWidth: CGFloat = 300
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Outliers") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         // Pinned section header keeps the filter row stuck below the nav bar while the
         // trend sections scroll under it — so a user can drill down by re-filtering
         // mid-scroll without jumping back to the top.
@@ -298,7 +303,7 @@ struct OutliersTrendsView: View {
     /// matching how `OutliersTrendCard` and the Games row cards resolve them.
     private func matchupLogoIdentifier(_ game: OutliersTrendsGame, away: Bool) -> String {
         switch store.sport {
-        case .ncaaf: return away ? game.awayTeam : game.homeTeam
+        case .ncaaf, .ncaab: return away ? game.awayTeam : game.homeTeam
         default: return away ? game.awayAb : game.homeAb
         }
     }
@@ -556,7 +561,7 @@ struct OutliersTrendsView: View {
             Text("Trends coming soon")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Color.appTextPrimary)
-            Text("\(store.sport.label) situational betting trends aren't live yet — NFL, NCAAF, and MLB are available now.")
+            Text("\(store.sport.label) situational betting trends aren't live yet.")
                 .font(.system(size: 13))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.appTextSecondary)
@@ -698,8 +703,8 @@ private struct OutliersMatchupPickerSheet: View {
                     }
                 }
 
-                // MLB is capped to today's slate; the others list the week.
-                Section(sport == .mlb ? "Today" : "This week") {
+                // Football lists the week. MLB and basketball are today's ET slate.
+                Section(sport == .nfl || sport == .ncaaf ? "This week" : "Today") {
                     ForEach(filteredGames) { game in
                         Button {
                             selection = .game(id: game.id)
@@ -761,7 +766,7 @@ private struct OutliersMatchupPickerRow: View {
 
     private func logoIdentifier(away: Bool) -> String {
         switch sport {
-        case .ncaaf: return away ? game.awayTeam : game.homeTeam
+        case .ncaaf, .ncaab: return away ? game.awayTeam : game.homeTeam
         default: return away ? game.awayAb : game.homeAb
         }
     }
@@ -771,7 +776,8 @@ private struct OutliersMatchupPickerRow: View {
         switch sport {
         case .ncaaf: return CFBTeamAssets.displayName(for: full)
         case .mlb: return MLBTeams.nickname(for: full)
-        default: return NFLTeamAssets.nickname(for: full)
+        case .nba, .ncaab: return full
+        case .nfl: return NFLTeamAssets.nickname(for: full)
         }
     }
 }
@@ -843,16 +849,20 @@ private struct OutliersGlassTeamAvatar: View {
     private var colors: TeamColorPair {
         switch sport {
         case .ncaaf: return CFBTeamColors.colorPair(for: team)
+        case .ncaab: return NCAABTeamColors.colorPair(for: team)
         case .mlb: return MLBTeamColors.colorPair(for: team)
-        default: return NFLTeamColors.colorPair(for: team)
+        case .nba: return NBATeams.colorPair(for: team)
+        case .nfl: return NFLTeamColors.colorPair(for: team)
         }
     }
 
     private var logoURL: String? {
         switch sport {
         case .ncaaf: return CFBTeamAssets.logo(for: team)
+        case .ncaab: return NCAABTeamAssets.logo(for: team) ?? CFBTeamAssets.logo(for: team)
         case .mlb: return MLBTeams.logoUrl(for: team)
-        default: return NFLTeamAssets.logo(for: team)
+        case .nba: return NBATeams.logoURL(for: team)
+        case .nfl: return NFLTeamAssets.logo(for: team)
         }
     }
 }

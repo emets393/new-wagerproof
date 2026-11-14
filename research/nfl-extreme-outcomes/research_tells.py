@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""RESEARCH TELLS for the Player Prop Report (owner, 2026-09-19): the validated pieces of this season's Fantasy Points
+research, turned into per-prop tells that nfl_prop_narratives.py adds to its matchup / form / defense / injury / model tells.
+Every tell says where its number comes from.
+  tendency   the player's own tendency that holds every season (data/_qb_profiles_<stat>_<season>.parquet) whose trigger is
+             live this week: wind, heat/cold, favorite/underdog, game total, home/road, rest, blitz-heavy or low-blitz opponent
+             (the opposing coordinator's blitz rate, current season weighted)                                         weight 1.5
+  storyline  QB vs a former team -> passing yards UNDER (60% under across 59 games 2023-25; TDs 70%); skill player in his first
+             season away vs the old team -> OVER (60% over, 154 lines 2023-25, vs 47% elsewhere); QB birthday week -> passing
+             yards OVER (69%, 42 lines — small, weight 1.0); a player's OWN homecoming record when 3+ games and lopsided   1.5 / 1.0
+  coaching   the offensive play-caller's stable situational shift that is live this week (primetime / divisional / cold / windy /
+             home / favorite / underdog / short rest / bye / vs blitz-heavy): pass-heavy -> QB volume and receivers OVER;
+             run-heavy -> rush attempts/yards OVER and pass attempts UNDER (play-by-play 2022-current, current season weighted)                     weight 1.0
+Usage: RT = ResearchTells(season, week, games_by_id); RT.tells(prop_row) -> list of dict(src, dir, text, w)."""
+import os, numpy as np, pandas as pd
+from storyline_flags import flag, DIV
+num = lambda s: pd.to_numeric(s, errors="coerce")
+pct = lambda v: f"{100*v:.0f}%" if pd.notna(v) else "—"
+MARKET_STAT = {"player_pass_attempts": "attempts", "player_pass_completions": "completions", "player_pass_yds": "yds", "player_pass_tds": "tds", "player_receptions": "receptions", "player_reception_yds": "reception_yds", "player_rush_attempts": "rush_attempts", "player_rush_yds": "rush_yds"}
+MARKET_LABEL = {"player_pass_attempts": "pass attempts", "player_pass_completions": "completions", "player_pass_yds": "passing yards", "player_pass_tds": "passing touchdowns", "player_receptions": "receptions", "player_reception_yds": "receiving yards", "player_rush_attempts": "rushing attempts", "player_rush_yds": "rushing yards"}
+def _key(nm, keys):
+    p = str(nm).replace(".", "").split(); c = [k for k in keys if k.split(".")[-1].lower() == p[-1].lower() and k[0].lower() == p[0][0].lower()]; return c[0] if c else None
+class ResearchTells:
+    def __init__(self, season, week, games, board):
+        """games: {game_id: slate row (home_ab, away_ab, kickoff, fg_spread_close, fg_total_close, wx_wind_mph, wx_temp_f)};
+        board: DataFrame of this week's props with player_id, player_name, position, team, game_id."""
+        self.season, self.week = season, week; self.games = games
+        try:
+            import nfl_data_py as nfl; S = nfl.import_schedules([season]); S = S[S.week == week]; S["home_team"] = S.home_team.replace({"LAR":"LA"}); S["away_team"] = S.away_team.replace({"LAR":"LA"})
+            self.rest = {(r.home_team, r.away_team): (r.home_rest, r.away_rest, str(r.roof)) for r in S.itertuples()}
+        except Exception: self.rest = {}
+        self.ctx = {}
+        for gid, g in games.items():
+            home, away = str(g["home_ab"]).replace("LAR", "LA"), str(g["away_ab"]).replace("LAR", "LA"); k = pd.to_datetime(g["kickoff"]).tz_convert("US/Eastern"); hr, ar, roof = self.rest.get((home, away), (7, 7, "unknown"))
+            wind = float(g["wx_wind_mph"]) if g.get("wx_wind_mph") is not None else np.nan; temp = float(g["wx_temp_f"]) if g.get("wx_temp_f") is not None else np.nan; indoors = roof in ("dome", "closed") or (np.isnan(wind) and np.isnan(temp))
+            self.ctx[str(gid)] = dict(home=home, away=away, primetime=(k.hour >= 19) or k.day_name() in ("Monday","Thursday"), div=DIV.get(home) == DIV.get(away), wind=wind, temp=temp, indoors=indoors, cold=(not indoors) and temp <= 40, windy=(not indoors) and wind >= 15,
+                                      spread_home=float(g["fg_spread_close"]) if g.get("fg_spread_close") is not None else np.nan, total=float(g["fg_total_close"]) if g.get("fg_total_close") is not None else np.nan, home_rest=hr, away_rest=ar)
+        # storyline flags for every player on the board
+        P = board.drop_duplicates("player_id")[["player_id","player_name","team","position","game_id"]].copy(); P["team"] = P.team.replace({"LAR":"LA"}); P["season"], P["week"] = season, week
+        P["home"] = P.game_id.map(lambda g: self.ctx.get(str(g), {}).get("home")); P["away"] = P.game_id.map(lambda g: self.ctx.get(str(g), {}).get("away")); P = P[P.home.notna()]; P["is_home"] = P.team == P.home; P["opp"] = np.where(P.is_home, P.away, P.home)
+        F = flag(P, "player_name") if len(P) else P
+        hist = "data/_storyline_player_history.parquet"
+        if os.path.exists(hist): F = F.merge(pd.read_parquet(hist), on="player_id", how="left", suffixes=("", "_h"))
+        self.F = F.set_index("player_id") if len(F) else F
+        # coaching
+        PC = pd.read_csv("data/play_callers.csv"); PC["team"] = PC.team.replace({"LAR":"LA"}); self.pc = PC[PC.season == season].set_index("team").play_caller.to_dict()
+        CS = pd.read_csv("data/coaching_staff.csv"); CS["team"] = CS.team.replace({"LAR":"LA"}); self.dc = CS[CS.season == season].set_index("team").dc.to_dict()
+        self.SIT = pd.read_parquet("data/_coach_situations_pc.parquet") if os.path.exists("data/_coach_situations_pc.parquet") else pd.DataFrame(); self.SIT = self.SIT[self.SIT.stable] if len(self.SIT) else self.SIT
+        self.DID = pd.read_parquet("data/_dc_identity.parquet").set_index("coach") if os.path.exists("data/_dc_identity.parquet") else pd.DataFrame(); self.lg_blitz = float(self.DID.blitz.median()) if len(self.DID) else 0.24
+        self.ID = pd.read_parquet("data/_coach_identity_pc.parquet").set_index("coach") if os.path.exists("data/_coach_identity_pc.parquet") else pd.DataFrame()
+        # coach_tendencies.py is a LOCAL builder (it needs the full 2022-25 pbp cache, which
+        # Render's ephemeral disk does not carry), so these parquets reach production only as
+        # git-tracked artifacts and refresh only when someone rebuilds and commits them. Say so
+        # when the committed copy has no current-season games in it: the tells would then be
+        # describing coaches as they were before this year, which is exactly the bug this
+        # weighting was added to kill. Greppable, non-fatal — stale tells still beat none.
+        if len(self.ID):
+            _cg = float(self.ID.cur_games.max()) if "cur_games" in self.ID.columns else 0.0
+            if _cg <= 0:
+                print(f"  ⛔ [coach-stale] _coach_identity_pc.parquet has no {season} games — "
+                      f"play-caller tells describe pre-{season} tendencies. Rebuild with "
+                      f"`python3 coach_tendencies.py pc` (and `hc`) and commit the parquets.")
+            else:
+                print(f"  [coach] play-caller identity carries {int(_cg)} {season} game(s); "
+                      f"current season weighted {float(self.ID.cur_weight.max()):.0%}")
+        rb = board[(board.position == "RB") & (board.market == "player_rush_attempts")] if "market" in board.columns else board.iloc[0:0]
+        self.lead_rb = rb.sort_values("close_line", ascending=False).groupby("team").head(1).set_index("team").player_name.to_dict() if len(rb) else {}
+        self.PROF = {}
+        for stat in ("attempts","completions","yds","tds","receptions","reception_yds","rush_attempts","rush_yds"):
+            f = f"data/_qb_profiles_{stat}_{season}.parquet"
+            if os.path.exists(f): self.PROF[stat] = pd.read_parquet(f)
+    def team_ctx(self, gid, team):
+        x = self.ctx[str(gid)]; is_home = team == x["home"]; sp = (x["spread_home"] if is_home else -x["spread_home"]) if not np.isnan(x["spread_home"]) else np.nan; r = x["home_rest"] if is_home else x["away_rest"]
+        opp = x["away"] if is_home else x["home"]; dc = self.dc.get(opp); ob = self.DID.blitz.get(dc, np.nan) if (len(self.DID) and dc in self.DID.index) else np.nan
+        return dict(is_home=is_home, opp=opp, spread=sp, fav=(sp <= -3) if not np.isnan(sp) else False, dog=(sp >= 3) if not np.isnan(sp) else False, rest=r, short_rest=(r is not None and r <= 5), off_bye=(r is not None and r >= 13), opp_dc=dc, opp_blitz=ob, opp_blitz_high=pd.notna(ob) and ob >= self.lg_blitz + 0.05, opp_blitz_low=pd.notna(ob) and ob <= self.lg_blitz - 0.05, **x)
+    def _tendency(self, t, c, mk):
+        f, r = t["factor"], t["r"]
+        if f == "wind" and (not c["indoors"]) and c["wind"] >= 12: hi, cond = True, f"with wind at {c['wind']:.0f} mph"
+        elif f == "temp" and (not c["indoors"]) and (c["temp"] <= 45 or c["temp"] >= 85): hi, cond = c["temp"] >= 85, f"in {'heat' if c['temp'] >= 85 else 'cold'} ({c['temp']:.0f}°F forecast)"
+        elif f == "team_spread" and (c["fav"] or c["dog"]): hi, cond = c["dog"], "as an underdog" if c["dog"] else "as a favorite"
+        elif f == "total" and (not np.isnan(c["total"])) and (c["total"] >= 48 or c["total"] <= 41): hi, cond = c["total"] >= 48, f"in {'high' if c['total'] >= 48 else 'low'}-total games (this one is {c['total']:g})"
+        elif f == "is_home": hi, cond = c["is_home"], "at home" if c["is_home"] else "on the road"
+        elif f == "rest" and (c["short_rest"] or c["off_bye"]): hi, cond = c["off_bye"], "off a bye" if c["off_bye"] else "on short rest"
+        elif f == "primetime" and c["primetime"]: hi, cond = True, "in primetime"
+        elif f == "opp_rate_blitz" and (c["opp_blitz_high"] or c["opp_blitz_low"]): hi, cond = c["opp_blitz_high"], f"against {'blitz-heavy' if c['opp_blitz_high'] else 'low-blitz'} defenses ({c['opp_dc']} blitzes {pct(c['opp_blitz'])}, current season weighted)"
+        else: return None
+        up = (r > 0) == bool(hi); return ("over" if up else "under"), f"his {mk} have run {'above' if up else 'below'} the line {cond}"
+    def tells(self, r):
+        """r: prop row with player_id, player_name, position, team, game_id, market."""
+        out = []; gid = str(r.game_id)
+        if gid not in self.ctx: return out
+        c = self.team_ctx(gid, str(r.team).replace("LAR", "LA")); mk = MARKET_LABEL.get(r.market, r.market); stat = MARKET_STAT.get(r.market)
+        # 1. per-player tendency, trigger live
+        pf = self.PROF.get(stat)
+        if pf is not None:
+            k = _key(r.player_name, pf.qb.unique()); pr = pf[pf.qb == k] if k else None
+            if pr is not None and len(pr):
+                pr = pr.iloc[0]; tl = list(pr.tendencies) if pr.tendencies is not None and len(pr.tendencies) else []
+                for t in tl:
+                    v = self._tendency(t, c, mk)
+                    if v: out.append(dict(src="tendency", dir=v[0], text=v[1] + f" in every season since 2023 ({int(pr.games)} games with a sportsbook line)", w=1.5))
+        # 2. storylines
+        pid = str(r.player_id)
+        if len(self.F) and pid in self.F.index:
+            f = self.F.loc[pid]
+            if bool(f.get("revenge", False)):
+                if r.position == "QB" and r.market in ("player_pass_yds", "player_pass_tds", "player_pass_completions", "player_pass_attempts"):
+                    out.append(dict(src="storyline", dir="under", text=f"he faces his former team ({int(f.n_seasons)} season{'s' if f.n_seasons > 1 else ''} there): quarterbacks facing a former team have finished below their passing-yards number 60% of the time and below their touchdown-pass number 70% (59 games, 2023 to 2025)", w=1.5 if r.market in ("player_pass_yds","player_pass_tds") else 1.0))
+                elif r.position != "QB" and f.get("seasons_since", 9) <= 1:
+                    out.append(dict(src="storyline", dir="over", text=f"first season away from {f.opp}, facing them: skill players in that spot have finished above the sportsbooks' numbers 60% of the time, against 47% in their other games (154 lines, 2023 to 2025)", w=1.5))
+                if pd.notna(f.get("rv_games", np.nan)) and f.rv_games >= 3 and (f.rv_over >= 0.67 or f.rv_over <= 0.33):
+                    out.append(dict(src="storyline", dir="over" if f.rv_over >= 0.67 else "under", text=f"his own record vs former teams: finished above the sportsbook number in {int(round(f.rv_over * f.rv_lines))} of {int(f.rv_lines)} lines across {int(f.rv_games)} games (2023-25), against {pct(f.rv_else_over)} of his other lines", w=1.0))
+            if bool(f.get("hc", False)) and pd.notna(f.get("hc_games", np.nan)) and f.hc_games >= 3 and (f.hc_over >= 0.67 or f.hc_over <= 0.33):
+                out.append(dict(src="storyline", dir="over" if f.hc_over >= 0.67 else "under", text=f"homecoming ({f.dist_site:.0f} miles from {f.birth_city}, {f.birth_st}): on these trips he has finished above the sportsbook number {pct(f.hc_over)} of the time across {int(f.hc_games)} games (2023-25), against {pct(f.else_over)} elsewhere", w=1.0))
+            if bool(f.get("birthday3", False)) and r.position == "QB" and r.market == "player_pass_yds":
+                out.append(dict(src="storyline", dir="over", text=f"birthday week ({f.birth_date.strftime('%b %d')}): quarterbacks in a birthday week have finished above their passing-yards number 69% of the time (42 lines, 2023 to 2025 — a small sample)", w=1.0))
+        # 3. coaching, only what bears on THIS market (owner 2026-09-19): context lines (weight 0) plus a half-weight tell when the habit is pronounced
+        team = str(r.team).replace("LAR", "LA"); pc = self.pc.get(team); m = r.market
+        is_pass_vol = m in ("player_pass_attempts", "player_pass_completions", "player_pass_yds"); is_pass_td = m == "player_pass_tds"; is_recv = m in ("player_receptions", "player_reception_yds"); is_rush = m in ("player_rush_attempts", "player_rush_yds")
+        if pc and len(self.ID) and pc in self.ID.index:
+            i = self.ID.loc[pc]; lead = self.lead_rb.get(team) == r.player_name
+            # The quoted numbers are now RECENCY-BLENDED (coach_tendencies.py: K=4 games, so
+            # ~43% this season at 3 games), not a flat 2022-25 pool — play-calling identity
+            # moves and 16 of 32 play-callers had shifted >=3 PROE points this year. Say
+            # "through <season>" rather than "since 2022", which described a window that
+            # deliberately ENDED before the current season.
+            _cw = float(i.cur_weight) if "cur_weight" in i.index and pd.notna(i.cur_weight) else 0.0
+            n_pl = (f"{int(i.plays):,} plays he has called, this season weighted {_cw:.0%}"
+                    if _cw > 0 else f"{int(i.plays):,} plays he has called since 2022")
+            heavy = f"throws about {abs(i.proe):.0f} point{'s' if round(abs(i.proe)) != 1 else ''} {'more' if i.proe >= 0 else 'less'} often than a typical team would in the same down-and-distance spots"
+            # A pronounced in-season SHIFT is the tell, not a footnote: a coach who has changed
+            # this year is exactly the case the pooled number used to get wrong (Mike McCarthy
+            # read as run-neutral at -1.8 while running +4.1, the most pass-first offense of his
+            # career). Fires on the direction of the change, with the sample stated so a 3-game
+            # read is never passed off as settled.
+            _ps, _cs = i.get("prior_proe"), i.get("cur_proe")
+            if pd.notna(_ps) and pd.notna(_cs) and abs(_cs - _ps) >= 4 and (is_pass_vol or is_recv or is_rush):
+                _more = _cs > _ps
+                _d = ("over" if _more else "under") if (is_pass_vol or is_recv) else ("under" if _more else "over")
+                out.append(dict(src="coaching", dir=_d, text=(
+                    f"{pc} has changed this season — {abs(_cs - _ps):.0f} points {'more' if _more else 'fewer'} "
+                    f"throws than his own prior record in the same spots ({_cs:+.0f} this year vs {_ps:+.0f} before, "
+                    f"{int(i.cur_games)} games)"), w=0.5))
+            if is_pass_vol or is_recv:
+                out.append(dict(src="coaching", dir="context", text=f"play-caller {pc} {heavy}; on early downs in a close game he passes {pct(i.early_neutral_pass)} of the time ({n_pl})", w=0.0))
+                if abs(i.proe) >= 3: out.append(dict(src="coaching", dir="over" if i.proe > 0 else "under", text=f"{pc} runs a {'pass' if i.proe > 0 else 'run'}-first offense — {abs(i.proe):.0f} points {'more' if i.proe > 0 else 'fewer'} throws than a typical team in the same spots ({n_pl})", w=0.5))
+                if is_recv and pd.notna(i.rz_tgt_te):
+                    share = {"RB": i.rz_tgt_rb, "WR": i.rz_tgt_wr, "TE": i.rz_tgt_te}.get(r.position); typ = {"RB": 0.17, "WR": 0.56, "TE": 0.25}.get(r.position)
+                    if share is not None and pd.notna(share) and abs(share - typ) >= 0.08: out.append(dict(src="coaching", dir="context", text=f"when {pc} throws in the red zone, {pct(share)} of those targets go to {r.position}s (a typical offense: {pct(typ)})", w=0.0))
+            if is_pass_td:
+                out.append(dict(src="coaching", dir="context", text=f"play-caller {pc} passes inside the 20 / 10 / 5 on {pct(i.rz20_pass)} / {pct(i.rz10_pass)} / {pct(i.rz5_pass)} of plays (a typical offense: 54% / 51% / 47%){'; his quarterback runs it himself on ' + pct(i.qb_run_share_in5) + ' of inside-5 runs' if pd.notna(i.qb_run_share_in5) and i.qb_run_share_in5 >= 0.2 else ''} ({n_pl})", w=0.0))
+                if pd.notna(i.rz10_pass) and abs(i.rz10_pass - 0.51) >= 0.08: out.append(dict(src="coaching", dir="over" if i.rz10_pass > 0.51 else "under", text=f"{pc} {'throws' if i.rz10_pass > 0.51 else 'runs'} it inside the 10 far more than a typical offense ({pct(i.rz10_pass)} passes vs 51%, {n_pl})", w=0.5))
+            if is_rush:
+                gl = ("keeps handing it to his starting back at the goal line" if pd.notna(i.rb1_share_in5) and i.rb1_share_in5 - i.rb1_share_all >= 0.08 else "rotates the backup in at the goal line" if pd.notna(i.rb1_share_in5) and i.rb1_share_in5 - i.rb1_share_all <= -0.08 else "splits goal-line carries the same way he does everywhere")
+                out.append(dict(src="coaching", dir="context", text=f"play-caller {pc} {heavy}; his starting back gets {pct(i.rb1_share_all)} of the team's carries and {pct(i.rb1_share_in5)} inside the 5 — {gl} ({n_pl})", w=0.0))
+                if abs(i.proe) >= 3: out.append(dict(src="coaching", dir="over" if i.proe < 0 else "under", text=f"{pc} runs a {'run' if i.proe < 0 else 'pass'}-first offense — {abs(i.proe):.0f} points {'fewer' if i.proe < 0 else 'more'} throws than a typical team in the same spots ({n_pl})", w=0.5))
+                if m == "player_rush_attempts" and lead and pd.notna(i.rb1_share_in5) and i.rb1_share_in5 - i.rb1_share_all >= 0.08: out.append(dict(src="coaching", dir="over", text=f"he is the starting back and {pc} keeps the starter on the field at the goal line ({pct(i.rb1_share_in5)} of inside-5 carries vs {pct(i.rb1_share_all)} overall, through {self.season})", w=0.5))
+                if m == "player_rush_attempts" and (not lead) and r.position == "RB" and pd.notna(i.rb1_share_in5) and i.rb1_share_in5 - i.rb1_share_all <= -0.08: out.append(dict(src="coaching", dir="context", text=f"he is not the starting back, and {pc} rotates the backup in at the goal line (starter gets only {pct(i.rb1_share_in5)} of inside-5 carries)", w=0.0))
+            # game-script habit that fits the spread: a big favorite's play-caller when LEADING, a big underdog's when TRAILING (stable shifts, 2022-25)
+            if len(self.SIT) and (c["fav"] or c["dog"]) and abs(c["spread"]) >= 6.5:
+                sit = "leading by 8+" if c["fav"] else "trailing by 8+"; row = self.SIT[(self.SIT.coach == pc) & (self.SIT.situation == sit)]
+                if len(row):
+                    x = row.iloc[0]; passy = x.relative > 0
+                    d = ("over" if passy else "under") if (is_pass_vol or is_recv) else ("under" if passy else "over") if is_rush else "context"
+                    out.append(dict(src="coaching", dir=d, text=f"{team} is {'favored by' if c['fav'] else 'an underdog by'} {abs(c['spread']):g}; when {sit.replace('by 8+', 'by a touchdown or more')}, {pc} {'throws' if passy else 'runs'} about {abs(x.relative):.0f} points more than a typical coach does in that spot, every season including this one ({int(x.plays)} plays through {self.season})", w=0.5 if d != "context" else 0.0))
+        dc = self.dc.get(c["opp"])
+        if dc and len(self.DID) and dc in self.DID.index:
+            d_ = self.DID.loc[dc]; n_db = f"{int(d_.dropbacks):,} passing plays, this season weighted {float(d_.cur_weight):.0%}" if "cur_weight" in d_.index and pd.notna(d_.cur_weight) and float(d_.cur_weight) > 0 else f"{int(d_.dropbacks):,} passing plays since 2022"
+            if is_pass_vol or is_pass_td: out.append(dict(src="coaching", dir="context", text=f"the defense under {dc} sends an extra rusher on {pct(d_.blitz)} of passing plays (a typical defense: {pct(self.lg_blitz)}), {pct(d_.blitz_3rd_long)} on 3rd-and-long{', ' + pct(d_.blitz_rz) + ' in the red zone' if is_pass_td else ''} ({n_db})", w=0.0))
+            if is_recv and abs(d_.blitz - self.lg_blitz) >= 0.07: out.append(dict(src="coaching", dir="context", text=f"the defense under {dc} blitzes on {pct(d_.blitz)} of passing plays (a typical defense: {pct(self.lg_blitz)}) — quick throws and hot reads are more likely ({n_db})", w=0.0))
+            if is_rush: out.append(dict(src="coaching", dir="context", text=f"the defense under {dc} loads seven or more defenders near the line against the run {pct(d_.heavy_box)} of the time and stacks eight {pct(d_.stacked)} (a typical defense: about 46% and 11%)", w=0.0))
+        # 3b. play-caller shift live this week
+        if pc and len(self.SIT):
+            live = {"primetime": c["primetime"], "divisional": c["div"], "cold (≤40°F outdoors)": c["cold"], "windy (≥15 mph)": c["windy"], "home": c["is_home"], "favorite (−3 or more)": c["fav"], "underdog (+3 or more)": c["dog"], "short rest (≤5 days)": c["short_rest"], "off a bye": c["off_bye"], "vs blitz-heavy defense": c["opp_blitz_high"]}
+            for s in self.SIT[self.SIT.coach == pc].itertuples():
+                if not live.get(s.situation): continue
+                passy = s.relative > 0
+                if r.market.startswith("player_pass") or r.market in ("player_receptions", "player_reception_yds"): d = "over" if passy else "under"
+                elif r.market in ("player_rush_attempts", "player_rush_yds"): d = "under" if passy else "over"
+                else: continue
+                out.append(dict(src="coaching", dir=d, text=f"his play-caller {pc} {'throws' if passy else 'runs'} more than a typical coach does in {s.situation.split(' (')[0]} games — about {abs(s.relative):.0f} points more {'pass' if passy else 'run'}-heavy than everyone else gets in that spot, every season including this one ({int(s.plays)} plays through {self.season})", w=1.0)); break
+        return out

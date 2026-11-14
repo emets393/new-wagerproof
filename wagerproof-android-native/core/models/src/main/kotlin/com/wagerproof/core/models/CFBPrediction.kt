@@ -124,6 +124,11 @@ data class CFBSlateFlag(
     val stakeUnits: Double? = null,
     val gradeLine: String? = null,
     val mammoth: Boolean? = null,
+    // Structured bet from the generator: the team being bet and the line SIGNED FOR THAT TEAM.
+    // `line` is the game's home-perspective number — never render "team + line" from it.
+    val betTeam: String? = null,
+    val betDirection: String? = null,
+    val betLine: Double? = null,
     val signalDefinition: CFBSignalDefinition? = null,
 ) {
     val convictionTier: CFBFlagConviction get() = CFBFlagConviction.fromRaw(conviction)

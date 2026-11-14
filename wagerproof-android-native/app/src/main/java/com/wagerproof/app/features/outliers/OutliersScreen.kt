@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.outliers
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,11 +42,19 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OutliersScreen(modifier: Modifier = Modifier) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Outliers") { OutliersScreenContent(modifier) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun OutliersScreenContent(modifier: Modifier = Modifier) {
+    val featurePreview = LocalFeatureGatePreview.current
     val graph = appGraph()
     val store = graph.outliersTrends
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
+        if (featurePreview) return@LaunchedEffect
         // Only fetch when nothing has loaded yet — matches iOS `.task { if .idle }`.
         if (store.loadState is LoadState.Idle) store.refresh()
     }

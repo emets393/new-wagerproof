@@ -1,0 +1,77 @@
+{
+  "id": "props-scout",
+  "family": "exploration",
+  "title": "PROPS SCOUT",
+  "label": "props",
+  "tier": "silver",
+  "frame_prefix": "PropsScout",
+  "asset": "props-scout.usdz",
+  "editable_master": "props-scout.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "metal_compass_chassis": {
+      "vertices": 32004,
+      "faces": 64020,
+      "nonmanifold_edges": 0,
+      "volume": 0.2988260964258957
+    },
+    "acrylic_lime_center": {
+      "vertices": 16544,
+      "faces": 33084,
+      "nonmanifold_edges": 0,
+      "volume": 0.0425005988378318
+    },
+    "metal_target_outer": {
+      "vertices": 1407,
+      "faces": 2814,
+      "nonmanifold_edges": 0,
+      "volume": 0.012776899981795473
+    },
+    "ivory_target_outer": {
+      "vertices": 1157,
+      "faces": 2314,
+      "nonmanifold_edges": 0,
+      "volume": 0.007951211051834543
+    },
+    "metal_target_center": {
+      "vertices": 340,
+      "faces": 680,
+      "nonmanifold_edges": 0,
+      "volume": 0.003402583756102886
+    },
+    "ivory_target_center": {
+      "vertices": 310,
+      "faces": 620,
+      "nonmanifold_edges": 0,
+      "volume": 0.0020503595257144133
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 6,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle"
+    ]
+  },
+  "usdz_bytes": 4858816,
+  "family_palette": {
+    "primary": "#008D94",
+    "secondary": "#45CABB",
+    "enamel": "#CCFFF0",
+    "name": "Teal / aqua"
+  }
+}

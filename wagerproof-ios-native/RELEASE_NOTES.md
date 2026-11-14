@@ -11,6 +11,26 @@ Version strings live in four files and must be bumped together — see
 
 ---
 
+## 3.6.4
+
+BASKETBALL RESEARCH, UPDATED
+Explore refreshed NBA and college basketball game pages, with more matchup details and public betting context.
+
+PROPS AND OUTLIERS
+Research player props and compare model projections with sportsbook lines in the updated Props and Outliers views.
+
+---
+
+## 3.6.2
+
+Track skill with achievements!
+
+Collect 35 achievements as you build your agent lineup and track graded picks, win streaks, net units and consistent results.
+
+Explore bronze, silver and gold 3D medals, swipe to rotate them, and share your earned achievements with friends. Your collection is now at the top of Settings, with compact progress previews and new achievement introductions during onboarding.
+
+---
+
 ## 3.6.0 (build 215)
 
 NFL PLAYER PROPS, REBUILT

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { marked } from 'marked'
 import sanitizeHtml from 'sanitize-html'
+import { validateTool, validateVideo } from './guide-embeds.mjs'
 
 export const SITE_URL = 'https://wagerproof.bet'
 export const ROOT = process.cwd()
@@ -177,6 +178,8 @@ export function validateGuide(meta, sources, context) {
       if (!shot.width || !shot.height || !shot.alt || !shot.caption) throw new Error(`${context}: complete screenshot metadata required`)
     }
   }
+  validateTool(meta, context)
+  validateVideo(meta, context)
   if (meta.faqs) {
     if (!Array.isArray(meta.faqs) || meta.faqs.length < 2) throw new Error(`${context}: FAQs require at least two entries`)
     for (const faq of meta.faqs) {
@@ -201,13 +204,27 @@ function renderMarkdown(markdown) {
     if (match) headings.push({ id: slugify(match[1].replace(/[`*_]/g, '')), label: match[1].replace(/[`*_]/g, '') })
   }
   const ids = [...headings]
+  // A paragraph holding only `![alt](/guides/... "caption")` becomes a captioned figure. Images must be self-hosted
+  // under /guides/ (real product screenshots with provenance); anything else fails the build.
   const parsed = marked.parse(markdown, { gfm: true, breaks: false })
+    .replace(/<p>\s*<img src="([^"]+)" alt="([^"]*)"(?: title="([^"]*)")?\s*\/?>\s*<\/p>/g, (full, src, alt, caption) => {
+      assertLocalAsset(src, 'content.md image')
+      if (!alt) throw new Error(`content.md image ${src}: alt text required`)
+      return `<figure class="article-figure"><img src="${src}" alt="${alt}" loading="lazy" decoding="async" />${caption ? `<figcaption>${caption}</figcaption>` : ''}</figure>`
+    })
+  if (/<img\b/.test(parsed.replace(/<figure class="article-figure"><img\b/g, ''))) {
+    throw new Error('content.md: images must stand alone in their own paragraph')
+  }
   let html = sanitizeHtml(parsed, {
     allowedTags: [
       'p', 'a', 'strong', 'em', 'code', 'pre', 'blockquote', 'ul', 'ol', 'li',
       'h2', 'h3', 'h4', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'br',
+      'figure', 'figcaption', 'img',
     ],
-    allowedAttributes: { a: ['href', 'title'], th: ['align'], td: ['align'] },
+    allowedAttributes: {
+      a: ['href', 'title'], th: ['align'], td: ['align'],
+      figure: ['class'], img: ['src', 'alt', 'loading', 'decoding'],
+    },
     allowedSchemes: ['http', 'https', 'mailto'],
     allowProtocolRelative: false,
     enforceHtmlBoundary: true,

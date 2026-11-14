@@ -1,0 +1,72 @@
+WAGERPROOF LINE-MOVEMENT REVIEW SHEET
+Manual notes, not an automated export or a betting recommendation.
+
+GAME AND MARKET
+Event / date:
+Sport / market / side / period:
+Settlement rules:
+Book or named consensus source:
+Individual-book comparison or comparison between different sources?
+If consensus prices and one-book splits are mixed, label that limitation.
+It does not prove the book moved against its own ticket majority.
+Definition: threshold changes only, or threshold and odds-only changes?
+
+FIRST OBSERVATION
+Line and attached odds:
+Price capture time and time zone:
+Ticket share / money share (keep separate):
+Split capture time / provider / contributing book(s):
+Sample size and coverage, if available:
+
+SECOND OBSERVATION
+Line and attached odds:
+Price capture time and time zone:
+Ticket share / money share (keep separate):
+Split capture time / provider / contributing book(s):
+Sample size and coverage, if available:
+
+VALIDITY CHECKS
+Same event, market, side, period, book and rules? yes / no / unknown
+Are price and split capture times comparable? yes / no / unknown
+Which side became easier or cheaper to back?
+Missing fields or unmatched sources:
+
+INFORMATION TIMELINE
+Official source / publication time / relevant update:
+Was the information public before the observed move?
+Other book / first quote and time / later quote and time:
+Possible explanation:
+Alternative explanation:
+What remains unknown?
+
+CONCLUSION BEFORE THE RESULT
+Pattern observed / not reverse movement / insufficient data:
+Reason for that label:
+Current price checked at:
+Research or Agent settings in use:
+Reason to investigate further or pass:
+
+LATER REVIEW (do not overwrite the original notes)
+Closing reference and time, if captured:
+Final outcome / push / void:
+Was the initial evidence complete?
+What assumption did the result NOT establish?
+
+FICTIONAL EXAMPLE
+Same-book full-game football spread, matching rules.
+9:00 AM America/Chicago: Team A -3.5 (-110), 65% of spread tickets.
+11:00 AM America/Chicago: Team A -2.5 (-110), 72% of spread tickets.
+Both split observations are from the same book and captured at those times.
+Conclusion: reverse-movement pattern observed; cause unknown.
+A three-point Team A win loses at -3.5 and wins at -2.5.
+These prices and counts are invented for explanation, not actual results.
+
+SEPARATE FICTIONAL TICKETS-VERSUS-MONEY EXAMPLE
+70 Team A tickets x $10 = $700.
+30 Team B tickets x $50 = $1,500.
+100 tickets; $2,200 total.
+A: 70% of tickets, 31.8% of money.
+B: 30% of tickets, 68.2% of money.
+This shows different average ticket sizes, not bettor identities or skill.
+
+Do not raise stakes to chase a signal. Every wager can lose.

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LeanMark } from './LeanMark';
 import type { NflPropPlayerPage, NflPropPlayerTrends, PropMarket, TrendGameLogEntry } from '@/features/propBreakdown/types';
 import { getNFLTeamLogo } from '@/features/games/api/nflGames';
 import { fetchNflPropSportsbookOdds, type SportsbookMarketQuotes } from '@/features/games/detail/sportsbooks';
@@ -90,15 +91,16 @@ export function NflPropPlayerCard({
   player,
   trends,
   onSelect,
+  spotlight = false,
 }: {
   player: NflPropPlayerPage;
   trends?: NflPropPlayerTrends | null;
   onSelect: () => void;
+  spotlight?: boolean;
 }) {
   const summary = getPlayerBestMarket(player, trends);
   const market = summary?.market ?? player.markets[0] ?? null;
   const hitPct = summary && summary.games.length > 0 ? Math.round(summary.rate * 100) : null;
-  const hitTone = hitPct != null && hitPct >= 70 ? 'hot' : hitPct != null && hitPct >= 55 ? 'warm' : 'default';
   const logoUrl = getNFLTeamLogo(player.team);
   const isTouchdown = market?.key === 'player_anytime_td';
   const [liveOdds, setLiveOdds] = useState<{
@@ -155,7 +157,11 @@ export function NflPropPlayerCard({
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[14px] font-bold leading-tight text-foreground">{player.player_name}</div>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <div className="truncate text-[14px] font-bold leading-tight text-foreground">{player.player_name}</div>
+              {spotlight && <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">Spotlight</span>}
+              <LeanMark highlights={player.highlights} />
+            </div>
             <div className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">{player.position} · vs {player.opponent}</div>
             <div className="mt-1 flex min-w-0 gap-1">
               {isTouchdown ? (
@@ -183,9 +189,9 @@ export function NflPropPlayerCard({
 
         <div className="h-px bg-black/[0.06] dark:bg-white/10" />
         <div className="grid grid-cols-[minmax(0,1.5fr)_0.65fr_0.55fr] items-center gap-2">
-          <InfoItem label="Best market" value={compactMarketLabel(market.label)} tone="primary" />
+          <InfoItem label="Market" value={compactMarketLabel(market.label)} />
           <InfoItem label="Last 10" value={summary && summary.games.length > 0 ? `${summary.hits}/${summary.games.length}` : '—'} />
-          <InfoItem label="Hit" value={hitPct == null ? '—' : `${hitPct}%`} tone={hitTone} />
+          <InfoItem label="Hit" value={hitPct == null ? '—' : `${hitPct}%`} />
         </div>
       </div>
     </button>

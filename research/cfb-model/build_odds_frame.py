@@ -78,11 +78,65 @@ for gid, d in g.groupby("game_id"):
         "close_sp_h_price": close.sp_h_price, "close_sp_a_price": close.sp_a_price,
         "open_hrs": open_.hrs, "close_hrs": close.hrs, "nbooks_close": close.nbooks, "n_snaps": len(d)})
 fr = pd.DataFrame(rows)
+# The Odds API occasionally lists the same real game under TWO event ids
+# (phantom duplicates — burned NBA team-totals too). Two rows with one
+# (season,home,away) fan out every downstream team-name merge into duplicate
+# slate rows (23505 on cfb_slate_games, 2026-09-14: Houston @ Texas Tech).
+# Keep the event with the most snapshots — phantoms are thin.
+_before = len(fr)
+fr = fr.sort_values("n_snaps", ascending=False).drop_duplicates(
+    subset=["season", "home", "away"], keep="first")
+if len(fr) < _before:
+    print(f"  [dedup] dropped {_before - len(fr)} phantom duplicate event(s)")
 
 # join outcomes from model_games (season, home, away)
 mg = gm[["season", "week", "homeTeam", "awayTeam", "actual_margin", "actual_total", "homeConference", "awayConference"]].rename(
     columns={"homeTeam": "home", "awayTeam": "away"})
-fr = fr.merge(mg, on=["season", "home", "away"], how="inner")
+# NEUTRAL-SITE ORIENTATION (2026-09-18): the Odds API designates its own home team and it can be the
+# opposite of CFBD/ESPN's (Kansas vs Arizona State at Wembley: Odds API home = ASU, CFBD home = Kansas).
+# A strict (home, away) join silently drops the game -> no spread on the card -> health-sweep RED.
+# Unmatched rows retry with the teams swapped and every home-referenced field flipped into the
+# schedule's orientation.
+straight = fr.merge(mg, on=["season", "home", "away"], how="inner")
+_k = ["season", "home", "away"]
+left = fr[~fr.set_index(_k).index.isin(straight.set_index(_k).index)]
+sw = left.merge(mg.rename(columns={"home": "away", "away": "home"}), on=_k, how="inner")
+if len(sw):
+    sw = sw.rename(columns={"home": "away", "away": "home"})
+    for c in ("open_spread", "close_spread", "spread_move"):
+        sw[c] = -sw[c]
+    for a, b in (("open_home_ml", "open_away_ml"), ("close_home_ml", "close_away_ml"), ("close_sp_h_price", "close_sp_a_price")):
+        sw[a], sw[b] = sw[b].values, sw[a].values
+    for c in ("novig_home_prob", "open_novig_home"):
+        sw[c] = 1 - sw[c]
+    sw["swapped_orientation"] = True
+    print(f"  [orientation] {len(sw)} game(s) matched with home/away swapped and flipped into the schedule's orientation: "
+          + ", ".join(f"{r.away} @ {r.home}" for r in sw.itertuples()))
+straight["swapped_orientation"] = False
+fr = pd.concat([straight, sw], ignore_index=True) if len(sw) else straight
+# SECOND dedup, AFTER the orientation flip. The one above ran on the Odds-API's own
+# orientation, so a matchup whose event arrives BOTH ways (one row home=A/away=B, one
+# home=B/away=A) passes it as two distinct keys and only becomes one matchup here, once
+# the swapped row is flipped into the schedule's orientation. BYU @ Utah wk10-2026 landed
+# twice with totals 47.5 AND 61.5: every downstream (home, away) merge fanned out, giving
+# that game 16 cfb_slate_picks rows instead of 8 and two CORE TOTAL flags on opposite sides
+# of two different lines. Keep the event with the most snapshots — phantoms are thin.
+# This also covers a genuine rematch (27 (season,home,away) pairs in model_games are teams
+# that met twice), where the unguarded mg merge duplicated the odds row outright.
+# Tiebreak on ORIENTATION FIRST, not snapshot count. The swapped path exists only to rescue a
+# game the straight join would have dropped entirely, so where both exist the straight row is the
+# one whose orientation the schedule itself agrees with. By snapshots alone, 2026 BYU @ Utah kept
+# the swapped row and its total 61.5 (175 snaps) over the real 47.5 (27 snaps) — the board, the
+# pick card and the primary total flag all say 47.5 — and Missouri @ Arkansas kept 62.5 over 48.5.
+_b2 = len(fr)
+fr = fr.sort_values(["swapped_orientation", "n_snaps"], ascending=[True, False]).drop_duplicates(
+    subset=["season", "home", "away"], keep="first")
+if len(fr) < _b2:
+    _d = pd.concat([straight, sw], ignore_index=True) if len(sw) else straight
+    _dups = _d[_d.duplicated(["season", "home", "away"], keep=False)].sort_values(["season", "home", "away"])
+    print(f"  [dedup] dropped {_b2 - len(fr)} post-orientation duplicate(s): "
+          + ", ".join(f"{r.season} {r.away} @ {r.home} (total {r.close_total}, {r.n_snaps} snaps)"
+                      for r in _dups.itertuples()))
 fr["home_cover_close"] = (fr.actual_margin + fr.close_spread) > 0
 fr["over_close"] = fr.actual_total > fr.close_total
 out = os.path.join(HERE, "data", "odds_game_frame.parquet")

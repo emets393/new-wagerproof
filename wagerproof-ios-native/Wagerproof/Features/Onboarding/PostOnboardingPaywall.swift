@@ -36,6 +36,7 @@ import RevenueCatUI
 import WagerproofDesign
 import WagerproofServices
 import WagerproofStores
+import WagerproofModels
 
 struct PostOnboardingPaywall: View {
     @Environment(AuthStore.self) private var authStore
@@ -71,10 +72,28 @@ struct PostOnboardingPaywall: View {
     @State private var timedOut: Bool = false
 
     var body: some View {
-        paywallSurface
+        Group {
+            if TieredPaywallConfiguration.onboardingPreviewEnabled {
+                TieredPaywallView(
+                    preview: true,
+                    allowClose: false,
+                    showsPicksExpiry: true,
+                    source: "post_onboarding",
+                    placementID: RevenueCatService.Placement.onboarding
+                )
+            } else {
+                paywallSurface
+            }
+        }
             .preferredColorScheme(.dark)
-            .task { await loadOffering() }
-            .task { await startTimeoutWatchdog() }
+            .task {
+                guard !TieredPaywallConfiguration.onboardingPreviewEnabled else { return }
+                await loadOffering()
+            }
+            .task {
+                guard !TieredPaywallConfiguration.onboardingPreviewEnabled else { return }
+                await startTimeoutWatchdog()
+            }
             // Block the swipe-to-dismiss gesture on the cover sheet so the
             // paywall stays "non-dismissible" unless the user purchases,
             // restores, or hits the dashboard X. Matches RN's
@@ -84,7 +103,7 @@ struct PostOnboardingPaywall: View {
                 // Request while the app is still inactive/foreground-capable.
                 // Waiting for `.background` is too late: ActivityKit rejects a
                 // local request after the process has left the foreground.
-                guard phase == .inactive, !proAccess.isPro, !isFinalizing else { return }
+                guard phase == .inactive, !proAccess.hasSubscription, !isFinalizing else { return }
 
                 // The reveal normally armed the real ticket count already.
                 // This fallback also covers a very fast Home swipe while the
@@ -117,7 +136,7 @@ struct PostOnboardingPaywall: View {
     }
 
     private var isShowingCustomPaywall: Bool {
-        customPaywallEnabled && offering != nil && !isLoadingOffering && loadError == nil
+        (customPaywallEnabled || offering?.identifier == TieredPaywallConfiguration.offeringID) && offering != nil && !isLoadingOffering && loadError == nil
     }
 
     @ViewBuilder
@@ -126,7 +145,19 @@ struct PostOnboardingPaywall: View {
             Color.black.ignoresSafeArea()
 
             if let offering, !isLoadingOffering, loadError == nil {
-                if customPaywallEnabled {
+                if offering.identifier == TieredPaywallConfiguration.offeringID {
+                    TieredPaywallView(
+                        allowClose: false,
+                        showsPicksExpiry: true,
+                        source: "post_onboarding",
+                        placementID: RevenueCatService.Placement.onboarding,
+                        offering: offering,
+                        onPurchaseFinalized: { transaction, info in
+                            Task { await finalize(transaction: transaction, customerInfo: info) }
+                        },
+                        onRequestClose: { dismissWithoutPurchase("tiered_close") }
+                    )
+                } else if customPaywallEnabled {
                     CustomPaywallView(
                         offering: offering,
                         allowClose: closeEnabled,
@@ -313,27 +344,29 @@ struct PostOnboardingPaywall: View {
         loadError = nil
         timedOut = false
 
-        // Prefer the placement-specific offering so the dashboard can ship a
-        // distinct post-onboarding variant; the service helper falls back to
-        // the current offering when no placement is attached.
-        if let placementOffering = await revenueCat.fetchOffering(forPlacement: RevenueCatService.Placement.onboarding) {
-            offering = placementOffering
-            isLoadingOffering = false
-            return
-        }
-
-        // Last-resort fallback — use whatever offering RevenueCatStore already
-        // cached from `refreshOffering()`. Keeps the paywall functional even
-        // if the placement returns nil and the live fetch fails.
-        if let fallback = revenueCat.offering {
-            offering = fallback
-            isLoadingOffering = false
-            return
-        }
-
         offering = nil
-        loadError = "Couldn't reach the subscription service. Check your connection and try again."
-        isLoadingOffering = false
+        defer { isLoadingOffering = false }
+        if revenueCat.isPro && !isDebugPreview { onUserDismissed(); return }
+        do {
+            let fetched = try await revenueCat.fetchOffering(forPlacement: RevenueCatService.Placement.onboarding)
+            guard !Task.isCancelled else { return }
+            switch PaywallPlacementRoute.resolve(
+                offeringID: fetched?.identifier,
+                tieredEnabled: TieredPaywallConfiguration.enabled,
+                catalogReady: fetched?.metadata["tiered_catalog_ready"] as? Bool == true
+            ) {
+            case .none:
+                // Respect an intentional No Offering without substituting a paywall.
+                onUserDismissed()
+            case .unavailable:
+                loadError = "These plans are not available yet. Please try again later."
+            case .legacy, .tiered:
+                offering = fetched
+            }
+        } catch {
+            guard !Task.isCancelled else { return }
+            loadError = "Couldn't reach the subscription service. Check your connection and try again."
+        }
     }
 
     /// Safety watchdog — if the offering fetch hasn't finished within 10s,

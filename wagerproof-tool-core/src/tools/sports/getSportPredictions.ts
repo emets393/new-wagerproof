@@ -84,9 +84,6 @@ function fmtML(v: unknown): string {
   const n = Number(v);
   return n > 0 ? `+${n}` : String(n);
 }
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
 
 function teamFilter<T extends Record<string, unknown>>(
   rows: T[],
@@ -264,16 +261,22 @@ async function getNba(ctx: ToolContext, date: string, team?: string) {
     ...new Set(filtered.flatMap((g) => [g.away_team, g.home_team]).filter(Boolean)),
   ] as string[];
 
-  const [predictionMap, injuryData, situationalData, accuracyData] = await Promise.all([
-    fetchNbaPredictions(cfb, numericGameIds),
+  // Model + signals come from the originator pipeline (nba_model_preds, nba_slate_flags,
+  // nba_signal_defs), the same tables the apps read since 2026-10-13. nba_predictions is kept
+  // only for home_win_prob: its model_fair_* had zero correlation with results and the accuracy
+  // cache built on it is being dropped.
+  const [modelMap, winProbMap, injuryData, situationalData, flagsMap] = await Promise.all([
+    fetchNbaModel(cfb, filtered, date),
+    fetchNbaWinProb(cfb, numericGameIds),
     fetchNbaInjuries(cfb, teams, date),
     fetchSituational(cfb, "nba_game_situational_trends_today", stringGameIds),
-    fetchAccuracy(cfb, "nba_todays_games_predictions_with_accuracy_cache", stringGameIds, date),
+    fetchNbaFlags(cfb, filtered, date),
   ]);
 
   const games = filtered.map((game) => {
     const gid = String(game.game_id ?? "");
-    const prediction = predictionMap.get(game.game_id as number) ?? null;
+    const model = modelMap.get(gid) ?? null;
+    const winProb = winProbMap.get(game.game_id) ?? null;
     const homeML = (game.home_moneyline as number | null) ?? null;
     const dbAwayML = (game.away_moneyline as number | null) ?? null;
     const awayML =
@@ -301,24 +304,7 @@ async function getNba(ctx: ToolContext, date: string, team?: string) {
         away_ml: awayML,
         total: game.total_line,
       },
-      model_predictions: prediction
-        ? {
-            home_win_prob: prediction.home_win_prob,
-            away_win_prob: prediction.away_win_prob,
-            home_score_pred: prediction.home_score_pred,
-            away_score_pred: prediction.away_score_pred,
-            model_fair_home_spread: prediction.model_fair_home_spread,
-            model_fair_total: prediction.model_fair_total,
-            spread_edge:
-              homeSpread != null && prediction.model_fair_home_spread != null
-                ? round2((prediction.model_fair_home_spread as number) - homeSpread)
-                : null,
-            total_edge:
-              game.total_line != null && prediction.model_fair_total != null
-                ? round2((prediction.model_fair_total as number) - (game.total_line as number))
-                : null,
-          }
-        : null,
+      model_predictions: formatNbaModel(model, winProb),
       team_stats: {
         home: {
           overall_rating: game.home_ovr_rtg,
@@ -398,14 +384,166 @@ async function getNba(ctx: ToolContext, date: string, team?: string) {
         home: injuryData.get(String(game.home_team).toLowerCase()) ?? null,
       },
       situational: situationalData.get(gid) ?? null,
-      accuracy: accuracyData.get(gid) ?? null,
+      // Validated signals firing on this game (trigger, the bet, the all-time record). Null when none.
+      signals: flagsMap.get(gid) ?? null,
     };
   });
 
   return { sport: "nba", games, date, count: games.length };
 }
 
-async function fetchNbaPredictions(
+type NbaModelRows = { spread?: Record<string, unknown>; total?: Record<string, unknown> };
+
+// Join key shared with the web feed: the model/signal jobs write balldontlie-style abbreviations
+// (GSW, NYK, ...) so they line up with nba_input_values_view without a map.
+function nbaAbbrKey(date: unknown, home: unknown, away: unknown): string {
+  return `${String(date ?? "").slice(0, 10)}|${home ?? ""}|${away ?? ""}`;
+}
+
+function numOrNull(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** nba_model_preds for the date: one row per game per market, keyed by the view's game_id;
+ *  rows with a null game_id fall back to the (date, home, away) key. */
+async function fetchNbaModel(
+  client: SupabaseLikeClient,
+  games: Record<string, unknown>[],
+  date: string,
+): Promise<Map<string, NbaModelRows>> {
+  const result = new Map<string, NbaModelRows>();
+  try {
+    const { data } = await client
+      .from("nba_model_preds")
+      .select(
+        "game_id, game_date, home_abbr, away_abbr, market, model_version, model_home_margin, model_total, market_home_spread, market_total, disagreement, tier, bet_side, as_of",
+      )
+      .eq("game_date", date);
+    const byAbbr = new Map<string, NbaModelRows>();
+    for (const row of (data ?? []) as Record<string, unknown>[]) {
+      const key = nbaAbbrKey(row.game_date, row.home_abbr, row.away_abbr);
+      const gid = row.game_id != null ? String(row.game_id) : "";
+      const entry = (gid && result.get(gid)) || byAbbr.get(key) || {};
+      const market = String(row.market ?? "");
+      if (market === "spread" || market === "total") entry[market] = row;
+      if (gid) result.set(gid, entry);
+      byAbbr.set(key, entry);
+    }
+    for (const g of games) {
+      const gid = String(g.game_id ?? "");
+      if (!gid || result.has(gid)) continue;
+      const entry = byAbbr.get(nbaAbbrKey(g.game_date, g.home_abbr, g.away_abbr));
+      if (entry) result.set(gid, entry);
+    }
+  } catch {
+    /* non-critical */
+  }
+  return result;
+}
+
+/** The model block. The model predicts the HOME MARGIN; the fair home spread is the negated margin.
+ *  `disagreement` is the job's own number (margin + market spread; model total - market total):
+ *  positive = model on the home side / the over. Total hidden while the total model is warming up
+ *  (< 10 games played) — it loses in that window. */
+function formatNbaModel(
+  model: NbaModelRows | null,
+  winProb: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  const spread = model?.spread ?? null;
+  const total = model?.total ?? null;
+  const homeWinProb = numOrNull(winProb?.home_win_prob);
+  if (!spread && !total && homeWinProb === null) return null;
+  const margin = numOrNull(spread?.model_home_margin);
+  const totalLive = total != null && total.tier !== "warmup";
+  return {
+    source: "nba_model_preds",
+    model_version: spread?.model_version ?? total?.model_version ?? null,
+    as_of: spread?.as_of ?? total?.as_of ?? null,
+    home_win_prob: homeWinProb,
+    away_win_prob: numOrNull(winProb?.away_win_prob),
+    spread: spread
+      ? {
+          model_home_margin: margin,
+          model_fair_home_spread: margin === null ? null : -margin,
+          market_home_spread: numOrNull(spread.market_home_spread),
+          disagreement: numOrNull(spread.disagreement),
+          pick: spread.bet_side ?? null,
+          tier: spread.tier ?? null,
+        }
+      : null,
+    total: total
+      ? {
+          model_total: totalLive ? numOrNull(total.model_total) : null,
+          market_total: numOrNull(total.market_total),
+          disagreement: totalLive ? numOrNull(total.disagreement) : null,
+          pick: totalLive ? (total.bet_side ?? null) : null,
+          tier: total.tier ?? null,
+        }
+      : null,
+    tiers:
+      "bet = 8+ points of disagreement (54-56% at the closing line over six seasons); lean = 6+ or a bet downgraded because a signal opposes it; pass / warmup / no_line = no model bet.",
+  };
+}
+
+/** nba_slate_flags for the date joined to nba_signal_defs, projected to a compact shape. */
+async function fetchNbaFlags(
+  client: SupabaseLikeClient,
+  games: Record<string, unknown>[],
+  date: string,
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const result = new Map<string, Record<string, unknown>[]>();
+  try {
+    const [{ data: flags }, { data: defs }] = await Promise.all([
+      client
+        .from("nba_slate_flags")
+        .select(
+          "game_id, game_date, game, signal_key, market, side, tier, conviction, line, bet_team, bet_direction, bet_line, grade_line, trigger_text, record_text",
+        )
+        .eq("game_date", date),
+      client.from("nba_signal_defs").select("signal_key, display_name, one_liner, bet_direction, record_text, tier"),
+    ]);
+    const defMap = new Map<string, Record<string, unknown>>();
+    for (const d of (defs ?? []) as Record<string, unknown>[]) defMap.set(String(d.signal_key), d);
+    const byAbbr = new Map<string, Record<string, unknown>[]>();
+    for (const f of (flags ?? []) as Record<string, unknown>[]) {
+      const def = defMap.get(String(f.signal_key));
+      const item = {
+        signal_key: f.signal_key,
+        name: def?.display_name ?? f.signal_key,
+        market: f.market,
+        side: f.side,
+        line: f.line,
+        grade_line: f.grade_line,
+        conviction: f.conviction,
+        tier: f.tier,
+        trigger: f.trigger_text ?? def?.one_liner ?? null,
+        bet_direction: def?.bet_direction ?? f.bet_direction ?? null,
+        record: f.record_text ?? def?.record_text ?? null,
+      };
+      const gid = f.game_id != null ? String(f.game_id) : "";
+      const parts = String(f.game ?? "").split("@");
+      const key = parts.length === 2 ? nbaAbbrKey(f.game_date, parts[1].trim(), parts[0].trim()) : "";
+      const list = (gid && result.get(gid)) || (key && byAbbr.get(key)) || [];
+      list.push(item);
+      if (gid) result.set(gid, list);
+      if (key) byAbbr.set(key, list);
+    }
+    for (const g of games) {
+      const gid = String(g.game_id ?? "");
+      if (!gid || result.has(gid)) continue;
+      const list = byAbbr.get(nbaAbbrKey(g.game_date, g.home_abbr, g.away_abbr));
+      if (list) result.set(gid, list);
+    }
+  } catch {
+    /* non-critical */
+  }
+  return result;
+}
+
+/** home_win_prob from nba_predictions (latest run_id) — Phi(originator margin / 14.2), written by nba_model_nightly.py. */
+async function fetchNbaWinProb(
   client: SupabaseLikeClient,
   gameIds: unknown[],
 ): Promise<Map<unknown, Record<string, unknown>>> {
@@ -421,9 +559,7 @@ async function fetchNbaPredictions(
     if (!latestRun) return result;
     const { data: preds } = await client
       .from("nba_predictions")
-      .select(
-        "game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id",
-      )
+      .select("game_id, home_win_prob, away_win_prob, run_id")
       .eq("run_id", (latestRun as Record<string, unknown>).run_id)
       .in("game_id", gameIds);
     for (const pred of preds ?? []) result.set(pred.game_id, pred);
@@ -484,26 +620,6 @@ async function fetchSituational(
   return result;
 }
 
-async function fetchAccuracy(
-  client: SupabaseLikeClient,
-  table: string,
-  gameIds: string[],
-  date: string,
-): Promise<Map<string, unknown>> {
-  const result = new Map<string, unknown>();
-  if (gameIds.length === 0) return result;
-  try {
-    const { data } = await client
-      .from(table)
-      .select("*")
-      .in("game_id", gameIds)
-      .eq("game_date", date);
-    for (const row of data ?? []) result.set(String(row.game_id ?? ""), row);
-  } catch {
-    /* non-critical */
-  }
-  return result;
-}
 
 // ---- NCAAB -----------------------------------------------------------------
 
@@ -559,33 +675,80 @@ async function getNcaab(ctx: ToolContext, date: string, team?: string) {
         conference_game: game.conference_game,
         neutral_site: game.neutral_site,
       },
+      // v_cbb_input_values column names: spread (home), homeMoneyline/awayMoneyline, over_under,
+      // h1_spread/h1_total/h1_*_moneyline, home_team_total/away_team_total. The view carries no
+      // ATS/over trends for college. Lines are The Odds API's best available book (DK first).
       vegas_lines: {
-        spread: `${game.home_team} ${fmtSpread(game.home_spread)}`,
-        moneyline: `${game.away_team} ${fmtML(game.away_moneyline)} / ${game.home_team} ${fmtML(game.home_moneyline)}`,
-        total: game.total_line,
+        spread: `${game.home_team} ${fmtSpread(game.spread)}`,
+        moneyline: `${game.away_team} ${fmtML(game.awayMoneyline)} / ${game.home_team} ${fmtML(game.homeMoneyline)}`,
+        total: numOrNull(game.over_under),
+        first_half:
+          game.h1_spread != null || game.h1_total != null
+            ? {
+                spread: `${game.home_team} ${fmtSpread(game.h1_spread)}`,
+                total: numOrNull(game.h1_total),
+                moneyline: `${game.away_team} ${fmtML(game.h1_away_moneyline)} / ${game.home_team} ${fmtML(game.h1_home_moneyline)}`,
+              }
+            : null,
+        team_totals:
+          game.home_team_total != null || game.away_team_total != null
+            ? { home: numOrNull(game.home_team_total), away: numOrNull(game.away_team_total) }
+            : null,
       },
-      betting_trends: {
-        home_ats_pct: game.home_ats_pct,
-        away_ats_pct: game.away_ats_pct,
-        home_over_pct: game.home_over_pct,
-        away_over_pct: game.away_over_pct,
-      },
-      model_predictions: preds
-        ? {
-            home_win_prob: preds.home_win_prob,
-            away_win_prob: preds.away_win_prob,
-            home_score_pred: preds.home_score_pred,
-            away_score_pred: preds.away_score_pred,
-            model_fair_home_spread: preds.model_fair_home_spread,
-            model_fair_total: preds.model_fair_total,
-          }
-        : null,
+      model_predictions: preds ? ncaabModelBlock(preds, numOrNull(game.spread), numOrNull(game.over_under)) : null,
     };
   });
 
   return { sport: "ncaab", games, date, count: games.length };
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * The college originator model's row for one game, shaped for the assistant. Fair lines are the
+ * model's own (no market input); the edges are quoted so a reader never has to work out the sign:
+ * `edge_home_pts` > 0 means the model rates the HOME side better than the market line by that many
+ * points, `edge_total_pts` > 0 means the model projects MORE points than the posted total.
+ */
+function ncaabModelBlock(
+  preds: Record<string, unknown>,
+  homeSpread: number | null,
+  total: number | null,
+): Record<string, unknown> {
+  const fairHome = numOrNull(preds.model_fair_home_spread);
+  const predTotal = numOrNull(preds.pred_total_points);
+  return {
+    model_version: preds.model_version ?? null,
+    as_of: preds.as_of_ts_utc ?? null,
+    home_win_prob: numOrNull(preds.home_win_prob),
+    away_win_prob: numOrNull(preds.away_win_prob),
+    pred_home_margin: numOrNull(preds.pred_home_margin),
+    pred_total_points: predTotal,
+    home_score_pred: numOrNull(preds.home_score_pred),
+    away_score_pred: numOrNull(preds.away_score_pred),
+    model_fair_home_spread: fairHome,
+    model_fair_away_spread: numOrNull(preds.model_fair_away_spread),
+    model_fair_home_moneyline: numOrNull(preds.model_fair_home_moneyline),
+    model_fair_away_moneyline: numOrNull(preds.model_fair_away_moneyline),
+    // line - fair: both are home spreads, so a fair -10 against a posted -7 is +3 for the home side
+    edge_home_pts: homeSpread != null && fairHome != null ? round2(homeSpread - fairHome) : null,
+    edge_total_pts: total != null && predTotal != null ? round2(predTotal - total) : null,
+    line_at_prediction: {
+      home_spread: numOrNull(preds.vegas_home_spread),
+      total: numOrNull(preds.vegas_total),
+    },
+  };
+}
+
+/**
+ * Latest prediction PER GAME. ncaab_predictions keeps every pass (four a day) and a tipped game is
+ * never re-predicted, so "the newest run" misses any game that tipped before that pass; and run_id
+ * is a random uuid, so ordering by it picked an arbitrary run (this tool returned null predictions
+ * for every college game from the 2026-27 tip until 2026-11-10). Order by as_of_ts_utc instead and
+ * keep the first row seen for each game.
+ */
 async function fetchNcaabPredictions(
   client: SupabaseLikeClient,
   gameIds: unknown[],
@@ -593,21 +756,19 @@ async function fetchNcaabPredictions(
   const result = new Map<unknown, Record<string, unknown>>();
   if (gameIds.length === 0) return result;
   try {
-    const { data: latestRun } = await client
-      .from("ncaab_predictions")
-      .select("run_id")
-      .order("run_id", { ascending: false })
-      .limit(1);
-    if (!latestRun || latestRun.length === 0) return result;
-    const runId = (latestRun[0] as Record<string, unknown>).run_id;
     const { data: preds } = await client
       .from("ncaab_predictions")
       .select(
-        "game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread",
+        "game_id, as_of_ts_utc, model_version, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, " +
+          "home_score_pred, away_score_pred, model_fair_home_spread, model_fair_away_spread, " +
+          "model_fair_home_moneyline, model_fair_away_moneyline, vegas_home_spread, vegas_total",
       )
-      .eq("run_id", runId)
-      .in("game_id", gameIds);
-    for (const row of preds ?? []) result.set(row.game_id, row);
+      .in("game_id", gameIds)
+      .order("as_of_ts_utc", { ascending: false })
+      .limit(gameIds.length * 12);
+    for (const row of preds ?? []) {
+      if (!result.has(row.game_id)) result.set(row.game_id, row);
+    }
   } catch {
     /* non-critical */
   }

@@ -195,11 +195,11 @@ private fun OnboardingCarouselContainer(
     val reduceMotion = LocalOnboardingReduceMotion.current
     val step = store.currentStep
     val spec = OnboardingPageSpec.specFor(step)
-    var previousRaw by remember { mutableStateOf(step.raw) }
-    val forward = step.raw >= previousRaw
+    var previousRaw by remember { mutableStateOf(step.ordinal) }
+    val forward = step.ordinal >= previousRaw
     LaunchedEffect(step) {
         delay(360)
-        previousRaw = step.raw
+        previousRaw = step.ordinal
     }
 
     OnboardingPageShell(
@@ -239,6 +239,7 @@ private fun OnboardingCarouselContainer(
                 OnboardingStore.Step.AGENT_VALUE_INTRO -> OnboardingAgentPitchIntroPage()
                 OnboardingStore.Step.AGENT_VALUE_PROOF -> OnboardingAgentPitchProofPage()
                 OnboardingStore.Step.AGENT_LEADERBOARD -> OnboardingAgentLeaderboardPage()
+                OnboardingStore.Step.ACHIEVEMENTS -> com.wagerproof.app.features.achievements.OnboardingAchievementsPage()
                 OnboardingStore.Step.BUILDER_SPORTS -> OnboardingBuilderSportsPage(creation)
                 OnboardingStore.Step.BUILDER_ARCHETYPE -> OnboardingBuilderArchetypePage(creation)
                 OnboardingStore.Step.BUILDER_MINDSET -> OnboardingBuilderMindsetPage(creation)

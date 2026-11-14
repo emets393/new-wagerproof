@@ -8,22 +8,13 @@ import WagerproofModels
 /// Moneyline, O/U — where each row shows the model's pick, the edge over
 /// Vegas, and the historical accuracy bucket for the same edge size.
 ///
-/// Accepts either `NBAModelAccuracyData` or `NCAABModelAccuracyGame` — the
-/// two share the same shape post-merge so the widget treats them as a single
-/// flattened DTO (see `ModelAccuracyBucket`).
+/// NCAAB accuracy rows. The NBA accuracy table was removed with
+/// `nba_todays_games_predictions_with_accuracy`.
 struct ModelAccuracyWidget: View {
     let awayAbbr: String
     let homeAbbr: String
     let data: ModelAccuracyBucket
     var isLoading: Bool = false
-
-    /// Convenience initializer for NBA accuracy rows.
-    init(awayAbbr: String, homeAbbr: String, nba: NBAModelAccuracyData, isLoading: Bool = false) {
-        self.awayAbbr = awayAbbr
-        self.homeAbbr = homeAbbr
-        self.data = ModelAccuracyBucket(nba: nba)
-        self.isLoading = isLoading
-    }
 
     /// Convenience initializer for NCAAB accuracy rows.
     init(awayAbbr: String, homeAbbr: String, ncaab: NCAABModelAccuracyGame, isLoading: Bool = false) {
@@ -187,17 +178,6 @@ struct ModelAccuracyBucket: Hashable {
 
     let overLineDiff: Double?
     let ouAccuracy: Accuracy?
-
-    init(nba: NBAModelAccuracyData) {
-        self.homeSpreadDiff = nba.homeSpreadDiff
-        self.spreadAccuracy = nba.spreadAccuracy.map { Accuracy(games: $0.games, accuracyPct: $0.accuracyPct) }
-        self.homeWinProb = nba.homeWinProb
-        self.awayWinProb = nba.awayWinProb
-        self.mlPickIsHome = nba.mlPickIsHome
-        self.mlAccuracy = nba.mlAccuracy.map { Accuracy(games: $0.games, accuracyPct: $0.accuracyPct) }
-        self.overLineDiff = nba.overLineDiff
-        self.ouAccuracy = nba.ouAccuracy.map { Accuracy(games: $0.games, accuracyPct: $0.accuracyPct) }
-    }
 
     init(ncaab: NCAABModelAccuracyGame) {
         self.homeSpreadDiff = ncaab.homeSpreadDiff

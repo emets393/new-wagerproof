@@ -1,0 +1,38 @@
+{
+  "getting-started": {
+    "primary": "#008B48",
+    "secondary": "#25BB78",
+    "enamel": "#D3F4E2",
+    "name": "Emerald / jade"
+  },
+  "experience": {
+    "primary": "#175BC5",
+    "secondary": "#4FADED",
+    "enamel": "#D2E9FF",
+    "name": "Sapphire / ice"
+  },
+  "streaks": {
+    "primary": "#E74712",
+    "secondary": "#FFAB25",
+    "enamel": "#FFF0CF",
+    "name": "Ember / amber"
+  },
+  "performance": {
+    "primary": "#763AB9",
+    "secondary": "#B47BE5",
+    "enamel": "#EBDDFF",
+    "name": "Amethyst / lilac"
+  },
+  "leaderboard": {
+    "primary": "#AA1644",
+    "secondary": "#E64C70",
+    "enamel": "#FFE5E9",
+    "name": "Ruby / rose"
+  },
+  "exploration": {
+    "primary": "#008D94",
+    "secondary": "#45CABB",
+    "enamel": "#CCFFF0",
+    "name": "Teal / aqua"
+  }
+}

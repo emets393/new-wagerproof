@@ -54,23 +54,64 @@ GROUP BY d.game_id, h.season, h.snap_ts;
 -- team-prefix match (Odds-API sends mascot names: "Illinois Fighting Illini"). FG markets only;
 -- 1H/TT lines land in ncaaf_event_odds separately.
 CREATE EXTENSION IF NOT EXISTS unaccent;
+-- cfb_line_movement v2 (2026-09-18): NEUTRAL-SITE ORIENTATION. The Odds API can designate the
+-- opposite home team from CFBD/ESPN (Kansas vs Arizona State at Wembley: Odds API home = ASU,
+-- cfb_slate_games home = Kansas). The old map joined home->home AND away->away only, so the game
+-- had no line series -> no fg_spread_close on the card -> health-sweep RED. Now: match either
+-- orientation and, when swapped, flip every home-referenced field into the slate's orientation.
 DROP VIEW IF EXISTS public.cfb_line_movement;
 CREATE VIEW public.cfb_line_movement AS
 WITH mv AS (
-  SELECT game_id AS event_id, season, snapshot AS snap_ts, count(*) AS n_books,
-    percentile_cont(0.5) WITHIN GROUP (ORDER BY spread_home::numeric) AS fg_spread_home,
-    percentile_cont(0.5) WITHIN GROUP (ORDER BY total::numeric)       AS fg_total
-  FROM ncaaf_odds_history
-  WHERE game_id IS NOT NULL
-  GROUP BY game_id, season, snapshot
-),
-map AS (
-  SELECT DISTINCT h.game_id AS event_id, g.game_id AS cfbd_id
+  SELECT h.game_id AS event_id, h.season, h.snapshot AS snap_ts, count(*) AS n_books,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (h.spread_home::double precision)) AS fg_spread_home,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (h.total::double precision))       AS fg_total,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (h.home_ml::double precision))     AS ml_home,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (h.away_ml::double precision))     AS ml_away
+  FROM ncaaf_odds_history h
+  WHERE h.game_id IS NOT NULL
+  GROUP BY h.game_id, h.season, h.snapshot
+), map AS (
+  SELECT DISTINCT h.game_id AS event_id, g.game_id AS cfbd_id,
+    (unaccent(lower(replace(h.home_team,'''',''))) NOT LIKE unaccent(lower(replace(g.home_team,'''',''))) || '%') AS flipped
   FROM ncaaf_odds_history h
   JOIN cfb_slate_games g
     ON h.commence_time = g.kickoff
-   AND unaccent(lower(replace(h.home_team,'''',''))) LIKE unaccent(lower(replace(g.home_team,'''',''))) || '%'
-   AND unaccent(lower(replace(h.away_team,'''',''))) LIKE unaccent(lower(replace(g.away_team,'''',''))) || '%'
+   AND (
+        (unaccent(lower(replace(h.home_team,'''',''))) LIKE unaccent(lower(replace(g.home_team,'''',''))) || '%'
+     AND unaccent(lower(replace(h.away_team,'''',''))) LIKE unaccent(lower(replace(g.away_team,'''',''))) || '%')
+     OR (unaccent(lower(replace(h.home_team,'''',''))) LIKE unaccent(lower(replace(g.away_team,'''',''))) || '%'
+     AND unaccent(lower(replace(h.away_team,'''',''))) LIKE unaccent(lower(replace(g.home_team,'''',''))) || '%')
+   )
+), ev AS (
+  SELECT e.game_id::bigint AS game_id, e.season, e.snap_ts, count(DISTINCT e.book) AS n_books,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (e.price::double precision)) FILTER (WHERE e.market = 'h2h_h1'    AND lower(e.name) LIKE lower(e.home) || '%')     AS h1_ml_h,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (e.price::double precision)) FILTER (WHERE e.market = 'h2h_h1'    AND lower(e.name) NOT LIKE lower(e.home) || '%') AS h1_ml_a,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (e.point::double precision)) FILTER (WHERE e.market = 'spreads_h1' AND lower(e.name) LIKE lower(e.home) || '%')     AS h1_sp_h,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (e.point::double precision)) FILTER (WHERE e.market = 'totals_h1'  AND lower(e.name) = 'over')                       AS h1_total,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (e.point::double precision)) FILTER (WHERE e.market = 'team_totals' AND lower(e.name) = 'over' AND unaccent(lower(replace(e.description,'''',''))) LIKE unaccent(lower(replace(e.home,'''',''))) || '%') AS tt_h,
+    percentile_cont(0.5::double precision) WITHIN GROUP (ORDER BY (e.point::double precision)) FILTER (WHERE e.market = 'team_totals' AND lower(e.name) = 'over' AND unaccent(lower(replace(e.description,'''',''))) LIKE unaccent(lower(replace(e.away,'''',''))) || '%') AS tt_a,
+    bool_or(unaccent(lower(replace(e.home,'''',''))) NOT LIKE unaccent(lower(replace(g.home_team,'''',''))) || '%') AS flipped
+  FROM ncaaf_event_odds e
+  LEFT JOIN cfb_slate_games g ON g.game_id = e.game_id::bigint
+  GROUP BY e.game_id, e.season, e.snap_ts
 )
-SELECT map.cfbd_id AS game_id, mv.season, mv.snap_ts, mv.n_books, mv.fg_spread_home, mv.fg_total
-FROM mv JOIN map ON map.event_id = mv.event_id;
+SELECT map.cfbd_id AS game_id, mv.season, mv.snap_ts, mv.n_books,
+  CASE WHEN map.flipped THEN -mv.fg_spread_home ELSE mv.fg_spread_home END AS fg_spread_home,
+  mv.fg_total,
+  CASE WHEN map.flipped THEN mv.ml_away ELSE mv.ml_home END AS ml_home,
+  CASE WHEN map.flipped THEN mv.ml_home ELSE mv.ml_away END AS ml_away,
+  NULL::double precision AS h1_ml_home, NULL::double precision AS h1_ml_away,
+  NULL::double precision AS h1_spread_home, NULL::double precision AS h1_total,
+  NULL::double precision AS tt_home, NULL::double precision AS tt_away
+FROM mv JOIN map ON map.event_id = mv.event_id
+UNION ALL
+SELECT ev.game_id, ev.season, ev.snap_ts, ev.n_books,
+  NULL, NULL, NULL, NULL,
+  CASE WHEN ev.flipped THEN ev.h1_ml_a ELSE ev.h1_ml_h END,
+  CASE WHEN ev.flipped THEN ev.h1_ml_h ELSE ev.h1_ml_a END,
+  CASE WHEN ev.flipped THEN -ev.h1_sp_h ELSE ev.h1_sp_h END,
+  ev.h1_total,
+  CASE WHEN ev.flipped THEN ev.tt_a ELSE ev.tt_h END,
+  CASE WHEN ev.flipped THEN ev.tt_h ELSE ev.tt_a END
+FROM ev;
+

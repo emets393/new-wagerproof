@@ -5,8 +5,14 @@ only (football_report_lib). NO PICKS. Families re-evaluate fully each run so
 vanished conditions resolve on the record.
 
 Families v1:
+  matchups      — FEATURED MATCHUPS (owner spec 2026-09-18): top-4 games where the Fantasy
+                  Points / charting matchup facts AND our internal data (model play, signals,
+                  weather, referee, injuries) are both telling. Read from nfl_matchup_facts,
+                  which nfl_matchup_facts.py writes on the fp-data-inseason job (Tue/Thu).
   injuries      — team injury digests + notable Out/Doubtful (empty until Sept reports)
-  signals       — active flags with model-agreement framing + records
+  signals       — CONFLUENCE engine (shared w/ CFB, football_report_lib): per-game
+                  alignments / strong solos / explicit conflicts, records graded
+                  live from finals (owner spec 2026-09-16)
   line_movement — open->current across FG spread/total, TT, 1H (all captured markets)
   ref_trends    — assigned referee with a strong directional trend in ANY market
                   (gated until assignments publish in game week)
@@ -25,7 +31,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 import football_report_lib as lib
 
-MAX_STORYLINES = 30
+MAX_STORYLINES = 80
 STRONG_PCT, STRONG_N = 0.65, 12          # L15 window bar for "strong" trend
 
 
@@ -73,15 +79,13 @@ def main():
     games = [g for g in games if g.get("kickoff") and str(g["kickoff"])[:19] > now_iso]
     label = {str(g["game_id"]): f"{g['away_team']} @ {g['home_team']}" for g in games}
     flags = fetch(env, "nfl_slate_flags",
-                  f"select=game_id,signal_key,side,market,conviction,tier&season=eq.{season}&week=eq.{week}")
+                  f"select=game_id,signal_key,side,market,conviction,tier,"
+                  f"bet_team,bet_direction,bet_line&season=eq.{season}&week=eq.{week}")
     picks = fetch(env, "nfl_slate_picks",
                   f"select=game_id,card_group,pick_side&season=eq.{season}&week=eq.{week}")
     defs = {d["signal_key"]: d for d in fetch(env, "nfl_signal_defs",
             "select=signal_key,display_name,typical_hit,one_liner")}
-    # THIS season only — signal_performance is per-season, and an unfiltered
-    # fetch showed 2025's 0-1 as "Live record" before a 2026 snap was played.
-    perf = {p["signal_key"]: p for p in fetch(env, "signal_performance",
-            f"select=signal_key,n,wins,losses&sport=eq.nfl&season=eq.{season}")}
+    # (live signal records are graded from finals inside lib.confluence_storylines)
     refs = {r["referee"]: r for r in fetch(env, "nfl_referee_trends", "select=referee,career_games,splits")}
     coaches = fetch(env, "nfl_coach_trends", "select=coach,splits,career_games,through_season")
     # One trend row per coach NAME (table has snapshot duplicates — keep freshest),
@@ -115,51 +119,50 @@ def main():
                       body=f"{team_ab}: {names}.",
                       data={"team": team_ab, "listings": rows}, rank=15))
 
-    # ---- signals with model-agreement framing --------------------------------
-    gmap = {str(g["game_id"]): g for g in games}
-    for f in flags:
+    # ---- featured matchups (owner spec 2026-09-18) ---------------------------
+    # nfl_matchup_facts is written by nfl_matchup_facts.py (Fantasy Points /
+    # charting matchup facts crossed with the model, signals, weather, referee,
+    # injuries — top MAX_GAMES games by how many independent things are telling).
+    # It needs the FP parquets + play-by-play caches, which only the fp-data
+    # job's disk has, so this generator READS the table rather than computing.
+    # Storyline keys are per game; the sync resolves a game once it kicks off
+    # (it is dropped from `games` above) or falls out of the featured set.
+    # Card shows the two-sentence summary (body); the facet-by-facet rundown rides in
+    # data.full and expands in place on the web (owner 2026-09-18: no duplicate prose).
+    for f in fetch(env, "nfl_matchup_facts",
+                   f"select=game_id,matchup,direction,body,score,facts&season=eq.{season}&week=eq.{week}&order=score.desc"):
         gid = str(f["game_id"])
-        if gid not in label or f.get("tier") != "active":
+        if gid not in label:
             continue
-        d = defs.get(f["signal_key"], {})
-        g = gmap[gid]
-        side, market = str(f.get("side") or ""), f["market"]
-        # NFL flags store "KC -3"-style labels whose LINE goes stale as the
-        # market moves. Resolve the abbr to home/away, then restate the side as
-        # full team name + CURRENT line — never an abbr with a dead number.
-        away_ab, home_ab = str(gid).split("_")[2:4]
-        sc, tc = g.get("fg_spread_close"), g.get("fg_total_close")
-        side_ha, target = None, None
-        tok = side.split(" ")[0]
-        if tok == home_ab:
-            side_ha = "HOME"
-        elif tok == away_ab:
-            side_ha = "AWAY"
-        elif tok in ("OVER", "UNDER"):
-            side_ha = tok
-        if market == "spread" and sc is not None and side_ha in ("HOME", "AWAY"):
-            team = g["home_team"] if side_ha == "HOME" else g["away_team"]
-            line = float(sc) if side_ha == "HOME" else -float(sc)
-            target = f"{team} {line:+g}"
-        elif market == "total" and tc is not None and side_ha in ("OVER", "UNDER"):
-            target = f"{side_ha} {float(tc):g}"
-        ms = model_side.get(gid) if market == "spread" else (
-            model_tot.get(gid) if market == "total" else None)
-        agree = (ms == side_ha) if ms and side_ha else None
-        pr = perf.get(f["signal_key"])
-        rec = (f" Live record: {pr['wins']}-{pr['losses']}." if pr and (pr.get("wins") or pr.get("losses")) else "")
-        frame = (" The model leans the same way." if agree is True else
-                 (" Note: the model leans the other way — tension, not confirmation." if agree is False else ""))
-        name = d.get("display_name", f["signal_key"])
-        S.append(dict(storyline_key=f"signal:{f['signal_key']}:{gid}", family="signals",
-                      game_id=gid, matchup=label.get(gid),
-                      title=f"{name}: {target}" if target else f"{name} — {label.get(gid)}",
-                      body=(f"This signal points to {target} in {label.get(gid)}. " if target else "")
-                           + f"{d.get('one_liner','Validated signal').rstrip('.')}. "
-                           f"Historical: {d.get('typical_hit','validated')}." + rec + frame,
-                      data={"signal_key": f["signal_key"], "side": side, "target": target,
-                            "market": market, "model_agrees": agree},
-                      rank=20 if agree else 35))
+        summ = ((f.get("facts") or {}).get("summary")) or f["body"].split("\n")[1].lstrip("- ")
+        S.append(dict(storyline_key=f"matchup:{gid}", family="matchups", game_id=gid,
+                      matchup=label.get(gid), title=f"Featured matchup — {label.get(gid)}",
+                      body=summ, data={"full": f["body"], "direction": f.get("direction"), "score": f.get("score")},
+                      rank=5))
+
+    # ---- weekly storyline facts (owner 2026-09-19): storylines / coaching / player
+    # tendencies / goal-line roles. Written by nfl_week_storylines.py on the fp-data job
+    # (needs the research parquets); each row carries data.full (the expandable rundown)
+    # and data.source (which seasons / how many games the numbers come from).
+    for f in fetch(env, "nfl_week_storylines",
+                   f"select=game_id,family,storyline_key,title,body,data,rank,source&season=eq.{season}&week=eq.{week}&order=rank"):
+        gid = str(f.get("game_id"))
+        if gid not in label:
+            continue
+        S.append(dict(storyline_key=f["storyline_key"], family=f["family"], game_id=gid,
+                      matchup=label.get(gid), title=f["title"], body=f["body"],
+                      data=f.get("data") or {"source": f.get("source")}, rank=int(f.get("rank") or 30)))
+
+    # ---- signals: CONFLUENCE engine (shared, football_report_lib) ------------
+    # sides_model is the base model lean on ~every spread (blanket — excluded);
+    # consensus_totals_HC / M2 are the model's own totals lean (no circular
+    # "model agrees" bonus).
+    gmap = {str(g["game_id"]): g for g in games}
+    S += lib.confluence_storylines(
+        env, "nfl", season, week, gmap, label, flags, defs, model_side, model_tot,
+        "nfl_slate_flags", "nfl_slate_games",
+        model_own_keys={"consensus_totals_HC", "M2_k1_model_lean"},
+        blanket_keys={"sides_model"})
 
     # ---- line movement — every captured market -------------------------------
     for g in games:
@@ -259,8 +262,9 @@ def main():
                                     "direction": direction, "pct": pct, "n": n}, rank=45))
 
     # ---- rank with family quotas, cap, sync ----------------------------------
-    QUOTA = {"confluence": 6, "injuries": 10, "signals": 10, "ref_trends": 8,
-             "line_movement": 8, "coach_trends": 6}
+    QUOTA = {"matchups": 4, "confluence": 6, "injuries": 10, "signals": 10, "ref_trends": 8,
+             "line_movement": 8, "coach_trends": 6,
+             "storylines": 8, "coaching": 16, "player_tendencies": 16, "redzone_roles": 8}
     dedup = {}
     for s in S:
         dedup.setdefault(s["storyline_key"], s)
@@ -276,10 +280,23 @@ def main():
         s["rank"] = i + 1
     log = lib.sync_storylines(env, "nfl", season, week, S)
     stored = fetch(env, "football_regression_storylines",
-                   f"select=family,title,body,rank,matchup,status&sport=eq.nfl"
+                   f"select=family,title,body,rank,matchup,status,data&sport=eq.nfl"
                    f"&season=eq.{season}&week=eq.{week}&order=rank")
+    n_feat = sum(1 for s in stored if s.get("family") == "matchups" and s.get("status") != "resolved")
+    n_cards = sum(1 for s in stored if s.get("family") in ("storylines", "coaching", "player_tendencies", "redzone_roles") and s.get("status") != "resolved")
     narrative, model = lib.generate_narrative(
-        env, "NFL", stored, f"Week {week}, {season} season. {len(games)} games on the slate.")
+        env, "NFL", stored,
+        f"Week {week}, {season} season. {len(games)} games on the slate."
+        + (f" {n_feat} 'matchups' storylines are FEATURED MATCHUPS and have their own expandable "
+           "cards with the full rundown, so do NOT write them up: mention in ONE sentence which games "
+           "are featured this week and move on. Describe any model play as 'the model shows a play on "
+           "X' — never 'recommends', 'suggests', or any imperative." if n_feat else "")
+        + (f" {n_cards} storylines in the families 'storylines', 'coaching', 'player_tendencies' and 'redzone_roles' are per-game "
+           "cards with their own expandable rundown and a source line, so do NOT rewrite them: pick the two or three most "
+           "noteworthy (a quarterback facing his former team, a birthday, a coach whose tendency is live this week) and mention "
+           "each in one sentence that QUOTES the card's number and its source exactly as the card states them (e.g. 'quarterbacks "
+           "facing a former team have gone under their passing-touchdown line 70% of the time across 59 games from 2023 to 2025'). "
+           "Never write vague sourcing like 'based on recent seasons' or 'sourced from the player's history' — give the seasons and the count." if n_cards else ""))
     fam_counts = {}
     for s in stored:
         fam_counts[s["family"]] = fam_counts.get(s["family"], 0) + 1

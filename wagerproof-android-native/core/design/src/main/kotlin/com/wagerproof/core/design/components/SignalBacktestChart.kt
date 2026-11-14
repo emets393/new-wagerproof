@@ -66,18 +66,29 @@ object SignalHitRate {
     private const val NUM = "([0-9]+(?:\\.[0-9]+)?)"
     private val RANGE = Regex("$NUM\\s*[-–—]\\s*$NUM\\s*%")
     private val SINGLE = Regex("$NUM\\s*%")
+    // ROI is profit, not cover rate — strip before scraping a hit %.
+    private val ROI_CLAUSE =
+        Regex("""\s*/?\s*[+\u2212\-−]?\s*[0-9]+(?:\.[0-9]+)?(?:\s*[-–—]\s*[0-9]+(?:\.[0-9]+)?)?\s*%\s*ROI\b""", RegexOption.IGNORE_CASE)
+
+    private fun stripRoiClauses(raw: String): String =
+        ROI_CLAUSE.replace(raw, "").trim()
 
     fun fraction(raw: String?): Double? {
         if (raw.isNullOrEmpty()) return null
 
+        // Drop "+5-6% ROI" style clauses first — otherwise P5 ATD Drift charts
+        // as a 5.5% win rate and reads "loses to the vig".
+        val text = stripRoiClauses(raw)
+        if (text.isEmpty()) return null
+
         // A true range must END in the percent sign: "57-60%". `2024-25,` fails
         // because a comma follows, not a `%`.
-        RANGE.find(raw)?.let { m ->
+        RANGE.find(text)?.let { m ->
             val a = m.groupValues[1].toDoubleOrNull() ?: return@let
             val b = m.groupValues[2].toDoubleOrNull() ?: return@let
             return clamp((a + b) / 2)
         }
-        SINGLE.find(raw)?.let { m ->
+        SINGLE.find(text)?.let { m ->
             return clamp(m.groupValues[1].toDoubleOrNull() ?: return@let)
         }
         return null

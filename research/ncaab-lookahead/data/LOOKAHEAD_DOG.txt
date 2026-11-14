@@ -1,0 +1,20 @@
+THE LOOK-AHEAD DOG: team's next opponent is top-25 (as of tonight), tonight the team is a DOG; bracket games out. From the team's side.
+  look-ahead team, any dog                       762-695-24   52.3% [lo 49.7%] roi  -0.1% n=1457      by season 2020-21 105-84  2021-22 136-104  2022-23 116-124  2023-24 122-133  2024-25 148-125  2025-26 135-125
+  dog +0.5 to +3                                 157-189-6   45.4% [lo 40.1%] roi -13.3% n=346        by season 2020-21 28-22  2021-22 24-29  2022-23 20-36  2023-24 22-37  2024-25 34-30  2025-26 29-35
+  dog +3.5 to +7                                 255-229-8   52.7% [lo 48.2%] roi  +0.7% n=484        by season 2020-21 37-25  2021-22 45-37  2022-23 44-50  2023-24 43-48  2024-25 53-40  2025-26 33-29
+  dog +7.5 to +15                                260-204-9   56.0% [lo 51.5%] roi  +7.0% n=464        by season 2020-21 32-31  2021-22 54-31  2022-23 43-27  2023-24 39-33  2024-25 42-45  2025-26 50-37
+  dog +15.5 or more                              86-68-1   55.8% [lo 48.0%] roi  +6.7% n=154          by season 2020-21 7-6  2021-22 11-7  2022-23 9-11  2023-24 18-15  2024-25 18-9  2025-26 23-20
+  dog 7+ (the cell)                              367-295-10   55.4% [lo 51.7%] roi  +5.9% n=662       by season 2020-21 42-37  2021-22 65-42  2022-23 53-44  2023-24 64-55  2024-25 67-58  2025-26 76-59
+  dog 7+, next opp top-10                        139-118-8   54.1% [lo 48.0%] roi  +3.2% n=257        by season 2020-21 17-16  2021-22 24-15  2022-23 17-19  2023-24 24-26  2024-25 19-22  2025-26 38-20
+  dog 7+, next game within 3 days                190-142-5   57.2% [lo 51.9%] roi  +9.3% n=332        by season 2020-21 26-19  2021-22 39-27  2022-23 28-24  2023-24 22-26  2024-25 38-23  2025-26 37-23
+  dog 7+, 4-7 days                               177-153-5   53.6% [lo 48.3%] roi  +2.4% n=330        by season 2020-21 16-18  2021-22 26-15  2022-23 25-20  2023-24 42-29  2024-25 29-35  2025-26 39-36
+  dog 7+, tonight on the road                    295-245-9   54.6% [lo 50.4%] roi  +4.3% n=540        by season 2020-21 28-28  2021-22 53-34  2022-23 43-32  2023-24 55-49  2024-25 56-52  2025-26 60-50
+  dog 7+, tonight at home                        72-50-1   59.0% [lo 50.3%] roi +12.7% n=122          by season 2020-21 14-9  2021-22 12-8  2022-23 10-12  2023-24 9-6  2024-25 11-6  2025-26 16-9
+  dog 7+, conference game                        268-208-6   56.3% [lo 51.8%] roi  +7.5% n=476        by season 2020-21 37-30  2021-22 50-30  2022-23 35-32  2023-24 42-39  2024-25 51-42  2025-26 53-35
+  dog 7+, non-conference                         99-87-4   53.2% [lo 46.1%] roi  +1.7% n=186          by season 2020-21 5-7  2021-22 15-12  2022-23 18-12  2023-24 22-16  2024-25 16-16  2025-26 23-24
+  BASELINE: all dogs 7+ with no ranked opp next  5112-4892-155   51.1% [lo 50.1%] roi  -2.4% n=10004  by season 2020-21 524-530  2021-22 884-790  2022-23 884-884  2023-24 873-888  2024-25 936-912  2025-26 1011-888
+  PLACEBO-ish: dog 7+, next opp 11-25 only       228-177-2   56.3% [lo 51.5%] roi  +7.6% n=405        by season 2020-21 25-21  2021-22 41-27  2022-23 36-25  2023-24 40-29  2024-25 48-36  2025-26 38-39
+  totals in the cell: over 344-320; 1H 198-179   52.5% [lo 47.5%] roi  +0.3% n=377; SU wins 14.3% (implied by avg spread +12.9)
+  within-night permutation among dogs of 7+: null 51.9% ± 1.8%, p = 0.021
+  contributors: Georgetown 15-4; Kansas State 12-9; South Carolina 8-10; Minnesota 9-6; LSU 4-9; Nebraska 7-8; Vanderbilt 10-4; DePaul 9-5; Northwestern 7-6; Oklahoma State 10-3
+  placebo: dog 7+, ranked opponent TWO games out, next game unranked: 297-316-5   48.5% [lo 44.5%] roi  -7.4% n=613

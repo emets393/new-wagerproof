@@ -81,3 +81,24 @@ object CFBTeamAssets {
             .joinToString("") { it.toString().uppercase(Locale.US) }
     }
 }
+
+/**
+ * ESPN men's college basketball colors for schools that are not in `cfb_teams`.
+ * Keyed by display name, location, nickname, and abbreviation, same as the logo cache.
+ */
+object NCAABSchoolColors {
+    data class Hex(val primary: String, val secondary: String)
+
+    @Volatile
+    private var byName: Map<String, Hex> = emptyMap()
+
+    fun install(colors: Map<String, Hex>) {
+        byName = colors
+    }
+
+    fun hex(name: String): Hex? {
+        val key = name.trim().lowercase(Locale.US)
+        if (key.isEmpty()) return null
+        return byName[key]
+    }
+}

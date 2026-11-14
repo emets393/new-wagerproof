@@ -1,21 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { resolveNflPropPagesWeek } from '@/features/games/api/footballSlate';
 import type { NflPropPlayerPage, NflPropPlayerTrends, PropSlateAnchor } from './types';
 
 const STALE = 5 * 60 * 1000;
 
-async function resolveLatestSlate(): Promise<PropSlateAnchor> {
-  const { data, error } = await collegeFootballSupabase
-    .from('nfl_prop_player_pages')
-    .select('season,week')
-    .order('season', { ascending: false })
-    .order('week', { ascending: false })
-    .limit(1);
-  if (error) throw error;
-  const row = data?.[0];
-  if (!row) throw new Error('No NFL prop player pages slate found');
-  return { season: Number(row.season), week: Number(row.week) };
-}
+// Soonest upcoming kickoff, not max week: the Monday preview build publishes next week's
+// player pages while the current week's Monday-night game is still pending, and its props
+// stay bettable until kickoff. Shared with the games feed — see footballSlate.ts.
+const resolveLatestSlate = (): Promise<PropSlateAnchor> => resolveNflPropPagesWeek();
 
 export function useNflPropSlate() {
   return useQuery({

@@ -26,9 +26,45 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-SEASON = int(os.environ.get("NFL_SEASON", 2025))
-THROUGH_WEEK = int(os.environ.get("NFL_WEEK", 12)) - 1
 GAMES_CSV = "https://github.com/nflverse/nfldata/raw/master/data/games.csv"
+
+
+def _resolve_window():
+    """(season, through_week) — env wins, otherwise RESOLVED from the logged games.
+
+    The defaults used to be `NFL_SEASON=2025` / `NFL_WEEK=12`, which is the same
+    hardcoded-window pattern that let this table rot: run without env (as the daily grade
+    chain does, since it is season-scoped and exports no week) and it silently rebuilt a
+    2025 wk11 view and stamped it as current. Resolving means a bare run is always right.
+
+    through_week = the newest week with player game logs, i.e. the last week whose results
+    exist. Nothing to add beyond that, and claiming more in through_week is what made the
+    stale table look fresh.
+    """
+    season = os.environ.get("NFL_SEASON")
+    if os.environ.get("NFL_WEEK") and season:
+        return int(season), int(os.environ["NFL_WEEK"]) - 1
+    import datetime as _dt
+    _now = _dt.datetime.now(_dt.timezone.utc)
+    season = int(season) if season else (_now.year if _now.month >= 3 else _now.year - 1)
+    key = ""
+    for line in (ROOT.parent.parent / ".env.local").read_text().splitlines():
+        if line.startswith("SUPABASE_SERVICE_KEY="):
+            key = line.split("=", 1)[1].strip(); break
+    try:
+        rows = requests.get(
+            f"{BASE_URL}/nfl_player_game_logs", timeout=60,
+            headers={"apikey": key, "Authorization": f"Bearer {key}"},
+            params={"season": f"eq.{season}", "select": "week",
+                    "order": "week.desc", "limit": "1"}).json()
+        wk = int(rows[0]["week"]) if isinstance(rows, list) and rows else 1
+    except Exception as e:
+        sys.exit(f"[window] cannot resolve the current week ({e}) — set NFL_SEASON/NFL_WEEK")
+    print(f"[window] resolved season={season} through_week={wk} (newest logged game week)")
+    return season, wk
+
+
+SEASON, THROUGH_WEEK = _resolve_window()
 
 PROP_MKT = {"player_pass_yds": ("O", "U"), "player_pass_tds": ("O", "U"),
             "player_receptions": ("O", "U"), "player_reception_yds": ("O", "U"),
@@ -80,7 +116,9 @@ def _primetime(t):
 def game_context():
     """{(season,week,home_ab,away_ab): (div_game, is_primetime)} from nflverse, 2024-25."""
     g = pd.read_csv(io.StringIO(requests.get(GAMES_CSV, timeout=90).text))
-    g = g[g.season.isin([2024, 2025])].copy()
+    # Derived, not a hardcoded [2024, 2025]: that list silently gave every 2026 game
+    # (False, False), so the division and primetime dims quietly described nothing.
+    g = g[(g.season >= 2024) & (g.season <= SEASON)].copy()
     g["home_ab"] = g.home_team.replace(NORM)
     g["away_ab"] = g.away_team.replace(NORM)
     return {(int(r.season), int(r.week), r.home_ab, r.away_ab):
@@ -115,12 +153,98 @@ def attempts_games():
     return cl[keys + ["close_line", "actual", "result_close"]]
 
 
+# Game-log column behind each market's actual (nfl_player_game_logs).
+GAMELOG_STAT = {"player_pass_yds": "pass_yds", "player_pass_tds": "pass_tds",
+                "player_receptions": "receptions", "player_reception_yds": "rec_yds",
+                "player_rush_yds": "rush_yds", "player_pass_attempts": "pass_attempts",
+                "player_rush_attempts": "carries", "player_pass_completions": "completions"}
+ABBR_NAME = {v: k for k, v in TEAM_NAMES.items()}
+
+
+def current_season_rows(key):
+    """Rows for THIS season in `props_frame` shape — line + actual per (player, market, game).
+
+    WHY (owner, 2026-10-04). props_frame.parquet and props_rows_extra.parquet are
+    backfills that stop at 2025, so this generator shipped `recent_game_log` with
+    ZERO 2026 games while `through_season/through_week` advertised (2026, 3). Four
+    weeks into the season the app's "last 10 games" strip was ten bars of LAST
+    season, and every hit rate and career-vs-opponent record described 2025.
+
+    Actuals come from `nfl_player_game_logs` (current, and the same table the iOS
+    enrichment merges). Lines come from our own `nfl_slate_props` boards — the
+    `close_line` we published that week, which is the number users saw. A game with
+    no posted line yields no row, so it contributes no basis rather than a guess.
+
+    Rejected: `nfl_player_prop_lines_history` is the raw capture (784k rows for three
+    weeks of 2026 and growing weekly), which needs server-side aggregation to be
+    worth paging. Our own board rows already record the T-60 consensus.
+    """
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+
+    def get(table, params):
+        r = requests.get(f"{BASE_URL}/{table}", headers=hdr, timeout=120, params=params)
+        j = r.json()
+        return j if isinstance(j, list) else []
+
+    logs = get("nfl_player_game_logs",
+               {"season": f"eq.{SEASON}", "week": f"lte.{THROUGH_WEEK}", "limit": "20000",
+                "select": ("player_id,player_name,position,team,opponent,home_away,season,week,"
+                           + ",".join(sorted(set(GAMELOG_STAT.values()))) + ",anytime_td")})
+    closes = {}
+    for wk in range(1, THROUGH_WEEK + 1):
+        for r in get("nfl_slate_props",
+                     {"season": f"eq.{SEASON}", "week": f"eq.{wk}", "limit": "5000",
+                      "select": "player_id,market,close_line"}):
+            if r.get("close_line") is not None:
+                closes[(str(r["player_id"]), r["market"], wk)] = float(r["close_line"])
+    if not logs:
+        print(f"  [current-season] no {SEASON} game logs through wk{THROUGH_WEEK} — "
+              f"trends will be prior seasons only")
+        return pd.DataFrame()
+
+    rows = []
+    for g in logs:
+        tm = NORM.get(g["team"], g["team"])
+        op = NORM.get(g["opponent"], g["opponent"])
+        if tm not in ABBR_NAME or op not in ABBR_NAME:
+            continue                                  # unmapped abbr -> skip, never guess a game
+        is_home = str(g.get("home_away", "")).lower().startswith("h")
+        home_ab, away_ab = (tm, op) if is_home else (op, tm)
+        wk = int(g["week"])
+        for market, col in GAMELOG_STAT.items():
+            line = closes.get((str(g["player_id"]), market, wk))
+            if line is None or g.get(col) is None:
+                continue                              # no posted line = no basis for a trend
+            rows.append(dict(
+                season=int(g["season"]), week=wk, player_id=g["player_id"],
+                player_name=g["player_name"], position=g["position"], team=tm,
+                home_team=ABBR_NAME[home_ab], away_team=ABBR_NAME[away_ab],
+                market=market, close_line=line, actual=float(g[col]), result_close=None))
+        if g.get("anytime_td") is not None:
+            rows.append(dict(
+                season=int(g["season"]), week=wk, player_id=g["player_id"],
+                player_name=g["player_name"], position=g["position"], team=tm,
+                home_team=ABBR_NAME[home_ab], away_team=ABBR_NAME[away_ab],
+                market="player_anytime_td", close_line=np.nan,
+                actual=float(g["anytime_td"]),
+                result_close=("yes" if float(g["anytime_td"]) >= 1 else "no")))
+    d = pd.DataFrame(rows)
+    if not d.empty:
+        print(f"  [current-season] {len(d)} {SEASON} rows through wk{THROUGH_WEEK} "
+              f"({d.week.nunique()} weeks, {d.player_id.nunique()} players, "
+              f"{d.market.nunique()} markets)")
+    return d
+
+
 def build_logs():
     pf = pd.read_parquet(DATA / "props_frame.parquet")
     pf = pf[pf.market.isin(PROP_MKT)].copy()
     ag = attempts_games()
     if not ag.empty:
         pf = pd.concat([pf, ag], ignore_index=True)          # volume markets alongside the 6
+    cur = current_season_rows(load_key())                    # backfills end at 2025
+    if not cur.empty:
+        pf = pd.concat([pf, cur], ignore_index=True)
     pf = pf[(pf.season < SEASON) | ((pf.season == SEASON) & (pf.week <= THROUGH_WEEK))]
     pf["home_ab"] = pf.home_team.map(TEAM_NAMES)
     pf["away_ab"] = pf.away_team.map(TEAM_NAMES)
@@ -135,6 +259,10 @@ def build_logs():
     logs = {}   # player_id -> {game_key: game record}
     meta = {}
     for r in grp.itertuples():
+        # books add markets without warning (player_rush_attempts 2026-09-05) —
+        # a market this trends card doesn't model is skipped, never a KeyError.
+        if r.market not in PROP_MKT:
+            continue
         hit_l, loss_l = PROP_MKT[r.market]
         if r.market == "player_anytime_td":
             res = "Y" if r.result_close == "yes" else ("N" if r.result_close == "no" else None)
@@ -276,15 +404,43 @@ def main():
            "Content-Type": "application/json", "Prefer": "return=minimal"}
     # SNAPSHOT semantics: exactly ONE generation may live in this table. Wiping only our own
     # (season, week) pair let generations accumulate (2026-08-05: three coexisted — stale
-    # slate-era rows shipped to consumers). Delete EVERYTHING before insert.
-    requests.delete(f"{BASE_URL}/nfl_player_prop_trends?through_season=gte.0",
-                    headers=hdr, timeout=60)
-    for i in range(0, len(recs), 200):
-        resp = requests.post(f"{BASE_URL}/nfl_player_prop_trends", headers=hdr, json=recs[i:i + 200], timeout=120)
-        if resp.status_code != 201:
-            sys.exit(f"insert: {resp.status_code} {resp.text[:300]}")
-        print(f"  loaded {min(i+200,len(recs))}/{len(recs)}", end="\r")
-    print(f"\nloaded {len(recs)} rows -> nfl_player_prop_trends")
+    # slate-era rows shipped to consumers), so the stale ones must go.
+    #
+    # But NOT by deleting first. Delete-all-then-insert means any failed insert leaves the table
+    # EMPTY, and on 2026-11-07 that is exactly what happened: the first 200-row batch hit the 8s
+    # PostgREST statement timeout (57014), sys.exit fired, and the table sat at 0 rows -- blank
+    # Outliers player trends in the app, and every later step in the daily chain running against
+    # nothing. Three fat jsonb columns (splits, recent_game_log, matchups) make 200 rows a big
+    # statement; 50 keeps each one well inside the limit.
+    #
+    # Order is now upsert-then-prune, so the worst case is STALE trends instead of NO trends:
+    # write this generation over the top (PK is player_id, through_season, through_week), and only
+    # once every row is in, delete the generations that are not this one.
+    sent = 0
+    for i in range(0, len(recs), 50):
+        chunk = recs[i:i + 50]
+        resp = requests.post(f"{BASE_URL}/nfl_player_prop_trends",
+                             headers={**hdr, "Prefer": "return=minimal,resolution=merge-duplicates"},
+                             params={"on_conflict": "player_id,through_season,through_week"},
+                             json=chunk, timeout=120)
+        # a pure update returns 200, a create 201 -- both are success (see the slate write laws)
+        if resp.status_code not in (200, 201):
+            sys.exit(f"upsert at row {i}: {resp.status_code} {resp.text[:300]} "
+                     f"(previous generation left in place)")
+        sent += len(chunk)
+        print(f"  upserted {sent}/{len(recs)}", end="\r")
+    print(f"\nupserted {sent} rows -> nfl_player_prop_trends")
+
+    # prune only after a complete write
+    season, week = int(df.through_season.iloc[0]), int(df.through_week.iloc[0])
+    resp = requests.delete(
+        f"{BASE_URL}/nfl_player_prop_trends"
+        f"?or=(through_season.neq.{season},through_week.neq.{week})",
+        headers=hdr, timeout=60)
+    if resp.status_code not in (200, 204):
+        print(f"  [warn] prune of stale generations failed {resp.status_code}: {resp.text[:200]}")
+    else:
+        print(f"pruned generations other than {season} wk{week}")
 
 
 if __name__ == "__main__":

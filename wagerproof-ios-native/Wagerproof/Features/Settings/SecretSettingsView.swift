@@ -2,6 +2,8 @@ import SwiftUI
 import WagerproofDesign
 import WagerproofServices
 import WagerproofStores
+import WagerproofModels
+import RevenueCat
 #if canImport(UserNotifications)
 import UserNotifications
 #endif
@@ -30,10 +32,13 @@ struct SecretSettingsView: View {
     @State private var diagnosticsMessage: DiagMessage?
     @State private var isPaywallPresented = false
     @State private var isCustomPaywallPresented = false
+    @State private var isTieredPaywallPresented = false
+    @State private var isTieredPurchaseTestPresented = false
     @State private var isVoicePresented = false
     @State private var isWeatherPreviewPresented = false
     #if DEBUG
     @State private var isGenerationPreviewPresented = false
+    @AppStorage("tieredOnboardingPreview") private var tieredOnboardingPreview = false
     #endif
 
     /// Persisted WagerBot Voice personality — read here only so the voice
@@ -63,6 +68,7 @@ struct SecretSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if ProAccessStore.previewAvailable { entitlementPreviewSection }
                 testingTogglesSection
                 uiPreviewsSection
                 analyticsSection
@@ -114,6 +120,18 @@ struct SecretSettingsView: View {
                 .environment(onboarding)
                 .environment(revenueCat)
                 .environment(proAccess)
+            }
+            .fullScreenCover(isPresented: $isTieredPaywallPresented) {
+                TieredPaywallView(preview: true, onRequestClose: { isTieredPaywallPresented = false })
+                    .environment(auth)
+                    .environment(revenueCat)
+                    .environment(proAccess)
+            }
+            .fullScreenCover(isPresented: $isTieredPurchaseTestPresented) {
+                TieredPurchaseTestView()
+                    .environment(auth)
+                    .environment(revenueCat)
+                    .environment(proAccess)
             }
             .fullScreenCover(isPresented: $isVoicePresented) {
                 WagerBotVoiceView()
@@ -206,21 +224,61 @@ struct SecretSettingsView: View {
     }
 
     @ViewBuilder
+    private var entitlementPreviewSection: some View {
+        Section {
+            Toggle("Preview subscription access", isOn: Binding(
+                get: { proAccess.isPreviewing },
+                set: { proAccess.previewMode = $0 ? .standard : .actual }
+            )).tint(Color.appPrimary)
+                .accessibilityIdentifier("entitlementPreview.enabled")
+            if proAccess.isPreviewing {
+                ForEach(EntitlementPreview.allCases.filter { $0 != .actual }) { mode in
+                    Button {
+                        proAccess.previewMode = mode
+                    } label: {
+                        HStack(spacing: 14) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(mode.title).font(AppFont.bodyEmphasized).foregroundStyle(Color.appTextPrimary)
+                                Text(mode.detail).font(AppFont.caption).foregroundStyle(Color.appTextSecondary)
+                            }
+                            Spacer(minLength: 4)
+                            Image(systemName: proAccess.previewMode == mode ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(proAccess.previewMode == mode ? Color.appPrimary : Color.appTextSecondary.opacity(0.4))
+                                .font(.system(size: 23))
+                        }.padding(.vertical, 5).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                        .accessibilityIdentifier("entitlementPreview.\(mode.rawValue)")
+                        .accessibilityAddTraits(proAccess.previewMode == mode ? .isSelected : [])
+                }
+                Button("Use actual subscription") { proAccess.previewMode = .actual }
+                    .tint(Color.appPrimary)
+                    .accessibilityIdentifier("entitlementPreview.reset")
+            }
+        } header: {
+            Text("Subscription preview")
+        } footer: {
+            Text("Changes the app's gates and plan labels for this session. Admin access is ignored during preview. Purchases open a non-purchasing preview; your subscription and server permissions stay real. Resets on restart or sign-out.")
+        }
+    }
+
+    @ViewBuilder
     private var testingTogglesSection: some View {
         Section("Testing Toggles") {
-            @Bindable var rcBinding = revenueCat
-            Toggle(isOn: $rcBinding.forceFreemiumMode) {
-                rowLabel(
-                    icon: "person.crop.circle.badge.exclamationmark",
-                    iconColor: Color(hex: 0xF59E0B),
-                    iconBackground: Color(hex: 0xFFF8E6),
-                    title: "Simulate Freemium",
-                    subtitle: revenueCat.forceFreemiumMode
-                        ? "Viewing as non-subscriber"
-                        : "Test the app as a non-subscriber"
-                )
+            if !ProAccessStore.previewAvailable {
+                @Bindable var rcBinding = revenueCat
+                Toggle(isOn: $rcBinding.forceFreemiumMode) {
+                    rowLabel(
+                        icon: "person.crop.circle.badge.exclamationmark",
+                        iconColor: Color(hex: 0xF59E0B),
+                        iconBackground: Color(hex: 0xFFF8E6),
+                        title: "Simulate Freemium",
+                        subtitle: revenueCat.forceFreemiumMode
+                            ? "Viewing as non-subscriber"
+                            : "Test the app as a non-subscriber"
+                    )
+                }
+                .tint(Color.appPrimary)
             }
-            .tint(Color.appPrimary)
 
             if adminMode.canEnableAdminMode {
                 @Bindable var adminBinding = adminMode
@@ -392,6 +450,31 @@ struct SecretSettingsView: View {
                 )
             }
             .buttonStyle(.plain)
+
+            #if DEBUG
+            Toggle("New onboarding paywall preview", isOn: $tieredOnboardingPreview)
+                .tint(.appPrimary)
+            Text("Uses the hard tiered paywall after onboarding. Preview purchases are disabled. Restart the app to leave the hard preview.")
+                .font(.caption)
+                .foregroundStyle(Color.appTextSecondary)
+            #endif
+
+            Button {
+                isTieredPaywallPresented = true
+            } label: {
+                row(icon: "rectangle.stack", iconColor: .appPrimary, iconBackground: .appPrimarySubtle, title: "Preview Tiered Design", subtitle: "Visual preview only. Does not start a purchase.")
+            }
+            .buttonStyle(.plain)
+
+            if TieredPaywallConfiguration.purchaseTestingAvailable {
+                Button {
+                    isTieredPurchaseTestPresented = true
+                } label: {
+                    row(icon: "creditcard.fill", iconColor: .appPrimary, iconBackground: .appPrimarySubtle, title: "Test Tiered Purchases", subtitle: proAccess.isPreviewing ? "Turn off subscription preview to test real entitlements" : "Apple sandbox purchases; browser checkout uses real payments")
+                }
+                .buttonStyle(.plain)
+                .disabled(proAccess.isPreviewing)
+            }
 
             Button {
                 Task { await resetOnboarding() }
@@ -604,6 +687,78 @@ struct SecretSettingsView: View {
             Text(value)
                 .font(AppFont.body.monospaced())
                 .foregroundStyle(Color.appTextPrimary)
+        }
+    }
+}
+
+
+/// Exercises real placement resolution and checkout without resetting onboarding.
+/// A TestFlight receipt exposes the entry; RevenueCat still decides eligibility.
+private struct TieredPurchaseTestView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(RevenueCatStore.self) private var revenueCat
+    @State private var offering: Offering?
+    @State private var loading = true
+    @State private var error: String?
+
+    var body: some View {
+        Group {
+            if let offering {
+                TieredPaywallView(
+                    source: "tiered_sandbox_qa",
+                    placementID: RevenueCatService.Placement.onboarding,
+                    offering: offering,
+                    onPurchaseFinalized: { _, _ in dismiss() },
+                    onRequestClose: { dismiss() }
+                )
+            } else {
+                NavigationStack {
+                    VStack(spacing: 20) {
+                        if loading {
+                            ProgressView("Loading your test plans…")
+                        } else {
+                            Text(error ?? "Test plans are unavailable.")
+                                .multilineTextAlignment(.center)
+                            Button("Retry") { Task { await loadOffering() } }
+                        }
+                    }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.appSurface)
+                    .navigationTitle("Test Tiered Purchases")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Close") { dismiss() }
+                        }
+                    }
+                }
+            }
+        }
+        .task { await loadOffering() }
+    }
+
+    @MainActor
+    private func loadOffering() async {
+        guard TieredPaywallConfiguration.purchaseTestingAvailable else {
+            loading = false
+            error = "Purchase testing is available only in development and TestFlight."
+            return
+        }
+        loading = true
+        error = nil
+        defer { loading = false }
+        do {
+            let resolved = try await revenueCat.fetchOffering(forPlacement: RevenueCatService.Placement.onboarding)
+            guard TieredPaywallConfiguration.enabled,
+                  let resolved,
+                  resolved.identifier == TieredPaywallConfiguration.offeringID,
+                  resolved.metadata["tiered_catalog_ready"] as? Bool == true else {
+                error = "This WagerProof account and app version are not enrolled in the tiered purchase test. Check the RevenueCat QA audience and try again."
+                return
+            }
+            offering = resolved
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 }

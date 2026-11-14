@@ -608,22 +608,13 @@ struct CustomPaywallView: View {
 
     private var topBar: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 0) {
-                Text("Wager")
-                    .foregroundStyle(Color.white.opacity(0.92))
-                Text("Proof")
-                    .foregroundStyle(accent)
-                    .shimmering(active: !reduceMotion)
-            }
-            .font(.system(size: 16, weight: .black, design: .rounded))
-
-            Text("PRO")
-                .font(.system(size: 9, weight: .heavy, design: .monospaced))
-                .tracking(0.7)
-                .foregroundStyle(.black)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(Capsule().fill(accent))
+            // Mark only — no "WagerProof PRO" wordmark. The carousel already
+            // says what this is, so the corner stays quiet.
+            Image("WagerproofLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 28, height: 28)
+                .accessibilityLabel("WagerProof")
 
             Spacer(minLength: 4)
 

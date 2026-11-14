@@ -1,5 +1,7 @@
+import AppTrackingTransparency
 import Foundation
 import RevenueCat
+import WagerproofModels
 
 /// `RevenueCatService` wraps the RevenueCat Swift SDK. It mirrors
 /// `wagerproof-mobile/services/revenuecat.ts` byte-for-byte where APIs overlap
@@ -26,6 +28,8 @@ public final class RevenueCatService: @unchecked Sendable {
         public static let onboarding = "onboarding"
         public static let genericFeature = "generic_feature"
         public static let agentFeature = "agent_feature"
+        public static let tierUpgradePremium = "tier_upgrade_premium"
+        public static let tierUpgradePro = "tier_upgrade_pro"
     }
 
     private var configured = false
@@ -56,23 +60,7 @@ public final class RevenueCatService: @unchecked Sendable {
         Purchases.logLevel = .debug
         #endif
         configured = true
-        // Best-effort device identifier collection — matches RN's
-        // `collectDeviceIdentifiers()` fire-and-forget call.
-        Purchases.shared.attribution.collectDeviceIdentifiers()
-
-        // Apple Search Ads attribution token — unrelated to Meta, but this is
-        // the only place RC attribution is configured, and it costs nothing.
-        Purchases.shared.attribution.enableAdServicesAttributionTokenCollection()
-
-        // Hand Meta's anonymous install ID to RevenueCat as the `$fbAnonId`
-        // subscriber attribute. RevenueCat's server-side Meta integration sends
-        // purchase/trial conversions to the Conversions API, and WITHOUT this ID
-        // those server events cannot be joined back to the install — which is
-        // the only attribution path that survives an ATT denial. Closes the open
-        // acceptance criterion in docs/wagerproof-migration/tickets/055-meta-sdk-events.md.
-        if let fbAnonymousID = MetaAnalyticsService.shared.anonymousID(), !fbAnonymousID.isEmpty {
-            Purchases.shared.attribution.setFBAnonymousID(fbAnonymousID)
-        }
+        applyTrackingConsent()
     }
 
     /// Push every trustworthy signed-in identity field available to RevenueCat.
@@ -101,6 +89,7 @@ public final class RevenueCatService: @unchecked Sendable {
     }
 
     private func applySubscriberIdentity(_ identity: SubscriberIdentity) {
+        guard ATTrackingManager.trackingAuthorizationStatus == .authorized else { return }
         Purchases.shared.attribution.setEmail(Self.nonEmpty(identity.email))
         Purchases.shared.attribution.setDisplayName(Self.nonEmpty(identity.displayName))
         Purchases.shared.attribution.setPhoneNumber(Self.nonEmpty(identity.phoneNumber))
@@ -128,20 +117,33 @@ public final class RevenueCatService: @unchecked Sendable {
         Purchases.shared.attribution.collectDeviceIdentifiers()
     }
 
-    /// Refresh RevenueCat's attribution state immediately after the ATT prompt.
-    ///
-    /// `collectDeviceIdentifiers` captures the newly available IDFA only for an
-    /// authorized user. The explicit attribute sync runs for every final status
-    /// so `$attConsentStatus`, `$fbAnonId`, IDFV and IP are on RevenueCat before
-    /// the post-onboarding paywall can complete a purchase.
+    /// Purchase and entitlement management work regardless of ATT. Advertising
+    /// identifiers and matching attributes are attached only with authorization.
+    private func applyTrackingConsent() {
+        guard configured else { return }
+        if ATTrackingManager.trackingAuthorizationStatus == .authorized {
+            if let subscriberIdentity { applySubscriberIdentity(subscriberIdentity) }
+            Purchases.shared.attribution.collectDeviceIdentifiers()
+            if let anonymousID = MetaAnalyticsService.shared.anonymousID() {
+                Purchases.shared.attribution.setFBAnonymousID(anonymousID)
+            }
+        } else {
+            // Clear attributes saved by older builds or a previous authorization.
+            Purchases.shared.attribution.setEmail(nil)
+            Purchases.shared.attribution.setDisplayName(nil)
+            Purchases.shared.attribution.setPhoneNumber(nil)
+            Purchases.shared.attribution.setAttributes([
+                "$fbAnonId": "", "$idfa": "", "$idfv": "", "$ip": "",
+                "wagerproof_auth_provider": "", "wagerproof_username": "",
+                "wagerproof_account_created_at": ""
+            ])
+        }
+    }
+
     public func refreshAttributionAfterTrackingAuthorization(isAuthorized: Bool) async {
         guard configured else { return }
-        if isAuthorized {
-            Purchases.shared.attribution.collectDeviceIdentifiers()
-        }
-        if let fbAnonymousID = MetaAnalyticsService.shared.anonymousID(), !fbAnonymousID.isEmpty {
-            Purchases.shared.attribution.setFBAnonymousID(fbAnonymousID)
-        }
+        // Read the OS again rather than trusting a caller's cached choice.
+        applyTrackingConsent()
         do {
             _ = try await Purchases.shared.syncAttributesAndOfferingsIfNeeded()
         } catch {
@@ -175,9 +177,7 @@ public final class RevenueCatService: @unchecked Sendable {
         // AuthStore and RevenueCatStore observe the same Supabase event
         // independently. Re-applying here makes the destination deterministic
         // whether profile loading or RevenueCat logIn completes first.
-        if let subscriberIdentity {
-            applySubscriberIdentity(subscriberIdentity)
-        }
+        applyTrackingConsent()
         return (result.customerInfo, result.created)
     }
 
@@ -201,15 +201,23 @@ public final class RevenueCatService: @unchecked Sendable {
         return offerings.current
     }
 
-    /// Returns the placement-specific offering, falling back to the current
-    /// offering if RC has no placement attached. Mirrors RN's
-    /// `getCurrentOfferingForPlacement(placementId)` fallback behavior.
+    /// Sync pending attributes before targeting. The SDK owns default-placement
+    /// fallback; nil is an intentional No Offering, never a reason to use current.
     public func offering(forPlacement placementIdentifier: String) async throws -> Offering? {
-        let offerings = try await Purchases.shared.offerings()
-        if let placementOffering = offerings.currentOffering(forPlacement: placementIdentifier) {
-            return placementOffering
+        guard configured else { throw PlacementError.notConfigured }
+        let userID = Purchases.shared.appUserID
+        guard let offerings = try await Purchases.shared.syncAttributesAndOfferingsIfNeeded() else {
+            throw PlacementError.missingOfferings
         }
-        return offerings.current
+        guard userID == Purchases.shared.appUserID else { throw PlacementError.identityChanged }
+        return offerings.currentOffering(forPlacement: placementIdentifier)
+    }
+
+    public enum PlacementError: LocalizedError {
+        case notConfigured, identityChanged, missingOfferings
+        public var errorDescription: String? {
+            "Subscription options could not be loaded for this account. Please try again."
+        }
     }
 
     public func restorePurchases() async throws -> CustomerInfo {
@@ -227,10 +235,37 @@ public final class RevenueCatService: @unchecked Sendable {
         info.entitlements.active[Self.entitlementIdentifier] != nil
     }
 
+    public func subscriptionTier(_ info: CustomerInfo) -> SubscriptionTier? {
+        SubscriptionTier.resolve(activeEntitlementIDs: Set(info.entitlements.active.keys))
+    }
+
+    public struct ServerSubscriptionAccess: Decodable, Sendable {
+        public let subscriptionTier: SubscriptionTier?
+        public let isTieredCustomer: Bool?
+    }
+
+    /// The authenticated resolver checks historical uppercase/anonymous RC
+    /// identities. A legacy Pro plan on another identity must beat a new lower
+    /// tier on the current SDK identity.
+    public func serverSubscriptionAccess() async throws -> ServerSubscriptionAccess {
+        let client = await MainSupabase.shared.client
+        return try await client.functions.invoke("resolve-my-entitlement")
+    }
+
+    public func isTieredCustomer(_ info: CustomerInfo) -> Bool {
+        SubscriptionTier.isTieredCustomer(productIDs: info.allPurchasedProductIdentifiers,
+                                         entitlementIDs: Set(info.entitlements.all.keys))
+    }
+
+    private func highestEntitlement(_ info: CustomerInfo) -> EntitlementInfo? {
+        guard let tier = subscriptionTier(info) else { return nil }
+        return info.entitlements.active[tier.entitlementID]
+    }
+
     /// Map an active entitlement's productIdentifier to a coarse subscription
     /// type. Matches RN's `getActiveSubscriptionType(customerInfo)`.
     public func activeSubscriptionType(_ info: CustomerInfo) -> String? {
-        guard let entitlement = info.entitlements.active[Self.entitlementIdentifier] else { return nil }
+        guard let entitlement = highestEntitlement(info) else { return nil }
         let productId = entitlement.productIdentifier.lowercased()
         if productId.contains("lifetime") { return "lifetime" }
         if productId.contains("annual") || productId.contains("yearly") { return "yearly" }
@@ -241,10 +276,10 @@ public final class RevenueCatService: @unchecked Sendable {
     /// Returns the active entitlement's productIdentifier (used by the
     /// secret-settings "Check Offerings" debug action).
     public func activeProductIdentifier(_ info: CustomerInfo) -> String? {
-        info.entitlements.active[Self.entitlementIdentifier]?.productIdentifier
+        highestEntitlement(info)?.productIdentifier
     }
 
     public func activeExpirationDate(_ info: CustomerInfo) -> Date? {
-        info.entitlements.active[Self.entitlementIdentifier]?.expirationDate
+        highestEntitlement(info)?.expirationDate
     }
 }

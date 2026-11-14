@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ArrowDown, ArrowUp, Check, ChevronRight, Info, Sparkles } from 'lucide-react';
+import { ChevronRight, Info, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TeamRef } from '../../../types';
 
@@ -136,91 +136,6 @@ export function Recommendation({
       >
         {edgeIcon}
         {edge}
-      </span>
-    </div>
-  );
-}
-
-/**
- * Both sides of the spread with the model's side marked and the other dimmed.
- * "Who's favored" and "where the model disagrees with the market" are different
- * questions, so the pick is called out rather than left to be inferred from the
- * numbers (rule 6).
- */
-export function SpreadPickRow({
-  awayTeam,
-  homeTeam,
-  awayLine,
-  homeLine,
-  pickIsHome,
-}: {
-  awayTeam: TeamRef;
-  homeTeam: TeamRef;
-  awayLine: string;
-  homeLine: string;
-  pickIsHome: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="flex min-w-0 items-center gap-1.5">
-        <TeamMark team={awayTeam} size={28} dimmed={pickIsHome} />
-        <span
-          className={cn(
-            'text-[13px] font-bold tabular-nums',
-            pickIsHome ? 'text-muted-foreground' : 'text-foreground',
-          )}
-        >
-          {awayTeam.abbrev} {awayLine}
-        </span>
-        {!pickIsHome && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-      </span>
-      <span className="flex min-w-0 items-center gap-1.5">
-        {pickIsHome && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-        <span
-          className={cn(
-            'text-[13px] font-bold tabular-nums',
-            pickIsHome ? 'text-foreground' : 'text-muted-foreground',
-          )}
-        >
-          {homeLine} {homeTeam.abbrev}
-        </span>
-        <TeamMark team={homeTeam} size={28} dimmed={!pickIsHome} />
-      </span>
-    </div>
-  );
-}
-
-/** OVER / UNDER side by side, picked side lit and checked, other dimmed (rules 6+7). */
-export function OverUnderPickRow({ isOver }: { isOver: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="flex items-center gap-1.5">
-        <ArrowUp
-          className={cn('h-4 w-4 shrink-0', isOver ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground/40')}
-        />
-        <span
-          className={cn(
-            'text-[13px] font-bold tracking-wide',
-            isOver ? 'text-emerald-600 dark:text-emerald-300' : 'text-muted-foreground/40',
-          )}
-        >
-          OVER
-        </span>
-        {isOver && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-300" />}
-      </span>
-      <span className="flex items-center gap-1.5">
-        {!isOver && <Check className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-300" />}
-        <span
-          className={cn(
-            'text-[13px] font-bold tracking-wide',
-            !isOver ? 'text-blue-600 dark:text-blue-300' : 'text-muted-foreground/40',
-          )}
-        >
-          UNDER
-        </span>
-        <ArrowDown
-          className={cn('h-4 w-4 shrink-0', !isOver ? 'text-blue-600 dark:text-blue-300' : 'text-muted-foreground/40')}
-        />
       </span>
     </div>
   );

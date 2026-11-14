@@ -1,0 +1,78 @@
+WAGERPROOF: NO-VIG REVIEW SHEET
+Version 1 | September 22, 2026
+Manual worksheet, not an automatic calculator or betting recommendation.
+
+MARKET
+Event:
+Book:
+Period and exact line:
+Settlement rules (include tie, push and void handling):
+Captured at (date, time, time zone):
+All outcomes and offered prices:
+
+CALCULATION
+Convert positive American +A: 100 / (A + 100)
+Convert negative American -A: A / (A + 100), using positive magnitude A
+Convert decimal odds d: 1 / d
+Use fractions internally, not rounded display percentages.
+Use decimal odds > 1; standard American odds >= +100 or <= -100.
+Missing or zero prices are invalid. If booksum <= 1, check matching and
+completeness before drawing conclusions; there is no positive overround.
+
+Raw probability of each outcome:
+Booksum (sum of raw probabilities):
+Overround (booksum minus 1):
+Method: proportional normalization
+Each no-vig probability = raw probability / booksum:
+Each no-vig decimal price = 1 / no-vig probability:
+For p < 0.5, American price = +100 * (1-p) / p
+For p > 0.5, American price = -100 * p / (1-p)
+At p = 0.5, American price = +100
+
+SEPARATE ESTIMATE
+Model or other source:
+Estimated chance:
+Version / information cutoff:
+Reasons it could be wrong:
+Current offered price and break-even rate:
+For a win-or-loss bet: EV per $1 = p * (decimal odds - 1) - (1-p)
+For pushes: include P(win), P(loss), and P(push) separately; push net = 0.
+Decision and reason, saved before result:
+
+LATER REVIEW (do not overwrite original note)
+Price/line changes:
+Closing reference and capture time, if tracked:
+Final result:
+Missing information or unresolved settlement:
+What the original assumptions missed:
+
+FICTIONAL CHECK EXAMPLE
+Two mutually exclusive outcomes, no tie or push, no fees.
+Same book and timestamp; Side A -150, Side B +130.
+Raw A = 150/250 = 0.6
+Raw B = 100/230 = 0.4347826087
+Booksum = 1.0347826087 (103.47826087%)
+Overround = 0.0347826087 (3.47826087 percentage points above 100%)
+No-vig A = 69/119 = 57.98319328%
+No-vig B = 50/119 = 42.01680672%
+No-vig decimal A = 119/69 = 1.7246376812
+No-vig decimal B = 119/50 = 2.38
+No-vig American A = -138; B = +138.
+These are calculated reference prices, not available offers or true chances.
+
+Assumed independent estimate for A = 59%.
+It exceeds the 57.98% no-vig reference but not the 60% break-even at -150.
+EV per $100 = 0.59 * (100 * 100/150) - 0.41 * 100 = -$1.66666667.
+At estimates 58%, 59%, 60%, 61%, EV per $100 is -$3.33, -$1.67, $0, +$1.67.
+Do not infer the estimate is correct from the arithmetic.
+
+INPUT CHECKS
+- Same event, book, time, period, exact line and settlement rules.
+- Include every possible outcome. Do not omit a draw.
+- Over 24.5 and under 25.5 are not opposite sides of the same line.
+- Do not treat a sum built across books as one book's margin.
+- Do not multiply parlay leg probabilities without justified independence.
+- A no-vig reference is not proof of true probability or a profitable bet.
+
+Guide: https://wagerproof.bet/blog/implied-probability-vs-true-probability/
+This sheet is for education. WagerProof is a research product, not a sportsbook.

@@ -106,7 +106,6 @@ struct GamesView: View {
     // (not hoisted — the detail views own their own) purely so the banner can
     // hide when the report has zero rows (offseason / no slate). Loaded lazily
     // and only while their sport is selected. See `visibleTools`.
-    @State private var nbaAccuracy = NBAModelAccuracyStore()
     @State private var ncaabAccuracy = NCAABModelAccuracyStore()
     // Public-agent consensus for the visible slate ("N agents on <side>" + the
     // green BET flag). Hoisted to MainTabView so this feed and the game-detail
@@ -195,8 +194,6 @@ struct GamesView: View {
                 // Only the two accuracy sports fetch; guarded to load once.
                 .task(id: store.selectedSport) {
                     switch store.selectedSport {
-                    case .nba:
-                        if case .idle = nbaAccuracy.loadState { await nbaAccuracy.refresh() }
                     case .ncaab:
                         if case .idle = ncaabAccuracy.loadState { await ncaabAccuracy.refresh() }
                     default:
@@ -325,7 +322,6 @@ struct GamesView: View {
     private var visibleTools: [SportTool] {
         SportTool.tools(for: store.selectedSport).filter { tool in
             switch tool.category {
-            case .nbaAccuracy:   return !nbaAccuracy.games.isEmpty
             case .ncaabAccuracy: return !ncaabAccuracy.games.isEmpty
             default:             return true
             }
@@ -354,12 +350,10 @@ struct GamesView: View {
     private var sortMenu: some View {
         Menu {
             Picker("Sort Games", selection: sortModeBinding) {
-                Label("Time", systemImage: "clock")
-                    .tag(GamesStore.SortMode.time)
-                Label("Spread Value", systemImage: "chart.line.uptrend.xyaxis")
-                    .tag(GamesStore.SortMode.spread)
-                Label("O/U Value", systemImage: "number")
-                    .tag(GamesStore.SortMode.ou)
+                ForEach(sortChoices, id: \.mode) { choice in
+                    Label(choice.label, systemImage: choice.symbol)
+                        .tag(choice.mode)
+                }
             }
         } label: {
             menuIconLabel(
@@ -459,9 +453,28 @@ struct GamesView: View {
         )
     }
 
+    /// Time, then the edges this sport actually publishes, then signals.
+    /// Baseball has no spread model, so that item stays off its menu.
+    private var sortChoices: [(mode: GamesStore.SortMode, label: String, symbol: String)] {
+        var choices: [(mode: GamesStore.SortMode, label: String, symbol: String)] = [
+            (.time, "Time", "clock"),
+            (.ml, "Moneyline", "dollarsign.circle"),
+        ]
+        if store.selectedSport != .mlb {
+            choices.append((.spread, "Spread Value", "chart.line.uptrend.xyaxis"))
+        }
+        choices.append((.ou, "O/U Value", "number"))
+        choices.append((.signals, "Signals", "waveform.path.ecg"))
+        return choices
+    }
+
     private var sortModeBinding: Binding<GamesStore.SortMode> {
         Binding(
-            get: { store.sortModes[store.selectedSport] ?? .time },
+            get: {
+                let mode = store.sortModes[store.selectedSport] ?? .time
+                if store.selectedSport == .mlb, mode == .spread { return .ml }
+                return mode
+            },
             set: { store.sortModes[store.selectedSport] = $0 }
         )
     }
@@ -701,7 +714,8 @@ struct GamesView: View {
                     ForEach(section.items) { game in
                         NCAABGameCard(
                             game: game,
-                            consensus: consensusStore.consensus(for: .ncaab, gameId: GameConsensusKey.ncaab(game))
+                            consensus: consensusStore.consensus(for: .ncaab, gameId: GameConsensusKey.ncaab(game)),
+                            signalCount: store.ncaabSignalCount(gameId: game.gameId)
                         ) {
                             ncaabSheetStore.openGameSheet(game)
                         }
@@ -765,7 +779,8 @@ struct GamesView: View {
                     ForEach(section.items) { game in
                         NBAGameCard(
                             game: game,
-                            consensus: consensusStore.consensus(for: .nba, gameId: GameConsensusKey.nba(game))
+                            consensus: consensusStore.consensus(for: .nba, gameId: GameConsensusKey.nba(game)),
+                            signalCount: store.nbaSignals(gameId: game.gameId, date: game.gameDate, home: game.homeAbbr, away: game.awayAbbr).count
                         ) {
                             nbaSheetStore.openGameSheet(game)
                         }

@@ -55,6 +55,7 @@ struct LockedOverlay<Content: View>: View {
                     content
                         .opacity(0.5)
                         .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                 }
                 Color.clear
                     .background(blurIntensity)

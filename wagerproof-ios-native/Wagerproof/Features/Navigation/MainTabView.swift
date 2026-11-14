@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofStores
+import WagerproofModels
 
 /// The signed-in app's tab shell. Four visible content tabs plus a detached
 /// Search role (iOS 18+ — renders as a separate pill outside the bar on
@@ -26,6 +27,11 @@ import WagerproofStores
 ///   project's deployment target was bumped to iOS 18.0 in `project.yml` /
 ///   `Package.swift` to unlock it.
 struct MainTabView: View {
+    @Environment(ProAccessStore.self) private var access
+    @State private var showAccessPreview = false
+    @Environment(AchievementsStore.self) private var achievements
+    @State private var celebratedAchievement: Achievement?
+    @State private var celebratingId: String?
     @Environment(RootRouter.self) private var rootRouter
     @Environment(AuthStore.self) private var auth
     // B21 — the Learn WagerProof walkthrough is presented globally from this
@@ -128,13 +134,8 @@ struct MainTabView: View {
 
             // Detached search role (iOS 18+). On iOS 26 this renders as a
             // standalone pill outside the bar; on 18.x it falls back to a
-            // fifth tab cell. On iOS 27 this tab gets the detached
-            // trailing-edge "prominent" circle, but ONLY in combination with
-            // `.tabViewSearchActivation(.searchTabSelection)` below — see
-            // UITabBarController.prominentTabIdentifier header docs: the
-            // search tab is prominent-by-default only when selecting it
-            // auto-activates search. Don't use `role: .prominent` here: it
-            // drops the search semantics (no field-morph transition).
+            // fifth tab cell. Don't use `role: .prominent` here: it drops the
+            // search semantics (no field-morph transition).
             // Needs a `value:` because `TabView(selection:)` requires every
             // `Tab` to share a value type. SearchView owns its own
             // NavigationStack and calls back into the tab shell via the
@@ -145,12 +146,39 @@ struct MainTabView: View {
             }
         }
         // SearchView owns the searchable modifier so it cannot leak an extra
-        // navigation-bar field into every content tab. This shell modifier
-        // still links the detached search-tab selection to that descendant.
-        .activateSearchOnTabSelection()
+        // navigation-bar field into every content tab.
+        //
+        // Deliberately NOT `.tabViewSearchActivation(.searchTabSelection)`:
+        // that focuses the field and throws the keyboard up the instant the
+        // search tab is tapped, burying the Explore rail. Default
+        // (`.automatic`) lands on the search page with the field idle — the
+        // user taps it when they actually want to type. The cost is that on
+        // iOS 27 the search tab is no longer prominent-by-default (that
+        // appearance is tied to selection auto-activating search; see
+        // UITabBarController.prominentTabIdentifier).
         // Brand green tint replaces the system blue accent. Matches RN's
         // hardcoded `#00E676` active tab color in the FloatingTabBar.
         .tint(Color(hex: 0x00E676))
+        .padding(.top, access.isPreviewing ? 44 : 0)
+        .overlay(alignment: .top) {
+            if access.isPreviewing {
+                HStack(spacing: 12) {
+                    Button { showAccessPreview = true } label: {
+                        Label("Preview: \(access.planTitle)", systemImage: "viewfinder")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    Spacer(minLength: 4)
+                    Button("Reset") { access.previewMode = .actual }
+                        .font(.system(size: 12, weight: .bold))
+                        .accessibilityIdentifier("entitlementPreview.bannerReset")
+                }
+                .foregroundStyle(Color.appTextPrimary)
+                .padding(.horizontal, 20).frame(minHeight: 44)
+                .background(Color.appPrimary.opacity(0.12))
+                .accessibilityIdentifier("entitlementPreview.banner")
+            }
+        }
+        .sheet(isPresented: $showAccessPreview) { SecretSettingsView() }
         // Collapse the tab bar into a compact pill as the user scrolls down
         // a tab's content, expanding again on scroll up (iOS 26 Liquid Glass
         // behavior). No-op on earlier OSes.
@@ -209,6 +237,45 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $binding.isRoastPresented) {
             RoastView()
                 .environment(tabStore)
+        }
+        .sheet(item: $celebratedAchievement, onDismiss: {
+            if let id = celebratingId { achievements.acknowledgeCelebration(id) }
+            celebratingId = nil
+        }) { item in
+            AchievementUnlockedSheet(item: item) { celebratedAchievement = nil }
+        }
+        .task(id: achievements.pendingCelebrations) {
+            guard let id = achievements.pendingCelebrations.first else { return }
+            // Wait for existing sheets and transitions; never clobber a paywall or another modal.
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(600))
+                guard !Task.isCancelled else { return }
+                let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                    .flatMap(\.windows).first { $0.isKeyWindow }
+                if UIApplication.shared.applicationState == .active,
+                   window?.rootViewController?.presentedViewController == nil,
+                   celebratedAchievement == nil, celebratingId == nil {
+                    celebratingId = id
+                    celebratedAchievement = achievements.achievement(id: id)
+                    return
+                }
+            }
+        }
+        .onChange(of: achievements.userId) { _, _ in
+            celebratingId = nil
+            celebratedAchievement = nil
+        }
+        .onChange(of: tabStore.selected) { _, tab in
+            Task { await achievements.refresh() }
+            // Opening Props should land on the sport already open on Games.
+            // Picker changes still mirror the other way; this only runs when
+            // the user actually switches tabs, so a cold start on Games keeps
+            // the seasonal default instead of Props' MLB fallback.
+            guard tab == .props else { return }
+            let matching = PropsStore.Sport.matching(gamesSport: gamesStore.selectedSport)
+            if propsStore.selectedSport != matching {
+                propsStore.selectedSport = matching
+            }
         }
         // B21 — global Learn WagerProof walkthrough sheet.
         .sheet(item: Bindable(learnStore).activeTopic) { _ in
@@ -330,17 +397,6 @@ struct MainTabView: View {
 }
 
 private extension View {
-    /// Link selection of the detached search tab to activation of its search
-    /// field. On dismissal, SwiftUI automatically restores the prior tab.
-    @ViewBuilder
-    func activateSearchOnTabSelection() -> some View {
-        if #available(iOS 26.0, *) {
-            self.tabViewSearchActivation(.searchTabSelection)
-        } else {
-            self
-        }
-    }
-
     /// Apply iOS 26's `tabBarMinimizeBehavior(.onScrollDown)` when the SDK
     /// supports it; otherwise leave the view untouched so we stay buildable
     /// against the iOS 18 deployment floor.

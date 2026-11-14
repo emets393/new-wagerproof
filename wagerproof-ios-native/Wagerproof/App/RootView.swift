@@ -25,6 +25,7 @@ struct RootView: View {
     @Environment(RevenueCatStore.self) private var revenueCat
     @Environment(\.requestReview) private var requestReview
     @Environment(\.scenePhase) private var scenePhase
+    @State private var tracking = TrackingAuthorizationService.shared
     @State private var reviewPromptCoordinator = ReviewPromptCoordinator.shared
 
     /// Set to `true` when the user purchases / restores / explicitly
@@ -34,7 +35,7 @@ struct RootView: View {
     @State private var paywallDismissed: Bool = false
 
     private var shouldPresentPaywall: Bool {
-        guard router.phase == .ready else { return false }
+        guard router.phase == .ready, tracking.status != .notDetermined, !tracking.isRequesting else { return false }
         // Hold the predicate at false until BOTH paths that grant Pro
         // access have resolved: RevenueCat's `attachUser` (live customer
         // info) AND `AdminModeStore.roleResolved` (admin row lookup).
@@ -42,11 +43,12 @@ struct RootView: View {
         // catches the case the earlier `revenueCat.isLoading == false`
         // gate missed: when the user is an admin, RC reports
         // `entitlementStatus == .denied` and resolves fast, while the
-        // admin row lookup hasn't finished yet. `proAccess.isPro` is
+        // admin row lookup hasn't finished yet. `proAccess.hasSubscription` is
         // briefly false → predicate fired → paywall flashed → admin
         // role lands → flipped to true → paywall dismissed. Combined
         // with `hasResolvedActiveUserEntitlement` we cover both the
         // RC stale-cache window and the admin-resolution lag.
+        guard !proAccess.isPreviewing else { return false }
         guard revenueCat.hasResolvedActiveUserEntitlement else { return false }
         guard !proAccess.isLoading else { return false }
         if paywallDismissed { return false }
@@ -54,7 +56,7 @@ struct RootView: View {
         // Pro/admin account can still see the paywall; it self-clears on
         // dismiss/purchase, so it never leaks into normal Pro usage.
         if router.testPaywallOverride { return true }
-        return !proAccess.isPro
+        return !proAccess.hasSubscription
     }
 
     /// Two-way binding so SwiftUI's own swipe / cover-management can also
@@ -81,24 +83,33 @@ struct RootView: View {
             case .onboarding:
                 OnboardingView()
             case .ready:
-                MainTabView()
-                    .fullScreenCover(isPresented: paywallBinding) {
-                        PostOnboardingPaywall(onUserDismissed: {
-                            paywallDismissed = true
-                            router.clearTestPaywallOverride()
-                        })
-                            // Re-inject the environment — `fullScreenCover` in
-                            // SwiftUI doesn't always propagate `@Observable`
-                            // values through the new presentation host, so the
-                            // paywall needs the same stores as the parent.
-                            .environment(auth)
-                            .environment(onboarding)
-                            .environment(revenueCat)
-                            .environment(proAccess)
-                    }
+                if tracking.status == .notDetermined || tracking.isRequesting {
+                    TrackingPermissionGate()
+                } else {
+                    MainTabView()
+                        .fullScreenCover(isPresented: paywallBinding) {
+                            PostOnboardingPaywall(onUserDismissed: {
+                                paywallDismissed = true
+                                router.clearTestPaywallOverride()
+                            })
+                                // Re-inject the environment — `fullScreenCover` in
+                                // SwiftUI doesn't always propagate `@Observable`
+                                // values through the new presentation host, so the
+                                // paywall needs the same stores as the parent.
+                                .environment(auth)
+                                .environment(onboarding)
+                                .environment(revenueCat)
+                                .environment(proAccess)
+                        }
+                }
             }
         }
         .animation(.appStandard, value: router.phase)
+        .onChange(of: tracking.status) { _, status in
+            if status == .authorized {
+                Task { await auth.refreshAdvertisingIdentity() }
+            }
+        }
         .onChange(of: router.testPaywallOverride) { _, isActive in
             // A tester re-running "Reset Onboarding" within the same session
             // may have already dismissed a paywall earlier — clear that flag
@@ -112,27 +123,30 @@ struct RootView: View {
             // was trying to sell them out of.
             guard requested else { return }
             router.reopenPaywallRequested = false
-            guard !proAccess.isPro else { return }
+            guard !proAccess.hasSubscription else { return }
             paywallDismissed = false
         }
         .onChange(of: auth.phase) { _, newPhase in
+            proAccess.previewMode = .actual
             // Sign-out resets the dismiss flag so the next user (or the same
             // user signing back in without Pro) sees the paywall again.
             if case .unauthenticated = newPhase { paywallDismissed = false }
         }
         .task {
+            await tracking.refresh()
             reviewPromptCoordinator.recordAppActive()
-            PicksExpiryService.shared.reconcile(isPro: proAccess.isPro)
+            PicksExpiryService.shared.reconcile(isPro: proAccess.hasSubscription)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                Task { await tracking.refresh() }
                 reviewPromptCoordinator.recordAppActive()
                 // Pull a picks-hold Live Activity the user can no longer act on
                 // — they subscribed elsewhere, or the hold lapsed while the app
                 // was backgrounded. ActivityKit can't do this on its own: the
                 // card goes stale at the deadline but stays on the Lock Screen
                 // until something ends it.
-                PicksExpiryService.shared.reconcile(isPro: proAccess.isPro)
+                PicksExpiryService.shared.reconcile(isPro: proAccess.hasSubscription)
             }
         }
         // Value events only enqueue. The root waits for the originating sheet,
@@ -143,6 +157,8 @@ struct RootView: View {
             guard !Task.isCancelled,
                   scenePhase == .active,
                   router.phase == .ready,
+                  tracking.status != .notDetermined,
+                  !tracking.isRequesting,
                   !shouldPresentPaywall
             else {
                 reviewPromptCoordinator.cancel(request)

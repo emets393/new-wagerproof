@@ -48,7 +48,7 @@ struct NCAABModelAccuracyMatchupCardView: View {
     private var header: some View {
         HStack(spacing: 8) {
             HStack(spacing: 6) {
-                GameCardTeamAvatar(teamName: game.awayTeam, sport: "ncaab", size: 32)
+                GameCardTeamAvatar(teamName: game.awayTeam, sport: "ncaab", size: 32, logoURL: game.awayTeamLogo)
                 Text(game.awayAbbr)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Color.appTextPrimary)
@@ -56,7 +56,7 @@ struct NCAABModelAccuracyMatchupCardView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.appTextSecondary.opacity(0.6))
                     .padding(.horizontal, 4)
-                GameCardTeamAvatar(teamName: game.homeTeam, sport: "ncaab", size: 32)
+                GameCardTeamAvatar(teamName: game.homeTeam, sport: "ncaab", size: 32, logoURL: game.homeTeamLogo)
                 Text(game.homeAbbr)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Color.appTextPrimary)

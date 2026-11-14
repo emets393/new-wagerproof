@@ -122,7 +122,7 @@ import kotlin.math.roundToInt
  * with iOS in Mixpanel, so never rename one.
  */
 internal val PaywallPageKeys = listOf(
-    "value", "social_proof", "agent_hq", "leaderboard",
+    "value", "social_proof", "achievements", "agent_hq", "leaderboard",
     "reasoned_picks", "outliers", "community_connectors",
 )
 
@@ -183,6 +183,15 @@ internal fun PaywallValueCarousel(
                 }
 
                 2 -> FeaturePage(
+                    title = "Made for your milestones",
+                    blurb = "Explore 35 collectible achievements as you research and build your agents' track records.",
+                    compact = compact,
+                ) { heroModifier ->
+                    com.wagerproof.app.features.achievements.AchievementMedal(
+                        "streak-25", interactive = false, overlaySurface = true, active = settledPage == 2, modifier = heroModifier)
+                }
+
+                3 -> FeaturePage(
                     title = "Your agent is already working",
                     blurb = "Watch your agents move around the office and research for you 24/7",
                     compact = compact,
@@ -190,31 +199,17 @@ internal fun PaywallValueCarousel(
                     AgentHQHero(
                         agentName = resolvedAgentName,
                         spriteIndex = spriteIndex,
-                        isActive = settledPage == 2,
-                        modifier = heroModifier,
-                    )
-                }
-
-                3 -> FeaturePage(
-                    title = "Copy from the leaderboard",
-                    blurb = "See the strategies that are working and tail the trends.",
-                    compact = compact,
-                ) { heroModifier ->
-                    LeaderboardHero(
-                        accent = accent,
-                        compact = compact,
                         isActive = settledPage == 3,
-                        reduceMotion = reduceMotion,
                         modifier = heroModifier,
                     )
                 }
 
                 4 -> FeaturePage(
-                    title = "Picks that show their work",
-                    blurb = "Every recommendation includes the odds, confidence, and signals behind it.",
+                    title = "Copy from the leaderboard",
+                    blurb = "See the strategies that are working and tail the trends.",
                     compact = compact,
                 ) { heroModifier ->
-                    ReasonedPicksHero(
+                    LeaderboardHero(
                         accent = accent,
                         compact = compact,
                         isActive = settledPage == 4,
@@ -224,13 +219,27 @@ internal fun PaywallValueCarousel(
                 }
 
                 5 -> FeaturePage(
+                    title = "Picks that show their work",
+                    blurb = "Every recommendation includes the odds, confidence, and signals behind it.",
+                    compact = compact,
+                ) { heroModifier ->
+                    ReasonedPicksHero(
+                        accent = accent,
+                        compact = compact,
+                        isActive = settledPage == 5,
+                        reduceMotion = reduceMotion,
+                        modifier = heroModifier,
+                    )
+                }
+
+                6 -> FeaturePage(
                     title = "The signals most bettors miss",
                     blurb = "Rare historical splits and matchup trends, paired with the line in front of you.",
                     compact = compact,
                 ) { heroModifier ->
                     OutliersHero(
                         compact = compact,
-                        isActive = settledPage == 5,
+                        isActive = settledPage == 6,
                         reduceMotion = reduceMotion,
                         modifier = heroModifier,
                     )

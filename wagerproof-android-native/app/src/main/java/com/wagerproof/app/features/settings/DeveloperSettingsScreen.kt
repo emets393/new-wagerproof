@@ -1,5 +1,6 @@
 package com.wagerproof.app.features.settings
 
+import com.wagerproof.app.BuildConfig
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -76,6 +77,7 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
 
     var diag by remember { mutableStateOf<DiagMessage?>(null) }
     var showStats by remember { mutableStateOf(false) }
+    var showTieredPaywall by remember { mutableStateOf(false) }
     var showPaywall by remember { mutableStateOf(false) }
     var showCustomPaywall by remember { mutableStateOf(false) }
     var showGenerationPreview by remember { mutableStateOf(false) }
@@ -113,6 +115,21 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
             )
 
             // --- Testing Toggles ---
+            if (BuildConfig.DEBUG) {
+                ProfileSectionHeader("Subscription preview")
+                com.wagerproof.core.models.EntitlementPreview.entries.forEach { mode ->
+                    DeveloperRow(icon = AppIcon.CHECKMARK_SHIELD_FILL.imageVector,
+                        iconColor = AppColors.appPrimary, iconBackground = AppColors.appPrimary.copy(alpha = .12f),
+                        title = mode.title, subtitle = "Local UI preview only",
+                        onClick = { graph.proAccess.previewMode = mode },
+                        trailing = { androidx.compose.material3.RadioButton(selected = graph.proAccess.previewMode == mode,
+                            onClick = { graph.proAccess.previewMode = mode }) })
+                }
+                DeveloperRow(icon = AppIcon.CHECKMARK_SHIELD_FILL.imageVector,
+                    iconColor = AppColors.appPrimary, iconBackground = AppColors.appPrimary.copy(alpha = .12f),
+                    title = "Preview tiered paywall", subtitle = "Premium / Premium Plus / Pro",
+                    onClick = { showTieredPaywall = true })
+            }
             ProfileSectionHeader("Testing Toggles")
             DeveloperRow(
                 icon = AppIcon.PERSON_CROP_CIRCLE_BADGE_EXCLAMATION.imageVector,
@@ -274,6 +291,11 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
             confirmButton = { TextButton(onClick = { diag = null }) { Text("OK") } },
             containerColor = AppColors.appSurfaceElevated,
         )
+    }
+
+    if (showTieredPaywall) {
+        BackHandler { showTieredPaywall = false }
+        com.wagerproof.app.features.paywall.TieredPaywallScreen(preview = true, onDismiss = { showTieredPaywall = false })
     }
 
     if (showPaywall) {

@@ -20,8 +20,8 @@
 # OPEN OPERATIONAL ITEMS (before Week 1):
 #   - WEEK is auto-derived by current_week.py (first unplayed week from the schedule), so the slate
 #     crons need no manual week setting; the grade cron is season-scoped (grades all weeks idempotently).
-#   - Dynamic weather/injury re-score: add a game-day cron (e.g. every 2-3h Thu/Sat/Sun) that re-runs
-#     the slate runner (idempotent) so weather/injury changes re-score before kickoff.
+#   - Injury re-score before kickoff: DONE 2026-09-15 — espn_nfl_injuries.py runs first in the
+#     slate runner, and nfl-slate-gameday-{sun,prime} re-run the runner right after inactives post.
 #   - Migrate the legacy NFL/CFB GitHub Actions crons here too (the dual-feed legacy prediction tables
 #     that feed the legacy_* signals — see 14_SEASON_2026_PIPELINE_READINESS.md).
 # =============================================================================
@@ -30,6 +30,8 @@ envVarGroups:
   - name: wagerproof-model-secrets
     envVars:
       - key: SUPABASE_SERVICE_KEY      # service-role key (writes slate_* tables, finals, logs)
+        sync: false
+      - key: FP_DATA_TOKEN             # Fantasy Points Data Suite JWT (fp-data-inseason); recapture from the web app on 401
         sync: false
       - key: CFBD_API_KEY              # College Football Data API (CFB fetch)
         sync: false
@@ -42,6 +44,12 @@ services:
   # --- NFL weekly slate: fetch -> build -> .pkl predict -> nfl_slate_* tables ----------
   - type: cron
     name: nfl-slate-weekly
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     plan: standard                         # 2GB — fetch step OOM-killed (exit 137) on starter's 512MB (2026-08-10)
     schedule: "0 11 * 9-12,1-2 2"          # Tue ~6-7am ET, NFL season (Sep–Feb)
@@ -55,9 +63,14 @@ services:
       - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
         value: "3.11.9"
 
-  # --- CFB weekly slate: fetch CFBD -> build features -> model -> cfb_slate_* tables ----
   - type: cron
     name: cfb-slate-weekly
+    buildFilter:
+      paths:
+        - research/cfb-model/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     # standard (2GB) like cfb-slate-refresh: the Monday rebuild runs the full
     # as-of ratings/tendencies pipeline and OOMed the 512Mi starter (2026-08-31).
@@ -81,8 +94,18 @@ services:
   # inputs — the MLB report's post-ingestion sequencing discipline.
   - type: cron
     name: football-regression-reports
+    buildFilter:
+      paths:
+        - research/cfb-model/**
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
-    schedule: "5 15 * 8-12,1-2 *"          # daily 11:05am ET, football season
+    # Two runs: 08:30 UTC (4:30am ET) right after the early grade pass so the model record and
+    # yesterday's results show first thing, and 15:30 UTC after the 14:00 slate refresh so line
+    # movement / injury cards update (owner 2026-09-20: records were showing at 11am ET).
+    schedule: "30 8,15 * 8-12,1-2 *"       # daily 4:30am + 11:30am ET, football season
     buildCommand: >-
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nOPENAI_API_KEY_REPORTS=%s\n'
@@ -102,14 +125,243 @@ services:
   # conviction to none until this rerun re-derives the NFL ladder).
   - type: cron
     name: nfl-slate-refresh
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     plan: standard
     schedule: "0 14,18,22 * 9-12,1-2 *"    # daily 10am/2pm/6pm ET, NFL season
+    # (injuries: espn_nfl_injuries.py is step 0 of run_nfl_week.sh — see the game-day crons below)
     buildCommand: >-
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; }
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; } && { python3 signal_alerts.py --sport nfl --send || true; }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: SUPABASE_PAT            # signal_alerts.py -> push_broadcasts on MAIN
+        sync: false                  # (Management API: the repo's MAIN path, cf. comp_sync.py)
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  # --- NFL Player Prop Report, DAILY (owner 2026-09-23). The report's storylines used to be
+  # rebuilt only by fp-data-inseason (Tue + Thu), which meant it was written on Tuesday against
+  # a board that was ~10% posted and then not refreshed again until Thursday — kickoff day. Books
+  # post anytime-TD early and the yardage markets late, so on the Tuesday run week 3 had 19
+  # reception-yard lines against 193 in a finished week, and only 2 of the report's 10 slots
+  # filled. This runs the same chain once a day so the report tracks the board as lines post AND
+  # picks up that morning's injury news and newly posted lines.
+  #
+  # It runs ONLY the two steps nothing else covers — model scores, then the report. The first
+  # version also ran espn_nfl_injuries.py and nfl_slate_props_build.py and died on its first real
+  # run (2026-09-25): nfl-slate-refresh's run_nfl_week.sh ALREADY does both three times a day, and
+  # calling nfl_slate_props_build.py standalone pulls in nfl_slate_games_build, which wants a
+  # git-ignored team_mapping.parquet that only the earlier pipeline steps produce and which
+  # re-syncs a 643k-row odds history into pandas — OOM over 2Gi. Injuries reach the report through
+  # nfl_slate_props, which the 14:00 refresh has already rebuilt by the time this runs.
+  #
+  # 15:00 UTC (11am ET) is deliberately AFTER nfl-slate-refresh's 14:00 run, which takes ~11 min.
+  # No NFL_SEASON/NFL_WEEK here on purpose: unlike run_nfl_week.sh this does not resolve and
+  # export a week, so both scripts resolve the current slate from nfl_slate_games themselves.
+  - type: cron
+    name: nfl-prop-report-daily
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
+    runtime: python
+    # pro (4GB): score_props_week.py trains a model per market over the full priced-line
+    # history — same memory profile that OOM-killed fp-data-inseason on the 512Mi default.
+    # Was standard (2GB) and outgrew it on 2026-10-03, the run after week 4's Fantasy Points
+    # data landed ("Out of memory (used over 2Gi)" at 15:07, clean on 10-01 and 10-02). Peak
+    # is in the per-market training, not the FP consolidation that precedes it, so a profile
+    # pass on score_props_week could earn this back down to standard.
+    plan: pro
+    schedule: "0 15 * 9-12,1-2 *"          # daily 11am ET, NFL season
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    # Each step guarded: a thin board or a stale upstream must not stop the later steps, and
+    # every one of these is idempotent for the week (they replace, not append).
+    # FP pull FIRST. read_fp() reads PARQUET; fp_load.py (on fp-data-inseason) writes
+    # SUPABASE — different stores, so "runs three hours after that job lands the data" was
+    # never true for this one. On this disk data/fpdata is empty and the only FP parquet is
+    # the git-tracked data/fpdata_hist, frozen at 2026 wk1, so every Fantasy Points
+    # aggregate here ran on week 1 alone from week 2 onward. Pull just the 9 tools the
+    # scorer reads (19 tool/scopes, ~50-250 cells depending on how deep the season is, 50s
+    # at 3 workers) rather than all 45, then consolidate: fp_pull gates pull and
+    # consolidate separately, so it takes two invocations.
+    #
+    # ⛔ THE WEEK COMES FROM resolve_nfl_week.py, THE ONE RESOLVER. This chain used to derive it
+    # as fp_pull.current_season_week()[1] + 1 — "last week carrying a result, plus one" — which is
+    # a data-landing gate, not a schedule. The moment a week's THURSDAY game goes final that gate
+    # advances, so from Thursday night until the following Tuesday the whole chain targeted a week
+    # that does not exist yet: on 2026-10-16 it asked for 2026 wk7 while the slate (correctly) held
+    # wk6, fp_spotlight scored zero lines and died on an empty frame, and every step after it fell
+    # over. Five days in seven. resolve_nfl_week.py answers the only question these steps ask —
+    # which week is still to be played — and is already what the slate and live-props crons use.
+    startCommand: >-
+      cd research/nfl-extreme-outcomes &&
+      FAIL=0 &&
+      FPT=receivingAdvanced,receivingSeparationByAlignment,rushingAdvanced,rushingBellCow,passingAdvanced,coverageMatrix,proeReport,runPassReport,lineMatchups &&
+      SW=$(python3 resolve_nfl_week.py) &&
+      FPS="${SW% *}" &&
+      FPW="${SW#* }" &&
+      { python3 fp_pull.py --tools "$FPT" --seasons "$FPS" --weeks 1-18 --workers 3 || FAIL=1; } &&
+      { python3 fp_pull.py --tools "$FPT" --consolidate || FAIL=1; } &&
+      { python3 build_crosswalk.py || FAIL=1; } &&
+      { python3 gen_nfl_player_prop_trends.py || FAIL=1; } &&
+      { python3 score_props_week.py || FAIL=1; } &&
+      { FP_SUPABASE=1 FP_SEASONS="$(( FPS - 1 )),$FPS" python3 fp_prop_payload.py --season "$FPS" --upcoming "$FPW" --routes 6 --out data/fp_prop_payload_current.parquet || FAIL=1; } &&
+      { python3 fp_spotlight.py --payload data/fp_prop_payload_current.parquet --season "$FPS" --week "$FPW" --emit --write || FAIL=1; } &&
+      { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 fp_spotlight_write.py "out/spotlight_${FPS}w${FPW}.json" --write --season "$FPS" --week "$FPW" || FAIL=1; } &&
+      { NFL_SEASON="$FPS" NFL_WEEK="$FPW" python3 gen_nfl_prop_player_pages.py || FAIL=1; } &&
+      { python3 grade_spotlight_picks.py --season "$FPS" || FAIL=1; } &&
+      { if [ "$(date +%u)" = "2" ]; then
+          python3 cheatsheet_write.py --season "$FPS" --week "$FPW" --write;
+        else
+          python3 cheatsheet_write.py --season "$FPS" --week "$FPW" --players-only;
+        fi || FAIL=1; } &&
+      { [ "$FAIL" = 0 ] || { echo "== a prop-report step FAILED -- see the traceback above; the cron must not report success =="; exit 1; }; }
+
+    # nfl_prop_narratives.py is RETIRED from this chain (owner 2026-10-07). The spotlight picks
+    # replace the regression-report prop picks. score_props_week.py STAYS: the projection is still
+    # computed because P14/P17/P18 derive from it — it is simply never surfaced.
+    #
+    # ORDER IS LOAD-BEARING, four steps that each depend on the one before:
+    #   payload   -> the parquet every card blob comes from
+    #   spotlight -> --emit builds the board, --write STAMPS the picks (side + line of record)
+    #   write     -> PATCHes each narrative onto the row the step above created; it cannot run
+    #                first, and it reports loudly if a board row is missing rather than silently
+    #   pages     -> must run HERE, on the box that has the parquet. nfl-live-props-hourly also
+    #                rebuilds pages but has no parquet, so it carries fp_cards forward from the
+    #                DB instead (fp_cards_layer._from_db) — that is what stops its DELETE +
+    #                reinsert from emptying the column every 15 minutes.
+    #   cheatsheet-> the prop cheat sheet. TWO CLOCKS ON PURPOSE: the team productivity measures
+    #                only move when games are played, so the full build runs TUESDAY only
+    #                (date +%u = 2, after Monday night). The NAMED PLAYER depends on the injury
+    #                report, which lands all week — a Tuesday-built sheet would still point a
+    #                reader at someone ruled out on Friday, so --players-only re-resolves just
+    #                that column every other day and never touches a measure.
+    #                ⛔ Must run HERE: it reads the FP __team / __opponent parquets this box pulls.
+    #   grade     -> scores whatever now has a game log; a week finishes across four days, so it
+    #                runs daily and leaves the rest alone. Season-wide, no --week.
+    #
+    # ⛔ FP_SUPABASE=1 IS REQUIRED HERE, not an optimisation. The payload's richest blobs — the
+    # route tree, coverage shells, throw-depth bands — come from each row's `bucket` dict, and
+    # FOUR of the six tables carrying them (receivingSeparationByRoutes, receivingManVsZone,
+    # passingDepth, receivingSeparationByCoverage) are not in FPT above, so on this box they had
+    # no local parquet at all: read_fp raised, load() printed "! missing" and returned an empty
+    # frame, and those blobs were silently absent from every Render-built payload. The buckets
+    # were already in Supabase (fp_load never dropped them — `bucket` matches no IDENT_PREFIX),
+    # so only the READ path was missing. fp_hist merges Supabase at lowest priority, so a cell
+    # this job just pulled still wins. FP_SEASONS is current + prior because that is all the
+    # blend's prior term needs, and it keeps the fetch to ~25k rows per table instead of 83k.
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  # --- NFL GAME-DAY injury re-score (owner 2026-09-15). Inactives post 90 min before
+  # kickoff, so the 14/18/22 UTC refresh misses every Sunday 1pm inactive and every
+  # primetime one. These re-run the SAME idempotent runner (ESPN injuries -> fetch ->
+  # props) at 15:45 UTC (1pm ET inactives at 15:30), 19:45 (4:05/4:25 games) and
+  # 23:00 (SNF) on Sundays, and 23:00 UTC on Mon/Thu/Sat for the night game. The
+  # nflverse injuries file is a post-week archive and is NOT a source here.
+  - type: cron
+    name: nfl-slate-gameday-sun
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
+    runtime: python
+    plan: standard
+    schedule: "45 15,19 * 9-12,1 0"
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; } && { python3 signal_alerts.py --sport nfl --send || true; }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: SUPABASE_PAT            # signal_alerts.py -> push_broadcasts on MAIN
+        sync: false                  # (Management API: the repo's MAIN path, cf. comp_sync.py)
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  - type: cron
+    name: nfl-slate-gameday-prime
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
+    runtime: python
+    plan: standard
+    schedule: "0 23 * 9-12,1 0,1,4,6"
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh && { python3 refresh_nfl_slate_lines.py || true; } && { python3 legacy_fade_watch.py || true; } && { python3 signal_alerts.py --sport nfl --send || true; }
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+      - key: SUPABASE_PAT            # signal_alerts.py -> push_broadcasts on MAIN
+        sync: false                  # (Management API: the repo's MAIN path, cf. comp_sync.py)
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  # --- Fantasy Points Data Suite in-season pull (owner 2026-09-16: "$200 for this data,
+  # get everything"). fp_pull.py --inseason re-pulls the last completed week +/-1 for every
+  # tool/scope the subscription can read (29 tools, 46 scopes) into raw cells, then
+  # fp_load.py upserts the lean rows (current + prior season) into fp_data. Tue 12:00 UTC
+  # after MNF grades, Thu 12:00 UTC to catch FP's charting corrections. Full 2021+ history
+  # is the local parquet warehouse, not this cron. FP_DATA_TOKEN = the web app's JWT.
+  - type: cron
+    name: fp-data-inseason
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
+    runtime: python
+    # standard (2GB): the pull succeeds, then fp_load.py holds every pulled cell's frame in
+    # memory to upsert it and OOM-killed the default 512Mi on 2026-09-22 (week 3 — 138 cells,
+    # and the pull grows with each week of the season). Same reason nfl-slate-weekly is standard.
+    plan: standard
+    schedule: "0 12 * 9-12,1-2 2,4"
+    buildCommand: >-
+      pip install -r research/requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nFP_DATA_TOKEN=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$FP_DATA_TOKEN" > .env.local
+    # After the pull: refresh play-by-play and write the FEATURED MATCHUPS facts
+    # (nfl_matchup_facts) for the regression report — the only job whose disk has
+    # the Fantasy Points parquets (six lean ones are git-tracked under
+    # data/fpdata_hist so the prior season is present on a fresh clone; the
+    # builder merges them with the freshly pulled data/fpdata). Best
+    # effort: a failure here must not fail the data pull.
+    #
+    # score_props_week.py + nfl_prop_narratives.py are deliberately NOT in this chain — they run
+    # daily on nfl-prop-report-daily at 15:00, three hours after this job lands the data they read.
+    # Running them HERE OOM-killed the job on 2026-09-29, the first Tuesday with real in-season
+    # volume (138 cells pulled, 39k rows loaded). read_fp() in fp_hist.py concats BOTH
+    # data/fpdata_hist and data/fpdata on every call, and score_props_week calls it ~12 times and
+    # holds all the frames at once. On nfl-prop-report-daily's disk data/fpdata is only the
+    # git-tracked lean files so it is cheap; here it is everything fp_pull just wrote, so the same
+    # script is far heavier. The OOM also killed nfl_week_storylines below it (week 4 never got
+    # written) — an `|| true` cannot catch a container OOM kill, so the fix is to not run the
+    # heavy step here at all rather than to guard it.
+    startCommand: cd research/nfl-extreme-outcomes && python3 fp_pull.py --inseason --workers 3 && python3 fp_load.py && { python3 refresh_pbp_current.py && python3 nfl_matchup_facts.py || true; } && { python3 nfl_week_storylines.py || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
       - key: PYTHON_VERSION
@@ -124,6 +376,12 @@ services:
   # full rebuilds. Monday's weekly run remains the canonical slate build.
   - type: cron
     name: cfb-slate-refresh
+    buildFilter:
+      paths:
+        - research/cfb-model/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     plan: standard
     schedule: "0 14,18,22 * 8-12,1 *"      # daily 10am/2pm/6pm ET, CFB season
@@ -131,21 +389,37 @@ services:
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/cfb-model && bash run_cfb_week.sh && { python3 refresh_cfb_slate_lines.py || true; }
+    startCommand: cd research/cfb-model && bash run_cfb_week.sh && { python3 refresh_cfb_slate_lines.py || true; } && { python3 ../nfl-extreme-outcomes/signal_alerts.py --sport cfb --send || true; }
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: SUPABASE_PAT            # signal_alerts.py -> push_broadcasts on MAIN
+        sync: false                  # (Management API: the repo's MAIN path, cf. comp_sync.py)
       - key: PYTHON_VERSION
         value: "3.11.9"
 
   # --- Post-game grading (both sports): finals -> player logs -> grade picks/props/signals
   - type: cron
     name: nfl-cfb-grade-daily
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
+    # 512Mi (the default) is too small for this chain and it OOM-killed on 2026-10-06.
+    # fill_h1.py loads a full season of nflverse play-by-play into pandas to find the
+    # end-of-Q2 score; that frame alone is bigger than the whole starter allowance, so the
+    # kill is a function of how deep the season is and will recur every year around now.
+    plan: standard
     # Two fills/day: the CFBD snapshot can land finals AFTER the 13:00 pass (seen
     # 2026-09-04: Thu-night finals hit cfb_games ~14:00 UTC, so 13:00 missed them by
     # an hour and grading slipped a day). The 16:00 pass catches them; pg_cron job
     # 'football-grade-daily' (CFB instance) grades 30 min after each pass.
-    schedule: "0 13,16 * 8-12,1-2 *"       # ~8-9am + ~11am-noon ET, both seasons
+    # 08:00 UTC pass added (owner 2026-09-20): NFL finals come from nflverse overnight and CFB
+    # finals from the cfb_automation snapshot's 04/07 UTC passes, so a 4am ET grade fills the
+    # slate finals the 08:30 UTC report run needs for the model record.
+    schedule: "0 8,13,16 * 8-12,1-2 *"     # ~4am + ~8-9am + ~11am-noon ET, both seasons
     buildCommand: >-
       pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
@@ -161,6 +435,12 @@ services:
   # (skips any event already kicked off). Feeds the FG + 1H models. Cost-guards on idle hours.
   - type: cron
     name: nfl-live-odds-hourly
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     schedule: "*/15 * * 8-12,1-2 *"   # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
@@ -181,6 +461,12 @@ services:
   # Same cadence + pre-game guard as NFL. CFB 1H/TT odds ride fetch_event_odds.py separately.
   - type: cron
     name: cfb-live-odds-hourly
+    buildFilter:
+      paths:
+        - research/cfb-model/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
     schedule: "*/15 * * 8-12,1 *"           # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
@@ -205,6 +491,10 @@ services:
   # writes through the Supabase Management API (SUPABASE_PAT), so no service key needed.
   - type: cron
     name: competition-sync-hourly
+    buildFilter:
+      paths:
+        - research/competition/**
+        - render.yaml
     runtime: python
     schedule: "30 * * 8-12,1-2 *"           # hourly at :30, football season
     buildCommand: pip install tzdata   # stdlib otherwise; tzdata wheel guarantees zoneinfo
@@ -224,7 +514,21 @@ services:
   # the prop signals P1-P13 (closing line = T-60 snapshot per the closing-line policy).
   - type: cron
     name: nfl-live-props-hourly
+    buildFilter:
+      paths:
+        - research/nfl-extreme-outcomes/**
+        - research/*.py
+        - research/requirements.txt
+        - render.yaml
     runtime: python
+    # 2GB. The hourly page-build branch below OOM-killed on starter's 512Mi 15 times in the
+    # 14 days to 2026-11-10 — EVERY failure this service had, and every one of them in a
+    # minute<15 run (0 of 1,008 capture-only runs failed). An OOM kills the whole cgroup, so
+    # the `|| true` guarding the page build cannot catch it: the kernel takes the run down and
+    # Render marks it failed no matter what the shell would have returned. Memory, not the
+    # wrapper, is what makes that guard mean anything. The frames it loads (player_offense,
+    # props_frame, scheme) grow every week of the season, so this gets worse, not better.
+    plan: standard
     schedule: "*/15 * * 8-12,1-2 *"   # every 15 min (owner 2026-08-17): today's games each run until kickoff; future days still 3x/day (script gates on minute<15)
     buildCommand: >-
       pip install -r research/requirements.txt &&
@@ -233,8 +537,11 @@ services:
     # After capture, hourly (minute<15 runs only) rebuild the player pages so the
     # props surface tracks what books ACTUALLY post: no posted line -> no card
     # (owner rule 2026-08-27), and newly posted players appear within the hour.
+    # The capture (live_props.py --write) has ALREADY committed by the time this runs, so an
+    # OOM here never cost a snapshot — it cost the page rebuild, silently, 15 times.
     startCommand: >-
-      cd research/nfl-extreme-outcomes && python3 live_props.py --write &&
+      cd research/nfl-extreme-outcomes && { python3 refresh_player_offense.py || true; } &&
+      python3 live_props.py --write &&
       { if [ "$(date +%M)" -lt 15 ]; then
           SW=$(python3 resolve_nfl_week.py) &&
           NFL_SEASON="${SW% *}" NFL_WEEK="${SW#* }" python3 gen_nfl_prop_player_pages.py;
@@ -250,9 +557,32 @@ services:
   # email is the alert. Catches the failures a green cron can hide.
   - type: cron
     name: football-health-sweep
+    buildFilter:
+      paths:
+        - research/health_sweep.py
+        - research/render_drift.py
+        - research/render_cron_failures.py
+        - render.yaml
     runtime: python
-    schedule: "45 10 * 8-12,1-2 *"        # daily 6:45am ET, football season
-    buildCommand: pip install requests
+    # 12:45 UTC, NOT 10:45: the weekly slate builds run at 11:00 (cfb-slate-weekly Mon,
+    # nfl-slate-weekly Tue) and take 10-20 min. At 10:45 the sweep checked for next week's
+    # slate 13 minutes BEFORE the job that builds it, so every Monday it raised "week over,
+    # next week's slate NOT BUILT" + "pick cards stale" and failed the run (2026-09-28).
+    # A watchdog that cries wolf on a schedule is worse than no watchdog.
+    # ⛔ RUNS AFTER nfl-prop-report-daily (15:00Z), NOT BEFORE. At 12:45Z it audited fp_cards
+    # and the spotlight board 2h15m before the only job that writes them, so the first sweep
+    # of every new NFL week RED-flagged work that was not due yet (2026-10-15: "fp_cards on
+    # 0 of 353 week-6 pages", true at 12:45, 86% by 14:10). That is the cry-wolf failure the
+    # note above warns about, caused by the clock rather than the check.
+    schedule: "30 16 * 8-12,1-2 *"        # daily 12:30pm ET, football season — after the 15:00Z prop report
+    buildCommand: pip install requests pyyaml   # pyyaml: render_drift.py reads render.yaml
     startCommand: cd research && python3 health_sweep.py
     envVars:
       - fromGroup: wagerproof-model-secrets
+      # Both Render watchdogs ask the API what is actually deployed and what actually ran, so
+      # without this key they exit 1 ("cannot check") and degrade to a WARN -- which is how the
+      # blueprint-drift check sat skipped and why nothing noticed nba-props-live failing 18 times
+      # overnight on 2026-11-06. sync: false keeps the secret out of the blueprint; the value is
+      # set on the service itself.
+      - key: RENDER_API_KEY
+        sync: false

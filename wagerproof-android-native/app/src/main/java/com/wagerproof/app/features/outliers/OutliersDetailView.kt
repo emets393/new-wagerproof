@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.outliers
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -57,6 +60,16 @@ fun OutliersDetailView(
     category: OutliersStore.Category,
     modifier: Modifier = Modifier,
 ) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Outliers") { OutliersDetailViewContent(category, modifier) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun OutliersDetailViewContent(
+    category: OutliersStore.Category,
+    modifier: Modifier = Modifier,
+) {
+    val featurePreview = LocalFeatureGatePreview.current
     val store = appGraph().outliers
 
     when (category) {

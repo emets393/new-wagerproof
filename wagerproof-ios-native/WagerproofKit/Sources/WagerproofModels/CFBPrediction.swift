@@ -129,6 +129,12 @@ public struct CFBSlateFlag: Identifiable, Codable, Hashable, Sendable {
     public let stakeUnits: Double?
     public let gradeLine: String?
     public let mammoth: Bool?
+    /// Structured bet from the generator: the team being bet and the line SIGNED FOR THAT TEAM
+    /// (`bet_line`). `line` is the game's home-perspective number, so rendering "team + line" from
+    /// it flips the sign on away-side signals (UK +16.5 rendered as "UK -16.5", 2026-09-19).
+    public let betTeam: String?
+    public let betDirection: String?
+    public let betLine: Double?
     public let signalDefinition: CFBSignalDefinition?
 
     public init(
@@ -148,6 +154,9 @@ public struct CFBSlateFlag: Identifiable, Codable, Hashable, Sendable {
         stakeUnits: Double? = nil,
         gradeLine: String? = nil,
         mammoth: Bool? = nil,
+        betTeam: String? = nil,
+        betDirection: String? = nil,
+        betLine: Double? = nil,
         signalDefinition: CFBSignalDefinition? = nil
     ) {
         self.id = id
@@ -166,6 +175,9 @@ public struct CFBSlateFlag: Identifiable, Codable, Hashable, Sendable {
         self.stakeUnits = stakeUnits
         self.gradeLine = gradeLine
         self.mammoth = mammoth
+        self.betTeam = betTeam
+        self.betDirection = betDirection
+        self.betLine = betLine
         self.signalDefinition = signalDefinition
     }
 
@@ -190,6 +202,9 @@ public struct CFBSlateFlag: Identifiable, Codable, Hashable, Sendable {
             stakeUnits: stakeUnits,
             gradeLine: gradeLine,
             mammoth: mammoth,
+            betTeam: betTeam,
+            betDirection: betDirection,
+            betLine: betLine,
             signalDefinition: definition
         )
     }

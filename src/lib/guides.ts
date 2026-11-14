@@ -79,6 +79,25 @@ export interface GuideRelease {
   screenshots: GuideScreenshot[];
 }
 
+/** Interactive tools rendered by scripts/lib/guide-embeds.mjs between the header and hero. */
+export type GuideTool = "parlay-calculator";
+
+/**
+ * Optional YouTube companion video. `youtubeId` may be empty or absent until the
+ * video is published; the facade and VideoObject schema render only once it is set.
+ */
+export interface GuideVideo {
+  youtubeId?: string;
+  title: string;
+  description: string;
+  /** YYYY-MM-DD */
+  uploadDate: string;
+  /** ISO 8601 duration, for example PT4M12S */
+  duration: string;
+  /** Local 16:9 WebP under /guides/ */
+  thumbnail: string;
+}
+
 export interface GuideMetadata {
   layout: GuideLayout;
   slug: string;
@@ -107,6 +126,8 @@ export interface GuideMetadata {
   faqs?: GuideFaq[];
   howTo?: GuideHowTo;
   release?: GuideRelease;
+  tool?: GuideTool;
+  video?: GuideVideo;
 }
 
 export interface GuideRegistryEntry {

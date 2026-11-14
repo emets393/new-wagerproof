@@ -1,0 +1,101 @@
+{
+  "id": "trend-explorer",
+  "family": "exploration",
+  "title": "TREND EXPLORER",
+  "label": "trends",
+  "tier": "silver",
+  "frame_prefix": "TrendExplorer",
+  "asset": "trend-explorer.usdz",
+  "editable_master": "trend-explorer.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "metal_compass_chassis": {
+      "vertices": 32004,
+      "faces": 64020,
+      "nonmanifold_edges": 0,
+      "volume": 0.2988260964258957
+    },
+    "acrylic_lime_center": {
+      "vertices": 16544,
+      "faces": 33084,
+      "nonmanifold_edges": 0,
+      "volume": 0.0425005988378318
+    },
+    "metal_chart_bar_0": {
+      "vertices": 478,
+      "faces": 952,
+      "nonmanifold_edges": 0,
+      "volume": 0.0016154330098879038
+    },
+    "ivory_chart_bar_0": {
+      "vertices": 400,
+      "faces": 796,
+      "nonmanifold_edges": 0,
+      "volume": 0.000997006566072552
+    },
+    "metal_chart_bar_1": {
+      "vertices": 529,
+      "faces": 1054,
+      "nonmanifold_edges": 0,
+      "volume": 0.002768916913808828
+    },
+    "ivory_chart_bar_1": {
+      "vertices": 510,
+      "faces": 1016,
+      "nonmanifold_edges": 0,
+      "volume": 0.0018127685580562223
+    },
+    "metal_chart_bar_2": {
+      "vertices": 826,
+      "faces": 1648,
+      "nonmanifold_edges": 0,
+      "volume": 0.004000778982071386
+    },
+    "ivory_chart_bar_2": {
+      "vertices": 794,
+      "faces": 1584,
+      "nonmanifold_edges": 0,
+      "volume": 0.002691583568163516
+    },
+    "metal_rising_pixel_arrow": {
+      "vertices": 1410,
+      "faces": 2816,
+      "nonmanifold_edges": 0,
+      "volume": 0.006085458319537871
+    },
+    "ivory_rising_pixel_arrow": {
+      "vertices": 1541,
+      "faces": 3078,
+      "nonmanifold_edges": 0,
+      "volume": 0.0034673306371191598
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 10,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle"
+    ]
+  },
+  "usdz_bytes": 5150674,
+  "family_palette": {
+    "primary": "#008D94",
+    "secondary": "#45CABB",
+    "enamel": "#CCFFF0",
+    "name": "Teal / aqua"
+  }
+}

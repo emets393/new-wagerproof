@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import WagerproofDesign
 import WagerproofStores
+import WagerproofServices
 
 /// Per-page descriptor for the carousel's SHARED chrome — one static table
 /// instead of per-page shells. The closures read `@Observable` store state
@@ -21,6 +22,18 @@ struct OnboardingPageSpec {
     @MainActor
     static func spec(for step: OnboardingStore.Step) -> OnboardingPageSpec {
         switch step {
+        case .attPriming:
+            return OnboardingPageSpec(
+                ctaTitle: "Continue",
+                isCTAEnabled: { _ in !TrackingAuthorizationService.shared.isRequesting },
+                onContinue: { store in
+                    Task { @MainActor in
+                        guard await TrackingAuthorizationService.shared.request(),
+                              store.currentStep == .attPriming else { return }
+                        store.advance()
+                    }
+                }
+            )
         case .terms:
             return OnboardingPageSpec(
                 ctaTitle: "I agree — continue",

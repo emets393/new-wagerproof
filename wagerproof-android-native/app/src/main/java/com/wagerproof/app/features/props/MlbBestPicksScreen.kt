@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.props
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -73,12 +76,26 @@ fun MlbBestPicksScreen(
     onOpenDetail: (PlayerPropSelection, Double?) -> Unit,
     onBack: () -> Unit,
 ) {
+    TieredAccessGate(SubscriptionTier.PREMIUM, "Cheat Sheets") { MlbBestPicksScreenContent(store, propsStore, onOpenDetail, onBack) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun MlbBestPicksScreenContent(
+    store: MLBPlayerPropPicksStore,
+    propsStore: PropsStore,
+    onOpenDetail: (PlayerPropSelection, Double?) -> Unit,
+    onBack: () -> Unit,
+) {
+    val featurePreview = LocalFeatureGatePreview.current
     BackHandler(onBack = onBack)
     val scope = rememberCoroutineScope()
     var segment by remember { mutableStateOf(Segment.PERFORMANCE) }
     var resolvingPickId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
+        if (featurePreview) return@LaunchedEffect
+
         if (store.loadState is LoadState.Idle) store.refresh()
         propsStore.refreshMLB()
     }

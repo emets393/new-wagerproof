@@ -177,7 +177,7 @@ fun WagerBotChatScreen(
         Box(modifier.fillMaxSize().then(sourceModifier).background(ui.pageBackground).safeDrawingPadding()) {
             when {
                 graph.proAccess.isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = ui.accent)
-                !graph.proAccess.isPro -> LockedChat(
+                !graph.proAccess.hasSubscription -> LockedChat(
                     ui = ui,
                     onClose = ::closeChat,
                     onUpgrade = {

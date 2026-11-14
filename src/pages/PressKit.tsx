@@ -4,6 +4,7 @@ import { Download, Mail, Phone, MapPin, Globe, ExternalLink } from 'lucide-react
 import { SEO } from '@/components/landing/SEO';
 import { StructuredData } from '@/components/landing/StructuredData';
 import { Button } from '@/components/ui/button';
+import { SOCIAL_LINKS } from '@/lib/socialLinks';
 
 export const PressKit = () => {
   const pressKitItems = [
@@ -144,12 +145,12 @@ export const PressKit = () => {
             <Phone className="w-8 h-8 mx-auto mb-3 text-primary" />
             <h3 className="font-semibold mb-2">Follow Us</h3>
             <a 
-              href="https://www.tiktok.com/@wagerproof"
+              href={SOCIAL_LINKS.tiktok.url}
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              @wagerproof on TikTok
+              {SOCIAL_LINKS.tiktok.handle} on TikTok
             </a>
           </div>
         </div>
@@ -326,12 +327,12 @@ export const PressKit = () => {
                 Follow WagerProof on social media for updates, tips, and community engagement.
               </p>
               <a 
-                href="https://www.tiktok.com/@wagerproof"
+                href={SOCIAL_LINKS.tiktok.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-primary hover:underline text-sm font-medium"
               >
-                @wagerproof <ExternalLink className="w-3 h-3" />
+                {SOCIAL_LINKS.tiktok.handle} <ExternalLink className="w-3 h-3" />
               </a>
             </div>
           </div>

@@ -3,16 +3,16 @@
   "slug": "implied-probability-vs-true-probability",
   "canonicalPath": "/blog/implied-probability-vs-true-probability/",
   "intent": "calculate and interpret odds implied probability",
-  "title": "Implied probability is a price, not the truth",
-  "shortTitle": "Implied probability",
-  "seoTitle": "Implied Probability vs. True Probability",
-  "description": "Convert American or decimal odds to implied probability, remove a simple two-way margin, and understand why no-vig probability is still not objective truth.",
-  "dek": "Odds can be translated into a probability-shaped price. That calculation is useful, but it does not reveal the unknowable true chance of an outcome by itself.",
+  "title": "No-vig odds: calculate fair prices and check the edge",
+  "shortTitle": "No-vig odds",
+  "seoTitle": "No-Vig Odds: Calculate Fair Prices and Check the Edge",
+  "description": "Calculate no-vig odds with a worked example and reusable worksheet. Separate implied probability, fair-price estimates and the break-even rate you need.",
+  "dek": "Remove the margin, keep the assumptions visible, and check the price you can actually get. A model can beat the no-vig estimate and still fall short.",
   "category": "Odds fundamentals",
   "publishedAt": "2026-03-24",
-  "updatedAt": "2026-08-26",
-  "reviewedAt": "2026-08-26",
-  "nextReviewAt": "2027-02-26",
+  "updatedAt": "2026-09-22",
+  "reviewedAt": "2026-09-22",
+  "nextReviewAt": "2026-12-22",
   "readingTimeMinutes": 8,
   "author": "chris-habib",
   "hero": {
@@ -22,22 +22,24 @@
     "height": 941,
     "socialWidth": 1200,
     "socialHeight": 630,
-    "alt": "A probability curve, percentage arc, and odds tile aligned on a green calibration grid",
+    "alt": "Probability curves and a circular gauge on a green grid, labeled Implied probability",
     "caption": "AI-assisted editorial illustration. The diagram is conceptual and does not show a real market or result.",
     "source": "WagerProof editorial composition"
   },
-  "disclosure": "This guide explains price mathematics for research and education. A no-vig calculation is a normalization method, not proof of a true probability or a profitable opportunity.",
-  "verdict": "Use implied probability to put prices on a common scale. Use no-vig probability to remove a simple form of bookmaker margin. Call neither number true probability without an independent, well-tested estimate and a clear account of uncertainty.",
+  "disclosure": "I am Chris Habib, founder of WagerProof. This guide promotes our research app and uses fictional examples for education. No-vig prices and model estimates are not guarantees of true probability or profit.",
+  "verdict": "Convert every outcome, remove margin with a named method, then compare your separate estimate with the offered-price break-even rate. A no-vig reference helps frame the question. It does not answer it for you.",
+  "showSourcesSection": false,
   "relatedSlugs": [
     "closing-line-value-sports-betting",
     "how-to-read-line-movement",
-    "prediction-markets-vs-sportsbook-odds",
-    "accurate-betting-performance-tracking-checklist"
+    "how-wagerproof-analysis-works",
+    "player-prop-research-guide"
   ],
   "redirectAliases": [],
   "faqs": [
-    {"question":"How do I convert positive American odds to implied probability?","answer":"For positive odds A, divide 100 by A plus 100. At +120, 100 divided by 220 equals 45.45 percent raw implied probability."},
-    {"question":"How do I convert negative American odds to implied probability?","answer":"For negative odds, use the absolute value A and divide A by A plus 100. At -150, 150 divided by 250 equals 60 percent raw implied probability."},
-    {"question":"Is no-vig probability the same as true probability?","answer":"No. A proportional no-vig calculation removes the displayed margin by normalizing all outcomes to 100 percent. It does not prove that the market allocated margin evenly or reveal an objective true probability."}
+    {"question":"How do you calculate no-vig odds?","answer":"Convert all outcome prices to raw implied probabilities, add them, then divide each probability by the total. Convert each adjusted probability back to odds. At -110 on both sides, proportional normalization gives 50 percent and a no-vig price of +100 for each side."},
+    {"question":"Are no-vig odds the true odds?","answer":"No. They are calculated reference prices under a chosen margin-removal method. Proportional normalization makes the probabilities total 100 percent, but it does not prove the market estimates are unbiased or correct."},
+    {"question":"Can I calculate no-vig odds from one side?","answer":"Not without assumptions about the missing outcomes. One price gives you raw implied probability. Margin removal requires a complete, matched set of outcome prices, including the draw in a three-way market."},
+    {"question":"Can a model beat the no-vig probability and still show negative expected value?","answer":"Yes. In the fictional -150/+130 example, a 59 percent estimate exceeds the 57.98 percent no-vig reference but falls below the 60 percent break-even rate at -150. The expected loss under that estimate is about $1.67 per $100 staked."}
   ]
 }

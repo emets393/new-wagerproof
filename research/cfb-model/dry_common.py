@@ -71,6 +71,11 @@ SPOT_META = {
  "T3 fade home backup": ("spread","open","T3",True),
 }
 STAKE = {"mammoth": 5.0, "T1": 3.0, "T2": 2.0, "T3": 1.0, "track": 0.5}
+# DOSE-RESPONSE FLOOR (LOCKED_MODELS.md §7, 2026-09-18): the base model is a threshold, not a slope.
+# |model - close| < 4 is noise (sides 49.7-53.6%, totals <=50% every season 2022-25; the early blend
+# 2026 wk1-2 went 35% below 4 and 61% at 4+). Below the floor NO lean is shown on the game row or the
+# spread/total card — the number still renders. A validated spot on the same side keeps its play.
+LEAN_FLOOR = 4.0
 def classify(token):
     for k, v in SPOT_META.items():
         if k in token: return v
@@ -108,6 +113,31 @@ def harness_week(season, week):
     import cfb_forecast as F
     gm, feats, te, S = F.build_season(season, week)
     return gm, te.reset_index(drop=True), S
+
+def conviction_overrides(season, week):
+    """Owner-forced conviction for specific games, applied ON TOP of the validated gate.
+
+    WHY THIS EXISTS: the mammoth gate is a HARD threshold (|side_edge| >= 8). A published
+    play sits on the board for days while the model re-evaluates three times a day, so a
+    tenth-of-a-point drift can silently demote a bet that has already been advertised at 5
+    units. BYU @ Utah wk10-2026 went 8.7 -> 7.0 between the morning and afternoon builds.
+    The gate still decides what BECOMES a mammoth; this only stops one from un-becoming it.
+
+    ⛔ NOT a backtest input and never read by cfb_forecast — the graded record keeps using
+    the gate's own output, so forcing a tier here cannot flatter the model's numbers.
+    One row per (season, week, game_id). Returns {game_id: conviction}.
+    """
+    p = os.path.join(os.path.dirname(__file__), "data", "manual_conviction_overrides.csv")
+    if not os.path.exists(p):
+        return {}
+    df = pd.read_csv(p)
+    df = df[(df.season == int(season)) & (df.week == int(week))]
+    out = {int(r.game_id): str(r.conviction) for r in df.itertuples()}
+    if out:
+        print(f"  [override] {len(out)} manual conviction override(s) for {season} wk{week}: "
+              + ", ".join(f"{int(r.game_id)} {r.game} -> {r.conviction}" for r in df.itertuples()))
+    return out
+
 
 def model_side(r): return "AWAY" if r.side_edge < 0 else "HOME"
 def spread_line(r, grade, side):
@@ -165,6 +195,32 @@ def tt_conv_key(edge, pside, p5):
     if pside == "OVER" and p5 and edge >= 6: return "T1"
     if pside == "OVER" and p5 and edge >= 4: return "T2"
     return None
+
+DEGENERATE_EDGE = 14.0
+
+
+def spread_capped(side_edge, conviction):
+    """Is this spread card a degenerate edge with nothing backing it -> NO PLAY?
+
+    THE one definition. It had been written twice -- once in gen_cfb_picks, once in
+    refresh_cfb_slate_lines, which runs after it 3x/day and re-derives conviction when a
+    moved line flips the pick side. The two copies drifted and disagreed, so a card could
+    carry one writer's tier under the other writer's label: Georgia State @ App State
+    wk10-2026 shipped conviction=mammoth / 5.0u displaying "No Bet" (owner 2026-11-03:
+    "why the fuck would you do that? Its either a mammoth or its not").
+
+    The rule, as gen_cfb_picks' own comment always stated it: a model edge past
+    DEGENERATE_EDGE is the model disagreeing with the market by more than the model has
+    earned, so it is thrown out UNLESS a validated spot agrees with the side we are betting.
+    conv_for() is side-filtered, so a conviction above "none" IS that agreeing spot -- which
+    is why conviction is the input here. gen_cfb_picks used to test `drv == pside` instead,
+    but drv is only computed in EARLY weeks, so from week ~4 the exemption was dead and it
+    capped every large edge regardless of support.
+    """
+    if side_edge is None:
+        return False
+    return abs(float(side_edge)) > DEGENERATE_EDGE and (conviction or "none") == "none"
+
 
 def recommendation(conviction, has_play):
     """Ready-to-display bet-quality label so the app renders a string with no logic."""

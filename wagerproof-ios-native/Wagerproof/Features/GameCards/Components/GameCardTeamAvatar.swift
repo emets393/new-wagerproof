@@ -17,6 +17,9 @@ struct GameCardTeamAvatar: View {
     let sport: String
     let size: CGFloat
     var colors: TeamColorPair?
+    /// ESPN (or other) logo for sports that don't have a name-keyed asset
+    /// table. College basketball passes the URL joined from `ncaab_team_mapping`.
+    var logoURL: String? = nil
 
     var body: some View {
         let pair = colors ?? defaultColors
@@ -33,7 +36,7 @@ struct GameCardTeamAvatar: View {
                     Circle().strokeBorder(pair.secondary, lineWidth: 2)
                 )
                 .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
-            if let logo = logoUrl, let url = URL(string: logo) {
+            if let logo = resolvedLogo, let url = URL(string: logo) {
                 CachedAsyncImage(url: url) { phase in
                     if case .success(let img) = phase {
                         img.resizable()
@@ -57,9 +60,10 @@ struct GameCardTeamAvatar: View {
             .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 1)
     }
 
-    /// NFL / CFB logos come from their sport reference tables, cached in
-    /// process-wide model helpers before the Games slate renders.
-    private var logoUrl: String? {
+    /// An explicit URL wins. Otherwise NFL / CFB / MLB logos come from their
+    /// sport reference tables, cached before the Games slate renders.
+    private var resolvedLogo: String? {
+        if let logoURL, !logoURL.isEmpty { return logoURL }
         switch sport.lowercased() {
         case "nfl":
             return NFLTeamAssets.logo(for: teamName)
@@ -67,6 +71,10 @@ struct GameCardTeamAvatar: View {
             return CFBTeamAssets.logo(for: teamName)
         case "mlb":
             return MLBTeams.logoUrl(for: teamName)
+        case "nba":
+            return NBATeams.logoURL(for: teamName)
+        case "ncaab":
+            return NCAABTeamAssets.logo(for: teamName)
         default:
             return nil
         }
@@ -74,7 +82,10 @@ struct GameCardTeamAvatar: View {
 
     private var defaultColors: TeamColorPair {
         switch sport.lowercased() {
-        case "cfb", "ncaaf": return .neutralCFB
+        case "nfl":
+            return NFLTeamColors.colorPair(for: teamName)
+        case "cfb", "ncaaf":
+            return CFBTeamColors.colorPair(for: teamName)
         case "mlb":
             let pair = MLBTeams.colors(for: teamName)
             return TeamColorPair(

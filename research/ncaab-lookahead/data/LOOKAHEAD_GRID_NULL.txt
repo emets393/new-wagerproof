@@ -1,0 +1,26 @@
+observed cells (n>=60), largest |gap| first:
+  tonight home fav 0.5-3               gap +11.4
+  big game away fav 0.5-3              gap +10.0
+  big game home dog 0.5-3              gap  -9.3
+  tonight away fav 7.5-12              gap  +9.1
+  side dog 12.5+                       gap  +8.9
+  side fav 0.5-3                       gap  +8.3
+  away->away dog 7-12                  gap  +8.3
+  tonight home dog 3.5-6.5             gap  +6.8
+  big game home fav 0.5-3              gap  +6.6
+  tonight away dog 0.5-3               gap  -6.6
+  home->away dog                       gap  +6.0
+  side dog 0.5-3                       gap  -5.8
+
+null (400 shuffles within night, 50 cells): max |gap| mean 11.6, 95th pct 16.3; observed max |gap| 11.4  p=0.502
+cells with |gap|>=5 under the null: mean 12.5, 95th pct 20; observed 15
+
+season ledgers (look-ahead team's side):
+  dog 12.5+                    82-52 61.2%  | 2020-21 12-5  2021-22 13-6  2022-23 13-9  2023-24 9-10  2024-25 16-9  2025-26 19-13
+  dog 7+ (all)                 243-191 56.0%  | 2020-21 32-27  2021-22 46-28  2022-23 33-31  2023-24 40-35  2024-25 43-36  2025-26 49-34
+  fav 0.5-3                    160-119 57.3%  | 2020-21 17-10  2021-22 27-22  2022-23 32-26  2023-24 27-23  2024-25 27-20  2025-26 30-18
+  dog 0.5-3                    122-150 44.9%  | 2020-21 24-19  2021-22 18-24  2022-23 15-34  2023-24 15-23  2024-25 29-22  2025-26 21-28
+  big game away, tonight dog   258-211 55.0%  | 2020-21 43-32  2021-22 49-29  2022-23 38-51  2023-24 37-32  2024-25 45-27  2025-26 46-40
+  big game home, tonight dog   295-305 49.2%  | 2020-21 45-35  2021-22 54-52  2022-23 42-53  2023-24 45-61  2024-25 62-58  2025-26 47-46
+  fav 12.5+                    72-78 48.0%  | 2020-21 9-9  2021-22 12-11  2022-23 10-12  2023-24 10-8  2024-25 10-14  2025-26 21-24
+  fav 7.5-12                   176-160 52.4%  | 2020-21 24-21  2021-22 27-26  2022-23 21-23  2023-24 31-27  2024-25 39-24  2025-26 34-39

@@ -1,0 +1,143 @@
+universe rows 780; matched to AN 774 (99%); hype rows 96, matched 96
+spread agreement (panel vs AN close) within 1.5 pts: 95% of matched
+
+=== HYPE games (3+ top-50 vs 0-1), Nov-Dec major opponent, from the hype team's side: n=89 ===
+  tickets on the hype team, mean 49%  (median 49%); money 52%
+  crowd (ticket majority) on the HYPE team in 45% of games; money majority on hype in 57%
+  hype team covers:                 36-53  40.4%  n=89
+  hype team covers, crowd ON hype:  15-25  37.5%  n=40
+  hype team covers, crowd AGAINST:  20-26  43.5%  n=46
+     crowd 50-59% on hype -> hype covers 7-10  41.2%  n=17
+     crowd 60-69% on hype -> hype covers 4-9  30.8%  n=13
+     crowd 70-100% on hype -> hype covers 5-8  38.5%  n=13
+     crowd 50-59% AGAINST hype -> hype covers 11-13  45.8%  n=24
+     crowd 60-69% AGAINST hype -> hype covers 4-4  50.0%  n=8
+     crowd 70-100% AGAINST hype -> hype covers 6-11  35.3%  n=17
+  CROWD side covers (either side):  41-45  47.7%  n=86
+  MONEY side covers:                45-42  51.7%  n=87
+  tickets AND money same side -> that side covers: 31-32  49.2%  n=63
+  FLIP (tickets one side, money the other) -> MONEY side covers: 13-9  59.1%  n=22
+  money leans toward hype (money% - tickets% >= +10) -> hype covers 14-13  51.9%  n=27;  away from hype (<= -10) -> hype covers 3-9  25.0%  n=12
+  everyone on the hype team (tickets and money both 65%+) -> hype covers 5-8  38.5%  n=13
+  everyone AGAINST the hype team (both 35%-) -> hype covers 4-8  33.3%  n=12
+
+=== CONTEXT: every early power-vs-power row in the universe, from the row team's side (hype = own side): n=720 ===
+  tickets on the hype team, mean 50%  (median 50%); money 50%
+  crowd (ticket majority) on the HYPE team in 48% of games; money majority on hype in 50%
+  hype team covers:                 357-363  49.6%  n=720
+  hype team covers, crowd ON hype:  162-187  46.4%  n=349
+  hype team covers, crowd AGAINST:  181-163  52.6%  n=344
+     crowd 50-59% on hype -> hype covers 79-77  50.6%  n=156
+     crowd 60-69% on hype -> hype covers 50-54  48.1%  n=104
+     crowd 70-100% on hype -> hype covers 47-69  40.5%  n=116
+     crowd 50-59% AGAINST hype -> hype covers 77-82  48.4%  n=159
+     crowd 60-69% AGAINST hype -> hype covers 50-49  50.5%  n=99
+     crowd 70-100% AGAINST hype -> hype covers 68-45  60.2%  n=113
+  CROWD side covers (either side):  325-368  46.9%  n=693
+  MONEY side covers:                327-384  46.0%  n=711
+  tickets AND money same side -> that side covers: 251-301  45.5%  n=552
+  FLIP (tickets one side, money the other) -> MONEY side covers: 66-72  47.8%  n=138
+  money leans toward hype (money% - tickets% >= +10) -> hype covers 75-59  56.0%  n=134;  away from hype (<= -10) -> hype covers 60-73  45.1%  n=133
+  everyone on the hype team (tickets and money both 65%+) -> hype covers 44-66  40.0%  n=110
+  everyone AGAINST the hype team (both 35%-) -> hype covers 62-43  59.0%  n=105
+
+--- the hype games, one line each ---
+ season       date           team        opponent  neutral  spread  tix_own  mny_own  margin  ats_pts
+2024-25 2024-11-12           Duke        Kentucky        1   -5.50     52.0     33.0    -5.0   -10.50
+2024-25 2024-11-15     Ohio State       Texas A&M        0    5.50     94.0     94.0   -14.0    -8.50
+2024-25 2024-11-15        Arizona       Wisconsin        0   -4.50      6.0     56.0   -15.0   -19.50
+2024-25 2024-11-15        Alabama          Purdue        0   -4.00     43.0     59.0    -9.0   -13.00
+2024-25 2024-11-16    Wake Forest          Xavier        0    7.50     35.0     16.0   -15.0    -7.50
+2024-25 2024-11-16        Indiana  South Carolina        0   -8.00     52.0     66.0    16.0     8.00
+2024-25 2024-11-22       Syracuse      Texas Tech        1   11.50     50.0     46.0    -5.0     6.50
+2024-25 2024-11-22         Baylor       Tennessee        1    4.50     50.0     50.0   -15.0   -10.50
+2024-25 2024-11-22          Miami  Oklahoma State        1   -4.50     20.0     35.0    -6.0   -10.50
+2024-25 2024-11-23     Cincinnati    Georgia Tech        0   -7.50     52.0     82.0    23.0    15.50
+2024-25 2024-11-25 North Carolina          Dayton        1   -9.00     45.0     69.0     2.0    -7.00
+2024-25 2024-11-25 Michigan State        Colorado        1   -7.50     56.0     58.0    16.0     8.50
+2024-25 2024-11-26         Oregon       Texas A&M        1    3.50     44.0     37.0    10.0    13.50
+2024-25 2024-11-26        Alabama         Houston        1    4.00     70.0     71.0     5.0     9.00
+2024-25 2024-11-26 North Carolina          Auburn        1    3.50      2.0      2.0   -13.0    -9.50
+2024-25 2024-11-27        Indiana      Louisville        1   -3.00     63.0     86.0   -28.0   -31.00
+2024-25 2024-11-27         Oregon San Diego State        1   -3.50     43.0     69.0    10.0     6.50
+2024-25 2024-11-28          UConn          Dayton        1   -8.00     67.0     63.0   -18.0   -26.00
+2024-25 2024-11-28    Wake Forest         Florida        1    7.50     50.0     33.0   -17.0    -9.50
+2024-25 2024-11-29     Ohio State      Pittsburgh        0   -5.50     45.0     57.0    -1.0    -6.50
+2024-25 2024-12-03    Wake Forest       Texas A&M        0    9.00     45.0     30.0   -13.0    -4.00
+2024-25 2024-12-03     Cincinnati       Villanova        0   -4.00     45.0     51.0    -8.0   -12.00
+2024-25 2024-12-04           Duke          Auburn        0   -3.50      6.0      7.0     6.0     2.50
+2024-25 2024-12-04         Oregon             USC        0   -6.00     30.0     64.0     8.0     2.00
+2024-25 2024-12-04 Michigan State       Minnesota        0   -4.75     58.0     59.0    18.0    13.25
+2024-25 2024-12-04         Kansas       Creighton        0   -3.75     65.0     54.0   -13.0   -16.75
+2024-25 2024-12-06       Illinois    Northwestern        0   -3.00     43.0     54.0    -4.0    -7.00
+2024-25 2024-12-07    Wake Forest  Boston College        0  -10.50     12.0     15.0     6.0    -4.50
+2024-25 2024-12-07       Syracuse      Notre Dame        0    4.50     68.0     77.0    -5.0    -0.50
+2024-25 2024-12-07 Michigan State        Nebraska        0   -7.00     23.0     30.0    37.0    30.00
+2024-25 2024-12-07          Miami         Clemson        0    4.50     69.0     49.0   -10.0    -5.50
+2024-25 2024-12-08           Duke      Louisville        0   -8.50     88.0     85.0    11.0     2.50
+2024-25 2024-12-09        Indiana       Minnesota        0   -9.50     74.0     87.0    15.0     5.50
+2024-25 2024-12-10       Illinois       Wisconsin        0   -7.00     77.0     85.0     6.0    -1.00
+2024-25 2024-12-13        Indiana        Nebraska        0    4.75     72.0     71.0   -17.0   -12.25
+2024-25 2024-12-14        Alabama       Creighton        0  -11.50     28.0     38.0     8.0    -3.50
+2024-25 2024-12-14  Arizona State         Florida        1    7.00     62.0     58.0   -17.0   -10.00
+2024-25 2024-12-14     Cincinnati          Xavier        0   -8.50     30.0     40.0     3.0    -5.50
+2024-25 2024-12-14       Illinois       Tennessee        0    1.50     82.0     90.0    -2.0    -0.50
+2024-25 2024-12-17 North Carolina         Florida        1    4.00     72.0     77.0    -6.0    -2.00
+2024-25 2024-12-20     Cincinnati          Dayton        1   -3.00     22.0     40.0     7.0     4.00
+2024-25 2024-12-21          UConn          Butler        0   -8.50     64.0     70.0     4.0    -4.50
+2024-25 2024-12-21    Wake Forest         Clemson        0    9.00     75.0     80.0   -11.0    -2.00
+2024-25 2024-12-21     Ohio State        Kentucky        1    8.00     95.0     76.0    20.0    28.00
+2024-25 2024-12-21         Oregon        Stanford        1   -5.50     31.0     49.0    15.0     9.50
+2024-25 2024-12-31         Baylor            Utah        0  -11.00     40.0     25.0    25.0    14.00
+2024-25 2024-12-31  Arizona State             BYU        0    9.00     46.0     54.0   -20.0   -11.00
+2025-26 2025-11-04           Duke           Texas        1  -10.50     68.0     64.0    15.0     4.50
+2025-26 2025-11-09     Washington          Baylor        0    6.50     26.0     49.0    -9.0    -2.50
+2025-26 2025-11-13        Alabama          Purdue        0   -3.00     54.0     55.0    -7.0   -10.00
+2025-26 2025-11-14       Michigan             TCU        0   -7.50     63.0     58.0     4.0    -3.50
+2025-26 2025-11-15     Georgetown         Clemson        0    1.00     49.0     44.0     5.0     6.00
+2025-26 2025-11-16     Ohio State      Notre Dame        0   -9.50     39.0     71.0     1.0    -8.50
+2025-26 2025-11-21            BYU       Wisconsin        0   -3.50     43.0     34.0    28.0    24.50
+2025-26 2025-11-21        Georgia          Xavier        1  -10.50     51.0     62.0     1.0    -9.50
+2025-26 2025-11-24     St. John's      Iowa State        1    2.50     47.0     40.0    -1.0     1.50
+2025-26 2025-11-24      Creighton          Baylor        1    3.50     44.0     42.0    -7.0    -3.50
+2025-26 2025-11-24         Kansas      Notre Dame        1   -5.00     48.0     62.0    10.0     5.00
+2025-26 2025-11-25      Creighton      Iowa State        1    6.00     48.0     57.0   -18.0   -12.00
+2025-26 2025-11-25     St. John's          Baylor        1   -6.50     48.0     53.0    15.0     8.50
+2025-26 2025-11-25           UCLA      California        1   -7.50     38.0     38.0    -8.0   -15.50
+2025-26 2025-11-25        Houston       Tennessee        1   -3.00     53.0     44.0    -3.0    -6.00
+2025-26 2025-11-26         Kansas       Tennessee        1    6.00     28.0     19.0     5.0    11.00
+2025-26 2025-11-27        Florida             TCU        1  -11.50     60.0     53.0    -4.0   -15.50
+2025-26 2025-11-28     Washington        Colorado        1   -2.50     33.0     22.0   -13.0   -15.50
+2025-26 2025-11-28        Florida      Providence        1  -11.75     64.0     80.0    12.0     0.25
+2025-26 2025-11-28     Ohio State      Pittsburgh        0   -5.50     79.0     56.0    -1.0    -6.50
+2025-26 2025-12-02          Miami        Ole Miss        0    2.50     64.0     56.0     9.0    11.50
+2025-26 2025-12-02       Syracuse       Tennessee        0    7.75     11.0      8.0     2.0     9.75
+2025-26 2025-12-02        Georgia   Florida State        0    1.50     53.0     50.0    34.0    35.50
+2025-26 2025-12-03        Alabama         Clemson        0  -10.50     21.0     40.0     6.0    -4.50
+2025-26 2025-12-06     Ohio State    Northwestern        0    1.75     76.0     54.0     4.0     5.75
+2025-26 2025-12-07      Creighton        Nebraska        0    5.25     52.0     44.0   -21.0   -15.75
+2025-26 2025-12-09            BYU         Clemson        0   -5.50     57.0     51.0     3.0    -2.50
+2025-26 2025-12-13     Ohio State   West Virginia        1   -3.50     15.0     15.0     1.0    -2.50
+2025-26 2025-12-13       Arkansas      Texas Tech        1    1.50     46.0     70.0     7.0     8.50
+2025-26 2025-12-13      Creighton    Kansas State        0   -4.25     57.0     42.0    -7.0   -11.25
+2025-26 2025-12-13       Kentucky         Indiana        0   -3.50     46.0     54.0    12.0     8.50
+2025-26 2025-12-17      Creighton          Xavier        0    3.00     39.0     51.0    41.0    44.00
+2025-26 2025-12-17     Georgetown       Marquette        0    6.50     66.0     77.0     9.0    15.50
+2025-26 2025-12-17           UCLA   Arizona State        0  -10.00     36.0     47.0    13.0     3.00
+2025-26 2025-12-20      Creighton       Marquette        0   -6.50     54.0     66.0    21.0    14.50
+2025-26 2025-12-20           Duke      Texas Tech        1   -8.50     51.0     52.0    -1.0    -9.50
+2025-26 2025-12-20     Georgetown          Xavier        0   -4.50     26.0     28.0    -3.0    -7.50
+2025-26 2025-12-29     Washington            Utah        0  -11.25      9.0     10.0     9.0    -2.25
+2025-26 2025-12-30      Creighton          Butler        0   -6.00     48.0     47.0     4.0    -2.00
+2025-26 2025-12-30          Miami      Pittsburgh        0   -9.50     42.0     44.0     7.0    -2.50
+2025-26 2025-12-31       Syracuse         Clemson        0    1.50     74.0     77.0    -3.0    -1.50
+2025-26 2025-12-31          UConn          Xavier        0  -11.50     49.0     57.0    23.0    11.50
+
+=== CONTEXT, one row per game from the CROWD's side (early power-vs-power, |spread|<=12) ===
+  crowd 50%+ side covers: 162-187  46.4%  n=349   by season: 2024-25 78-93  2025-26 84-94
+  crowd 60%+ side covers: 97-123  44.1%  n=220   by season: 2024-25 48-70  2025-26 49-53
+  crowd 70%+ side covers: 47-69  40.5%  n=116   by season: 2024-25 29-45  2025-26 18-24
+  crowd 80%+ side covers: 23-34  40.4%  n=57   by season: 2024-25 16-24  2025-26 7-10
+  tickets AND money both 65%+ on a side -> that side covers: 44-66  40.0%  n=110   by season: 2024-25 26-40  2025-26 18-26
+  crowd 70%+ on the HYPE team specifically -> hype covers: 5-8  38.5%  n=13
+  crowd 70%+ in games with NO hype roster on either side -> crowd covers: 31-56  35.6%  n=87

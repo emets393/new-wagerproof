@@ -22,6 +22,9 @@ import datetime as dt
 from pathlib import Path
 import requests
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from odds_write import insert_snapshot  # noqa: E402
+
 # Transient gateway errors (Supabase/Odds API 502/503/504) must not fail an idempotent
 # hourly capture — a single 503 at 5am paged the owner (2026-08-14). Retries happen at
 # the transport layer: 3 tries, 2s/4s/8s backoff. 500s and 4xx still raise immediately
@@ -172,10 +175,7 @@ def main():
     sk = _env("SUPABASE_SERVICE_KEY")
     hdr = {"apikey": sk, "Authorization": f"Bearer {sk}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
-    for i in range(0, len(rows), 500):
-        resp = requests.post(f"{SUPA}/{TABLE}", headers=hdr, json=rows[i:i + 500], timeout=60)
-        if not resp.ok:
-            sys.exit(f"[write] {resp.status_code} inserting {TABLE}: {resp.text[:500]}")
+    insert_snapshot(hdr, rows, snap_iso, SUPA, TABLE, "snap_ts")
     print(f"[write] inserted {len(rows)} rows at snap_ts={snap_iso}")
     # SHARP ACTION signals (owner 2026-08-19): detect on the capture just written.
     # Wrapped so a detector error can never fail the odds capture.

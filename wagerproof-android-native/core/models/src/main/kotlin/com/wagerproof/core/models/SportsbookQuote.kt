@@ -69,7 +69,21 @@ object SportsbookCatalog {
         "fanatics", "bovada", "betus", "betonlineag", "lowvig", "mybookieag",
     )
 
-    fun name(key: String): String = names[key] ?: key.replaceFirstChar { it.uppercase() }
+    fun name(key: String): String = names[key.lowercase()] ?: key.replaceFirstChar { it.uppercase() }
+
+    /** Odds API key for a display name or an already-normalized book key. */
+    fun key(displayName: String?): String? {
+        val trimmed = displayName?.trim().orEmpty()
+        if (trimmed.isEmpty()) return null
+        val lower = trimmed.lowercase()
+        if (lower in names) return lower
+        names.entries.firstOrNull { it.value.equals(trimmed, ignoreCase = true) }?.let { return it.key }
+        names.entries.firstOrNull { lower.contains(it.value.lowercase()) }?.let { return it.key }
+        if (lower.contains("caesars") || lower.contains("william hill")) return "williamhill_us"
+        if (lower == "dk") return "draftkings"
+        if (lower.contains("fan duel")) return "fanduel"
+        return null
+    }
 }
 
 object SportsbookPreference {

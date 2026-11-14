@@ -18,11 +18,14 @@ Companion table: nfl_player_prop_trends (game logs / splits / per-opponent recor
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import requests
+
+from fetch import local_or_db
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -31,6 +34,9 @@ SEASON = int(os.environ.get("NFL_SEASON", 2026))
 WEEK = int(os.environ.get("NFL_WEEK", 1))
 STAT_SEASON = 2025          # baseline/NGS/scheme snapshot season (last completed)
 POSITIONS = {"WR", "TE", "RB", "QB"}
+# Markets that are a yes/no proposition and correctly carry no line.
+YES_NO_MARKETS = {"player_anytime_td"}
+
 MARKET_LABEL = {
     "player_receptions": "Receptions", "player_reception_yds": "Receiving Yards",
     "player_rush_yds": "Rushing Yards", "player_rush_attempts": "Rush Attempts",
@@ -68,8 +74,16 @@ H = {"apikey": KEY, "Authorization": f"Bearer {KEY}"}
 def fetch(table, params=""):
     out, off = [], 0
     while True:
-        r = requests.get(f"{BASE_URL}/{table}?{params}&limit=1000&offset={off}", headers=H, timeout=60)
-        r.raise_for_status()
+        # nfl_player_props is 10k rows/week and PostgREST offset paging gets slower with each
+        # page; a single 60s read timeout killed the Sunday-night slate run (2026-09-20). Retry
+        # with backoff, longer timeout — the query is fine, the tail latency is not.
+        for attempt in range(4):
+            try:
+                r = requests.get(f"{BASE_URL}/{table}?{params}&limit=1000&offset={off}", headers=H, timeout=120)
+                r.raise_for_status(); break
+            except (requests.Timeout, requests.ConnectionError) as e:
+                if attempt == 3: raise
+                print(f"  [fetch] {table} offset {off}: {type(e).__name__}, retry {attempt + 1}/3"); time.sleep(5 * (attempt + 1))
         rows = r.json()
         out += rows
         if len(rows) < 1000:
@@ -109,7 +123,18 @@ def main():
         games[a] = dict(opp=h, is_home=False, label=f"{g.away_team} @ {g.home_team}", kickoff=ko)
 
     tr = fetch("nfl_player_prop_trends", "select=player_id,player_name,position,current_team,markets,matchups")
+    # Name the real problem. An empty read carries no columns, so `tr.position` raised
+    # `AttributeError: 'DataFrame' object has no attribute 'position'` ~100 lines into the run and
+    # sent 2026-11-07's triage after a pandas ghost; the actual fault was gen_nfl_player_prop_trends
+    # timing out 21 minutes earlier and leaving the table at 0 rows. sg above already guards this
+    # way — this read deserves the same.
+    if tr.empty:
+        sys.exit("nfl_player_prop_trends is EMPTY — run gen_nfl_player_prop_trends.py first "
+                 "(it writes the table this reads; a failed write there leaves it at 0 rows)")
     tr = tr[tr.position.isin(POSITIONS) & tr.current_team.isin(games)]
+    if tr.empty:
+        sys.exit(f"nfl_player_prop_trends has rows but none at {POSITIONS} on this slate's teams "
+                 f"— check current_team against the {len(games)} teams in nfl_slate_games")
     props = fetch("nfl_slate_props", f"season=eq.{SEASON}&week=eq.{WEEK}")
 
     # LIVE captured lines (latest per player/market/book, 9-day fresh window) —
@@ -117,7 +142,18 @@ def main():
     # nfl_slate_props is the weekly Tuesday consensus; this fills everything the
     # books posted since. Owner rule 2026-08-27: the props surface shows ONLY
     # players with an actual posted line — see the has_posted filter below.
-    live = fetch("nfl_player_props_current", f"season=eq.{SEASON}&week=eq.{WEEK}")
+    # Read the BASE capture table, not nfl_player_props_current: that view's
+    # DISTINCT ON over 1.7M rows can't finish inside PostgREST's 8s statement
+    # timeout (500'd the wk2 build, 2026-09-15) — even indexed its heap fetches
+    # run minutes. The week-keyed base query is fast; collapse to the latest
+    # snapshot per (player, market, book) in pandas instead.
+    live = fetch("nfl_player_props",
+                 f"season=eq.{SEASON}&week=eq.{WEEK}"
+                 f"&select=player_id,player_name,position,team,market,line,"
+                 f"over_odds,under_odds,bookmaker,season,week,snapshot_time")
+    if len(live):
+        live = (live.sort_values("snapshot_time")
+                    .groupby(["player_id", "market", "bookmaker"], as_index=False).last())
     live_mkts = {}
     if len(live):
         for (pid_, mk_), grp in live.groupby(["player_id", "market"]):
@@ -148,10 +184,10 @@ def main():
                 out.append(dict(key=str(fk), label=str(fk), direction=None, record=None))
         return out
 
-    xw = pd.read_parquet(DATA / "players_xwalk.parquet")[["gsis_id", "headshot"]].dropna()
+    xw = local_or_db("players_xwalk", ["gsis_id", "headshot"]).dropna()
     heads = xw.set_index("gsis_id").headshot.to_dict()
 
-    po = pd.read_parquet(DATA / "player_offense.parquet")
+    po = local_or_db("player_offense")
     po = po[po.season == STAT_SEASON]
     base = po.groupby("player_id").agg(
         games=("week", "size"), receptions=("receptions", "mean"), rec_yds=("receiving_yards", "mean"),
@@ -159,7 +195,7 @@ def main():
         pass_att=("attempts", "mean"), pass_yds=("passing_yards", "mean"),
         rec_td=("receiving_tds", "sum"), rush_td=("rushing_tds", "sum"), pass_td=("passing_tds", "sum"))
 
-    ngs_r = pd.read_parquet(DATA / "ngs_receiving.parquet")
+    ngs_r = local_or_db("ngs_receiving")
     ngs_r = ngs_r[ngs_r.season == STAT_SEASON].groupby("player_id").agg(
         separation=("avg_separation", "mean"), cushion=("avg_cushion", "mean"),
         adot=("avg_intended_air_yards", "mean"), air_share=("percent_share_of_intended_air_yards", "mean"),
@@ -167,11 +203,11 @@ def main():
     ftns = pd.read_parquet(DATA / "nfl_ftn_player_stats.parquet").set_index("player_id")
     ftn_rec_q = ftns[ftns.targets.fillna(0) >= 100]     # qualified receiver baseline
     ftn_qb_q = ftns[ftns.dropbacks.fillna(0) >= 150]
-    ngs_u = pd.read_parquet(DATA / "ngs_rushing.parquet")
+    ngs_u = local_or_db("ngs_rushing")
     ngs_u = ngs_u[ngs_u.season == STAT_SEASON].groupby("player_id").agg(
         efficiency=("efficiency", "mean"), ryoe_per_att=("rush_yards_over_expected_per_att", "mean"),
         eight_box_pct=("percent_attempts_gte_eight_defenders", "mean"), time_to_los=("avg_time_to_los", "mean"))
-    ngs_p = pd.read_parquet(DATA / "ngs_passing.parquet")
+    ngs_p = local_or_db("ngs_passing")
     ngs_p = ngs_p[ngs_p.season == STAT_SEASON].groupby("player_id").agg(
         time_to_throw=("avg_time_to_throw", "mean"), completed_air_yds=("avg_completed_air_yards", "mean"),
         intended_air_yds=("avg_intended_air_yards", "mean"),
@@ -183,7 +219,7 @@ def main():
     pvs = pvs.sort_values(["season", "week"]).groupby("player_id").tail(1).set_index("player_id")
     qual = pvs[pvs.tgts_zone >= 100]      # league baseline: established receivers
 
-    ds = pd.read_parquet(DATA / "nfl_def_scheme.parquet")
+    ds = local_or_db("nfl_def_scheme")
     ds = ds.sort_values(["season", "week"]).groupby("team").tail(1).set_index("team")
 
     def def_profile(opp):
@@ -260,7 +296,7 @@ def main():
 
     # ---- GAME-LEVEL scheme-type splits: player's per-game averages vs classified defenses ----
     # Classify every (season, team) defense into types by season s2d rates (terciles per season).
-    ds_all = pd.read_parquet(DATA / "nfl_def_scheme.parquet")
+    ds_all = local_or_db("nfl_def_scheme")
     ds_end = ds_all.sort_values("week").groupby(["season", "team"]).tail(1)
     types = {}
     for ssn, grp in ds_end.groupby("season"):
@@ -272,7 +308,7 @@ def main():
             sel = grp[grp[col] >= q] if top else grp[grp[col] <= q]
             for t in sel.team:
                 types.setdefault((ssn, t), []).append(typ)
-    logs = pd.read_parquet(DATA / "player_offense.parquet")
+    logs = local_or_db("player_offense")
     logs = logs[logs.season >= 2024].copy()
     # player_offense carries no opponent column — resolve via the schedule (moved below
     # after opp_map is built; placeholder filled in the loop pre-pass)
@@ -349,25 +385,40 @@ def main():
         return out or None
 
     # ---- QB / RB scheme substrates (build_qb_rb_scheme.py) ----
-    qbss = pd.read_parquet(DATA / "nfl_qb_vs_scheme.parquet").set_index("player_id")
+    qbss = local_or_db("nfl_qb_vs_scheme").set_index("player_id")
     qb_qual = qbss[qbss.overall_dropbacks >= 150]
-    rbss = pd.read_parquet(DATA / "nfl_rusher_vs_box.parquet").set_index("player_id")
+    rbss = local_or_db("nfl_rusher_vs_box").set_index("player_id")
     rb_qual = rbss[rbss.overall_carries >= 100]
 
     # ---- AS-OF look hit rates from props_frame (real lines + results, opponent classified
     # by the season the game was PLAYED — Cursor option (b), historical as-of tagging) ----
-    pfh = pd.read_parquet(DATA / "props_frame.parquet")
-    pfh = pfh[pfh.result_close.isin(["O", "U", "Y", "N"])].copy()
+    # ⛔ props_p1_frame.py GRADES IN WORDS, NOT INITIALS. result_close holds
+    # "over"/"under"/"push" and "yes"/"no" for anytime TD; this read filtered on
+    # ["O","U","Y","N"] and so matched NOTHING — hitr was empty on every run since the block
+    # was written, and look_hit_rates was silently absent from all 353 live pages (verified
+    # 2026-10-17 against nfl_prop_player_pages: 0 of 400 sampled carried it). HIT is the over
+    # or the TD scored; the push is correctly excluded by not being named here.
+    HIT, GRADED = {"over", "yes"}, ["over", "under", "yes", "no"]
+    # ⛔ FIVE COLUMNS, NOT ALL 53. The whole frame is 215k x 53 = 270 MB resident, which on
+    # nfl-live-props-hourly's 512Mi box is most of the allowance: it OOM-killed the :00 run on
+    # 2026-10-16 and 10-17 while the :15/:30/:45 runs (which skip page-gen) were fine. The
+    # block reads exactly these five, and the frame grows with every week of the season, so
+    # pruning the read is the fix rather than a bigger plan.
+    pfh = pd.read_parquet(DATA / "props_frame.parquet",
+                          columns=["player_id", "market", "season", "opp", "result_close"])
+    pfh = pfh[pfh.result_close.isin(GRADED)].copy()
     pfh["opp_types"] = [types.get((s_, o_), []) for s_, o_ in zip(pfh.season, pfh.opp)]
     hitr = {}
     for r_ in pfh.itertuples():
         for typ in r_.opp_types:
             k = (r_.player_id, r_.market, typ)
             h_, n_ = hitr.get(k, (0, 0))
-            hitr[k] = (h_ + (1 if r_.result_close in ("O", "Y") else 0), n_ + 1)
+            hitr[k] = (h_ + (1 if r_.result_close in HIT else 0), n_ + 1)
+    print(f"  [look-hits] {len(pfh):,} graded prop results -> {len(hitr):,} "
+          f"(player, market, opponent-type) cells")
 
     # ---- (season, week, team) -> opponent map for the game-level splits ----
-    nvg = pd.read_parquet(DATA / "nflverse_games.parquet")
+    nvg = local_or_db("nflverse_games")
     nvg = nvg[nvg.season >= 2024]
     opp_map = {}
     for r_ in nvg.itertuples():
@@ -388,8 +439,21 @@ def main():
                 hit = props[(props.player_id == pid) & (props.market == mk)] if "player_id" in props.columns else []
                 if len(hit):
                     hr = hit.iloc[0]
-                    row.update(line=hr.get("line"), over_price=hr.get("over_price"),
-                               under_price=hr.get("under_price"), status="posted")
+                    # nfl_slate_props stores the number as close_line (best_over_line as backup) —
+                    # there is NO "line" column, so hr.get("line") silently returned None and every
+                    # posted market on every page shipped with line: null while the prices came
+                    # through fine. Worse, status was still stamped "posted", so the live-board
+                    # fallback below could never repair it. (Found 2026-09-28: 687 of 1,146 rows.)
+                    _ln = hr.get("close_line")
+                    if _ln is None or (isinstance(_ln, float) and pd.isna(_ln)):
+                        _ln = hr.get("best_over_line")
+                    _has_line = _ln is not None and not (isinstance(_ln, float) and pd.isna(_ln))
+                    # Only claim "posted" when we actually have a number, except for the yes/no
+                    # markets that legitimately have none — otherwise fall through to the live board.
+                    if _has_line or mk in YES_NO_MARKETS:
+                        row.update(line=(float(_ln) if _has_line else None),
+                                   over_price=hr.get("over_price"),
+                                   under_price=hr.get("under_price"), status="posted")
                     fl = hr.get("flags")
                     if fl is not None and len(fl):
                         row["signals"] = resolve_signals(list(fl))
@@ -696,14 +760,24 @@ def main():
         opp_types_now = types.get((STAT_SEASON, g["opp"]), [])
         gs = game_splits(pid, opp_types_now)
         proj = projections(pid, [m["key"] for m in mkts])
+        # Fantasy-Points layer (additive): the FP-era model's projection + the Player Prop
+        # Report's read per market. The existing `projection` (2025 form / old model) stays.
+        from fp_prop_layer import fetch_layer, research_for_player
+        research = research_for_player(pid, [m["key"] for m in mkts], fetch_layer(SEASON, WEEK))
+        # the granular card blobs — the stats half of the prop pivot. Separate column from
+        # `research`, which both native clients type as a market-keyed map.
+        from fp_cards_layer import fetch_cards, cards_for_player
+        fp_cards = cards_for_player(pid, fetch_cards(SEASON, WEEK))
         rows.append(dict(player_id=pid, season=SEASON, week=WEEK, player_name=p.player_name,
                          position=p.position, team=team, opponent=g["opp"], is_home=g["is_home"],
                          game_label=g["label"], kickoff=g["kickoff"], headshot_url=heads.get(pid),
                          markets=clean(mkts), baseline=clean(baseline), ngs=clean(ngs),
                          scheme=clean(scheme), scheme_game_splits=clean(gs),
                          projection=clean(proj), rookie=baseline is None,
-                         highlights=clean(hl)))
+                         highlights=clean(hl), research=clean(research) or None,
+                         fp_cards=fp_cards))
 
+    print(f"  fp_cards attached to {sum(1 for r in rows if r.get('fp_cards'))} of {len(rows)} pages")
     print(f"{len(rows)} player pages assembled | headshots {sum(1 for r in rows if r['headshot_url'])}"
           f" | w/ scheme splits {sum(1 for r in rows if 'player_splits' in (r['scheme'] or {}))}"
           f" | w/ highlights {sum(1 for r in rows if r['highlights'])}")

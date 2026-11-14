@@ -6,7 +6,7 @@ import type { NflPropPlayerPage, NflPropPlayerTrends, TrendMatchupMarket } from 
 import { formatPerGame } from '@/features/propBreakdown/format';
 import { LOOK_BUCKET_LABELS } from '@/features/propBreakdown/marketMap';
 import { resolveSchemeCompare } from '@/features/propBreakdown/schemeCompare';
-import { type NflPropGameFeedItem } from './model';
+import { EMPTY_SPOTLIGHT_RANK, sortNflPropPlayers, type NflPropGameFeedItem } from './model';
 import { NflPropPlayerCard } from './NflPropPlayerCard';
 
 function isMatchup(v: unknown): v is TrendMatchupMarket {
@@ -133,13 +133,18 @@ function TeamPlayersColumn({
   players,
   trendsByPlayer,
   onSelectPlayer,
+  spotlightIds,
+  spotlightRank = EMPTY_SPOTLIGHT_RANK,
 }: {
   team: NflPropGameFeedItem['home'];
   sideLabel: 'Home' | 'Away';
   players: NflPropPlayerPage[];
   trendsByPlayer: Record<string, NflPropPlayerTrends>;
   onSelectPlayer?: (playerId: string) => void;
+  spotlightIds?: ReadonlySet<string>;
+  spotlightRank?: ReadonlyMap<string, number>;
 }) {
+  const ordered = sortNflPropPlayers(players, spotlightRank);
   const primary = team.colors.primary;
   const secondary = team.colors.secondary;
   const colorStyle = {
@@ -178,11 +183,12 @@ function TeamPlayersColumn({
         </p>
       ) : (
         <div className="space-y-2">
-          {players.map((player) => (
+          {ordered.map((player) => (
             <NflPropPlayerCard
               key={player.player_id}
               player={player}
               trends={trendsByPlayer[player.player_id]}
+              spotlight={spotlightIds?.has(player.player_id) ?? false}
               onSelect={() => onSelectPlayer?.(player.player_id)}
             />
           ))}
@@ -196,10 +202,14 @@ export function NflPropMatchupsSections({
   item,
   trendsByPlayer,
   onSelectPlayer,
+  spotlightIds,
+  spotlightRank,
 }: {
   item: NflPropGameFeedItem;
   trendsByPlayer: Record<string, NflPropPlayerTrends>;
   onSelectPlayer?: (playerId: string) => void;
+  spotlightIds?: ReadonlySet<string>;
+  spotlightRank?: ReadonlyMap<string, number>;
 }) {
   return (
     <div className="grid items-start gap-4 @xl:col-span-2 md:grid-cols-2">
@@ -209,6 +219,8 @@ export function NflPropMatchupsSections({
         players={item.awayPlayers}
         trendsByPlayer={trendsByPlayer}
         onSelectPlayer={onSelectPlayer}
+        spotlightIds={spotlightIds}
+        spotlightRank={spotlightRank}
       />
       <TeamPlayersColumn
         team={item.home}
@@ -216,6 +228,8 @@ export function NflPropMatchupsSections({
         players={item.homePlayers}
         trendsByPlayer={trendsByPlayer}
         onSelectPlayer={onSelectPlayer}
+        spotlightIds={spotlightIds}
+        spotlightRank={spotlightRank}
       />
     </div>
   );

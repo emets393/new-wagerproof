@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofModels
+import WagerproofServices
 
 // =====================================================================
 // AgentPickTicket — an agent pick rendered as a boarding-pass "ticket".
@@ -421,13 +422,18 @@ struct WagerproofTicketFooter: View {
 struct PickRouteLineRow: View {
     let pick: AgentPick
     let codeSize: CGFloat
+    /// Bumped after NBA/NCAAB identity tables load so the row redraws with
+    /// real marks instead of the first-frame initials.
+    @State private var identityEpoch = 0
 
     private var dotColor: Color { pick.ticketStatus.color }
     private var away: PickTeamVisual {
-        PickTicketFormat.teamVisual(pick.awayHomeNames?.away ?? pick.matchup, sport: pick.sport)
+        _ = identityEpoch
+        return PickTicketFormat.teamVisual(pick.awayHomeNames?.away ?? pick.matchup, sport: pick.sport)
     }
     private var home: PickTeamVisual {
-        PickTicketFormat.teamVisual(pick.awayHomeNames?.home ?? "", sport: pick.sport)
+        _ = identityEpoch
+        return PickTicketFormat.teamVisual(pick.awayHomeNames?.home ?? "", sport: pick.sport)
     }
 
     var body: some View {
@@ -435,6 +441,13 @@ struct PickRouteLineRow: View {
             teamEnd(visual: away)
             routeLine
             teamEnd(visual: home)
+        }
+        .task {
+            async let college: Void = CFBTeamsService.shared.ensureLoaded()
+            async let basketball: Void = NCAABTeamIdentityService.shared.ensureLoaded()
+            async let football: Void = NFLTeamsService.shared.ensureLoaded()
+            _ = await (college, basketball, football)
+            identityEpoch += 1
         }
     }
 
@@ -659,8 +672,15 @@ enum PickTicketFormat {
             return NFLTeamAssets.abbr(for: trimmed)
         case .cfb:
             return CFBTeamAssets.abbr(for: trimmed)
-        case .nba, .ncaab:
-            break
+        case .nba:
+            return NBATeams.abbreviation(for: trimmed)
+        case .ncaab:
+            if let code = NCAABTeamAssets.abbrev(for: trimmed), !code.isEmpty {
+                return code.uppercased()
+            }
+            if let code = CFBTeamAssets.team(for: trimmed)?.abbr, !code.isEmpty {
+                return code.uppercased()
+            }
         }
         let words = trimmed.split(separator: " ").map(String.init)
         if words.count >= 2 {
@@ -709,8 +729,26 @@ enum PickTicketFormat {
                 primary: colors.primary,
                 secondary: colors.secondary
             )
-        case .nba, .ncaab:
-            break
+        case .nba:
+            let colors = NBATeams.colorPair(for: trimmed)
+            return PickTeamVisual(
+                code: NBATeams.abbreviation(for: trimmed),
+                logoURL: NBATeams.logoURL(for: trimmed),
+                primary: colors.primary,
+                secondary: colors.secondary
+            )
+        case .ncaab:
+            let colors = NCAABTeamColors.colorPair(for: trimmed)
+            let mappedLogo = NCAABTeamAssets.logo(for: trimmed)
+            let mappedCode = NCAABTeamAssets.abbrev(for: trimmed)
+            let school = CFBTeamAssets.team(for: trimmed)
+            return PickTeamVisual(
+                code: (mappedCode?.isEmpty == false ? mappedCode : school?.abbr)?.uppercased()
+                    ?? teamCode(trimmed, sport: sport),
+                logoURL: mappedLogo ?? CFBTeamAssets.logo(for: trimmed),
+                primary: colors.primary,
+                secondary: colors.secondary
+            )
         }
 
         return PickTeamVisual(

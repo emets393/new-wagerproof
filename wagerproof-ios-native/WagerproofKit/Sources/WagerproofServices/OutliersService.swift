@@ -34,15 +34,11 @@ public actor OutliersService {
 
         // 1. NFL ----------------------------------------------------------
         do {
-            let anchor: [SlateWeekRow] = (try? await cfb
-                .from("nfl_slate_feed")
-                .select("season,week")
-                .order("season", ascending: false)
-                .order("week", ascending: false)
-                .limit(1)
-                .execute()
-                .value) ?? []
-            if let slate = anchor.first, let season = slate.season, let week = slate.week {
+            // Soonest UPCOMING kickoff (FootballSlateAnchor) — a max-week anchor would jump the
+            // board to next week on Monday morning and drop the still-bettable Monday-night game.
+            if let slate = await FootballSlateAnchor.currentWeek(cfb, table: "nfl_slate_feed") {
+                let season = slate.season
+                let week = slate.week
                 let nflRows: [NFLSlateOutlierRow] = try await cfb
                     .from("nfl_slate_feed")
                     .select("game_id,home_team,away_team,gameday,kickoff,fg_spread_close,fg_total_close,fg_ml_home_close,fg_ml_away_close")
@@ -76,15 +72,11 @@ public actor OutliersService {
 
         // 2. CFB ----------------------------------------------------------
         do {
-            let anchor: [SlateWeekRow] = (try? await cfb
-                .from("cfb_slate_feed")
-                .select("season,week")
-                .order("season", ascending: false)
-                .order("week", ascending: false)
-                .limit(1)
-                .execute()
-                .value) ?? []
-            if let slate = anchor.first, let season = slate.season, let week = slate.week {
+            // Soonest UPCOMING kickoff (FootballSlateAnchor) — a max-week anchor would jump the
+            // board to next week on Monday morning and drop the still-bettable Monday-night game.
+            if let slate = await FootballSlateAnchor.currentWeek(cfb, table: "cfb_slate_feed") {
+                let season = slate.season
+                let week = slate.week
                 let rows: [CFBSlateOutlierRow] = try await cfb
                     .from("cfb_slate_feed")
                     .select("game_id,home_team,away_team,kickoff,fg_spread_close,fg_total_close,fg_ml_home_close,fg_ml_away_close")
@@ -378,16 +370,7 @@ public actor OutliersService {
                     ))
                 }
             case .nba:
-                // RN: NBA only spread fades, threshold 9.5.
-                if let edge = game.homeSpreadDiff, abs(edge) >= 9.5 {
-                    alerts.append(OutlierFadeAlert(
-                        gameId: game.gameId, sport: .nba,
-                        awayTeam: game.awayTeam, homeTeam: game.homeTeam,
-                        pickType: .spread,
-                        predictedTeam: edge > 0 ? game.homeTeam : game.awayTeam,
-                        confidence: Int(abs(edge).rounded()), game: game
-                    ))
-                }
+                break // NBA has no fade alerts.
             case .ncaab:
                 if let edge = game.homeSpreadDiff, abs(edge) > 5 {
                     alerts.append(OutlierFadeAlert(
@@ -489,7 +472,7 @@ public actor OutliersService {
         if !nbaGames.isEmpty {
             let preds: [NBAPredictionRow] = (try? await cfb
                 .from("nba_predictions")
-                .select("game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc")
+                .select("game_id, home_win_prob, away_win_prob, run_id, as_of_ts_utc")
                 .execute()
                 .value) ?? []
             // Keep latest per game_id.

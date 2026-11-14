@@ -9,6 +9,7 @@ struct NCAABGameCard: View {
     /// Public-agent consensus, looked up by the feed host. Surfaces that don't
     /// fetch it (Search) leave it nil and the strip simply doesn't render.
     var consensus: GameAgentConsensus? = nil
+    var signalCount: Int = 0
     var onPress: () -> Void = {}
 
     var body: some View {
@@ -31,16 +32,16 @@ struct NCAABGameCard: View {
                 initials: TeamInitials.from(game.awayTeam),
                 moneyline: game.awayMl,
                 spread: game.awaySpread,
-                logoURL: nil,
-                colors: FallbackTeamColor.colorPair(for: game.awayTeam)
+                logoURL: game.awayTeamLogo,
+                colors: NCAABTeamColors.colorPair(for: game.awayTeam)
             ),
             home: GameRowCard.TeamSide(
                 abbr: homeAbbr,
                 initials: TeamInitials.from(game.homeTeam),
                 moneyline: game.homeMl,
                 spread: game.homeSpread,
-                logoURL: nil,
-                colors: FallbackTeamColor.colorPair(for: game.homeTeam)
+                logoURL: game.homeTeamLogo,
+                colors: NCAABTeamColors.colorPair(for: game.homeTeam)
             ),
             overLine: game.overLine,
             mlEdge: GameEdgeMath.mlEdge(
@@ -58,7 +59,8 @@ struct NCAABGameCard: View {
             awayTeamFullName: game.awayTeam,
             homeTeamFullName: game.homeTeam,
             oddsBreakdown: oddsBreakdown(awayAbbr: awayAbbr, homeAbbr: homeAbbr),
-            consensus: consensus
+            consensus: consensus,
+            signalCount: signalCount > 0 ? signalCount : nil
         )
     }
 

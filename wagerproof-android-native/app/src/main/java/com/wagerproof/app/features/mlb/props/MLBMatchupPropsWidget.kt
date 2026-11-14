@@ -75,6 +75,16 @@ fun MLBMatchupPropsWidget(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    com.wagerproof.app.features.paywall.TieredAccessGate(com.wagerproof.core.models.SubscriptionTier.PREMIUM, "Player Props") { MLBMatchupPropsWidgetContent(matchup, onSelect, onExpand, modifier) }
+}
+
+@Composable
+private fun MLBMatchupPropsWidgetContent(
+    matchup: MLBPropMatchup,
+    onSelect: (PlayerPropSelection) -> Unit,
+    onExpand: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val summary = MLBPropsInsight.summary(matchup) ?: return
     val items = PlayerPropFeed.items(listOf(matchup))
     val itemsById = items.associateBy { it.selection.playerId }

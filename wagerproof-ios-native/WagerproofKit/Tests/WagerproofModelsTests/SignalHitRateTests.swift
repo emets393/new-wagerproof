@@ -44,6 +44,23 @@ final class SignalHitRateTests: XCTestCase {
         XCTAssertNil(SignalHitRate.fraction("0%"))
     }
 
+    func testDoesNotChartRoiAsAHitRate() {
+        // P5 ATD Drift: profit-only typical_hit was scraped as 5.5% and shown
+        // as "loses to the vig" — the opposite of the copy.
+        XCTAssertNil(SignalHitRate.fraction("+5-6% ROI (n~1600/yr)"))
+        XCTAssertNil(SignalHitRate.fraction("+5% ROI"))
+    }
+
+    func testKeepsHitRateWhenRoiIsPairedAfterASlash() {
+        XCTAssertEqual(SignalHitRate.fraction("58-61% / +11-16% ROI")!, 0.595, accuracy: 1e-9)
+        XCTAssertEqual(
+            SignalHitRate.fraction("56.2% ATS / +7.2% ROI (n=349, wk4-11, 7/8 seasons)")!,
+            0.562,
+            accuracy: 1e-9
+        )
+        XCTAssertEqual(SignalHitRate.fraction("63–69% / +5–9% ROI [67,63]")!, 0.66, accuracy: 1e-9)
+    }
+
     func testKeepsTheDefaultBandForOrdinaryRates() {
         let window = SignalHitRate.window(for: 0.58)
         XCTAssertEqual(window.lower, 0.35, accuracy: 1e-9)

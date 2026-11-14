@@ -1,0 +1,47 @@
+{
+  "layout": "standard",
+  "slug": "what-is-kalshi",
+  "canonicalPath": "/guides/what-is-kalshi/",
+  "intent": "understand what Kalshi is, how its prices work, and how to research contracts",
+  "title": "What is Kalshi? How it works, what it costs, and how to research a contract",
+  "shortTitle": "What is Kalshi?",
+  "seoTitle": "What Is Kalshi? How It Works, Fees and Is It Legit",
+  "description": "What is Kalshi and how does it work? Prices, fees, legality, Kalshi vs Polymarket, a real NFL example and what a study found about long shots.",
+  "dek": "Kalshi is a federally regulated exchange where every price is a probability. Here is how the contracts, fees and legal fight work, and how to research a price instead of guessing.",
+  "category": "Market research",
+  "publishedAt": "2026-09-26",
+  "updatedAt": "2026-09-26",
+  "reviewedAt": "2026-09-26",
+  "nextReviewAt": "2026-10-26",
+  "readingTimeMinutes": 11,
+  "author": "chris-habib",
+  "hero": {
+    "src": "/guides/what-is-kalshi/what-is-kalshi-title-card-v1.webp",
+    "socialSrc": "/guides/what-is-kalshi/what-is-kalshi-social-v1.webp",
+    "width": 1672,
+    "height": 941,
+    "socialWidth": 1200,
+    "socialHeight": 630,
+    "alt": "What is Kalshi? title over a phone showing the Kalshi wordmark between a red falling arrow and a green rising arrow",
+    "caption": "AI-generated title card, not a Kalshi screenshot or an endorsement. The Kalshi name is a trademark of its owner, shown only to identify the subject. WagerProof is not affiliated with Kalshi.",
+    "source": "WagerProof editorial illustration"
+  },
+  "disclosure": "I am Chris Habib, founder of WagerProof. WagerProof is not affiliated with Kalshi or Polymarket and does not accept trades or wagers. This guide is educational and legally general; the legal status of sports contracts is changing, so check current rules for your state.",
+  "verdict": "Kalshi is a CFTC-regulated exchange where yes-or-no contracts trade from 1 to 99 cents and pay $1, so each price reads as a rough probability. That makes it easy to compare with a model or a sportsbook line. It does not make any contract a good trade: fees, spreads, state access and the long record of overpriced long shots all argue for research before any decision.",
+  "showSourcesSection": false,
+  "relatedSlugs": [
+    "prediction-markets-vs-sportsbook-odds",
+    "implied-probability-vs-true-probability",
+    "closing-line-value-sports-betting",
+    "how-wagerproof-analysis-works"
+  ],
+  "redirectAliases": [],
+  "faqs": [
+    {"question":"What is Kalshi?","answer":"Kalshi is a U.S. prediction market regulated by the CFTC. You buy and sell yes-or-no contracts on real events, including sports, elections and economics. Contracts trade between 1 and 99 cents and pay $1 if the event happens, so the price reads as a rough market-implied probability."},
+    {"question":"Is Kalshi legit and legal?","answer":"Kalshi has been a CFTC-designated contract market since November 2020 and won its 2024 court case against the CFTC over election contracts. Sports contracts are contested: as of September 26, 2026, several states are suing and federal appeals courts have split, so availability depends on your state and can change."},
+    {"question":"Is Kalshi gambling?","answer":"Kalshi says its contracts are federally regulated derivatives, while several states argue sports contracts are sports wagering. Courts have not settled the question. For personal decisions, treat a sports contract like any wager: risk only money you can afford to lose and set limits first."},
+    {"question":"How much are Kalshi fees?","answer":"For a taker order on a standard market, the fee schedule we checked charges 0.07 times contracts times price times one minus price, rounded up to the next cent. On 100 contracts that is about 6.3 percent of the stake at 10 cents and 2.1 percent at 70 cents. Check the current schedule before trading."},
+    {"question":"Kalshi vs Polymarket: what is the difference?","answer":"Both list yes-or-no shares priced between $0 and $1. Kalshi has been a CFTC-designated U.S. exchange since launch; Polymarket built a global crypto-based exchange and its U.S. arm received an amended CFTC designation in late 2025. Fees, markets and state access differ and change often."},
+    {"question":"Can you make money on Kalshi?","answer":"Some traders do, but a study of Kalshi data from 2021 to April 2025 found an average return of about negative 20 percent, and buyers of contracts at 10 cents or less lost over 60 percent. Any edge has to come from a better estimate than the price, after fees. Nothing guarantees a profit."}
+  ]
+}

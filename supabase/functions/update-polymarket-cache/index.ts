@@ -1,897 +1,327 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+// Hourly Polymarket cache refresh (pg_cron `update-polymarket-cache-hourly`).
+// Reads this week's games from the SAME slate tables the apps read, pulls just
+// the moneyline / spread / total markets for those games from gamma-api, then
+// writes price histories into `polymarket_markets` keyed exactly the way the
+// clients look them up. See README.md next to this file.
+import { createClient, type SupabaseClient as SupabaseJsClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import {
+  buildGameKey,
+  computeWindow,
+  eventInWindow,
+  isMainGameTitle,
+  legacyNflNames,
+  matchGameToEvent,
+  mergeMarketsIntoEvents,
+  pickMarkets,
+  type Game,
+  type League,
+  type MarketType,
+  type RefreshWindow,
+  type SlimEvent,
+} from './lib.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface NFLGame {
-  away_team: string;
-  home_team: string;
+const GAMMA_API = 'https://gamma-api.polymarket.com';
+const CLOB_API = 'https://clob.polymarket.com';
+const FETCH_HEADERS = { Accept: 'application/json', 'User-Agent': 'WagerProof-PolymarketCache/2.0' };
+
+// Sports-data project (CFB Supabase) — anon key, read-only views.
+const CFB_SUPABASE_URL = 'https://jpxnjuwglavsjbgbasnl.supabase.co';
+const CFB_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5qdXdnbGF2c2piZ2Jhc25sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTc4NjEsImV4cCI6MjA2ODI3Mzg2MX0.BjOHMysQh3wST-_UR6bJxHngRThlAmOOx4FfSVKRzWo';
+
+// gamma-api primary tag per league (confirmed against /sports on 2026-09-09).
+const TAG_IDS: Record<League, string> = { nfl: '450', cfb: '100351', ncaab: '102114', nba: '745', mlb: '100381' };
+
+// gamma-api's own market-type labels. Period/prop types (first_half_spreads,
+// baseball_team_inning2_winner, …) never reach us, which is the whole point.
+const SPORTS_MARKET_TYPES = ['moneyline', 'spreads', 'totals'];
+
+// CFB last: it has the biggest slate, so if anything is going to run long it
+// should not take NFL/MLB down with it.
+const LEAGUE_ORDER: League[] = ['nfl', 'mlb', 'nba', 'ncaab', 'cfb'];
+
+const PAGE_SIZE = 100; // gamma-api caps `limit` at 100 regardless of what is asked
+const MAX_PAGES = 25;
+const HISTORY_BATCH = 15;
+
+// deno-lint-ignore no-explicit-any
+type SupabaseClient = SupabaseJsClient<any, 'public', any>;
+
+interface LeagueStats {
+  games: number;
+  events: number;
+  matched: number;
+  unmatched: string[];
+  markets: number;
 }
 
-// NFL team mascots for matching Polymarket event titles
-const NFL_TEAM_MASCOTS: Record<string, string> = {
-  'Arizona': 'Cardinals',
-  'Atlanta': 'Falcons',
-  'Baltimore': 'Ravens',
-  'Buffalo': 'Bills',
-  'Carolina': 'Panthers',
-  'Chicago': 'Bears',
-  'Cincinnati': 'Bengals',
-  'Cleveland': 'Browns',
-  'Dallas': 'Cowboys',
-  'Denver': 'Broncos',
-  'Detroit': 'Lions',
-  'Green Bay': 'Packers',
-  'Houston': 'Texans',
-  'Indianapolis': 'Colts',
-  'Jacksonville': 'Jaguars',
-  'Kansas City': 'Chiefs',
-  'Las Vegas': 'Raiders',
-  'Los Angeles Chargers': 'Chargers',
-  'Los Angeles Rams': 'Rams',
-  'LA Chargers': 'Chargers',
-  'LA Rams': 'Rams',
-  'Miami': 'Dolphins',
-  'Minnesota': 'Vikings',
-  'New England': 'Patriots',
-  'New Orleans': 'Saints',
-  'NY Giants': 'Giants',
-  'NY Jets': 'Jets',
-  'Philadelphia': 'Eagles',
-  'Pittsburgh': 'Steelers',
-  'San Francisco': '49ers',
-  'Seattle': 'Seahawks',
-  'Tampa Bay': 'Buccaneers',
-  'Tennessee': 'Titans',
-  'Washington': 'Commanders',
-};
-
-// NBA teams - extract mascot from full name for Polymarket matching
-// Database has "Charlotte Hornets", Polymarket uses "Hornets"
-const NBA_TEAM_TO_MASCOT: Record<string, string> = {
-  'Atlanta Hawks': 'Hawks',
-  'Boston Celtics': 'Celtics',
-  'Brooklyn Nets': 'Nets',
-  'Charlotte Hornets': 'Hornets',
-  'Chicago Bulls': 'Bulls',
-  'Cleveland Cavaliers': 'Cavaliers',
-  'Dallas Mavericks': 'Mavericks',
-  'Denver Nuggets': 'Nuggets',
-  'Detroit Pistons': 'Pistons',
-  'Golden State Warriors': 'Warriors',
-  'Houston Rockets': 'Rockets',
-  'Indiana Pacers': 'Pacers',
-  'LA Clippers': 'Clippers',
-  'Los Angeles Clippers': 'Clippers',
-  'Los Angeles Lakers': 'Lakers',
-  'Memphis Grizzlies': 'Grizzlies',
-  'Miami Heat': 'Heat',
-  'Milwaukee Bucks': 'Bucks',
-  'Minnesota Timberwolves': 'Timberwolves',
-  'New Orleans Pelicans': 'Pelicans',
-  'New York Knicks': 'Knicks',
-  'Oklahoma City Thunder': 'Thunder',
-  'Orlando Magic': 'Magic',
-  'Philadelphia 76ers': '76ers',
-  'Phoenix Suns': 'Suns',
-  'Portland Trail Blazers': 'Trail Blazers',
-  'Sacramento Kings': 'Kings',
-  'San Antonio Spurs': 'Spurs',
-  'Toronto Raptors': 'Raptors',
-  'Utah Jazz': 'Jazz',
-  'Washington Wizards': 'Wizards',
-};
-
-// CFB teams - map common variations to Polymarket names
-const CFB_TEAM_MAPPINGS: Record<string, string> = {
-  'Ohio State': 'Ohio State',
-  'Michigan': 'Michigan',
-  'Alabama': 'Alabama',
-  'Georgia': 'Georgia',
-  'Texas': 'Texas',
-  'Oregon': 'Oregon',
-  'Penn State': 'Penn State',
-  'Notre Dame': 'Notre Dame',
-  'USC': 'USC',
-  'LSU': 'LSU',
-  'Clemson': 'Clemson',
-  'Florida State': 'Florida State',
-  'Florida': 'Florida',
-  'Tennessee': 'Tennessee',
-  'Oklahoma': 'Oklahoma',
-  'Texas A&M': 'Texas A&M',
-  'Auburn': 'Auburn',
-  'Ole Miss': 'Ole Miss',
-  'Miami': 'Miami',
-  'Washington': 'Washington',
-  'Wisconsin': 'Wisconsin',
-  'Iowa': 'Iowa',
-  'Utah': 'Utah',
-  'Oklahoma State': 'Oklahoma State',
-  'Kentucky': 'Kentucky',
-  'South Carolina': 'South Carolina',
-  'Mississippi State': 'Mississippi State',
-  'Arkansas': 'Arkansas',
-  'Missouri': 'Missouri',
-  'Kansas State': 'Kansas State',
-  'TCU': 'TCU',
-  'Baylor': 'Baylor',
-  'North Carolina': 'North Carolina',
-  'NC State': 'NC State',
-  'Virginia Tech': 'Virginia Tech',
-  'Pittsburgh': 'Pittsburgh',
-  'Louisville': 'Louisville',
-  'Jacksonville State': 'Jacksonville State',
-  'Middle Tennessee': 'Middle Tennessee',
-};
-
-// NCAAB-specific team name mappings: DB name -> Polymarket name
-// Handles cases where database abbreviations differ from Polymarket's full names
-const NCAAB_TEAM_MAPPINGS: Record<string, string> = {
-  // "U" prefix abbreviations
-  'UAlbany': 'Albany',
-  'UMass Lowell': 'Massachusetts Lowell',
-  'UMass': 'Massachusetts',
-  'UConn': 'Connecticut',
-  'UNC': 'North Carolina',
-  'UNC Wilmington': 'UNCW',
-  'UNC Greensboro': 'UNCG',
-  'UNC Asheville': 'UNC Asheville',
-  'UNLV': 'UNLV',
-  'UTEP': 'UTEP',
-  'UTSA': 'UTSA',
-  'UT Martin': 'UT Martin',
-  'UT Arlington': 'UT Arlington',
-  'UCF': 'UCF',
-  'UCLA': 'UCLA',
-  'UCSB': 'UC Santa Barbara',
-  'UCI': 'UC Irvine',
-  'UCD': 'UC Davis',
-  'UCR': 'UC Riverside',
-  // Directional/regional abbreviations
-  'ETSU': 'East Tennessee State',
-  'MTSU': 'Middle Tennessee',
-  'FGCU': 'Florida Gulf Coast',
-  'SFA': 'Stephen F Austin',
-  'SMU': 'SMU',
-  'VCU': 'VCU',
-  'BYU': 'BYU',
-  'TCU': 'TCU',
-  'LSU': 'LSU',
-  'USC': 'USC',
-  // Saint/St variations
-  "St. John's": "St Johns",
-  "Saint Mary's": "Saint Marys",
-  "St. Bonaventure": "St Bonaventure",
-  "St. Thomas": "St Thomas",
-  "Saint Peter's": "Saint Peters",
-  "St. Francis (PA)": "St Francis",
-  // Cal State / UC system
-  'Cal State Northridge': 'CSUN',
-  'Cal State Bakersfield': 'Bakersfield',
-  'Cal State Fullerton': 'Cal State Fullerton',
-  'Cal Poly': 'Cal Poly',
-  'UC Irvine': 'UC Irvine',
-  'UC San Diego': 'California San Diego',
-  'UC Davis': 'UC Davis',
-  'UC Riverside': 'UC Riverside',
-  'UC Santa Barbara': 'UC Santa Barbara',
-  'Long Beach State': 'Long Beach State',
-  // Other common variations
-  'Queens University': 'Queens',
-  'Long Island University': 'LIU',
-  'Ole Miss': 'Ole Miss',
-  'Loyola Chicago': 'Loyola Chicago',
-  'Loyola Marymount': 'Loyola Marymount',
-  'Miami (OH)': 'Miami OH',
-  'Miami (FL)': 'Miami',
-  'LIU': 'LIU',
-  'NJIT': 'NJIT',
-  'SIU Edwardsville': 'SIU Edwardsville',
-  'Southern Indiana': 'Southern Indiana',
-  'Southeast Missouri State': 'Southeast Missouri State',
-  'Purdue Fort Wayne': 'Purdue Fort Wayne',
-  'Little Rock': 'Little Rock',
-  'Central Arkansas': 'Central Arkansas',
-};
-
-// Get team mascot from database team name (NFL only)
-function getTeamMascot(teamName: string): string {
-  // Check if it's already a mascot
-  if (Object.values(NFL_TEAM_MASCOTS).includes(teamName)) {
-    return teamName;
-  }
-  // Check if it's a city name
-  return NFL_TEAM_MASCOTS[teamName] || teamName;
+interface TokenJob {
+  tokenId: string;
+  marketType: MarketType;
+  question: string;
+  league: League;
+  targets: Array<{ gameKey: string; away_team: string; home_team: string }>;
 }
 
-// MLB teams - Polymarket and DB both use full names (e.g., "New York Yankees")
-// Map common DB variations to Polymarket names
-const MLB_TEAM_MAPPINGS: Record<string, string> = {
-  'Arizona Diamondbacks': 'Arizona Diamondbacks',
-  'Atlanta Braves': 'Atlanta Braves',
-  'Baltimore Orioles': 'Baltimore Orioles',
-  'Boston Red Sox': 'Boston Red Sox',
-  'Chicago Cubs': 'Chicago Cubs',
-  'Chicago White Sox': 'Chicago White Sox',
-  'Cincinnati Reds': 'Cincinnati Reds',
-  'Cleveland Guardians': 'Cleveland Guardians',
-  'Colorado Rockies': 'Colorado Rockies',
-  'Detroit Tigers': 'Detroit Tigers',
-  'Houston Astros': 'Houston Astros',
-  'Kansas City Royals': 'Kansas City Royals',
-  'Los Angeles Angels': 'Los Angeles Angels',
-  'Los Angeles Dodgers': 'Los Angeles Dodgers',
-  'Miami Marlins': 'Miami Marlins',
-  'Milwaukee Brewers': 'Milwaukee Brewers',
-  'Minnesota Twins': 'Minnesota Twins',
-  'New York Mets': 'New York Mets',
-  'New York Yankees': 'New York Yankees',
-  'Oakland Athletics': 'Oakland Athletics',
-  'Philadelphia Phillies': 'Philadelphia Phillies',
-  'Pittsburgh Pirates': 'Pittsburgh Pirates',
-  'San Diego Padres': 'San Diego Padres',
-  'San Francisco Giants': 'San Francisco Giants',
-  'Seattle Mariners': 'Seattle Mariners',
-  'St. Louis Cardinals': 'St. Louis Cardinals',
-  'St Louis Cardinals': 'St. Louis Cardinals',
-  'Tampa Bay Rays': 'Tampa Bay Rays',
-  'Texas Rangers': 'Texas Rangers',
-  'Toronto Blue Jays': 'Toronto Blue Jays',
-  'Washington Nationals': 'Washington Nationals',
-};
-
-// Get team name for matching with Polymarket format
-// NFL: uses mascots (Ravens, Dolphins)
-// NBA: uses mascots (Hornets, Bucks) - extract from full name
-// CFB: uses school names (Ohio State, Michigan)
-// NCAAB: Note - Polymarket uses full names like "Duke Blue Devils" but database has "Duke"
-//        The matching function will handle this via flexible matching
-// MLB: uses full team names (New York Yankees, etc.)
-function getTeamName(teamName: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb'): string {
-  if (league === 'nba') {
-    // NBA: Extract mascot from full name (Charlotte Hornets -> Hornets)
-    const mascot = NBA_TEAM_TO_MASCOT[teamName];
-    if (mascot) {
-      console.log(`NBA team mapping: "${teamName}" -> "${mascot}"`);
-      return mascot;
-    }
-    // Fallback: try to extract last word as mascot
-    const parts = teamName.split(' ');
-    const extracted = parts[parts.length - 1];
-    console.log(`NBA team fallback: "${teamName}" -> "${extracted}"`);
-    return extracted;
-  }
-  if (league === 'ncaab') {
-    // NCAAB: Check NCAAB-specific mappings first, then CFB mappings, then use as-is
-    return NCAAB_TEAM_MAPPINGS[teamName] || CFB_TEAM_MAPPINGS[teamName] || teamName;
-  }
-  if (league === 'cfb') {
-    return CFB_TEAM_MAPPINGS[teamName] || teamName;
-  }
-  if (league === 'mlb') {
-    return MLB_TEAM_MAPPINGS[teamName] || teamName;
-  }
-  // NFL uses mascot-based names
-  return getTeamMascot(teamName);
-}
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startedAt = new Date();
+  const body = await req.json().catch(() => ({}));
+  // dry_run: fetch + match + report, but never write. Handy for checking a slate.
+  const dryRun = body?.dry_run === true;
+
   try {
-    // Initialize Supabase client for main project (for polymarket_markets table)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const main = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const sports = createClient(CFB_SUPABASE_URL, CFB_SUPABASE_ANON_KEY);
+    const window = computeWindow(startedAt);
 
-    // Initialize College Football Supabase client (for nfl_predictions_epa table)
-    const cfbUrl = 'https://jpxnjuwglavsjbgbasnl.supabase.co';
-    const cfbAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5qdXdnbGF2c2piZ2Jhc25sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTc4NjEsImV4cCI6MjA2ODI3Mzg2MX0.BjOHMysQh3wST-_UR6bJxHngRThlAmOOx4FfSVKRzWo';
-    const cfbSupabase = createClient(cfbUrl, cfbAnonKey);
-
-    console.log('🔄 Starting Polymarket cache update...');
-
-    // Step 1: Get current games for NFL, CFB, NCAAB, and NBA
-    const today = new Date().toISOString().split('T')[0];
-    // Fetch games for next 7 days (matching frontend logic)
-    const weekFromNow = new Date();
-    weekFromNow.setDate(weekFromNow.getDate() + 7);
-    const weekFromNowStr = weekFromNow.toISOString().split('T')[0];
-    
-    // Fetch NFL games
-    const { data: nflLines, error: nflError } = await cfbSupabase
-      .from('nfl_betting_lines')
-      .select('away_team, home_team, game_date, training_key')
-      .gte('game_date', today)
-      .lte('game_date', weekFromNowStr);
-
-    if (nflError) {
-      console.error('Error fetching NFL betting lines:', nflError);
-    }
-
-    // Fetch CFB games
-    const { data: cfbGames, error: cfbError } = await cfbSupabase
-      .from('cfb_live_weekly_inputs')
-      .select('away_team, home_team');
-
-    if (cfbError) {
-      console.error('Error fetching CFB games:', cfbError);
-    }
-
-    // Fetch NCAAB games
-    const { data: ncaabGames, error: ncaabError } = await cfbSupabase
-      .from('v_cbb_input_values')
-      .select('away_team, home_team, game_date_et')
-      .gte('game_date_et', today)
-      .lte('game_date_et', weekFromNowStr);
-
-    if (ncaabError) {
-      console.error('Error fetching NCAAB games:', ncaabError);
-    }
-
-    // Fetch MLB games from mlb_games_today
-    let mlbGames: any[] = [];
-    try {
-      const { data: mlbData, error: mlbError } = await cfbSupabase
-        .from('mlb_games_today')
-        .select('away_team_name, home_team_name, official_date')
-        .gte('official_date', today)
-        .lte('official_date', weekFromNowStr);
-
-      if (!mlbError && mlbData) {
-        // Map to standard format
-        mlbGames = mlbData.map((g: any) => ({
-          away_team: g.away_team_name,
-          home_team: g.home_team_name,
-        }));
-        console.log(`⚾ Found ${mlbGames.length} MLB games from mlb_games_today`);
-      } else if (mlbError) {
-        console.error('Error fetching MLB games:', mlbError);
-      }
-    } catch (e) {
-      console.log('MLB games table may not exist, skipping...', e);
-    }
-
-    // Fetch NBA games from nba_input_values_view (same view used by NBA page)
-    let nbaGames: any[] = [];
-    try {
-      const { data: nbaData, error: nbaError } = await cfbSupabase
-        .from('nba_input_values_view')
-        .select('away_team, home_team, game_date')
-        .gte('game_date', today)
-        .lte('game_date', weekFromNowStr);
-      
-      if (!nbaError && nbaData) {
-        nbaGames = nbaData;
-        console.log(`📋 Found ${nbaGames.length} NBA games from nba_input_values_view`);
-      } else if (nbaError) {
-        console.error('Error fetching NBA games:', nbaError);
-      }
-    } catch (e) {
-      console.log('NBA games view may not exist, skipping...', e);
-    }
-
-    // Combine and tag with league
-    const allGames: Array<{ away_team: string; home_team: string; league: 'nfl' | 'cfb' | 'ncaab' | 'nba' | 'mlb'; training_key?: string }> = [];
-    
-    if (nflLines && nflLines.length > 0) {
-      // Deduplicate NFL by training_key
-      const nflMap = new Map<string, any>();
-      for (const line of nflLines) {
-        if (!nflMap.has(line.training_key)) {
-          nflMap.set(line.training_key, { ...line, league: 'nfl' });
-        }
-      }
-      allGames.push(...Array.from(nflMap.values()));
-    }
-
-    if (cfbGames && cfbGames.length > 0) {
-      allGames.push(...cfbGames.map(g => ({ ...g, league: 'cfb' as const })));
-    }
-
-    if (ncaabGames && ncaabGames.length > 0) {
-      allGames.push(...ncaabGames.map(g => ({ ...g, league: 'ncaab' as const })));
-    }
-
-    if (nbaGames && nbaGames.length > 0) {
-      allGames.push(...nbaGames.map(g => ({ ...g, league: 'nba' as const })));
-    }
-
-    if (mlbGames && mlbGames.length > 0) {
-      allGames.push(...mlbGames.map(g => ({ ...g, league: 'mlb' as const })));
-    }
-
-    if (allGames.length === 0) {
-      console.log('No games found to update');
-      return new Response(
-        JSON.stringify({ success: true, message: 'No games to update', updated: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`📊 Found ${allGames.length} games to update (${nflLines?.length || 0} NFL, ${cfbGames?.length || 0} CFB, ${ncaabGames?.length || 0} NCAAB, ${nbaGames?.length || 0} NBA, ${mlbGames?.length || 0} MLB)`);
-
-    // Step 2: Get tag IDs for all leagues (using hardcoded values for CBB and NBA)
-    // Fetch sports metadata for NFL and CFB
-    const sportsResponse = await fetch('https://gamma-api.polymarket.com/sports', {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'WagerProof-PolymarketCache/1.0'
-      }
-    });
-
-    let nflTagId: string | null = null;
-    let cfbTagId: string | null = null;
-
-    if (sportsResponse.ok) {
-      const sportsList = await sportsResponse.json();
-      
-      // Get NFL tag
-      const nflSport = sportsList.find((s: any) => s.sport?.toLowerCase() === 'nfl');
-      const nflTagCandidates = nflSport?.tags.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
-      nflTagId = nflTagCandidates.find((t: string) => t !== '1') || nflTagCandidates[0];
-
-      // Get CFB tag
-      const cfbSport = sportsList.find((s: any) => s.sport?.toLowerCase() === 'cfb');
-      const cfbTagCandidates = cfbSport?.tags.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
-      cfbTagId = cfbTagCandidates.find((t: string) => t !== '1') || cfbTagCandidates[0];
-    }
-
-    // Use hardcoded tag IDs for CBB, NBA, and MLB (these are the correct ones)
-    const ncaabTagId = '102114'; // CBB tag ID
-    const nbaTagId = '745'; // NBA tag ID
-    const mlbTagId = '100381'; // MLB tag ID
-
-    console.log(`🏈 NFL tag ID: ${nflTagId}, 🏈 CFB tag ID: ${cfbTagId}, 🏀 NCAAB tag ID: ${ncaabTagId}, 🏀 NBA tag ID: ${nbaTagId}, ⚾ MLB tag ID: ${mlbTagId}`);
-
-    // Step 3: Fetch events for all leagues
-    const allEvents: Array<{ event: any; league: 'nfl' | 'cfb' | 'ncaab' | 'nba' | 'mlb' }> = [];
-
-    // Helper to fetch ALL events for a tag with pagination (Polymarket caps at 100 per request)
-    async function fetchAllEventsForTag(tagId: string, leagueName: string): Promise<any[]> {
-      const allLeagueEvents: any[] = [];
-      let offset = 0;
-      const pageSize = 100;
-      const maxPages = 10; // Safety limit: 1000 events max per league
-
-      for (let page = 0; page < maxPages; page++) {
-        const url = `https://gamma-api.polymarket.com/events?tag_id=${tagId}&closed=false&limit=${pageSize}&offset=${offset}&related_tags=true`;
-        const response = await fetch(url, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'WagerProof-PolymarketCache/1.0'
-          }
-        });
-
-        if (!response.ok) {
-          console.error(`❌ Failed to fetch ${leagueName} events page ${page + 1}: ${response.status}`);
-          break;
-        }
-
-        const responseData = await response.json();
-        const pageEvents = Array.isArray(responseData) ? responseData : (responseData.events || responseData.data || []);
-        
-        if (pageEvents.length === 0) break; // No more events
-        
-        allLeagueEvents.push(...pageEvents);
-        console.log(`📋 ${leagueName} page ${page + 1}: fetched ${pageEvents.length} events (total so far: ${allLeagueEvents.length})`);
-        
-        if (pageEvents.length < pageSize) break; // Last page (partial)
-        offset += pageSize;
-      }
-
-      return allLeagueEvents;
-    }
-
-    // Fetch events for all leagues in parallel
-    const eventFetches: Promise<void>[] = [];
-    
-    if (nflTagId) {
-      eventFetches.push(fetchAllEventsForTag(nflTagId, 'NFL').then(events => {
-        allEvents.push(...events.map((e: any) => ({ event: e, league: 'nfl' as const })));
-        console.log(`📋 Found ${events.length} total NFL events on Polymarket`);
-      }));
-    }
-    if (cfbTagId) {
-      eventFetches.push(fetchAllEventsForTag(cfbTagId, 'CFB').then(events => {
-        allEvents.push(...events.map((e: any) => ({ event: e, league: 'cfb' as const })));
-        console.log(`📋 Found ${events.length} total CFB events on Polymarket`);
-      }));
-    }
-    if (ncaabTagId) {
-      eventFetches.push(fetchAllEventsForTag(ncaabTagId, 'NCAAB').then(events => {
-        allEvents.push(...events.map((e: any) => ({ event: e, league: 'ncaab' as const })));
-        console.log(`📋 Found ${events.length} total NCAAB events on Polymarket`);
-      }));
-    }
-    if (nbaTagId) {
-      eventFetches.push(fetchAllEventsForTag(nbaTagId, 'NBA').then(events => {
-        allEvents.push(...events.map((e: any) => ({ event: e, league: 'nba' as const })));
-        console.log(`📋 Found ${events.length} total NBA events on Polymarket`);
-      }));
-    }
-    if (mlbTagId) {
-      eventFetches.push(fetchAllEventsForTag(mlbTagId, 'MLB').then(events => {
-        allEvents.push(...events.map((e: any) => ({ event: e, league: 'mlb' as const })));
-        console.log(`⚾ Found ${events.length} total MLB events on Polymarket`);
-      }));
-    }
-
-    await Promise.all(eventFetches);
-
-    // Filter events to only include games (vs/@ pattern) - excludes props, futures, etc.
-    const gameEvents = allEvents.filter((e: any) => {
-      const title = e.event.title || '';
-      return title.includes(' vs. ') || title.includes(' @ ');
-    });
-    console.log(`🔍 Filtered to ${gameEvents.length} game events (from ${allEvents.length} total events)`);
-
-    // Step 3.5: Cache the events list for each league
-    console.log('💾 Caching events list...');
-    const leagueTypes: Array<'nfl' | 'cfb' | 'ncaab' | 'nba' | 'mlb'> = ['nfl', 'cfb', 'ncaab', 'nba', 'mlb'];
-
-    for (const league of leagueTypes) {
-      const leagueEvents = gameEvents.filter(e => e.league === league).map(e => e.event);
-      const tagId = league === 'nfl' ? nflTagId :
-                    league === 'cfb' ? cfbTagId :
-                    league === 'ncaab' ? ncaabTagId :
-                    league === 'nba' ? nbaTagId :
-                    mlbTagId;
-      
-      if (!tagId) continue;
-      
-      try {
-        const { error: cacheError } = await supabase
-          .from('polymarket_events')
-          .upsert({
-            league,
-            tag_id: tagId,
-            events: leagueEvents,
-            event_count: leagueEvents.length,
-            last_updated: new Date().toISOString(),
-          }, {
-            onConflict: 'league'
-          });
-        
-        if (cacheError) {
-          console.error(`❌ Error caching ${league.toUpperCase()} events:`, cacheError);
-        } else {
-          console.log(`✅ Cached ${leagueEvents.length} ${league.toUpperCase()} events`);
-        }
-      } catch (err) {
-        console.error(`❌ Error caching ${league.toUpperCase()} events:`, err);
-      }
-    }
-
-    let updatedCount = 0;
+    const games = await loadGames(sports, startedAt, window);
+    const stats = {} as Record<League, LeagueStats>;
     const errors: string[] = [];
-    const debugInfo: any[] = [];
-    
-    // Track processing stats by league
-    const leagueStats = {
-      nfl: { total: 0, matched: 0, markets: 0 },
-      cfb: { total: 0, matched: 0, markets: 0 },
-      ncaab: { total: 0, matched: 0, markets: 0 },
-      nba: { total: 0, matched: 0, markets: 0 },
-      mlb: { total: 0, matched: 0, markets: 0 }
-    };
+    let updated = 0;
 
-    // Pre-index league events for fast lookup (avoid re-filtering per game)
-    const leagueEventsMap: Record<string, any[]> = {};
-    for (const league of ['nfl', 'cfb', 'ncaab', 'nba', 'mlb'] as const) {
-      leagueEventsMap[league] = gameEvents.filter(e => e.league === league).map(e => e.event);
-    }
-
-    // Step 4a: Match all games to events and collect market tasks (fast, in-memory)
-    interface MarketTask {
-      gameKey: string;
-      league: string;
-      away_team: string;
-      home_team: string;
-      marketType: string;
-      tokenId: string;
-      question: string;
-    }
-    const marketTasks: MarketTask[] = [];
-
-    for (const game of allGames) {
-      leagueStats[game.league].total++;
-      const gameKey = `${game.league}_${game.away_team}_${game.home_team}`;
-
-      const leagueEvents = leagueEventsMap[game.league] || [];
-      const event = findMatchingEvent(leagueEvents, game.away_team, game.home_team, game.league);
-      
-      if (!event) {
-        debugInfo.push({
-          game: gameKey, league: game.league,
-          awayTeam: game.away_team, homeTeam: game.home_team,
-          awayName: getTeamName(game.away_team, game.league),
-          homeName: getTeamName(game.home_team, game.league),
-          matched: false
-        });
+    for (const league of LEAGUE_ORDER) {
+      const leagueGames = games[league];
+      if (leagueGames.length === 0) {
+        console.log(`⏭️ ${league.toUpperCase()}: no games in window, skipping`);
         continue;
       }
 
-      leagueStats[game.league].matched++;
-      debugInfo.push({
-        game: gameKey, league: game.league,
-        awayTeam: game.away_team, homeTeam: game.home_team,
-        matched: true, eventTitle: event.title
-      });
+      const events = await fetchLeagueEvents(league, window);
+      console.log(`📋 ${league.toUpperCase()}: ${events.length} game events for ${leagueGames.length} slate games`);
 
-      const markets = extractMarkets(event);
-      for (const [marketType, marketData] of Object.entries(markets)) {
-        if (!marketData) continue;
-        marketTasks.push({
-          gameKey, league: game.league,
-          away_team: game.away_team, home_team: game.home_team,
-          marketType, tokenId: marketData.tokenId, question: marketData.question,
+      if (!dryRun) await cacheEvents(main, league, events, errors);
+
+      const jobs = new Map<string, TokenJob>();
+      const leagueStats: LeagueStats = { games: leagueGames.length, events: events.length, matched: 0, unmatched: [], markets: 0 };
+
+      for (const game of leagueGames) {
+        const event = matchGameToEvent(events, game);
+        if (!event) {
+          leagueStats.unmatched.push(`${game.away_team} @ ${game.home_team}`);
+          continue;
+        }
+        leagueStats.matched++;
+
+        const picks = pickMarkets(event);
+        const targets = [{ gameKey: buildGameKey(league, game.away_team, game.home_team), away_team: game.away_team, home_team: game.home_team }];
+        if (league === 'nfl') {
+          const legacy = legacyNflNames(game);
+          if (legacy) targets.push({ gameKey: buildGameKey('nfl', legacy.away_team, legacy.home_team), ...legacy });
+        }
+
+        for (const marketType of ['moneyline', 'spread', 'total'] as MarketType[]) {
+          const pick = picks[marketType];
+          if (!pick) continue;
+          // One CLOB fetch per token even when it lands under two keys.
+          const job = jobs.get(pick.tokenId) ?? { tokenId: pick.tokenId, marketType, question: pick.question, league, targets: [] };
+          job.targets.push(...targets);
+          jobs.set(pick.tokenId, job);
+        }
+      }
+
+      const refreshedKeys = new Set<string>();
+      const jobList = [...jobs.values()];
+      for (let i = 0; i < jobList.length; i += HISTORY_BATCH) {
+        const batch = jobList.slice(i, i + HISTORY_BATCH);
+        const results = await Promise.all(batch.map((job) => refreshToken(main, job, startedAt, dryRun)));
+        results.forEach((ok, idx) => {
+          if (!ok.ok) {
+            errors.push(`${batch[idx].targets[0]?.gameKey}-${batch[idx].marketType}: ${ok.reason}`);
+            return;
+          }
+          updated += batch[idx].targets.length;
+          leagueStats.markets += batch[idx].targets.length;
+          for (const t of batch[idx].targets) refreshedKeys.add(t.gameKey);
         });
       }
+
+      if (!dryRun) await dropStaleRows(main, refreshedKeys, startedAt, errors);
+      stats[league] = leagueStats;
+      console.log(`✅ ${league.toUpperCase()}: matched ${leagueStats.matched}/${leagueStats.games}, ${leagueStats.markets} market rows`);
     }
 
-    console.log(`📊 Matched games - NFL: ${leagueStats.nfl.matched}/${leagueStats.nfl.total}, CFB: ${leagueStats.cfb.matched}/${leagueStats.cfb.total}, NCAAB: ${leagueStats.ncaab.matched}/${leagueStats.ncaab.total}, NBA: ${leagueStats.nba.matched}/${leagueStats.nba.total}, MLB: ${leagueStats.mlb.matched}/${leagueStats.mlb.total}`);
-    console.log(`📋 Total market tasks to fetch: ${marketTasks.length}`);
-
-    // Step 4b: Fetch price histories and upsert in parallel batches
-    const BATCH_SIZE = 15; // Process 15 markets concurrently
-    
-    async function processMarketTask(task: MarketTask): Promise<boolean> {
-      try {
-        const priceUrl = `https://clob.polymarket.com/prices-history?market=${task.tokenId}&interval=max&fidelity=60`;
-        const priceResponse = await fetch(priceUrl);
-        
-        if (!priceResponse.ok) return false;
-
-        const priceData = await priceResponse.json();
-        const history = priceData.history || [];
-        if (history.length === 0) return false;
-
-        const latest = history[history.length - 1];
-        const currentAwayOdds = Math.round(latest.p * 100);
-        const currentHomeOdds = 100 - currentAwayOdds;
-
-        const { error: upsertError } = await supabase
-          .from('polymarket_markets')
-          .upsert({
-            game_key: task.gameKey,
-            league: task.league,
-            away_team: task.away_team,
-            home_team: task.home_team,
-            market_type: task.marketType,
-            price_history: history,
-            current_away_odds: currentAwayOdds,
-            current_home_odds: currentHomeOdds,
-            token_id: task.tokenId,
-            question: task.question,
-            last_updated: new Date().toISOString(),
-          }, { onConflict: 'game_key,market_type' });
-
-        if (upsertError) {
-          errors.push(`${task.gameKey}-${task.marketType}: ${upsertError.message}`);
-          return false;
-        }
-        return true;
-      } catch (err) {
-        errors.push(`${task.gameKey}-${task.marketType}: ${err.message}`);
-        return false;
-      }
-    }
-
-    // Process in batches for controlled parallelism
-    for (let i = 0; i < marketTasks.length; i += BATCH_SIZE) {
-      const batch = marketTasks.slice(i, i + BATCH_SIZE);
-      const results = await Promise.all(batch.map(processMarketTask));
-      const batchSuccesses = results.filter(Boolean).length;
-      updatedCount += batchSuccesses;
-      
-      // Attribute successes to league stats
-      for (let j = 0; j < batch.length; j++) {
-        if (results[j]) {
-          leagueStats[batch[j].league as keyof typeof leagueStats].markets++;
-        }
-      }
-      
-      console.log(`⚡ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(marketTasks.length / BATCH_SIZE)}: ${batchSuccesses}/${batch.length} succeeded`);
-    }
-
-    console.log(`\n✅ Cache update complete! Updated ${updatedCount}/${marketTasks.length} markets`);
-    console.log(`📊 League Stats:`, JSON.stringify(leagueStats, null, 2));
-    if (errors.length > 0) {
-      console.log(`⚠️ Errors: ${errors.length}`);
-    }
+    const durationMs = Date.now() - startedAt.getTime();
+    console.log(`🏁 Done in ${durationMs}ms — ${updated} rows${dryRun ? ' (dry run)' : ''}, ${errors.length} errors`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        updated: updatedCount,
-        totalMarketTasks: marketTasks.length,
-        games: allGames.length,
-        nflGames: allGames.filter(g => g.league === 'nfl').length,
-        cfbGames: allGames.filter(g => g.league === 'cfb').length,
-        ncaabGames: allGames.filter(g => g.league === 'ncaab').length,
-        nbaGames: allGames.filter(g => g.league === 'nba').length,
-        mlbGames: allGames.filter(g => g.league === 'mlb').length,
-        leagueStats: leagueStats,
-        errors: errors.length > 0 ? errors : undefined,
-        debug: debugInfo.slice(0, 10),
-        availableEvents: allEvents.slice(0, 5).map((e: any) => ({ title: e.event.title, league: e.league }))
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: true, dryRun, updated, durationMs, stats, errors: errors.length ? errors : undefined }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
-
   } catch (error) {
     console.error('Fatal error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
 
-// Helper: Parse teams from Polymarket title "Team A vs. Team B" or "Team A @ Team B"
-function parseTeamsFromTitle(title: string): { team1: string; team2: string } | null {
-  // Try "vs." first, then "@"
-  let parts = title.split(' vs. ');
-  if (parts.length !== 2) {
-    parts = title.split(' @ ');
-  }
-  if (parts.length !== 2) return null;
-  return { team1: parts[0].trim(), team2: parts[1].trim() };
-}
+// ---------------------------------------------------------------------------
+// Slate games
+// ---------------------------------------------------------------------------
 
-// Helper: Find matching event
-function findMatchingEvent(events: any[], awayTeam: string, homeTeam: string, league: 'nfl' | 'cfb' | 'nba' | 'ncaab' | 'mlb'): any | null {
-  // Replace non-alphanumeric chars with spaces (not remove them) so hyphens become word boundaries
-  // e.g., "Massachusetts-Lowell" -> "massachusetts lowell" (not "massachusettslowell")
-  const cleanName = (name: string) => name.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  
-  // Get team names for matching (mascots for NFL, full names for CFB/NCAAB/NBA)
-  const awayName = getTeamName(awayTeam, league);
-  const homeName = getTeamName(homeTeam, league);
-  
-  console.log(`🔍 Looking for ${league.toUpperCase()}: ${awayTeam} (${awayName}) vs ${homeTeam} (${homeName})`);
-  
-  // Check if a DB team name matches one side of a Polymarket title
-  // Splits the Polymarket team side into words, checks if the DB name appears as a substring
-  const teamMatchesSide = (dbTeamName: string, polymarketSide: string): boolean => {
-    const dbClean = cleanName(dbTeamName);
-    const sideClean = cleanName(polymarketSide);
-    
-    // First: try full name as substring (handles "Penn State" in "Penn State Nittany Lions")
-    if (sideClean.includes(dbClean)) return true;
-    
-    // Second: for single-word names, check word-level match (handles "Duke" in "Duke Blue Devils")
-    const dbWords = dbClean.split(/\s+/);
-    if (dbWords.length === 1 && dbWords[0].length > 2) {
-      const sideWords = sideClean.split(/\s+/);
-      return sideWords.some(w => w === dbWords[0] || w.startsWith(dbWords[0]));
-    }
-    
-    return false;
-  };
-  
-  for (const event of events) {
-    const title = event.title || '';
-    const parsed = parseTeamsFromTitle(title);
-    if (!parsed) continue;
-    
-    // Match each DB team against each SIDE of the title independently
-    // This prevents "Penn State" matching the wrong side in "Michigan State vs Temple"
-    const awayMatchesSide1 = teamMatchesSide(awayName, parsed.team1) || teamMatchesSide(awayTeam, parsed.team1);
-    const homeMatchesSide2 = teamMatchesSide(homeName, parsed.team2) || teamMatchesSide(homeTeam, parsed.team2);
-    const awayMatchesSide2 = teamMatchesSide(awayName, parsed.team2) || teamMatchesSide(awayTeam, parsed.team2);
-    const homeMatchesSide1 = teamMatchesSide(homeName, parsed.team1) || teamMatchesSide(homeTeam, parsed.team1);
-    
-    // Normal order: away matches side1, home matches side2
-    // Reversed order: away matches side2, home matches side1
-    if ((awayMatchesSide1 && homeMatchesSide2) || (awayMatchesSide2 && homeMatchesSide1)) {
-      console.log(`✅ Matched: "${title}"`);
-      return event;
-    }
-  }
-  
-  console.log(`❌ No match found for ${awayTeam} vs ${homeTeam}`);
-  return null;
-}
+async function loadGames(sports: SupabaseClient, now: Date, w: RefreshWindow): Promise<Record<League, Game[]>> {
+  const out: Record<League, Game[]> = { nfl: [], cfb: [], ncaab: [], nba: [], mlb: [] };
+  const today = now.toISOString().slice(0, 10);
+  const weekOut = w.gameStartMax.toISOString().slice(0, 10);
 
-// Helper: Extract markets from /events endpoint response
-function extractMarkets(event: any): Record<string, { tokenId: string; question: string } | null> {
-  const result: Record<string, { tokenId: string; question: string } | null> = {
-    moneyline: null,
-    spread: null,
-    total: null,
+  // NFL + CFB: the slate feeds are what web/iOS/Android render, so their team
+  // strings are the ones the clients put in the cache key. Do NOT switch these
+  // back to nfl_betting_lines / cfb_live_weekly_inputs — the short names there
+  // are why every NFL lookup missed in Sept 2026, and the CFB table is dead.
+  const [nfl, cfb, ncaab, nba, mlb] = await Promise.all([
+    sports.from('nfl_slate_feed').select('away_team, home_team, away_ab, home_ab, kickoff')
+      .gte('kickoff', w.gameStartMin.toISOString()).lte('kickoff', w.gameStartMax.toISOString()),
+    sports.from('cfb_slate_feed').select('away_team, home_team, kickoff')
+      .gte('kickoff', w.gameStartMin.toISOString()).lte('kickoff', w.gameStartMax.toISOString()),
+    sports.from('v_cbb_input_values').select('away_team, home_team, game_date_et')
+      .gte('game_date_et', today).lte('game_date_et', weekOut),
+    sports.from('nba_input_values_view').select('away_team, home_team, game_date')
+      .gte('game_date', today).lte('game_date', weekOut),
+    sports.from('mlb_games_today').select('away_team_name, home_team_name, official_date')
+      .gte('official_date', today).lte('official_date', weekOut),
+  ]);
+
+  const push = (league: League, rows: Array<Record<string, unknown>> | null, error: { message: string } | null, away = 'away_team', home = 'home_team') => {
+    if (error) {
+      console.error(`Error fetching ${league.toUpperCase()} games:`, error.message);
+      return;
+    }
+    const seen = new Set<string>();
+    for (const row of rows ?? []) {
+      const awayTeam = String(row[away] ?? '').trim();
+      const homeTeam = String(row[home] ?? '').trim();
+      if (!awayTeam || !homeTeam) continue;
+      const dedupe = `${awayTeam}|${homeTeam}`;
+      if (seen.has(dedupe)) continue;
+      seen.add(dedupe);
+      out[league].push({
+        league,
+        away_team: awayTeam,
+        home_team: homeTeam,
+        away_ab: (row.away_ab as string | null | undefined) ?? null,
+        home_ab: (row.home_ab as string | null | undefined) ?? null,
+      });
+    }
   };
 
-  if (!event.markets || event.markets.length === 0) {
-    console.log('⚠️ No markets in event');
-    return result;
-  }
+  push('nfl', nfl.data, nfl.error);
+  push('cfb', cfb.data, cfb.error);
+  push('ncaab', ncaab.data, ncaab.error);
+  push('nba', nba.data, nba.error);
+  push('mlb', mlb.data, mlb.error, 'away_team_name', 'home_team_name');
 
-  console.log(`🔍 Inspecting ${event.markets.length} markets...`);
+  console.log(`📊 Slate: NFL ${out.nfl.length}, CFB ${out.cfb.length}, NCAAB ${out.ncaab.length}, NBA ${out.nba.length}, MLB ${out.mlb.length}`);
+  return out;
+}
 
-  for (const market of event.markets) {
-    // /events endpoint uses 'active' and 'closed' fields
-    if (market.closed || !market.active) {
-      console.log(`⏭️ Skipping closed/inactive market: ${market.question}`);
-      continue;
-    }
+// ---------------------------------------------------------------------------
+// Polymarket markets -> slim events
+// ---------------------------------------------------------------------------
 
-    const question = (market.question || '').toLowerCase();
-    const slug = (market.marketSlug || market.slug || '').toLowerCase();
+/**
+ * /markets filtered by tag + market type + end-date window, paged, folded into
+ * per-event buckets as each page lands so a page's raw JSON is garbage before
+ * the next one arrives. Peak memory is one page (~500 KB), not a league.
+ */
+async function fetchLeagueEvents(league: League, w: RefreshWindow): Promise<SlimEvent[]> {
+  const base =
+    `${GAMMA_API}/markets?tag_id=${TAG_IDS[league]}&closed=false&active=true&limit=${PAGE_SIZE}` +
+    `&end_date_min=${encodeURIComponent(w.marketEndMin.toISOString())}` +
+    `&end_date_max=${encodeURIComponent(w.marketEndMax.toISOString())}`;
+  const events = new Map<string, SlimEvent>();
 
-    console.log(`🔎 Market: "${market.question}" | Slug: "${slug}"`);
-
-    // Skip 1H markets
-    if (question.includes('1h') || slug.includes('-1h-')) {
-      console.log(`⏭️ Skipping 1H market`);
-      continue;
-    }
-
-    let marketType: string | null = null;
-
-    if (question.includes('spread') || slug.includes('-spread-')) {
-      marketType = 'spread';
-    } else if (question.includes('o/u') || question.includes('total') || slug.includes('-total-')) {
-      marketType = 'total';
-    } else if (slug.includes('-moneyline') || (!slug.includes('-total-') && !slug.includes('-spread-'))) {
-      marketType = 'moneyline';
-    }
-
-    if (!marketType) {
-      console.log(`⏭️ Unknown market type`);
-      continue;
-    }
-
-    if (result[marketType]) {
-      console.log(`⏭️ Already have ${marketType} market`);
-      continue;
-    }
-
-    // Extract token ID - /events endpoint uses 'clobTokenIds' (JSON string!)
-    let tokenId: string | null = null;
-    
-    // Try clobTokenIds first (it's a JSON string, not an array!)
-    if (typeof market.clobTokenIds === 'string') {
-      try {
-        const arr = JSON.parse(market.clobTokenIds);
-        if (Array.isArray(arr) && arr.length > 0) {
-          tokenId = arr[0]; // YES token
-          if (tokenId) console.log(`✅ Found clobTokenIds (parsed): ${tokenId.substring(0, 20)}...`);
+  await Promise.all(
+    SPORTS_MARKET_TYPES.map(async (type) => {
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const url = `${base}&sports_market_types=${type}&offset=${page * PAGE_SIZE}`;
+        const res = await fetch(url, { headers: FETCH_HEADERS });
+        if (!res.ok) {
+          console.error(`❌ ${league.toUpperCase()} ${type} page ${page + 1}: HTTP ${res.status}`);
+          break;
         }
-      } catch (e) {
-        console.log(`⚠️ Failed to parse clobTokenIds: ${e.message}`);
+        const rows = await res.json();
+        const list = Array.isArray(rows) ? rows : [];
+        mergeMarketsIntoEvents(list, events);
+        if (list.length < PAGE_SIZE) break;
       }
-    } else if (market.clobTokenIds && Array.isArray(market.clobTokenIds) && market.clobTokenIds.length > 0) {
-      // Fallback if it's already an array
-      tokenId = market.clobTokenIds[0];
-      if (tokenId) console.log(`✅ Found clobTokenIds[0]: ${tokenId.substring(0, 20)}...`);
-    } else if (market.tokens && Array.isArray(market.tokens)) {
-      // Old format fallback
-      const yesToken = market.tokens.find((t: any) => (t.outcome || '').toLowerCase() === 'yes');
-      tokenId = yesToken?.token_id || null;
-      if (tokenId) console.log(`✅ Found token via tokens array: ${tokenId.substring(0, 20)}...`);
-    }
+    }),
+  );
 
-    if (!tokenId) {
-      console.log(`⚠️ No token ID found for ${marketType}`);
-      continue;
-    }
-
-    console.log(`✅ Found ${marketType} token: ${tokenId.substring(0, 20)}...`);
-
-    result[marketType] = {
-      tokenId,
-      question: market.question,
-    };
-  }
-
-  return result;
+  return [...events.values()].filter((e) => isMainGameTitle(e.title) && eventInWindow(e, w));
 }
 
+async function cacheEvents(main: SupabaseClient, league: League, events: SlimEvent[], errors: string[]) {
+  const { error } = await main.from('polymarket_events').upsert(
+    { league, tag_id: TAG_IDS[league], events, event_count: events.length, last_updated: new Date().toISOString() },
+    { onConflict: 'league' },
+  );
+  if (error) errors.push(`events:${league}: ${error.message}`);
+}
+
+// ---------------------------------------------------------------------------
+// Price histories -> polymarket_markets
+// ---------------------------------------------------------------------------
+
+async function refreshToken(
+  main: SupabaseClient,
+  job: TokenJob,
+  runStartedAt: Date,
+  dryRun: boolean,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  try {
+    const res = await fetch(`${CLOB_API}/prices-history?market=${job.tokenId}&interval=max&fidelity=60`, { headers: FETCH_HEADERS });
+    if (!res.ok) return { ok: false, reason: `clob HTTP ${res.status}` };
+    const history: Array<{ t: number; p: number }> = (await res.json()).history ?? [];
+    if (history.length === 0) return { ok: false, reason: 'empty price history' };
+
+    const latest = history[history.length - 1];
+    const currentAwayOdds = Math.round(latest.p * 100);
+    if (dryRun) return { ok: true };
+
+    const rows = job.targets.map((t) => ({
+      game_key: t.gameKey,
+      league: job.league,
+      away_team: t.away_team,
+      home_team: t.home_team,
+      market_type: job.marketType,
+      price_history: history,
+      current_away_odds: currentAwayOdds,
+      current_home_odds: 100 - currentAwayOdds,
+      token_id: job.tokenId,
+      question: job.question,
+      last_updated: runStartedAt.toISOString(),
+    }));
+    const { error } = await main.from('polymarket_markets').upsert(rows, { onConflict: 'game_key,market_type' });
+    if (error) return { ok: false, reason: error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: (err as Error).message };
+  }
+}
+
+/**
+ * Keys carry no date, so a rematch reuses last season's key and any market we
+ * did not refresh this run is left over from that older game (e.g. a resolved
+ * 100/0 spread). Once a key has fresh rows, everything older on it goes.
+ */
+async function dropStaleRows(main: SupabaseClient, keys: Set<string>, runStartedAt: Date, errors: string[]) {
+  const list = [...keys];
+  for (let i = 0; i < list.length; i += 100) {
+    const { error } = await main
+      .from('polymarket_markets')
+      .delete()
+      .in('game_key', list.slice(i, i + 100))
+      .lt('last_updated', runStartedAt.toISOString());
+    if (error) errors.push(`stale-cleanup: ${error.message}`);
+  }
+}

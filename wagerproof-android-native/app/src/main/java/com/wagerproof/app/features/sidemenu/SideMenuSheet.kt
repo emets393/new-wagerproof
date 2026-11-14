@@ -15,6 +15,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import com.wagerproof.app.features.paywall.PaywallDialogHost
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -63,6 +68,8 @@ private const val TERMS_URL = "https://wagerproof.bet/terms-and-conditions"
 fun SideMenuSheet(modifier: Modifier = Modifier) {
     val graph = appGraph()
     val auth = graph.auth
+    val proAccess = graph.proAccess
+    var showUpgrade by remember { mutableStateOf(false) }
     val theme = graph.theme
     val tabStore = graph.mainTab
     val learn = graph.learn
@@ -71,6 +78,8 @@ fun SideMenuSheet(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
 
     fun dismiss() { tabStore.isSideMenuPresented = false }
+
+    PaywallDialogHost(showUpgrade, "tier_upgrade_pro", onDismiss = { showUpgrade = false })
 
     Column(
         modifier = modifier
@@ -107,6 +116,12 @@ fun SideMenuSheet(modifier: Modifier = Modifier) {
                         Text("Account", style = AppTypography.caption, color = AppColors.appTextSecondary)
                     }
                 }
+            }
+        }
+
+        if (!proAccess.isLoading && !proAccess.isPro) {
+            InsetGroupedSection(modifier = Modifier.padding(horizontal = Spacing.lg)) {
+                MenuRow("Upgrade to Pro", AppIcon.CROWN_FILL.imageVector) { showUpgrade = true }
             }
         }
 

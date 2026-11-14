@@ -1,0 +1,157 @@
+NCAAB splits: 11276 completed games, seasons [2025, 2026] (END-year labels)
+
+================================================================================================
+1. BASE RATES
+================================================================================================
+    season     games   home cover     over   fav cover   med tickets  crowd share
+    2025        5756       50.1%    51.0%       49.6%         7,583          69%
+    2026        5520       48.7%    49.0%       48.5%         3,115          62%
+    ALL        11276       49.4%    50.0%       49.1%
+
+    the crowd is on the favourite in 38.9% of games; on the OVER in 63.4%
+
+================================================================================================
+2. FADE THE CROWD, by how lopsided it is
+    (break-even 52.4%; * = 95% lower bound clears it)
+================================================================================================
+
+  --- SPREAD — crowd side covers  (n=10201) ---
+      crowd 50-54%                               739-808    47.8%  [45%,50%]  roi  -8.8%  n=1547
+      crowd 55-59%                               902-873    50.8%  [48%,53%]  roi  -3.0%  n=1775
+      crowd 60-64%                               778-766    50.4%  [48%,53%]  roi  -3.8%  n=1544
+      crowd 65-69%                               638-629    50.4%  [48%,53%]  roi  -3.9%  n=1267
+      crowd 70-79%                               912-887    50.7%  [48%,53%]  roi  -3.2%  n=1799
+      crowd 80-100%                              1112-1157   49.0%  [47%,51%]  roi  -6.4%  n=2269
+      continuous corr(crowd%, crowd side wins) = -0.002
+      FAMILY: best cell 2.2 pts off 50%; null 2.0 ± 0.7   p=0.353   (noise)
+
+  --- TOTAL  — crowd side hits  (n=10602) ---
+      crowd 50-54%                               555-576    49.1%  [46%,52%]  roi  -6.3%  n=1131
+      crowd 55-59%                               716-698    50.6%  [48%,53%]  roi  -3.3%  n=1414
+      crowd 60-64%                               690-679    50.4%  [48%,53%]  roi  -3.8%  n=1369
+      crowd 65-69%                               670-687    49.4%  [47%,52%]  roi  -5.7%  n=1357
+      crowd 70-79%                               1407-1294   52.1%  [50%,54%]  roi  -0.6%  n=2701
+      crowd 80-100%                              1286-1344   48.9%  [47%,51%]  roi  -6.7%  n=2630
+      continuous corr(crowd%, crowd side wins) = -0.003
+      FAMILY: best cell 2.1 pts off 50%; null 2.0 ± 0.7   p=0.416   (noise)
+
+  --- MONEYLINE — crowd side wins outright  (n=10082) ---
+      72.3%  ⚠ not an edge by itself: the ML crowd sits on favourites,
+      so this mostly restates that favourites win.
+
+================================================================================================
+3. ★ MONEY% MINUS TICKETS% — the sharp-money read
+================================================================================================
+
+  --- SPREAD divergence  (n=10201) ---
+      flips in 17.3% of games; median |gap| 6 pts
+      corr(signed gap, away/over wins) = +0.005
+      TILT back money, gap 0-5                   2096-2041   50.7%  [49%,52%]  roi  -3.3%  n=4137
+      TILT back money, gap 5-10                  1281-1345   48.8%  [47%,51%]  roi  -6.9%  n=2626
+      TILT back money, gap 10-15                 721-692    51.0%  [48%,54%]  roi  -2.6%  n=1413
+      TILT back money, gap 15-20                 396-433    47.8%  [44%,51%]  roi  -8.8%  n=829
+      TILT back money, gap 20-+                  604-592    50.5%  [48%,53%]  roi  -3.6%  n=1196
+      FLIP back money                            887-881    50.2%  [48%,52%]  roi  -4.2%  n=1768
+      FLIP back tickets                          881-887    49.8%  [48%,52%]  roi  -4.9%  n=1768
+      back money, all games                      5098-5103   50.0%  [49%,51%]  roi  -4.6%  n=10201
+      FAMILY: best cell 2.2 pts off 50%; within-night null 2.1 ± 0.8   p=0.395   (noise)
+      FLIP back money, season by season:
+        2025: 481-468  50.7%  (n=949)
+        2026: 406-413  49.6%  (n=819)
+
+  --- TOTAL divergence  (n=10602) ---
+      flips in 1.6% of games; median |gap| 1 pts
+      corr(signed gap, away/over wins) = -0.001
+      TILT back money, gap 0-5                   4848-4848   50.0%  [49%,51%]  roi  -4.5%  n=9696
+      TILT back money, gap 5-10                  338-360    48.4%  [45%,52%]  roi  -7.6%  n=698
+      TILT back money, gap 10-15                 56-63     47.1%  [38%,56%]  roi -10.2%  n=119
+      TILT back money, gap 15-20                 20-21     48.8%  [34%,64%]  roi  -6.9%  n=41
+      TILT back money, gap 20-+                  27-21     56.2%  [42%,69%]  roi  +7.4%  n=48
+      FLIP back money                            89-85     51.1%  [44%,58%]  roi  -2.4%  n=174
+      FLIP back tickets                          85-89     48.9%  [42%,56%]  roi  -6.7%  n=174
+      back money, all games                      5289-5313   49.9%  [49%,51%]  roi  -4.8%  n=10602
+      FAMILY: best cell 6.2 pts off 50%; within-night null 9.0 ± 4.0   p=0.743   (noise)
+      FLIP back money, season by season:
+        2025: 39-36  52.0%  (n=75)
+        2026: 50-49  50.5%  (n=99)
+
+================================================================================================
+4. THE COLLEGE CUTS — crowd side covers / hits, by slice
+================================================================================================
+
+  --- SPREAD: crowd side covers, by slice (all lopsidedness)  (n=10201) ---
+      conference game                            2857-2941   49.3%  [48%,51%]  roi  -5.9%  n=5798
+      non-conference game                        2224-2179   50.5%  [49%,52%]  roi  -3.6%  n=4403
+      a power-conference team involved           1474-1573   48.4%  [47%,50%]  roi  -7.6%  n=3047
+      no power-conference team                   3607-3547   50.4%  [49%,52%]  roi  -3.7%  n=7154
+      postseason                                 102-110    48.1%  [41%,55%]  roi  -8.1%  n=212
+      spread within 3                            1194-1225   49.4%  [47%,51%]  roi  -5.8%  n=2419
+      spread 3.5-9.5                             2361-2389   49.7%  [48%,51%]  roi  -5.1%  n=4750
+      spread 10+                                 1526-1506   50.3%  [49%,52%]  roi  -3.9%  n=3032
+      crowd on the home team                     2021-2103   49.0%  [47%,51%]  roi  -6.4%  n=4124
+      crowd on the away team                     3060-3017   50.4%  [49%,52%]  roi  -3.9%  n=6077
+      crowd on the favourite                     1929-2044   48.6%  [47%,50%]  roi  -7.3%  n=3973
+      crowd on the underdog                      3152-3076   50.6%  [49%,52%]  roi  -3.4%  n=6228
+      FAMILY: best cell 1.9 pts off 50%; null 2.8 ± 1.7   p=0.706   (noise)
+
+  --- SPREAD: heavy crowd (70%+) by slice ---
+      conference game, crowd 70%+                1037-1076   49.1%  [47%,51%]  roi  -6.3%  n=2113
+      non-conference game, crowd 70%+            987-968    50.5%  [48%,53%]  roi  -3.6%  n=1955
+      a power-conference team involved, crowd 70%+ 625-657    48.8%  [46%,51%]  roi  -6.9%  n=1282
+      no power-conference team, crowd 70%+       1399-1387   50.2%  [48%,52%]  roi  -4.1%  n=2786
+      postseason, crowd 70%+                     20-23     46.5%  [33%,61%]  roi -11.2%  n=43
+      spread within 3, crowd 70%+                418-436    48.9%  [46%,52%]  roi  -6.6%  n=854
+      spread 3.5-9.5, crowd 70%+                 833-857    49.3%  [47%,52%]  roi  -5.9%  n=1690
+      spread 10+, crowd 70%+                     773-751    50.7%  [48%,53%]  roi  -3.2%  n=1524
+      crowd on the home team, crowd 70%+         695-686    50.3%  [48%,53%]  roi  -3.9%  n=1381
+      crowd on the away team, crowd 70%+         1329-1358   49.5%  [48%,51%]  roi  -5.6%  n=2687
+      crowd on the favourite, crowd 70%+         635-667    48.8%  [46%,51%]  roi  -6.9%  n=1302
+      crowd on the underdog, crowd 70%+          1389-1377   50.2%  [48%,52%]  roi  -4.1%  n=2766
+
+  --- TOTAL: crowd side hits, by slice  (n=10602) ---
+      conference game                            3027-3027   50.0%  [49%,51%]  roi  -4.5%  n=6054
+      non-conference game                        2297-2251   50.5%  [49%,52%]  roi  -3.6%  n=4548
+      a power-conference team involved           1544-1547   50.0%  [48%,52%]  roi  -4.6%  n=3091
+      no power-conference team                   3780-3731   50.3%  [49%,51%]  roi  -3.9%  n=7511
+      postseason                                 109-114    48.9%  [42%,55%]  roi  -6.7%  n=223
+      spread within 3                            1269-1306   49.3%  [47%,51%]  roi  -5.9%  n=2575
+      spread 3.5-9.5                             2462-2491   49.7%  [48%,51%]  roi  -5.1%  n=4953
+      spread 10+                                 1593-1481   51.8%  [50%,54%]  roi  -1.1%  n=3074
+      FAMILY: best cell 1.8 pts off 50%; null 1.9 ± 0.9   p=0.416   (noise)
+
+  --- TOTAL: heavy crowd (70%+) by slice ---
+      conference game, crowd 70%+                1490-1431   51.0%  [49%,53%]  roi  -2.6%  n=2921
+      non-conference game, crowd 70%+            1203-1207   49.9%  [48%,52%]  roi  -4.7%  n=2410
+      a power-conference team involved, crowd 70%+ 779-812    49.0%  [47%,51%]  roi  -6.5%  n=1591
+      no power-conference team, crowd 70%+       1914-1826   51.2%  [50%,53%]  roi  -2.3%  n=3740
+      postseason, crowd 70%+                     80-83     49.1%  [42%,57%]  roi  -6.3%  n=163
+      spread within 3, crowd 70%+                639-669    48.9%  [46%,52%]  roi  -6.7%  n=1308
+      spread 3.5-9.5, crowd 70%+                 1256-1201   51.1%  [49%,53%]  roi  -2.4%  n=2457
+      spread 10+, crowd 70%+                     798-768    51.0%  [48%,53%]  roi  -2.7%  n=1566
+
+  --- the two leagues' only cross-league read, tested here: TOTALS, ticket majority one side, money majority the other -> back the MONEY ---
+      totals flip, back the money side           108-105    50.7%  [44%,57%]  roi  -3.2%  n=213
+      totals flip, by season, season by season:
+        2025: 43-44  49.4%  (n=87)
+        2026: 65-61  51.6%  (n=126)
+
+================================================================================================
+5. ★ SHORT MONEYLINES — the competitive games, and the FLIP fade
+================================================================================================
+    median vig 4.26%;  short games 4114 of 10056 (41%)
+
+      ALL — back the crowd's ML side               7271-2785   72.3%  vs no-vig 71.2%  edge +1.1%  roi  -3.0%  [71%,73%]  n=10056
+      SHORT (fav >= -220) — back the crowd         2329-1785   56.6%  vs no-vig 57.6%  edge -1.0%  roi  -5.8%  [55%,58%]  n=4114
+        ^ FADE IT: SHORT (fav >= -220) — back the crowd 1785-2329   43.4%  vs no-vig 42.4%  edge +1.0%  roi  -2.0%  [42%,45%]  n=4114
+      LONG  (fav <  -220) — back the crowd         4942-1000   83.2%  vs no-vig 80.7%  edge +2.5%  roi  -1.1%  [82%,84%]  n=5942
+
+    ★ the NFL standout, tested here: flips occur in 12.2% of short games
+      SHORT FLIP — back the money side             220-282    43.8%  vs no-vig 45.5%  edge -1.6%  roi  -9.0%  [40%,48%]  n=502
+        ^ FADE IT: SHORT FLIP — back the money side 282-220    56.2%  vs no-vig 54.5%  edge +1.6%  roi  -2.2%  [52%,60%]  n=502
+      season ledger (fade the money side):
+        2025: 136-100  57.6%  roi  -0.5%  (n=236)
+        2026: 146-120  54.9%  roi  -3.6%  (n=266)
+      fade edge +1.6% vs random-side null -0.0% ± 2.2%   p=0.4535
+
+⛔ Read the FAMILY line and the season ledger before believing any cell.
+⛔ And read every record from the BET'S side: a 28-48 is a 48-28 fade.

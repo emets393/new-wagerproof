@@ -156,7 +156,7 @@ export function OutliersDashboard({ limited = false }: { limited?: boolean }) {
   const retryParlay = () => queryClient.invalidateQueries({ queryKey: ['parlay-god-bundle'] });
 
   // Mirrors OutliersTrendsStore.onSportChanged(): a narrower sport scope can
-  // retire the active subject (MLB is teams-only, NCAAF has no refs/players).
+  // retire the active subject (MLB, NBA, and NCAAB are teams-only; NCAAF has no refs/players).
   // Matchup resets because its options are scoped to the sports on screen.
   const handleSportChange = (next: OutliersTrendsSport[]) => {
     setSportSelection(next);
@@ -279,7 +279,7 @@ export function OutliersDashboard({ limited = false }: { limited?: boolean }) {
         {/* The trend window differs by sport, so only claim one when a single sport is pinned. */}
         {hasData && !multiSport && (
           <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {includesMlb ? 'Today' : 'This week'}
+            {sports[0] === 'nfl' || sports[0] === 'ncaaf' ? 'This week' : 'Today'}
           </span>
         )}
       </div>
@@ -441,8 +441,7 @@ function ComingSoonCard({ label }: { label: string }) {
       <LineChart className="h-8 w-8 text-muted-foreground" />
       <p className="text-base font-semibold text-foreground">Trends coming soon</p>
       <p className="max-w-sm text-[13px] text-muted-foreground">
-        {label || 'Those sports'} don't have situational betting trends yet — NFL, NCAAF, and
-        MLB are available now.
+        {label || 'That sport'} doesn't have situational betting trends yet.
       </p>
     </GlassCard>
   );

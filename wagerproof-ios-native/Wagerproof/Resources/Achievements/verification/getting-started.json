@@ -1,0 +1,48 @@
+{
+  "family": "getting-started",
+  "bytes": 9190251,
+  "variants": [
+    {
+      "frame_prefix": "FirstAgent",
+      "source": "artifacts/achievements/first-agent/manifest.json",
+      "original_faces": 767124,
+      "runtime_faces": 46118,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "FirstFollow",
+      "source": "artifacts/achievements/first-follow/manifest.json",
+      "original_faces": 1530144,
+      "runtime_faces": 78458,
+      "contour_retessellated": true
+    },
+    {
+      "frame_prefix": "FirstPicks",
+      "source": "artifacts/achievements/first-picks/manifest.json",
+      "original_faces": 577584,
+      "runtime_faces": 45892,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "AgentSquad",
+      "source": "artifacts/achievements/getting-started/agent-squad/manifest.json",
+      "original_faces": 167602,
+      "runtime_faces": 52948,
+      "contour_retessellated": false
+    },
+    {
+      "frame_prefix": "FullLineup",
+      "source": "artifacts/achievements/getting-started/full-lineup/manifest.json",
+      "original_faces": 167476,
+      "runtime_faces": 52836,
+      "contour_retessellated": false
+    }
+  ],
+  "checks": {
+    "y_up": true,
+    "material_bindings": true,
+    "corner_normals": true,
+    "no_studio": true,
+    "lod_closed_outward": true
+  }
+}

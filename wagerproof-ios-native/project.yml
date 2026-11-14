@@ -63,6 +63,12 @@ targets:
           - Wagerproof.entitlements
           - Wagerproof.Debug.entitlements
           - Info.plist
+          - Resources/Achievements/verification/**
+          - Resources/Achievements/achievement_studio.skybox
+      - path: Wagerproof/Resources/Achievements/achievement_studio.skybox
+        type: file
+        fileType: file.skybox
+        buildPhase: resources
     configFiles:
       Debug: Wagerproof/Configuration/Debug.xcconfig
       Release: Wagerproof/Configuration/Release.xcconfig
@@ -125,6 +131,19 @@ targets:
           fi
         basedOnDependencyAnalysis: false
 
+  WagerproofTrackingTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: WagerproofKit/Tests/WagerproofStoresTests/TrackingAuthorizationServiceTests.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.wagerproof.tracking-tests
+    dependencies:
+      - package: WagerproofKit
+        product: WagerproofServices
+
   WagerProofWidgetExtension:
     type: app-extension
     platform: iOS
@@ -179,6 +198,8 @@ schemes:
       config: Debug
     test:
       config: Debug
+      targets:
+        - WagerproofTrackingTests
     profile:
       config: Release
     analyze:

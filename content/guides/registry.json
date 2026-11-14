@@ -1,7 +1,22 @@
 {
   "version": 1,
-  "expectedCount": 12,
+  "expectedCount": 16,
   "entries": [
+    {
+      "slug": "connect-ai-agent-sports-research",
+      "canonicalPath": "/guides/connect-ai-agent-sports-research/",
+      "intent": "connect Grok Bot, ChatGPT Dots or Meta Muse to real sports betting data"
+    },
+    {
+      "slug": "parlay-calculator",
+      "canonicalPath": "/guides/parlay-calculator/",
+      "intent": "calculate parlay odds, payout and no-vig probability"
+    },
+    {
+      "slug": "what-is-kalshi",
+      "canonicalPath": "/guides/what-is-kalshi/",
+      "intent": "understand what Kalshi is, how its prices work, and how to research contracts"
+    },
     {
       "slug": "best-sports-betting-research-apps",
       "canonicalPath": "/guides/best-sports-betting-research-apps/",
@@ -11,11 +26,6 @@
       "slug": "wagerproof-3-5-9",
       "canonicalPath": "/guides/wagerproof-3-5-9/",
       "intent": "understand the shipped WagerProof 3.5.9 release"
-    },
-    {
-      "slug": "connect-wagerproof-to-ai-agents",
-      "canonicalPath": "/guides/connect-wagerproof-to-ai-agents/",
-      "intent": "connect WagerProof data to an AI assistant"
     },
     {
       "slug": "implied-probability-vs-true-probability",
@@ -61,6 +71,16 @@
       "slug": "responsible-sports-betting-research",
       "canonicalPath": "/guides/responsible-sports-betting-research/",
       "intent": "set responsible limits for sports betting research"
+    },
+    {
+      "slug": "betting-trends-tested",
+      "canonicalPath": "/guides/betting-trends-tested/",
+      "intent": "find out whether popular betting trends and hunches actually win, judged against break-even and a professional bettor's win rate"
+    },
+    {
+      "slug": "connect-wagerproof-to-ai-agents",
+      "canonicalPath": "/guides/connect-wagerproof-to-ai-agents/",
+      "intent": "connect WagerProof data to an AI assistant"
     }
   ]
 }

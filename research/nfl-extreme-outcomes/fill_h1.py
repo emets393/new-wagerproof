@@ -101,6 +101,30 @@ def cfb_h1(season):
     return pd.DataFrame(recs)
 
 
+def _patch_h1(table, gid, hh, ha, hdr, tries=3):
+    """One idempotent 1H PATCH, retried on a transient failure.
+
+    Mirrors _patch_final in fill_finals.py, and for the same reason: requests RAISES on an
+    SSL EOF or a connection reset rather than returning a response, grade_week.sh runs under
+    `set -e`, and one dropped connection therefore skips every later grading step for the run.
+    """
+    last = None
+    for attempt in range(tries):
+        try:
+            resp = requests.patch(f"{BASE}/{table}?game_id=eq.{gid}", headers=hdr,
+                                  json={"h1_home": hh, "h1_away": ha}, timeout=30)
+        except requests.exceptions.RequestException as e:
+            last = f"{type(e).__name__}: {str(e)[:300]}"
+        else:
+            if resp.ok:
+                return
+            last = f"HTTP {resp.status_code} {resp.text[:300]}"
+        if attempt < tries - 1:
+            time.sleep(2 * (attempt + 1))
+    raise SystemExit(f"[h1] PATCH {table} game_id={gid} -> {hh}-{ha} failed "
+                     f"after {tries} tries: {last}")
+
+
 def apply_h1(label, table, dg, src, hdr):
     if not len(src):
         print(f"[{label}] no source 1H rows for {SEASON}")
@@ -113,13 +137,20 @@ def apply_h1(label, table, dg, src, hdr):
     if len(mism):
         print(f"[{label}] WARN {len(mism)} existing-h1 mismatches vs source (source wins on write)")
     if WRITE and hdr is not None:
-        n = 0
-        for _, r in have.iterrows():
-            resp = requests.patch(f"{BASE}/{table}?game_id=eq.{_gid(r.game_id)}", headers=hdr,
-                                  json={"h1_home": int(r.h1_home_src), "h1_away": int(r.h1_away_src)}, timeout=30)
-            resp.raise_for_status()
-            n += 1
-        print(f"[{label}] PATCHed h1_home/h1_away on {n} games")
+        # ⛔ WRITE WHAT CHANGED, AND SURVIVE A DROPPED CONNECTION. This loop re-sent all 419
+        # games with a source 1H score on every run, three runs a day, almost all of them
+        # re-writing the value already stored — and a bare raise_for_status() with no retry
+        # on top. One transient SSL EOF from the pooler is then enough to take the whole
+        # grading chain down (`set -e` in grade_week.sh), which is what happened on
+        # 2026-10-15 08:03Z and 2026-10-16 16:03Z. `todo` is the rows that are actually
+        # missing or disagree; _patch_h1 retries the transport.
+        todo = have[have["h1_home"].isna()
+                    | (have["h1_home"] != have["h1_home_src"])
+                    | (have["h1_away"] != have["h1_away_src"])]
+        for _, r in todo.iterrows():
+            _patch_h1(table, _gid(r.game_id), int(r.h1_home_src), int(r.h1_away_src), hdr)
+        print(f"[{label}] PATCHed h1_home/h1_away on {len(todo)} games "
+              f"({len(have) - len(todo)} already correct, skipped)")
 
 
 def main():

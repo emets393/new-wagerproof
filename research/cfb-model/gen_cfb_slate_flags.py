@@ -15,11 +15,26 @@ gm, te, S = C.harness_week(SEASON, WEEK)
 # OWNER RULE: every signal conditions on ODDS-API lines, never CFBD consensus. 2026 wk1 audit
 # found 5/51 CFBD lines bad (2 sign-FLIPPED: Miami@Stanford, Coastal@WVU; 3 zero-filled read
 # as pick'em). Override te's close lines from odds_game_frame; no Odds-API line -> NaN (skip).
+_OV = C.conviction_overrides(SEASON, WEEK)
 _ogf = pd.read_parquet("data/odds_game_frame.parquet")
 _ogf = _ogf[_ogf.season == SEASON][["home", "away", "open_spread", "close_spread", "open_total", "close_total"]]
+# One row per matchup or the merge below multiplies every card/flag for that game
+# (BYU @ Utah wk10-2026: 16 pick rows, two CORE TOTAL flags on different lines).
+# build_odds_frame dedupes post-orientation now; this is the belt-and-braces guard.
+_nd = len(_ogf)
+_ogf = _ogf.drop_duplicates(["home", "away"], keep="first")
+if len(_ogf) < _nd: print(f"  [ogf] dropped {_nd - len(_ogf)} duplicate matchup row(s) from odds_game_frame")
 te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
 te["spread_close"] = te["close_spread"]
 te["total_close"] = te["close_total"]
+# Opens too: an open-graded flag displays ITS line, and that must be the Odds-API open, not
+# CFBD's (37 of 58 wk4-2026 games differed, Illinois@OSU -27.5 vs -26.5).
+te["spread_open"] = te["open_spread"].where(te["open_spread"].notna(), te["spread_open"])
+te["total_open"] = te["open_total"].where(te["open_total"].notna(), te["total_open"])
+# The model's side on the bettable (close) line — what the game row and pick card show.
+te["_model_spread_side"] = np.where(te.pred_margin + te.spread_close >= 0, "HOME", "AWAY")
+te["_model_total_side"] = np.where(te.pred_total - te.total_close > 0, "OVER", "UNDER")
+MODEL_KEYS = {"model_highedge_dog", "model_total_over", "model_total_under", "model_total_over_pace", "model_road_value"}
 g7 = set(te.game_id)
 def lab(r): return f"{r.awayTeam} @ {r.homeTeam}"
 rows = []
@@ -38,11 +53,24 @@ for name, (mask, side, market, gl) in S.items():
     meta = C.classify(name); conv = meta[2] if meta else "T3"; active = meta[3] if meta else True
     mkt_norm = "total" if market == "total" else "spread"   # spot_library uses 'side' for spreads
     for _, r in sub.iterrows():
+        # A flag named "model ..." must say what the model says on the line the reader can bet.
+        # These spots trigger on the OPEN; once the market moves the model can flip (SC@Alabama
+        # wk4-2026: pace OVER at 46.5 open, model UNDER at the 53.5 close) and the flag contradicts
+        # the card it sits under. Drop it — a contextual spot keeps its own side.
+        if C.key_for(name) in MODEL_KEYS:
+            want = r._model_total_side if market == "total" else r._model_spread_side
+            if pd.isna(r.pred_total if market == "total" else r.pred_margin) or side != want:
+                print(f"  [model-key guard] {C.key_for(name)} {side} dropped on {lab(r)} — model says {want} at the close")
+                continue
         if market == "total":
             line = C.total_line(r, gl); edge = r.total_edge
         else:
             line = C.spread_line(r, gl, side); edge = r.side_edge
-        is_mam = bool(r.mammoth == 1 and mkt_norm == "spread" and side == C.model_side(r))
+        # Same owner override the games/picks generators read, so the signal chip under a forced
+        # mammoth card doesn't still read T2 — an incoherent chip above/below the banner is the
+        # exact class of bug this file's mammoth tagging caused in the first place.
+        is_mam = bool((r.mammoth == 1 or _OV.get(int(r.game_id)) == "mammoth")
+                      and mkt_norm == "spread" and side == C.model_side(r))
         rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK, "game": lab(r),
                      "source": name, "signal_key": C.key_for(name), "market": mkt_norm, "side": side,
                      "line": round(float(line), 1) if pd.notna(line) else None, "price": -110,
@@ -247,12 +275,38 @@ except Exception as e:
 #    2024 (7-2) and 2025 (5-3); unranked-favorite placebo clean. Graded vs close.
 try:
     _sched = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")
-    _rank = {}
-    for _, r in te.iterrows():
-        if pd.notna(r.get("home_self_rank")):
-            _rank[r.homeTeam] = float(r.home_self_rank)
-        if pd.notna(r.get("away_self_rank")):
-            _rank[r.awayTeam] = float(r.away_self_rank)
+    # ⛔ RANKS COME FROM THE AP TABLE, NEVER FROM `te`. `te` holds only games that have not
+    # kicked, so building the rank lookup from it silently turned "next opponent must be
+    # ranked" into "...AND must still have an unplayed game THIS week". By Saturday afternoon
+    # next week's opponents have mostly already played, so the gate could not be satisfied:
+    # lookahead_fade fired TWICE all 2026 (wk4, wk5) and both rows were written before
+    # 10:20am ET on a Saturday. 2026 wk6 lost two textbook spots to this —
+    # #3 Notre Dame (next: at #8 BYU, which played Friday) and #5 Ohio State (next: at #7
+    # Indiana, which kicked at 11am). A team's ranking is a property of (season, week, team)
+    # and has nothing to do with whether that team has an unplayed game.
+    # data/cfbd/, not data/ — fetch_cfbd_extra.py writes it there and every other reader in the
+    # repo joins DATA ("data/cfbd") to it. The bare "data/" path raised FileNotFoundError into the
+    # enclosing `except Exception`, which printed "[lookahead_fade] skipped" and moved on, so this
+    # whole signal stayed dead AFTER the fix that was meant to revive it.
+    _rk = (pd.read_parquet("data/cfbd/rankings_weekly.parquet")
+             .rename(columns={"year": "season"}))
+    _rk = _rk[(_rk.season == SEASON) & (_rk.poll == "AP Top 25")
+              & (_rk.asof_week <= WEEK)]
+    if _rk.empty:
+        raise RuntimeError(f"no AP Top 25 rows at or before {SEASON} wk{WEEK} in "
+                           f"rankings_weekly.parquet — cannot evaluate rank signals")
+    # The week-N poll lands Sunday, so early in the week asof_week == WEEK does not exist yet
+    # (CFBD returns 0 AP teams for an unpublished week). Fall back to the most recent published
+    # poll instead of evaluating against nothing, and say which one was used — an empty _rank
+    # is indistinguishable from "nobody qualifies" in the output, which is how this stayed
+    # invisible for six weeks.
+    _asof = int(_rk.asof_week.max())
+    _rk = _rk[_rk.asof_week == _asof]
+    _rank = {t: float(v) for t, v in zip(_rk.team, _rk["rank"])}
+    if _asof != WEEK:
+        print(f"  [rank] wk{WEEK} AP poll not published yet — using wk{_asof} ({len(_rank)} teams)")
+    else:
+        print(f"  [rank] AP poll asof wk{_asof}: {len(_rank)} teams")
     for _, r in te.iterrows():
         if pd.isna(r.spread_close) or abs(r.spread_close) < 14:
             continue
@@ -282,6 +336,95 @@ try:
                      "stake_units": C.STAKE["track"], "grade_line": "close", "mammoth": False})
 except Exception as e:
     print(f"  [lookahead_fade] skipped: {e}")
+
+# ── DECEPTIVE-WIN FADES (all-season rolling, PAPER-TRACK — owner-approved 2026-09-10) ──
+# CFBD postgame win expectancy (PWE) = how often a team wins given how the game was
+# actually played, score-free. Study exp_pwe_luck.py + exp_pwe_ats_luck.py (2021-25,
+# next game ATS vs OPENER, oracle-checked):
+#   double_luck_fade: team WON w/ own PWE<=.50 AND covered a spread it deserved to miss
+#     by >=4 (deserved margin = 10.2*PHI^-1(PWE)) -> fade next game 60.7% (n=107,
+#     ALL 5 seasons >=53%). Components alone ~52% — the interaction is the signal.
+#   lucky_win_fade: won w/ PWE<=.40 (no double-luck) -> fade 56.0% (n=327, 5/5 seasons).
+# Unlucky losers, deserved-but-failed covers, and cumulative luck ledgers all tested
+# NULL — only deceptive WINS mislead the market, and only for ONE game.
+# Trigger reads each team's most recent completed game THIS season (any week, rolling);
+# PWE comes from a LIVE CFBD pull (games_{SEASON}.parquet is fetch-once and goes stale),
+# openers/finals from our own slate table (Odds-API lines, never CFBD consensus).
+try:
+    from scipy.stats import norm as _norm
+    import cfbd as _cfbd
+    _PWE_SIGMA = 10.2          # frozen from the 2021-25 fit; do NOT refit in-season
+    _gj = pd.DataFrame(_cfbd.get("/games", year=SEASON, seasonType="both"))
+    _gj = _gj[(_gj.completed == True) & _gj.homePostgameWinProbability.notna()]
+    _pq = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=lt.{WEEK}"
+                       f"&final_home=not.is.null&select=game_id,week,home_team,away_team,"
+                       f"final_home,final_away,fg_spread_open", headers=C.H, timeout=30)
+    _pg = pd.DataFrame(_pq.json() if _pq.ok else [])
+    _pg = _pg.merge(_gj[["id", "homePostgameWinProbability", "awayPostgameWinProbability"]],
+                    left_on="game_id", right_on="id", how="inner")
+    # BOX-SCORE CONFIRMATION (owner catch 2026-09-20): CFBD's PWE occasionally contradicts the
+    # box score outright (Ole Miss out-gained LSU 426-330, turnovers even, PWE .15). Our own
+    # box-score win expectancy (exp_pwe_box_guard.py: probit on success-rate diff, PPA diff,
+    # turnover margin, yards; frozen 2021-25 fit) must ALSO say the winner didn't deserve it
+    # (<= .55). Double-luck fade: 63.4% where the box agrees, 50.0% where it doesn't (n=24).
+    from exp_pwe_box_guard import box_frame, box_we as _box_we
+    try:
+        _bx = box_frame([SEASON]); _bx["box_we"] = _box_we(_bx)
+        _box_home = dict(zip(_bx.id.astype(int), _bx.box_we))
+    except Exception as _e:
+        print(f"  [pwe_luck_fade] box-score frame unavailable ({_e}) — PWE unconfirmed, fades suppressed")
+        _box_home = {}
+    _lastg = {}
+    for _, pr in _pg.sort_values("week").iterrows():        # later weeks overwrite: most recent game wins
+        for _hs in (True, False):
+            _tm = pr.home_team if _hs else pr.away_team
+            _pw = pr.homePostgameWinProbability if _hs else pr.awayPostgameWinProbability
+            _mar = (pr.final_home - pr.final_away) * (1 if _hs else -1)
+            _osp = (pr.fg_spread_open if pd.notna(pr.fg_spread_open) else np.nan) * (1 if _hs else -1)
+            if pd.isna(_pw) or pd.isna(_osp):
+                continue
+            _bw = _box_home.get(int(pr.game_id))
+            _lastg[_tm] = dict(opp=pr.away_team if _hs else pr.home_team,
+                               pwe=float(_pw), won=_mar > 0, covered=_mar + _osp > 0,
+                               box=(None if _bw is None else float(_bw if _hs else 1 - _bw)),
+                               dcm=float(_PWE_SIGMA * _norm.ppf(min(max(_pw, .01), .99)) + _osp))
+    _n_dl = _n_lw = 0
+    for _, r in te.iterrows():
+        _op = getattr(r, "open_spread", np.nan)
+        if pd.isna(_op):
+            continue                                # grade line is the opener; no opener -> skip
+        for _side_is_home, _tm in ((True, r.homeTeam), (False, r.awayTeam)):
+            L = _lastg.get(_tm)
+            if not L or not L["won"]:
+                continue
+            _dl = L["pwe"] <= 0.50 and L["covered"] and L["dcm"] <= -4
+            _lw = (not _dl) and L["pwe"] <= 0.40
+            if not (_dl or _lw):
+                continue
+            if L["box"] is None or L["box"] > 0.55:
+                _bs = "n/a" if L["box"] is None else f"{L['box']:.2f}"
+                print(f"  [pwe_luck_fade] {_tm} beat {L['opp']}: CFBD PWE {L['pwe']:.2f} but the box score says {_bs} — they earned it, no fade")
+                continue
+            _n_dl += _dl; _n_lw += _lw
+            rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                         "game": lab(r),
+                         "source": (f"DECEPTIVE WIN: {_tm} beat {L['opp']} last time out, but the "
+                                    f"game stats say they win it only {100*L['pwe']:.0f}% of the time "
+                                    f"(our own box-score read: {100*L['box']:.0f}%)"
+                                    + (" — and they stole the cover too" if _dl else "")
+                                    + f". Fading that team next game has hit "
+                                    f"{'63%' if _dl else '55%'} across 2021-2025"),
+                         "signal_key": "double_luck_fade" if _dl else "lucky_win_fade",
+                         "market": "spread",
+                         "side": "AWAY" if _side_is_home else "HOME",   # fade = bet the opponent
+                         "line": round(float(_op), 1),                  # home-perspective opener
+                         "price": -110, "edge": None,
+                         "conviction": "track", "tier": "tracking",
+                         "stake_units": C.STAKE["track"], "grade_line": "open", "mammoth": False})
+    print(f"  [pwe_luck_fade] {_n_dl} double-luck + {_n_lw} lucky-win fades "
+          f"({len(_lastg)} teams with graded prior game)")
+except Exception as e:
+    print(f"  [pwe_luck_fade] skipped: {e}")
 
 # ── BACKUP-QB PREGAME TRIGGER (live 2026-08-27): covers.com injuries x established
 #    starters (qb_availability). Established starter listed Out/IR -> the two vaulted
@@ -313,7 +456,7 @@ try:
                              "signal_key": "backup_qb_under", "market": "total", "side": "UNDER",
                              "line": round(float(grow.total_close), 1), "price": -110, "edge": None,
                              "conviction": conv, "tier": tier, "stake_units": C.STAKE[conv],
-                             "grade_line": "open", "mammoth": False})
+                             "grade_line": "close", "mammoth": False})   # fires at T-60 and quotes the close; was tagged "open"
             if is_home and pd.notna(grow.spread_close):
                 rows.append({"game_id": int(grow.game_id), "season": SEASON, "week": WEEK,
                              "game": f"{grow.awayTeam} @ {grow.homeTeam}",
@@ -321,7 +464,7 @@ try:
                              "signal_key": "fade_home_backup_qb", "market": "spread", "side": "AWAY",
                              "line": round(float(grow.spread_close), 1), "price": -110, "edge": None,
                              "conviction": conv, "tier": tier, "stake_units": C.STAKE[conv],
-                             "grade_line": "open", "mammoth": False})
+                             "grade_line": "close", "mammoth": False})
         print(f"  [backup_qb] {len(_fired)} trigger(s) from {_inj_path.split('/')[-1]}")
     else:
         print(f"  [backup_qb] no injury file for wk{WEEK} — skipped")
@@ -717,10 +860,26 @@ if WEEK <= 3 and len(df) and (df.signal_key == "fade_high_total").any():
 
 print(f"cfb_slate_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
 print(f"  conviction {df.conviction.value_counts().to_dict()} | mammoth flags {int(df.mammoth.sum())}")
-C.wipe("cfb_slate_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")
+# KICKED-OFF games keep their existing flag rows — frozen pregame history.
+# Regenerating a played game's flags swaps in post-game inputs (live ratings
+# feeds), which made regime_* rows grade as 35-1 pure hindsight (2026 wk1-2
+# audit: every regime row's created_at was AFTER kickoff). Same pattern as the
+# completed-games guard on cfb_slate_picks (health_sweep 2026-09-03).
+import datetime as _dt
+_now = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+_koq = requests.get(f"{C.URL}/rest/v1/cfb_slate_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                    f"&kickoff=lt.{_now}&select=game_id", headers={**C.H, "Prefer": ""}, timeout=30)
+_played = {int(x["game_id"]) for x in (_koq.json() if _koq.ok else [])}
+if _played:
+    df = df[~df.game_id.astype(int).isin(_played)]
+    print(f"  freezing flags on {len(_played)} kicked-off games (pregame history preserved)")
+_fscope = f"season=eq.{SEASON}&week=eq.{WEEK}"
+if _played:
+    _fscope += f"&game_id=not.in.({','.join(str(i) for i in sorted(_played))})"
+C.wipe("cfb_slate_flags", _fscope)
 C.insert("cfb_slate_flags", df)
 act = df[df.tier == "active"].groupby("game_id").size(); trk = df[df.tier == "tracking"].groupby("game_id").size()
-for gid in g7:
+for gid in (set(g7) - _played):
     requests.patch(f"{C.URL}/rest/v1/cfb_slate_games?game_id=eq.{gid}", headers=C.H,
                    data=json.dumps({"n_flags_active": int(act.get(gid, 0)), "n_flags_tracking": int(trk.get(gid, 0))}))
 print("  back-filled n_flags on games")

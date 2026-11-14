@@ -1,0 +1,89 @@
+{
+  "id": "streak-25",
+  "family": "streaks",
+  "title": "25 WIN STREAK",
+  "label": "25",
+  "tier": "gold",
+  "frame_prefix": "Streak25",
+  "asset": "streak-25.usdz",
+  "editable_master": "streak-25.blend",
+  "curvature": {
+    "radius": 5.6,
+    "horizontal_weight": 3.8,
+    "center_z": 0.135
+  },
+  "all_front_details_curved": true,
+  "preview_text_in_export": false,
+  "parts": {
+    "satin_flame_reverse": {
+      "vertices": 16306,
+      "faces": 32608,
+      "nonmanifold_edges": 0,
+      "volume": 0.17065455094919532
+    },
+    "acrylic_center_cell": {
+      "vertices": 5889,
+      "faces": 11774,
+      "nonmanifold_edges": 0,
+      "volume": 0.03896939875562868
+    },
+    "acrylic_left_cell": {
+      "vertices": 1063,
+      "faces": 2122,
+      "nonmanifold_edges": 0,
+      "volume": 0.006477290494432901
+    },
+    "acrylic_right_cell": {
+      "vertices": 706,
+      "faces": 1408,
+      "nonmanifold_edges": 0,
+      "volume": 0.0037879802056031693
+    },
+    "metal_flame_chassis": {
+      "vertices": 6272,
+      "faces": 12552,
+      "nonmanifold_edges": 0,
+      "volume": 0.05096330684253998
+    },
+    "metal_number_25_0_0": {
+      "vertices": 1569,
+      "faces": 3134,
+      "nonmanifold_edges": 0,
+      "volume": 0.011094418160127972
+    },
+    "ivory_number_25_0_0": {
+      "vertices": 1555,
+      "faces": 3106,
+      "nonmanifold_edges": 0,
+      "volume": 0.004029763732588577
+    },
+    "metal_number_25_1_0": {
+      "vertices": 1547,
+      "faces": 3090,
+      "nonmanifold_edges": 0,
+      "volume": 0.011629775687078365
+    },
+    "ivory_number_25_1_0": {
+      "vertices": 1527,
+      "faces": 3050,
+      "nonmanifold_edges": 0,
+      "volume": 0.004217132838220753
+    }
+  },
+  "export_checks": {
+    "usd_y_up": true,
+    "mesh_roles_count": 9,
+    "finite_vertices_normals": true,
+    "materials_bound": true,
+    "no_studio_or_sample_text": true
+  },
+  "validation": {
+    "source_closed_outward": true,
+    "reimport_closed_outward": true,
+    "actual_usdz_views": [
+      "front",
+      "angle"
+    ]
+  },
+  "usdz_bytes": 3386519
+}

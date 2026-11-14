@@ -12,6 +12,14 @@ Checks (football season, both sports):
   4. missing lines     — upcoming games kicking within 48h that have NO spread posted
                          (catches provider event drops like UMass@Rutgers 2026-09-02)
   5. grading lag       — games final for >36h whose flags are still ungraded
+  6. prop lines        — NFL: a POSTED prop market with a null line (the card renders
+                         with no number; prices still populate, so nothing else catches it)
+ 11. public splits     — the hourly Action Network capture, per sport (GitHub Actions, not
+                         Render, so its failures do not reach the Render alert channel)
+ 12. legacy NFL model  — nfl_betting_lines freshness PER GAME plus a null sweep on
+                         nfl_input_values_view. Checks 1-11 all watch the new slate model;
+                         the legacy EPA model reads a different table and went three weeks
+                         on JULY lines in 2026 with every probe green.
 
 Runs daily ~6:45am ET via render.yaml (football-health-sweep). Read-only.
 """
@@ -19,11 +27,13 @@ import os
 import sys
 import datetime as dt
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 
 SUPA = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
 NOW = dt.datetime.now(dt.timezone.utc)
+ET = ZoneInfo("America/New_York")
 RED, WARN, OK = [], [], []
 
 
@@ -57,6 +67,10 @@ def ts(v):
     return dt.datetime.fromisoformat(re.sub(r"\.\d+", "", str(v).replace("Z", "+00:00")))
 
 
+class _LegacyLinesDone(Exception):
+    """Week fully kicked off — the per-game line-age test has nothing left to measure."""
+
+
 def check(label, ok, detail, warn_only=False):
     (OK if ok else (WARN if warn_only else RED)).append(f"{'OK ' if ok else ('WARN' if warn_only else 'RED')}  {label}: {detail}")
 
@@ -67,20 +81,29 @@ def main():
     for sport, hist, tscol, slate, picks in (
             ("CFB", "ncaaf_odds_history", "snapshot", "cfb_slate_games", "cfb_slate_picks"),
             ("NFL", "nfl_historical_odds", "snap_ts", "nfl_slate_games", "nfl_slate_picks")):
-        # 1. odds freshness. The collectors snapshot today's games hourly but future-day
-        # games only 3x/day (8/14/20 ET), so on no-game days the overnight gap is ~12h BY
-        # DESIGN — a 3h alarm there is a false positive (fired 2026-09-04, NFL off-week).
-        # Threshold: 3h when that sport has a game within +/-24h, else 13h (covers the
-        # set-hour gap; a dead collector still trips within a day).
+        # 1. odds freshness. The collectors snapshot TODAY's games hourly but future-day
+        # games only 3x/day (8/14/20 ET), so a 3h alarm is only correct when a game kicks
+        # TODAY. Earlier versions used "within 24h", which reds on a Saturday morning whose
+        # games are tomorrow: the 8->14 ET gap is 6h and the 20->8 overnight gap is 12h, both
+        # BY DESIGN (false RED 2026-09-04 off-week, and again 2026-10-10 15:47Z at 3.8h with
+        # one Sunday game inside 24h). Gate on the ET CALENDAR DATE, which is what the
+        # collector itself switches on, not on an hours-until-kickoff window.
         try:
-            near = q(f"{slate}?select=game_id&season=eq.{season}"
-                     f"&kickoff=gte.{(NOW - dt.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')}"
-                     f"&kickoff=lte.{(NOW + dt.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')}", count=True)
-            limit_h = 3 if near else 13
+            # UPCOMING games only — a slate whose last game kicked hours ago has nothing
+            # pre-game to capture, and counting played games tightened the limit on the
+            # idle Monday-morning gap between weeks (false RED 2026-09-08).
+            upcoming = q(f"{slate}?select=kickoff&season=eq.{season}"
+                         f"&kickoff=gte.{NOW.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+                         f"&kickoff=lte.{(NOW + dt.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')}")
+            today_et = NOW.astimezone(ET).date()
+            kicks_today = sum(1 for x in upcoming
+                              if x.get("kickoff") and ts(x["kickoff"]).astimezone(ET).date() == today_et)
+            limit_h = 3 if kicks_today else 13
             snap = q(f"{hist}?select={tscol}&season=eq.{season}&order={tscol}.desc&limit=1")
             age_h = (NOW - ts(snap[0][tscol])).total_seconds() / 3600 if snap else 999
             check(f"{sport} odds feed", age_h < limit_h,
-                  f"latest snapshot {age_h:.1f}h old (limit {limit_h}h, {near} game(s) within 24h)")
+                  f"latest snapshot {age_h:.1f}h old (limit {limit_h}h, {kicks_today} game(s) "
+                  f"kicking today ET, {len(upcoming)} within 24h)")
         except Exception as e:
             check(f"{sport} odds feed", False, f"probe failed: {e}")
 
@@ -93,7 +116,15 @@ def main():
             wk = max(x["week"] for x in g)
             cur = [x for x in g if x["week"] == wk]
             upc = [x for x in cur if x.get("kickoff") and ts(x["kickoff"]) > NOW]
-            check(f"{sport} slate", len(cur) > 0, f"week {wk}: {len(cur)} games, {len(upc)} upcoming")
+            # An exhausted newest week with no successor slate means the weekly build
+            # missed its window (2026-09-08: Monday's build ran before the Labor Day
+            # MNF game, re-resolved week 1, and week 2 never got built). Give the
+            # rebuild crons a 12h grace after the last kickoff, then alarm.
+            last_ko = max((ts(x["kickoff"]) for x in cur if x.get("kickoff")), default=None)
+            exhausted = not upc and last_ko is not None and NOW > last_ko + dt.timedelta(hours=12)
+            check(f"{sport} slate", len(cur) > 0 and not exhausted,
+                  f"week {wk}: {len(cur)} games, {len(upc)} upcoming"
+                  + (" — WEEK OVER, next week's slate NOT BUILT" if exhausted else ""))
 
             # 4. upcoming games inside 48h with no spread — the silent provider-drop case
             soon = [x for x in upc if ts(x["kickoff"]) < NOW + dt.timedelta(hours=48)]
@@ -121,6 +152,276 @@ def main():
             check(f"{sport} pick cards", page_h < 26, f"last regenerated {page_h:.1f}h ago")
         except Exception as e:
             check(f"{sport} pick cards", False, f"probe failed: {e}")
+
+        # 6. prop pages carry their numbers (NFL only — it is the NFL prop contract).
+        # A posted market with a null line renders a prop card with no number on it. This shipped
+        # silently for an unknown stretch and nothing caught it: the PRICES came through fine, so
+        # every freshness and row-count probe stayed green. gen_nfl_prop_player_pages was reading
+        # hr.get("line") from nfl_slate_props, which stores it as close_line, and pandas .get()
+        # returns None for a missing column instead of raising (fixed 2026-09-28, 625 markets).
+        # Anytime TD is a yes/no market and correctly has no line, so it is excluded.
+        if sport == "NFL":
+            try:
+                # CURRENT week only. Pages built before the fix keep their nulls forever, so a
+                # season-wide probe would alarm on history that will never be rebuilt.
+                wk = q(f"nfl_prop_player_pages?select=week&season=eq.{season}"
+                       f"&order=week.desc&limit=1")
+                cur_wk = wk[0]["week"] if wk else None
+                pages = q(f"nfl_prop_player_pages?select=markets&season=eq.{season}"
+                          f"&week=eq.{cur_wk}&limit=600") if cur_wk is not None else []
+                posted = nulls = 0
+                for row in pages:
+                    for m in (row.get("markets") or []):
+                        if m.get("status") != "posted":
+                            continue
+                        posted += 1
+                        if m.get("line") is None and m.get("key") != "player_anytime_td":
+                            nulls += 1
+                check(f"{sport} prop lines", posted == 0 or nulls == 0,
+                      f"{nulls} of {posted} posted prop markets have no line")
+            except Exception as e:
+                check(f"{sport} prop lines", False, f"probe failed: {e}")
+
+            # 7. the prop cards actually reached the database.
+            # fp_cards is the granular half of the prop page — route tree, alignment allowance,
+            # coverage splits, throw depth. It is built into a parquet by fp_prop_payload.py and
+            # only lands in the DB when gen_nfl_prop_player_pages runs ON THE BOX THAT HAS THAT
+            # PARQUET. Every step of that chain is wrapped in `|| true`, so a failed payload build
+            # is swallowed, pages rebuilds without it, and the column is simply never written.
+            # fp_cards_layer._from_db carries the old value forward on later runs — but it has
+            # nothing to carry if the column was never populated once, so an empty week stays
+            # empty forever and no freshness or row-count probe notices: the rows exist, the
+            # markets are posted, the lines are there. Found 2026-10-09 at 0 of 387 for week 5
+            # while a complete 365-player payload sat on disk. Fix is push_fp_cards.py, which
+            # PATCHes the one column instead of rebuilding the week.
+            try:
+                tot = q(f"nfl_prop_player_pages?select=player_id&season=eq.{season}"
+                        f"&week=eq.{cur_wk}&limit=1000") if cur_wk is not None else []
+                have = q(f"nfl_prop_player_pages?select=player_id&season=eq.{season}"
+                         f"&week=eq.{cur_wk}&fp_cards=not.is.null&limit=1000") if cur_wk else []
+                n, h = len(tot), len(have)
+                pct = (h / n * 100) if n else 0
+                # Thin warehouse coverage is normal — rookies, mid-season signings, low-snap
+                # players legitimately have no blobs, and ~80% is a healthy week. Red only when
+                # the number implies the push did not happen at all.
+                check(f"{sport} prop cards", n == 0 or pct >= 40,
+                      f"fp_cards on {h} of {n} week-{cur_wk} pages ({pct:.0f}%)"
+                      + ("" if pct >= 65 else " — run push_fp_cards.py"),
+                      warn_only=(40 <= pct < 65))
+            except Exception as e:
+                check(f"{sport} prop cards", False, f"probe failed: {e}")
+
+            # 9. the picks board the Props page opens on is not empty.
+            # ⛔ EVERY PROBE ABOVE PASSED while nfl_prop_spotlight held nothing for the week.
+            # The board is the first thing a user sees on the Props page, and it was empty for
+            # every 2026 week except the two published by hand — fp_prop_payload.py died on a
+            # missing 40KB crosswalk, so fp_spotlight.py had no payload and fp_spotlight_write.py
+            # had no board. Pages, prices, lines and fp_cards were all fine, so nothing alarmed.
+            # That is the lesson this check exists for: ROW COUNTS AND FRESHNESS ON THE INPUTS
+            # DO NOT TELL YOU THE OUTPUT GOT BUILT. Probe the artifact the user opens.
+            #
+            # Safe to read the CURRENT week because the sweep runs at 16:30Z, after the 15:00Z
+            # nfl-prop-report-daily that writes it. If that schedule ever moves back before
+            # 15:00Z this reds on a board that is not due yet — the cry-wolf failure this
+            # service has already had twice.
+            try:
+                board = q(f"nfl_prop_spotlight?select=narrative,tells&season=eq.{season}"
+                          f"&week=eq.{cur_wk}&limit=200") if cur_wk is not None else []
+                narr = sum(1 for r in board if r.get("narrative"))
+                tells = sum(1 for r in board if r.get("tells"))
+                check(f"{sport} prop board", len(board) > 0,
+                      f"{len(board)} week-{cur_wk} spotlight picks, {narr} with a narrative, "
+                      f"{tells} with tells"
+                      + ("" if len(board) else " — the Props page opens on an EMPTY board"))
+                if board and narr < len(board):
+                    check(f"{sport} prop narratives", False,
+                          f"{len(board) - narr} of {len(board)} picks have no narrative "
+                          f"— fp_spotlight_write.py did not finish", warn_only=True)
+            except Exception as e:
+                check(f"{sport} prop board", False, f"probe failed: {e}")
+
+            # 10. the cheat sheet names a real matchup on every row.
+            # Counting rows was never enough: the sheet built 352 complete-looking rows for
+            # 2026 wk6 of which 99 read "vs — · Kickoff not posted", because it sourced the
+            # week's matchups from nfl_prop_player_pages — rows that only exist once a book has
+            # posted a line — instead of from nfl_slate_games (fixed 2026-10-16). A blank column
+            # on a present row is the failure shape that every count-based probe misses, so this
+            # one asserts COMPLETENESS, not volume.
+            try:
+                cs_wk = q(f"nfl_prop_cheatsheet?select=week&season=eq.{season}"
+                          f"&order=week.desc&limit=1")
+                w = cs_wk[0]["week"] if cs_wk else None
+                rows = q(f"nfl_prop_cheatsheet?select=team,opponent,kickoff&season=eq.{season}"
+                         f"&week=eq.{w}&limit=600") if w is not None else []
+                blank = [r for r in rows if not r.get("opponent") or not r.get("kickoff")]
+                check(f"{sport} cheat sheet", bool(rows) and not blank,
+                      f"{len(rows)} week-{w} rows over "
+                      f"{len({r['team'] for r in rows})} teams, {len(blank)} with no opponent "
+                      f"or kickoff" + ("" if not blank else
+                      f" ({', '.join(sorted({r['team'] for r in blank}))})"))
+            except Exception as e:
+                check(f"{sport} cheat sheet", False, f"probe failed: {e}")
+
+    # 11. the public-splits capture is still capturing.
+    # Action Network splits are pulled hourly by GitHub Actions, not by Render, so a
+    # failure there does NOT produce a Render email — only a GitHub notification, which is
+    # easy to miss. The feed also has no app surface, so nothing user-facing breaks when it
+    # stops: it just silently stops being history, and the capture-time columns
+    # (best odds, ticket count) are the half that CANNOT be backfilled. That is exactly the
+    # failure shape this sweep exists for. 4h allows one missed hourly run plus the 5-20
+    # minute lateness GitHub's scheduler is known for; WARN, not RED, because a dead
+    # research feed is not a broken product.
+    #
+    # ⛔ PER SPORT, NOT OVERALL. The capture covers NFL, CFB, NBA and NCAAB, and a single
+    # max(snap_ts) goes green on any one of them — an NBA slate writing every hour would
+    # mask the football endpoint having died, which is the exact masking this sweep is
+    # supposed to prevent. Each sport self-gates on whether it is in season: a sport with
+    # no row in 10 days is between seasons and is not expected to be fresh (and July has
+    # nothing on any board, so the whole probe stands down).
+    try:
+        rows = q("action_public_splits?select=sport,snap_ts&order=snap_ts.desc&limit=4000")
+        if not rows:
+            check("public splits", False, "no rows at all — has the workflow ever run?",
+                  warn_only=True)
+        else:
+            newest = {}
+            for r in rows:
+                t = ts(r["snap_ts"])
+                if r["sport"] not in newest or t > newest[r["sport"]]:
+                    newest[r["sport"]] = t
+            ages = {s: (NOW - t).total_seconds() / 3600 for s, t in newest.items()}
+            live = {s: a for s, a in ages.items() if a < 24 * 10}   # in season
+            stale = {s: a for s, a in live.items() if a >= 4}
+            check("public splits", not stale or NOW.month == 7,
+                  ", ".join(f"{s} {a:.1f}h" for s, a in sorted(ages.items()))
+                  + ("" if not stale or NOW.month == 7
+                     else f" — {'/'.join(sorted(stale))} stale, check the "
+                          f"action-splits-hourly Actions run"),
+                  warn_only=True)
+    except Exception as e:
+        check("public splits", False, f"probe failed: {e}", warn_only=True)
+
+    # 8. is Render running what render.yaml says? Editing the blueprint does not deploy it, and
+    # a stale service runs green forever — nfl-prop-report-daily spent an unknown stretch on a
+    # pre-2026-10-07 command, missing the payload build and the page generator, while every data
+    # probe passed because a different cron was writing the rows they check.
+    try:
+        import subprocess
+        d = subprocess.run([sys.executable, str(Path(__file__).parent / "render_drift.py")],
+                           capture_output=True, text=True, timeout=120)
+        tail = (d.stdout or d.stderr).strip().splitlines()
+        # Only exit code 2 means real drift. 1 means the probe could not run (no pyyaml,
+        # no key, network) — that is a WARN, never a RED, or the watchdog fails the whole
+        # sweep over its own missing dependency and hides 14 green checks. See the
+        # exit-code contract at the top of render_drift.py.
+        check("render blueprint", d.returncode == 0,
+              tail[-1][:160] if tail else "no output",
+              warn_only=d.returncode != 2)
+    except Exception as e:
+        check("render blueprint", False, f"probe failed: {e}", warn_only=True)
+
+    # 9. is any cron FAILING? Every check here probes DATA, so a job that dies before it writes
+    # looks identical to a job that was never scheduled. nba-props-live failed 18 times in a row
+    # overnight on 2026-11-06 and nobody was paged — a failing cron does not email, and nothing
+    # looked at run outcomes. One failure is a blip; two in a row is a bug that will not self-heal.
+    try:
+        import subprocess
+        d = subprocess.run([sys.executable, str(Path(__file__).parent / "render_cron_failures.py")],
+                           capture_output=True, text=True, timeout=180)
+        tail = (d.stdout or d.stderr).strip().splitlines()
+        # exit 2 = failing repeatedly (RED). exit 1 = could not check (WARN, never RED — same
+        # contract as render_drift.py above, and for the same reason).
+        failing = [l.strip() for l in tail if l.strip().startswith("FAILING")]
+        check("cron failures", d.returncode == 0,
+              "; ".join(failing)[:220] if failing else (tail[-1][:160] if tail else "no output"),
+              warn_only=d.returncode != 2)
+    except Exception as e:
+        check("cron failures", False, f"probe failed: {e}", warn_only=True)
+
+    # 12. the LEGACY NFL model's inputs — the one blind spot every check above shares.
+    # Checks 1-8 probe the new slate model (nfl_slate_games / _picks / nfl_prop_player_pages).
+    # The legacy EPA model reads something else entirely: nfl_input_values_view, whose lines come
+    # straight off nfl_betting_lines. Nothing watched that, and it failed exactly that way —
+    # nfl_betting_lines stopped being written after the 2025 season and until 2026-09-29 its
+    # newest row was a 2026-07-26 preseason seed, so the legacy model scored three weeks of real
+    # games against JULY lines (ARI@NYG: NYG -7 stored vs NYG +1 live, which flips the favourite).
+    # Every probe stayed green throughout, because the slate model it was watching was fine.
+    #
+    # Two separate failures, so two probes. The view resolves
+    #   row_number() OVER (PARTITION BY training_key ORDER BY as_of_ts DESC) = 1
+    # which means a WHOLE-TABLE freshness check is not enough: if one game's training_key stops
+    # getting rows (a team-name change, a dropped provider event), the view silently serves that
+    # game's old row forever while the table overall looks current. So age is measured PER GAME,
+    # and the worst game decides.
+    try:
+        vw = q(f"nfl_input_values_view?select=week&season=eq.{season}&order=week.desc&limit=1")
+        lw = vw[0]["week"] if vw else None
+        if lw is None:
+            check("NFL legacy model", True, f"no {season} rows in nfl_input_values_view (offseason)")
+        else:
+            rows = q(f"nfl_betting_lines?select=training_key,as_of_ts,game_time_et"
+                     f"&season_year=eq.{season}&week=eq.{lw}&limit=5000")
+            newest, kicked = {}, {}
+            for r in rows:
+                k, a = r["training_key"], ts(r["as_of_ts"])
+                if k not in newest or a > newest[k]:
+                    newest[k] = a
+                # the loader writes UPCOMING games only ("nothing upcoming to write"), so a game
+                # that has kicked off correctly stops getting rows and its age grows forever
+                try:
+                    ko = ts(r["game_time_et"])
+                    if k not in kicked or ko < kicked[k]:
+                        kicked[k] = ko
+                except Exception:
+                    pass
+            # ⛔ ONLY UPCOMING GAMES COUNT. Measuring played games too made this RED every week
+            # from the Thursday kickoff onward: 2026-11-07 it paged on Jacksonville @ Baltimore at
+            # 44.1h, a game that kicked off Nov 6, while all 14 live games were 0.1h old. That is
+            # the cry-wolf failure the schedule comments on this service warn about -- an alert
+            # that fires on healthy state every week is an alert nobody reads.
+            played = {k for k, ko in kicked.items() if ko < NOW}
+            newest = {k: a for k, a in newest.items() if k not in played}
+            if not newest:
+                check("NFL legacy lines", True,
+                      f"week {lw}: all {len(played)} game(s) have kicked off — nothing left to price")
+                raise _LegacyLinesDone
+            # In season a line cron fires every day (Mon-Fri 14/20Z, Sat/Sun gameday sweep), so the
+            # widest legitimate gap is Sun 22Z -> Mon 14Z = 16h. 30h leaves slack for a skipped run
+            # without going quiet on a feed that has actually stopped.
+            ages = {k: (NOW - a).total_seconds() / 3600 for k, a in newest.items()}
+            stale = {k: h for k, h in ages.items() if h > 30}
+            worst = max(ages.values()) if ages else 999
+            check("NFL legacy lines", bool(ages) and not stale,
+                  f"week {lw}: {len(ages)} games, oldest line {worst:.1f}h old (limit 30h)"
+                  + (f" — STALE: {', '.join(sorted(stale))[:90]}" if stale else "")
+                  if ages else f"week {lw}: NO rows in nfl_betting_lines — model is scoring blind")
+
+            # And the view must actually serve those numbers. A row present with a null spread or
+            # total is a game the legacy model cannot score; the ratings columns are the other
+            # half of its feature set (season_year=2025 once had it reading July ratings for
+            # three weeks). Temperature is deliberately excluded — null is CORRECT for domes.
+            iv = q(f"nfl_input_values_view?select=home_team,away_team,home_spread,ou_vegas_line,"
+                   f"home_predictive_pr,away_predictive_pr&season=eq.{season}&week=eq.{lw}&limit=100")
+            def nulls(*cols):
+                return [f"{r['away_team']}@{r['home_team']}" for r in iv
+                        if any(r.get(c) is None for c in cols)]
+            no_line = nulls("home_spread", "ou_vegas_line")
+            no_rate = nulls("home_predictive_pr", "away_predictive_pr")
+            if not iv:
+                check("NFL legacy inputs", False,
+                      f"week {lw}: view returned NO rows — legacy model has nothing to score")
+            else:
+                bad = no_line or no_rate
+                detail = (f"week {lw}: {len(iv)} games, {len(no_line)} missing a line, "
+                          f"{len(no_rate)} missing power ratings"
+                          + (f" — {', '.join(bad)[:90]}" if bad else ""))
+                # A missing LINE is fatal: that game cannot be scored at all. Missing ratings
+                # degrade the prediction without blocking it, so they warn rather than page.
+                check("NFL legacy inputs", not bad, detail, warn_only=not no_line)
+    except _LegacyLinesDone:
+        pass
+    except Exception as e:
+        check("NFL legacy model", False, f"probe failed: {e}")
 
     print(f"FOOTBALL HEALTH SWEEP — {NOW.isoformat(timespec='minutes')}")
     for line in RED + WARN + OK:

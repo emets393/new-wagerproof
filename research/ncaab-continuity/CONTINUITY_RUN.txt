@@ -1,0 +1,108 @@
+team-seasons with continuity: 3,528; ret_min mean 0.43 sd 0.21; starters_back dist {0.0: 1109, 1.0: 571, 2.0: 723, 3.0: 606, 4.0: 379, 5.0: 117, 6.0: 21, 7.0: 2}
+xfer_in mean 1.1; new_share mean 0.63; top_back 0.27
+team-games graded: 55,494 across 5 seasons [2022, 2023, 2024, 2025, 2026]
+
+=== A. IS CONTINUITY REAL AND IS IT PRICED? (team-season regression, first 10 games) ===
+ realised margin first 10 ~ ret_min + prior-season margin: {'ret_min': (2.64, 1.0), 'prior_margin': (0.25, 5.5)}
+ market (-spread) first 10 ~ ret_min + prior-season margin: {'ret_min': (4.09, 1.8), 'prior_margin': (0.15, 4.0)}
+ ATS margin first 10 ~ ret_min + prior-season margin:       {'ret_min': (-1.45, -1.2), 'prior_margin': (0.1, 4.9)}   <- the gap the market leaves
+ ATS margin first 10 ~ starters_back: {'starters_back': (0.23, 1.2)}
+
+=== B. CONTINUITY RULES, first 10 games (all seasons 2021-22..2025-26), T-60 close ===
+ -- window: first 5 games
+   team kept 70%+ of last season's minutes                                FADE 425-424 (50.1%, z +0.0, shuffle p 0.988)  margin vs spread -0.01 | 22:201-207 23:81-84 24:92-83 25:47-44 26:4-6  | Jan-Feb placebo FADE 1292-1354 (48.8%)
+   team kept 30% or less of last season's minutes (rebuilt)               BACK 1303-1259 (50.9%, z +0.9, shuffle p 0.308)  margin vs spread +0.20 | 22:76-70 23:179-193 24:197-199 25:327-283 26:524-514  | Jan-Feb placebo BACK 3981-3991 (49.9%)
+   kept 70%+ vs opponent that kept 40% or less                            BACK 146-125 (53.9%, z +1.3, shuffle p 0.187)  margin vs spread +0.53 | 22:46-39 23:41-30 24:30-37 25:24-18 26:5-1  | Jan-Feb placebo BACK 357-369 (49.2%)
+   continuity gap +35 points or more over the opponent                    FADE 408-385 (51.5%, z +0.8, shuffle p 0.401)  margin vs spread -0.40 | 22:95-77 23:77-87 24:95-85 25:88-78 26:53-58  | Jan-Feb placebo FADE 1202-1195 (50.1%)
+   4-5 starters back                                                      FADE 799-795 (50.1%, z +0.1, shuffle p 0.915)  margin vs spread -0.22 | 22:304-285 23:205-213 24:147-158 25:111-108 26:32-31  | Jan-Feb placebo FADE 2463-2491 (49.7%)
+   0-1 starters back                                                      BACK 1436-1417 (50.3%, z +0.4, shuffle p 0.674)  margin vs spread +0.25 | 22:93-81 23:203-220 24:243-263 25:334-314 26:563-539  | Jan-Feb placebo BACK 4418-4441 (49.9%)
+   3+ more returning starters than the opponent                           BACK 375-338 (52.6%, z +1.4, shuffle p 0.161)  margin vs spread +0.17 | 22:62-75 23:92-78 24:92-70 25:80-71 26:49-44  | Jan-Feb placebo BACK 1028-993 (50.9%)
+   leading scorer back, opponent's gone                                   FADE 900-848 (51.5%, z +1.2, shuffle p 0.197)  margin vs spread -0.48 | 22:218-167 23:221-208 24:193-214 25:163-157 26:105-102  | Jan-Feb placebo FADE 2722-2676 (50.4%)
+   6+ transfers in (portal rebuild)                                       BACK 230-216 (51.6%, z +0.7, shuffle p 0.512)  margin vs spread +0.74 | 22:23-19 23:13-11 24:28-42 25:63-59 26:103-85  | Jan-Feb placebo BACK 658-725 (47.6%)
+   transfers playing 50%+ of early minutes                                BACK 376-361 (51.0%, z +0.6, shuffle p 0.578)  margin vs spread +0.50 | 22:29-23 23:32-31 24:39-50 25:97-100 26:179-157  | Jan-Feb placebo BACK 1111-1203 (48.0%)
+   new players 60%+ of early minutes                                      BACK 1527-1461 (51.1%, z +1.2, shuffle p 0.139)  margin vs spread +0.31 | 22:154-124 23:217-196 24:244-259 25:364-348 26:548-534  | Jan-Feb placebo BACK 4678-4642 (50.2%)
+ -- window: first 10 games
+   team kept 70%+ of last season's minutes                                FADE 857-842 (50.4%, z +0.4, shuffle p 0.712)  margin vs spread -0.18 | 22:416-403 23:153-175 24:177-169 25:98-88 26:13-7  | Jan-Feb placebo FADE 1292-1354 (48.8%)
+   team kept 30% or less of last season's minutes (rebuilt)               BACK 2575-2549 (50.3%, z +0.4, shuffle p 0.649)  margin vs spread +0.01 | 22:155-144 23:362-381 24:392-399 25:629-584 26:1037-1041  | Jan-Feb placebo BACK 3981-3991 (49.9%)
+   kept 70%+ vs opponent that kept 40% or less                            FADE 272-267 (50.5%, z +0.2, shuffle p 0.844)  margin vs spread -0.50 | 22:84-78 23:57-80 24:74-57 25:49-46 26:8-6  | Jan-Feb placebo FADE 369-357 (50.8%)
+   continuity gap +35 points or more over the opponent                    FADE 835-797 (51.2%, z +0.9, shuffle p 0.327)  margin vs spread -0.27 | 22:194-164 23:154-178 24:188-171 25:180-163 26:119-121  | Jan-Feb placebo FADE 1202-1195 (50.1%)
+   4-5 starters back                                                      FADE 1597-1586 (50.2%, z +0.2, shuffle p 0.832)  margin vs spread -0.22 | 22:607-568 23:400-440 24:303-298 25:229-212 26:58-68  | Jan-Feb placebo FADE 2463-2491 (49.7%)
+   0-1 starters back                                                      FADE 2897-2808 (50.8%, z +1.2, shuffle p 0.144)  margin vs spread -0.09 | 22:167-188 23:447-400 24:522-483 25:656-636 26:1105-1101  | Jan-Feb placebo FADE 4441-4418 (50.1%)
+   3+ more returning starters than the opponent                           BACK 746-681 (52.3%, z +1.7, shuffle p 0.064)  margin vs spread +0.30 | 22:129-151 23:188-159 24:173-143 25:157-144 26:99-84  | Jan-Feb placebo BACK 1028-993 (50.9%)
+   leading scorer back, opponent's gone                                   FADE 1798-1691 (51.5%, z +1.8, shuffle p 0.048)  margin vs spread -0.40 | 22:434-349 23:432-414 24:389-407 25:333-321 26:210-200  | Jan-Feb placebo FADE 2722-2676 (50.4%)
+   6+ transfers in (portal rebuild)                                       BACK 455-438 (51.0%, z +0.6, shuffle p 0.579)  margin vs spread +0.31 | 22:43-43 23:23-25 24:69-70 25:123-121 26:197-179  | Jan-Feb placebo BACK 658-725 (47.6%)
+   transfers playing 50%+ of early minutes                                BACK 744-734 (50.3%, z +0.3, shuffle p 0.781)  margin vs spread +0.13 | 22:51-56 23:67-63 24:87-89 25:189-202 26:350-324  | Jan-Feb placebo BACK 1111-1203 (48.0%)
+   new players 60%+ of early minutes                                      BACK 3033-2943 (50.8%, z +1.2, shuffle p 0.159)  margin vs spread +0.21 | 22:296-271 23:423-406 24:505-490 25:716-702 26:1093-1074  | Jan-Feb placebo BACK 4678-4642 (50.2%)
+ -- window: November
+   team kept 70%+ of last season's minutes                                FADE 500-490 (50.5%, z +0.3, shuffle p 0.726)  margin vs spread -0.19 | 22:220-217 23:95-95 24:105-108 25:71-63 26:9-7  | Jan-Feb placebo FADE 1292-1354 (48.8%)
+   team kept 30% or less of last season's minutes (rebuilt)               BACK 1681-1673 (50.1%, z +0.1, shuffle p 0.859)  margin vs spread +0.01 | 22:91-88 23:216-234 24:240-244 25:423-394 26:711-713  | Jan-Feb placebo BACK 3981-3991 (49.9%)
+   kept 70%+ vs opponent that kept 40% or less                            BACK 167-160 (51.1%, z +0.4, shuffle p 0.713)  margin vs spread -0.06 | 22:51-42 23:42-38 24:36-41 25:32-34 26:6-5  | Jan-Feb placebo BACK 357-369 (49.2%)
+   continuity gap +35 points or more over the opponent                    FADE 508-488 (51.0%, z +0.6, shuffle p 0.515)  margin vs spread -0.27 | 22:104-87 23:96-99 24:116-111 25:115-109 26:77-82  | Jan-Feb placebo FADE 1202-1195 (50.1%)
+   4-5 starters back                                                      BACK 952-948 (50.1%, z +0.1, shuffle p 0.926)  margin vs spread -0.20 | 22:310-336 23:253-244 24:200-179 25:143-146 26:46-43  | Jan-Feb placebo BACK 2491-2463 (50.3%)
+   0-1 starters back                                                      FADE 1888-1861 (50.4%, z +0.4, shuffle p 0.568)  margin vs spread +0.03 | 22:104-116 23:274-248 24:321-300 25:436-435 26:753-762  | Jan-Feb placebo FADE 4441-4418 (50.1%)
+   3+ more returning starters than the opponent                           BACK 462-426 (52.0%, z +1.2, shuffle p 0.207)  margin vs spread +0.17 | 22:70-89 23:104-98 24:115-87 25:109-89 26:64-63  | Jan-Feb placebo BACK 1028-993 (50.9%)
+   leading scorer back, opponent's gone                                   FADE 1121-1049 (51.7%, z +1.5, shuffle p 0.085)  margin vs spread -0.42 | 22:242-182 23:275-250 24:242-265 25:214-216 26:148-136  | Jan-Feb placebo FADE 2722-2676 (50.4%)
+   6+ transfers in (portal rebuild)                                       BACK 310-295 (51.2%, z +0.6, shuffle p 0.532)  margin vs spread +0.51 | 22:29-24 23:16-15 24:37-51 25:82-79 26:146-126  | Jan-Feb placebo BACK 658-725 (47.6%)
+   transfers playing 50%+ of early minutes                                BACK 507-493 (50.7%, z +0.4, shuffle p 0.645)  margin vs spread +0.30 | 22:35-28 23:39-40 24:51-61 25:129-137 26:253-227  | Jan-Feb placebo BACK 1111-1203 (48.0%)
+   new players 60%+ of early minutes                                      BACK 1966-1907 (50.8%, z +0.9, shuffle p 0.226)  margin vs spread +0.22 | 22:172-155 23:266-241 24:301-306 25:484-469 26:743-736  | Jan-Feb placebo BACK 4678-4642 (50.2%)
+ -- window: Nov-Dec
+   team kept 70%+ of last season's minutes                                BACK 973-953 (50.5%, z +0.5, shuffle p 0.614)  margin vs spread +0.02 | 22:421-439 23:218-184 24:210-199 25:113-118 26:11-13  | Jan-Feb placebo BACK 1354-1292 (51.2%)
+   team kept 30% or less of last season's minutes (rebuilt)               BACK 3090-3074 (50.1%, z +0.2, shuffle p 0.814)  margin vs spread -0.04 | 22:180-173 23:455-475 24:463-471 25:736-682 26:1256-1273  | Jan-Feb placebo BACK 3981-3991 (49.9%)
+   kept 70%+ vs opponent that kept 40% or less                            BACK 319-298 (51.7%, z +0.8, shuffle p 0.402)  margin vs spread -0.04 | 22:82-84 23:95-66 24:74-84 25:61-56 26:7-8  | Jan-Feb placebo BACK 357-369 (49.2%)
+   continuity gap +35 points or more over the opponent                    FADE 955-939 (50.4%, z +0.4, shuffle p 0.703)  margin vs spread -0.13 | 22:196-171 23:179-220 24:222-208 25:217-195 26:141-145  | Jan-Feb placebo FADE 1202-1195 (50.1%)
+   4-5 starters back                                                      BACK 1847-1823 (50.3%, z +0.4, shuffle p 0.661)  margin vs spread -0.10 | 22:605-640 23:537-498 24:358-351 25:262-269 26:85-65  | Jan-Feb placebo BACK 2491-2463 (50.3%)
+   0-1 starters back                                                      FADE 3481-3397 (50.6%, z +1.0, shuffle p 0.202)  margin vs spread -0.07 | 22:197-225 23:566-515 24:614-566 25:758-757 26:1346-1334  | Jan-Feb placebo FADE 4441-4418 (50.1%)
+   3+ more returning starters than the opponent                           BACK 854-771 (52.6%, z +2.1, shuffle p 0.032)  margin vs spread +0.40 | 22:137-155 23:218-181 24:199-170 25:186-170 26:114-95  | Jan-Feb placebo BACK 1028-993 (50.9%)
+   leading scorer back, opponent's gone                                   FADE 2079-2017 (50.8%, z +1.0, shuffle p 0.285)  margin vs spread -0.23 | 22:454-374 23:527-514 24:448-492 25:404-380 26:246-257  | Jan-Feb placebo FADE 2722-2676 (50.4%)
+   6+ transfers in (portal rebuild)                                       BACK 570-547 (51.0%, z +0.7, shuffle p 0.489)  margin vs spread +0.39 | 22:54-50 23:28-32 24:83-84 25:153-147 26:252-234  | Jan-Feb placebo BACK 658-725 (47.6%)
+   transfers playing 50%+ of early minutes                                FADE 916-914 (50.1%, z +0.0, shuffle p 0.976)  margin vs spread +0.13 | 22:64-60 23:88-86 24:106-101 25:240-232 26:418-435  | Jan-Feb placebo FADE 1203-1111 (52.0%)
+   new players 60%+ of early minutes                                      BACK 3609-3522 (50.6%, z +1.0, shuffle p 0.186)  margin vs spread +0.20 | 22:332-307 23:530-509 24:583-574 25:847-818 26:1317-1314  | Jan-Feb placebo BACK 4678-4642 (50.2%)
+
+=== C. NEW HEAD COACH (coach_yr == 1) ===
+   new head coach -- first 5 games                                        BACK 711-654 (52.1%, z +1.5, shuffle p 0.094)  margin vs spread +0.33 | 22:143-107 23:136-133 24:126-145 25:148-142 26:158-127
+   new head coach -- first 10 games                                       BACK 1404-1333 (51.3%, z +1.4, shuffle p 0.146)  margin vs spread +0.15 | 22:268-239 23:263-275 24:281-263 25:291-287 26:301-269
+   new head coach -- Nov-Dec                                              BACK 1669-1576 (51.4%, z +1.6, shuffle p 0.081)  margin vs spread +0.19 | 22:293-263 23:334-349 24:322-304 25:352-338 26:368-322
+   new head coach -- Jan-Feb                                              FADE 2187-2081 (51.2%, z +1.6, shuffle p 0.079)  margin vs spread -0.35 | 22:414-389 23:443-383 24:403-426 25:478-421 26:449-462
+   new head coach -- all season                                           FADE 4285-4240 (50.3%, z +0.5, shuffle p 0.582)  margin vs spread -0.15 | 22:763-767 23:873-798 24:840-867 25:933-886 26:876-922
+   new coach + kept 70%+ minutes -- first 10 games                        n=18 (thin)
+   new coach + rebuilt roster (<=30% kept) -- first 10 games              BACK 813-727 (52.8%, z +2.2, shuffle p 0.019)  margin vs spread +0.15 | 22:71-53 23:100-107 24:160-142 25:224-199 26:258-226
+   new coach + 5+ transfers -- first 10 games                             FADE 352-344 (50.6%, z +0.3, shuffle p 0.770)  margin vs spread +0.05 | 22:50-46 23:28-30 24:45-43 25:93-85 26:136-140
+   new coach, non-conference -- first 10 games                            BACK 1393-1319 (51.4%, z +1.4, shuffle p 0.137)  margin vs spread +0.16 | 22:260-231 23:263-275 24:280-262 25:291-284 26:299-267
+   new coach as underdog -- first 10 games                                BACK 813-758 (51.8%, z +1.4, shuffle p 0.151)  margin vs spread +0.44 | 22:162-145 23:157-157 24:174-159 25:172-155 26:148-142
+   new coach as favorite -- first 10 games                                BACK 581-571 (50.4%, z +0.3, shuffle p 0.765)  margin vs spread -0.31 | 22:106-93 23:106-117 24:104-102 25:115-132 26:150-127
+   new coach + kept 70%+ minutes -- Nov-Dec                               n=17 (thin)
+   new coach + rebuilt roster (<=30% kept) -- Nov-Dec                     BACK 982-862 (53.3%, z +2.8, shuffle p 0.005)  margin vs spread +0.18 | 22:83-64 23:131-131 24:182-164 25:268-232 26:318-271
+   new coach + 5+ transfers -- Nov-Dec                                    BACK 438-422 (50.9%, z +0.5, shuffle p 0.576)  margin vs spread +0.35 | 22:56-60 23:38-37 24:51-51 25:108-109 26:185-165
+   new coach, non-conference -- Nov-Dec                                   BACK 1669-1576 (51.4%, z +1.6, shuffle p 0.081)  margin vs spread +0.19 | 22:293-263 23:334-349 24:322-304 25:352-338 26:368-322
+   new coach as underdog -- Nov-Dec                                       BACK 978-879 (52.7%, z +2.3, shuffle p 0.015)  margin vs spread +0.62 | 22:178-156 23:202-193 24:200-183 25:214-180 26:184-167
+   new coach as favorite -- Nov-Dec                                       FADE 691-678 (50.5%, z +0.4, shuffle p 0.731)  margin vs spread -0.46 | 22:106-115 23:154-131 24:119-119 25:158-132 26:154-181
+
+=== D. SMALL SCHOOLS (owner thesis: the public does not know these rosters) -- first 10 games ===
+ -- conference tier low (5,354 team-games)
+   kept 70%+ minutes                                                      FADE 295-260 (53.2%, z +1.5, shuffle p 0.137)  margin vs spread -1.27 | 22:167-151 23:39-39 24:39-31 25:44-35 26:6-4  | Jan-Feb placebo FADE 424-472 (47.3%)
+   rebuilt (<=30% kept)                                                   FADE 819-784 (51.1%, z +0.9, shuffle p 0.373)  margin vs spread -0.34 | 22:37-41 23:153-140 24:134-133 25:201-192 26:294-278  | Jan-Feb placebo FADE 1221-1232 (49.8%)
+   continuity gap +35 over opponent                                       FADE 290-257 (53.0%, z +1.4, shuffle p 0.160)  margin vs spread -0.73 | 22:76-62 23:47-51 24:52-52 25:65-43 26:50-49  | Jan-Feb placebo FADE 365-362 (50.2%)
+   4-5 starters back                                                      FADE 549-514 (51.6%, z +1.1, shuffle p 0.277)  margin vs spread -0.83 | 22:206-186 23:119-125 24:104-95 25:84-74 26:36-34  | Jan-Feb placebo FADE 815-861 (48.6%)
+   new head coach                                                         BACK 442-407 (52.1%, z +1.2, shuffle p 0.254)  margin vs spread +0.15 | 22:78-82 23:78-70 24:102-93 25:69-59 26:115-103
+   new head coach, non-conference                                         BACK 433-399 (52.0%, z +1.2, shuffle p 0.252)  margin vs spread +0.15 | 22:72-77 23:78-70 24:101-92 25:69-58 26:113-102
+ -- conference tier mid (5,678 team-games)
+   kept 70%+ minutes                                                      BACK 323-313 (50.8%, z +0.4, shuffle p 0.699)  margin vs spread -0.10 | 22:138-138 23:81-53 24:74-85 25:27-30 26:3-7  | Jan-Feb placebo BACK 490-476 (50.7%)
+   rebuilt (<=30% kept)                                                   BACK 792-718 (52.5%, z +1.9, shuffle p 0.047)  margin vs spread +0.11 | 22:35-25 23:119-118 24:117-108 25:187-158 26:334-309  | Jan-Feb placebo BACK 1190-1212 (49.5%)
+   continuity gap +35 over opponent                                       FADE 284-268 (51.4%, z +0.7, shuffle p 0.487)  margin vs spread -0.47 | 22:63-51 23:49-69 24:77-52 25:60-59 26:35-37  | Jan-Feb placebo FADE 356-348 (50.6%)
+   4-5 starters back                                                      BACK 594-582 (50.5%, z +0.3, shuffle p 0.733)  margin vs spread -0.24 | 22:213-223 23:167-136 24:111-124 25:85-91 26:18-8  | Jan-Feb placebo BACK 903-909 (49.8%)
+   new head coach                                                         BACK 440-405 (52.1%, z +1.2, shuffle p 0.240)  margin vs spread -0.03 | 22:80-66 23:84-92 24:96-86 25:111-105 26:69-56
+   new head coach, non-conference                                         BACK 438-399 (52.3%, z +1.3, shuffle p 0.172)  margin vs spread +0.02 | 22:78-63 23:84-92 24:96-86 25:111-103 26:69-55
+ -- conference tier high (6,666 team-games)
+   kept 70%+ minutes                                                      BACK 259-249 (51.0%, z +0.4, shuffle p 0.662)  margin vs spread +0.90 | 22:114-111 23:55-61 24:64-53 25:26-24  | Jan-Feb placebo BACK 392-392 (50.0%)
+   rebuilt (<=30% kept)                                                   FADE 1012-999 (50.3%, z +0.3, shuffle p 0.762)  margin vs spread +0.21 | 22:82-79 23:110-103 24:157-142 25:225-250 26:438-425  | Jan-Feb placebo FADE 1558-1559 (50.0%)
+   continuity gap +35 over opponent                                       BACK 272-261 (51.0%, z +0.5, shuffle p 0.652)  margin vs spread +0.43 | 22:51-55 23:58-58 24:67-59 25:61-55 26:35-34  | Jan-Feb placebo BACK 485-481 (50.2%)
+   4-5 starters back                                                      BACK 478-466 (50.6%, z +0.4, shuffle p 0.697)  margin vs spread +0.48 | 22:169-178 23:148-145 24:92-75 25:53-54 26:16-14  | Jan-Feb placebo BACK 727-739 (49.6%)
+   new head coach                                                         BACK 522-521 (50.0%, z +0.0, shuffle p 0.990)  margin vs spread +0.29 | 22:110-91 23:101-113 24:83-84 25:111-123 26:117-110
+   new head coach, non-conference                                         BACK 522-521 (50.0%, z +0.0, shuffle p 0.991)  margin vs spread +0.29 | 22:110-91 23:101-113 24:83-84 25:111-123 26:117-110
+
+=== E. DOSE LADDERS, first 10 games (BACK the team; % cover) ===
+ ret_min        (0.0, 0.2]: 51.2% n=2532 spread +2.1 | (0.2, 0.4]: 48.6% n=5106 spread +1.1 | (0.4, 0.6]: 50.4% n=5834 spread -0.4 | (0.6, 0.8]: 49.5% n=2948 spread -0.9 | (0.8, 1.01]: 49.9% n=715 spread -2.0
+ ret_diff       (-1.01, -0.4]: 50.0% n=1133 spread +3.6 | (-0.4, -0.2]: 49.4% n=2818 spread +2.2 | (-0.2, 0.0]: 49.4% n=4725 spread +0.8 | (0.0, 0.2]: 50.4% n=4738 spread -0.1 | (0.2, 0.4]: 50.4% n=2835 spread -1.7 | (0.4, 1.01]: 48.8% n=1165 spread -3.4
+ starters_back  (-1, 0]: 51.1% n=2040 spread +1.8 | (0, 1]: 48.2% n=3665 spread +1.0 | (1, 2]: 49.4% n=4555 spread +0.2 | (2, 3]: 51.3% n=3971 spread -0.1 | (3, 4]: 48.5% n=2255 spread -0.8 | (4, 5]: 53.6% n=806 spread -0.5
+ xfer_in        (-1, 1]: 49.8% n=7263 spread +2.4 | (1, 3]: 49.6% n=6290 spread +0.4 | (3, 5]: 50.1% n=2968 spread -2.8 | (5, 7]: 51.3% n=686 spread -7.5 | (7, 30]: 49.8% n=207 spread -6.8
+ new_share      (0.0, 0.2]: 49.2% n=1327 spread -1.1 | (0.2, 0.4]: 50.1% n=4421 spread -1.1 | (0.4, 0.6]: 49.0% n=5710 spread -0.0 | (0.6, 0.8]: 49.1% n=3925 spread +2.1 | (0.8, 1.01]: 53.7% n=2021 spread +1.7

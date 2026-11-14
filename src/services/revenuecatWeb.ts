@@ -1,3 +1,6 @@
+import { resolveSubscriptionTier } from '@/features/tieredPaywall/access';
+import { resolveWebPlacement } from '@/features/tieredPaywall/placements';
+import { entitlementID } from '../../supabase/functions/shared/subscriptionTiers';
 import {
   ErrorCode,
   Purchases,
@@ -182,6 +185,15 @@ export async function getOfferings(params?: GetOfferingsParams): Promise<Offerin
   }
 }
 
+export async function getTieredCheckoutOffering(userId: string, origin: string | null) {
+  const purchases = getPurchasesInstance();
+  return resolveWebPlacement(purchases, userId, origin, () => {
+    if (getPurchasesInstance() !== purchases) {
+      throw new Error('Your account changed. Please reload your subscription options.');
+    }
+  });
+}
+
 /**
  * A purchase result paired with a fresh post-checkout CustomerInfo read. The
  * returned entitlement boolean is the only signal the paywall may use to
@@ -265,7 +277,8 @@ export async function syncPurchases(): Promise<void> {
  * Get active subscription type
  */
 export function getActiveSubscriptionType(customerInfo: CustomerInfo): ProductIdentifier | null {
-  const entitlement = customerInfo.entitlements.active[ENTITLEMENT_IDENTIFIER];
+  const tier = resolveSubscriptionTier(Object.keys(customerInfo.entitlements.active));
+  const entitlement = tier ? customerInfo.entitlements.active[entitlementID(tier)] : undefined;
   if (!entitlement) {
     return null;
   }

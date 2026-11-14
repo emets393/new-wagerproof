@@ -5,6 +5,7 @@ import { TeamLogoDiscs } from '@/components/ios';
 import { StarButton } from '@/components/StarButton';
 import { WeatherIcon as WeatherIconComponent, IconWind } from '@/utils/weatherIcons';
 import { formatMoneyline, formatSpread, formatDateGroupLabel } from '../api/shared';
+import { headerContextPills } from './sections/ncaab/ncaabDetail';
 import type { GameFeedItem } from '../types';
 
 function HeroStat({ label, value, className }: { label: string; value: string; className?: string }) {
@@ -31,6 +32,16 @@ export function DetailHero({ game, isAdmin }: { game: GameFeedItem; isAdmin: boo
   const showWeather =
     (game.sport === 'nfl' || game.sport === 'cfb') &&
     (raw?.temperature != null || raw?.wind_speed != null || raw?.icon || raw?.icon_code);
+  const ncaabPills =
+    game.sport === 'ncaab'
+      ? headerContextPills({
+          neutralSite: raw?.neutral_site,
+          tournament: raw?.tournament,
+          broadcasts: raw?.broadcasts,
+          gameType: raw?.game_type,
+        })
+      : [];
+  const neutralSite = ncaabPills.includes('Neutral');
 
   return (
     <div className="relative flex flex-col items-center gap-3 px-6 pb-5 pt-8 text-center">
@@ -49,7 +60,8 @@ export function DetailHero({ game, isAdmin }: { game: GameFeedItem; isAdmin: boo
 
       <div>
         <h2 className="text-xl font-bold tracking-tight text-foreground">
-          {awayTeam.name} <span className="font-semibold text-muted-foreground">@</span>{' '}
+          {awayTeam.name}{' '}
+          <span className="font-semibold text-muted-foreground">{neutralSite ? 'vs' : '@'}</span>{' '}
           {homeTeam.name}
         </h2>
         <div className="mt-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground">
@@ -57,6 +69,18 @@ export function DetailHero({ game, isAdmin }: { game: GameFeedItem; isAdmin: boo
           {formatDateGroupLabel(game.gameDate)} ·{' '}
           {game.status === 'postponed' ? 'Postponed' : game.gameTimeLabel}
         </div>
+        {ncaabPills.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+            {ncaabPills.map((pill) => (
+              <span
+                key={pill}
+                className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-primary/30"
+              >
+                {pill}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2">

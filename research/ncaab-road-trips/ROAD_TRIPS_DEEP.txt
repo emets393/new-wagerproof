@@ -1,0 +1,70 @@
+=== 1. IS THE DEEP-TRIP LEAN JUST THE ROAD-DOG BAND? road dog 10.5-17 (held signal) x which road game in a row ===
+  road dog 10.5-17, road game #1 in a row                                      n= 2351 | own ATS 1254-1058 (54.2%, +3.6%) | OVER 1173-1153 (50.4%, -3.7%; sm 51.3%) tot +0.67 | ML roi -20.2% win 11% | sprd +13.2 | p(ATS) 0.000 p(tot) 0.757
+  road dog 10.5-17, road game #2 in a row                                      n= 1178 | own ATS 579-575 (50.2%, -4.1%) | OVER 633-534 (54.2%, +3.5%; sm 51.3%) tot +1.44 | ML roi -19.0% win 11% | sprd +13.3 | p(ATS) 0.910 p(tot) 0.007
+  road dog 10.5-17, road game #3+ in a row                                     n=  735 | own ATS 385-339 (53.2%, +1.6%) | OVER 377-355 (51.5%, -1.7%; sm 51.4%) tot +0.86 | ML roi -25.2% win 10% | sprd +13.4 | p(ATS) 0.087 p(tot) 0.488
+      by season: 21: ATS 51-37 O 47-42 | 22: ATS 71-76 O 80-69 | 23: ATS 67-49 O 59-60 | 24: ATS 53-66 O 66-53 | 25: ATS 69-58 O 66-63 | 26: ATS 74-53 O 59-68
+  -- and outside the band
+  road dog 0.5-10, road game #1                                                n= 7417 | own ATS 3624-3666 (49.7%, -5.0%) | OVER 3741-3620 (50.8%, -3.0%; sm 50.3%) tot +0.99 | ML roi -9.9% win 32% | sprd +5.2
+  road dog 17.5+, road game #1                                                 n= 1239 | own ATS 609-616 (49.7%, -5.0%) | OVER 673-553 (54.9%, +4.8%; sm 52.3%) tot +1.86 | ML roi -70.3% win 2% | sprd +23.3
+  road FAVORITE, road game #1                                                  n= 4572 | own ATS 2238-2270 (49.6%, -5.2%) | OVER 2276-2254 (50.2%, -4.1%; sm 50.5%) tot +0.77 | ML roi -3.7% win 67% | sprd -5.4
+  road dog 0.5-10, road game #2                                                n= 3705 | own ATS 1823-1832 (49.9%, -4.7%) | OVER 1888-1785 (51.4%, -1.9%; sm 50.3%) tot +1.25 | ML roi -8.7% win 33% | sprd +5.1
+  road dog 17.5+, road game #2                                                 n=  732 | own ATS 361-365 (49.7%, -5.0%) | OVER 368-358 (50.7%, -3.2%; sm 52.3%) tot +0.87 | ML roi -50.9% win 2% | sprd +23.9
+  road FAVORITE, road game #2                                                  n= 2333 | own ATS 1126-1171 (49.0%, -6.4%) | OVER 1158-1149 (50.2%, -4.2%; sm 50.5%) tot +0.73 | ML roi -3.6% win 67% | sprd -5.5
+  road dog 0.5-10, road game #3+                                               n= 1641 | own ATS 825-778 (51.5%, -1.7%) | OVER 780-847 (47.9%, -8.5%; sm 50.4%) tot -0.24 | ML roi -6.4% win 34% | sprd +5.2
+  road dog 17.5+, road game #3+                                                n=  710 | own ATS 368-335 (52.3%, +0.0%) | OVER 359-343 (51.1%, -2.4%; sm 52.3%) tot +0.51 | ML roi -76.5% win 1% | sprd +25.6
+  road FAVORITE, road game #3+                                                 n=  903 | own ATS 450-436 (50.8%, -3.1%) | OVER 457-439 (51.0%, -2.6%; sm 50.5%) tot +0.76 | ML roi -3.9% win 65% | sprd -5.0
+
+=== 2. ROAD GAME #3+ x BENCH DEPTH (KenPom Bench = share of minutes by reserves) ===
+  road #3+, bench Q1 thinnest                                                  n=  739 | own ATS 397-331 (54.5%, +4.1%) | OVER 374-358 (51.1%, -2.5%; sm 50.8%) tot +0.74 | ML roi -5.1% win 38% | sprd +5.5 | p(ATS) 0.015 p(tot) 0.593
+      by season: 21: ATS 77-53 O 76-56 | 22: ATS 54-41 O 48-44 | 23: ATS 57-45 O 47-55 | 24: ATS 55-67 O 64-58 | 25: ATS 65-51 O 58-61 | 26: ATS 89-74 O 81-84
+  road #3+, bench Q2                                                           n=  682 | own ATS 353-317 (52.7%, +0.6%) | OVER 320-359 (47.1%, -10.1%; sm 50.8%) tot -0.80 | ML roi -15.9% win 35% | sprd +6.4
+  road #3+, bench Q3                                                           n=  747 | own ATS 378-348 (52.1%, -0.6%) | OVER 367-373 (49.6%, -5.3%; sm 50.9%) tot +0.23 | ML roi -24.1% win 31% | sprd +7.5
+  road #3+, bench Q4                                                           n=  774 | own ATS 393-372 (51.4%, -1.9%) | OVER 404-364 (52.6%, +0.4%; sm 50.9%) tot +1.28 | ML roi -27.1% win 29% | sprd +8.2
+  road #3+, bench Q5 deepest                                                   n= 1064 | own ATS 515-529 (49.3%, -5.8%) | OVER 518-537 (49.1%, -6.3%; sm 51.1%) tot +0.17 | ML roi -28.5% win 24% | sprd +10.9
+  -- control: bench quintile on road game #1 (if thin benches cover everywhere it is not a trip effect)
+  road #1, bench Q1 thinnest                                                   n= 3155 | own ATS 1623-1488 (52.2%, -0.4%) | OVER 1598-1530 (51.1%, -2.5%; sm 50.6%) tot +0.86 | ML roi -5.7% win 42% | sprd +3.5
+  home games, bench Q1 thinnest                                                n= 5507 | own ATS 2732-2681 (50.5%, -3.6%) | OVER 2837-2614 (52.0%, -0.7%; sm 50.7%) tot +1.55 | ML roi +0.0% win 69% | sprd -6.3
+  road #1, bench Q5 deepest                                                    n= 3076 | own ATS 1456-1575 (48.0%, -8.3%) | OVER 1528-1524 (50.1%, -4.4%; sm 50.8%) tot +0.91 | ML roi -19.2% win 32% | sprd +6.2
+  home games, bench Q5 deepest                                                 n= 5404 | own ATS 2569-2747 (48.3%, -7.7%) | OVER 2686-2683 (50.0%, -4.5%; sm 50.6%) tot +0.49 | ML roi -7.5% win 59% | sprd -3.7
+  road #3+, thinnest-quintile bench, as dog                                    n=  511 | own ATS 290-213 (57.7%, +10.1%) | OVER 261-247 (51.4%, -1.9%; sm 50.9%) tot +0.68 | ML roi -4.4% win 26% | sprd +10.3
+  road #3+, thinnest bench, as favorite                                        n=  225 | own ATS 106-116 (47.7%, -8.9%) | OVER 112-109 (50.7%, -3.2%; sm 50.5%) tot +0.83 | ML roi -6.1% win 65% | sprd -5.5
+  road #3+, thinnest bench, young (Exp < 1.5)                                  n=  283 | own ATS 166-112 (59.7%, +14.0%) | OVER 142-138 (50.7%, -3.2%; sm 50.9%) tot +1.85 | ML roi -7.3% win 36% | sprd +7.3
+  road #3+, thinnest bench, experienced (>= 2)                                 n=  209 | own ATS 99-108 (47.8%, -8.7%) | OVER 109-97 (52.9%, +1.0%; sm 50.7%) tot +0.00 | ML roi -5.6% win 39% | sprd +3.7
+
+=== 3. ROAD GAME #3+ x DOG SIZE x TEAM QUALITY (where the market leans hardest against the traveller) ===
+  road #3+, dog 14.5+                                                          n=  968 | own ATS 512-446 (53.4%, +2.1%) | OVER 489-469 (51.0%, -2.6%; sm 52.3%) tot +0.39 | ML roi -59.2% win 3% | sprd +23.0 | p(ATS) 0.028 p(tot) 0.543
+      by season: 21: ATS 50-52 O 51-49 | 22: ATS 93-72 O 76-87 | 23: ATS 81-68 O 80-69 | 24: ATS 86-75 O 79-84 | 25: ATS 103-83 O 95-91 | 26: ATS 99-96 O 108-89
+  road #3+, dog 10.5-14                                                        n=  475 | own ATS 241-226 (51.6%, -1.4%) | OVER 245-229 (51.7%, -1.3%; sm 50.9%) tot +1.24 | ML roi -30.3% win 11% | sprd +12.1
+  road #3+, dog 5.5-10                                                         n=  792 | own ATS 398-378 (51.3%, -2.1%) | OVER 382-401 (48.8%, -6.9%; sm 50.6%) tot -0.51 | ML roi -14.5% win 23% | sprd +7.5
+  road #3+, dog 0.5-5                                                          n=  848 | own ATS 426-400 (51.6%, -1.5%) | OVER 398-445 (47.2%, -9.8%; sm 50.1%) tot +0.01 | ML roi +1.3% win 43% | sprd +3.0
+  road #3+, dog 14.5+, Nov-Dec (buy games)                                     n=  848 | own ATS 447-393 (53.2%, +1.7%) | OVER 424-415 (50.5%, -3.5%; sm 52.3%) tot +0.14 | ML roi -63.1% win 3% | sprd +23.7
+  road #3+, dog 14.5+, conference play                                         n=  131 | own ATS 67-63 (51.5%, -1.6%) | OVER 70-58 (54.7%, +4.4%; sm 52.3%) tot +2.56 | ML roi -39.1% win 6% | sprd +17.4
+  road #3+, vs much better host (EM gap >= 10)                                 n= 1446 | own ATS 763-662 (53.5%, +2.3%) | OVER 740-695 (51.6%, -1.6%; sm 51.8%) tot +0.70 | ML roi -49.2% win 6% | sprd +19.1 | p(ATS) 0.007 p(tot) 0.260
+      by season: 21: ATS 104-78 O 99-83 | 22: ATS 138-118 O 128-127 | 23: ATS 119-109 O 123-108 | 24: ATS 119-118 O 119-121 | 25: ATS 135-111 O 124-125 | 26: ATS 148-128 O 147-131
+  road #3+, young (Exp < 1.5)                                                  n= 1984 | own ATS 1034-917 (53.0%, +1.2%) | OVER 973-996 (49.4%, -5.7%; sm 51.0%) tot +0.69 | ML roi -27.2% win 27% | sprd +10.1 | p(ATS) 0.002 p(tot) 0.655
+      by season: 21: ATS 185-159 O 175-171 | 22: ATS 96-84 O 90-91 | 23: ATS 122-95 O 104-115 | 24: ATS 153-130 O 136-149 | 25: ATS 203-174 O 193-189 | 26: ATS 275-275 O 275-281
+  road #3+, young AND dog 7.5+                                                 n= 1072 | own ATS 574-485 (54.2%, +3.5%) | OVER 519-544 (48.8%, -6.8%; sm 51.6%) tot +0.26 | ML roi -50.8% win 7% | sprd +18.2
+  road #4+, dog 7.5+                                                           n=  904 | own ATS 472-420 (52.9%, +1.1%) | OVER 444-449 (49.7%, -5.1%; sm 51.6%) tot +0.41 | ML roi -35.8% win 9% | sprd +18.0 | p(ATS) 0.075 p(tot) 0.897
+      by season: 21: ATS 62-45 O 55-50 | 22: ATS 81-81 O 79-82 | 23: ATS 74-64 O 68-70 | 24: ATS 68-72 O 68-73 | 25: ATS 92-65 O 78-80 | 26: ATS 95-93 O 96-94
+  -- control: the same pockets on road game #1-2
+  road #1-2, dog 14.5+                                                         n= 3133 | own ATS 1565-1530 (50.6%, -3.4%) | OVER 1625-1480 (52.3%, -0.1%; sm 52.3%) tot +1.15 | ML roi -50.1% win 4% | sprd +20.6
+  road #1-2, vs much better host                                               n= 5978 | own ATS 3025-2859 (51.4%, -1.8%) | OVER 3091-2828 (52.2%, -0.3%; sm 51.6%) tot +1.20 | ML roi -34.9% win 9% | sprd +16.1
+  road #1-2, young                                                             n= 8611 | own ATS 4239-4250 (49.9%, -4.6%) | OVER 4387-4147 (51.4%, -1.9%; sm 50.8%) tot +1.06 | ML roi -17.8% win 31% | sprd +7.2
+
+=== 4. HOME TEAM RETURNING FROM A TRIP AS THE DOG (fade?) ===
+  returning home after 1+ road games, as dog                                   n= 4323 | own ATS 2128-2119 (50.1%, -4.3%) | OVER 2159-2124 (50.4%, -3.8%; sm 50.4%) tot +0.86 | ML roi -10.7% win 33% | sprd +5.5 | p(ATS) 0.882 p(tot) 0.775
+      by season: 21: ATS 229-263 O 237-254 | 22: ATS 364-339 O 357-356 | 23: ATS 376-366 O 388-367 | 24: ATS 361-366 O 364-368 | 25: ATS 386-381 O 384-389 | 26: ATS 412-404 O 429-390
+  returning after 3+ road games, as dog                                        n=  716 | own ATS 333-368 (47.5%, -9.3%) | OVER 350-355 (49.6%, -5.2%; sm 50.4%) tot +0.12 | ML roi -10.1% win 32% | sprd +5.6 | p(ATS) 0.188 p(tot) 0.877
+      by season: 21: ATS 49-74 O 61-60 | 22: ATS 63-73 O 71-68 | 23: ATS 60-39 O 54-46 | 24: ATS 50-60 O 47-64 | 25: ATS 50-60 O 59-54 | 26: ATS 61-62 O 58-63
+  returning after 1+ road games, as dog of 7+                                  n= 1277 | own ATS 638-617 (50.8%, -2.9%) | OVER 644-622 (50.9%, -2.9%; sm 50.9%) tot +0.91 | ML roi -21.5% win 16% | sprd +10.4
+  control: home dog NOT returning (home stand game 2+)                         n= 3214 | own ATS 1608-1567 (50.6%, -3.3%) | OVER 1603-1579 (50.4%, -3.8%; sm 50.4%) tot +0.67 | ML roi -6.5% win 34% | sprd +5.4
+
+=== 5. TOTALS: compressed trips (the only total cell that moved) ===
+  road #3 within 5 days of trip start                                          n=  259 | own ATS 135-120 (52.9%, +1.2%) | OVER 114-141 (44.7%, -14.7%; sm 50.9%) tot -1.97 | ML roi -28.3% win 33% | sprd +7.3 | p(ATS) 0.348 p(tot) 0.110
+      by season: 21: ATS 27-28 O 24-31 | 22: ATS 53-33 O 35-50 | 23: ATS 16-17 O 16-17 | 24: ATS 11-10 O 11-10 | 25: ATS 10-12 O 9-13 | 26: ATS 18-20 O 19-20
+  road #2+ within 3 days of trip start                                         n= 4856 | own ATS 2357-2429 (49.2%, -6.0%) | OVER 2500-2303 (52.1%, -0.6%; sm 50.7%) tot +1.42 | ML roi -12.9% win 38% | sprd +4.3
+  road #3+ within 7 days                                                       n= 1144 | own ATS 576-543 (51.5%, -1.7%) | OVER 562-573 (49.5%, -5.5%; sm 50.8%) tot -0.37 | ML roi -15.9% win 35% | sprd +5.8
+  BOTH teams on 1 day rest                                                     n= 4300 | own ATS 2114-2124 (49.9%, -4.8%) | OVER 2144-2112 (50.4%, -3.9%; sm 50.6%) tot +0.61 | ML roi -12.5% win 40% | sprd +3.2
+
+=== 6. THE OTHER SIDE: hosting a team on road game #3+ (home team's row) ===
+  home team hosting a visitor on road game #3+: ATS 1899-2041 (48.2%) n=4013 (mirror of the traveller's 51.8%)

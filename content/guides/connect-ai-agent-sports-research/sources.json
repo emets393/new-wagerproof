@@ -1,0 +1,4 @@
+[
+  {"title":"WagerProof connector: setup and usage","publisher":"WagerProof","url":"https://wagerproof-mcp.habib225.workers.dev/docs","accessedAt":"2026-10-02","usedFor":"Connector address, setup steps, tool list, read-only boundary"},
+  {"title":"OpenAI Dots vs Muse vs Grok Bot: permissions compared","publisher":"PortEden","url":"https://porteden.com/blog/openai-dots-vs-muse-vs-grok-bot/","accessedAt":"2026-10-02","usedFor":"How each agent connects to outside data; launch and plan availability. Secondary source; replace with first-party docs once verified in-session."}
+]

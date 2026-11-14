@@ -39,6 +39,17 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "562A18925F4BFBC7AB96C47E"
+               BuildableName = "WagerproofTrackingTests.xctest"
+               BlueprintName = "WagerproofTrackingTests"
+               ReferencedContainer = "container:Wagerproof.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

@@ -1,0 +1,1402 @@
+Scheduled     Open    Best Odds    % of Bets     % of Money     Diff     Bets 
+Final
+UNC Team Icon
+UNC
+305
+TCU Team Icon
+TCU
+306
++252
+-320
++260
+-305
+6%
+94%
+37%
+63%
++31%
+82,364
+Final
+San Jose St Team Icon
+San Jose St
+313
+USC Team Icon
+USC
+314
++5500
+N/A
+46,498
+Final
+NC State Team Icon
+NC State
+317
+Virginia Team Icon
+Virginia
+318
++145
+-170
++155
+-175
+13%
+87%
+42%
+58%
++29%
+58,938
+Final
+Jax State Team Icon
+Jax State
+319
+ND State Team Icon
+ND State
+320
++300
+-385
++230
+-270
+3%
+97%
+12%
+88%
++9%
+34,608
+Final
+Sac State Team Icon
+Sac State
+309
+E. Michigan Team Icon
+E. Michigan
+310
++255
+-320
++310
+-350
+2%
+98%
+4%
+96%
++2%
+19,200
+Final
+N. Mexico St Team Icon
+N. Mexico St
+307
+Florida St Team Icon
+Florida St
+308
++2400
+-10000
++2800
+-8000
+3%
+97%
+23%
+77%
++20%
+33,821
+Final
+Hawaii Team Icon
+Hawaii
+311
+Stanford Team Icon
+Stanford
+312
++130
+-160
++170
+-185
+8%
+92%
+30%
+70%
++22%
+45,852
+Final
+Memphis Team Icon
+Memphis
+315
+UNLV Team Icon
+UNLV
+316
++116
+-140
++168
+-190
+7%
+93%
+16%
+84%
++9%
+49,573
+Final
+UMass Team Icon
+UMass
+141
+Rutgers Team Icon
+Rutgers
+142
++2800
+-10000
++2500
+-5000
+7%
+93%
+51%
+49%
++44%
+24,264
+Final
+Akron Team Icon
+Akron
+143
+Wake Forest Team Icon
+Wake Forest
+144
++1280
+-3500
++2000
+-3000
+4%
+96%
+9%
+91%
++5%
+21,068
+Final
+West Georgia Team Icon
+West Georgia
+Kennesaw St Team Icon
+Kennesaw St
++1100
+-2500
++1500
+-2200
+6%
+94%
+35%
+65%
++29%
+7,845
+Final
+B-Cookman Team Icon
+B-Cookman
+UCF Team Icon
+UCF
++8000
+N/A
+6,194
+Final
+Albany Team Icon
+Albany
+Buffalo Team Icon
+Buffalo
++2200
+-8000
++810
+-1000
+5%
+95%
+16%
+84%
++11%
+5,710
+Final
+Merrimack Team Icon
+Merrimack
+Delaware Team Icon
+Delaware
++2500
+-10000
++3000
+-6500
+5%
+95%
+19%
+81%
++14%
+4,200
+Final
+Colorado Team Icon
+Colorado
+145
+GA Tech Team Icon
+GA Tech
+146
++250
+-315
++220
+-238
+10%
+90%
+63%
+37%
++53%
+72,691
+Final
+E. Illinois Team Icon
+E. Illinois
+Minnesota Team Icon
+Minnesota
++8000
+N/A
+5,957
+Final
+AR-Pine Bluff Team Icon
+AR-Pine Bluff
+Missouri Team Icon
+Missouri
+N/A
+N/A
+9,092
+Final
+Idaho Team Icon
+Idaho
+Utah Team Icon
+Utah
++3000
+-10000
++6500
+N/A
+6%
+45%
++39%
+12,056
+Final
+UAB Team Icon
+UAB
+193
+Illinois Team Icon
+Illinois
+194
++1600
+-4500
++1800
+-3600
+6%
+94%
+26%
+74%
++20%
+18,660
+Final
+San Jose St Team Icon
+San Jose St
+147
+E. Michigan Team Icon
+E. Michigan
+148
++136
+-164
++165
+-115
+21%
+79%
+65%
+35%
++44%
+37,885
+Final
+NC A&T Team Icon
+NC A&T
+Georgia State Team Icon
+Georgia State
++1600
+-4500
++2400
+-4000
+8%
+92%
+30%
+70%
++22%
+5,169
+Final
+Indiana St Team Icon
+Indiana St
+Purdue Team Icon
+Purdue
++3500
+-20000
++3000
+N/A
+8%
+87%
++79%
+7,088
+Final
+Long Island Team Icon
+Long Island
+Kansas Team Icon
+Kansas
++2500
+N/A
+8,295
+Final
+UTEP Team Icon
+UTEP
+187
+Oklahoma Team Icon
+Oklahoma
+188
++4000
+N/A
+29,711
+Final
+Toledo Team Icon
+Toledo
+149
+Michigan St Team Icon
+Michigan St
+150
++365
+-490
++350
+-390
+5%
+95%
+25%
+75%
++20%
+39,278
+Final
+Miami (FL) Team Icon
+Miami (FL)
+153
+Stanford Team Icon
+Stanford
+154
+-3000
++1200
+-3000
++1500
+95%
+5%
+63%
+37%
++32%
+57,060
+Final
+Fresno State Team Icon
+Fresno State
+151
+USC Team Icon
+USC
+152
++1280
+-3500
++1600
+-2400
+4%
+96%
+42%
+58%
++38%
+38,092
+Final
+Coastal Car Team Icon
+Coastal Car
+159
+West Virginia Team Icon
+West Virginia
+160
++740
+-1250
++1000
+-1500
+2%
+98%
+8%
+92%
++6%
+37,643
+Final
+Bryant U Team Icon
+Bryant U
+Army  Team Icon
+Army
++8000
+N/A
+3,019
+Final
+E. Carolina Team Icon
+E. Carolina
+181
+Alabama Team Icon
+Alabama
+182
++1600
+-4500
++2000
+-4500
+3%
+97%
+9%
+91%
++6%
+34,926
+Final
+North Texas Team Icon
+North Texas
+177
+Indiana Team Icon
+Indiana
+178
+N/A
+N/A
+28,479
+Final
+Oregon St Team Icon
+Oregon St
+211
+Houston Team Icon
+Houston
+212
++810
+-1450
++980
+-1400
+5%
+95%
+24%
+76%
++19%
+22,017
+Final
+Ohio Team Icon
+Ohio
+185
+Nebraska Team Icon
+Nebraska
+186
++1280
+-3500
++1400
+-2100
+2%
+98%
+12%
+88%
++10%
+15,615
+Final
+Tarleton  Team Icon
+Tarleton
+Bowling Green Team Icon
+Bowling Green
+-104
+-115
++105
+-125
+21%
+79%
+27%
+73%
++6%
+7,982
+Final
+UNH Team Icon
+UNH
+Syracuse Team Icon
+Syracuse
++2000
+-7000
++5500
+-20000
+3%
+97%
+34%
+66%
++31%
+5,114
+Final
+Lafayette Team Icon
+Lafayette
+UConn Team Icon
+UConn
++1060
+-2300
++1000
+-1500
+3%
+97%
+14%
+86%
++11%
+5,871
+Final
+Liberty Team Icon
+Liberty
+161
+JMU Team Icon
+JMU
+162
++210
+-260
++200
+-225
+6%
+94%
+13%
+87%
++7%
+33,023
+Final
+Miami (OH) Team Icon
+Miami (OH)
+155
+Pittsburgh Team Icon
+Pittsburgh
+156
++680
+-1200
++590
+-800
+2%
+98%
+7%
+93%
++5%
+13,167
+Final
+Ball State Team Icon
+Ball State
+173
+Ohio State Team Icon
+Ohio State
+174
++8000
+N/A
+18,559
+Final
+Kent State Team Icon
+Kent State
+169
+S. Carolina Team Icon
+S. Carolina
+170
++4283
+-20000
++5500
+N/A
+4%
+5%
++1%
+14,994
+Final
+Duquesne Team Icon
+Duquesne
+Air Force Team Icon
+Air Force
++1200
+-3000
++3000
+-4000
+2%
+98%
+30%
+70%
++28%
+3,705
+Final
+Youngstown St Team Icon
+Youngstown St
+Kentucky Team Icon
+Kentucky
++2000
+-7000
++1100
+-1800
+1%
+99%
+1%
+99%
+6,553
+Final
+SE Missouri Team Icon
+SE Missouri
+Iowa State Team Icon
+Iowa State
++2800
+-10000
++3000
+-8000
+2%
+98%
+15%
+85%
++13%
+3,655
+Final
+Rhode Island Team Icon
+Rhode Island
+Temple Team Icon
+Temple
++450
+-630
++530
+-650
+4%
+96%
+6%
+94%
++2%
+6,119
+Final
+TN State Team Icon
+TN State
+Georgia Team Icon
+Georgia
++8000
+N/A
+16,216
+Final
+Baylor Team Icon
+Baylor
+209
+Auburn Team Icon
+Auburn
+210
++237
+-290
++240
+-250
+7%
+93%
+17%
+83%
++10%
+61,558
+Final
+Boston Col Team Icon
+Boston Col
+157
+Cincinnati Team Icon
+Cincinnati
+158
++280
+-360
++250
+-278
+4%
+96%
+27%
+73%
++23%
+24,390
+Final
+Fordham Team Icon
+Fordham
+ND State Team Icon
+ND State
++8000
+N/A
+2,660
+Final
+Rio Grande Valley Team Icon
+Rio Grande Valley
+UTSA Team Icon
+UTSA
++1600
+-4500
++2100
+-4500
+3%
+97%
+81%
+19%
++78%
+2,322
+Final
+Towson Team Icon
+Towson
+Navy Team Icon
+Navy
++2800
+-10000
++5000
+-10000
+2%
+98%
+8%
+92%
++6%
+5,841
+Final - 3OT
+Citadel Team Icon
+Citadel
+Charlotte Team Icon
+Charlotte
++720
+-1200
++980
+-1400
+2%
+98%
+47%
+53%
++45%
+3,529
+Final
+Marshall Team Icon
+Marshall
+163
+Penn State Team Icon
+Penn State
+164
++1280
+-3500
++1300
+-2100
+1%
+99%
+4%
+96%
++3%
+24,269
+Final
+Maine Team Icon
+Maine
+App State Team Icon
+App State
++1200
+-3000
++1000
+-1400
+2%
+98%
+100%
++2%
+2,398
+Final
+Furman Team Icon
+Furman
+Tennessee Team Icon
+Tennessee
+N/A
+N/A
+6,043
+Final
+Texas St Team Icon
+Texas St
+189
+Texas Team Icon
+Texas
+190
++2400
+-10000
++2800
+-8000
+1%
+99%
+3%
+97%
++2%
+33,851
+Final
+Boise State Team Icon
+Boise State
+207
+Oregon Team Icon
+Oregon
+208
++1400
+-4000
++1600
+-2400
+2%
+98%
+7%
+93%
++5%
+46,190
+Final
+Tulane Team Icon
+Tulane
+167
+Duke Team Icon
+Duke
+168
++260
+-330
++300
+-350
+7%
+93%
+26%
+74%
++19%
+24,248
+Final
+OK State Team Icon
+OK State
+179
+Tulsa Team Icon
+Tulsa
+180
+-520
++385
+-520
++450
+97%
+3%
+96%
+4%
++1%
+31,362
+Final
+N Alabama Team Icon
+N Alabama
+Arkansas Team Icon
+Arkansas
+N/A
+N/A
+3,190
+Final
+N. Illinois Team Icon
+N. Illinois
+195
+Iowa Team Icon
+Iowa
+196
++3500
+-20000
++4000
+-10000
+4%
+96%
+21%
+79%
++17%
+17,720
+Final
+Alcorn State Team Icon
+Alcorn State
+Southern Miss Team Icon
+Southern Miss
++1280
+-3500
++900
+-1200
+2%
+98%
+2%
+98%
+2,145
+Final
+Wyoming Team Icon
+Wyoming
+199
+Colorado St Team Icon
+Colorado St
+200
++142
+-172
++150
+-130
+9%
+91%
+27%
+73%
++18%
+21,613
+Final
+Norfolk State Team Icon
+Norfolk State
+Old Dominion Team Icon
+Old Dominion
++8000
+N/A
+2,256
+Final
+Ab Christian Team Icon
+Ab Christian
+Texas Tech Team Icon
+Texas Tech
+N/A
+N/A
+6,830
+Final
+Sam Houston Team Icon
+Sam Houston
+213
+Troy Team Icon
+Troy
+214
++720
+-1200
++600
+-800
+1%
+99%
+3%
+97%
++2%
+7,128
+Final
+Arkansas St Team Icon
+Arkansas St
+215
+Memphis Team Icon
+Memphis
+216
++315
+-410
++350
+-325
+3%
+97%
+3%
+97%
+30,433
+Final
+Houston Christian Team Icon
+Houston Christian
+Rice Team Icon
+Rice
++1280
+-3500
++1200
+-2200
+1%
+99%
+1%
+99%
+1,555
+Final
+Charleston So Team Icon
+Charleston So
+GA Southern Team Icon
+GA Southern
++1600
+-4500
++2200
+-4000
+1%
+99%
+12%
+88%
++11%
+1,549
+Final
+Missouri St Team Icon
+Missouri St
+191
+Texas A&M Team Icon
+Texas A&M
+192
++8000
+N/A
+12,737
+Final
+Austin Peay Team Icon
+Austin Peay
+Vanderbilt Team Icon
+Vanderbilt
++3500
+-20000
++2400
+-5000
+100%
+100%
+5,492
+Final
+E. Kentucky Team Icon
+E. Kentucky
+Jax State Team Icon
+Jax State
++980
+-2000
++1100
+-1800
+1%
+99%
+3%
+97%
++2%
+4,725
+Final
+Idaho State Team Icon
+Idaho State
+Utah State Team Icon
+Utah State
++1200
+-3000
++540
+-650
+2%
+98%
+4%
+96%
++2%
+3,352
+Final
+FIU Team Icon
+FIU
+171
+S. Florida Team Icon
+S. Florida
+172
++365
+-490
++480
+-550
+2%
+98%
+7%
+93%
++5%
+11,319
+Final
+Nicholls St Team Icon
+Nicholls St
+K State Team Icon
+K State
++8000
+N/A
+2,019
+Final
+Murray State Team Icon
+Murray State
+Middle Tenn Team Icon
+Middle Tenn
++1600
+-4500
++1200
+-1800
+1%
+99%
+12%
+88%
++11%
+3,120
+Final
+SE Louisiana Team Icon
+SE Louisiana
+S. Alabama Team Icon
+S. Alabama
++500
+-720
++450
+-575
+1%
+99%
+1%
+99%
+1,873
+Final
+W. Michigan Team Icon
+W. Michigan
+165
+Michigan Team Icon
+Michigan
+166
++2000
+-7000
++2000
+-4000
+1%
+99%
+100%
++1%
+24,496
+Final
+LA-Monroe Team Icon
+LA-Monroe
+183
+Mississippi St Team Icon
+Mississippi St
+184
++2400
+-10000
++2000
+-4000
+1%
+99%
+2%
+98%
++1%
+10,698
+Final
+NW State Team Icon
+NW State
+LA Tech Team Icon
+LA Tech
+N/A
+N/A
+1,746
+Final
+VMI Team Icon
+VMI
+VA Tech Team Icon
+VA Tech
+N/A
+N/A
+5,513
+Final
+FL Atlantic Team Icon
+FL Atlantic
+175
+Florida Team Icon
+Florida
+176
++1600
+-4500
++1550
++1200
+1%
+99%
+3%
+97%
++2%
+11,652
+Final
+Utah Tech Team Icon
+Utah Tech
+BYU Team Icon
+BYU
+N/A
+N/A
+5,462
+Final
+Lamar Team Icon
+Lamar
+Louisiana Team Icon
+Louisiana
++720
+-1200
++890
+-1200
+1%
+99%
+41%
+59%
++40%
+1,539
+Final
+Hampton Team Icon
+Hampton
+Maryland Team Icon
+Maryland
+N/A
+N/A
+1,787
+Final
+SD State Team Icon
+SD State
+Northwestern Team Icon
+Northwestern
++540
+-800
++450
+-575
+2%
+98%
+34%
+66%
++32%
+10,607
+Final
+Mercyhurst Team Icon
+Mercyhurst
+N. Mexico St Team Icon
+N. Mexico St
++1280
+-3500
++3000
+-8000
+100%
+100%
+2,347
+Final
+Portland State Team Icon
+Portland State
+San Diego St Team Icon
+San Diego St
+N/A
+N/A
+2,302
+Final
+N. Arizona Team Icon
+N. Arizona
+Arizona Team Icon
+Arizona
++2400
+-10000
++3500
+-7000
+1%
+99%
+100%
++1%
+2,796
+Final
+Clemson Team Icon
+Clemson
+219
+LSU Team Icon
+LSU
+220
++365
+-490
++330
+-390
+5%
+95%
+11%
+89%
++6%
+87,504
+Final
+UNLV Team Icon
+UNLV
+217
+Hawaii Team Icon
+Hawaii
+218
+-118
+-102
+-125
++125
+87%
+13%
+74%
+26%
++13%
+25,940
+Final
+MS Valley St Team Icon
+MS Valley St
+Sac State Team Icon
+Sac State
++3500
+-20000
++8000
+-20000
+1,782
+Final
+C. Michigan Team Icon
+C. Michigan
+197
+New Mexico Team Icon
+New Mexico
+198
++390
+-530
++375
+-425
+2%
+98%
+61%
+39%
++59%
+18,281
+Final
+Morgan State Team Icon
+Morgan State
+Arizona St Team Icon
+Arizona St
+N/A
+N/A
+2,589
+Final
+UCLA Team Icon
+UCLA
+203
+California Team Icon
+California
+204
++103
+-123
+-120
++120
+60%
+40%
+51%
+49%
++9%
+39,758
+Final
+W. Kentucky Team Icon
+W. Kentucky
+205
+Nevada Team Icon
+Nevada
+206
+-172
++142
+-110
++120
+85%
+15%
+39%
+61%
++46%
+18,402
+Final
+Washington St Team Icon
+Washington St
+201
+Washington Team Icon
+Washington
+202
++1100
+-2500
++1200
++1000
+2%
+98%
+50%
+50%
++48%
+34,603
+Final
+Louisville Team Icon
+Louisville
+229
+Ole Miss Team Icon
+Ole Miss
+230
++275
+-350
++210
+-245
+8%
+92%
+9%
+91%
++1%
+88,004
+Final
+Wisconsin Team Icon
+Wisconsin
+227
+Notre Dame Team Icon
+Notre Dame
+228
++764
+-1800
++1100
+-1000
+5%
+95%
+17%
+83%
++12%
+78,769
+Final
+SMU Team Icon
+SMU
+231
+Florida St Team Icon
+Florida St
+232
+-142
++120
+-145
++130
+74%
+26%
+84%
+16%
++10%
+85,838 - Week 1 moneyline

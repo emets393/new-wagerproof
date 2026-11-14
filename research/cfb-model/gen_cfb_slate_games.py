@@ -8,7 +8,7 @@ Two prediction sources by week:
   - weeks 1-3 (EARLY): the opponent-adjusted betting model is COLD (no games -> null adj ratings), so FG
     predictions come from cfb_early_week.py (preseason-priors blend, DISPLAY only — no betting spots).
   - week 4+: the locked opponent-adjusted harness CSVs (preds, spots, TT, 1H)."""
-import os
+import os, math
 import numpy as np, pandas as pd, warnings
 import dry_common as C
 warnings.filterwarnings("ignore")
@@ -25,6 +25,7 @@ g25 = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")[["id", "startDate"]].
 m = m.merge(g25, on="game_id", how="left")
 # ODDS-API lines (owner rule: every displayed/graded line comes from The Odds API, never CFBD). odds_game_frame
 # is the Odds-API consensus. Override model_games' CFBD consensus_lines for the shown FG spread/total + ML.
+_OV = C.conviction_overrides(SEASON, WEEK)
 of = pd.read_parquet("data/odds_game_frame.parquet")[
     ["season", "home", "away", "open_spread", "close_spread", "open_total", "close_total", "close_home_ml", "close_away_ml", "open_home_ml", "open_away_ml"]]
 m = m.merge(of, left_on=["season", "homeTeam", "awayTeam"], right_on=["season", "home", "away"], how="left")
@@ -127,8 +128,17 @@ if EARLY:
     tt_csv = pd.DataFrame(columns=["game_id"])
     h1_csv = pd.DataFrame(columns=["game_id", "h1_pm", "h1_pt", "h1_spread_bet", "h1_tot_bet", "h1_ml_bet"])
 else:
-    tt_csv = pd.read_csv(f"out/cfb_team_totals_{SEASON}.csv"); tt_csv = tt_csv[tt_csv.game_id.isin(g7)]
-    h1_csv = pd.read_csv(f"out/cfb_h1_model_{SEASON}.csv"); h1_csv = h1_csv[h1_csv.game_id.isin(g7)]
+    # cfb_forecast only writes these when the books have posted team totals / 1H lines. On a
+    # Monday the week's derivative markets are not up yet, and Render's fresh clone has no
+    # stale copy from last week (out/ is git-ignored) — the 2026-09-21 weekly run died here.
+    # No file = no TT / 1H bets this run; the game rows still write.
+    def _csv_or_empty(path, cols):
+        if os.path.exists(path):
+            d = pd.read_csv(path); return d[d.game_id.isin(g7)]
+        print(f"  [derivatives] {path} not written by the forecast yet (no posted lines) — none this run")
+        return pd.DataFrame(columns=cols)
+    tt_csv = _csv_or_empty(f"out/cfb_team_totals_{SEASON}.csv", ["game_id", "team", "bet", "line", "pts"])
+    h1_csv = _csv_or_empty(f"out/cfb_h1_model_{SEASON}.csv", ["game_id", "h1_pm", "h1_pt", "h1_spread_bet", "h1_tot_bet", "h1_ml_bet"])
 def tt_pred(gid, team):  # UNIFIED: full-game-derived team points (coherent with predicted score), pick by edge vs posted
     row = m[m.game_id == gid]
     if not len(row): return None, None
@@ -144,16 +154,24 @@ def tt_pred(gid, team):  # UNIFIED: full-game-derived team points (coherent with
     ck = None if EARLY else C.tt_conv_key(proj - vg[0], pside, p5)
     return round(proj, 1), (pside if ck else None)
 h1m = dict(zip(h1_csv.game_id, h1_csv.h1_pm)); h1pt = dict(zip(h1_csv.game_id, h1_csv.h1_pt))
-# EARLY weeks (owner 2026-08-24): the model must ALWAYS show a 1H projection, bettable or
-# not. Derive it from the displayed early-blend score the same way team totals are derived
-# (coherent with the headline): 1H = 52.7% of predicted total, 59.9% of predicted margin
-# (2023-25 shares, n=11,264 games). The harness 1H model takes over from week 4.
-if EARLY:
-    for _r in m.itertuples():
-        if _r.game_id not in h1pt and pd.notna(_r.pred_total):
-            h1pt[_r.game_id] = 0.527 * float(_r.pred_total)
-        if _r.game_id not in h1m and pd.notna(_r.pred_margin):
-            h1m[_r.game_id] = 0.599 * float(_r.pred_margin)
+# The model must ALWAYS show a 1H projection, bettable or not (owner 2026-08-24). Derive it from
+# the displayed score the same way team totals are derived, so it stays coherent with the
+# headline: 1H = 52.7% of predicted total, 59.9% of predicted margin (2023-25, n=11,264 games).
+#
+# This used to be gated `if EARLY:` on the assumption that "the harness 1H model takes over from
+# week 4". It does not cover the slate. cfb_forecast writes cfb_h1_model_<season>.csv from `bb`,
+# which is filtered to games carrying an actual 1H BET — so from week 4 every game without a
+# qualifying play had no projection at all. h1_pred_total went 57/57 in week 3 to 0/58 in week 4
+# and 0/56 in week 5, while the 1H LINES were present (56/56) the whole time.
+#
+# Now fills any game the harness did not price, in every week; games it DID price keep the model
+# value because their key is already in the dict. Bet columns are untouched — h1sp/h1tp/h1mlp
+# below still read the bets-only CSV, so picks and flags see exactly what they saw before.
+for _r in m.itertuples():
+    if _r.game_id not in h1pt and pd.notna(_r.pred_total):
+        h1pt[_r.game_id] = 0.527 * float(_r.pred_total)
+    if _r.game_id not in h1m and pd.notna(_r.pred_margin):
+        h1m[_r.game_id] = 0.599 * float(_r.pred_margin)
 h1sp = dict(zip(h1_csv.game_id, h1_csv.h1_spread_bet.fillna(""))); h1tp = dict(zip(h1_csv.game_id, h1_csv.h1_tot_bet.fillna(""))); h1mlp = dict(zip(h1_csv.game_id, h1_csv.h1_ml_bet.fillna("")))
 
 def rank(v): return int(v) if pd.notna(v) and v and v > 0 else None
@@ -166,21 +184,33 @@ for _, r in m.iterrows():
     # forecast's open-based side_edge stays for the betting/spot layer only.
     edge = (r.pred_margin + r.spread_close if pd.notna(r.pred_margin) and pd.notna(r.spread_close)
             else (r.side_edge if pd.notna(r.side_edge) else None))
-    mside = ("AWAY" if edge < 0 else "HOME") if edge is not None else None
-    tside = ("OVER" if pd.notna(r.total_edge) and r.total_edge > 0 else "UNDER") if pd.notna(r.total_edge) else None
+    mdir = ("AWAY" if edge < 0 else "HOME") if edge is not None else None          # model direction (spot agreement)
+    # Total keys off the CLOSE too. cfb_bets' total_edge is pred − OPEN and only exists where a spot fired,
+    # so wk4-2026 had SC@Alabama OVER (open 46.5) while the pick card said UNDER (close 53.5) and the
+    # picks sign guard refused the whole week. One basis, every game.
+    tedge = (r.pred_total - r.total_close if pd.notna(r.pred_total) and pd.notna(r.total_close)
+             else (r.total_edge if pd.notna(r.total_edge) else None))
+    tdir = ("OVER" if tedge > 0 else "UNDER") if tedge is not None else None
     # conviction = only spots that AGREE with the model side count (conflicting opposite-side spots don't inflate)
-    convs = []
+    convs = []; spread_spot = False; total_spot = False
     for tok in str(r.spots or "").split(";"):
         tok = tok.strip(); c = C.classify(tok)
         if not c: continue
         if c[0] == "spread":
             # spot side: parse from token where explicit, else model side
-            ts = "HOME" if ("-> HOME" in tok or "=HOME" in tok or "lay-fav home" in tok) else ("AWAY" if ("AWAY" in tok or "=AWAY" in tok or "away-fav" in tok or "fade home" in tok or "lay-fav away" in tok) else mside)
-            if ts == mside: convs.append(c[2])
+            ts = "HOME" if ("-> HOME" in tok or "=HOME" in tok or "lay-fav home" in tok) else ("AWAY" if ("AWAY" in tok or "=AWAY" in tok or "away-fav" in tok or "fade home" in tok or "lay-fav away" in tok) else mdir)
+            if ts == mdir: convs.append(c[2]); spread_spot = True
         else:
-            convs.append(c[2])
+            convs.append(c[2]); total_spot = True
+    # DOSE-RESPONSE FLOOR (dry_common.LEAN_FLOOR): a bare model lean under 4 pts is not shown — it loses.
+    # A same-side validated spot keeps the pick (the spot is its own signal). Numbers still render.
+    mside = mdir if (edge is None or abs(edge) >= C.LEAN_FLOOR or spread_spot) else None
+    tside = tdir if (tedge is None or abs(float(tedge)) >= C.LEAN_FLOOR or total_spot) else None
     has_tt = len(tt_csv[tt_csv.game_id == gid]) > 0
-    if r.mammoth == 1: tier = "mammoth"
+    # Owner override (dry_common.conviction_overrides) sits ON TOP of the gate so an advertised
+    # play cannot be demoted by a model refresh mid-week. gen_cfb_picks reads the same file.
+    _forced = _OV.get(int(gid))
+    if r.mammoth == 1 or _forced == "mammoth": tier = "mammoth"
     elif "T1" in convs: tier = "high"
     elif "T2" in convs or has_tt: tier = "med"
     elif "T3" in convs: tier = "low"
@@ -214,16 +244,22 @@ for _, r in m.iterrows():
         "fg_spread_pick": (None if capped else mside),   # MODEL side (capped >14 = no-play); spots are flags
         "fg_spread_capped": capped,
         "fg_pred_total": round(float(r.pred_total), 1) if pd.notna(r.pred_total) else None,
-        "fg_total_edge": round(float(r.total_edge), 1) if pd.notna(r.total_edge) else None,
+        "fg_total_edge": round(float(tedge), 1) if tedge is not None else None,
         "fg_total_pick": tside,
-        "fg_home_cover_prob": round(float(r.p_home_conf), 3) if pd.notna(r.p_home_conf) else None,
+        # Cover prob is DERIVED from the same margin-vs-close edge the pick uses (ATS residual sd
+        # 15.2, 2022-25 model_games). It used to be the confirm classifier (p_home_conf), a separate
+        # model that only exists on spot rows and disagreed with the pick in 9 of 19 wk4-2026 games —
+        # the scoreboard derives its spread side from this field, so it showed the OTHER team covering.
+        # p_home_conf stays a mammoth-gate input only.
+        "fg_home_cover_prob": round(float(0.5 * (1 + math.erf((edge / 15.2) / math.sqrt(2)))), 3) if edge is not None else None,
         "fg_home_win_prob": round(float(1 / (1 + np.exp(-(r.pred_margin if pd.notna(r.pred_margin) else 0) / 9.5))), 3),
         "tt_home_pred": tt_pred(gid, r.homeTeam)[0], "tt_home_pick": tt_pred(gid, r.homeTeam)[1],
         "tt_away_pred": tt_pred(gid, r.awayTeam)[0], "tt_away_pick": tt_pred(gid, r.awayTeam)[1],
         "h1_pred_margin": round(float(h1m[gid]), 1) if gid in h1m else None,
         "h1_pred_total": round(float(h1pt[gid]), 1) if gid in h1pt else None,
         "h1_spread_pick": h1sp.get(gid) or None, "h1_total_pick": h1tp.get(gid) or None, "h1_ml_pick": h1mlp.get(gid) or None,
-        "conviction_tier": tier, "stake_units": stake, "mammoth": bool(r.mammoth == 1),
+        "conviction_tier": tier, "stake_units": stake,
+        "mammoth": bool(r.mammoth == 1 or _forced == "mammoth"),
         "final_home": int(r.homePoints) if pd.notna(r.homePoints) else None,
         "final_away": int(r.awayPoints) if pd.notna(r.awayPoints) else None,
     })
@@ -240,4 +276,10 @@ for col in ["home_rank", "away_rank", "final_home", "final_away", "h1_home", "h1
 print(f"cfb_slate_games rows: {len(df)} | tiers: {df.conviction_tier.value_counts().to_dict()}")
 print(f"  with TT close: {df.tt_home_close.notna().sum()} | 1H total: {df.h1_total_close.notna().sum()} | ML: {df.fg_ml_home_close.notna().sum()}")
 C.wipe("cfb_slate_games", f"season=eq.{SEASON}&week=eq.{WEEK}")
+# last-line guard: the games table PKs on game_id — any upstream join fanout
+# must never reach the insert (23505 killed the wk3 build 2026-09-14).
+if df.game_id.duplicated().any():
+    _dups = df[df.game_id.duplicated(keep=False)].game_id.unique().tolist()
+    print(f"  [dedup] WARNING: dropping duplicate game rows {_dups}")
+    df = df.drop_duplicates(subset=["game_id"], keep="first")
 C.insert("cfb_slate_games", df)

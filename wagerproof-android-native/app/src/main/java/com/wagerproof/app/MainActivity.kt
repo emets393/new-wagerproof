@@ -38,7 +38,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             CompositionLocalProvider(LocalAppGraph provides graph) {
                 WagerproofTheme {
-                    RootHost()
+                    val achievementPreview = if (BuildConfig.DEBUG) intent.getStringExtra("achievement_preview") else null
+                    val tierPreview = if (BuildConfig.DEBUG) intent.getStringExtra("tier_preview") else null
+                    if (tierPreview != null) com.wagerproof.app.features.paywall.TieredPaywallPreview(tierPreview,
+                        intent.getStringExtra("access_preview"), intent.getBooleanExtra("yearly", false))
+                    else if (achievementPreview != null) com.wagerproof.app.features.achievements.AchievementPreview(achievementPreview)
+                    else RootHost()
                 }
             }
         }

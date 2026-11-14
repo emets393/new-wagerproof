@@ -327,13 +327,24 @@ suspend fun loadNFLSignalDefs(): Map<String, NFLSignalDefinition> = runCatching 
         .associateBy { it.signalKey }
 }.getOrDefault(emptyMap())
 
+/**
+ * nfl_team_trends keeps ONE SNAPSHOT PER WEEK per team (through_week 0,1,2,3...). An unordered
+ * fetch returns every snapshot, and `associateBy` keeps the LAST row it sees — which was landing
+ * on the through_week=0 preseason row (0-0-0, null pct). That is why the game card read
+ * "Season ATS 0-0-0 —" while the database held the correct 2-1. Order newest-first and keep the
+ * first row per team. The Outliers page was never affected: OutliersTrendsService filters on
+ * season + through_week explicitly.
+ */
 suspend fun loadNFLTeamTrends(awayAbbr: String, homeAbbr: String): Map<String, NFLTeamTrendRow> = runCatching {
     SupabaseClients.cfb
         .from("nfl_team_trends")
         .select {
             filter { isIn("team_abbr", listOf(awayAbbr, homeAbbr)) }
+            order("season", Order.DESCENDING)
+            order("through_week", Order.DESCENDING)
         }
         .decodeList<NFLTeamTrendRow>()
+        .distinctBy { it.teamAbbr }          // newest snapshot per team wins
         .associateBy { it.teamAbbr }
 }.getOrDefault(emptyMap())
 

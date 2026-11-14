@@ -3,7 +3,8 @@
 
 Locked assets (see LOCKED_MODELS.md):
   SIDES   : walk-forward HistGBM on home_cover (vs close); bet the confident side (|p-.5|>=.03) vs the OPENER.
-            Feature set = b14 "base" (Madden-independent so it runs before Aug-2026 launch ratings exist).
+            Feature set = b14 "base" (Madden-independent so it runs before Aug-2026 launch ratings exist)
+            + b89 matchup nets + 4 TRUE season-to-date nets (2026-09-17; pbp-built, see build() comment).
   TOTALS  : spot alerts (slate-level totals live in consensus_totals.py):
             * key WR/TE out (NGS air-share>=35%) -> OVER ; high-conviction tier adds Madden OVR>=80
             * wind >= 15mph -> UNDER
@@ -31,7 +32,8 @@ CONF=0.03; AIR_THR=35.0; OVR_THR=80.0; WIND_THR=15.0
 REG_EDGE=1.5   # regression-margin edge (points) for confluence; magnitude that historically tracks classification conf=.03
 # ---- MAMMOTH plays (b91, vaulted 2026-06): independent edges aligning on one game ----
 # SPREAD: sides_model conf>=MAM_CONF & confluence=1 & >=1 aligned spread spot. TOTAL: >=2 distinct
-# total rules, same game+direction. Pre-registered defs; backtest 2023-25 in LOCKED_MODELS §6.
+# total rules, same game+direction, AND the totals model pointing that way too (2026-10-30;
+# see load_model_total_dir). Pre-registered defs; backtest 2023-25 in LOCKED_MODELS §6.
 MAM_CONF=0.06
 MAMMOTH_SPREAD_SPOTS={"legacy_fade","legacy_primetime","spread_dog_cover_fade_away","spread_dog_cover_fade_home",
                       "fade_pr_in_tight_game","dk_heavy_home_juice","tight_soft_ml_fade_home","top_vs_top_pt_home"}
@@ -95,18 +97,74 @@ def build_spread_lookup():
     return dict(zip(m.groupby("sp_b").fav_won.mean().index, m.groupby("sp_b").fav_won.mean().values))
 
 def load_legacy():
-    """Legacy EPA model's spread cover prob per game (earliest=pregame snapshot). Empty -> legacy rules just don't fire.
-    Pulled FRESH each run so 2026 weekly use picks up new predictions from nfl_predictions_epa."""
+    """Legacy EPA model's spread cover prob per game — the LATEST run for each game.
+
+    Every row in nfl_predictions_epa is pregame by construction (the model only scores
+    UPCOMING games), so "latest" carries no look-ahead; it is simply the most recent read.
+
+    This took .first() (the EARLIEST snapshot) while nfl-predictions ran Sun/Mon/Thu. Once
+    that went daily (owner 2026-09-29: lines move every day and home_spread / over_line are
+    model INPUTS, so the prediction moves with them), earliest would have pinned the signal
+    to the first run of the week and quietly thrown away every refresh — the daily cadence
+    would have changed nothing downstream. Take the newest instead.
+
+    NOTE the grading consequence: legacy_fade still triggers off `open_spread` and is graded
+    at the opener, but its TRIGGER now moves through the week with the line. Per the
+    grade-vs-the-line-the-signal-uses rule, a daily-refreshed trigger wants trigger-time
+    grading, not opener grading. Flagged for the owner; not changed here.
+    Empty -> legacy rules just don't fire."""
     try:
         from fetch import fetch_table
-        leg=fetch_table("nfl_predictions_epa", select="unique_id,home_away_spread_cover_prob,as_of_ts")
-        if leg is None or len(leg)==0: return pd.DataFrame(columns=["unique_id","leg_sp"])
+        # season/week/home_team/away_team ride along ONLY to resolve each game's kickoff for
+        # the pregame cutoff below; they are dropped before the merge.
+        leg=fetch_table("nfl_predictions_epa", select="unique_id,home_away_spread_cover_prob,home_spread,as_of_ts,season,week,home_team,away_team")
+        if leg is None or len(leg)==0: return pd.DataFrame(columns=["unique_id","leg_sp","leg_line"])
         leg["leg_sp"]=pd.to_numeric(leg.home_away_spread_cover_prob,errors="coerce")
+        # The line the model actually computed from, carried on the same row. This is the
+        # DETECTION line the legacy rules are graded at (owner 2026-09-29) — the prediction and
+        # its line travel together, so they can never drift apart.
+        leg["leg_line"]=pd.to_numeric(leg.home_spread,errors="coerce")
         leg["as_of_ts"]=pd.to_datetime(leg.as_of_ts,errors="coerce",utc=True)
-        leg=leg.sort_values("as_of_ts").groupby("unique_id",as_index=False).first()
-        return leg[["unique_id","leg_sp"]]
+        # ⛔ NOT simply the newest row. Owner 2026-10-21: the run a game is read from must be
+        # hours before THAT game's kickoff. The predictor has no kickoff filter and a week
+        # stays on the board until its last gameday, so every Sunday game is re-scored on
+        # Monday — wk6 HOU@JAX (Sun 13:30Z kickoff) had runs at T+1h and T+25h, and the
+        # newest-row rule handed the signal a prediction written after the game ended.
+        # Historical seasons have no kickoff in nfl_slate_games and keep the newest row, so
+        # graded backtest records do not move.
+        from legacy_pred import apply_pregame_cutoff
+        leg=apply_pregame_cutoff(leg)
+        return leg[["unique_id","leg_sp","leg_line"]]
     except Exception as e:
-        print(f"  ! legacy preds unavailable ({e}); legacy rules disabled"); return pd.DataFrame(columns=["unique_id","leg_sp"])
+        print(f"  ! legacy preds unavailable ({e}); legacy rules disabled")
+        return pd.DataFrame(columns=["unique_id","leg_sp","leg_line"])
+
+def load_model_total_dir(target):
+    """Totals-model direction per game, keyed (season, week, "AWY@HOM").
+
+    Feeds the mammoth model-agreement gate below. consensus_totals.py writes this
+    csv at run_nfl_week.sh:65, before this script runs at :74, and its `game`
+    column is already away_ab@home_ab -- identical to `mtchp`, so no abbreviation
+    mapping is needed (verified 31/31 against the 2026 ledger).
+
+    A missing file, an unreadable file, or a NEUTRAL direction yields no entry,
+    and no entry means no mammoth: a mammoth the model cannot confirm is not a
+    mammoth. Failing closed is the point -- the old gate failed OPEN."""
+    path=os.path.join(OUT,f"predictions_totals_{target}.csv")
+    if not os.path.exists(path):
+        L(f"  ! totals model csv missing ({path}); total mammoths disabled")
+        return {}
+    try:
+        ct=pd.read_csv(path)
+    except Exception as e:
+        L(f"  ! totals model csv unreadable ({e}); total mammoths disabled")
+        return {}
+    out={}
+    for _,r in ct.iterrows():
+        d=str(r.get("direction","")).strip().upper()
+        if d in ("OVER","UNDER"):
+            out[(int(r.season),int(r.week),str(r.game))]=d
+    return out
 
 def load_bye_collisions(target, gap_thr=BYE_GAP, min_n=BYE_MIN_N):
     """Bye-collision signal for target season: coach career pre/post-bye ATS% from seasons < target (walk-forward
@@ -162,15 +220,41 @@ def build():
     dfd=pd.read_parquet(os.path.join(DATA,"player_stats_def.parquet")); tg=pd.read_parquet(os.path.join(DATA,"tg.parquet"))
     mad_p=os.path.join(DATA,"madden_ratings.parquet"); mad=pd.read_parquet(mad_p) if os.path.exists(mad_p) else None
     m["actual_margin"]=m.home_score-m.away_score; m["actual_total"]=m.home_score+m.away_score
-    m["home_cover"]=(m.actual_margin+m.home_spread>0).astype(int)
+    # NaN-SAFE LABEL. This was `(m.actual_margin+m.home_spread>0).astype(int)`, and
+    # NaN + spread > 0 is False -> 0, so every game without a result yet was labelled
+    # "home did NOT cover". Audit 2026-10-05: all 16 week-4 rows carried home_cover=0 with
+    # actual_margin NaN. Two consequences — any evaluation of a partly-played season reads
+    # those as losses, and the `dropna(subset=["home_cover"])` guard in train_predict could
+    # never fire because the column was never NaN, so a result-less row could enter TRAINING
+    # with a fabricated label. Unknown must stay unknown.
+    _gradeable = m.actual_margin.notna() & m.home_spread.notna()
+    m["home_cover"]=np.where(_gradeable, (m.actual_margin+m.home_spread>0), np.nan)
     # ---- sides BASE features (locked b14) ----
     air=carry(rec,"player_id","percent_share_of_intended_air_yards","airshare")
     dfd["dprod"]=dfd.def_sacks.fillna(0)*2+dfd.def_qb_hits.fillna(0)+dfd.def_pass_defended.fillna(0)+dfd.def_interceptions.fillna(0)*2+dfd.def_tackles_for_loss.fillna(0)
     miss=inj[inj.report_status.isin(["Out","Doubtful"])].merge(air,on=["season","week","player_id"],how="left")
     miss["air_w"]=np.where(miss.position.astype(str).str.strip().isin(["WR","TE","RB","FB"]),miss.airshare.clip(lower=0).fillna(0),0)
     ai=miss.groupby(["season","week","team"]).air_w.sum().reset_index(); ai["ab"]=ai.team.replace(nv2our)
-    dteam=dfd.groupby(["season","week","team"]).dprod.sum().reset_index().sort_values(["team","season","week"])
-    dteam["dpt"]=dteam.groupby(["team","season"]).dprod.transform(lambda s:s.shift(1).expanding().mean()); dteam["ab"]=dteam.team.replace(nv2our)
+    # ENTERING defensive production, emitted on a week grid through last_played+1 per
+    # (team, season). The old form was groupby.shift(1).expanding().mean() over PLAYED
+    # weeks only, so the current week had no row for any team whose game hadn't kicked
+    # yet — the merge below returned NaN and the fillna(0) two lines down silently zeroed
+    # h_dpt / a_dpt / dprod_team_diff for the entire live slate, while every training row
+    # carried a real ~21. Three of the sides model's 54 features were therefore dead at
+    # serve on every board ever built this way (2026 wk4 read mean 1.25 vs ~21 in
+    # 2022-25). Found 2026-10-02 by research/feature_drift_guard.py: sd ratio ~1.0 but 94%
+    # of serve rows outside the training 1st-99th band — a location shift, not a rescale.
+    # Values for completed weeks are UNCHANGED (mean of prior weeks either way); this only
+    # adds the entering row the unplayed week needs. Still leak-free: week w uses w-1 back.
+    _dw=dfd.groupby(["season","week","team"],as_index=False).dprod.sum()
+    _rows=[]
+    for (team,season),g in _dw.groupby(["team","season"]):
+        g=g.sort_values("week"); last=int(g.week.max())
+        for wk in range(1,last+2):
+            prior=g.loc[g.week<wk,"dprod"]
+            _rows.append({"season":season,"week":wk,"team":team,
+                          "dpt":float(prior.mean()) if len(prior) else np.nan})
+    dteam=pd.DataFrame(_rows); dteam["ab"]=dteam.team.replace(nv2our)
     for side,p in [("home","h_"),("away","a_")]:
         m=m.merge(ai.rename(columns={"ab":f"{side}_ab","air_w":f"{p}air"})[["season","week",f"{side}_ab",f"{p}air"]],on=["season","week",f"{side}_ab"],how="left")
         m=m.merge(dteam.rename(columns={"ab":f"{side}_ab","dpt":f"{p}dpt"})[["season","week",f"{side}_ab",f"{p}dpt"]],on=["season","week",f"{side}_ab"],how="left")
@@ -194,8 +278,14 @@ def build():
     sched=[f"{s}_{f}" for s in ["h","a"] for f in flags]
     for c in sched: m[c]=pd.to_numeric(m[c],errors="coerce").fillna(0)
     ref=[c for c in ["ref_total_pts_avg","ref_home_cover_pct","ref_under_pct","ref_fav_cover_pct"] if c in m.columns]
+    # ORIGINATOR (owner, 2026-09-18): no market input. home_fav / abs_spread / home_dog_7_10 /
+    # away_dog_7_10 came off m.home_spread, which in history is the nflverse CLOSING line — the
+    # backtest read the close (predict-the-move r=.70 -> .14-.27 without them) while the serve
+    # week saw whatever line the schedule pull carried. Removing them costs nothing on the sides
+    # record (conf>=.06 vs opener 57.4% -> 56.2%, exp_predict_close_clean.py). The columns are
+    # still computed above for spot rules; they just never enter the model.
     BASE=["pr_diff","home_predictive_pr","away_predictive_pr","last5_diff","home_consistency_pr","away_consistency_pr",
-          "home_dog_7_10","away_dog_7_10","div_game_i","conf_game_i","league_game_i","primetime_i","week","home_fav","abs_spread",
+          "div_game_i","conf_game_i","league_game_i","primetime_i","week",
           "air_diff","dprod_team_diff","h_dpt","a_dpt"]+ref+sched
     for c in BASE: m[c]=pd.to_numeric(m[c],errors="coerce")
     # ---- b89/b90b MATCHUP-NET features (vaulted 2026-06) ----
@@ -232,6 +322,34 @@ def build():
         aexp=pd.to_numeric(m[ao],errors="coerce")+pd.to_numeric(m[hd],errors="coerce")
         m[f"net_{x}"]=hexp-aexp; NETS.append(f"net_{x}")
     BASE=BASE+NETS
+    # ---- TRUE season-to-date nets (shipped 2026-09-17) ----
+    # The `_s2d` columns behind the NETS above come from nfl_pregame_advanced_team_week, which never
+    # resets by season (an 8-season franchise average through 2025, raw one-game rows in 2026).
+    # data/team_week_seasonal.parquet is the same 4 stats rebuilt from play-by-play as real
+    # season-to-date, K=4 prior-season seeded, entering-week (build_team_week_seasonal.py, fed by
+    # refresh_pbp_current.py in run_nfl_week.sh). ADDED alongside the old nets, not replacing them:
+    # 2022-25 opener-graded 53.0% -> 55.4% at conf .03 (K-ensemble 54.5%), 4/4 folds up, placebo
+    # 52.6%, vs-close +2.0, flips 64%. FP unit features on top add nothing. exp_prod_fix_s2d*.py.
+    # Keyed by nflverse abbreviation -> our style. Missing rows stay NaN (HistGBM handles natively).
+    _tw_path=os.path.join(DATA,"team_week_seasonal.parquet"); TRUE=[]
+    if os.path.exists(_tw_path):
+        _tw=pd.read_parquet(_tw_path); _ours=set(m.home_ab.unique())
+        _tw["team"]=_tw.team.replace({k:v for k,v in {"LA":"LAR","JAX":"JAC","WAS":"WSH","LV":"LVR","ARI":"ARZ","BAL":"BLT","CLE":"CLV","HOU":"HST"}.items() if v in _ours and k not in _ours})
+        _S={"pass":("off_pass_epa_neutral_s2d","def_pass_epa_allowed_neutral_s2d"),"rush":("off_rush_epa_neutral_s2d","def_rush_epa_allowed_neutral_s2d"),
+            "ppd":("off_pts_per_drive_s2d","def_pts_per_drive_allowed_s2d"),"proe":("off_proe_s2d",None)}
+        _cols=[c for c in _tw.columns if c.endswith("_s2d")]
+        for side in ("home","away"):
+            m=m.merge(_tw.rename(columns={"team":f"{side}_ab",**{c:f"{side[0]}t_{c}" for c in _cols}})[[f"{side}_ab","season","week"]+[f"{side[0]}t_{c}" for c in _cols]],on=[f"{side}_ab","season","week"],how="left")
+        for k,(o,d) in _S.items():
+            m[f"true_net_{k}"]=((m[f"ht_{o}"]+m[f"at_{d}"])-(m[f"at_{o}"]+m[f"ht_{d}"])) if d else (m[f"ht_{o}"]-m[f"at_{o}"]); TRUE.append(f"true_net_{k}")
+        _cov=m[m.season==m.season.max()][TRUE].notna().mean().mean()
+        print(f"[true-s2d] {len(TRUE)} true season-to-date nets merged (current-season coverage {_cov:.0%})")
+    else:
+        # keep the columns so a frozen pkl trained WITH the nets can still predict (NaN-native) instead of KeyError-ing the slate
+        TRUE=["true_net_pass","true_net_rush","true_net_ppd","true_net_proe"]
+        for c in TRUE: m[c]=np.nan
+        print("[true-s2d] data/team_week_seasonal.parquet missing — true nets are NaN this run (run refresh_pbp_current.py + build_team_week_seasonal.py)")
+    BASE=BASE+TRUE
     # ---- totals triggers ----
     msk=inj[inj.report_status.isin(["Out","Doubtful"])].merge(air,on=["season","week","player_id"],how="left")
     msk=msk[msk.position.astype(str).str.strip().isin(["WR","TE","RB","FB"])]; msk["airshare"]=msk.airshare.fillna(0)
@@ -840,19 +958,44 @@ def generate(m, BASE, target, week=None):
         if pd.notna(g.open_spread) and g.get("a_div_dog_to_roadfav",0)==1:
             rows.append(dict(pick_id=gid+"-DDR",season=g.season,week=int(g.week),game=mtchp,rule="div_dog_to_roadfav",
                 market="spread",side=f"{g.away_ab} {-g.open_spread:+g}",bet_home=0,open_num=g.open_spread,close_num=g.close_spread,edge=1))
-        # LEGACY spread signals (vs opener): primetime -> FOLLOW the model; non-primetime extreme -> FADE it
+        # LEGACY spread signals (vs opener): an extreme -> FADE the model; primetime short of an
+        # extreme -> FOLLOW it. Order matters and is argued below.
+        # WEEKS 1-3 SUPPRESSED (owner 2026-09-06 + doc 14): the legacy model's s2d/last-3
+        # features need ~2 weeks of games, so its early output is shadow-validation noise —
+        # it fed 4 ACTIVE high-conviction wk1 flags off predictions computed on empty features.
         lsp=g.get("leg_sp",np.nan)
-        if pd.notna(lsp) and pd.notna(g.open_spread):
-            if int(g.primetime_i)==1:                                  # FOLLOW legacy in primetime (61.8% in 2025)
-                home_pick=lsp>=0.5
-                rows.append(dict(pick_id=gid+"-LPT",season=g.season,week=int(g.week),game=mtchp,rule="legacy_primetime",
-                    market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
-                    bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(lsp-0.5,3)))
-            elif lsp>=FADE_HI or lsp<=FADE_LO:                          # FADE legacy at non-primetime extremes (dose-response to 65%+)
+        # DETECTION line, not the opener (owner 2026-09-29). nfl-predictions now runs daily on
+        # that morning's board, so the legacy probability moves through the week with the line —
+        # a trigger that can fire on Friday must be priced at Friday's number, not Monday's
+        # opener, which is no longer available. leg_line is the home_spread the model itself
+        # computed from. Falls back to the opener only if the prediction row has no line.
+        lln=g.get("leg_line",np.nan)
+        gline=lln if pd.notna(lln) else g.open_spread
+        if pd.notna(lsp) and pd.notna(gline) and int(g.week)>=4:
+            # THE EXTREME OUTRANKS THE LIGHTS (owner 2026-11-14). The primetime FOLLOW used to
+            # be tested first, so it swallowed every primetime game including the extremes. Its
+            # 61.8%-in-2025 edge is real but lives at MODERATE confidence -- 31-22 (58.5%) across
+            # 0.50-0.80 -- and it INVERTS past 0.80, exactly where the daytime rule already fades:
+            #
+            #   primetime >=0.80   follow 0-3    fade 3-0    (2025 wk6 DET@KC .161, wk15 ATL@TB
+            #   daytime   >=0.80   follow 7-18-1 fade 18-7-1  .801, wk18 SEA@SF .868 -- fade swept)
+            #
+            # Same mechanism nfl_signal_defs.legacy_fade already states: at its confidence
+            # extremes the old model is buying the storyline the line has priced. The lights do
+            # not change that; the carve-out had just never been tested that far out, because it
+            # had only happened 3 times. So test the extreme FIRST and let primetime have what
+            # is left. Graded on every stored legacy prediction, 2025 wk4-22 + 2026 wk4-10,
+            # pregame row at real kickoff -2h.
+            if lsp>=FADE_HI or lsp<=FADE_LO:                            # FADE at either extreme, lights or not
                 home_pick=lsp<=FADE_LO                                 # model loves away(<=.20)->bet home; loves home(>=.80)->bet away
                 rows.append(dict(pick_id=gid+"-LF",season=g.season,week=int(g.week),game=mtchp,rule="legacy_fade",
-                    market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
-                    bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(abs(lsp-0.5),3)))
+                    market="spread",side=(f"{g.home_ab} {gline:+g}" if home_pick else f"{g.away_ab} {-gline:+g}"),
+                    bet_home=int(home_pick),open_num=gline,close_num=g.close_spread,edge=round(abs(lsp-0.5),3)))
+            elif int(g.primetime_i)==1:                                 # FOLLOW legacy in primetime BELOW the extreme (61.8% in 2025)
+                home_pick=lsp>=0.5
+                rows.append(dict(pick_id=gid+"-LPT",season=g.season,week=int(g.week),game=mtchp,rule="legacy_primetime",
+                    market="spread",side=(f"{g.home_ab} {gline:+g}" if home_pick else f"{g.away_ab} {-gline:+g}"),
+                    bet_home=int(home_pick),open_num=gline,close_num=g.close_spread,edge=round(lsp-0.5,3)))
         # WEEK-1 WATCH: defenses out-class offenses -> UNDER (b35 ~60%, thin -> tracking flag only)
         omd=g.get("o_minus_d",np.nan)
         if int(g.week)==1 and W1CUT is not None and pd.notna(omd) and omd<=W1CUT and pd.notna(g.open_total):
@@ -976,13 +1119,25 @@ def generate(m, BASE, target, week=None):
             if len(al): led.loc[i,"mammoth"]=1
         tt=led[(led.market=="total")&led.rule.isin(MAMMOTH_TOTAL_RULES)]
         if len(tt):
+            # MODEL AGREEMENT, ported from CFB's `confirm` term (cfb_forecast.py:380-389,
+            # where a mammoth needs a second model CONFIRMING the side). Two spot rules
+            # agreeing with EACH OTHER is not confirmation of anything -- nothing here
+            # ever consulted the totals model, so the tier could contradict it outright.
+            # ARI@DAL wk8 2026 fired dk_giant_fav_over + total_low_line_over on OVER 52.5
+            # while the model had the game at 46.4 against a 54.5 close -- it wanted the
+            # UNDER by 8, the card read "No Bet" and listed both as Contradicts, and the
+            # board still badged the game mammoth. The model must point the same way.
+            mdir=load_model_total_dir(target)
             cnt=tt.assign(d=np.where(tt.bet_home==-1,"O","U")).groupby(["season","week","game","d"]).rule.nunique()
             for (s,w,gm,d),nr in cnt.items():
-                if nr>=2:
-                    sel=(led.market=="total")&led.rule.isin(MAMMOTH_TOTAL_RULES)&(led.season==s)&(led.week==w)&(led.game==gm)&((led.bet_home==-1)==(d=="O"))
-                    led.loc[sel,"mammoth"]=1
+                if nr<2: continue
+                # NEUTRAL / missing is a miss, not a pass: the model declining to play the
+                # total cannot confirm a 3-unit tier on it.
+                if mdir.get((int(s),int(w),str(gm)))!=("OVER" if d=="O" else "UNDER"): continue
+                sel=(led.market=="total")&led.rule.isin(MAMMOTH_TOTAL_RULES)&(led.season==s)&(led.week==w)&(led.game==gm)&((led.bet_home==-1)==(d=="O"))
+                led.loc[sel,"mammoth"]=1
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv")
-    if os.path.exists(path):
+    if os.path.exists(path) and len(led):   # a week with zero picks has no pick_id column -> keep the old ledger as is
         old=pd.read_csv(path); led=pd.concat([old[~old.pick_id.isin(led.pick_id)],led],ignore_index=True)
         led["mammoth"]=pd.to_numeric(led.mammoth,errors="coerce").fillna(0).astype(int)
     led.to_csv(path,index=False); return led,path

@@ -1,5 +1,8 @@
 package com.wagerproof.app.features.agents
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.app.features.paywall.LocalFeatureGatePreview
+import com.wagerproof.core.models.SubscriptionTier
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -118,6 +121,13 @@ private val HInset = 16.dp
  */
 @Composable
 fun AgentDetailScreen(agentId: String, isPublic: Boolean, modifier: Modifier = Modifier) {
+    TieredAccessGate(SubscriptionTier.PRO, "Agent Picks") { AgentDetailScreenContent(agentId, isPublic, modifier) }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun AgentDetailScreenContent(agentId: String, isPublic: Boolean, modifier: Modifier = Modifier) {
+    val featurePreview = LocalFeatureGatePreview.current
     LiquidGlassScene { sourceModifier ->
         Box(modifier.fillMaxSize().then(sourceModifier)) {
             if (isPublic) {

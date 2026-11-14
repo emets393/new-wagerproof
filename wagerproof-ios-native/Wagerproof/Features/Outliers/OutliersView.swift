@@ -16,6 +16,11 @@ struct OutliersView: View {
     @Environment(ParlayGodStore.self) private var parlayGodStore
 
     var body: some View {
+        TieredAccessGate(minimum: .premium, title: "Outliers") { tierContent }
+    }
+
+    @ViewBuilder
+    private var tierContent: some View {
         NavigationStack {
             ScrollView {
                 OutliersTrendsView(store: trendsStore)
@@ -70,5 +75,6 @@ struct OutliersView: View {
         .environment(RevenueCatStore())
         .environment(AdminModeStore())
         .environment(OutliersTrendsStore())
+        .environment(ParlayGodStore())
 }
 #endif

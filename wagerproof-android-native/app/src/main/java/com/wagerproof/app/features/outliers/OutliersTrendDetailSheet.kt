@@ -1,5 +1,7 @@
 package com.wagerproof.app.features.outliers
 
+import com.wagerproof.app.features.paywall.TieredAccessGate
+import com.wagerproof.core.models.SubscriptionTier
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -41,6 +43,7 @@ fun OutliersTrendDetailSheet(
         containerColor = Color.Transparent,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
+        TieredAccessGate(SubscriptionTier.PREMIUM, "Outliers") {
         Column(
             Modifier
                 .verticalScroll(rememberScrollState())
@@ -55,5 +58,6 @@ fun OutliersTrendDetailSheet(
                 displayMode = OutliersTrendCardMode.Expanded,
             )
         }
-    }
+            }
+}
 }

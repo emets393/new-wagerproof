@@ -1,0 +1,131 @@
+=== A. ALL NON-POWER TEAMS, Nov-Dec, both teams' preseason KenPom (BACK the non-power team) ===
+
+   my offense vs their defense  (n=13,270)
+OPP DEFENSE       good(1-100)       mid(101-225)          bad(226+)
+OWN OFFENSE                                                        
+good(1-100)   240-242 (49.8%)    268-310 (46.4%)    198-212 (48.3%)
+mid(101-225)  595-613 (49.3%)  1095-1113 (49.6%)    992-986 (50.2%)
+bad(226+)     805-708 (53.2%)  1022-1032 (49.8%)  1253-1214 (50.8%)
+
+   my defense vs their offense  (n=13,270)
+OPP OFFENSE       good(1-100)       mid(101-225)          bad(226+)
+OWN DEFENSE                                                        
+good(1-100)   244-236 (50.8%)    268-270 (49.8%)    158-225 (41.3%)
+mid(101-225)  632-611 (50.8%)  1139-1107 (50.7%)    977-955 (50.6%)
+bad(226+)     775-737 (51.3%)  1061-1040 (50.5%)  1214-1249 (49.3%)
+
+   my tempo vs their tempo  (n=13,270)
+OPP TEMPO         fast(1-120)     avg(121-240)       slow(241+)
+OWN TEMPO                                                      
+fast(1-120)   714-730 (49.4%)  710-711 (50.0%)  779-743 (51.2%)
+avg(121-240)  691-684 (50.3%)  674-646 (51.1%)  731-732 (50.0%)
+slow(241+)    694-722 (49.0%)  733-722 (50.4%)  742-740 (50.1%)
+
+   my overall vs their overall  (n=13,270)
+OPP OVERALL       good(1-100)       mid(101-225)          bad(226+)
+OWN OVERALL                                                        
+good(1-100)   234-229 (50.5%)    254-254 (50.0%)    155-185 (45.6%)
+mid(101-225)  610-615 (49.8%)  1215-1214 (50.0%)    935-933 (50.1%)
+bad(226+)     784-729 (51.8%)    984-974 (50.3%)  1297-1297 (50.0%)
+
+   ladder: my OFFENSE rank vs their DEFENSE rank
+      mine 150+ better                   BACK 523-526 (49.9%) spr -13.4 | 23:148-124 24:110-117 25:116-148 26:149-137 | Jan-Feb 631-603 (51.1%)
+      mine 60-150 better                 BACK 1024-1085 (48.6%) spr -6.0 | 23:270-302 24:234-251 25:267-263 26:253-269 | Jan-Feb 1629-1634 (49.9%)
+      mine 15-60 better                  BACK 803-843 (48.8%) spr -2.3 | 23:185-211 24:200-206 25:202-216 26:216-210 | Jan-Feb 1322-1342 (49.6%)
+      even                               BACK 657-645 (50.5%) spr +0.1 | 23:166-155 24:167-180 25:158-148 26:166-162 | Jan-Feb 1105-1014 (52.1%)
+      theirs 15-60 better                BACK 915-846 (52.0%) spr +2.7 | 23:243-213 24:214-176 25:216-224 26:242-233 | Jan-Feb 1428-1494 (48.9%)
+      theirs 60-150 better               BACK 1333-1319 (50.3%) spr +7.8 | 23:338-332 24:331-319 25:342-344 26:322-324 | Jan-Feb 1803-1833 (49.6%)
+      theirs 150+ better                 BACK 1213-1166 (51.0%) spr +19.8 | 23:295-278 24:256-287 25:324-285 26:338-316 | Jan-Feb 517-513 (50.2%)
+
+   ladder: my DEFENSE rank vs their OFFENSE rank
+      mine 150+ better                   BACK 474-515 (47.9%) spr -14.0 | 23:133-141 24:114-116 25:106-137 26:121-121 | Jan-Feb 519-517 (50.1%)
+      mine 60-150 better                 BACK 1066-1075 (49.8%) spr -6.0 | 23:291-273 24:239-260 25:271-281 26:265-261 | Jan-Feb 1850-1821 (50.4%)
+      mine 15-60 better                  BACK 806-847 (48.8%) spr -2.2 | 23:197-226 24:175-193 25:210-203 26:224-225 | Jan-Feb 1498-1441 (51.0%)
+      even                               BACK 666-658 (50.3%) spr +0.1 | 23:160-174 24:179-160 25:159-158 26:168-166 | Jan-Feb 1017-1097 (48.1%)
+      theirs 15-60 better                BACK 900-867 (50.9%) spr +2.7 | 23:223-198 24:220-226 25:229-213 26:228-230 | Jan-Feb 1332-1310 (50.4%)
+      theirs 60-150 better               BACK 1335-1268 (51.3%) spr +7.8 | 23:362-319 24:325-297 25:313-342 26:335-310 | Jan-Feb 1620-1631 (49.8%)
+      theirs 150+ better                 BACK 1221-1200 (50.4%) spr +19.5 | 23:279-284 24:260-284 25:337-294 26:345-338 | Jan-Feb 599-616 (49.3%)
+
+   ladder: overall rank gap
+      mine 150+ better                   BACK 431-481 (47.3%) spr -15.5 | 23:114-128 24:100-106 25:105-129 26:112-118 | Jan-Feb 433-403 (51.8%)
+      mine 60-150 better                 BACK 1034-1048 (49.7%) spr -7.2 | 23:283-275 24:220-242 25:267-266 26:264-265 | Jan-Feb 1635-1686 (49.2%)
+      mine 15-60 better                  BACK 882-892 (49.7%) spr -2.9 | 23:223-217 24:220-228 25:201-240 26:238-207 | Jan-Feb 1624-1529 (51.5%)
+      even                               BACK 673-673 (50.0%) spr +0.1 | 23:161-170 24:164-162 25:162-154 26:186-187 | Jan-Feb 1167-1171 (49.9%)
+      theirs 15-60 better                BACK 948-920 (50.7%) spr +3.1 | 23:241-237 24:235-224 25:246-214 26:226-245 | Jan-Feb 1520-1603 (48.7%)
+      theirs 60-150 better               BACK 1298-1274 (50.5%) spr +8.5 | 23:335-331 24:310-296 25:328-335 26:325-312 | Jan-Feb 1652-1612 (50.6%)
+      theirs 150+ better                 BACK 1202-1142 (51.3%) spr +20.7 | 23:288-257 24:263-278 25:316-290 26:335-317 | Jan-Feb 404-429 (48.5%)
+
+   style cross: which unit wins the matchup? (non-power, Nov-Dec)
+      my O beats their D by 60+ AND my D beats their O by 60+          BACK 864-943 (47.8%) spr -12.0 | 23:235-246 24:201-214 25:220-257 26:208-226 | Jan-Feb 50.3% | shuffle p 0.045
+      O edge only (D matchup even/lost)                                BACK 683-668 (50.6%) spr -3.8 | 23:183-180 24:143-154 25:163-154 26:194-180 | Jan-Feb 50.2% | shuffle p 0.692
+      D edge only (O matchup even/lost)                                BACK 676-647 (51.1%) spr -3.9 | 23:189-168 24:152-162 25:157-161 26:178-156 | Jan-Feb 50.4% | shuffle p 0.401
+      lose both matchups by 60+                                        BACK 1862-1777 (51.2%) spr +17.0 | 23:453-416 24:417-436 25:497-468 26:495-457 | Jan-Feb 49.7% | shuffle p 0.117
+      my O beats their D, but their O beats my D (shootout mismatch)   BACK 138-137 (50.2%) spr +0.0 | 23:43-42 24:31-31 25:33-33 26:31-31 | Jan-Feb 50.0% | shuffle p 0.973
+      my D beats their O, but their D beats my O (grind)               BACK 125-124 (50.2%) spr +0.0 | 23:35-34 24:25-25 25:25-25 26:40-40 | Jan-Feb 50.0% | shuffle p 0.977
+
+   same cross, UNDERDOGS only (spread > 0):
+      O edge 60+ (any D)                                               BACK 193-198 (49.4%) spr +3.6 | 23:50-52 24:46-49 25:47-41 26:50-56
+      D edge 60+ (any O)                                               BACK 181-191 (48.7%) spr +3.5 | 23:46-53 24:42-42 25:43-39 26:50-57
+      both edges 60+                                                   BACK 29-29 (50.0%) spr +2.9 | 23:5-5 24:6-10 25:7-5 26:11-9
+      shootout mismatch                                                BACK 62-74 (45.6%) spr +4.4 | 23:17-24 24:15-16 25:17-16 26:13-18
+      grind mismatch                                                   BACK 55-69 (44.4%) spr +4.2 | 23:12-23 24:15-9 25:12-13 26:16-24
+      lose both by 60+                                                 BACK 1833-1747 (51.2%) spr +17.3 | 23:448-411 24:407-430 25:492-460 26:486-446
+
+
+=== B. YOUNG-AND-NEW CELL as dog of 7+, Nov-Dec, both teams' preseason KenPom ===
+
+   cell dog: my offense vs their defense  (n=605)
+OPP DEFENSE                      good(1-100)   mid(101-225)      bad(226+)
+OWN OFFENSE (tercile in cell)                                             
+best3rd                        59-48 (55.1%)  43-31 (58.1%)    14-6 (thin)
+mid                            48-40 (54.5%)  41-30 (57.7%)  23-14 (62.2%)
+worst3rd                       46-36 (56.1%)  32-26 (55.2%)  29-26 (52.7%)
+
+   cell dog: my defense vs their offense  (n=605)
+OPP OFFENSE                      good(1-100)   mid(101-225)      bad(226+)
+OWN DEFENSE (tercile in cell)                                             
+best3rd                        62-49 (55.9%)  52-27 (65.8%)     7-3 (thin)
+mid                            44-42 (51.2%)  44-35 (55.7%)  17-14 (54.8%)
+worst3rd                       43-36 (54.4%)  38-37 (50.7%)  28-14 (66.7%)
+
+   cell dog: my tempo vs their tempo  (n=605)
+OPP TEMPO       fast(1-120)   avg(121-240)     slow(241+)
+OWN TEMPO                                                
+fast(1-120)   32-22 (59.3%)  20-25 (44.4%)  39-26 (60.0%)
+avg(121-240)  40-42 (48.8%)  38-24 (61.3%)  50-31 (61.7%)
+slow(241+)    37-22 (62.7%)  41-33 (55.4%)  38-32 (54.3%)
+
+   cell dog: my overall vs their overall  (n=605)
+OPP OVERALL                      good(1-100)   mid(101-225)      bad(226+)
+OWN OVERALL (tercile in cell)                                             
+best3rd                        56-52 (51.9%)  60-28 (68.2%)     1-4 (thin)
+mid                            47-42 (52.8%)  38-35 (52.1%)  22-13 (62.9%)
+worst3rd                       47-36 (56.6%)  38-26 (59.4%)  26-21 (55.3%)
+
+   cell dog ladder: my offense vs their defense
+      my O 100+ better than their D      n=1 thin
+      my O 0-100 better                  n=20 thin
+      their D 0-100 better               BACK 77-61 (55.8%) spr +11.0 | 23:15-17 24:13-11 25:20-16 26:29-17 | Jan-Feb 91-102 (47.2%)
+      their D 100+ better                BACK 245-188 (56.6%) spr +21.3 | 23:48-37 24:38-33 25:81-50 26:78-68 | Jan-Feb 128-100 (56.1%)
+
+   cell dog ladder: my defense vs their offense
+      my D 100+ better than their O      n=0 thin
+      my D 0-100 better                  n=14 thin
+      their O 0-100 better               BACK 72-42 (63.2%) spr +11.1 | 23:11-12 24:14-10 25:23-7 26:24-13 | Jan-Feb 101-95 (51.5%)
+      their O 100+ better                BACK 253-211 (54.5%) spr +20.6 | 23:52-43 24:37-34 25:79-60 26:85-74 | Jan-Feb 122-109 (52.8%)
+
+   cell dog ladder: tempo gap (possessions)
+      I'm 5+ slower                      n=3 thin
+      2-5 slower                         BACK 82-59 (58.2%) spr +18.7 | 23:13-11 24:10-12 25:28-16 26:31-20 | Jan-Feb 76-62 (55.1%)
+      even                               BACK 172-137 (55.7%) spr +18.4 | 23:38-35 24:28-25 25:48-34 26:58-43 | Jan-Feb 111-112 (49.8%)
+      2-5 faster                         BACK 74-57 (56.5%) spr +18.4 | 23:13-11 24:13-7 25:25-15 26:23-24 | Jan-Feb 57-44 (56.4%)
+      5+ faster                          n=9 thin
+
+   cell dog, opponent outside top 50, by what the opponent is built on:
+      opponent offense-led (O rank 40+ better than D)      BACK 57-45 (55.9%) spr +13.0 | 23:14-13 24:5-6 25:18-13 26:20-13
+      opponent balanced                                    BACK 155-109 (58.7%) spr +16.8 | 23:22-24 24:30-12 25:48-32 26:55-41
+      opponent defense-led (D rank 40+ better than O)      BACK 53-36 (59.6%) spr +13.9 | 23:11-10 24:6-9 25:20-4 26:16-13
+      opponent fast (tempo top 120)                        BACK 95-69 (57.9%) spr +15.1 | 23:18-12 24:20-13 25:28-21 26:29-23
+      opponent slow (241+)                                 BACK 97-63 (60.6%) spr +15.0 | 23:20-15 24:9-10 25:32-10 26:36-28
+      opponent offense top 100                             BACK 79-60 (56.8%) spr +21.0 | 23:11-11 24:10-7 25:21-16 26:37-26
+      opponent defense top 100                             BACK 83-57 (59.3%) spr +20.8 | 23:15-9 24:9-9 25:25-14 26:34-25
