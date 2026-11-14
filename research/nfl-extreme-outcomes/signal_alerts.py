@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Push a notification the moment a MAMMOTH or a LEGACY FADE lands on the board.
 
+Three alerts: a CFB/NFL MAMMOTH, an NFL LEGACY FADE (daytime), and an NFL LEGACY
+PRIMETIME follow. The last one is gated far tighter than its flag -- see
+nfl_legacy_primetime() for why the flag fires 21 times a season and the alert once.
+
 Owner 2026-11-03: "we had a late fade alert in the NFL this weekend, it happened out of
 nowhere and no one knew until the last second... can we use an existing app trigger so we
 don't have to push another app build?"
@@ -77,10 +81,14 @@ MAIN_REF = "gnjrklxotmbvnxbnnqgq"
 # Both fit inside the table's CHECK (title <= 65 chars, body <= 240).
 TITLE_MAMMOTH = "🚨🦣 MAMMOTH ALERT"
 TITLE_FADE = "🚨 NFL LEGACY FADE ALERT"
+TITLE_PRIMETIME = "🚨 NFL LEGACY PRIMETIME ALERT"
 
 FADE_HI, FADE_LO = 0.80, 0.20      # forecast_harness.py
 MIN_WEEK = 4                       # the fade rule is undefined before week 4
-PRIMETIME_ET = 19                  # primetime is the FOLLOW rule, not the fade
+PRIMETIME_ET = 19                  # primetime FOLLOWS the model; daytime fades it
+PT_EXTREME = FADE_HI - 0.5         # how far from a coin flip a primetime follow must be
+                                   # to be push-worthy. Derived, never a second literal:
+                                   # it is the same distance that makes a daytime fade.
 MAX_ALERTS_PER_RUN = 3             # a blast radius, so a bad board cannot spam the base
 MAX_DAYS_OUT = 8                   # do not alert on a game a week and a half away
 
@@ -243,23 +251,31 @@ def nfl_mammoths(season, week, now, skips):
     return out
 
 
-def nfl_legacy_fades(season, week, now, skips):
-    """The fade, computed from the model rather than inherited from nfl_slate_flags.
+_BOARD = {}
 
-    Deliberately independent: see the module docstring on wk8 MIA. A fade the harness has
-    not written yet still alerts, and a stale flag cannot manufacture one.
+
+def _legacy_board(season, week, skips):
+    """Every legacy probability for the week, paired with its slate game.
+
+    Both legacy detectors read this one list so they can never disagree about which run,
+    which probability or which line a game is being judged on -- they are the two halves of
+    a single rule (daytime fades, primetime follows) and a split source would let the same
+    0.889 produce two different lines. Memoized, so the week is fetched and any missing-data
+    skip is reported exactly once no matter how many detectors ask.
     """
-    if week < MIN_WEEK:
-        return []
+    if (season, week) in _BOARD:
+        return _BOARD[(season, week)]
     preds = cfb_get("nfl_predictions_epa",
                     f"season=eq.{season}&week=eq.{week}"
                     f"&select=unique_id,home_team,away_team,home_away_spread_cover_prob,as_of_ts")
     if not preds:
         skips.append({"msg": f"NFL wk{week}: no rows in nfl_predictions_epa -- the legacy "
-                             f"cron has not landed this week, so the fade cannot be evaluated"})
+                             f"cron has not landed this week, so neither the fade nor the "
+                             f"primetime follow can be evaluated"})
+        _BOARD[(season, week)] = []
         return []
     import pandas as pd
-    from legacy_pred import apply_pregame_cutoff
+    from legacy_pred import apply_pregame_cutoff, team_abbrev
     df = pd.DataFrame(preds)
     df["season"], df["week"] = season, week
     df = apply_pregame_cutoff(df, verbose=False)
@@ -268,26 +284,39 @@ def nfl_legacy_fades(season, week, now, skips):
                     f"season=eq.{season}&week=eq.{week}"
                     f"&select=game_id,home_team,away_team,away_ab,home_ab,kickoff,fg_spread_close")
     by_home = {g["home_team"]: g for g in games}
-    from legacy_pred import team_abbrev
+    by_ab = {g.get("home_ab"): g for g in games}
     ab = team_abbrev()
-    by_ab = {}
-    for g in games:
-        by_ab[g.get("home_ab")] = g
 
     out = []
     for r in df.to_dict("records"):
         pr = r.get("home_away_spread_cover_prob")
         if pr is None:
             continue
-        pr = float(pr)
+        g = by_ab.get(ab.get(r["home_team"])) or by_home.get(r["home_team"])
+        if not g:
+            continue
+        out.append((float(pr), g))
+    _BOARD[(season, week)] = out
+    return out
+
+
+def nfl_legacy_fades(season, week, now, skips):
+    """The fade, computed from the model rather than inherited from nfl_slate_flags.
+
+    Deliberately independent: see the module docstring on wk8 MIA. A fade the harness has
+    not written yet still alerts, and a stale flag cannot manufacture one.
+    """
+    if week < MIN_WEEK:
+        return []
+    out = []
+    for pr, g in _legacy_board(season, week, skips):
         if FADE_LO < pr < FADE_HI:
             continue
-        g = by_ab.get(ab.get(r["home_team"])) or by_home.get(r["home_team"])
-        if not g or not upcoming(g.get("kickoff"), now):
+        if not upcoming(g.get("kickoff"), now):
             continue
         e = et(g.get("kickoff"))
         if e and e.hour >= PRIMETIME_ET:
-            continue                                  # primetime = follow, not fade
+            continue                     # primetime is nfl_legacy_primetime()'s to alert
         # prob high -> the legacy model loves HOME -> BET AWAY, and vice versa. The line is
         # quoted from the side we are betting, so it reads the way a bettor says it.
         sp = g.get("fg_spread_close")
@@ -302,6 +331,57 @@ def nfl_legacy_fades(season, week, now, skips):
             "body": pick,
             "sport": "nfl", "season": season, "week": week,
             "game_id": str(g["game_id"]), "signal": "legacy_fade",
+            "kickoff": g.get("kickoff"),
+        })
+    return out
+
+
+def nfl_legacy_primetime(season, week, now, skips):
+    """The primetime FOLLOW -- but only when the model is at a fade-grade extreme.
+
+    WHY THIS IS NOT JUST "ALERT legacy_primetime"
+    ---------------------------------------------
+    forecast_harness.py flags legacy_primetime on EVERY primetime game from week 4 with no
+    confidence gate whatsoever (forecast_harness.py:946, `if primetime_i == 1`). That is 3 a
+    week -- 21 so far in 2026, at 9-9-1 -- so pushing the flag itself would be exactly the
+    alert-fatigue bomb the dedupe block upstairs exists to prevent, and it would trip
+    MAX_ALERTS_PER_RUN most weeks and send nothing at all.
+
+    So the ALERT carries a gate the FLAG does not: |prob-0.5| >= PT_EXTREME. In 2026 exactly
+    ONE primetime game has reached it (wk10 LAC @ BAL, 0.889 -> BAL -4.5), which is the
+    out-of-nowhere event this alerter was built for rather than a standing weekly pick. The
+    game card still shows all 21; only the extreme one reaches a phone.
+
+    Primetime FOLLOWS the model, so the side here is the one the model LOVES -- the exact
+    opposite of nfl_legacy_fades on an identical probability. That is the rule, not a bug:
+    see nfl_signal_defs.legacy_primetime.
+    """
+    if week < MIN_WEEK:
+        return []
+    out = []
+    for pr, g in _legacy_board(season, week, skips):
+        if abs(pr - 0.5) < PT_EXTREME:
+            continue
+        if not upcoming(g.get("kickoff"), now):
+            continue
+        e = et(g.get("kickoff"))
+        # No kickoff = cannot prove primetime, so it never becomes a follow. The fade treats
+        # the same unknown as daytime, which is the safe default on each side: an unclassified
+        # game can only ever be alerted as the rule it was backtested under.
+        if not e or e.hour < PRIMETIME_ET:
+            continue
+        sp = g.get("fg_spread_close")
+        if pr >= 0.5:                                 # loves HOME -> BET HOME (follow)
+            team, line = g.get("home_ab"), (None if sp is None else float(sp))
+        else:
+            team, line = g.get("away_ab"), (None if sp is None else -float(sp))
+        pick = team if line is None else f"{team} {line:+g}"
+        out.append({
+            "alert_key": f"nfl:{season}:w{week}:{g['game_id']}:legacy_primetime",
+            "title": TITLE_PRIMETIME,
+            "body": pick,
+            "sport": "nfl", "season": season, "week": week,
+            "game_id": str(g["game_id"]), "signal": "legacy_primetime",
             "kickoff": g.get("kickoff"),
         })
     return out
@@ -346,7 +426,7 @@ def main():
     ap.add_argument("--week", type=int)
     ap.add_argument("--send", action="store_true",
                     help="actually insert the broadcast (default is a dry run)")
-    ap.add_argument("--test", choices=["fade", "mammoth"],
+    ap.add_argument("--test", choices=["fade", "primetime", "mammoth"],
                     help="send a clearly-marked TEST alert to verify the pipeline end to end. "
                          "Bypasses detection and dedupe; carries no pick. Needs --send.")
     ap.add_argument("--seed", action="store_true",
@@ -361,7 +441,8 @@ def main():
     if args.test:
         # Marked in the TITLE, not just the body: a notification is often read as one glanced
         # line, and a real-looking fade banner would have people hunting a pick that is not there.
-        base = TITLE_FADE if args.test == "fade" else TITLE_MAMMOTH
+        base = {"fade": TITLE_FADE, "primetime": TITLE_PRIMETIME,
+                "mammoth": TITLE_MAMMOTH}[args.test]
         a = {"alert_key": f"test:{now:%Y%m%dT%H%M%S}:{args.test}",
              "title": f"{base} (TEST)",
              "body": ("This is only a test — there is no pick here. Real alerts will name the "
@@ -390,6 +471,7 @@ def main():
             print(f"[alerts] NFL {s} wk{w}")
             found += nfl_mammoths(s, w, now, skips)
             found += nfl_legacy_fades(s, w, now, skips)
+            found += nfl_legacy_primetime(s, w, now, skips)
 
     if args.sport in ("cfb", "both"):
         s = args.season or 0
