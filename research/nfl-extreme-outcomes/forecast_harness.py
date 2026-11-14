@@ -958,7 +958,8 @@ def generate(m, BASE, target, week=None):
         if pd.notna(g.open_spread) and g.get("a_div_dog_to_roadfav",0)==1:
             rows.append(dict(pick_id=gid+"-DDR",season=g.season,week=int(g.week),game=mtchp,rule="div_dog_to_roadfav",
                 market="spread",side=f"{g.away_ab} {-g.open_spread:+g}",bet_home=0,open_num=g.open_spread,close_num=g.close_spread,edge=1))
-        # LEGACY spread signals (vs opener): primetime -> FOLLOW the model; non-primetime extreme -> FADE it.
+        # LEGACY spread signals (vs opener): an extreme -> FADE the model; primetime short of an
+        # extreme -> FOLLOW it. Order matters and is argued below.
         # WEEKS 1-3 SUPPRESSED (owner 2026-09-06 + doc 14): the legacy model's s2d/last-3
         # features need ~2 weeks of games, so its early output is shadow-validation noise —
         # it fed 4 ACTIVE high-conviction wk1 flags off predictions computed on empty features.
@@ -971,16 +972,30 @@ def generate(m, BASE, target, week=None):
         lln=g.get("leg_line",np.nan)
         gline=lln if pd.notna(lln) else g.open_spread
         if pd.notna(lsp) and pd.notna(gline) and int(g.week)>=4:
-            if int(g.primetime_i)==1:                                  # FOLLOW legacy in primetime (61.8% in 2025)
-                home_pick=lsp>=0.5
-                rows.append(dict(pick_id=gid+"-LPT",season=g.season,week=int(g.week),game=mtchp,rule="legacy_primetime",
-                    market="spread",side=(f"{g.home_ab} {gline:+g}" if home_pick else f"{g.away_ab} {-gline:+g}"),
-                    bet_home=int(home_pick),open_num=gline,close_num=g.close_spread,edge=round(lsp-0.5,3)))
-            elif lsp>=FADE_HI or lsp<=FADE_LO:                          # FADE legacy at non-primetime extremes (dose-response to 65%+)
+            # THE EXTREME OUTRANKS THE LIGHTS (owner 2026-11-14). The primetime FOLLOW used to
+            # be tested first, so it swallowed every primetime game including the extremes. Its
+            # 61.8%-in-2025 edge is real but lives at MODERATE confidence -- 31-22 (58.5%) across
+            # 0.50-0.80 -- and it INVERTS past 0.80, exactly where the daytime rule already fades:
+            #
+            #   primetime >=0.80   follow 0-3    fade 3-0    (2025 wk6 DET@KC .161, wk15 ATL@TB
+            #   daytime   >=0.80   follow 7-18-1 fade 18-7-1  .801, wk18 SEA@SF .868 -- fade swept)
+            #
+            # Same mechanism nfl_signal_defs.legacy_fade already states: at its confidence
+            # extremes the old model is buying the storyline the line has priced. The lights do
+            # not change that; the carve-out had just never been tested that far out, because it
+            # had only happened 3 times. So test the extreme FIRST and let primetime have what
+            # is left. Graded on every stored legacy prediction, 2025 wk4-22 + 2026 wk4-10,
+            # pregame row at real kickoff -2h.
+            if lsp>=FADE_HI or lsp<=FADE_LO:                            # FADE at either extreme, lights or not
                 home_pick=lsp<=FADE_LO                                 # model loves away(<=.20)->bet home; loves home(>=.80)->bet away
                 rows.append(dict(pick_id=gid+"-LF",season=g.season,week=int(g.week),game=mtchp,rule="legacy_fade",
                     market="spread",side=(f"{g.home_ab} {gline:+g}" if home_pick else f"{g.away_ab} {-gline:+g}"),
                     bet_home=int(home_pick),open_num=gline,close_num=g.close_spread,edge=round(abs(lsp-0.5),3)))
+            elif int(g.primetime_i)==1:                                 # FOLLOW legacy in primetime BELOW the extreme (61.8% in 2025)
+                home_pick=lsp>=0.5
+                rows.append(dict(pick_id=gid+"-LPT",season=g.season,week=int(g.week),game=mtchp,rule="legacy_primetime",
+                    market="spread",side=(f"{g.home_ab} {gline:+g}" if home_pick else f"{g.away_ab} {-gline:+g}"),
+                    bet_home=int(home_pick),open_num=gline,close_num=g.close_spread,edge=round(lsp-0.5,3)))
         # WEEK-1 WATCH: defenses out-class offenses -> UNDER (b35 ~60%, thin -> tracking flag only)
         omd=g.get("o_minus_d",np.nan)
         if int(g.week)==1 and W1CUT is not None and pd.notna(omd) and omd<=W1CUT and pd.notna(g.open_total):

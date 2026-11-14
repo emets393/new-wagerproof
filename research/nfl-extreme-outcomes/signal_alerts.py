@@ -80,7 +80,6 @@ TITLE_FADE = "🚨 NFL LEGACY FADE ALERT"
 
 FADE_HI, FADE_LO = 0.80, 0.20      # forecast_harness.py
 MIN_WEEK = 4                       # the fade rule is undefined before week 4
-PRIMETIME_ET = 19                  # primetime is the FOLLOW rule, not the fade
 MAX_ALERTS_PER_RUN = 3             # a blast radius, so a bad board cannot spam the base
 MAX_DAYS_OUT = 8                   # do not alert on a game a week and a half away
 
@@ -213,16 +212,50 @@ def cfb_mammoths(season, week, now, skips):
     return out
 
 
+def nfl_pick_label(g):
+    """Spell an NFL pick the way the owner asked for it: the team NAME and the number.
+
+    Owner 2026-11-14, on the week-10 Carolina fade going out as "CAR +1": "it just says the
+    acronym and the line, thats not how we set it up." The board's own columns are shorthand
+    and cannot be forwarded to a phone as they stand:
+
+        fg_spread_pick  'CHI +3.25'   abbreviated
+        fg_total_pick   'OVER'        no number at all, and no teams
+        either          'NEUTRAL'     no side -- and TRUTHY, so `spread or total` used to
+                                      hand the literal word NEUTRAL to a notification. Two
+                                      week-6 mammoths were exactly that; neither fired
+                                      while alerts were live, so nobody saw it.
+
+    Returns None when there is genuinely no pick, which the caller already treats as a
+    coherence failure and reports instead of sending.
+    """
+    sp = g.get("fg_spread_pick")
+    if sp and sp != "NEUTRAL":
+        ab = sp.rsplit(" ", 1)[0]
+        num = sp[len(ab):].strip()
+        name = (g.get("away_team") if ab == g.get("away_ab") else
+                g.get("home_team") if ab == g.get("home_ab") else ab)
+        return f"{name} {num}" if num else name
+    tp = g.get("fg_total_pick")
+    if tp and tp != "NEUTRAL":
+        tl = g.get("fg_total_close")
+        # A total has no team of its own, so it carries the matchup -- otherwise the body
+        # reads "UNDER 43.5" and names no game.
+        ou = tp if tl is None else f"{tp} {float(tl):g}"
+        return f"{g.get('away_team')} @ {g.get('home_team')} {ou}"
+    return None
+
+
 def nfl_mammoths(season, week, now, skips):
     games = cfb_get("nfl_slate_games",
                     f"season=eq.{season}&week=eq.{week}&mammoth=is.true"
                     f"&select=game_id,away_team,home_team,away_ab,home_ab,kickoff,"
-                    f"stake_units,conviction_tier,fg_spread_pick,fg_total_pick")
+                    f"stake_units,conviction_tier,fg_spread_pick,fg_total_pick,fg_total_close")
     out = []
     for g in games:
         if not upcoming(g.get("kickoff"), now):
             continue
-        pick = g.get("fg_spread_pick") or g.get("fg_total_pick")
+        pick = nfl_pick_label(g)
         if not pick:
             skips.append({
                 "msg": (f"NFL {g.get('away_ab')} @ {g.get('home_ab')}: mammoth with no "
@@ -285,16 +318,19 @@ def nfl_legacy_fades(season, week, now, skips):
         g = by_ab.get(ab.get(r["home_team"])) or by_home.get(r["home_team"])
         if not g or not upcoming(g.get("kickoff"), now):
             continue
-        e = et(g.get("kickoff"))
-        if e and e.hour >= PRIMETIME_ET:
-            continue                                  # primetime = follow, not fade
+        # NO primetime skip. It used to bail here because the harness routed every primetime
+        # game to the FOLLOW rule, so an extreme under the lights was neither faded nor
+        # alerted -- which is how wk10 LAC @ BAL at 0.889 reached nobody. The harness now
+        # tests the extreme first (forecast_harness.py, "THE EXTREME OUTRANKS THE LIGHTS"),
+        # so this detector covers the same games its flag does.
         # prob high -> the legacy model loves HOME -> BET AWAY, and vice versa. The line is
-        # quoted from the side we are betting, so it reads the way a bettor says it.
+        # quoted from the side we are betting, so it reads the way a bettor says it. Team
+        # NAMES, not abbreviations: see nfl_pick_label().
         sp = g.get("fg_spread_close")
         if pr >= FADE_HI:
-            team, line = g.get("away_ab"), (None if sp is None else -float(sp))
+            team, line = g.get("away_team"), (None if sp is None else -float(sp))
         else:
-            team, line = g.get("home_ab"), (None if sp is None else float(sp))
+            team, line = g.get("home_team"), (None if sp is None else float(sp))
         pick = team if line is None else f"{team} {line:+g}"
         out.append({
             "alert_key": f"nfl:{season}:w{week}:{g['game_id']}:legacy_fade",
