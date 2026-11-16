@@ -10,9 +10,17 @@ So this prints a verdict on every run, including the boring one, with the distan
 
     [legacy-fade] 2026 wk5: NO FADE. Closest PHI @ JAX at 0.745 (needs >=0.800, short by 0.055).
 
-THE RULE (forecast_harness.py, FADE_HI=0.80 / FADE_LO=0.20), week >= 4, NON-primetime:
+THE RULE (forecast_harness.py, FADE_HI=0.80 / FADE_LO=0.20), week >= 4, ANY kickoff slot:
     home_away_spread_cover_prob >= 0.80  -> the legacy model loves HOME -> BET AWAY
     home_away_spread_cover_prob <= 0.20  -> it loves AWAY               -> BET HOME
+
+PRIMETIME IS NOT EXCLUDED ANY MORE (owner 2026-11-14). This script used to skip it, matching
+a harness that tested primetime before the extreme and so routed every primetime game to the
+FOLLOW rule. The harness now tests the extreme FIRST -- the follow's edge is at MODERATE
+confidence (31-22 across 0.50-0.80) and inverts past 0.80, where all three primetime extremes
+on record went to the fade. Leaving the skip here would make this script the only thing in the
+chain still on the old rule: on wk10 it would print "NO FADE" in the same run that pushes
+"Los Angeles Chargers +4.5", and then cry wolf about the matching flag being stale.
 
 Computed from nfl_predictions_epa, NOT from the flags table, deliberately: that makes it an
 independent check on the harness rather than a mirror of it. A qualifying game with no
@@ -20,7 +28,6 @@ nfl_slate_flags row is a real miss and gets called out.
 
 Read-only, and exits 0 even when it finds nothing, so it can sit in a chain without taking it down.
 """
-import datetime as dt
 import os
 import sys
 
@@ -31,7 +38,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SUPA = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
 FADE_HI, FADE_LO = 0.80, 0.20
 MIN_WEEK = 4                 # the rule is undefined before week 4
-PRIMETIME_ET = 19            # build.py: primetime = kick_hour_et >= 19
 
 
 def key():
@@ -68,17 +74,6 @@ def team_abbrev():
     """One definition, in legacy_pred, read from Supabase rather than a gitignored parquet."""
     from legacy_pred import team_abbrev as _ta
     return _ta()
-
-
-def et_hour(ts):
-    """Kickoff hour in ET from a UTC timestamp (UTC-4 Mar-Oct, UTC-5 otherwise)."""
-    if not ts:
-        return None
-    try:
-        d = dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return (d.hour - (4 if 3 <= d.month <= 10 else 5)) % 24
 
 
 def main():
@@ -118,8 +113,6 @@ def main():
     preds = [r for r in _df.to_dict("records") if r.get("home_away_spread_cover_prob") is not None]
 
     ab = team_abbrev()
-    kicks = {g["home_ab"]: g.get("kickoff") for g in
-             get("nfl_slate_games", f"season=eq.{season}&week=eq.{week}&select=home_ab,kickoff")}
 
     scored, skipped = [], 0
     for p in preds:
@@ -127,14 +120,11 @@ def main():
         if h_ab is None:
             skipped += 1
             continue
-        hr = et_hour(kicks.get(h_ab))
-        if hr is not None and hr >= PRIMETIME_ET:
-            continue                                  # primetime is the FOLLOW rule, not the fade
         scored.append((float(p["home_away_spread_cover_prob"]), p, h_ab))
     if skipped:
         print(f"{hdr} ⚠ {skipped} prediction(s) had an unrecognised team name and were skipped")
     if not scored:
-        print(f"{hdr} no non-primetime games with a prediction")
+        print(f"{hdr} no games with a prediction")
         return
 
     flags = get("nfl_slate_flags",
@@ -148,7 +138,7 @@ def main():
 
     if fades:
         print(f"{hdr} ★ {len(fades)} FADE{'S' if len(fades) > 1 else ''} "
-              f"(of {len(scored)} non-primetime games)")
+              f"(of {len(scored)} games)")
         for pr, p, side in sorted(fades, key=lambda x: -abs(x[0] - 0.5)):
             bet = p["away_team"] if side == "AWAY" else p["home_team"]
             print(f"    {p['away_team']} @ {p['home_team']}   prob {pr:.3f}   ->  BET {bet} ({side})")
@@ -162,7 +152,7 @@ def main():
         pr, p, _ = max(scored, key=lambda x: abs(x[0] - 0.5))
         need, gap = ((f">={FADE_HI:.3f}", FADE_HI - pr) if pr >= 0.5
                      else (f"<={FADE_LO:.3f}", pr - FADE_LO))
-        print(f"{hdr} NO FADE across {len(scored)} non-primetime games. Closest "
+        print(f"{hdr} NO FADE across {len(scored)} games. Closest "
               f"{p['away_team']} @ {p['home_team']} at {pr:.3f} (needs {need}, "
               f"short by {abs(gap):.3f}).")
         if flags:
