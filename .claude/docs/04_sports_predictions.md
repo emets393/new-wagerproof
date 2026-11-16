@@ -29,6 +29,11 @@ WagerProof provides game predictions, live scores, and betting analytics for fiv
 | **NBA** | `nba_input_values_view` | `nba_predictions` |
 | **NCAAB** | `v_cbb_input_values` | `ncaab_predictions` |
 
+`v_cbb_input_values` emits only games with a posted line (spread, total or moneyline) or a row in `ncaab_predictions`
+(owner call 2026-11-16, `scripts/sql/2026-11-16_v_cbb_input_values_priced_only.sql`). The schedule carries D1-vs-non-D1
+exhibitions that never get a line or a prediction; before this they rendered as empty cards on every surface. A D1 game
+whose line is not posted yet is hidden the same way and appears when the hourly Odds API capture or the model run lands it.
+
 ### Additional Tables
 - `cfb_teams` - CFB team abbreviations, logos, colors, and conference metadata
 - `cfb_signal_defs` - Plain-English definitions for CFB supporting signal pills
