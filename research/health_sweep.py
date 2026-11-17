@@ -16,6 +16,10 @@ Checks (football season, both sports):
                          with no number; prices still populate, so nothing else catches it)
  11. public splits     — the hourly Action Network capture, per sport (GitHub Actions, not
                          Render, so its failures do not reach the Render alert channel)
+ 11b. moved-to-Actions — freshness of the six NBA/NCAAB/CFB jobs that left Render for
+                         GitHub Actions on 2026-11-17. Render emails on a non-zero exit;
+                         GitHub does not email on a run it silently DROPS, which is what
+                         blanked the NBA boxscores before. Watches the data, not the job.
  12. legacy NFL model  — nfl_betting_lines freshness PER GAME plus a null sweep on
                          nfl_input_values_view. Checks 1-11 all watch the new slate model;
                          the legacy EPA model reads a different table and went three weeks
@@ -300,6 +304,77 @@ def main():
                   warn_only=True)
     except Exception as e:
         check("public splits", False, f"probe failed: {e}", warn_only=True)
+
+    # 7b. jobs that moved from Render to GitHub Actions (2026-11-17).
+    # Render emails on a non-zero exit; GitHub does NOT email on a run it silently DROPS,
+    # and dropping scheduled runs under load is exactly what blanked the NBA boxscores and
+    # drove these jobs onto Render in the first place (see render.yaml's header). Moving
+    # them back is only safe because this probe exists: it watches the DATA each job
+    # writes, so a run that never happened reads as stale here even though no alert fired
+    # anywhere else. If you move another job to Actions, add a row to this table.
+    #
+    # Each row self-gates on season the same way the splits probe does: a table whose
+    # newest row is older than the stand-down window is between seasons, not broken.
+    #                table                      tscol          cadence  limit  standdown
+    MOVED = [("nba-boxscores-and-ratings", "nba_team_boxscores",      "ingested_at",   30,  10),
+             ("cbb-metrics-and-nba-form",  "ncaab_team_ratings",      "updated_at",    30,  10),
+             ("nba-situational-trends",    "nba_situational_trends",  "scrape_date",   48,  10),
+             ("ncaab-situational-trends",  "ncaab_situational_trends","scrape_date",   48,  10),
+             # Thu/Fri/Sat only, so Sat 14:00 -> Thu 14:00 is a legitimate 120h gap.
+             ("cfb-weather",               "cfb_weather_data",        "fetched_at_utc",130, 21)]
+    for job, table, tscol, limit_h, standdown_d in MOVED:
+        try:
+            rows = q(f"{table}?select={tscol}&order={tscol}.desc&limit=1")
+            if not rows:
+                check(f"actions:{job}", False, f"{table} is empty — has it ever run?",
+                      warn_only=True)
+                continue
+            # scrape_date et al are DATE columns -> ts() returns a naive datetime.
+            # Pin those to UTC midnight so the subtraction stays tz-aware. A date-only
+            # column also means the best resolution is a day, which is why those rows
+            # carry a 48h limit rather than 30h.
+            t = ts(rows[0][tscol])
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=dt.timezone.utc)
+            age_h = (NOW - t).total_seconds() / 3600
+            if age_h > standdown_d * 24:
+                check(f"actions:{job}", True,
+                      f"{table} {age_h / 24:.0f}d old — between seasons, standing down")
+            else:
+                check(f"actions:{job}", age_h < limit_h,
+                      f"{table} {age_h:.1f}h old (limit {limit_h}h)"
+                      + ("" if age_h < limit_h else
+                         f" — GitHub may have DROPPED the run; check the "
+                         f"'cron / {job}' workflow and re-run it"))
+        except Exception as e:
+            check(f"actions:{job}", False, f"probe failed: {e}", warn_only=True)
+
+    # ncaab-signal-grader writes no table of its own — it sets `result` on ncaab_slate_flags.
+    # Same shape as the football grading-lag check: flags on games that finished days ago and
+    # are still ungraded mean the grader has not run.
+    try:
+        season_end = NOW.year + 1 if NOW.month >= 7 else NOW.year
+        cutoff = (NOW - dt.timedelta(days=2)).date().isoformat()
+        stale = q(f"ncaab_slate_flags?select=id&season=eq.{season_end}"
+                  f"&result=is.null&game_date=lt.{cutoff}", count=True)
+        total = q(f"ncaab_slate_flags?select=id&season=eq.{season_end}", count=True)
+        if not total:
+            check("actions:ncaab-signal-grader", True, "no NCAAB flags this season yet")
+        else:
+            # NOT zero-tolerance. The grader keys finals off the ESPN id in CBD's
+            # `sourceId`; a game CBD never posts a final for stays ungraded forever, and
+            # one such orphan (id 1944, UNC Greensboro 2026-11-14) would otherwise red
+            # this sweep every morning until the season rolled — the cry-wolf failure
+            # that makes an alert channel worthless. A grader that is actually dead
+            # buries this: the board carries ~20-30 flags a day, so the backlog clears
+            # the RED bar inside one missed run.
+            check("actions:ncaab-signal-grader", stale < 5,
+                  f"{stale} flag(s) ungraded on games final >2d (of {total} this season)"
+                  + ("" if stale < 5 else
+                     " — check the 'cron / ncaab-signal-grader' workflow"),
+                  warn_only=(1 <= stale < 5))
+    except Exception as e:
+        check("actions:ncaab-signal-grader", False, f"probe failed: {e}", warn_only=True)
 
     # 8. is Render running what render.yaml says? Editing the blueprint does not deploy it, and
     # a stale service runs green forever — nfl-prop-report-daily spent an unknown stretch on a
