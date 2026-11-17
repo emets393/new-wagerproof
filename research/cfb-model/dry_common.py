@@ -114,19 +114,12 @@ def harness_week(season, week):
     gm, feats, te, S = F.build_season(season, week)
     return gm, te.reset_index(drop=True), S
 
-def conviction_overrides(season, week):
-    """Owner-forced conviction for specific games, applied ON TOP of the validated gate.
+LATCH_TABLE = "cfb_conviction_latch"
 
-    WHY THIS EXISTS: the mammoth gate is a HARD threshold (|side_edge| >= 8). A published
-    play sits on the board for days while the model re-evaluates three times a day, so a
-    tenth-of-a-point drift can silently demote a bet that has already been advertised at 5
-    units. BYU @ Utah wk10-2026 went 8.7 -> 7.0 between the morning and afternoon builds.
-    The gate still decides what BECOMES a mammoth; this only stops one from un-becoming it.
 
-    ⛔ NOT a backtest input and never read by cfb_forecast — the graded record keeps using
-    the gate's own output, so forcing a tier here cannot flatter the model's numbers.
-    One row per (season, week, game_id). Returns {game_id: conviction}.
-    """
+def _manual_overrides(season, week):
+    """data/manual_conviction_overrides.csv — the hand-edited escape hatch. Kept because it
+    can force a tier the latch never saw, and it WINS over the latch on conflict."""
     p = os.path.join(os.path.dirname(__file__), "data", "manual_conviction_overrides.csv")
     if not os.path.exists(p):
         return {}
@@ -137,6 +130,99 @@ def conviction_overrides(season, week):
         print(f"  [override] {len(out)} manual conviction override(s) for {season} wk{week}: "
               + ", ".join(f"{int(r.game_id)} {r.game} -> {r.conviction}" for r in df.itertuples()))
     return out
+
+
+def _latch_read(season, week):
+    """cfb_conviction_latch — the AUTOMATIC half. Every game a previous build already
+    published as a mammoth, so this build cannot demote it. Read failures are non-fatal:
+    a latch we cannot read must never take the whole slate build down with it."""
+    try:
+        r = requests.get(f"{URL}/rest/v1/{LATCH_TABLE}"
+                         f"?select=game_id,game,conviction,advertised_spread"
+                         f"&season=eq.{int(season)}&week=eq.{int(week)}&revoked=is.false&limit=1000",
+                         headers=H, timeout=30)
+        if r.status_code >= 300:
+            print(f"  [latch] read failed {r.status_code}: {r.text[:200]} -- continuing without it")
+            return {}
+        rows = r.json() or []
+    except Exception as e:
+        print(f"  [latch] read failed ({e}) -- continuing without it")
+        return {}
+    out = {int(x["game_id"]): str(x["conviction"]) for x in rows}
+    if out:
+        print(f"  [latch] {len(out)} advertised play(s) held at tier for {season} wk{week}: "
+              + ", ".join(f"{x.get('game') or x['game_id']} -> {x['conviction']}"
+                          f"@{x.get('advertised_spread')}" for x in rows))
+    return out
+
+
+def conviction_overrides(season, week):
+    """Conviction a game is HELD AT, regardless of what this build's gate says.
+
+    WHY THIS EXISTS: the mammoth gate is a HARD threshold (|side_edge| >= 8). A published
+    play sits on the board for days while the model re-evaluates three times a day, so a
+    tenth-of-a-point drift can silently demote a bet that has already been advertised at 5
+    units. BYU @ Utah wk10-2026 went 8.7 -> 7.0 between the morning and afternoon builds;
+    Northwestern @ Minnesota wk12-2026 showed as a mammoth and was back to 7.2 (med, 2u)
+    hours later. Owner call 2026-11-17: "a mammoth advertisement shouldn't disappear when
+    the line moves, the idea is that users will place the bet when the mammoth is
+    advertised, so we get it at that number."
+
+    Two sources, merged. The automatic one is cfb_conviction_latch, written by
+    latch_conviction() on the first build that publishes a mammoth. The manual one is
+    data/manual_conviction_overrides.csv, which WINS on conflict and remains the way to
+    force a tier the latch never saw.
+
+    The gate still decides what BECOMES a mammoth; neither source can create one that the
+    gate never fired. They only stop one from un-becoming it.
+
+    ⛔ NOT a backtest input and never read by cfb_forecast — the graded record keeps using
+    the gate's own output, so a held tier cannot flatter the model's numbers.
+    Returns {game_id: conviction}.
+    """
+    out = _latch_read(season, week)
+    out.update(_manual_overrides(season, week))   # manual wins
+    return out
+
+
+def latch_conviction(season, week, published):
+    """Record every game this build is publishing as a mammoth, so no later build can
+    demote it. `published` is an iterable of dicts with at least game_id + conviction;
+    advertised_side / advertised_spread / advertised_total / model_pred_spread / game are
+    stored when present.
+
+    INSERT-IF-ABSENT, deliberately: the stored line is the one the play was FIRST
+    advertised at, because that is the number users could actually get. A later build must
+    never overwrite it with a line nobody was offered. PostgREST does that with
+    `resolution=ignore-duplicates` on the (season, week, game_id) primary key.
+
+    Non-fatal on failure for the same reason as _latch_read: this is board hygiene, not a
+    data dependency, and it must not take the slate build down.
+    """
+    recs = []
+    for p in published:
+        if str(p.get("conviction") or "") != "mammoth":
+            continue
+        recs.append({"season": int(season), "week": int(week), "game_id": int(p["game_id"]),
+                     "game": p.get("game"), "conviction": "mammoth",
+                     "advertised_side": p.get("advertised_side"),
+                     "advertised_spread": p.get("advertised_spread"),
+                     "advertised_total": p.get("advertised_total"),
+                     "model_pred_spread": p.get("model_pred_spread")})
+    if not recs:
+        return 0
+    try:
+        hdr = {**H, "Prefer": "resolution=ignore-duplicates,return=minimal"}
+        r = requests.post(f"{URL}/rest/v1/{LATCH_TABLE}?on_conflict=season,week,game_id",
+                          headers=hdr, data=json.dumps(recs), timeout=30)
+        if r.status_code >= 300:
+            print(f"  [latch] write failed {r.status_code}: {r.text[:200]}")
+            return 0
+    except Exception as e:
+        print(f"  [latch] write failed ({e})")
+        return 0
+    print(f"  [latch] {len(recs)} mammoth(s) recorded as advertised for {season} wk{week}")
+    return len(recs)
 
 
 def model_side(r): return "AWAY" if r.side_edge < 0 else "HOME"

@@ -283,3 +283,19 @@ if df.game_id.duplicated().any():
     print(f"  [dedup] WARNING: dropping duplicate game rows {_dups}")
     df = df.drop_duplicates(subset=["game_id"], keep="first")
 C.insert("cfb_slate_games", df)
+
+# LATCH the mammoths we just published. Written AFTER the insert so we only ever record a
+# tier that actually reached the board, and insert-if-absent so the stored line stays the
+# one the play was FIRST advertised at. conviction_overrides() reads this back on every
+# later build, which is what stops a line move from demoting an advertised 5-unit play.
+# See dry_common.latch_conviction / the cfb_conviction_latch table comment.
+C.latch_conviction(SEASON, WEEK, [
+    {"game_id": int(r.game_id),
+     "game": f"{r.away_team} @ {r.home_team}",
+     "conviction": r.conviction_tier,
+     "advertised_side": r.fg_spread_pick,
+     "advertised_spread": None if pd.isna(r.fg_spread_close) else float(r.fg_spread_close),
+     "advertised_total": None if pd.isna(r.fg_total_close) else float(r.fg_total_close),
+     "model_pred_spread": None if pd.isna(r.fg_pred_spread) else float(r.fg_pred_spread)}
+    for r in df.itertuples()
+])
