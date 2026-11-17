@@ -20,6 +20,31 @@ bet / lean / pass / warmup / no_line -- plus `home_win_prob` from `nba_predictio
 flags, `all_time.validated_hit` = the def's `record_text`). The NBA JSON example below predates
 this and still shows the old `prediction_accuracy` block.
 
+**NCAAB carries the same groups since 2026-11-16** (`fetchNCAABGames` in
+`agents-v3/src/shared/agentGameHelpers.ts`). Until then a college game reached the agent as lines + the
+accuracy cache only: no signal, no model tier, no injuries, no ATS records. Keyed by the view's CBBD
+`game_id` / `home_team_id` / `away_team_id` (no abbr fallback needed, unlike NBA):
+
+- `signals` — `ncaab_slate_flags` through `formatSlateFlag`: `trigger` (why it fired, in plain language),
+  the side / line it bets, `tier`, `conviction`, `all_time.validated_hit` (the def's `record_text`) and
+  `season_to_date.record_text` (the def's `season_record_text`, written by the nightly grader). Only
+  `spread` / `total` / `moneyline` flags are included; first-half and team-total flags are counted in
+  `signals_excluded` because the submit schema's `h1` period and the grader's 1H path are NFL/CFB-only and
+  an agent bets only the side a signal bets.
+- `model_predictions` — the originator's spread + total rows from `ncaab_model_preds` through
+  `formatNBAModel` with the college tier text (`bet` = the 1.5–4 point band; `pass` otherwise; the full-game
+  total is context only). Pick strings are null outside bet/lean — the college job fills `bet_side` on pass
+  rows too. `ml_prob` / `home_win_prob` ride on the same rows. `prediction_accuracy` stays for now.
+- `conviction` — `formatNBAConviction` over the included flags; null when none fire.
+- `injuries` — `ncaab_injury_report` (covers.com), newest snapshot per team, Out first; null when neither
+  team lists anyone.
+- `trends` / `h2h_recent` — `ncaab_team_trends` (season SU / ATS / O/U records, last-5, matchups).
+
+`get_signals` and `get_conviction` (readTools) are open to nba + ncaab, `get_injuries` and the `injuries`
+lens to ncaab, the `model_edge` lens to nba + ncaab, and the slate's `model_pick` reads a `bet`-tier row of
+the basketball model block. The "What NCAAB Does NOT Have" list and the availability table below predate
+this change.
+
 This document defines the exact data structure sent to AI agents for pick generation. Each sport has slightly different data available.
 
 ---

@@ -559,13 +559,15 @@ async function fetchSignalDefsMap(
   sport: string
 ): Promise<Map<string, Record<string, unknown>>> {
   const result = new Map<string, Record<string, unknown>>();
-  const tableName = sport === 'nfl' ? 'nfl_signal_defs' : sport === 'cfb' ? 'cfb_signal_defs' : sport === 'nba' ? 'nba_signal_defs' : null;
+  const tableName = sport === 'nfl' ? 'nfl_signal_defs' : sport === 'cfb' ? 'cfb_signal_defs'
+    : sport === 'nba' ? 'nba_signal_defs' : sport === 'ncaab' ? 'ncaab_signal_defs' : null;
   if (!tableName) return result;
 
   try {
-    // nba_signal_defs carries the validated record as record_text ("364-234 (60.9%) ..."); the football
-    // defs as typical_hit ("~64%"). formatSlateFlag reads either.
-    const columns: string = sport === 'nba'
+    // nba/ncaab_signal_defs carry the validated record as record_text ("364-234 (60.9%) ...") and the
+    // live season as season_record_text (written by the nightly grader); the football defs carry
+    // typical_hit ("~64%") and get their season from signal_performance. formatSlateFlag reads either.
+    const columns: string = sport === 'nba' || sport === 'ncaab'
       ? 'signal_key, display_name, one_liner, why_it_works, bet_direction, record_text, season_record_text'
       : 'signal_key, display_name, one_liner, why_it_works, bet_direction, typical_hit';
     const { data, error } = await cfbClient
@@ -900,7 +902,9 @@ async function fetchNBAFlagsByGameId(
 // The originator produces margins, not probabilities, so the *_prob keys are null except ml_prob.
 function formatNBAModel(
   model: NBAModelRows | null,
-  winProb: Record<string, unknown> | null
+  winProb: Record<string, unknown> | null,
+  source: string = 'nba_model_preds',
+  tiers: string = NBA_MODEL_TIERS
 ): Record<string, unknown> | null {
   const spread = model?.spread ?? null;
   const total = model?.total ?? null;
@@ -909,8 +913,10 @@ function formatNBAModel(
   const margin = asNumber(spread?.model_home_margin);
   const totalTier = total?.tier != null ? String(total.tier) : null;
   const totalLive = total !== null && totalTier !== 'warmup';
+  // The college job fills bet_side on every row (pass included); a pick string only makes sense at bet/lean.
+  const picks = (tier: unknown) => tier === 'bet' || tier === 'lean';
   return {
-    source: 'nba_model_preds',
+    source,
     model_version: spread?.model_version ?? total?.model_version ?? null,
     as_of: spread?.as_of ?? total?.as_of ?? null,
     ml_prob: homeWinProb,
@@ -921,18 +927,24 @@ function formatNBAModel(
       pred_spread: margin === null ? null : -margin,
       market_home_spread: asNumber(spread?.market_home_spread),
       spread_edge: asNumber(spread?.disagreement),
-      spread_pick: spread?.bet_side ?? null,
+      spread_pick: picks(spread?.tier) ? (spread?.bet_side ?? null) : null,
       spread_tier: spread?.tier ?? null,
       pred_total: totalLive ? asNumber(total?.model_total) : null,
       market_total: asNumber(total?.market_total),
       total_edge: totalLive ? asNumber(total?.disagreement) : null,
-      total_pick: totalLive ? (total?.bet_side ?? null) : null,
+      total_pick: totalLive && picks(totalTier) ? (total?.bet_side ?? null) : null,
       total_tier: totalTier,
       home_win_prob: homeWinProb,
     },
-    tiers: 'bet = 8+ points of disagreement with the market (54-56% at the closing line over six seasons); lean = 6+ or a bet downgraded because a signal opposes it; pass / warmup / no_line = the model has no bet. The spread model is a veto target: a situational signal on the other team downgrades it.',
+    tiers,
   };
 }
+
+const NBA_MODEL_TIERS = 'bet = 8+ points of disagreement with the market (54-56% at the closing line over six seasons); lean = 6+ or a bet downgraded because a signal opposes it; pass / warmup / no_line = the model has no bet. The spread model is a veto target: a situational signal on the other team downgrades it.';
+// College (ncaab_model_preds): the research model's spread bet is the 1.5-to-4 point band (7,640 bets, 54.9%,
+// six of six seasons); outside the band the model and the market agree (pass) or the gap is too large to trust.
+// The college total has no validated full-game band — its row is shown for context and never reaches `bet`.
+const NCAAB_MODEL_TIERS = 'bet = the model and the market disagree by 1.5 to 4 points on the spread (54.9% at the closing line over six seasons, every season winning); pass = inside 1.5 points or beyond 4 (no bet); warmup / no_line = not enough data or no line. The full-game total is context only — it has no validated band.';
 
 // Game-level conviction from the flags on nba_slate_flags: the highest conviction among them, and
 // mammoth when the model-and-signals confluence flag fired (total model at the bet tier + an agreeing
@@ -969,21 +981,180 @@ async function fetchNCAABGames(
     return { games: [], formattedGames: [] };
   }
 
-  const [polymarketByGameKey, trendsByGameId, accuracyByGameId] = await Promise.all([
+  // Until 2026-11-16 a college game reached the agent as lines + the accuracy cache only: no
+  // signals (ncaab_slate_flags), no model tier (ncaab_model_preds), no injuries
+  // (ncaab_injury_report) and no ATS/OU records (ncaab_team_trends). All four are keyed by the
+  // CBBD ids the view already carries (game_id / home_team_id / away_team_id) — no abbr fallback
+  // is needed, unlike the NBA tables.
+  const teamIds = [...new Set(games.flatMap(g => [g.home_team_id, g.away_team_id]).filter(v => v != null).map(String))];
+  const [polymarketByGameKey, trendsByGameId, accuracyByGameId, modelByGameId, flagsByGameId, defMap, injuriesByTeamId, teamTrendsByTeamId] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'ncaab', games),
     fetchSituationalTrendsByGameId(cfbClient, 'ncaab_game_situational_trends_today', games),
     fetchPredictionAccuracyByGameId(cfbClient, 'ncaab_todays_games_predictions_with_accuracy_cache', games, targetDate, false),
+    fetchNCAABModelByGameId(cfbClient, targetDate),
+    fetchNCAABFlagsByGameId(cfbClient, targetDate),
+    fetchSignalDefsMap(cfbClient, 'ncaab'),
+    fetchNCAABInjuriesByTeamId(cfbClient, teamIds, targetDate),
+    fetchNCAABTeamTrendsByTeamId(cfbClient, teamIds),
   ]);
 
-  const formattedGames = games.map(game =>
-    formatNCAABGame(
+  const formattedGames = games.map(game => {
+    const gid = String(game.game_id || '');
+    return formatNCAABGame(
       game,
       polymarketByGameKey.get(toGameKey('ncaab', game.away_team, game.home_team)) || null,
-      trendsByGameId.get(String(game.game_id || '')) || null,
-      accuracyByGameId.get(String(game.game_id || '')) || null
-    )
-  );
+      trendsByGameId.get(gid) || null,
+      accuracyByGameId.get(gid) || null,
+      modelByGameId.get(gid) || null,
+      flagsByGameId.get(gid) || [],
+      defMap,
+      injuriesByTeamId.get(String(game.away_team_id ?? '')) || [],
+      injuriesByTeamId.get(String(game.home_team_id ?? '')) || [],
+      teamTrendsByTeamId.get(String(game.home_team_id ?? '')) || null,
+      teamTrendsByTeamId.get(String(game.away_team_id ?? '')) || null
+    );
+  });
   return { games, formattedGames };
+}
+
+// ncaab_model_preds: one row per game per market (spread / total / h1_spread / h1_total), CBBD
+// game_id. Only the full-game rows go to the agent (see BASKETBALL_AGENT_MARKETS).
+async function fetchNCAABModelByGameId(
+  cfbClient: SupabaseClient,
+  targetDate: string
+): Promise<Map<string, NBAModelRows>> {
+  const result = new Map<string, NBAModelRows>();
+  try {
+    const { data, error } = await cfbClient
+      .from('ncaab_model_preds')
+      .select('game_id, market, model_version, model_home_margin, model_total, market_home_spread, market_total, disagreement, tier, bet_side, bet_team, bet_line, home_win_prob, as_of')
+      .eq('game_date', targetDate)
+      .in('market', ['spread', 'total']);
+    if (error || !data) {
+      console.warn('[agentGameHelpers] ncaab_model_preds fetch failed:', error?.message || 'No data');
+      return result;
+    }
+    for (const row of data as Record<string, unknown>[]) {
+      const gid = String(row.game_id ?? '');
+      if (!gid) continue;
+      const entry = result.get(gid) || {};
+      const market = String(row.market ?? '');
+      if (market === 'spread' || market === 'total') entry[market] = row;
+      result.set(gid, entry);
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] ncaab_model_preds fetch threw:', (error as Error).message);
+  }
+  return result;
+}
+
+// Markets an agent can stake in basketball. First-half and team-total flags are real signals,
+// but the submit schema's `h1` period and the grader's 1H path are NFL/CFB-only, and the owner
+// rule is that an agent bets ONLY the side a signal bets — a 1H flag must never become a
+// full-game bet. Those flags are dropped from the payload (counted in signals_excluded) until a
+// basketball 1H bet path exists.
+const BASKETBALL_AGENT_MARKETS = new Set(['spread', 'total', 'moneyline']);
+
+// ncaab_slate_flags for the slate date (football flag contract + CBBD game_id + plain-language
+// trigger_text / record_text). Every market is kept here; the formatter splits bettable vs excluded.
+async function fetchNCAABFlagsByGameId(
+  cfbClient: SupabaseClient,
+  targetDate: string
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const result = new Map<string, Record<string, unknown>[]>();
+  try {
+    const { data, error } = await cfbClient
+      .from('ncaab_slate_flags')
+      .select('game_id, game_date, game, signal_key, market, side, tier, conviction, stake_units, line, edge, bet_team, bet_direction, bet_line, grade_line, trigger_text, record_text')
+      .eq('game_date', targetDate);
+    if (error || !data) {
+      console.warn('[agentGameHelpers] ncaab_slate_flags fetch failed:', error?.message || 'No data');
+      return result;
+    }
+    for (const row of data as Record<string, unknown>[]) {
+      const gid = String(row.game_id ?? '');
+      if (!gid) continue;
+      if (!result.has(gid)) result.set(gid, []);
+      result.get(gid)!.push(row);
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] ncaab_slate_flags fetch threw:', (error as Error).message);
+  }
+  return result;
+}
+
+// ncaab_injury_report (covers.com, one snapshot per day, CBBD team_id). The snapshot for
+// targetDate may not exist yet early in the morning, so take the newest snapshot on or before
+// it, per team. Out → Doubtful → Questionable first.
+async function fetchNCAABInjuriesByTeamId(
+  cfbClient: SupabaseClient,
+  teamIds: string[],
+  targetDate: string
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const result = new Map<string, Record<string, unknown>[]>();
+  if (teamIds.length === 0) return result;
+  try {
+    const { data, error } = await cfbClient
+      .from('ncaab_injury_report')
+      .select('team_id, team_name, player, pos, status, detail, reported, note, snapshot_date')
+      .in('team_id', teamIds)
+      .lte('snapshot_date', targetDate)
+      .order('snapshot_date', { ascending: false });
+    if (error || !data) {
+      console.warn('[agentGameHelpers] ncaab_injury_report fetch failed:', error?.message || 'No data');
+      return result;
+    }
+    const snapshotByTeam = new Map<string, string>();
+    for (const row of data as Record<string, unknown>[]) {
+      const teamKey = String(row.team_id ?? '');
+      const snap = String(row.snapshot_date ?? '');
+      if (!teamKey) continue;
+      const keep = snapshotByTeam.get(teamKey) ?? snap;
+      snapshotByTeam.set(teamKey, keep);
+      if (snap !== keep) continue;
+      if (!result.has(teamKey)) result.set(teamKey, []);
+      result.get(teamKey)!.push({
+        player: row.player, pos: row.pos, status: row.status, injury: row.detail,
+        reported: row.reported, note: row.note, as_of: row.snapshot_date,
+      });
+    }
+    const rank: Record<string, number> = { Out: 0, Doubtful: 1, Questionable: 2 };
+    for (const list of result.values()) {
+      list.sort((a, b) => (rank[String(a.status)] ?? 9) - (rank[String(b.status)] ?? 9));
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] ncaab_injury_report fetch threw:', (error as Error).message);
+  }
+  return result;
+}
+
+// ncaab_team_trends: one row per team per (season, through_date), CBBD team_id. Newest row wins.
+// Same column contract as cfb_team_trends, so filterSeasonTeamTrend / matchupEntry apply.
+async function fetchNCAABTeamTrendsByTeamId(
+  cfbClient: SupabaseClient,
+  teamIds: string[]
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+  if (teamIds.length === 0) return result;
+  try {
+    const { data, error } = await cfbClient
+      .from('ncaab_team_trends')
+      .select('team_id, team_name, season, through_date, games, su_record, su_w, su_l, ats_w, ats_l, ats_p, ats_pct, ou_o, ou_u, ou_p, over_pct, last5_su, last5_ats, last5_ou, matchups')
+      .in('team_id', teamIds)
+      .order('season', { ascending: false })
+      .order('through_date', { ascending: false });
+    if (error || !data) {
+      console.warn('[agentGameHelpers] ncaab_team_trends fetch failed:', error?.message || 'No data');
+      return result;
+    }
+    for (const row of data as Record<string, unknown>[]) {
+      const key = String(row.team_id ?? '');
+      if (key && !result.has(key)) result.set(key, row);
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] ncaab_team_trends fetch threw:', (error as Error).message);
+  }
+  return result;
 }
 
 // =============================================================================
@@ -2907,11 +3078,22 @@ function formatNCAABGame(
   game: Record<string, unknown>,
   polymarket: Record<string, unknown> | null,
   situationalTrends: Record<string, unknown> | null,
-  predictionAccuracy: Record<string, unknown> | null
+  predictionAccuracy: Record<string, unknown> | null,
+  model: NBAModelRows | null = null,
+  flags: Record<string, unknown>[] = [],
+  defMap?: Map<string, Record<string, unknown>>,
+  awayInjuries: Record<string, unknown>[] = [],
+  homeInjuries: Record<string, unknown>[] = [],
+  homeTrends: Record<string, unknown> | null = null,
+  awayTrends: Record<string, unknown> | null = null
 ): Record<string, unknown> {
   const gameId = String(game.game_id);
   const homeSpread = game.spread as number | null;
   const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
+  const agentFlags = flags.filter(f => BASKETBALL_AGENT_MARKETS.has(String(f.market ?? '')));
+  const excluded = flags.length - agentFlags.length;
+  // home_win_prob rides on the model rows (Φ(margin / σ), the same number ncaab_predictions carries).
+  const winProb = model?.spread ?? model?.total ?? null;
 
   return {
     game_id: gameId,
@@ -2941,8 +3123,34 @@ function formatNCAABGame(
       home_ranking: game.home_ranking,
       away_ranking: game.away_ranking,
     },
+    // Season SU / ATS / O/U records + last-5 per team (ncaab_team_trends, CBBD team_id). Named
+    // `trends` so get_ats_trends projects it — college had no trends group before 2026-11-16.
+    trends: (homeTrends || awayTrends) ? {
+      home_team: homeTrends ? { ...filterSeasonTeamTrend(homeTrends), through_date: homeTrends.through_date ?? null, last5_ats: homeTrends.last5_ats ?? null, last5_ou: homeTrends.last5_ou ?? null } : null,
+      away_team: awayTrends ? { ...filterSeasonTeamTrend(awayTrends), through_date: awayTrends.through_date ?? null, last5_ats: awayTrends.last5_ats ?? null, last5_ou: awayTrends.last5_ou ?? null } : null,
+    } : null,
+    h2h_recent: (() => {
+      const entry = matchupEntry(homeTrends, String(game.away_team || ''));
+      return entry ? [{ perspective: String(game.home_team || ''), opponent: String(game.away_team || ''), ...(entry as Record<string, unknown>) }] : [];
+    })(),
+    // covers.com report (ncaab_injury_report), newest snapshot per team, Out first. Null when
+    // neither team lists anyone, so the deep tool skips it instead of printing two empty lists.
+    injuries: (awayInjuries.length || homeInjuries.length) ? {
+      away_team: awayInjuries,
+      home_team: homeInjuries,
+    } : null,
     situational_trends: filterSituationalTrends(situationalTrends),
+    // The originator's spread/total rows with their tier (ncaab_model_preds). prediction_accuracy
+    // below repeats the raw numbers from the cache but has no notion of the 1.5–4 point band.
+    model_predictions: formatNBAModel(model, winProb, 'ncaab_model_preds', NCAAB_MODEL_TIERS),
     prediction_accuracy: predictionAccuracy,
+    conviction: agentFlags.length > 0 ? formatNBAConviction(agentFlags) : null,
+    // Full-game signals (ncaab_slate_flags) in the football/NBA flag shape; trigger + record_text ride
+    // on the row, season_record_text on the def. 1H / team-total flags are withheld (see the constant).
+    signals: agentFlags.length > 0 ? agentFlags.map(f => formatSlateFlag(f, undefined, defMap)) : null,
+    signals_excluded: excluded > 0
+      ? { count: excluded, note: 'first-half / team-total signals exist for this game but agents cannot stake those markets in basketball' }
+      : null,
     polymarket,
     game_data_complete: {
       source_table: 'v_cbb_input_values',

@@ -13,7 +13,7 @@ const SLATE_ROW_CAP = 60; // single-page-with-trim (plan §2.3); report truncati
 
 /** Lens → the formatted-game group it projects, and which sports carry it. */
 const LENS_GROUP: Partial<Record<LensName, { group: string; sports: Sport[] }>> = {
-  model_edge: { group: "model_predictions", sports: ["nfl", "cfb", "mlb"] },
+  model_edge: { group: "model_predictions", sports: ["nfl", "cfb", "nba", "ncaab", "mlb"] },
   market: { group: "vegas_lines", sports: ["nfl", "cfb", "nba", "ncaab", "mlb"] },
   polymarket: { group: "polymarket", sports: ["nfl", "cfb", "nba", "ncaab", "mlb"] },
   public: { group: "public_betting", sports: ["nfl", "cfb"] },
@@ -23,7 +23,7 @@ const LENS_GROUP: Partial<Record<LensName, { group: string; sports: Sport[] }>> 
   ats_trends: { group: "trends", sports: ["nba", "ncaab"] },
   situational: { group: "situational_trends", sports: ["nba", "ncaab"] },
   rankings_context: { group: "team_stats", sports: ["ncaab"] },
-  injuries: { group: "injuries", sports: ["nba"] },
+  injuries: { group: "injuries", sports: ["nba", "ncaab"] },
   pitchers: { group: "starting_pitchers", sports: ["mlb"] },
   perfect_storm: { group: "perfect_storm", sports: ["mlb"] },
   statcast: { group: "signals", sports: ["mlb"] },
@@ -143,7 +143,13 @@ function modelPick(sport: Sport, fg: FormattedGame): SlateRow["model_pick"] {
   const mp = fg.model_predictions as Record<string, unknown> | undefined;
   if (mp && typeof mp === "object") {
     if (mp.predicted_team) return { selection: String(mp.predicted_team), note: "model lean" };
-    if (mp.ou_direction) return { selection: String(mp.ou_direction), note: "O/U lean" };
+    const ou = mp.predicted_ou_direction ?? mp.ou_direction;
+    if (ou) return { selection: String(ou), note: "O/U lean" };
+    // NBA/NCAAB originator block (formatNBAModel): no predicted_team — the pick lives on the
+    // full_game row with its tier. Only a `bet` tier is a model pick; lean/pass stay null here.
+    const fg = mp.full_game as Record<string, unknown> | undefined;
+    if (fg?.spread_tier === "bet" && fg.spread_pick) return { selection: String(fg.spread_pick), note: "model bet (spread)" };
+    if (fg?.total_tier === "bet" && fg.total_pick) return { selection: String(fg.total_pick), note: "model bet (total)" };
   }
   return null;
 }
