@@ -87,6 +87,9 @@ struct MainTabView: View {
     // threshold is computed over the whole day's pick volume, so a per-sheet
     // store would re-run the same RPC for every game the user opens.
     @State private var agentConsensusStore = AgentConsensusStore()
+    // Widget up/down votes. Shell-hoisted so tallies survive paging between
+    // games and a vote cast on one sheet is still there when it reopens.
+    @State private var widgetVotesStore = WidgetVotesStore()
 
     /// Production callers use the default initializer. The screenshot harness
     /// can pass a starting tab + an optional pre-opened side menu so reviewer
@@ -198,6 +201,7 @@ struct MainTabView: View {
         .environment(agentsStore)
         .environment(parlayGodStore)
         .environment(agentConsensusStore)
+        .environment(widgetVotesStore)
         .environment(nflSheetStore)
         .environment(cfbSheetStore)
         .environment(nbaSheetStore)

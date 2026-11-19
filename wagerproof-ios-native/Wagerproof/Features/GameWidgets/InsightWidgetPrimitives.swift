@@ -18,6 +18,8 @@ struct InsightWidgetSection<Content: View>: View {
     var headline: String? = nil
     var expandLabel: String? = nil
     var onExpand: (() -> Void)? = nil
+    /// Forwarded to `WidgetCollapsingSection` — see its `widgetKey`.
+    var widgetKey: String? = nil
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -27,7 +29,8 @@ struct InsightWidgetSection<Content: View>: View {
             iconTint: iconTint,
             accessory: badge.map { .verdict(text: $0.text, tintHex: $0.tintHex) } ?? .none,
             onHeaderTap: onExpand,
-            headline: headline
+            headline: headline,
+            widgetKey: widgetKey
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 content

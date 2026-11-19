@@ -13,7 +13,7 @@ struct NbaFirstHalfSection: View {
         if markets.isEmpty {
             EmptyView()
         } else {
-            WidgetCollapsingSection(title: "First half", systemImage: "timer", iconTint: Color.appPrimary) {
+            WidgetCollapsingSection(title: "First half", systemImage: "timer", iconTint: Color.appPrimary, widgetKey: "first_half") {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(markets) { market in
                         VStack(alignment: .leading, spacing: 6) {

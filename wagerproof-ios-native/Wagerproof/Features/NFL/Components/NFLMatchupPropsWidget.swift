@@ -27,7 +27,8 @@ struct NFLMatchupPropsWidget: View {
                 iconTint: Color.appPrimary,
                 badge: summary.badge,
                 expandLabel: "All \(summary.totalProps) props",
-                onExpand: onExpand
+                onExpand: onExpand,
+                widgetKey: "player_props"
             ) {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(summary.headline)

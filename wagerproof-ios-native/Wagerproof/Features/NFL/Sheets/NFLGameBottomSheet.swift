@@ -121,6 +121,9 @@ struct NFLGameBottomSheet: View {
         }
         .weatherPrecipitation(weatherPrecipitationKind)
         .background(showAura ? Color.appSurface : Color.clear)
+        // Vote + share row on every keyed card below. Same game key as agent
+        // consensus so all platforms score the same row. See 34_widget_votes_share.md.
+        .widgetVotes(sport: .nfl, gameId: GameConsensusKey.nfl(game), matchup: "\(awayAbbr) @ \(homeAbbr)")
         .toolbarBackground(.hidden, for: .navigationBar)
         .presentationDetents([.fraction(0.85), .large])
         .presentationDragIndicator(.visible)
@@ -319,7 +322,7 @@ struct NFLGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money") {
+        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money", widgetKey: "public_betting") {
             GamePublicBettingCard(
                 sport: "nfl",
                 awayTeam: game.awayTeam,
@@ -339,7 +342,8 @@ struct NFLGameBottomSheet: View {
             WidgetCollapsingSection(
                 title: "Score Prediction",
                 systemImage: "sportscourt",
-                iconTint: Color.appPrimary
+                iconTint: Color.appPrimary,
+                widgetKey: "score_prediction"
             ) {
                 ProjectedScoreRow(
                     away: projectedScoreSide(
@@ -407,7 +411,8 @@ struct NFLGameBottomSheet: View {
             systemImage: group.systemImage,
             iconTint: group.tint,
             headline: predictionHeadline(for: group),
-            bodyPadding: 14
+            bodyPadding: 14,
+            widgetKey: group.widgetKey
         ) {
             ProContentSection(title: group.title, minHeight: 154) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -552,7 +557,8 @@ struct NFLGameBottomSheet: View {
                 title: "Public Betting",
                 systemImage: "person.3.fill",
                 iconTint: Color.appAccentBlue,
-                headline: publicBettingHeadline
+                headline: publicBettingHeadline,
+                widgetKey: "public_betting_splits"
             ) {
                 NFLPublicBettingBars(prediction: game)
             }
@@ -1188,7 +1194,8 @@ struct NFLGameBottomSheet: View {
             iconTint: Color.appAccentBlue,
             headline: matchupHistoryHeadline,
             bodyPadding: 14,
-            contentKey: "history-\(matchupHistory.count)"
+            contentKey: "history-\(matchupHistory.count)",
+            widgetKey: "matchup_history"
         ) {
             ProContentSection(title: "Matchup History", minHeight: matchupHistory.isEmpty ? 80 : 220) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -2156,6 +2163,23 @@ private struct NFLPickGroup: Identifiable {
     var id: String { cardGroup }
     let cardGroup: String
     let picks: [NFLSlatePickRow]
+
+    /// Vote/share id. An explicit map, not "\(cardGroup)_prediction": the keys
+    /// are a cross-platform contract (34_widget_votes_share.md §2), and an
+    /// unknown future card_group should get NO action row rather than mint a
+    /// key nobody agreed on.
+    var widgetKey: String? {
+        switch cardGroup {
+        case "spread": return "spread_prediction"
+        case "total": return "total_prediction"
+        case "team_total": return "team_total_prediction"
+        case "moneyline": return "moneyline_prediction"
+        case "h1_spread": return "h1_spread_prediction"
+        case "h1_total": return "h1_total_prediction"
+        case "h1_ml": return "h1_moneyline_prediction"
+        default: return nil
+        }
+    }
 
     var title: String {
         switch cardGroup {

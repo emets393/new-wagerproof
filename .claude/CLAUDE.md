@@ -271,6 +271,24 @@ wagerproof-ios-native/
 - Kill switch: `SELECT public.cancel_push_broadcast('<id>')`
 - **Documentation**: `.claude/docs/agents/11_PUSH_NOTIFICATIONS.md`
 
+### 13. Widget Votes & Share
+- Reddit-style action row on every game-detail widget card: an up/down vote pill with a
+  net score, and a Share button that renders a compact image of that card
+- **Backend built and tested, NOT applied to prod; iOS written but never compiled; web and
+  Android not built.** Check the status table at the top of the doc before assuming more
+- Votes attach to `(sport, game_id, widget_key)`. `game_id` is the agent-consensus key
+  (`GameConsensusKey`); `widget_key` is an explicit snake_case id passed per card — **never
+  derive it from the title**, which is dynamic and differs per platform
+- **RPC-only**: the three `widget_vote*` tables have RLS on with NO policies and no table
+  grants. Everything goes through `cast_widget_vote` / `get_widget_votes` (SECURITY
+  DEFINER, voter taken from `auth.uid()`). Do not "simplify" a client into a table call
+- The share image is deliberately NOT a re-render of the widget body — `ImageRenderer`
+  draws outside the view hierarchy, so environment stores, `@State` and async logos are
+  gone. It is a pure card built from title + matchup + headline
+- The action row must keep a constant height: `WidgetCollapsingSection` caches a card's
+  natural height only while unpinned
+- **Documentation**: `.claude/docs/34_widget_votes_share.md`
+
 ### Disabled / flagged-off surfaces
 These exist in code but are switched off. Do not describe them as features:
 - **Bet Slip Grader** (`/bet-slip-grader`) — `ENABLE_BET_SLIP_GRADER = false` (`src/App.tsx:78`), renders `<AccessDenied />`

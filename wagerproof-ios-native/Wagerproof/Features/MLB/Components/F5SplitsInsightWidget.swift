@@ -21,7 +21,8 @@ struct F5SplitsInsightWidget: View {
             iconTint: Self.accent,
             badge: summary.badge,
             expandLabel: "Full F5 breakdown",
-            onExpand: onExpand
+            onExpand: onExpand,
+            widgetKey: "f5_splits"
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 Text(summary.headline)

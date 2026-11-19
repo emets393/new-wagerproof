@@ -195,6 +195,9 @@ struct MLBGameBottomSheet: View {
         // Transparent nav bar so the team aura glows continuously to the top of
         // the screen behind the back button. Safe here because the collapsing
         // hero is opaque and masks the content scrolling under it (no bleed).
+        // Vote + share row on every keyed card below. Same game key as agent
+        // consensus so all platforms score the same row. See 34_widget_votes_share.md.
+        .widgetVotes(sport: .mlb, gameId: GameConsensusKey.mlb(game), matchup: "\(game.awayAbbr) @ \(game.homeAbbr)")
         .toolbarBackground(.hidden, for: .navigationBar)
         .presentationDetents([.fraction(0.85), .large])
         .presentationDragIndicator(.visible)
@@ -587,7 +590,8 @@ struct MLBGameBottomSheet: View {
             title: "Public Betting",
             systemImage: "chart.bar.fill",
             iconTint: Color.appPrimary,
-            headline: "Tickets and money"
+            headline: "Tickets and money",
+            widgetKey: "public_betting"
         ) {
             GamePublicBettingCard(
                 sport: "mlb",
@@ -623,7 +627,8 @@ struct MLBGameBottomSheet: View {
                     homeName: game.homeTeamName ?? game.homeAbbr,
                     awayScore: active?.away,
                     homeScore: active?.home
-                )
+                ),
+                widgetKey: "score_prediction"
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     projToggle
@@ -797,7 +802,8 @@ struct MLBGameBottomSheet: View {
                     pickProbability: pickProb,
                     impliedProbability: displayImplied,
                     pickEdgePct: displayEdge
-                )
+                ),
+                widgetKey: "moneyline_prediction"
             ) {
                     VStack(alignment: .leading, spacing: 14) {
                         if let outcome {
@@ -922,7 +928,8 @@ struct MLBGameBottomSheet: View {
                     direction: direction,
                     modelTotal: fairTotal,
                     marketTotal: line
-                )
+                ),
+                widgetKey: "total_prediction"
             ) {
                     VStack(alignment: .leading, spacing: 14) {
                         // RUNS, not points — `.mlb` is an order of magnitude
@@ -1023,7 +1030,8 @@ struct MLBGameBottomSheet: View {
                     title: picks.count > 1 ? "Regression Report Picks" : "Regression Report Pick",
                     systemImage: "chart.bar.xaxis",
                     iconTint: Color(hex: 0xA855F7),
-                    headline: GameWidgetHeadlines.regressionPicks(picks)
+                    headline: GameWidgetHeadlines.regressionPicks(picks),
+                    widgetKey: "regression_report"
                 ) {
                     ProContentSection(title: "Regression Picks", minHeight: 120) {
                         MLBRegressionPicksSection(picks: picks)
@@ -1055,7 +1063,7 @@ struct MLBGameBottomSheet: View {
         } else if resolvedTrendsStore.loading, resolvedTrendsStore.lastFetched == nil {
             // First hydrate only — once the slate is cached, a missing game
             // means "no trends" and the card stays hidden (no skeleton flash).
-            WidgetCollapsingSection(title: "Betting Trends", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color(hex: 0x8B5CF6)) {
+            WidgetCollapsingSection(title: "Betting Trends", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color(hex: 0x8B5CF6), widgetKey: "betting_trends") {
                 InsightWidgetSkeleton()
             }
         }
@@ -1077,7 +1085,8 @@ struct MLBGameBottomSheet: View {
                 text: "\(game.signals.count) SIGNAL\(game.signals.count == 1 ? "" : "S")",
                 tintHex: 0x22C55E
             ),
-            headline: GameWidgetHeadlines.gameSignals(game.signals)
+            headline: GameWidgetHeadlines.gameSignals(game.signals),
+            widgetKey: "game_signals"
         ) {
             ProContentSection(title: "Game Signals", minHeight: 120) {
                 VStack(alignment: .leading, spacing: 12) {

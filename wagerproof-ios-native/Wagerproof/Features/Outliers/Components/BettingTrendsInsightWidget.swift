@@ -23,7 +23,8 @@ struct BettingTrendsInsightWidget: View {
             badge: summary.badge,
             headline: summary.headline,
             expandLabel: "View all \(summary.totalSituations) situations",
-            onExpand: onExpand
+            onExpand: onExpand,
+            widgetKey: "betting_trends"
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 InsightVerdictLine(verdicts: summary.verdicts, accent: accent)

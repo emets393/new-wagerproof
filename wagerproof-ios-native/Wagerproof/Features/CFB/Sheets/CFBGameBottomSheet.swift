@@ -93,6 +93,13 @@ struct CFBGameBottomSheet: View {
         }
         .weatherPrecipitation(weatherPrecipitationKind)
         .background(showAura ? Color.appSurface : Color.clear)
+        // Vote + share row on every keyed card below. Same game key as agent
+        // consensus so all platforms score the same row. See 34_widget_votes_share.md.
+        .widgetVotes(
+            sport: .cfb,
+            gameId: GameConsensusKey.cfb(game),
+            matchup: "\(CFBTeamAssets.abbr(for: game.awayTeam)) @ \(CFBTeamAssets.abbr(for: game.homeTeam))"
+        )
         .toolbarBackground(.hidden, for: .navigationBar)
         .presentationDetents([.fraction(0.85), .large])
         .presentationDragIndicator(.visible)
@@ -311,7 +318,7 @@ struct CFBGameBottomSheet: View {
     @ViewBuilder
     private var mammothContext: some View {
         if game.mammoth {
-            WidgetCollapsingSection(title: "Mammoth Play", systemImage: "diamond.fill", iconTint: Color(hex: 0xF97316)) {
+            WidgetCollapsingSection(title: "Mammoth Play", systemImage: "diamond.fill", iconTint: Color(hex: 0xF97316), widgetKey: "mammoth_play") {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(game.headlinePick ?? "Top CFB play")
                         .font(.system(size: 18, weight: .black))
@@ -332,7 +339,8 @@ struct CFBGameBottomSheet: View {
             iconTint: row.tint,
             icon: sectionHeaderIcon(for: row),
             showsHeader: false,
-            headline: chartHeadline(for: row) ?? row.pickSubtitle
+            headline: chartHeadline(for: row) ?? row.pickSubtitle,
+            widgetKey: Self.widgetKey(forMarketRow: row.id)
         ) {
             ProContentSection(title: row.sectionTitle, minHeight: signalBuckets(for: row).isEmpty ? 132 : 210) {
                 marketRow(row)
@@ -1553,7 +1561,7 @@ struct CFBGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money") {
+        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money", widgetKey: "public_betting") {
             GamePublicBettingCard(
                 sport: "cfb",
                 awayTeam: game.awayTeam,
@@ -1575,7 +1583,8 @@ struct CFBGameBottomSheet: View {
             WidgetCollapsingSection(
                 title: "Score Prediction",
                 systemImage: "sportscourt",
-                iconTint: Color.appPrimary
+                iconTint: Color.appPrimary,
+                widgetKey: "score_prediction"
             ) {
                 ProjectedScoreRow(
                     away: projectedScoreSide(
@@ -1609,7 +1618,7 @@ struct CFBGameBottomSheet: View {
     }
 
     private var honestySection: some View {
-        WidgetCollapsingSection(title: "Display Notes", systemImage: "checkmark.shield.fill", iconTint: Color.appAccentBlue) {
+        WidgetCollapsingSection(title: "Display Notes", systemImage: "checkmark.shield.fill", iconTint: Color.appAccentBlue, widgetKey: "display_notes") {
             VStack(alignment: .leading, spacing: 8) {
                 note("Full-game moneyline is context only for CFB, never a surfaced pick.")
                 note("If spread edge is capped, the board shows model off-market and no play.")
@@ -1631,6 +1640,23 @@ struct CFBGameBottomSheet: View {
     }
 
     // MARK: - Bet board data
+
+    /// Vote/share id for a market card. `MarketRow.id` is hyphenated and
+    /// unsuffixed; the vote keys are a cross-platform snake_case contract
+    /// (34_widget_votes_share.md §2). Home and away team totals are two cards
+    /// on one game, so they need two keys.
+    private static func widgetKey(forMarketRow id: String) -> String? {
+        switch id {
+        case "spread": return "spread_prediction"
+        case "total": return "total_prediction"
+        case "tt-home": return "team_total_home"
+        case "tt-away": return "team_total_away"
+        case "h1-spread": return "h1_spread_prediction"
+        case "h1-total": return "h1_total_prediction"
+        case "moneyline": return "moneyline_prediction"
+        default: return nil
+        }
+    }
 
     private struct MarketRow: Identifiable {
         let id: String

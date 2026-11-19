@@ -107,6 +107,13 @@ struct NCAABGameBottomSheet: View {
             .padding(.bottom, 12)
         }
         .background(showAura ? Color.appSurface : Color.clear)
+        // Vote + share row on every keyed card below. Same game key as agent
+        // consensus so all platforms score the same row. See 34_widget_votes_share.md.
+        .widgetVotes(
+            sport: .ncaab,
+            gameId: GameConsensusKey.ncaab(game),
+            matchup: "\(game.awayTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.awayTeam)) @ \(game.homeTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.homeTeam))"
+        )
         .toolbarBackground(.hidden, for: .navigationBar)
         .presentationDetents([.fraction(0.85), .large])
         .presentationDragIndicator(.visible)
@@ -443,7 +450,7 @@ struct NCAABGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money") {
+        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money", widgetKey: "public_betting") {
             GamePublicBettingCard(
                 sport: "ncaab",
                 awayTeam: game.awayTeam,
@@ -491,7 +498,8 @@ struct NCAABGameBottomSheet: View {
                         marketSpread: prediction.vegasSpread,
                         edge: prediction.edge,
                         probability: prediction.probability
-                    )
+                    ),
+                widgetKey: "spread_prediction"
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     if let cover {
@@ -570,7 +578,8 @@ struct NCAABGameBottomSheet: View {
                     direction: prediction.isOver ? "Over" : "Under",
                     modelTotal: prediction.modelTotal,
                     marketTotal: prediction.line
-                )
+                ),
+                widgetKey: "total_prediction"
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     if let market = prediction.line, let model = prediction.modelTotal,
@@ -646,7 +655,8 @@ struct NCAABGameBottomSheet: View {
                 title: "Moneyline Prediction",
                 systemImage: "dollarsign.circle.fill",
                 iconTint: Color.appPrimary,
-                headline: resolved.outcome.headline(team: resolved.team)
+                headline: resolved.outcome.headline(team: resolved.team),
+                widgetKey: "moneyline_prediction"
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     // `ncaab_predictions.vegas_*_moneyline` are perfectly
@@ -697,7 +707,7 @@ struct NCAABGameBottomSheet: View {
         let hasSpread = spread?.modelMargin != nil && (spread?.marketSpread != nil)
         let hasTotal = total?.modelTotal != nil && (total?.marketTotal != nil)
         if hasSpread || hasTotal {
-            WidgetCollapsingSection(title: "First half", systemImage: "timer", iconTint: Color.appPrimary) {
+            WidgetCollapsingSection(title: "First half", systemImage: "timer", iconTint: Color.appPrimary, widgetKey: "first_half") {
                 VStack(alignment: .leading, spacing: 12) {
                     if let spread, let margin = spread.modelMargin, let hs = spread.marketSpread {
                         let gap = spread.disagreementPts ?? (margin + hs)
@@ -735,7 +745,7 @@ struct NCAABGameBottomSheet: View {
     @ViewBuilder
     private var teamTotalSection: some View {
         if detailStore.board?.markets.contains(where: { $0.id == "team_total" }) == true {
-            WidgetCollapsingSection(title: "Team Total", systemImage: "trophy.fill", iconTint: Color.appPrimary) {
+            WidgetCollapsingSection(title: "Team Total", systemImage: "trophy.fill", iconTint: Color.appPrimary, widgetKey: "team_total_prediction") {
                 marketSignals(market: "team_total")
                 teamTrendsFooter(marketId: "team_total")
             }
@@ -989,7 +999,7 @@ struct NCAABGameBottomSheet: View {
                 onExpand: { trendsDetail = trends }
             )
         } else if trendsStore.loadState == .loading, trendsStore.lastFetched == nil {
-            WidgetCollapsingSection(title: "Betting Trends", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color(hex: 0x8B5CF6)) {
+            WidgetCollapsingSection(title: "Betting Trends", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color(hex: 0x8B5CF6), widgetKey: "betting_trends") {
                 InsightWidgetSkeleton()
             }
         }
@@ -1001,7 +1011,7 @@ struct NCAABGameBottomSheet: View {
     @ViewBuilder
     private var modelAccuracySection: some View {
         if let accuracy = accuracyStore.accuracy(forGameId: game.gameId) {
-            WidgetCollapsingSection(title: "Model Accuracy", systemImage: "scope", iconTint: Color(hex: 0x14B8A6), headline: GameWidgetHeadlines.modelAccuracy()) {
+            WidgetCollapsingSection(title: "Model Accuracy", systemImage: "scope", iconTint: Color(hex: 0x14B8A6), headline: GameWidgetHeadlines.modelAccuracy(), widgetKey: "model_accuracy") {
                 ModelAccuracyWidget(
                     awayAbbr: game.awayTeamAbbrev?.trimmingCharacters(in: .whitespaces).nonEmpty
                         ?? TeamInitials.from(game.awayTeam),
@@ -1028,7 +1038,8 @@ struct NCAABGameBottomSheet: View {
                     homeAbbr: game.homeTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.homeTeam),
                     awayOffense: game.awayAdjOffense,
                     homeOffense: game.homeAdjOffense
-                )
+                ),
+                widgetKey: "team_stats"
             ) {
                 VStack(spacing: 8) {
                     statsHeader
@@ -1072,7 +1083,7 @@ struct NCAABGameBottomSheet: View {
     @ViewBuilder
     private var thrillSection: some View {
         if let board = detailStore.board {
-            WidgetCollapsingSection(title: "Thrill score", systemImage: "sparkles", iconTint: Color.appAccentAmber) {
+            WidgetCollapsingSection(title: "Thrill score", systemImage: "sparkles", iconTint: Color.appAccentAmber, widgetKey: "thrill_score") {
                 if let score = board.thrillScore, !score.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(score)
@@ -1136,7 +1147,8 @@ struct NCAABGameBottomSheet: View {
             WidgetCollapsingSection(
                 title: "Score Prediction",
                 systemImage: "sportscourt",
-                iconTint: Color.appPrimary
+                iconTint: Color.appPrimary,
+                widgetKey: "score_prediction"
             ) {
                 ProjectedScoreRow(
                     away: ProjectedScoreRow.Side(
@@ -1167,7 +1179,8 @@ struct NCAABGameBottomSheet: View {
                 title: "Model Projections",
                 systemImage: "rectangle.grid.2x2.fill",
                 iconTint: Color.appAccentPurple,
-                headline: "Model projects \(margin > 0 ? game.homeTeam : game.awayTeam) by \(GameWidgetHeadlines.one(abs(margin))) with \(GameWidgetHeadlines.one(total)) total points."
+                headline: "Model projects \(margin > 0 ? game.homeTeam : game.awayTeam) by \(GameWidgetHeadlines.one(abs(margin))) with \(GameWidgetHeadlines.one(total)) total points.",
+                widgetKey: "model_projections"
             ) {
                 VStack(spacing: 8) {
                     HStack {

@@ -104,6 +104,9 @@ struct NBAGameBottomSheet: View {
         .background(showAura ? Color.appSurface : Color.clear)
         // Transparent nav bar so the team aura glows continuously behind the
         // back button; the opaque collapsing hero masks content scrolling under it.
+        // Vote + share row on every keyed card below. Same game key as agent
+        // consensus so all platforms score the same row. See 34_widget_votes_share.md.
+        .widgetVotes(sport: .nba, gameId: GameConsensusKey.nba(game), matchup: "\(game.awayAbbr) @ \(game.homeAbbr)")
         .toolbarBackground(.hidden, for: .navigationBar)
         .presentationDetents([.fraction(0.85), .large])
         .presentationDragIndicator(.visible)
@@ -146,7 +149,7 @@ struct NBAGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money") {
+        WidgetCollapsingSection(title: "Public Betting", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: "Tickets and money", widgetKey: "public_betting") {
             GamePublicBettingCard(
                 sport: "nba",
                 awayTeam: game.awayTeam,
@@ -161,7 +164,7 @@ struct NBAGameBottomSheet: View {
     @ViewBuilder
     private var scorePredictionSection: some View {
         if let homeScore = game.homeScorePred, let awayScore = game.awayScorePred {
-            WidgetCollapsingSection(title: "Score Prediction", systemImage: "sportscourt", iconTint: Color.appPrimary) {
+            WidgetCollapsingSection(title: "Score Prediction", systemImage: "sportscourt", iconTint: Color.appPrimary, widgetKey: "score_prediction") {
                 ProjectedScoreRow(
                     away: ProjectedScoreRow.Side(
                         logoURL: NBATeams.logoURL(for: game.awayTeam),
@@ -197,7 +200,8 @@ struct NBAGameBottomSheet: View {
                 awayImpact: matchupStore.awayInjuryImpact,
                 homeImpact: matchupStore.homeInjuryImpact,
                 count: matchupStore.awayInjuries.count + matchupStore.homeInjuries.count
-            )
+            ),
+            widgetKey: "injury_report"
         ) {
             ProContentSection(title: "Injury Report", minHeight: 60) {
                 NBAInjuryReportWidget(
@@ -231,7 +235,8 @@ struct NBAGameBottomSheet: View {
                 awayAbbr: game.awayAbbr,
                 homeAbbr: game.homeAbbr,
                 trends: matchupStore.trends
-            )
+            ),
+            widgetKey: "recent_trends"
         ) {
             ProContentSection(title: "Recent Trends", minHeight: 60) {
                 NBARecentTrendsWidget(
@@ -259,7 +264,7 @@ struct NBAGameBottomSheet: View {
                 onExpand: { trendsDetail = trends }
             )
         } else if trendsStore.loadState == .loading, trendsStore.lastFetched == nil {
-            WidgetCollapsingSection(title: "Betting Trends", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color(hex: 0x8B5CF6)) {
+            WidgetCollapsingSection(title: "Betting Trends", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color(hex: 0x8B5CF6), widgetKey: "betting_trends") {
                 InsightWidgetSkeleton()
             }
         }
@@ -459,7 +464,8 @@ struct NBAGameBottomSheet: View {
                         marketSpread: prediction.vegasSpread,
                         edge: prediction.edge,
                         probability: prediction.probability
-                    )
+                    ),
+                widgetKey: "spread_prediction"
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     if let cover {
@@ -517,7 +523,8 @@ struct NBAGameBottomSheet: View {
                     direction: prediction.isOver ? "Over" : "Under",
                     modelTotal: prediction.modelTotal,
                     marketTotal: prediction.line
-                )
+                ),
+                widgetKey: "total_prediction"
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     if let market = prediction.line, let model = prediction.modelTotal,
@@ -588,7 +595,8 @@ struct NBAGameBottomSheet: View {
                 title: "Moneyline Prediction",
                 systemImage: "dollarsign.circle.fill",
                 iconTint: Color.appPrimary,
-                headline: resolved.outcome.headline(team: resolved.team)
+                headline: resolved.outcome.headline(team: resolved.team),
+                widgetKey: "moneyline_prediction"
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     MoneylineEdgeBar(
@@ -649,7 +657,8 @@ struct NBAGameBottomSheet: View {
                     homeAbbr: game.homeAbbr,
                     awayOffense: game.awayAdjOffense,
                     homeOffense: game.homeAdjOffense
-                )
+                ),
+                widgetKey: "team_stats"
             ) {
                 VStack(spacing: 8) {
                     statsHeader

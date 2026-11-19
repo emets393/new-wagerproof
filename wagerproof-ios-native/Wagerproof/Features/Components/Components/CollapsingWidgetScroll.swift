@@ -352,8 +352,15 @@ struct WidgetCollapsingSection<Content: View>: View {
     /// section content shrinks (e.g. loading skeleton → empty state) so the
     /// collapsing scroll shell does not keep a stale tall layout box.
     var contentKey: String = ""
+    /// Stable snake_case id for votes + share (`moneyline_prediction`). Set it
+    /// to give the card its action row; leave nil for empty states and cards
+    /// that carry no information worth rating. NEVER derive it from `title` —
+    /// titles are dynamic and differ per platform, and a copy edit must not
+    /// reset a widget's score. Registry: .claude/docs/34_widget_votes_share.md §2.
+    var widgetKey: String? = nil
     @ViewBuilder var content: Content
 
+    @Environment(\.widgetVoteContext) private var voteContext
     @Environment(\.widgetPinLine) private var pinLine
     @Environment(\.widgetPageIsCurrent) private var pageIsCurrent
     @Environment(\.widgetUsesLiquidGlass) private var usesLiquidGlass
@@ -384,6 +391,7 @@ struct WidgetCollapsingSection<Content: View>: View {
         headline: String? = nil,
         bodyPadding: CGFloat = 16,
         contentKey: String = "",
+        widgetKey: String? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
@@ -396,6 +404,7 @@ struct WidgetCollapsingSection<Content: View>: View {
         self.headline = headline
         self.bodyPadding = bodyPadding
         self.contentKey = contentKey
+        self.widgetKey = widgetKey
         self.content = content()
     }
 
@@ -517,18 +526,24 @@ struct WidgetCollapsingSection<Content: View>: View {
             }
             // Body window — clips the body so it disappears at the header's
             // bottom edge as it slides up, and never renders behind the header.
-            VStack(alignment: .leading, spacing: headline == nil ? 0 : 14) {
-                if let headline, !headline.isEmpty {
-                    Text(headline)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(Color.appTextPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityLabel("Summary: \(headline)")
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: headline == nil ? 0 : 14) {
+                    if let headline, !headline.isEmpty {
+                        Text(headline)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(Color.appTextPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel("Summary: \(headline)")
+                    }
+                    content
                 }
-                content
-            }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(bodyPadding)
+                // Outside `bodyPadding` with its own insets: several cards pass
+                // 0 or 14 and inset their own content, and the action row has
+                // to sit the same distance from the card edge on all of them.
+                actionRow(collapse: collapse)
+            }
                 // Preserve every chart's natural drawing size throughout the
                 // container handoff. The card still collapses and the body
                 // still slides under its pinned header, but the plot is clipped
@@ -586,22 +601,51 @@ struct WidgetCollapsingSection<Content: View>: View {
         }
     }
 
-    /// iOS section-header style: translucent, uppercase, no pill behind it.
+    /// Vote pill + Share, pinned under the body. Present exactly when the card
+    /// has a `widgetKey` AND sits inside a `.widgetVotes(...)` sheet — both are
+    /// fixed for the card's lifetime, so the row never appears or disappears
+    /// after the card's natural height has been measured.
+    @ViewBuilder
+    private func actionRow(collapse: CGFloat) -> some View {
+        if let widgetKey, let voteContext {
+            WidgetActionRow(
+                widgetKey: widgetKey,
+                title: title,
+                systemImage: systemImage,
+                iconTint: iconTint,
+                headline: headline,
+                context: voteContext
+            )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 14)
+            // `.clipped()` on the body window hides the row as it slides up
+            // under the pinned header but does NOT clip hit-testing, so a
+            // collapsing card would otherwise leave invisible vote buttons
+            // sitting behind its own header.
+            .allowsHitTesting(collapse == 0)
+        }
+    }
+
+    /// Post-style header: the icon sits in a tinted circular badge like an
+    /// avatar, with the title beside it in title case.
     private var headerRow: some View {
         HStack(spacing: 8) {
             if let icon {
                 icon
             } else {
                 Image(systemName: systemImage)
-                    .font(.system(size: 13, weight: .semibold))
-                    // Match the title color (translucent secondary) so icon + label
-                    // read as one iOS-style section header.
-                    .foregroundStyle(Color.appTextSecondary)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(iconTint)
+                    .frame(width: 26, height: 26)
+                    .background(Circle().fill(iconTint.opacity(0.16)))
             }
-            Text(title.uppercased())
-                .font(.system(size: 13, weight: .semibold))
-                .tracking(0.6)
-                .foregroundStyle(Color.appTextSecondary)
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.appTextPrimary)
+                // One line always: the header band is a fixed 48pt and shares
+                // the row with verdict badges.
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Spacer(minLength: 8)
             accessoryView
         }

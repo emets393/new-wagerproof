@@ -107,7 +107,8 @@ struct AgentConsensusSection: View {
             // instruction from the app, and it collided with the model-signal
             // badges the same card already carries.
             accessory: .verdict(text: Self.verdictWord(verdict), tintHex: Self.verdictTint(verdict)),
-            contentKey: "\(c.gameId)-\(c.sideAgents)-\(c.marketAgents)-\(c.agreementPercent)-\(verdict.rawValue)-\(c.runnerUpAgents ?? -1)-\(c.slateRank ?? -1)"
+            contentKey: "\(c.gameId)-\(c.sideAgents)-\(c.marketAgents)-\(c.agreementPercent)-\(verdict.rawValue)-\(c.runnerUpAgents ?? -1)-\(c.slateRank ?? -1)",
+            widgetKey: "agent_consensus"
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 Text(c.headline)
