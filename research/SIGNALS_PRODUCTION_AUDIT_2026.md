@@ -58,8 +58,8 @@ track = paper-traded, shown as context, never a bet reason.
 | **Divisional Dog-to-Road-Favorite (tracking)** (`div_dog_to_roadfav`) | Home underdog in the first division meeting, now a road favorite in the rematch -> back them. | 61.8% (n=34; 72% if won g1) -- thin | low |  |
 | **DK Heavy Home Juice** (`dk_heavy_home_juice`) | Book-specific heavy home juice tell. | 61% | high |  |
 | **Fade Power-Rating in Tight Game** (`fade_pr_in_tight_game`) | Bet against the 'better team on paper' in a coin-flip game. | ~64% | med |  |
-| **Legacy Model Fade** (`legacy_fade`) | Bet against our older model when it is overconfident in a daytime game. | ~58% backtest | high |  |
-| **Legacy Model — Primetime Follow** (`legacy_primetime`) | In primetime, follow our older model instead of fading it. | 61.8% [2025] | high |  |
+| **Legacy Model Fade** (`legacy_fade`) | Bet against our older model whenever it is 80%+ confident in one side (or under 20%) — every kickoff slot, primetime included. | ~58% backtest | high |  |
+| **Legacy Model — Primetime Follow** (`legacy_primetime`) | In primetime, follow our older model instead of fading it — but only below the 80%/20% extremes, where the fade takes over. | 61.8% [2025] | high |  |
 | **Primetime Tight Favorite (tracking)** (`primetime_tight_favorite`) | Primetime tight-favorite angle, on probation. | regressed 2025 | low |  |
 | **Sides Model** (`sides_model`) | Our main spread model's pick. | ~53% product-style, +CLV | med | base-model key (drives pick cards, not a badge) |
 | **Dog-Cover Regression: Buy the Away Favorite** (`spread_dog_cover_fade_away`) | Back a cold away favorite against a hot home dog. | ~63-70% (small n) | med |  |
